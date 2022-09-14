@@ -31,6 +31,7 @@ jobs:
       - uses: actions/checkout@v3
       - run: go install $(pwd)/cmd/dagger/
       - run: go test -v -race -timeout=1h ./...
+      - run: go test -v -race -timeout=1h -tags=buildkitd ./internal/buildkitd
   nodejs:
     name: nodejs
     runs-on: ubuntu-22.04-16c-64g-600gb

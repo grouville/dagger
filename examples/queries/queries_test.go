@@ -9,7 +9,7 @@ import (
 )
 
 func init() {
-	if err := testutil.SetupBuildkitd(); err != nil {
+	if err := testutil.SetupDaggerBuildkitd(); err != nil {
 		panic(err)
 	}
 }

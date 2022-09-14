@@ -39,11 +39,11 @@ func Query(query string, res any, opts *QueryOptions, clientOpts ...dagger.Clien
 	)
 }
 
-func SetupBuildkitd() error {
-	host, err := buildkitd.StartGoModBuildkitd(context.Background())
+func SetupDaggerBuildkitd() error {
+	host, err := buildkitd.StartGoModDaggerBuildkitd(context.Background())
 	if err != nil {
 		return err
 	}
-	os.Setenv("BUILDKIT_HOST", host)
+	os.Setenv("DAGGER_BUILDKITD_HOST", host)
 	return nil
 }
