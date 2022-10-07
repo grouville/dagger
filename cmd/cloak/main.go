@@ -32,8 +32,8 @@ func init() {
 	)
 
 	// BuildkitdCmd is only set on linux
-	if serveCmd != nil {
-		rootCmd.AddCommand(serveCmd)
+	if buildkitdCmd != nil {
+		rootCmd.AddCommand(buildkitdCmd)
 	}
 
 	doCmd.Flags().StringVarP(&queryFile, "file", "f", "", "query file")

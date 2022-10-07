@@ -5,11 +5,11 @@ import (
 	buildkitd "go.dagger.io/dagger/internal/buildkitd/bundling"
 )
 
-var serveCmd = &cobra.Command{
-	Use: "serve",
-	Run: Serve,
+var buildkitdCmd = &cobra.Command{
+	Use: "buildkitd",
+	Run: Buildkitd,
 }
 
-func Serve(cmd *cobra.Command, args []string) {
+func Buildkitd(cmd *cobra.Command, args []string) {
 	buildkitd.Run()
 }

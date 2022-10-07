@@ -17,9 +17,9 @@ import (
 	"go.dagger.io/dagger/internal/version"
 	"go.opentelemetry.io/otel"
 
-	_ "github.com/moby/buildkit/client/connhelper/dockercontainer" // import the docker connection driver
-	_ "github.com/moby/buildkit/client/connhelper/kubepod"         // import the kubernetes connection driver
-	_ "github.com/moby/buildkit/client/connhelper/podmancontainer" // import the podman connection driver
+	_ "github.com/moby/buildkit/client/connhelper/kubepod"              // import the kubernetes connection driver
+	_ "github.com/moby/buildkit/client/connhelper/podmancontainer"      // import the podman connection driver
+	_ "go.dagger.io/dagger/internal/buildkitd/bundling/dockercontainer" // import the docker connection driver, tweaked
 )
 
 const (

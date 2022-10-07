@@ -7,4 +7,4 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var serveCmd *cobra.Command
+var buildkitdCmd *cobra.Command
