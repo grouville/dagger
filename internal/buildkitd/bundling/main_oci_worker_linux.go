@@ -1,3 +1,4 @@
+// https://github.com/moby/buildkit/blob/v0.10.4/cmd/buildkitd/main_oci_worker.go
 package buildkitd
 
 import (
@@ -27,7 +28,6 @@ import (
 	sgzlayer "github.com/containerd/stargz-snapshotter/fs/layer"
 	sgzsource "github.com/containerd/stargz-snapshotter/fs/source"
 	remotesn "github.com/containerd/stargz-snapshotter/snapshot"
-	"github.com/docker/docker/pkg/idtools"
 	"github.com/moby/buildkit/cmd/buildkitd/config"
 	"github.com/moby/buildkit/executor/oci"
 	"github.com/moby/buildkit/session"
@@ -293,7 +293,6 @@ func ociWorkerInitializer(c *cli.Context, common workerInitializerOpt) ([]worker
 		return nil, err
 	}
 	opt.GCPolicy = getGCPolicy(cfg.GCConfig, common.config.Root)
-	opt.BuildkitVersion = getBuildkitVersion()
 	opt.RegistryHosts = hosts
 
 	if platformsStr := cfg.Platforms; len(platformsStr) != 0 {
@@ -498,25 +497,4 @@ func sourceWithSession(hosts docker.RegistryHosts, sm *session.Manager) sgzsourc
 
 		return src, nil
 	}
-}
-
-func parseIdentityMapping(str string) (*idtools.IdentityMapping, error) {
-	if str == "" {
-		return nil, nil
-	}
-
-	idparts := strings.SplitN(str, ":", 3)
-	if len(idparts) > 2 {
-		return nil, errors.Errorf("invalid userns remap specification in %q", str)
-	}
-
-	username := idparts[0]
-
-	logrus.Debugf("user namespaces: ID ranges will be mapped to subuid ranges of: %s", username)
-
-	mappings, err := idtools.LoadIdentityMapping(username)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create ID mappings")
-	}
-	return &mappings, nil
 }

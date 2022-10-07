@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/user"
@@ -24,14 +25,11 @@ import (
 	"github.com/docker/docker/pkg/reexec"
 	"github.com/gofrs/flock"
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
-
 	"github.com/moby/buildkit/cache/remotecache"
 	"github.com/moby/buildkit/cache/remotecache/gha"
 	inlineremotecache "github.com/moby/buildkit/cache/remotecache/inline"
 	localremotecache "github.com/moby/buildkit/cache/remotecache/local"
 	registryremotecache "github.com/moby/buildkit/cache/remotecache/registry"
-	"github.com/moby/buildkit/worker"
-
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/cmd/buildkitd/config"
 	"github.com/moby/buildkit/control"
@@ -56,6 +54,7 @@ import (
 	_ "github.com/moby/buildkit/util/tracing/env"
 	"github.com/moby/buildkit/util/tracing/transform"
 	"github.com/moby/buildkit/version"
+	"github.com/moby/buildkit/worker"
 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -63,9 +62,8 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	tracev2 "go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace"
 	tracev1 "go.opentelemetry.io/proto/otlp/collector/trace/v1"
-
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
@@ -551,7 +549,7 @@ func getListener(addr string, uid, gid int, tlsConfig *tls.Config) (net.Listener
 	}
 }
 
-func unaryInterceptor(globalCtx context.Context, tp tracev2.TracerProvider) grpc.UnaryServerInterceptor {
+func unaryInterceptor(globalCtx context.Context, tp trace.TracerProvider) grpc.UnaryServerInterceptor {
 	withTrace := otelgrpc.UnaryServerInterceptor(otelgrpc.WithTracerProvider(tp), otelgrpc.WithPropagators(propagators))
 
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
@@ -572,10 +570,7 @@ func unaryInterceptor(globalCtx context.Context, tp tracev2.TracerProvider) grpc
 
 		resp, err = withTrace(ctx, req, info, handler)
 		if err != nil {
-			logrus.Errorf("%s returned error: %v", info.FullMethod, err)
-			if logrus.GetLevel() >= logrus.DebugLevel {
-				fmt.Fprintf(os.Stderr, "%+v", stack.Formatter(grpcerrors.FromGRPC(err)))
-			}
+			logrus.Errorf("%s returned error: %+v", info.FullMethod, stack.Formatter(err))
 		}
 		return
 	}
@@ -604,7 +599,7 @@ func serverCredentials(cfg config.TLSConfig) (*tls.Config, error) {
 	}
 	if caFile != "" {
 		certPool := x509.NewCertPool()
-		ca, err := os.ReadFile(caFile)
+		ca, err := ioutil.ReadFile(caFile)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not read ca certificate")
 		}
@@ -672,6 +667,7 @@ func newController(c *cli.Context, cfg *config.Config) (*control.Controller, err
 		"local":    localremotecache.ResolveCacheImporterFunc(sessionManager),
 		"gha":      gha.ResolveCacheImporterFunc(),
 	}
+
 	return control.NewController(control.Opt{
 		SessionManager:            sessionManager,
 		WorkerController:          wc,
@@ -767,14 +763,6 @@ func getGCPolicy(cfg config.GCConfig, root string) []client.PruneInfo {
 		})
 	}
 	return out
-}
-
-func getBuildkitVersion() client.BuildkitVersion {
-	return client.BuildkitVersion{
-		Package:  version.Package,
-		Version:  version.Version,
-		Revision: version.Revision,
-	}
 }
 
 func getDNSConfig(cfg *config.DNSConfig) *oci.DNSConfig {

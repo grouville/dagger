@@ -11,7 +11,6 @@ import (
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/containerd/containerd/platforms"
-	"github.com/docker/cli/cli/config"
 	bkclient "github.com/moby/buildkit/client"
 	bkgw "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/moby/buildkit/session"
@@ -115,12 +114,14 @@ func Start(ctx context.Context, startOpts *Config, fn StartCallback) error {
 		socketProviders[sshAuthSockID] = sshAuthHandler
 	}
 	// https: //pkg.go.dev/github.com/docker/cli@v20.10.17+incompatible/cli/config?utm_source=gopls#LoadDefaultConfigFile
-	config := config.LoadDefaultConfigFile(os.Stderr)
+	// Fix to be included in next Buildkit release:
+	// config := config.LoadDefaultConfigFile(os.Stderr)
+	// authprovider.NewDockerAuthProvider(config),
 	solveOpts := bkclient.SolveOpt{
 		Session: []session.Attachable{
 			secretsprovider.NewSecretProvider(secretStore),
 			socketProviders,
-			authprovider.NewDockerAuthProvider(config),
+			authprovider.NewDockerAuthProvider(os.Stderr),
 		},
 	}
 	if startOpts.LocalDirs == nil {
