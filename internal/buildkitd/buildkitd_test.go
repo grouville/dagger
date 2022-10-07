@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func RemoveDaggerdImage(ctx context.Context) error {
+func RemoveDaggerBuildkitdImage(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx,
 		"docker",
 		"rmi",
@@ -26,7 +26,7 @@ func RemoveDaggerdImage(ctx context.Context) error {
 	return nil
 }
 
-func StopDaggerd(ctx context.Context) error {
+func StopDaggerBuildkitd(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx,
 		"docker",
 		"stop",
@@ -40,7 +40,7 @@ func StopDaggerd(ctx context.Context) error {
 	return nil
 }
 
-func TestCheckDaggerd(t *testing.T) {
+func TestCheckDaggerBuildkitd(t *testing.T) {
 	ctx := context.Background()
 
 	provisioner, err := initProvisioner(ctx)
@@ -48,33 +48,33 @@ func TestCheckDaggerd(t *testing.T) {
 
 	t.Run("no image", func(t *testing.T) {
 		// Remove Dagger container
-		err := provisioner.RemoveDaggerd(ctx)
+		err := provisioner.RemoveDaggerBuildkitd(ctx)
 		require.NoError(t, err)
 
 		// Remove Dagger image
-		err = RemoveDaggerdImage(ctx)
+		err = RemoveDaggerBuildkitdImage(ctx)
 		require.NoError(t, err)
 
 		fooVersion := "foo"
-		got, err := checkDaggerd(ctx, fooVersion)
+		got, err := checkDaggerBuildkitd(ctx, fooVersion)
 		require.NoError(t, err)
-		require.Equal(t, "docker-container://daggerd", got)
+		require.Equal(t, "docker-container://dagger-buildkitd", got)
 	})
 
 	t.Run("update version", func(t *testing.T) {
 		newVersion := "bar"
-		got, err := checkDaggerd(ctx, newVersion)
+		got, err := checkDaggerBuildkitd(ctx, newVersion)
 		require.NoError(t, err)
-		require.Equal(t, "docker-container://daggerd", got)
+		require.Equal(t, "docker-container://dagger-buildkitd", got)
 	})
 
-	t.Run("stopped daggerd", func(t *testing.T) {
-		err := StopDaggerd(ctx)
+	t.Run("stopped dagger-buildkitd", func(t *testing.T) {
+		err := StopDaggerBuildkitd(ctx)
 		require.NoError(t, err)
 
 		newVersion := "bar"
-		got, err := checkDaggerd(ctx, newVersion)
+		got, err := checkDaggerBuildkitd(ctx, newVersion)
 		require.NoError(t, err)
-		require.Equal(t, "docker-container://daggerd", got)
+		require.Equal(t, "docker-container://dagger-buildkitd", got)
 	})
 }

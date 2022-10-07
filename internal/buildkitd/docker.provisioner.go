@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	buildStep = "daggerd"
+	buildStep = "dagger-buildkitd"
 )
 
 // ensure the docker CLI is available and properly set up (e.g. permissions to
@@ -75,8 +75,8 @@ func copyDir(src fs.FS, dst string) error {
 	})
 }
 
-func (d Docker) buildDaggerd(ctx context.Context, version string) error {
-	dirPath, err := os.MkdirTemp("", "daggerd")
+func (d Docker) buildDaggerBuildkitd(ctx context.Context, version string) error {
+	dirPath, err := os.MkdirTemp("", "dagger-buildkitd")
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func (d Docker) buildDaggerd(ctx context.Context, version string) error {
 		return err
 	}
 
-	fmt.Println("Building daggerd image...")
+	fmt.Println("Building dagger-buildkitd image...")
 
 	// #nosec
 	// move to build operation
@@ -108,7 +108,7 @@ func (d Docker) buildDaggerd(ctx context.Context, version string) error {
 	return nil
 }
 
-func (Docker) RemoveDaggerd(ctx context.Context) error {
+func (Docker) RemoveDaggerBuildkitd(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx,
 		"docker",
 		"rm",
@@ -123,16 +123,16 @@ func (Docker) RemoveDaggerd(ctx context.Context) error {
 	return nil
 }
 
-func (d Docker) InstallDaggerd(ctx context.Context, version string) error {
-	if err := d.buildDaggerd(ctx, version); err != nil {
+func (d Docker) InstallDaggerBuildkitd(ctx context.Context, version string) error {
+	if err := d.buildDaggerBuildkitd(ctx, version); err != nil {
 		return err
 	}
 
-	return d.serveDaggerd(ctx, version)
+	return d.serveDaggerBuildkitd(ctx, version)
 }
 
 // Pull and run the buildkit daemon with a proper configuration
-func (d Docker) serveDaggerd(ctx context.Context, version string) error {
+func (d Docker) serveDaggerBuildkitd(ctx context.Context, version string) error {
 	// #nosec G204
 	cmd := exec.CommandContext(ctx,
 		"docker",
@@ -154,11 +154,11 @@ func (d Docker) serveDaggerd(ctx context.Context, version string) error {
 		}
 		fmt.Printf("serve error: %s\noutput:%s", err, output)
 	}
-	return d.waitDaggerd(ctx)
+	return d.waitDaggerBuildkitd(ctx)
 }
 
 // waitBuildkit waits for the buildkit daemon to be responsive.
-func (Docker) waitDaggerd(ctx context.Context) error {
+func (Docker) waitDaggerBuildkitd(ctx context.Context) error {
 	c, err := bkclient.New(ctx, "docker-container://"+containerName)
 	if err != nil {
 		return err
@@ -183,7 +183,7 @@ func (Docker) waitDaggerd(ctx context.Context) error {
 	return errors.New("buildkit failed to respond")
 }
 
-func (d Docker) DaggerdState(ctx context.Context) (string, *daggerdInfo, error) {
+func (d Docker) DaggerBuildkitdState(ctx context.Context) (string, *daggerBuildkitdInfo, error) {
 	formatString := "{{.Config.Image}};{{.State.Running}};{{if index .NetworkSettings.Networks \"host\"}}{{\"true\"}}{{else}}{{\"false\"}}{{end}}"
 	cmd := exec.CommandContext(ctx,
 		"docker",
@@ -216,14 +216,14 @@ func (d Docker) DaggerdState(ctx context.Context) (string, *daggerdInfo, error) 
 		return d.host, nil, err
 	}
 
-	return d.host, &daggerdInfo{
+	return d.host, &daggerBuildkitdInfo{
 		Version:  tag.Tag(),
 		IsActive: isActive,
 	}, nil
 }
 
-// start the daggerd daemon
-func (d Docker) StartDaggerd(ctx context.Context) error {
+// start the dagger-buildkitd daemon
+func (d Docker) StartDaggerBuildkitd(ctx context.Context) error {
 	cmd := exec.CommandContext(ctx,
 		"docker",
 		"start",
@@ -234,5 +234,5 @@ func (d Docker) StartDaggerd(ctx context.Context) error {
 		return err
 	}
 
-	return d.waitDaggerd(ctx)
+	return d.waitDaggerBuildkitd(ctx)
 }

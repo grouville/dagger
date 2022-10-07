@@ -3,7 +3,7 @@ package core
 import "go.dagger.io/dagger/internal/testutil"
 
 func init() {
-	if err := testutil.SetupDaggerd(); err != nil {
+	if err := testutil.SetupDaggerBuildkitd(); err != nil {
 		panic(err)
 	}
 }

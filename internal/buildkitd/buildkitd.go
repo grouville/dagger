@@ -23,21 +23,21 @@ import (
 )
 
 const (
-	image         = "daggerd"
-	containerName = "daggerd"
-	volumeName    = "daggerd"
+	image         = "dagger-buildkitd"
+	containerName = "dagger-buildkitd"
+	volumeName    = "dagger-buildkitd"
 
-	daggerdLockPath    = "~/.config/dagger/.daggerd.lock"
-	shortCommitHashLen = 9
+	daggerBuildkitdLockPath = "~/.config/dagger/.dagger-buildkitd.lock"
+	shortCommitHashLen      = 9
 	// Long timeout to allow for slow image build of
-	// daggerd while not blocking for infinity
+	// dagger-buildkitd while not blocking for infinity
 	lockTimeout = 10 * time.Minute
 )
 
 func Client(ctx context.Context) (*bkclient.Client, error) {
-	host := os.Getenv("DAGGERD_HOST")
+	host := os.Getenv("DAGGER_BUILDKITD_HOST")
 	if host == "" {
-		h, err := StartBuildInfoDaggerd(ctx)
+		h, err := StartBuildInfoDaggerBuildkitd(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -66,11 +66,11 @@ func Client(ctx context.Context) (*bkclient.Client, error) {
 
 // Workaround the fact that debug.ReadBuildInfo doesn't work in tests:
 // https://github.com/golang/go/issues/33976
-func StartGoModDaggerd(ctx context.Context) (string, error) {
+func StartGoModDaggerBuildkitd(ctx context.Context) (string, error) {
 	// Hack: if in CI, do not check for a local cloak binary
 	// As it is always reset between runs
 	if value := os.Getenv("GITHUB_ACTION"); value != "" {
-		return startDaggerdVersion(ctx, "ci")
+		return startDaggerBuildkitdVersion(ctx, "ci")
 	}
 
 	// In dev mode, check the vcs git hash from the cloak binary found in PATH
@@ -99,24 +99,24 @@ func StartGoModDaggerd(ctx context.Context) (string, error) {
 			}
 		}
 	}
-	return startDaggerdVersion(ctx, version)
+	return startDaggerBuildkitdVersion(ctx, version)
 }
 
-func StartBuildInfoDaggerd(ctx context.Context) (string, error) {
+func StartBuildInfoDaggerBuildkitd(ctx context.Context) (string, error) {
 	vendoredVersion, err := version.Revision()
 	if err != nil {
 		return "", err
 	}
 
-	return startDaggerdVersion(ctx, vendoredVersion)
+	return startDaggerBuildkitdVersion(ctx, vendoredVersion)
 }
 
-func startDaggerdVersion(ctx context.Context, version string) (string, error) {
+func startDaggerBuildkitdVersion(ctx context.Context, version string) (string, error) {
 	if version == "" {
-		return "", errors.New("daggerd version is empty")
+		return "", errors.New("dagger-buildkitd version is empty")
 	}
 
-	containerName, err := checkDaggerd(ctx, version)
+	containerName, err := checkDaggerBuildkitd(ctx, version)
 	if err != nil {
 		return "", err
 	}
@@ -124,26 +124,26 @@ func startDaggerdVersion(ctx context.Context, version string) (string, error) {
 	return containerName, nil
 }
 
-// ensure that daggerd is built, active and properly set up (e.g. connected to host)
-func checkDaggerd(ctx context.Context, version string) (string, error) {
+// ensure that dagger-buildkitd is built, active and properly set up (e.g. connected to host)
+func checkDaggerBuildkitd(ctx context.Context, version string) (string, error) {
 	// acquire a file-based lock to ensure parallel dagger clients
-	// don't interfere with checking+creating the daggerd container
-	lockFilePath, err := homedir.Expand(daggerdLockPath)
+	// don't interfere with checking+creating the dagger-buildkitd container
+	lockFilePath, err := homedir.Expand(daggerBuildkitdLockPath)
 	if err != nil {
-		return "", fmt.Errorf("unable to expand daggerd lock path: %w", err)
+		return "", fmt.Errorf("unable to expand dagger-buildkitd lock path: %w", err)
 	}
 	if err := os.MkdirAll(filepath.Dir(lockFilePath), 0755); err != nil {
-		return "", fmt.Errorf("unable to create daggerd lock path parent dir: %w", err)
+		return "", fmt.Errorf("unable to create dagger-buildkitd lock path parent dir: %w", err)
 	}
 	lock := flock.New(lockFilePath)
 	lockCtx, cancel := context.WithTimeout(ctx, lockTimeout)
 	defer cancel()
 	locked, err := lock.TryLockContext(lockCtx, 100*time.Millisecond)
 	if err != nil {
-		return "", fmt.Errorf("failed to lock daggerd lock file: %w", err)
+		return "", fmt.Errorf("failed to lock dagger-buildkitd lock file: %w", err)
 	}
 	if !locked {
-		return "", fmt.Errorf("failed to acquire daggerd lock file")
+		return "", fmt.Errorf("failed to acquire dagger-buildkitd lock file")
 	}
 	defer lock.Unlock()
 
@@ -153,33 +153,33 @@ func checkDaggerd(ctx context.Context, version string) (string, error) {
 		return "", err
 	}
 
-	// check status of daggerd
-	host, config, err := provisioner.DaggerdState(ctx)
+	// check status of dagger-buildkitd
+	host, config, err := provisioner.DaggerBuildkitdState(ctx)
 	if err != nil {
-		fmt.Println("No daggerd container found, creating one...")
+		fmt.Println("No dagger-buildkitd container found, creating one...")
 
-		provisioner.RemoveDaggerd(ctx)
+		provisioner.RemoveDaggerBuildkitd(ctx)
 
-		if err := provisioner.InstallDaggerd(ctx, version); err != nil {
+		if err := provisioner.InstallDaggerBuildkitd(ctx, version); err != nil {
 			return "", err
 		}
 		return host, nil
 	}
 
 	if config.Version != version {
-		fmt.Println("Daggerd container is out of date, updating it...")
+		fmt.Println("dagger-buildkitd container is out of date, updating it...")
 
-		if err := provisioner.RemoveDaggerd(ctx); err != nil {
+		if err := provisioner.RemoveDaggerBuildkitd(ctx); err != nil {
 			return "", err
 		}
-		if err := provisioner.InstallDaggerd(ctx, version); err != nil {
+		if err := provisioner.InstallDaggerBuildkitd(ctx, version); err != nil {
 			return "", err
 		}
 	}
 	if !config.IsActive {
-		fmt.Println("Daggerd container is not running, starting it...")
+		fmt.Println("dagger-buildkitd container is not running, starting it...")
 
-		if err := provisioner.StartDaggerd(ctx); err != nil {
+		if err := provisioner.StartDaggerBuildkitd(ctx); err != nil {
 			return "", err
 		}
 	}
@@ -197,13 +197,13 @@ func initProvisioner(ctx context.Context) (Provisioner, error) {
 }
 
 type Provisioner interface {
-	RemoveDaggerd(ctx context.Context) error
-	InstallDaggerd(ctx context.Context, version string) error
-	StartDaggerd(ctx context.Context) error
-	DaggerdState(ctx context.Context) (string, *daggerdInfo, error)
+	RemoveDaggerBuildkitd(ctx context.Context) error
+	InstallDaggerBuildkitd(ctx context.Context, version string) error
+	StartDaggerBuildkitd(ctx context.Context) error
+	DaggerBuildkitdState(ctx context.Context) (string, *daggerBuildkitdInfo, error)
 }
 
-type daggerdInfo struct {
+type daggerBuildkitdInfo struct {
 	Version  string
 	IsActive bool
 }
