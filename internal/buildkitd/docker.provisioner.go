@@ -99,7 +99,7 @@ func (d Docker) buildDaggerBuildkitd(ctx context.Context, version string) error 
 		image+":"+version,
 		dirPath,
 	)
-	cmd.Env = append(os.Environ(), "DOCKER_BUILDKIT=1", "BUILDKIT_PROGRESS=plain")
+	cmd.Env = append(os.Environ(), "DOCKER_BUILDKIT=1")
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
