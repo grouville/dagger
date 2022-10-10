@@ -30,8 +30,8 @@ func Helper(u *url.URL) (*connhelper.ConnectionHelper, error) {
 				ctxFlags = append(ctxFlags, "--context="+sp.Context)
 			}
 			// using background context because context remains active for the duration of the process, after dial has completed
-			// CHANGE: do not rely on buildctl, use cloak's buildkitd-stdio command instead
-			return commandconn.New(context.Background(), "docker", append(ctxFlags, []string{"exec", "-i", sp.Container, "cloak", "buildkitd-stdio"}...)...)
+			// CHANGE: do not rely on buildctl, use dagger's buildkitd-stdio command instead
+			return commandconn.New(context.Background(), "docker", append(ctxFlags, []string{"exec", "-i", sp.Container, "dagger", "buildkitd-stdio"}...)...)
 		},
 	}, nil
 }
