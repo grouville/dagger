@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/gofrs/flock"
@@ -28,7 +26,6 @@ const (
 	volumeName    = "dagger-buildkitd"
 
 	daggerBuildkitdLockPath = "~/.config/dagger/.dagger-buildkitd.lock"
-	shortCommitHashLen      = 9
 	// Long timeout to allow for slow image build of
 	// dagger-buildkitd while not blocking for infinity
 	lockTimeout = 10 * time.Minute
@@ -73,33 +70,10 @@ func StartGoModDaggerBuildkitd(ctx context.Context) (string, error) {
 		return startDaggerBuildkitdVersion(ctx, "ci")
 	}
 
-	// In dev mode, check the vcs git hash from the cloak binary found in PATH
-	path, err := exec.LookPath("cloak")
-	if err != nil {
-		return "", err
-	}
-
-	// Checks the version of the cloak binary found in PATH
-	out, err := exec.Command("go", "version", "-m", path).CombinedOutput()
-	if err != nil {
-		return "", err
-	}
-
-	version := ""
-	for _, line := range strings.Split(string(out), "\n") {
-		// `go version -m cloak` outputs the `vcs.revision` of the cloak binary in $PATH (on host)
-		// e.g. `vcs.revision=1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b`
-		if strings.Contains(line, "vcs.revision") {
-			// Keep the first 9 characters of the revision, as it is the length of the short commit hash, in git
-			// len used to tag the image on build
-			if len(line) > shortCommitHashLen {
-				version = strings.Split(line, "=")[1][:shortCommitHashLen]
-			} else {
-				return "", fmt.Errorf("unexpected go version output: %s", line)
-			}
-		}
-	}
-	return startDaggerBuildkitdVersion(ctx, version)
+	// If we are running go tests locally use RandomGoModID
+	// Does not fix all problems: `./...` recursively creates binary for each test
+	// version.RandomGoModID is created at init for each binary: race condition still possible
+	return startDaggerBuildkitdVersion(ctx, version.RandomGoModID)
 }
 
 func StartBuildInfoDaggerBuildkitd(ctx context.Context) (string, error) {

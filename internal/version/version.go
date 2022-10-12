@@ -3,7 +3,17 @@ package version
 import (
 	"errors"
 	"runtime/debug"
+
+	"github.com/moby/buildkit/identity"
 )
+
+var RandomGoModID string
+
+// Initialize a global, random Buildkitd version for
+// startGoModDaggerBuildkitd (go test)
+func init() {
+	RandomGoModID = identity.NewID()
+}
 
 var ErrNoBuildInfo = errors.New("no build info available")
 

@@ -11,10 +11,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func Action() error {
-	// Fixme ? Socket address is hard coded
-	// https://github.com/moby/buildkit/blob/c172172ea17c7df80955f3f18aed7473fb0ade33/examples/buildctl-daemonless/buildctl-daemonless.sh
-	addr := "unix:///run/buildkit/buildkitd.sock"
+// Fixme ? Socket address is hard coded
+// https://github.com/moby/buildkit/blob/c172172ea17c7df80955f3f18aed7473fb0ade33/examples/buildctl-daemonless/buildctl-daemonless.sh
+const (
+	addr = "unix:///run/buildkit/buildkitd.sock"
+)
+
+func ProxyIO() error {
 	// Timeout is also hard coded
 	timeout := time.Duration(30) * time.Second
 	conn, err := dialer(addr, timeout)
