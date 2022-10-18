@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	host, err := buildkitd.StartGoModBuildkitd(context.Background())
+	host, err := buildkitd.StartGoModDaggerBuildkitd(context.Background())
 	if err != nil {
 		panic(err)
 	}
