@@ -6,6 +6,7 @@ import { AddressInfo } from "net"
 import * as os from "os"
 import * as path from "path"
 import * as tar from "tar"
+import { pathToFileURL } from "url"
 
 import { GraphQLRequestError } from "../common/errors/index.js"
 import { connect } from "../connect.js"
@@ -165,6 +166,50 @@ describe("NodeJS sdk Connect", function () {
         },
         { LogOutput: process.stderr }
       )
+    })
+
+    it("Should correctly fetch the SDK version from package.json", async function () {
+      this.timeout(30000)
+
+      // Prepare test scenarios with different versions and package.json structures
+      const scenarios = [
+        { version: "1.0.0", packageJson: { version: "1.0.0" } },
+        { version: "2.0.0", packageJson: { version: "2.0.0" } },
+        { version: "n/a", packageJson: { name: "no-version" } },
+      ]
+
+      for (const scenario of scenarios) {
+        // Create a temporary directory and write the package.json file
+        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "dagger-test-"))
+        fs.writeFileSync(
+          path.join(tempDir, "package.json"),
+          JSON.stringify(scenario.packageJson)
+        )
+
+        // Replace import.meta.url with a custom function that simulates the import.meta.url value
+        const originalImportMetaUrl = import.meta.url
+        const customFileUrl = pathToFileURL(path.join(tempDir, "dummy.js")).href
+        Object.defineProperty(import.meta, "url", {
+          value: customFileUrl,
+          writable: false,
+        })
+
+        // Import the Bin class dynamically
+        const binModuleUrl = new URL("../provisioning/bin.js", import.meta.url)
+        const binModule = await import(binModuleUrl.href)
+        const binInstance = new binModule.Bin()
+
+        // Call getSDKVersion and check if the result is as expected
+        const sdkVersion = binInstance.getSDKVersion()
+        assert.strictEqual(sdkVersion, scenario.version)
+
+        // Clean up the temporary directory and restore the original import.meta.url value
+        fs.rmSync(tempDir, { recursive: true })
+        Object.defineProperty(import.meta, "url", {
+          value: originalImportMetaUrl,
+          writable: false,
+        })
+      }
     })
 
     after(() => {

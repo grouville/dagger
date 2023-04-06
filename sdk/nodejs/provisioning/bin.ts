@@ -128,7 +128,12 @@ export class Bin implements EngineConn {
    * SDK version.
    * @returns the SDK version or "n/a" if the version cannot be found.
    */
-  private getSDKVersion() {
+  public getSDKVersion() {
+    // debug
+    const packageJsonPath = new URL("../package.json", import.meta.url)
+    console.log("Resolved package.json path:", packageJsonPath.pathname)
+    // debug
+
     const currentFileUrl = import.meta.url
     const currentFilePath = fileURLToPath(currentFileUrl)
     let currentPath = path.dirname(currentFilePath)
