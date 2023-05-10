@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
-	"unicode/utf16"
+
+	"github.com/99designs/gqlgen/graphql"
+	// "unicode/utf16"
 )
 
 type GraphQLRequest struct {
@@ -41,53 +44,65 @@ func sendGraphQLRequest(url string, query string) (string, error) {
 // 	return 0xD800 <= r && r <= 0xDFFF
 // }
 
-func escapeGraphQLString(input string) string {
-	var escapeBuffer bytes.Buffer
-	blockString := false
+// func escapeGraphQLString(input string) string {
 
-	if len(input) >= 3 && input[:3] == `"""` {
-		blockString = true
-	}
+// }
+// 	var escapeBuffer bytes.Buffer
+// 	blockString := false
 
-	for _, r := range input {
-		switch {
-		case r == '\t':
-			escapeBuffer.WriteString(`\t`)
-		case r == '\r':
-			escapeBuffer.WriteString(`\r`)
-		case r == '\n':
-			if !blockString {
-				escapeBuffer.WriteString(`\n`)
-			} else {
-				escapeBuffer.WriteRune(r)
-			}
-		case r == '\\':
-			escapeBuffer.WriteString(`\\`)
-		case r == '"':
-			if !blockString {
-				escapeBuffer.WriteString(`\"`)
-			} else {
-				escapeBuffer.WriteRune(r)
-			}
-		case (r >= 0 && r <= 0x1F) || (r >= 0x7F && r <= 0x9F):
-			if r <= 0xFFFF {
-				escapeBuffer.WriteString(fmt.Sprintf(`\u%04X`, r))
-			} else {
-				r1, r2 := utf16.EncodeRune(r)
-				escapeBuffer.WriteString(fmt.Sprintf(`\u%04X\u%04X`, r1, r2))
-			}
-		default:
-			escapeBuffer.WriteRune(r)
-		}
-	}
+// 	if len(input) >= 3 && input[:3] == `"""` {
+// 		blockString = true
+// 	}
 
-	return escapeBuffer.String()
-}
+// 	for _, r := range input {
+// 		switch {
+// 		case r == '\t':
+// 			escapeBuffer.WriteString(`\t`)
+// 		case r == '\r':
+// 			escapeBuffer.WriteString(`\r`)
+// 		case r == '\n':
+// 			if !blockString {
+// 				escapeBuffer.WriteString(`\n`)
+// 			} else {
+// 				escapeBuffer.WriteRune(r)
+// 			}
+// 		case r == '\\':
+// 			escapeBuffer.WriteString(`\\`)
+// 		case r == '"':
+// 			if !blockString {
+// 				escapeBuffer.WriteString(`\"`)
+// 			} else {
+// 				escapeBuffer.WriteRune(r)
+// 			}
+// 		case (r >= 0 && r <= 0x1F) || (r >= 0x7F && r <= 0x9F):
+// 			if r <= 0xFFFF {
+// 				escapeBuffer.WriteString(fmt.Sprintf(`\u%04X`, r))
+// 			} else {
+// 				r1, r2 := utf16.EncodeRune(r)
+// 				escapeBuffer.WriteString(fmt.Sprintf(`\u%04X\u%04X`, r1, r2))
+// 			}
+// 		default:
+// 			escapeBuffer.WriteRune(r)
+// 		}
+// 	}
+
+// 	return escapeBuffer.String()
+// }
 
 type graphqlResponse struct {
 	Data struct {
 		Echo string `json:"echo"`
 	} `json:"data"`
+}
+
+type Marshaler interface {
+	MarshalGQL(w io.Writer)
+}
+
+func m2s(m Marshaler) string {
+	var b bytes.Buffer
+	m.MarshalGQL(&b)
+	return b.String()
 }
 
 func main() {
@@ -103,8 +118,11 @@ func main() {
 	// escapedInput := escapeGraphQLString(input)
 	escapedInput := input
 
-	query := fmt.Sprintf(`{ echo(text: "%s") }`, escapedInput)
-	resp, err := http.Get("http://localhost:8080/graphql?query=" + url.QueryEscape(query))
+	var b bytes.Buffer
+	graphql.MarshalString(fmt.Sprintf(`{ echo(text: "%s") }`, escapedInput)).MarshalGQL(&b)
+	// query := graphql.MarshalString(fmt.Sprintf(`{ echo(text: "%s") }`, escapedInput)).MarshalGQL()
+
+	resp, err := http.Get("http://localhost:8080/graphql?query=" + url.QueryEscape(b.String()))
 	if err != nil {
 		log.Fatalf("Error sending query: %v", err)
 

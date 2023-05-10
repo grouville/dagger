@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"testing"
+
+	"github.com/99designs/gqlgen/graphql"
 )
 
 func TestEscapeGraphQLString(t *testing.T) {
@@ -45,9 +48,12 @@ func TestEscapeGraphQLString(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		escaped := escapeGraphQLString(testCase.input)
-		// escaped := testCase.input
-		query := fmt.Sprintf(`{ echo(text: "%s") }`, escaped)
+
+		var b bytes.Buffer
+		graphql.MarshalString(testCase.input).MarshalGQL(&b)
+		escaped := b.String()
+
+		query := fmt.Sprintf(`{ echo(text: %s) }`, escaped)
 		resp, err := http.Get("http://localhost:8080/graphql?query=" + url.QueryEscape(query))
 		if err != nil {
 			t.Fatalf("Error sending query: %v", err)
@@ -71,7 +77,7 @@ func TestEscapeGraphQLString(t *testing.T) {
 	}
 }
 
-// func TestBinaryFileEscapeGraphQLString(t *testing.T) {
+// func TestBinaryFileEscapeGraphQLString2(t *testing.T) {
 // 	filePath := "/Users/home/.gnupg/trustdb.gpg"
 // 	content, err := ioutil.ReadFile(filePath)
 // 	if err != nil {
@@ -79,9 +85,12 @@ func TestEscapeGraphQLString(t *testing.T) {
 // 		return
 // 	}
 
-// 	input := string(content)
-// 	escaped := escapeGraphQLString(input)
-// 	query := fmt.Sprintf(`{ echo(text: "%s") }`, escaped)
+// 	var b bytes.Buffer
+// 	graphql.MarshalString(string(content)).MarshalGQL(&b)
+// 	// escaped := escapeGraphQLString(string(fileData))
+// 	escaped := b.String()
+
+// 	query := fmt.Sprintf(`{ echo(text: %s) }`, escaped)
 // 	resp, err := http.Get("http://localhost:8080/graphql?query=" + url.QueryEscape(query))
 // 	if err != nil {
 // 		t.Fatalf("Error sending query: %v", err)
@@ -113,9 +122,13 @@ func TestBinaryFileEscapeGraphQLString(t *testing.T) {
 	}
 
 	// Call the escapeGraphQLString function.
-	escaped := escapeGraphQLString(string(fileData))
+	// escaped := escapeGraphQLString(string(fileData))
+	var b bytes.Buffer
+	graphql.MarshalString(string(fileData)).MarshalGQL(&b)
+	// escaped := escapeGraphQLString(string(fileData))
+	escaped := b.String()
 
-	query := fmt.Sprintf(`{ echo(text: "%s") }`, escaped)
+	query := fmt.Sprintf(`{ echo(text: %s) }`, escaped)
 	resp, err := http.Get("http://localhost:8080/graphql?query=" + url.QueryEscape(query))
 	if err != nil {
 		t.Fatalf("Error sending query: %v", err)
