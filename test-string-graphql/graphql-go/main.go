@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
 
+	gqlgen "github.com/99designs/gqlgen/graphql"
 	"github.com/dagger/graphql"
 	"github.com/dagger/graphql/language/ast"
 )
@@ -67,8 +69,11 @@ func main() {
 						},
 					},
 					Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-						content := p.Args["message"].(string)
-						return map[string]interface{}{"result": content}, nil
+						// fmt.Fprintf(os.Stdout, "Resolve: |%v|\n", p)
+						content := p.Args["message"]
+						// fmt.Fprintf(os.Stdout, "Result from argument: |%v|\n", content)
+						// fmt.Fprintf(os.Stdout, "Resolve: Done\n")
+						return content, nil
 					},
 				},
 			},
@@ -105,9 +110,9 @@ func main() {
 
 	// Query
 	// Marshalling the input string
-	// var byt bytes.Buffer
-	// gqlgen.MarshalString("jo").MarshalGQL(&byt)
-	// marshalledInput := byt.String()
+	var byt bytes.Buffer
+	gqlgen.MarshalString("jo").MarshalGQL(&byt)
+	marshalledInput := byt.String()
 
 	result := graphql.Do(graphql.Params{
 		Schema: schema,
@@ -115,7 +120,7 @@ func main() {
 		RequestString: queryWithVariable,
 		VariableValues: map[string]interface{}{
 			// "id": marshalledInput,
-			"id": "jo",
+			
 			// "message": "to",
 			// "id": "to",
 		},
