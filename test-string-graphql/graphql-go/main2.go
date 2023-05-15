@@ -20,9 +20,8 @@ var BinaryScalarType = graphql.NewScalar(graphql.ScalarConfig{
 		case []byte:
 			// fmt.Printf("Serialize: |%s|\n", value)
 			// return base64.StdEncoding.EncodeToString(value)
-			_ = value
 			var byto bytes.Buffer
-			gqlgen.MarshalString(string(originalString)).MarshalGQL(&byto)
+			gqlgen.MarshalString(string(value)).MarshalGQL(&byto)
 			return byto.String()
 			// return string(value)
 		default:
@@ -45,7 +44,9 @@ var BinaryScalarType = graphql.NewScalar(graphql.ScalarConfig{
 		case *ast.StringValue:
 			// Removed base64 decoding here
 			fmt.Printf("ParseLiteral: |%q|\n", valueAST.Value)
-			return []byte(valueAST.Value)
+			v, _ := gqlgen.UnmarshalString(valueAST.Value)
+			return []byte(v)
+			// return []byte()
 		default:
 			return nil
 		}
@@ -67,7 +68,7 @@ var QueryType = graphql.NewObject(graphql.ObjectConfig{
 				},
 			},
 			Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-				fmt.Printf("Resolve %q\n", p.Args)
+				// fmt.Printf("Resolve %q\n", p.Args)
 				message, ok := p.Args["message"].([]byte)
 				if ok {
 					// Comparing the incoming data to the original data
@@ -96,7 +97,7 @@ func main() {
 	// 	panic(err)
 	// }
 
-	// originalString = []byte("jo")
+	originalString = []byte("jo")
 	var byt bytes.Buffer
 	gqlgen.MarshalString(string(originalString)).MarshalGQL(&byt)
 	data = byt.String()
@@ -120,31 +121,33 @@ func main() {
 		log.Fatalf("failed to execute graphql operation, errors: %+v", r.Errors)
 	}
 
-	// Unmarshal the response
-	b, err := json.Marshal(r)
-	if err != nil {
-		log.Fatal(err)
+	// Access the "data" field directly
+	data, ok := r.Data.(map[string]interface{})
+	if !ok {
+		log.Fatalf("data is not a map[string]interface{}")
 	}
 
-	var ro map[string]interface{}
-	if err := json.Unmarshal(b, &ro); err != nil {
-		log.Fatalf("failed to unmarshal response: %v", err)
-	}
-	// fmt.Println("result", string(b))
-
-	data, _ := ro["data"].(map[string]interface{})
 	echoStr, ok := data["echo"].(string)
 	if !ok {
 		log.Fatalf("echo data is not a string")
 	}
-	echo, _ := gqlgen.UnmarshalString(echoStr)
-	echoBytes := []byte(echo)
-	if !bytes.Equal(echoBytes, originalString) {
-		fmt.Printf("OUTPUT data does not match original data!: %q\n%q\n", echoBytes, originalString)
-		// fmt.Printf("OUTPUT data does not match original data!\n")
-	} else {
-		fmt.Printf("OUTPUT data matches original data: %x|%x\n")
+
+	// echoStr is a JSON string, so it needs to be unmarshaled
+	var unescapedEchoStr string
+	if err := json.Unmarshal([]byte(echoStr), &unescapedEchoStr); err != nil {
+		log.Fatalf("failed to unmarshal string: %v", err)
 	}
 
-	fmt.Println("Echo:", echo)
+	echo, err := gqlgen.UnmarshalString(unescapedEchoStr)
+	if err != nil {
+		log.Fatalf("failed to unmarshal string using gqlgen: %v", err)
+	}
+
+	echoBytes := []byte(echo)
+	if !bytes.Equal(echoBytes, originalString) {
+		fmt.Printf("OUTPUT data does not match original data!\n")
+	} else {
+		fmt.Printf("OUTPUT data matches original data\n")
+	}
+	// fmt.Println("Echo:", echo)
 }
