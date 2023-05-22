@@ -13,6 +13,7 @@ type customStringType string
 func TestMarshalGQL(t *testing.T) {
 	var (
 		str         = "hello world"
+		unicode     = "\u2764"
 		strNullPtr  *string
 		strPtrSlice                  = []*string{&str}
 		customStr   customStringType = "test"
@@ -41,6 +42,10 @@ func TestMarshalGQL(t *testing.T) {
 		{
 			v:      true,
 			expect: "true",
+		},
+		{
+			v:      unicode,
+			expect: "\"\u2764\"",
 		},
 		// FIXME
 		// {
