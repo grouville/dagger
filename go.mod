@@ -8,7 +8,8 @@ replace dagger.io/dagger => ./sdk/go
 replace cloud.google.com/go => cloud.google.com/go v0.100.2
 
 require (
-	dagger.io/dagger v0.4.1
+	dagger.io/dagger v0.6.3
+	github.com/99designs/gqlgen v0.17.2
 	github.com/armon/circbuf v0.0.0-20190214190532-5111143e8da2
 	github.com/aws/aws-sdk-go-v2/config v1.18.21 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.20 // indirect
@@ -25,7 +26,6 @@ require (
 	github.com/docker/distribution v2.8.2+incompatible
 	github.com/google/go-containerregistry v0.14.0
 	github.com/google/uuid v1.3.0
-	github.com/99designs/gqlgen v0.17.2
 	github.com/iancoleman/strcase v0.2.0
 	// https://github.com/moby/buildkit/commit/3c3a6e9db3fd9f4893e7b8c453ed7698b12a7af0
 	github.com/moby/buildkit v0.11.0-rc3.0.20230515234028-3c3a6e9db3fd

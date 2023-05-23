@@ -4,6 +4,7 @@ package dagger
 
 import (
 	"context"
+	"encoding/base64"
 
 	"dagger.io/dagger/internal/querybuilder"
 	"github.com/Khan/genqlient/graphql"
@@ -2765,7 +2766,9 @@ func (r *Client) Secret(id SecretID) *Secret {
 func (r *Client) SetSecret(name string, plaintext string) *Secret {
 	q := r.q.Select("setSecret")
 	q = q.Arg("name", name)
-	q = q.Arg("plaintext", plaintext)
+	encodedMessage := base64.StdEncoding.EncodeToString([]byte(plaintext))
+
+	q = q.Arg("plaintext", encodedMessage)
 
 	return &Secret{
 		q: q,
