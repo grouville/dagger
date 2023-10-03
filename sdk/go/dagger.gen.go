@@ -166,18 +166,19 @@ type Container struct {
 	q *querybuilder.Selection
 	c graphql.Client
 
-	envVariable *string
-	export      *bool
-	id          *ContainerID
-	imageRef    *string
-	label       *string
-	platform    *Platform
-	publish     *string
-	stderr      *string
-	stdout      *string
-	sync        *ContainerID
-	user        *string
-	workdir     *string
+	envVariable   *string
+	export        *bool
+	id            *ContainerID
+	imageRef      *string
+	label         *string
+	platform      *Platform
+	publish       *string
+	shellEndpoint *string
+	stderr        *string
+	stdout        *string
+	sync          *ContainerID
+	user          *string
+	workdir       *string
 }
 type WithContainerFunc func(r *Container) *Container
 
@@ -670,6 +671,19 @@ func (r *Container) Service() *Service {
 		q: q,
 		c: r.c,
 	}
+}
+
+// TODO
+func (r *Container) ShellEndpoint(ctx context.Context) (string, error) {
+	if r.shellEndpoint != nil {
+		return *r.shellEndpoint, nil
+	}
+	q := r.q.Select("shellEndpoint")
+
+	var response string
+
+	q = q.Bind(&response)
+	return response, q.Execute(ctx, r.c)
 }
 
 // The error stream of the last executed command.

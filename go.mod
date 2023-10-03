@@ -64,6 +64,8 @@ require (
 	github.com/go-git/go-git/v5 v5.9.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/go-github/v50 v50.2.0
+	github.com/gorilla/websocket v1.5.0
+	github.com/hashicorp/go-multierror v1.1.1
 	github.com/icholy/replace v0.6.0
 	github.com/jackpal/gateway v1.0.7
 	github.com/koron-go/prefixw v1.0.0
