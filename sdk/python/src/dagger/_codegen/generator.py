@@ -588,10 +588,13 @@ class _InputField:
     def as_arg(self) -> str:
         """As a Arg object for the query builder."""
         params = [quote(self.graphql_name), self.name]
+        comment = ""
         if self.has_default:
             # repr uses single quotes for strings, contrary to black
             params.append(repr(self.default_value).replace("'", '"'))
-        return f"Arg({', '.join(params)}),"
+            if isinstance(self.default_value, bool):
+                comment = " # noqa: FBT003"  # ruff is picky about bool args
+        return f"Arg({', '.join(params)}),{comment}"
 
 
 class _ObjectField:

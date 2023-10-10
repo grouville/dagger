@@ -40,6 +40,7 @@ func init() {
 		moduleCmd,
 		callCmd,
 		sessionCmd(),
+		serveCmd,
 	)
 }
 

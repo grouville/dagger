@@ -19,7 +19,7 @@ require (
 	github.com/stretchr/testify v1.8.3
 	github.com/vektah/gqlparser/v2 v2.5.6
 	github.com/vito/progrock v0.10.1
-	golang.org/x/exp v0.0.0-20230425010034-47ecfdc1ba53
+	golang.org/x/exp v0.0.0-20230817173708-d852ddb80c63
 	golang.org/x/mod v0.12.0
 	golang.org/x/sync v0.3.0
 	golang.org/x/tools v0.13.0
