@@ -241,7 +241,7 @@ func toUpperBold(s string) string {
 	return termenv.String(upperCase).Bold().String()
 }
 
-const usageTemplate = `{{ "Usage" | toUpperBold }}:
+const usageTemplate = `{{ "Usage" | toUpperBold }}
 
 {{- if .Runnable}}
   {{.UseLine}}
@@ -252,7 +252,7 @@ const usageTemplate = `{{ "Usage" | toUpperBold }}:
 
 {{- if gt (len .Aliases) 0}}
 
-{{ "Aliases" | toUpperBold }}:
+{{ "Aliases" | toUpperBold }}
   {{.NameAndAliases}}
 
 {{- end}}
@@ -266,14 +266,14 @@ EXPERIMENTAL:
 
 {{- if .HasExample}}
 
-{{ "Examples" | toUpperBold }}:
+{{ "Examples" | toUpperBold }}
 {{ .Example }}
 
 {{- end}}
 
 {{- if .HasAvailableLocalFlags}}
 
-{{ "Flags" | toUpperBold }}:
+{{ "Flags" | toUpperBold }}
 {{ flagUsagesWrapped .LocalFlags | trimTrailingWhitespaces}}
 
 {{- end}}
@@ -281,7 +281,7 @@ EXPERIMENTAL:
 {{- if .HasAvailableSubCommands}}{{$cmds := .Commands}}
 {{- if eq (len .Groups) 0}}
 
-{{ "Available Commands" | toUpperBold }}:
+{{ "Available Commands" | toUpperBold }}
 {{- range $cmds }}
 {{- if (or .IsAvailableCommand (eq .Name "help"))}}
 {{cmdShortWrapped .}}
@@ -291,7 +291,7 @@ EXPERIMENTAL:
 {{- else}}
 {{- range $group := .Groups}}
 
-{{.Title | toUpperBold}}:
+{{.Title | toUpperBold}}
 {{- range $cmds }}
 {{- if (and (eq .GroupID $group.ID) (or .IsAvailableCommand (eq .Name "help")))}}
 {{cmdShortWrapped .}}
@@ -301,7 +301,7 @@ EXPERIMENTAL:
 
 {{- if not .AllChildCommandsHaveGroup}}
 
-{{ "Additional Commands" | toUpperBold }}:
+{{ "Additional Commands" | toUpperBold }}
 {{- range $cmds }}
 {{- if (and (eq .GroupID "") (or .IsAvailableCommand (eq .Name "help")))}}
 {{cmdShortWrapped .}}
@@ -313,14 +313,14 @@ EXPERIMENTAL:
 
 {{- if .HasAvailableInheritedFlags}}
 
-{{ "Global Flags" | toUpperBold }}:
+{{ "Global Flags" | toUpperBold }}
 {{ flagUsagesWrapped .InheritedFlags | trimTrailingWhitespaces}}
 
 {{- end}}
 
 {{- if .HasHelpSubCommands}}
 
-{{ "Additional help topics" | toUpperBold }}:
+{{ "Additional help topics" | toUpperBold }}
 {{- range .Commands}}
 {{- if .IsAdditionalHelpTopicCommand}}
   {{rpad .CommandPath .CommandPathPadding}} {{.Short}}
