@@ -305,6 +305,8 @@ func (fc *FuncCommand) execute(c *cobra.Command, a []string) (rerr error) {
 			cmd.PrintErrln("Canceled.")
 		} else if rerr != nil {
 			cmd.PrintErrln("Error:", rerr.Error())
+			// intentionally add a newline after the error message to separate it from the usage message
+			cmd.PrintErrln()
 
 			if fc.showHelp {
 				// Explicitly show the help here while still returning the error.
