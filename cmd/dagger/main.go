@@ -311,11 +311,13 @@ EXPERIMENTAL:
 {{- end}}{{/* if eq (len .Groups) 0 */}}
 {{- end}}{{/* if .HasAvailableSubCommands */}}
 
+{{- if or (not .HasParent) (and .HasParent (eq .Parent.CalledAs ""))}}
 {{- if .HasAvailableInheritedFlags}}
 
 {{ "Global Flags" | toUpperBold }}
 {{ flagUsagesWrapped .InheritedFlags | trimTrailingWhitespaces}}
 
+{{- end}}
 {{- end}}
 
 {{- if .HasHelpSubCommands}}
