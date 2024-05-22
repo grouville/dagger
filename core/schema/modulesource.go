@@ -18,6 +18,7 @@ import (
 	"github.com/dagger/dagger/dagql"
 	"github.com/dagger/dagger/engine/buildkit"
 	"github.com/dagger/dagger/engine/vcs"
+	"github.com/dagger/dagger/telemetry"
 	"github.com/moby/buildkit/util/gitutil"
 )
 
@@ -29,9 +30,16 @@ type moduleSourceArgs struct {
 }
 
 func (s *moduleSchema) moduleSource(ctx context.Context, query *core.Query, args moduleSourceArgs) (*core.ModuleSource, error) {
-	parsed := parseRefString(args.RefString)
+	parsed := parseRefString(ctx, query.Buildkit, args.RefString)
 	modPath, modVersion, hasVersion, isRemote := parsed.modPath, parsed.modVersion, parsed.hasVersion, parsed.kind == core.ModuleSourceKindGit
 
+	l := telemetry.GlobalLogger(ctx)
+
+	l.Debug(fmt.Sprintf("😈 global logger %s-%+v\n", args.RefString, parsed))
+
+	// .Debug("🥵 ici", fmt.Sprintf("yoyoyo: %+v\n", parsed))
+	// slog.Warn("CoreModObject.ConvertFromSDKResult: got nil value")
+	// slog.Debug("🥵 ici", fmt.Sprintf("yoyoyo: %+v\n", parsed))
 	if !hasVersion && isRemote && args.Stable {
 		return nil, fmt.Errorf("no version provided for stable remote ref: %s", args.RefString)
 	}
@@ -58,8 +66,12 @@ func (s *moduleSchema) moduleSource(ctx context.Context, query *core.Query, args
 
 		// Currently expects a ref without scheme github.com/owner/repo / gitlab.com/owner/subgroup/repo
 		repoRoot, err := vcs.RepoRootForImportPath(modPath, false)
-		if err != nil || repoRoot == nil {
+		if err != nil {
 			return nil, fmt.Errorf("failed to extract root of repo from ref. For private repos, add `.git` %s: %w", modPath, err)
+		}
+
+		if repoRoot == nil {
+			return nil, fmt.Errorf("repoRoot is nil. Try again %s", modPath)
 		}
 
 		if repoRoot.VCS == nil || repoRoot.VCS.Name != "Git" {
@@ -216,17 +228,38 @@ type parsedRefString struct {
 	kind       core.ModuleSourceKind
 }
 
-func parseRefString(refString string) parsedRefString {
+func parseRefString(ctx context.Context, bk *buildkit.Client, refString string) parsedRefString {
+	logger := telemetry.GlobalLogger(ctx)
+	logger.Debug(fmt.Sprintf("😱 %+v\n", refString))
+
 	var parsed parsedRefString
 	parsed.modPath, parsed.modVersion, parsed.hasVersion = strings.Cut(refString, "@")
 
-	// TODO(Guillaume): extend logic to handle local path with stat, at CLI level?
-	// Considers as local path refs starting with / or ./ or ., used in findup logic
-	if strings.HasPrefix(parsed.modPath, "/") || strings.HasPrefix(parsed.modPath, "./") || strings.HasPrefix(parsed.modPath, ".") {
+	logger.Debug(fmt.Sprintf("😱😱 ref:|%+v|-parsed:|%+v|\n", refString, parsed))
+	// fmt.Fprintf(os.Stderr, "👹 ahahah\n")
+
+	// stat modPath as subdir
+
+	stat, err := bk.StatCallerHostPath(ctx, parsed.modPath, true)
+	if err != nil {
+		logger.Debug(fmt.Sprintf("😱 Buildkit error: %w\n", err))
+	}
+
+	// logger.Debug(fmt.Sprintf("😱😱😱 stat:|%+v|-isDir:|%+v|\n", stat, stat.IsDir()))
+	if err == nil {
+		if !parsed.hasVersion && stat.IsDir() {
+			// panic("la")
+			parsed.kind = core.ModuleSourceKindLocal
+			return parsed
+		}
+	}
+	if strings.HasPrefix(refString, "..") || strings.HasPrefix(refString, ".") || strings.HasPrefix(refString, "./") || strings.HasPrefix(refString, "../") {
+		// panic("ici")
 		parsed.kind = core.ModuleSourceKindLocal
 		return parsed
 	}
 
+	// // panic("po")
 	parsed.kind = core.ModuleSourceKindGit
 	return parsed
 }
@@ -874,6 +907,9 @@ func (s *moduleSchema) normalizeCallerLoadedSource(
 		return inst, fmt.Errorf("failed to load the context directory: %w", err)
 	}
 
+	l := telemetry.GlobalLogger(ctx)
+	l.Debug(fmt.Sprintf("👺👺👺: src:|%+v| - inst:|%+v|", src, inst))
+
 	if src.WithName != "" {
 		err = s.dag.Select(ctx, inst, &inst,
 			dagql.Selector{
@@ -1036,7 +1072,7 @@ func (s *moduleSchema) collectCallerLocalDeps(
 
 		for _, depCfg := range modCfg.Dependencies {
 			// check if it is a local module source
-			parsed := parseRefString(depCfg.Source)
+			parsed := parseRefString(ctx, query.Buildkit, depCfg.Source)
 			if parsed.kind != core.ModuleSourceKindLocal {
 				continue
 			}
@@ -1058,7 +1094,7 @@ func (s *moduleSchema) collectCallerLocalDeps(
 		case err == nil:
 		case errors.Is(err, errUnknownBuiltinSDK):
 			// check if it's a local custom SDK
-			parsed := parseRefString(modCfg.SDK)
+			parsed := parseRefString(ctx, query.Buildkit, modCfg.SDK)
 			switch parsed.kind {
 			case core.ModuleSourceKindLocal:
 				// SDK is a local custom one, it needs to be included

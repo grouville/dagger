@@ -587,6 +587,7 @@ func getModuleConfigurationForSourceRef(
 	conf := &configuredModule{}
 
 	conf.Source = dag.ModuleSource(srcRefStr)
+	fmt.Printf("🥶 %s", )
 	var err error
 	conf.SourceKind, err = conf.Source.Kind(ctx)
 	if err != nil {
