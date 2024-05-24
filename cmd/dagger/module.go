@@ -134,8 +134,10 @@ The "--source" flag allows controlling the directory in which the actual module 
 				moduleName = filepath.Base(modConf.LocalRootSourcePath)
 			}
 
+			fmt.Printf("👻 moduleSourcePath: |%v|\n", moduleSourcePath)
 			// only bother setting source path if there's an sdk at this time
 			if sdk != "" {
+				fmt.Printf("👻👻 moduleSourcePath: |%v|\n", moduleSourcePath)
 				if moduleSourcePath == "" {
 					moduleSourcePath = filepath.Join(modConf.LocalRootSourcePath, defaultModuleSourceDirName)
 				}
@@ -148,13 +150,20 @@ The "--source" flag allows controlling the directory in which the actual module 
 				if err != nil {
 					return fmt.Errorf("failed to get relative source path: %w", err)
 				}
+				fmt.Printf("👻👻👻 moduleSourcePath: |%v|\n", moduleSourcePath)
 			}
+			fmt.Printf("👻👻👻👻 moduleSourcePath: |%v|\n", moduleSourcePath)
+
+			fmt.Printf("👻👻👻👻👻 debug: %+v\n", modConf)
+			fmt.Printf("👻👻👻👻👻 debug: %+v\n", modConf.Source)
 
 			_, err = modConf.Source.
-				WithName(moduleName).
+				// _ = modConf.Source.
+				// WithName(moduleName).
 				WithSDK(sdk).
 				WithSourceSubpath(moduleSourcePath).
 				ResolveFromCaller().
+				// Sync(ctx)
 				AsModule().
 				GeneratedContextDiff().
 				Export(ctx, modConf.LocalContextPath)
@@ -162,6 +171,7 @@ The "--source" flag allows controlling the directory in which the actual module 
 				return fmt.Errorf("failed to generate code: %w", err)
 			}
 
+			fmt.Printf("👻👻👻👻👻 finish\n")
 			if err := findOrCreateLicense(ctx, modConf.LocalRootSourcePath); err != nil {
 				return err
 			}
@@ -186,10 +196,13 @@ var moduleInstallCmd = &cobra.Command{
 		ctx := cmd.Context()
 		return withEngine(ctx, client.Params{}, func(ctx context.Context, engineClient *client.Client) (err error) {
 			dag := engineClient.Dagger()
+
+			// default module configuration
 			modConf, err := getDefaultModuleConfiguration(ctx, dag, true, false)
 			if err != nil {
 				return fmt.Errorf("failed to get configured module: %w", err)
 			}
+			// make sur that source is local
 			if modConf.SourceKind != dagger.LocalSource {
 				return fmt.Errorf("module must be local")
 			}
@@ -587,13 +600,16 @@ func getModuleConfigurationForSourceRef(
 	conf := &configuredModule{}
 
 	conf.Source = dag.ModuleSource(srcRefStr)
-	fmt.Printf("🥶 %s", )
+
+	l := telemetry.GlobalLogger(ctx)
+	l.Debug(fmt.Sprintf("🥵🥶1 |%s| - |%+v|\n", srcRefStr, conf.Source))
 	var err error
 	conf.SourceKind, err = conf.Source.Kind(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get module ref kind: %w", err)
 	}
 
+	l.Debug(fmt.Sprintf("🥵🥶2 |%+v|\n", conf.SourceKind))
 	if conf.SourceKind == dagger.GitSource {
 		conf.ModuleSourceConfigExists, err = conf.Source.ConfigExists(ctx)
 		if err != nil {
@@ -602,9 +618,12 @@ func getModuleConfigurationForSourceRef(
 		return conf, nil
 	}
 
+	l.Debug(fmt.Sprintf("🥵🥶3 |%+v|\n", doFindUp))
+
 	if doFindUp {
+		l.Debug(fmt.Sprintf("🥵🥶4 |%s|\n", "ok"))
 		// need to check if this is a named module from the *default* dagger.json found-up from the cwd
-		defaultFindupConfigDir, defaultFindupExists, err := findUp(moduleURLDefault)
+		defaultFindupConfigDir, defaultFindupExists, err := findUp(ctx, moduleURLDefault)
 		if err != nil {
 			return nil, fmt.Errorf("error trying to find default config path for: %w", err)
 		}
@@ -634,7 +653,7 @@ func getModuleConfigurationForSourceRef(
 			}
 		}
 
-		findupConfigDir, findupExists, err := findUp(srcRefStr)
+		findupConfigDir, findupExists, err := findUp(ctx, srcRefStr)
 		if err != nil {
 			return nil, fmt.Errorf("error trying to find config path for %s: %w", srcRefStr, err)
 		}
@@ -643,6 +662,7 @@ func getModuleConfigurationForSourceRef(
 		}
 		srcRefStr = findupConfigDir
 	}
+	l.Debug(fmt.Sprintf("🥵🥶4.1 shit\n"))
 
 	conf.LocalRootSourcePath, err = filepath.Abs(srcRefStr)
 	if err != nil {
@@ -661,23 +681,30 @@ func getModuleConfigurationForSourceRef(
 	if err := os.MkdirAll(srcRefStr, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create directory for %s: %w", srcRefStr, err)
 	}
+	l.Debug(fmt.Sprintf("🥵🥶5 |%s|\n", srcRefStr))
 	conf.Source = dag.ModuleSource(srcRefStr)
 
+	l.Debug(fmt.Sprintf("🥵🥶6 |%s|\n", srcRefStr))
 	conf.LocalContextPath, err = conf.Source.ResolveContextPathFromCaller(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get local root path: %w", err)
 	}
+	l.Debug(fmt.Sprintf("🥵🥶7 |%s|\n", srcRefStr))
 	_, err = os.Lstat(filepath.Join(conf.LocalRootSourcePath, modules.Filename))
 	conf.ModuleSourceConfigExists = err == nil
 
+	l.Debug(fmt.Sprintf("🥵🥶8 |%s|\n", srcRefStr))
 	if resolveFromCaller {
 		conf.Source = conf.Source.ResolveFromCaller()
 	}
 
+	l.Debug(fmt.Sprintf("🥵🥶9 |%s| src:|%+v|\n", srcRefStr, conf))
 	return conf, nil
 }
 
-func findUp(curDirPath string) (string, bool, error) {
+func findUp(ctx context.Context, curDirPath string) (string, bool, error) {
+	l := telemetry.GlobalLogger(ctx)
+	l.Debug(fmt.Sprintf("🙀🙀 1 |%s|\n", curDirPath))
 	configPath := filepath.Join(curDirPath, modules.Filename)
 	stat, err := os.Lstat(configPath)
 	switch {
@@ -694,6 +721,7 @@ func findUp(curDirPath string) (string, bool, error) {
 		return "", false, fmt.Errorf("failed to lstat %s: %w", configPath, err)
 	}
 
+	l.Debug(fmt.Sprintf("🙀🙀 2 |%s| - |%+v|\n", curDirPath))
 	// didn't exist, try parent unless we've hit the root or a git repo checkout root
 	curDirAbsPath, err := filepath.Abs(curDirPath)
 	if err != nil {
@@ -704,13 +732,14 @@ func findUp(curDirPath string) (string, bool, error) {
 		return "", false, nil
 	}
 
+	l.Debug(fmt.Sprintf("🙀🙀 3 |%s| - |%+v|\n", curDirPath))
 	_, err = os.Lstat(filepath.Join(curDirPath, ".git"))
 	if err == nil {
 		return "", false, nil
 	}
 
 	parentDirPath := filepath.Join(curDirPath, "..")
-	return findUp(parentDirPath)
+	return findUp(ctx, parentDirPath)
 }
 
 // Wraps a command with optional module loading. If a module was explicitly specified by the user,

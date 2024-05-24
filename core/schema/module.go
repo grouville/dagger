@@ -13,6 +13,7 @@ import (
 	"github.com/dagger/dagger/core/modules"
 	"github.com/dagger/dagger/dagql"
 	"github.com/dagger/dagger/engine"
+	"github.com/dagger/dagger/telemetry"
 )
 
 type moduleSchema struct {
@@ -697,10 +698,12 @@ func (s *moduleSchema) moduleGeneratedContextDiff(
 	mod *core.Module,
 	args struct{},
 ) (inst dagql.Instance[*core.Directory], err error) {
+	l := telemetry.GlobalLogger(ctx)
 	baseContext, err := mod.Source.Self.ContextDirectory()
 	if err != nil {
 		return inst, fmt.Errorf("failed to get base context directory: %w", err)
 	}
+	l.Debug(fmt.Sprintf("🧠🧠🧠 |%+v|%+v|\n", baseContext, mod.Source))
 
 	var diff dagql.Instance[*core.Directory]
 	err = s.dag.Select(ctx, baseContext, &diff,

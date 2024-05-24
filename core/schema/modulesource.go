@@ -364,6 +364,8 @@ func (s *moduleSchema) moduleSourceWithName(
 		Name string
 	},
 ) (*core.ModuleSource, error) {
+	l := telemetry.GlobalLogger(ctx)
+	l.Debug(fmt.Sprintf("🧑‍🚒 withNameExecuted"))
 	src = src.Clone()
 	src.WithName = args.Name
 	return src, nil
@@ -697,6 +699,7 @@ func (s *moduleSchema) resolveContextPathFromCaller(
 	ctx context.Context,
 	src *core.ModuleSource,
 ) (contextRootAbsPath, sourceRootAbsPath string, _ error) {
+	l := telemetry.GlobalLogger(ctx)
 	if src.Kind != core.ModuleSourceKindLocal {
 		return "", "", fmt.Errorf("cannot resolve non-local module source from caller")
 	}
@@ -706,21 +709,26 @@ func (s *moduleSchema) resolveContextPathFromCaller(
 		return "", "", fmt.Errorf("failed to get source root subpath: %w", err)
 	}
 
+	l.Debug(fmt.Sprintf("🙅‍♀️ rootSubpath: |%+v|\n", rootSubpath))
+
 	sourceRootStat, err := src.Query.Buildkit.StatCallerHostPath(ctx, rootSubpath, true)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to stat source root: %w", err)
 	}
 	sourceRootAbsPath = sourceRootStat.Path
+	l.Debug(fmt.Sprintf("🙅‍♀️🙅‍♀️ sourceRootStat.Path: |%/v|\n", sourceRootStat.Path))
 
 	contextAbsPath, contextFound, err := callerHostFindUpContext(ctx, src.Query.Buildkit, sourceRootAbsPath)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to find up root: %w", err)
 	}
+	l.Debug(fmt.Sprintf("🙅‍♀️🙅‍♀️🙅‍♀️ contextAbsPath: |%+v|%+v\n", contextAbsPath, contextFound))
 
 	if !contextFound {
 		// default to restricting to the source root dir, make it abs though for consistency
 		contextAbsPath = sourceRootAbsPath
 	}
+	l.Debug(fmt.Sprintf("🙅‍♀️🙅‍♀️🙅‍♀️🙅‍♀️ contextAbsPath: |%+v|%v|\n", contextAbsPath, sourceRootAbsPath))
 
 	return contextAbsPath, sourceRootAbsPath, nil
 }
@@ -731,21 +739,27 @@ func (s *moduleSchema) moduleSourceResolveFromCaller(
 	src *core.ModuleSource,
 	args struct{},
 ) (inst dagql.Instance[*core.ModuleSource], err error) {
+	l := telemetry.GlobalLogger(ctx)
+	l.Debug(fmt.Sprintf("🤖 moduleSourceResolveFromCaller: |%+v|\n", src))
 	contextAbsPath, sourceRootAbsPath, err := s.resolveContextPathFromCaller(ctx, src)
 	if err != nil {
 		return inst, err
 	}
+	l.Debug(fmt.Sprintf("🤖🧝‍♀️ moduleSourceResolveFromCaller: |%+v|%+v|\n", contextAbsPath, sourceRootAbsPath))
 
 	sourceRootRelPath, err := filepath.Rel(contextAbsPath, sourceRootAbsPath)
 	if err != nil {
 		return inst, fmt.Errorf("failed to get source root relative path: %w", err)
 	}
+	sourceRootRelPath = "./" + sourceRootRelPath // force being considered as a relative local path
+	l.Debug(fmt.Sprintf("🤖🤖 moduleSourceResolveFromCaller: |%+v|\n", sourceRootRelPath))
 
 	collectedDeps := dagql.NewCacheMap[string, *callerLocalDep]()
 	if err := s.collectCallerLocalDeps(ctx, src.Query, contextAbsPath, sourceRootAbsPath, true, src, collectedDeps); err != nil {
 		return inst, fmt.Errorf("failed to collect local module source deps: %w", err)
 	}
 
+	// l.Debug(fmt.Sprintf("🤖🤖🤖 moduleSourceResolveFromCaller: |%+v|\n", sourceRootRelPath))
 	includeSet := map[string]struct{}{}
 	excludeSet := map[string]struct{}{
 		// always exclude .git dirs, we don't need them and they tend to invalidate cache a lot
@@ -1012,7 +1026,9 @@ func (s *moduleSchema) collectCallerLocalDeps(
 	// cache of sourceRootAbsPath -> *callerLocalDep
 	collectedDeps dagql.CacheMap[string, *callerLocalDep],
 ) error {
+	l := telemetry.GlobalLogger(ctx)
 	_, _, err := collectedDeps.GetOrInitialize(ctx, sourceRootAbsPath, func(ctx context.Context) (*callerLocalDep, error) {
+		l.Debug(fmt.Sprintf("👾 topLevel: |%+v| - src: |%+v|\n", topLevel, src))
 		sourceRootRelPath, err := filepath.Rel(contextAbsPath, sourceRootAbsPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get source root relative path: %w", err)
@@ -1020,9 +1036,11 @@ func (s *moduleSchema) collectCallerLocalDeps(
 		if !filepath.IsLocal(sourceRootRelPath) {
 			return nil, fmt.Errorf("local module dep source path %q escapes context %q", sourceRootRelPath, contextAbsPath)
 		}
+		l.Debug(fmt.Sprintf("`👾👾` sourceRootRelPath: |%+v|\n", sourceRootRelPath))
 
 		var modCfg modules.ModuleConfig
 		configPath := filepath.Join(sourceRootAbsPath, modules.Filename)
+		// l.Debug(fmt.Sprintf("👾 topLevel: |%+v| - src: |%+v|\n", topLevel, src))
 		configBytes, err := query.Buildkit.ReadCallerHostFile(ctx, configPath)
 		switch {
 		case err == nil:
