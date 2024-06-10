@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/url"
 	"os"
@@ -18,8 +19,11 @@ import (
 	"strings"
 
 	"github.com/containerd/containerd/platforms"
+	"github.com/dagger/dagger/core"
+	"github.com/dagger/dagger/engine/vcs"
 	"github.com/moby/buildkit/util/gitutil"
 	"github.com/spf13/pflag"
+	"github.com/tonistiigi/fsutil/types"
 
 	"dagger.io/dagger"
 )
@@ -218,24 +222,32 @@ func (v *directoryValue) Get(ctx context.Context, dag *dagger.Client, modSrc *da
 		return nil, fmt.Errorf("directory address cannot be empty")
 	}
 
-	// Try parsing as a Git URL
-	parsedGit, err := parseGit(v.String())
-	if err == nil {
-		gitOpts := dagger.GitOpts{
-			KeepGitDir: true,
+	var bk osBuildkitClient
+	ref, kind, err := vcs.ConvertToBuildKitRef(ctx, v.String(), &bk)
+	if err != nil && kind == nil {
+		slog.Warn("failed to convert original ref %s. error %w", v.String(), err)
+	}
+
+	if kind != nil && *kind == core.ModuleSourceKindGit {
+		// Try parsing as a Git URL
+		parsedGit, err := parseGit(ref)
+		if err == nil {
+			gitOpts := dagger.GitOpts{
+				KeepGitDir: true,
+			}
+			if authSock, ok := os.LookupEnv("SSH_AUTH_SOCK"); ok {
+				gitOpts.SSHAuthSocket = dag.Host().UnixSocket(authSock)
+			}
+			gitDir := dag.Git(parsedGit.Remote, gitOpts).Branch(parsedGit.Fragment.Ref).Tree()
+			if subdir := parsedGit.Fragment.Subdir; subdir != "" {
+				gitDir = gitDir.Directory(subdir)
+			}
+			return gitDir, nil
 		}
-		if authSock, ok := os.LookupEnv("SSH_AUTH_SOCK"); ok {
-			gitOpts.SSHAuthSocket = dag.Host().UnixSocket(authSock)
-		}
-		gitDir := dag.Git(parsedGit.Remote, gitOpts).Branch(parsedGit.Fragment.Ref).Tree()
-		if subdir := parsedGit.Fragment.Subdir; subdir != "" {
-			gitDir = gitDir.Directory(subdir)
-		}
-		return gitDir, nil
 	}
 
 	// Otherwise it's a local dir path. Allow `file://` scheme or no scheme.
-	path := v.String()
+	path := ref
 	path = strings.TrimPrefix(path, "file://")
 
 	// Check if there's a :view.
@@ -288,31 +300,39 @@ func (v *fileValue) String() string {
 	return v.path
 }
 
-func (v *fileValue) Get(_ context.Context, dag *dagger.Client, _ *dagger.ModuleSource) (any, error) {
+func (v *fileValue) Get(ctx context.Context, dag *dagger.Client, _ *dagger.ModuleSource) (any, error) {
 	vStr := v.String()
 	if vStr == "" {
 		return nil, fmt.Errorf("file path cannot be empty")
 	}
 
-	// Try parsing as a Git URL
-	parsedGit, err := parseGit(v.String())
-	if err == nil {
-		gitOpts := dagger.GitOpts{
-			KeepGitDir: true,
-		}
-		if authSock, ok := os.LookupEnv("SSH_AUTH_SOCK"); ok {
-			gitOpts.SSHAuthSocket = dag.Host().UnixSocket(authSock)
-		}
-		gitDir := dag.Git(parsedGit.Remote, gitOpts).Branch(parsedGit.Fragment.Ref).Tree()
-		path := parsedGit.Fragment.Subdir
-		if path == "" {
-			return nil, fmt.Errorf("expected path selection for git repo")
-		}
-		return gitDir.File(path), nil
+	var bk osBuildkitClient
+	ref, kind, err := vcs.ConvertToBuildKitRef(ctx, vStr, &bk)
+	if err != nil && kind == nil {
+		slog.Warn("failed to convert original ref %s. error %w", v.String(), err)
 	}
 
+	if kind != nil && *kind == core.ModuleSourceKindGit {
+		// Try parsing as a Git URL
+		parsedGit, err := parseGit(ref)
+		if err == nil {
+			gitOpts := dagger.GitOpts{
+				KeepGitDir: true,
+			}
+			if authSock, ok := os.LookupEnv("SSH_AUTH_SOCK"); ok {
+				gitOpts.SSHAuthSocket = dag.Host().UnixSocket(authSock)
+			}
+			gitDir := dag.Git(parsedGit.Remote, gitOpts).Branch(parsedGit.Fragment.Ref).Tree()
+			path := parsedGit.Fragment.Subdir
+			if path == "" {
+				return nil, fmt.Errorf("expected path selection for git repo")
+			}
+			return gitDir.File(path), nil
+		}
+
+	}
 	// Otherwise it's a local dir path. Allow `file://` scheme or no scheme.
-	vStr = strings.TrimPrefix(vStr, "file://")
+	vStr = strings.TrimPrefix(ref, "file://")
 	if !filepath.IsAbs(vStr) {
 		var err error
 		vStr, err = filepath.Abs(vStr)
@@ -796,4 +816,27 @@ func writeAsCSV(vals []string) (string, error) {
 	}
 	w.Flush()
 	return strings.TrimSuffix(b.String(), "\n"), nil
+}
+
+type osBuildkitClient struct{}
+
+// cliBuildkitClient.StatCallerHostPath is the CLI context implementation of StatCallerHostPath
+func (c *osBuildkitClient) StatCallerHostPath(ctx context.Context, path string, followLinks bool) (*types.Stat, error) {
+	var fileInfo os.FileInfo
+	var err error
+
+	if followLinks {
+		fileInfo, err = os.Stat(path)
+	} else {
+		fileInfo, err = os.Lstat(path)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.Stat{
+		Path: path,
+		Mode: uint32(fileInfo.Mode()),
+	}, nil
 }
