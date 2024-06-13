@@ -25,7 +25,7 @@ func TestConvertRef(t *testing.T) {
 		{
 			name:           "basic",
 			urlStr:         "github.com/sipsma/daggerverse",
-			expectedUrlStr: "https://github.com/sipsma/daggerverse",
+			expectedUrlStr: "https://github.com/sipsma/daggerverse.git",
 		},
 		{
 			name:           "basic with .git",
@@ -37,7 +37,7 @@ func TestConvertRef(t *testing.T) {
 		{
 			name:           "basic with subdir",
 			urlStr:         "github.com/sipsma/daggerverse/subdir1/subdir2",
-			expectedUrlStr: "https://github.com/sipsma/daggerverse:subdir1/subdir2",
+			expectedUrlStr: "https://github.com/sipsma/daggerverse.git:subdir1/subdir2",
 		},
 		{
 			name:           "basic with subdir and .git",
@@ -49,7 +49,7 @@ func TestConvertRef(t *testing.T) {
 		{
 			name:           "basic with version",
 			urlStr:         "github.com/sipsma/daggerverse@v0.9.1",
-			expectedUrlStr: "https://github.com/sipsma/daggerverse#v0.9.1",
+			expectedUrlStr: "https://github.com/sipsma/daggerverse.git#v0.9.1",
 		},
 		{
 			name:           "basic with version and .git",
@@ -61,7 +61,7 @@ func TestConvertRef(t *testing.T) {
 		{
 			name:           "basic with subdir and version",
 			urlStr:         "github.com/sipsma/daggerverse/subdir1/subdir2@v0.9.1",
-			expectedUrlStr: "https://github.com/sipsma/daggerverse#v0.9.1:subdir1/subdir2",
+			expectedUrlStr: "https://github.com/sipsma/daggerverse.git#v0.9.1:subdir1/subdir2",
 		},
 		{
 			name:           "basic with subdir, version and .git",
@@ -72,7 +72,7 @@ func TestConvertRef(t *testing.T) {
 		{
 			name:           "GitLab with subdir",
 			urlStr:         "gitlab.com/grouville-public/subgroup/daggerverse/zip",
-			expectedUrlStr: "https://gitlab.com/grouville-public/subgroup/daggerverse:zip",
+			expectedUrlStr: "https://gitlab.com/grouville-public/subgroup/daggerverse.git:zip",
 		},
 		{
 			name:           "GitLab with subdir, with .git",
@@ -84,7 +84,7 @@ func TestConvertRef(t *testing.T) {
 		{
 			name:           "Vanity ref with version",
 			urlStr:         "dagger.io/dagger@v0.9.1",
-			expectedUrlStr: "https://github.com/dagger/dagger-go-sdk#v0.9.1",
+			expectedUrlStr: "https://github.com/dagger/dagger-go-sdk.git#v0.9.1",
 		},
 
 		// Edge cases

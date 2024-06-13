@@ -32,7 +32,7 @@ func TestParsePublicRefString(t *testing.T) {
 			want: &parsedRefString{
 				ModPath:        "github.com/shykes/daggerverse/ci",
 				Kind:           core.ModuleSourceKindGit,
-				RepoRoot:       &RepoRoot{Root: "github.com/shykes/daggerverse", Repo: "https://github.com/shykes/daggerverse"},
+				RepoRoot:       &RepoRoot{Root: "github.com/shykes/daggerverse", Repo: "https://github.com/shykes/daggerverse.git"},
 				RepoRootSubdir: "ci",
 			},
 		},
@@ -69,7 +69,7 @@ func TestParsePublicRefString(t *testing.T) {
 			want: &parsedRefString{
 				ModPath:        "gitlab.com/testguigui1/dagger-public-sub/mywork.git/depth1/depth2",
 				Kind:           core.ModuleSourceKindGit,
-				RepoRoot:       &RepoRoot{Root: "gitlab.com/testguigui1/dagger-public-sub/mywork.git", Repo: "https://gitlab.com/testguigui1/dagger-public-sub/mywork"},
+				RepoRoot:       &RepoRoot{Root: "gitlab.com/testguigui1/dagger-public-sub/mywork.git", Repo: "https://gitlab.com/testguigui1/dagger-public-sub/mywork.git"},
 				RepoRootSubdir: "depth1/depth2",
 			},
 		},
@@ -79,7 +79,7 @@ func TestParsePublicRefString(t *testing.T) {
 			want: &parsedRefString{
 				ModPath:        "bitbucket.org/test-travail/test/depth1",
 				Kind:           core.ModuleSourceKindGit,
-				RepoRoot:       &RepoRoot{Root: "bitbucket.org/test-travail/test", Repo: "https://bitbucket.org/test-travail/test"},
+				RepoRoot:       &RepoRoot{Root: "bitbucket.org/test-travail/test", Repo: "https://bitbucket.org/test-travail/test.git"},
 				RepoRootSubdir: "depth1",
 			},
 		},
