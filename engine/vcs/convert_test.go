@@ -179,7 +179,7 @@ func TestConvertRef(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			convertedUrlStr, _, _ := ConvertToBuildKitRef(context.TODO(), tc.urlStr, bkClientDirFalse)
+			convertedUrlStr, _ := ConvertToBuildKitRef(context.TODO(), tc.urlStr, bkClientDirFalse, ParseRefStringDir)
 			require.Equal(t, tc.expectedUrlStr, convertedUrlStr)
 		})
 	}

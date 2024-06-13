@@ -96,7 +96,7 @@ func TestParsePublicRefString(t *testing.T) {
 		tc := tc
 		t.Run(tc.urlStr, func(t *testing.T) {
 			t.Parallel()
-			parsed := ParseRefString(ctx, bkClientDirFalse, tc.urlStr)
+			parsed := ParseRefStringDir(ctx, bkClientDirFalse, tc.urlStr)
 			require.NotNil(t, parsed)
 			require.Equal(t, parsed.ModPath, tc.want.ModPath)
 			require.Equal(t, parsed.Kind, tc.want.Kind)

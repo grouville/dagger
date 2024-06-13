@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"log/slog"
 	"net"
 	"net/url"
 	"os"
@@ -222,13 +221,10 @@ func (v *directoryValue) Get(ctx context.Context, dag *dagger.Client, modSrc *da
 		return nil, fmt.Errorf("directory address cannot be empty")
 	}
 
-	var bk osBuildkitClient
-	ref, kind, err := vcs.ConvertToBuildKitRef(ctx, v.String(), &bk)
-	if err != nil && kind == nil {
-		slog.Warn("failed to convert original ref %s. error %w", v.String(), err)
-	}
+	bk := &osBuildkitClient{}
+	ref, kind := vcs.ConvertToBuildKitRef(ctx, v.String(), bk, vcs.ParseRefStringDir)
 
-	if kind != nil && *kind == core.ModuleSourceKindGit {
+	if kind == core.ModuleSourceKindGit {
 		// Try parsing as a Git URL
 		parsedGit, err := parseGit(ref)
 		if err == nil {
@@ -247,8 +243,7 @@ func (v *directoryValue) Get(ctx context.Context, dag *dagger.Client, modSrc *da
 	}
 
 	// Otherwise it's a local dir path. Allow `file://` scheme or no scheme.
-	path := ref
-	path = strings.TrimPrefix(path, "file://")
+	path := strings.TrimPrefix(ref, "file://")
 
 	// Check if there's a :view.
 	// This technically prevents use of paths containing a ":", but that's
@@ -306,13 +301,10 @@ func (v *fileValue) Get(ctx context.Context, dag *dagger.Client, _ *dagger.Modul
 		return nil, fmt.Errorf("file path cannot be empty")
 	}
 
-	var bk osBuildkitClient
-	ref, kind, err := vcs.ConvertToBuildKitRef(ctx, vStr, &bk)
-	if err != nil && kind == nil {
-		slog.Warn("failed to convert original ref %s. error %w", v.String(), err)
-	}
+	bk := &osBuildkitClient{}
+	ref, kind := vcs.ConvertToBuildKitRef(ctx, vStr, bk, vcs.ParseRefStringFile)
 
-	if kind != nil && *kind == core.ModuleSourceKindGit {
+	if kind == core.ModuleSourceKindGit {
 		// Try parsing as a Git URL
 		parsedGit, err := parseGit(ref)
 		if err == nil {

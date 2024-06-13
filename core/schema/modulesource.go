@@ -28,7 +28,7 @@ type moduleSourceArgs struct {
 }
 
 func (s *moduleSchema) moduleSource(ctx context.Context, query *core.Query, args moduleSourceArgs) (*core.ModuleSource, error) {
-	parsed := vcs.ParseRefString(ctx, query.Buildkit, args.RefString)
+	parsed := vcs.ParseRefStringDir(ctx, query.Buildkit, args.RefString)
 	if args.Stable && !parsed.HasVersion && parsed.Kind == core.ModuleSourceKindGit {
 		return nil, fmt.Errorf("no version provided for stable remote ref: %s", args.RefString)
 	}
@@ -936,7 +936,7 @@ func (s *moduleSchema) collectCallerLocalDeps(
 		}
 
 		for _, depCfg := range modCfg.Dependencies {
-			parsed := vcs.ParseRefString(ctx, query.Buildkit, depCfg.Source)
+			parsed := vcs.ParseRefStringDir(ctx, query.Buildkit, depCfg.Source)
 			if parsed.Kind != core.ModuleSourceKindLocal {
 				continue
 			}
@@ -957,7 +957,7 @@ func (s *moduleSchema) collectCallerLocalDeps(
 		switch {
 		case err == nil:
 		case errors.Is(err, errUnknownBuiltinSDK):
-			parsed := vcs.ParseRefString(ctx, query.Buildkit, modCfg.SDK)
+			parsed := vcs.ParseRefStringDir(ctx, query.Buildkit, modCfg.SDK)
 			switch parsed.Kind {
 			case core.ModuleSourceKindLocal:
 				// SDK is a local custom one, it needs to be included
