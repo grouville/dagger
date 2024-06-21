@@ -1171,8 +1171,78 @@ const (
 	gitTestRepoCommit = "2cb6cb4b0dba52c1e65b3ff46dd1a4a8f9a02f94"
 )
 
-func testGitModuleRef(subpath string) string {
-	url := gitTestRepoURL
+var vcsTestCases = []vcsTestCase{
+	// public repos
+	// {
+	// 	name:              "GitHub without .git",
+	// 	gitTestRepoRef:    "github.com/dagger/dagger-test-modules",
+	// 	gitTestRepoCommit: "2cb6cb4b0dba52c1e65b3ff46dd1a4a8f9a02f94",
+	// 	host:              "github.com",
+	// 	baseHTMLURL:       "github.com/dagger/dagger-test-modules",
+	// 	urlPathComponent:  "tree",
+	// },
+	// {
+	// 	name:              "GitLab without .git",
+	// 	gitTestRepoRef:    "gitlab.com/dagger-modules/test/more/dagger-test-modules-public",
+	// 	gitTestRepoCommit: "2cb6cb4b0dba52c1e65b3ff46dd1a4a8f9a02f94",
+	// 	host:              "gitlab.com",
+	// 	baseHTMLURL:       "gitlab.com/dagger-modules/test/more/dagger-test-modules-public",
+	// 	urlPathComponent:  "tree",
+	// },
+	// {
+	// 	name:              "GitHub with .git",
+	// 	gitTestRepoRef:    "github.com/dagger/dagger-test-modules.git",
+	// 	gitTestRepoCommit: "2cb6cb4b0dba52c1e65b3ff46dd1a4a8f9a02f94",
+	// 	host:              "github.com",
+	// 	baseHTMLURL:       "github.com/dagger/dagger-test-modules",
+	// 	urlPathComponent:  "tree",
+	// },
+	// {
+	// 	name:              "GitLab with .git",
+	// 	gitTestRepoRef:    "gitlab.com/dagger-modules/test/more/dagger-test-modules-public.git",
+	// 	gitTestRepoCommit: "2cb6cb4b0dba52c1e65b3ff46dd1a4a8f9a02f94",
+	// 	host:              "gitlab.com",
+	// 	baseHTMLURL:       "gitlab.com/dagger-modules/test/more/dagger-test-modules-public",
+	// 	urlPathComponent:  "tree",
+	// },
+	// {
+	// 	name:              "BitBucket without .git",
+	// 	gitTestRepoRef:    "bitbucket.org/dagger-modules/dagger-test-modules-public",
+	// 	gitTestRepoCommit: "2cb6cb4b0dba52c1e65b3ff46dd1a4a8f9a02f94",
+	// 	host:              "bitbucket.org",
+	// 	baseHTMLURL:       "bitbucket.org/dagger-modules/dagger-test-modules-public",
+	// 	urlPathComponent:  "src",
+	// },
+	// {
+	// 	name:              "BitBucket with .git",
+	// 	gitTestRepoRef:    "bitbucket.org/dagger-modules/dagger-test-modules-public.git",
+	// 	gitTestRepoCommit: "2cb6cb4b0dba52c1e65b3ff46dd1a4a8f9a02f94",
+	// 	host:              "bitbucket.org",
+	// 	baseHTMLURL:       "bitbucket.org/dagger-modules/dagger-test-modules-public",
+	// 	urlPathComponent:  "src",
+	// },
+	{
+		name:              "Private gitlab",
+		gitTestRepoRef:    "gitlab.com/dagger-modules/private/test/more/dagger-test-modules-private.git",
+		gitTestRepoCommit: "2cb6cb4b0dba52c1e65b3ff46dd1a4a8f9a02f94",
+		host:              "gitlab.com",
+		baseHTMLURL:       "gitlab.com/dagger-modules/private/test/more/dagger-test-modules-private",
+		urlPathComponent:  "tree",
+	},
+}
+
+func testOnMultipleVCS(t *testing.T, testFunc func(t *testing.T, tc vcsTestCase)) {
+	for _, tc := range vcsTestCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			testFunc(t, tc)
+		})
+	}
+}
+
+func testGitModuleRef(tc vcsTestCase, subpath string) string {
+	url := tc.gitTestRepoRef
 	if subpath != "" {
 		if !strings.HasPrefix(subpath, "/") {
 			subpath = "/" + subpath
