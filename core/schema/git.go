@@ -6,11 +6,14 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"os/user"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/dagger/dagger/core"
 	"github.com/dagger/dagger/dagql"
+	"github.com/moby/buildkit/session/sshforward"
 )
 
 var _ SchemaResolvers = &gitSchema{}
@@ -175,7 +178,47 @@ type tagsArgs struct {
 }
 
 func (s *gitSchema) tags(ctx context.Context, parent *core.GitRepository, args tagsArgs) ([]string, error) {
-	// TODO: exec git with an equivalent of gitdns.git(), to inherently handle auth via the socket
+
+	if parent == nil || parent.SSHAuthSocket == nil {
+		return []string{}, fmt.Errorf("sshAuthSocket not available")
+	}
+
+	sshID := parent.SSHAuthSocket.SSHID()
+	if sshID == "" {
+		return []string{}, fmt.Errorf("sshID is empty")
+	}
+
+	caller, err := parent.Query.Buildkit.SessionManager.Get(ctx, parent.Query.MainClientCallerID, true)
+	if err != nil {
+		return []string{}, err
+	}
+
+	usr, err := user.Current()
+	if err != nil {
+		return []string{}, err
+	}
+
+	// best effort, default to root
+	uid, err := strconv.Atoi(usr.Uid)
+	if err != nil {
+		uid = 0 // default to root
+	}
+	gid, err := strconv.Atoi(usr.Gid)
+	if err != nil {
+		gid = 0 // default to root
+	}
+
+	sock, cleanup, err := sshforward.MountSSHSocket(ctx, caller, sshforward.SocketOpt{
+		ID:   sshID,
+		UID:  uid,
+		GID:  gid,
+		Mode: 0700,
+	})
+	if err != nil {
+		return []string{}, err
+	}
+	defer cleanup()
+
 	queryArgs := []string{
 		"ls-remote",
 		"--tags", // we only want tags
@@ -191,7 +234,12 @@ func (s *gitSchema) tags(ctx context.Context, parent *core.GitRepository, args t
 		}
 	}
 
-	output, err := exec.CommandContext(ctx, "git", queryArgs...).Output()
+	cmd := exec.CommandContext(ctx, "git", queryArgs...)
+	// if parent != nil && parent.SSHAuthSocket != nil {
+	cmd.Env = append(cmd.Env, "SSH_AUTH_SOCK="+sock)
+	// }
+
+	output, err := cmd.Output()
 	if err != nil {
 		return nil, err
 	}
