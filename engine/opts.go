@@ -71,6 +71,9 @@ type ClientMetadata struct {
 
 	// Disable analytics
 	DoNotTrack bool
+
+	// SSH auth socket path
+	SSHAuthSocketPath string
 }
 
 type clientMetadataCtxKey struct{}
