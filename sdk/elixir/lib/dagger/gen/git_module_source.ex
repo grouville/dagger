@@ -59,6 +59,15 @@ defmodule Dagger.GitModuleSource do
     Client.execute(git_module_source.client, query_builder)
   end
 
+  @doc "The URL to access the web view of the repository (e.g., GitHub, GitLab, Bitbucket)"
+  @spec repository_url(t()) :: {:ok, String.t()} | {:error, term()}
+  def repository_url(%__MODULE__{} = git_module_source) do
+    selection =
+      git_module_source.selection |> select("repositoryUrl")
+
+    execute(selection, git_module_source.client)
+  end
+
   @doc "The clean module name of the root of the module"
   @spec root(t()) :: {:ok, String.t()} | {:error, term()}
   def root(%__MODULE__{} = git_module_source) do
