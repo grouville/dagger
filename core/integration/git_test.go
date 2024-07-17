@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -226,8 +225,6 @@ sleep infinity
 
 func (GitSuite) TestGitTagsWithAndWithoutSSHAuth(ctx context.Context, t *testctx.T) {
 	c := connect(ctx, t)
-	// ensure test environment does not contain this env var, as client might inherit it
-	os.Unsetenv("SSH_AUTH_SOCK")
 
 	repoURL := "git@gitlab.com:dagger-modules/private/test/more/dagger-test-modules-private.git"
 

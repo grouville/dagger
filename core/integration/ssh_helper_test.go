@@ -13,8 +13,9 @@ import (
 )
 
 var (
-	globalSSHAgent agent.Agent
-	globalSSHSock  string
+	globalSSHAgent        agent.Agent
+	globalSSHSock         string
+	globalHostSSHAuthSock string
 )
 
 func setupGlobalSSHAgent(t *testctx.T) func() {
@@ -52,11 +53,17 @@ func setupGlobalSSHAgent(t *testctx.T) func() {
 		}
 	}()
 
-	// os.Setenv("SSH_AUTH_SOCK", globalSSHSock)
+	// ensure test suite is not polluted by env var
+	globalHostSSHAuthSock = os.Getenv("SSH_AUTH_SOCK")
+	os.Unsetenv("SSH_AUTH_SOCK")
 
 	return func() {
 		t.Log("Cleaning up global SSH agent")
 		l.Close()
 		os.Remove(globalSSHSock)
+		// leave host environment untouched
+		if globalHostSSHAuthSock != "" {
+			os.Setenv("SSH_AUTH_SOCK", globalHostSSHAuthSock)
+		}
 	}
 }

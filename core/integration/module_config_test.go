@@ -12,6 +12,7 @@ import (
 
 	"dagger.io/dagger"
 	"github.com/dagger/dagger/core/modules"
+	"github.com/dagger/dagger/engine"
 	"github.com/dagger/dagger/testctx"
 )
 
@@ -64,31 +65,33 @@ func (ModuleSuite) TestConfigs(ctx context.Context, t *testctx.T) {
 
 	t.Run("malicious config", func(ctx context.Context, t *testctx.T) {
 		// verify a maliciously/incorrectly constructed dagger.json is still handled correctly
-		c := connect(ctx, t)
+		base := func(ctx context.Context) *dagger.Container {
+			c := connect(ctx, t)
 
-		base := goGitBase(t, c).
-			WithMountedFile(testCLIBinPath, daggerCliFile(t, c)).
-			WithWorkdir("/tmp/foo").
-			With(daggerExec("init", "--source=.", "--name=dep", "--sdk=go")).
-			WithWorkdir("/work/dep").
-			With(daggerExec("init", "--source=.", "--name=dep", "--sdk=go")).
-			WithNewFile("/work/dep/main.go", `package main
+			return goGitBase(t, c).
+				WithMountedFile(testCLIBinPath, daggerCliFile(t, c)).
+				WithWorkdir("/tmp/foo").
+				With(daggerExec("init", "--source=.", "--name=dep", "--sdk=go")).
+				WithWorkdir("/work/dep").
+				With(daggerExec("init", "--source=.", "--name=dep", "--sdk=go")).
+				WithNewFile("/work/dep/main.go", `package main
 
-			import "context"
+        import "context"
 
-			type Dep struct {}
+        type Dep struct {}
 
-			func (m *Dep) GetSource(ctx context.Context) *dagger.Directory {
-				return dag.CurrentModule().Source()
-			}
-			`,
-			).
-			WithWorkdir("/work").
-			With(daggerExec("init", "--source=.", "--name=test", "--sdk=go"))
+        func (m *Dep) GetSource(ctx context.Context) *dagger.Directory {
+            return dag.CurrentModule().Source()
+        }
+        `,
+				).
+				WithWorkdir("/work").
+				With(daggerExec("init", "--source=.", "--name=test", "--sdk=go"))
+		}
 
 		t.Run("source points out of root", func(ctx context.Context, t *testctx.T) {
 			t.Run("local", func(ctx context.Context, t *testctx.T) {
-				base := base.
+				base := base(ctx).
 					With(configFile(".", &modules.ModuleConfig{
 						Name:   "evil",
 						SDK:    "go",
@@ -106,7 +109,7 @@ func (ModuleSuite) TestConfigs(ctx context.Context, t *testctx.T) {
 			})
 
 			t.Run("local with absolute path", func(ctx context.Context, t *testctx.T) {
-				base := base.
+				base := base(ctx).
 					With(configFile(".", &modules.ModuleConfig{
 						Name:   "evil",
 						SDK:    "go",
@@ -125,7 +128,7 @@ func (ModuleSuite) TestConfigs(ctx context.Context, t *testctx.T) {
 
 			testOnMultipleVCS(t, func(ctx context.Context, t *testctx.T, tc vcsTestCase) {
 				t.Run("git", func(ctx context.Context, t *testctx.T) {
-					_, err := base.With(daggerCallAt(testGitModuleRef(tc, "invalid/bad-source"), "container-echo", "--string-arg", "plz fail")).Sync(ctx)
+					_, err := base(ctx).With(daggerCallAt(testGitModuleRef(tc, "invalid/bad-source"), "container-echo", "--string-arg", "plz fail")).Sync(ctx)
 					require.ErrorContains(t, err, `source path "../../../" contains parent directory components`)
 				})
 			})
@@ -133,7 +136,7 @@ func (ModuleSuite) TestConfigs(ctx context.Context, t *testctx.T) {
 
 		t.Run("dep points out of root", func(ctx context.Context, t *testctx.T) {
 			t.Run("local", func(ctx context.Context, t *testctx.T) {
-				base := base.
+				base := base(ctx).
 					With(configFile(".", &modules.ModuleConfig{
 						Name: "evil",
 						SDK:  "go",
@@ -173,7 +176,7 @@ func (ModuleSuite) TestConfigs(ctx context.Context, t *testctx.T) {
 			})
 
 			t.Run("local with absolute path", func(ctx context.Context, t *testctx.T) {
-				base := base.
+				base := base(ctx).
 					With(configFile(".", &modules.ModuleConfig{
 						Name: "evil",
 						SDK:  "go",
@@ -214,7 +217,7 @@ func (ModuleSuite) TestConfigs(ctx context.Context, t *testctx.T) {
 
 			testOnMultipleVCS(t, func(ctx context.Context, t *testctx.T, tc vcsTestCase) {
 				t.Run("git", func(ctx context.Context, t *testctx.T) {
-					_, err := base.With(daggerCallAt(testGitModuleRef(tc, "invalid/bad-dep"), "container-echo", "--string-arg", "plz fail")).Sync(ctx)
+					_, err := base(ctx).With(daggerCallAt(testGitModuleRef(tc, "invalid/bad-dep"), "container-echo", "--string-arg", "plz fail")).Sync(ctx)
 					require.ErrorContains(t, err, `module dep source root path "../../../foo" escapes root`)
 				})
 			})
@@ -1362,6 +1365,7 @@ type vcsTestCase struct {
 	expectedBaseHTMLURL string
 	// path separator to access `tree` view of src at commit, per provider
 	expectedURLPathComponent string
+	withSSHAuth              bool
 }
 
 var vcsTestCases = []vcsTestCase{
@@ -1397,6 +1401,7 @@ var vcsTestCases = []vcsTestCase{
 		expectedHost:             "github.com",
 		expectedBaseHTMLURL:      "github.com/dagger/dagger-test-modules",
 		expectedURLPathComponent: "tree",
+		withSSHAuth:              true,
 	},
 	{
 		name:                     "SSH GitHub",
@@ -1405,6 +1410,7 @@ var vcsTestCases = []vcsTestCase{
 		expectedHost:             "github.com",
 		expectedBaseHTMLURL:      "github.com/dagger/dagger-test-modules",
 		expectedURLPathComponent: "tree",
+		withSSHAuth:              true,
 	},
 	{
 		name:                     "SSH GitHub",
@@ -1413,6 +1419,7 @@ var vcsTestCases = []vcsTestCase{
 		expectedHost:             "github.com",
 		expectedBaseHTMLURL:      "github.com/dagger/dagger-test-modules",
 		expectedURLPathComponent: "tree",
+		withSSHAuth:              true,
 	},
 }
 
@@ -1420,6 +1427,11 @@ func testOnMultipleVCS(t *testctx.T, testFunc func(ctx context.Context, t *testc
 	for _, tc := range vcsTestCases {
 		tc := tc
 		t.Run(tc.name, func(ctx context.Context, t *testctx.T) {
+			if tc.withSSHAuth {
+				ctx = engine.ContextWithClientMetadata(ctx, &engine.ClientMetadata{
+					SSHAuthSocketPath: globalSSHSock,
+				})
+			}
 			testFunc(ctx, t, tc)
 		})
 	}
@@ -1437,9 +1449,9 @@ func testGitModuleRef(tc vcsTestCase, subpath string) string {
 }
 
 func (ModuleSuite) TestDaggerGitRefs(ctx context.Context, t *testctx.T) {
-	c := connect(ctx, t)
-
 	testOnMultipleVCS(t, func(ctx context.Context, t *testctx.T, tc vcsTestCase) {
+		c := connect(ctx, t)
+
 		t.Run("root module", func(ctx context.Context, t *testctx.T) {
 			rootModSrc := c.ModuleSource(testGitModuleRef(tc, ""))
 

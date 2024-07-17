@@ -118,6 +118,8 @@ type Client struct {
 	nestedSessionPort int
 
 	labels enginetel.Labels
+
+	sshAuthSocketPath string
 }
 
 func Connect(ctx context.Context, params Params) (_ *Client, _ context.Context, rerr error) {
@@ -209,6 +211,11 @@ func Connect(ctx context.Context, params Params) (_ *Client, _ context.Context, 
 			c.bkClient.Close()
 		}
 	}()
+
+	// used for test suite, in which we set the SSHAuthSocketPath in the context to avoid relying on env
+	if md, err := engine.ClientMetadataFromContext(ctx); err == nil && md.SSHAuthSocketPath != "" {
+		c.sshAuthSocketPath = md.SSHAuthSocketPath
+	}
 
 	if err := c.startSession(connectCtx); err != nil {
 		return nil, nil, fmt.Errorf("start session: %w", err)
@@ -1002,6 +1009,11 @@ func allCacheConfigsFromEnv() (cacheImportConfigs []*controlapi.CacheOptionsEntr
 }
 
 func (c *Client) clientMetadata() engine.ClientMetadata {
+	sshAuthSocketPath := c.sshAuthSocketPath
+	if sshAuthSocketPath == "" {
+		sshAuthSocketPath = os.Getenv("SSH_AUTH_SOCK")
+	}
+
 	return engine.ClientMetadata{
 		ClientID:                  c.ID,
 		ClientVersion:             engine.Version,
@@ -1014,7 +1026,7 @@ func (c *Client) clientMetadata() engine.ClientMetadata {
 		CloudToken:                os.Getenv("DAGGER_CLOUD_TOKEN"),
 		DoNotTrack:                analytics.DoNotTrack(),
 		Interactive:               c.Interactive,
-		SSHAuthSocketPath:         os.Getenv("SSH_AUTH_SOCK"),
+		SSHAuthSocketPath:         sshAuthSocketPath,
 	}
 }
 
