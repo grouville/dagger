@@ -14,7 +14,7 @@ import (
 
 var (
 	globalSSHAgent        agent.Agent
-	globalSSHSock         string
+	globalSSHSockPath     string
 	globalHostSSHAuthSock string
 )
 
@@ -32,8 +32,8 @@ func setupGlobalSSHAgent(t *testctx.T) func() {
 	require.NoError(t, err)
 
 	tmp := t.TempDir()
-	globalSSHSock = filepath.Join(tmp, "ssh-agent.sock")
-	l, err := net.Listen("unix", globalSSHSock)
+	globalSSHSockPath = filepath.Join(tmp, "ssh-agent.sock")
+	l, err := net.Listen("unix", globalSSHSockPath)
 	require.NoError(t, err)
 
 	go func() {
@@ -60,7 +60,7 @@ func setupGlobalSSHAgent(t *testctx.T) func() {
 	return func() {
 		t.Log("Cleaning up global SSH agent")
 		l.Close()
-		os.Remove(globalSSHSock)
+		os.Remove(globalSSHSockPath)
 		// leave host environment untouched
 		if globalHostSSHAuthSock != "" {
 			os.Setenv("SSH_AUTH_SOCK", globalHostSSHAuthSock)

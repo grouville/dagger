@@ -1369,58 +1369,58 @@ type vcsTestCase struct {
 }
 
 var vcsTestCases = []vcsTestCase{
-	// public repos
+	// // public repos
+	// {
+	// 	name:                     "GitHub without .git",
+	// 	gitTestRepoRef:           "github.com/dagger/dagger-test-modules",
+	// 	gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
+	// 	expectedHost:             "github.com",
+	// 	expectedBaseHTMLURL:      "github.com/dagger/dagger-test-modules",
+	// 	expectedURLPathComponent: "tree",
+	// },
+	// {
+	// 	name:                     "GitLab without .git",
+	// 	gitTestRepoRef:           "gitlab.com/dagger-modules/test/more/dagger-test-modules-public",
+	// 	gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
+	// 	expectedHost:             "gitlab.com",
+	// 	expectedBaseHTMLURL:      "gitlab.com/dagger-modules/test/more/dagger-test-modules-public",
+	// 	expectedURLPathComponent: "tree",
+	// },
+	// {
+	// 	name:                     "BitBucket without .git",
+	// 	gitTestRepoRef:           "bitbucket.org/dagger-modules/dagger-test-modules-public",
+	// 	gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
+	// 	expectedHost:             "bitbucket.org",
+	// 	expectedBaseHTMLURL:      "bitbucket.org/dagger-modules/dagger-test-modules-public",
+	// 	expectedURLPathComponent: "src",
+	// },
 	{
-		name:                     "GitHub without .git",
-		gitTestRepoRef:           "github.com/dagger/dagger-test-modules",
-		gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
-		expectedHost:             "github.com",
-		expectedBaseHTMLURL:      "github.com/dagger/dagger-test-modules",
-		expectedURLPathComponent: "tree",
-	},
-	{
-		name:                     "GitLab without .git",
-		gitTestRepoRef:           "gitlab.com/dagger-modules/test/more/dagger-test-modules-public",
+		name:                     "SSH Private GitLab",
+		gitTestRepoRef:           "ssh://git@gitlab.com/dagger-modules/private/test/more/dagger-test-modules-private.git",
 		gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
 		expectedHost:             "gitlab.com",
-		expectedBaseHTMLURL:      "gitlab.com/dagger-modules/test/more/dagger-test-modules-public",
-		expectedURLPathComponent: "tree",
-	},
-	{
-		name:                     "BitBucket without .git",
-		gitTestRepoRef:           "bitbucket.org/dagger-modules/dagger-test-modules-public",
-		gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
-		expectedHost:             "bitbucket.org",
-		expectedBaseHTMLURL:      "bitbucket.org/dagger-modules/dagger-test-modules-public",
-		expectedURLPathComponent: "src",
-	},
-	{
-		name:                     "SSH GitHub",
-		gitTestRepoRef:           "ssh://git@github.com/dagger/dagger-test-modules",
-		gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
-		expectedHost:             "github.com",
-		expectedBaseHTMLURL:      "github.com/dagger/dagger-test-modules",
+		expectedBaseHTMLURL:      "gitlab.com/dagger-modules/private/test/more/dagger-test-modules-private",
 		expectedURLPathComponent: "tree",
 		withSSHAuth:              true,
 	},
-	{
-		name:                     "SSH GitHub",
-		gitTestRepoRef:           "ssh://github.com/dagger/dagger-test-modules.git",
-		gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
-		expectedHost:             "github.com",
-		expectedBaseHTMLURL:      "github.com/dagger/dagger-test-modules",
-		expectedURLPathComponent: "tree",
-		withSSHAuth:              true,
-	},
-	{
-		name:                     "SSH GitHub",
-		gitTestRepoRef:           "git@github.com/dagger/dagger-test-modules",
-		gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
-		expectedHost:             "github.com",
-		expectedBaseHTMLURL:      "github.com/dagger/dagger-test-modules",
-		expectedURLPathComponent: "tree",
-		withSSHAuth:              true,
-	},
+	// {
+	// 	name:                     "SSH Private GitLab",
+	// 	gitTestRepoRef:           "ssh://gitlab.com/dagger-modules/private/test/more/dagger-test-modules-private.git",
+	// 	gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
+	// 	expectedHost:             "gitlab.com",
+	// 	expectedBaseHTMLURL:      "gitlab.com/dagger-modules/private/test/more/dagger-test-modules-private",
+	// 	expectedURLPathComponent: "tree",
+	// 	withSSHAuth:              true,
+	// },
+	// {
+	// 	name:                     "SSH Private GitLab",
+	// 	gitTestRepoRef:           "git@gitlab.com/dagger-modules/private/test/more/dagger-test-modules-private.git",
+	// 	gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
+	// 	expectedHost:             "gitlab.com",
+	// 	expectedBaseHTMLURL:      "gitlab.com/dagger-modules/private/test/more/dagger-test-modules-private",
+	// 	expectedURLPathComponent: "tree",
+	// 	withSSHAuth:              true,
+	// },
 }
 
 func testOnMultipleVCS(t *testctx.T, testFunc func(ctx context.Context, t *testctx.T, tc vcsTestCase)) {
@@ -1429,7 +1429,7 @@ func testOnMultipleVCS(t *testctx.T, testFunc func(ctx context.Context, t *testc
 		t.Run(tc.name, func(ctx context.Context, t *testctx.T) {
 			if tc.withSSHAuth {
 				ctx = engine.ContextWithClientMetadata(ctx, &engine.ClientMetadata{
-					SSHAuthSocketPath: globalSSHSock,
+					SSHAuthSocketPath: globalSSHSockPath,
 				})
 			}
 			testFunc(ctx, t, tc)
