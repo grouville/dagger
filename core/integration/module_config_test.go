@@ -12,7 +12,6 @@ import (
 
 	"dagger.io/dagger"
 	"github.com/dagger/dagger/core/modules"
-	"github.com/dagger/dagger/engine"
 	"github.com/dagger/dagger/testctx"
 )
 
@@ -65,16 +64,15 @@ func (ModuleSuite) TestConfigs(ctx context.Context, t *testctx.T) {
 
 	t.Run("malicious config", func(ctx context.Context, t *testctx.T) {
 		// verify a maliciously/incorrectly constructed dagger.json is still handled correctly
-		base := func(ctx context.Context) *dagger.Container {
-			c := connect(ctx, t)
+		c := connect(ctx, t)
 
-			return goGitBase(t, c).
-				WithMountedFile(testCLIBinPath, daggerCliFile(t, c)).
-				WithWorkdir("/tmp/foo").
-				With(daggerExec("init", "--source=.", "--name=dep", "--sdk=go")).
-				WithWorkdir("/work/dep").
-				With(daggerExec("init", "--source=.", "--name=dep", "--sdk=go")).
-				WithNewFile("/work/dep/main.go", `package main
+		base := goGitBase(t, c).
+			WithMountedFile(testCLIBinPath, daggerCliFile(t, c)).
+			WithWorkdir("/tmp/foo").
+			With(daggerExec("init", "--source=.", "--name=dep", "--sdk=go")).
+			WithWorkdir("/work/dep").
+			With(daggerExec("init", "--source=.", "--name=dep", "--sdk=go")).
+			WithNewFile("/work/dep/main.go", `package main
 
         import "context"
 
@@ -84,14 +82,13 @@ func (ModuleSuite) TestConfigs(ctx context.Context, t *testctx.T) {
             return dag.CurrentModule().Source()
         }
         `,
-				).
-				WithWorkdir("/work").
-				With(daggerExec("init", "--source=.", "--name=test", "--sdk=go"))
-		}
+			).
+			WithWorkdir("/work").
+			With(daggerExec("init", "--source=.", "--name=test", "--sdk=go"))
 
 		t.Run("source points out of root", func(ctx context.Context, t *testctx.T) {
 			t.Run("local", func(ctx context.Context, t *testctx.T) {
-				base := base(ctx).
+				base := base.
 					With(configFile(".", &modules.ModuleConfig{
 						Name:   "evil",
 						SDK:    "go",
@@ -109,7 +106,7 @@ func (ModuleSuite) TestConfigs(ctx context.Context, t *testctx.T) {
 			})
 
 			t.Run("local with absolute path", func(ctx context.Context, t *testctx.T) {
-				base := base(ctx).
+				base := base.
 					With(configFile(".", &modules.ModuleConfig{
 						Name:   "evil",
 						SDK:    "go",
@@ -128,7 +125,7 @@ func (ModuleSuite) TestConfigs(ctx context.Context, t *testctx.T) {
 
 			testOnMultipleVCS(t, func(ctx context.Context, t *testctx.T, tc vcsTestCase) {
 				t.Run("git", func(ctx context.Context, t *testctx.T) {
-					_, err := base(ctx).With(daggerCallAt(testGitModuleRef(tc, "invalid/bad-source"), "container-echo", "--string-arg", "plz fail")).Sync(ctx)
+					_, err := base.With(daggerCallAt(testGitModuleRef(tc, "invalid/bad-source"), "container-echo", "--string-arg", "plz fail")).Sync(ctx)
 					require.ErrorContains(t, err, `source path "../../../" contains parent directory components`)
 				})
 			})
@@ -136,7 +133,7 @@ func (ModuleSuite) TestConfigs(ctx context.Context, t *testctx.T) {
 
 		t.Run("dep points out of root", func(ctx context.Context, t *testctx.T) {
 			t.Run("local", func(ctx context.Context, t *testctx.T) {
-				base := base(ctx).
+				base := base.
 					With(configFile(".", &modules.ModuleConfig{
 						Name: "evil",
 						SDK:  "go",
@@ -176,7 +173,7 @@ func (ModuleSuite) TestConfigs(ctx context.Context, t *testctx.T) {
 			})
 
 			t.Run("local with absolute path", func(ctx context.Context, t *testctx.T) {
-				base := base(ctx).
+				base := base.
 					With(configFile(".", &modules.ModuleConfig{
 						Name: "evil",
 						SDK:  "go",
@@ -217,7 +214,7 @@ func (ModuleSuite) TestConfigs(ctx context.Context, t *testctx.T) {
 
 			testOnMultipleVCS(t, func(ctx context.Context, t *testctx.T, tc vcsTestCase) {
 				t.Run("git", func(ctx context.Context, t *testctx.T) {
-					_, err := base(ctx).With(daggerCallAt(testGitModuleRef(tc, "invalid/bad-dep"), "container-echo", "--string-arg", "plz fail")).Sync(ctx)
+					_, err := base.With(daggerCallAt(testGitModuleRef(tc, "invalid/bad-dep"), "container-echo", "--string-arg", "plz fail")).Sync(ctx)
 					require.ErrorContains(t, err, `module dep source root path "../../../foo" escapes root`)
 				})
 			})
@@ -1365,55 +1362,57 @@ type vcsTestCase struct {
 	expectedBaseHTMLURL string
 	// path separator to access `tree` view of src at commit, per provider
 	expectedURLPathComponent string
-	withSSHAuth              bool
+	isPrivateRepo            bool
 }
 
 var vcsTestCases = []vcsTestCase{
-	// // public repos
-	// {
-	// 	name:                     "GitHub without .git",
-	// 	gitTestRepoRef:           "github.com/dagger/dagger-test-modules",
-	// 	gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
-	// 	expectedHost:             "github.com",
-	// 	expectedBaseHTMLURL:      "github.com/dagger/dagger-test-modules",
-	// 	expectedURLPathComponent: "tree",
-	// },
-	// {
-	// 	name:                     "GitLab without .git",
-	// 	gitTestRepoRef:           "gitlab.com/dagger-modules/test/more/dagger-test-modules-public",
-	// 	gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
-	// 	expectedHost:             "gitlab.com",
-	// 	expectedBaseHTMLURL:      "gitlab.com/dagger-modules/test/more/dagger-test-modules-public",
-	// 	expectedURLPathComponent: "tree",
-	// },
-	// {
-	// 	name:                     "BitBucket without .git",
-	// 	gitTestRepoRef:           "bitbucket.org/dagger-modules/dagger-test-modules-public",
-	// 	gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
-	// 	expectedHost:             "bitbucket.org",
-	// 	expectedBaseHTMLURL:      "bitbucket.org/dagger-modules/dagger-test-modules-public",
-	// 	expectedURLPathComponent: "src",
-	// },
+	// public repos
+	{
+		name:                     "GitHub without .git",
+		gitTestRepoRef:           "github.com/dagger/dagger-test-modules",
+		gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
+		expectedHost:             "github.com",
+		expectedBaseHTMLURL:      "github.com/dagger/dagger-test-modules",
+		expectedURLPathComponent: "tree",
+	},
+	{
+		name:                     "GitLab without .git",
+		gitTestRepoRef:           "gitlab.com/dagger-modules/test/more/dagger-test-modules-public",
+		gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
+		expectedHost:             "gitlab.com",
+		expectedBaseHTMLURL:      "gitlab.com/dagger-modules/test/more/dagger-test-modules-public",
+		expectedURLPathComponent: "tree",
+	},
+	{
+		name:                     "BitBucket without .git",
+		gitTestRepoRef:           "bitbucket.org/dagger-modules/dagger-test-modules-public",
+		gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
+		expectedHost:             "bitbucket.org",
+		expectedBaseHTMLURL:      "bitbucket.org/dagger-modules/dagger-test-modules-public",
+		expectedURLPathComponent: "src",
+	},
+	// Private repo
 	{
 		name:                     "SSH Private GitLab",
-		gitTestRepoRef:           "ssh://git@gitlab.com/dagger-modules/private/test/more/dagger-test-modules-private.git",
+		gitTestRepoRef:           "ssh://gitlab.com/dagger-modules/private/test/more/dagger-test-modules-private.git",
 		gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
 		expectedHost:             "gitlab.com",
 		expectedBaseHTMLURL:      "gitlab.com/dagger-modules/private/test/more/dagger-test-modules-private",
 		expectedURLPathComponent: "tree",
-		withSSHAuth:              true,
+		isPrivateRepo:            true,
 	},
+	{
+		name:                     "SSH Private BitBucket",
+		gitTestRepoRef:           "git+ssh://git@bitbucket.org/dagger-modules/private-modules-test.git",
+		gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
+		expectedHost:             "bitbucket.org",
+		expectedBaseHTMLURL:      "bitbucket.org/dagger-modules/private-modules-test",
+		expectedURLPathComponent: "src",
+		isPrivateRepo:            true,
+	},
+	// TODO(guillaume): add Azure DevOps
 	// {
-	// 	name:                     "SSH Private GitLab",
-	// 	gitTestRepoRef:           "ssh://gitlab.com/dagger-modules/private/test/more/dagger-test-modules-private.git",
-	// 	gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
-	// 	expectedHost:             "gitlab.com",
-	// 	expectedBaseHTMLURL:      "gitlab.com/dagger-modules/private/test/more/dagger-test-modules-private",
-	// 	expectedURLPathComponent: "tree",
-	// 	withSSHAuth:              true,
-	// },
-	// {
-	// 	name:                     "SSH Private GitLab",
+	// 	name:                     "SSH Private Azure",
 	// 	gitTestRepoRef:           "git@gitlab.com/dagger-modules/private/test/more/dagger-test-modules-private.git",
 	// 	gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
 	// 	expectedHost:             "gitlab.com",
@@ -1427,11 +1426,6 @@ func testOnMultipleVCS(t *testctx.T, testFunc func(ctx context.Context, t *testc
 	for _, tc := range vcsTestCases {
 		tc := tc
 		t.Run(tc.name, func(ctx context.Context, t *testctx.T) {
-			if tc.withSSHAuth {
-				ctx = engine.ContextWithClientMetadata(ctx, &engine.ClientMetadata{
-					SSHAuthSocketPath: globalSSHSockPath,
-				})
-			}
 			testFunc(ctx, t, tc)
 		})
 	}
@@ -1458,10 +1452,15 @@ func (ModuleSuite) TestDaggerGitRefs(ctx context.Context, t *testctx.T) {
 			htmlURL, err := rootModSrc.AsGitSource().HTMLURL(ctx)
 			require.NoError(t, err)
 			require.Equal(t, fmt.Sprintf("https://%s/%s/%s", tc.expectedBaseHTMLURL, tc.expectedURLPathComponent, tc.gitTestRepoCommit), htmlURL)
-			resp, err := http.Get(htmlURL)
-			require.NoError(t, err)
-			defer resp.Body.Close()
-			require.Equal(t, http.StatusOK, resp.StatusCode)
+
+			// URL format matches public repo from same provider.
+			// No need to test with auth on those refs
+			if !tc.isPrivateRepo {
+				resp, err := http.Get(htmlURL)
+				require.NoError(t, err)
+				defer resp.Body.Close()
+				require.Equal(t, http.StatusOK, resp.StatusCode)
+			}
 
 			repositoryURL, err := rootModSrc.AsGitSource().RepositoryURL(ctx)
 			require.NoError(t, err)
@@ -1482,10 +1481,14 @@ func (ModuleSuite) TestDaggerGitRefs(ctx context.Context, t *testctx.T) {
 			require.NoError(t, err)
 			require.Equal(t, fmt.Sprintf("https://%s/%s/%s/top-level", tc.expectedBaseHTMLURL, tc.expectedURLPathComponent, tc.gitTestRepoCommit), htmlURL)
 
-			resp, err := http.Get(htmlURL)
-			require.NoError(t, err)
-			defer resp.Body.Close()
-			require.Equal(t, http.StatusOK, resp.StatusCode)
+			// URL format matches public repo from same provider.
+			// No need to test with auth on those refs
+			if !tc.isPrivateRepo {
+				resp, err := http.Get(htmlURL)
+				require.NoError(t, err)
+				defer resp.Body.Close()
+				require.Equal(t, http.StatusOK, resp.StatusCode)
+			}
 
 			repositoryURL, err := topLevelModSrc.AsGitSource().RepositoryURL(ctx)
 			require.NoError(t, err)
@@ -1506,10 +1509,14 @@ func (ModuleSuite) TestDaggerGitRefs(ctx context.Context, t *testctx.T) {
 			require.NoError(t, err)
 			require.Equal(t, fmt.Sprintf("https://%s/%s/%s/subdir/dep2", tc.expectedBaseHTMLURL, tc.expectedURLPathComponent, tc.gitTestRepoCommit), htmlURL)
 
-			resp, err := http.Get(htmlURL)
-			require.NoError(t, err)
-			defer resp.Body.Close()
-			require.Equal(t, http.StatusOK, resp.StatusCode)
+			// URL format matches public repo from same provider.
+			// No need to test with auth on those refs
+			if !tc.isPrivateRepo {
+				resp, err := http.Get(htmlURL)
+				require.NoError(t, err)
+				defer resp.Body.Close()
+				require.Equal(t, http.StatusOK, resp.StatusCode)
+			}
 
 			repositoryURL, err := subdirDepModSrc.AsGitSource().RepositoryURL(ctx)
 			require.NoError(t, err)

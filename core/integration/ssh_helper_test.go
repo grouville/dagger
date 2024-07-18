@@ -55,7 +55,7 @@ func setupGlobalSSHAgent(t *testctx.T) func() {
 
 	// ensure test suite is not polluted by env var
 	globalHostSSHAuthSock = os.Getenv("SSH_AUTH_SOCK")
-	os.Unsetenv("SSH_AUTH_SOCK")
+	os.Setenv("SSH_AUTH_SOCK", globalSSHSockPath)
 
 	return func() {
 		t.Log("Cleaning up global SSH agent")
