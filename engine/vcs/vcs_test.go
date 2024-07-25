@@ -26,207 +26,265 @@ func TestRepoRootForImportPath(t *testing.T) {
 		path string
 		want *RepoRoot
 	}{
-		{
-			"github.com/golang/groupcache/foo",
-			&RepoRoot{
-				VCS:  vcsGit,
-				Repo: "https://github.com/golang/groupcache",
-				Root: "github.com/golang/groupcache",
-			},
-		},
-		{
-			"github.com/golang/groupcache.git/foo",
-			&RepoRoot{
-				VCS:  vcsGit,
-				Repo: "https://github.com/golang/groupcache",
-				Root: "github.com/golang/groupcache.git",
-			},
-		},
-		{
-			"github.com/dagger/dagger-test-modules/../..",
-			&RepoRoot{
-				VCS:  vcsGit,
-				Repo: "https://github.com/dagger/dagger-test-modules",
-				Root: "github.com/dagger/dagger-test-modules",
-			},
-		},
-		{
-			"github.com/dagger/dagger-test-modules/../../",
-			&RepoRoot{
-				VCS:  vcsGit,
-				Repo: "https://github.com/dagger/dagger-test-modules",
-				Root: "github.com/dagger/dagger-test-modules",
-			},
-		},
-		// Unicode letters are allowed in import paths.
-		// issue https://github.com/golang/go/issues/18660
-		{
-			"github.com/user/unicode/испытание",
-			&RepoRoot{
-				VCS:  vcsGit,
-				Repo: "https://github.com/user/unicode",
-				Root: "github.com/user/unicode",
-			},
-		},
-		// IBM DevOps Services tests
-		{
-			"hub.jazz.net/git/user1/pkgname",
-			&RepoRoot{
-				VCS:  vcsGit,
-				Repo: "https://hub.jazz.net/git/user1/pkgname",
-				Root: "hub.jazz.net/git/user1/pkgname",
-			},
-		},
-		{
-			"hub.jazz.net/git/user1/pkgname/submodule/submodule/submodule",
-			&RepoRoot{
-				VCS:  vcsGit,
-				Repo: "https://hub.jazz.net/git/user1/pkgname",
-				Root: "hub.jazz.net/git/user1/pkgname",
-			},
-		},
-		// Trailing .git is less preferred but included for
-		// compatibility purposes while the same source needs to
-		// be compilable on both old and new go
-		{
-			"git.openstack.org/openstack/swift.git",
-			&RepoRoot{
-				VCS:  vcsGit,
-				Repo: "https://git.openstack.org/openstack/swift.git",
-				Root: "git.openstack.org/openstack/swift.git",
-			},
-		},
-		{
-			"git.openstack.org/openstack/swift/go/hummingbird",
-			&RepoRoot{
-				VCS:  vcsGit,
-				Repo: "https://git.openstack.org/openstack/swift",
-				Root: "git.openstack.org/openstack/swift",
-			},
-		},
-		{
-			"git.apache.org/package-name.git",
-			&RepoRoot{
-				VCS:  vcsGit,
-				Repo: "https://git.apache.org/package-name.git",
-				Root: "git.apache.org/package-name.git",
-			},
-		},
-		{
-			"git.apache.org/package-name_2.x.git/path/to/lib",
-			&RepoRoot{
-				VCS:  vcsGit,
-				Repo: "https://git.apache.org/package-name_2.x.git",
-				Root: "git.apache.org/package-name_2.x.git",
-			},
-		},
-		{
-			"git.sr.ht/~jacqueline/tangara-fw/lib",
-			&RepoRoot{
-				VCS:  vcsGit,
-				Repo: "https://git.sr.ht/~jacqueline/tangara-fw",
-				Root: "git.sr.ht/~jacqueline/tangara-fw",
-			},
-		},
-		// { FAILS as returns 404 without tags
-		// 	"git.sr.ht/~jacqueline/tangara-fw.git/lib",
-		// 	&RepoRoot{
-		// 		VCS:  vcsGit,
-		// 		Repo: "https://git.sr.ht/~jacqueline/tangara-fw.git",
-		// 	},
-		// },
-		{
-			"bitbucket.org/workspace/pkgname",
-			&RepoRoot{
-				VCS:  vcsGit,
-				Repo: "https://bitbucket.org/workspace/pkgname",
-				Root: "bitbucket.org/workspace/pkgname",
-			},
-		},
-		{
-			"bitbucket.org/workspace/pkgname/../..",
-			&RepoRoot{
-				VCS:  vcsGit,
-				Repo: "https://bitbucket.org/workspace/pkgname",
-				Root: "bitbucket.org/workspace/pkgname",
-			},
-		},
-		{
-			"bitbucket.org/workspace/pkgname/../../",
-			&RepoRoot{
-				VCS:  vcsGit,
-				Repo: "https://bitbucket.org/workspace/pkgname",
-				Root: "bitbucket.org/workspace/pkgname",
-			},
-		},
-		{
-			"bitbucket.org/workspace/pkgname.git",
-			&RepoRoot{
-				VCS:  vcsGit,
-				Repo: "https://bitbucket.org/workspace/pkgname",
-				Root: "bitbucket.org/workspace/pkgname.git",
-			},
-		},
-		// GitLab public repo
-		{
-			"gitlab.com/testguigui1/dagger-public-sub/mywork/depth1/depth2",
-			&RepoRoot{
-				VCS:  vcsGit,
-				Repo: "https://gitlab.com/testguigui1/dagger-public-sub/mywork",
-				Root: "gitlab.com/testguigui1/dagger-public-sub/mywork",
-			},
-		},
-		{
-			"gitlab.com/testguigui1/dagger-public-sub/mywork.git/depth1/depth2",
-			&RepoRoot{
-				VCS:  vcsGit,
-				Repo: "https://gitlab.com/testguigui1/dagger-public-sub/mywork",
-				Root: "gitlab.com/testguigui1/dagger-public-sub/mywork.git",
-			},
-		},
-		// GitLab private repo
-		// behavior of private GitLab repos is different from public ones
-		// https://gitlab.com/gitlab-org/gitlab-foss/-/blob/master/lib/gitlab/middleware/go.rb#L114-126
-		// it relies on gitcredentials to authenticate
-		// todo(guillaume): rely on a dagger GitLab repo with a read-only PAT to test this
 		// {
-		// 	"gitlab.com/testguigui1/awesomesubgroup/mywork/depth1/depth2", // private subgroup
+		// 	"github.com/golang/groupcache/foo",
 		// 	&RepoRoot{
 		// 		VCS:  vcsGit,
-		// 		Repo: "https://gitlab.com/testguigui1/awesomesubgroup.git", // false positive returned by GitLab for privacy purpose
+		// 		Repo: "https://github.com/golang/groupcache",
+		// 		Root: "github.com/golang/groupcache",
 		// 	},
 		// },
 		// {
-		// 	"gitlab.com/testguigui1/awesomesubgroup/mywork.git/depth1/depth2", // private subgroup
+		// 	"github.com/golang/groupcache.git/foo",
 		// 	&RepoRoot{
 		// 		VCS:  vcsGit,
-		// 		Repo: "https://gitlab.com/testguigui1/awesomesubgroup/mywork",
+		// 		Repo: "https://github.com/golang/groupcache",
+		// 		Root: "github.com/golang/groupcache.git",
 		// 	},
 		// },
-		{ // vanity URL, TODO: improve test by changing dagger's redirection
-			"dagger.io/dagger",
+		// {
+		// 	"github.com/dagger/dagger-test-modules/../..",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://github.com/dagger/dagger-test-modules",
+		// 		Root: "github.com/dagger/dagger-test-modules",
+		// 	},
+		// },
+		// {
+		// 	"github.com/dagger/dagger-test-modules/../../",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://github.com/dagger/dagger-test-modules",
+		// 		Root: "github.com/dagger/dagger-test-modules",
+		// 	},
+		// },
+		// // Unicode letters are allowed in import paths.
+		// // issue https://github.com/golang/go/issues/18660
+		// {
+		// 	"github.com/user/unicode/испытание",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://github.com/user/unicode",
+		// 		Root: "github.com/user/unicode",
+		// 	},
+		// },
+		// // IBM DevOps Services tests
+		// {
+		// 	"hub.jazz.net/git/user1/pkgname",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://hub.jazz.net/git/user1/pkgname",
+		// 		Root: "hub.jazz.net/git/user1/pkgname",
+		// 	},
+		// },
+		// {
+		// 	"hub.jazz.net/git/user1/pkgname/submodule/submodule/submodule",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://hub.jazz.net/git/user1/pkgname",
+		// 		Root: "hub.jazz.net/git/user1/pkgname",
+		// 	},
+		// },
+		// // Trailing .git is less preferred but included for
+		// // compatibility purposes while the same source needs to
+		// // be compilable on both old and new go
+		// {
+		// 	"git.openstack.org/openstack/swift.git",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://git.openstack.org/openstack/swift.git",
+		// 		Root: "git.openstack.org/openstack/swift.git",
+		// 	},
+		// },
+		// {
+		// 	"git.openstack.org/openstack/swift/go/hummingbird",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://git.openstack.org/openstack/swift",
+		// 		Root: "git.openstack.org/openstack/swift",
+		// 	},
+		// },
+		// {
+		// 	"git.apache.org/package-name.git",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://git.apache.org/package-name.git",
+		// 		Root: "git.apache.org/package-name.git",
+		// 	},
+		// },
+		// {
+		// 	"git.apache.org/package-name_2.x.git/path/to/lib",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://git.apache.org/package-name_2.x.git",
+		// 		Root: "git.apache.org/package-name_2.x.git",
+		// 	},
+		// },
+		// {
+		// 	"git.sr.ht/~jacqueline/tangara-fw/lib",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://git.sr.ht/~jacqueline/tangara-fw",
+		// 		Root: "git.sr.ht/~jacqueline/tangara-fw",
+		// 	},
+		// },
+		// // { FAILS as returns 404 without tags
+		// // 	"git.sr.ht/~jacqueline/tangara-fw.git/lib",
+		// // 	&RepoRoot{
+		// // 		VCS:  vcsGit,
+		// // 		Repo: "https://git.sr.ht/~jacqueline/tangara-fw.git",
+		// // 	},
+		// // },
+		// {
+		// 	"bitbucket.org/workspace/pkgname",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://bitbucket.org/workspace/pkgname",
+		// 		Root: "bitbucket.org/workspace/pkgname",
+		// 	},
+		// },
+		// {
+		// 	"bitbucket.org/workspace/pkgname/../..",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://bitbucket.org/workspace/pkgname",
+		// 		Root: "bitbucket.org/workspace/pkgname",
+		// 	},
+		// },
+		// {
+		// 	"bitbucket.org/workspace/pkgname/../../",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://bitbucket.org/workspace/pkgname",
+		// 		Root: "bitbucket.org/workspace/pkgname",
+		// 	},
+		// },
+		// {
+		// 	"bitbucket.org/workspace/pkgname.git",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://bitbucket.org/workspace/pkgname",
+		// 		Root: "bitbucket.org/workspace/pkgname.git",
+		// 	},
+		// },
+		// // GitLab public repo
+		// {
+		// 	"gitlab.com/testguigui1/dagger-public-sub/mywork/depth1/depth2",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://gitlab.com/testguigui1/dagger-public-sub/mywork",
+		// 		Root: "gitlab.com/testguigui1/dagger-public-sub/mywork",
+		// 	},
+		// },
+		// {
+		// 	"gitlab.com/testguigui1/dagger-public-sub/mywork.git/depth1/depth2",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://gitlab.com/testguigui1/dagger-public-sub/mywork",
+		// 		Root: "gitlab.com/testguigui1/dagger-public-sub/mywork.git",
+		// 	},
+		// },
+		// // GitLab private repo
+		// // behavior of private GitLab repos is different from public ones
+		// // https://gitlab.com/gitlab-org/gitlab-foss/-/blob/master/lib/gitlab/middleware/go.rb#L114-126
+		// // it relies on gitcredentials to authenticate
+		// // todo(guillaume): rely on a dagger GitLab repo with a read-only PAT to test this
+		// // {
+		// // 	"gitlab.com/testguigui1/awesomesubgroup/mywork/depth1/depth2", // private subgroup
+		// // 	&RepoRoot{
+		// // 		VCS:  vcsGit,
+		// // 		Repo: "https://gitlab.com/testguigui1/awesomesubgroup.git", // false positive returned by GitLab for privacy purpose
+		// // 	},
+		// // },
+		// // {
+		// // 	"gitlab.com/testguigui1/awesomesubgroup/mywork.git/depth1/depth2", // private subgroup
+		// // 	&RepoRoot{
+		// // 		VCS:  vcsGit,
+		// // 		Repo: "https://gitlab.com/testguigui1/awesomesubgroup/mywork",
+		// // 	},
+		// // },
+		// { // vanity URL, TODO: improve test by changing dagger's redirection
+		// 	"dagger.io/dagger",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://github.com/dagger/dagger-go-sdk",
+		// 		Root: "dagger.io/dagger",
+		// 	},
+		// },
+		// {
+		// 	"bitbucket.org/workspace/pkgname/subdir",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://bitbucket.org/workspace/pkgname",
+		// 		Root: "bitbucket.org/workspace/pkgname",
+		// 	},
+		// },
+		// {
+		// 	"codeberg.org/workspace/pkgname/subdir",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://codeberg.org/workspace/pkgname",
+		// 		Root: "codeberg.org/workspace/pkgname",
+		// 	},
+		// },
+
+		// TODO(guillaume): implement regex with and without .git
+		// user, org, repo name == org name
+		{
+			"dev.azure.com/dagger-e2e/_git/dagger-modules-test-public/depth1/depth2",
 			&RepoRoot{
 				VCS:  vcsGit,
-				Repo: "https://github.com/dagger/dagger-go-sdk",
-				Root: "dagger.io/dagger",
+				Repo: "https://dev.azure.com/dagger-e2e/_git/dagger-modules-test-public",
+				Root: "dev.azure.com/dagger-e2e/_git/dagger-modules-test-public",
 			},
 		},
 		{
-			"bitbucket.org/workspace/pkgname/subdir",
+			"dev.azure.com/dagger-e2e/_git/dagger-modules-test-public.git/depth1/depth2",
 			&RepoRoot{
 				VCS:  vcsGit,
-				Repo: "https://bitbucket.org/workspace/pkgname",
-				Root: "bitbucket.org/workspace/pkgname",
+				Repo: "https://dev.azure.com/dagger-e2e/_git/dagger-modules-test-public",
+				Root: "dev.azure.com/dagger-e2e/_git/dagger-modules-test-public.git",
 			},
 		},
-		{
-			"codeberg.org/workspace/pkgname/subdir",
-			&RepoRoot{
-				VCS:  vcsGit,
-				Repo: "https://codeberg.org/workspace/pkgname",
-				Root: "codeberg.org/workspace/pkgname",
-			},
-		},
+<<<<<<< Updated upstream
+=======
+		// // user, org, repo
+		// {
+		// 	"dev.azure.com/dagger-e2e/dagger-modules-test-public/_git/dagger-modules-test-public/depth1/depth2",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://dev.azure.com/dagger-e2e/dagger-modules-test-public/_git/dagger-modules-test-public",
+		// 		Root: "dev.azure.com/dagger-e2e/dagger-modules-test-public/_git/dagger-modules-test-public",
+		// 	},
+		// },
+		// // Azure requires auth when cloning on this format
+		// {
+		// 	"dev.azure.com/dagger-e2e/dagger-modules-test-public/_git/dagger-modules-test-public.git/depth1/depth2",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://dev.azure.com/dagger-e2e/dagger-modules-test-public/_git/dagger-modules-test-public",
+		// 		Root: "dev.azure.com/dagger-e2e/dagger-modules-test-public/_git/dagger-modules-test-public.git",
+		// 	},
+		// },
+
+		// // SSH ref for azure, with and without .git
+		// {
+		// 	"ssh.dev.azure.com/v3/dagger-e2e/dagger-modules-test/dagger-modules-test-private/depth1/depth2",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://dev.azure.com/dagger-e2e/dagger-modules-test/_git/dagger-modules-test-private",
+		// 		Root: "ssh.dev.azure.com/v3/dagger-e2e/dagger-modules-test/dagger-modules-test-private",
+		// 	},
+		// },
+		// {
+		// 	"ssh.dev.azure.com/v3/dagger-e2e/dagger-modules-test/dagger-modules-test-private.git/depth1/depth2",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://dev.azure.com/dagger-e2e/dagger-modules-test/_git/dagger-modules-test-private",
+		// 		Root: "ssh.dev.azure.com/v3/dagger-e2e/dagger-modules-test/dagger-modules-test-private.git",
+		// 	},
+		// },
+>>>>>>> Stashed changes
 	}
 
 	for _, test := range tests {
@@ -248,6 +306,9 @@ func TestRepoRootForImportPath(t *testing.T) {
 		}
 		if got.VCS.Name != want.VCS.Name || got.Repo != want.Repo {
 			t.Errorf("RepoRootForImportPath(%q) = VCS(%s) Repo(%s), want VCS(%s) Repo(%s)", test.path, got.VCS, got.Repo, want.VCS, want.Repo)
+		}
+		if got.Root != want.Root {
+			t.Errorf("RepoRootForImportPath(%q) = VCS(%s) Root(%s), want VCS(%s) Root(%s)", test.path, got.VCS, got.Root, want.VCS, want.Root)
 		}
 	}
 }
