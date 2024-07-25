@@ -227,6 +227,16 @@ func TestRepoRootForImportPath(t *testing.T) {
 				Root: "codeberg.org/workspace/pkgname",
 			},
 		},
+
+		// TODO(guillaume): implement regex with and without .git
+		// {
+		// 	"dev.azure.com/dagger-e2e/_git/dagger-modules-test-public",
+		// 	&RepoRoot{
+		// 		VCS:  vcsGit,
+		// 		Repo: "https://dev.azure.com/dagger-e2e/_git/dagger-modules-test-public",
+		// 		Root: "dev.azure.com/dagger-e2e/_git/dagger-modules-test-public",
+		// 	},
+		// },
 	}
 
 	for _, test := range tests {
