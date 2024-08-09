@@ -3215,9 +3215,16 @@
             <div class="operation-group-name">
               <a href="#group-Queries">Queries</a>
             </div>
-            <h2 class="operation-heading ">
+            <h2 class="operation-heading operation-deprecated">
               <code>pipeline</code>
             </h2>
+            <div class="doc-row">
+              <div class="doc-copy">
+                <div class="doc-copy-section">
+                  <div class="deprecation-reason"> Explicit pipeline creation is now a no-op </div>
+                </div>
+              </div>
+            </div>
             <div class="doc-row">
               <div class="doc-copy">
                 <div class="operation-description doc-copy-section">
@@ -3531,7 +3538,7 @@
                   <html>
                     <head></head>
                     <body><pre><code class="hljs language-json"><span class="hljs-punctuation">{</span>
-  <span class="hljs-attr">"name"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"abc123"</span><span class="hljs-punctuation">,</span>
+  <span class="hljs-attr">"name"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"xyz789"</span><span class="hljs-punctuation">,</span>
   <span class="hljs-attr">"value"</span><span class="hljs-punctuation">:</span> <span class="hljs-string">"abc123"</span>
 <span class="hljs-punctuation">}</span>
 </code></pre>
@@ -3947,8 +3954,9 @@
                         <td> Retrieves the list of paths where a directory is mounted. </td>
                       </tr>
                       <tr class="row-has-field-arguments">
-                        <td data-property-name=""><a class="property-name" id="Container-pipeline" href="#Container-pipeline"><code>pipeline</code></a> - <span class="property-type"><a href="#definition-Container"><code>Container!</code></a></span> </td>
-                        <td> Creates a named sub-pipeline. </td>
+                        <td data-property-name="" class="definition-deprecated"><a class="property-name" id="Container-pipeline" href="#Container-pipeline"><code>pipeline</code></a> - <span class="property-type"><a href="#definition-Container"><code>Container!</code></a></span> </td>
+                        <td> Creates a named sub-pipeline. <span class="deprecation-reason">Explicit pipeline creation is now a no-op</span>
+                        </td>
                       </tr>
                       <tr class="row-field-arguments">
                         <td colspan="2">
@@ -5422,8 +5430,9 @@
                         <td> A unique identifier for this Directory. </td>
                       </tr>
                       <tr class="row-has-field-arguments">
-                        <td data-property-name=""><a class="property-name" id="Directory-pipeline" href="#Directory-pipeline"><code>pipeline</code></a> - <span class="property-type"><a href="#definition-Directory"><code>Directory!</code></a></span> </td>
-                        <td> Creates a named sub-pipeline. </td>
+                        <td data-property-name="" class="definition-deprecated"><a class="property-name" id="Directory-pipeline" href="#Directory-pipeline"><code>pipeline</code></a> - <span class="property-type"><a href="#definition-Directory"><code>Directory!</code></a></span> </td>
+                        <td> Creates a named sub-pipeline. <span class="deprecation-reason">Explicit pipeline creation is now a no-op</span>
+                        </td>
                       </tr>
                       <tr class="row-field-arguments">
                         <td colspan="2">
@@ -6431,8 +6440,8 @@
                     </thead>
                     <tbody>
                       <tr>
-                        <td data-property-name=""><a class="property-name" id="GitModuleSource-cloneURL" href="#GitModuleSource-cloneURL"><code>cloneURL</code></a> - <span class="property-type"><a href="#definition-String"><code>String!</code></a></span> </td>
-                        <td> The URL to clone the root of the git repo from </td>
+                        <td data-property-name=""><a class="property-name" id="GitModuleSource-cloneRef" href="#GitModuleSource-cloneRef"><code>cloneRef</code></a> - <span class="property-type"><a href="#definition-String"><code>String!</code></a></span> </td>
+                        <td> The ref to clone the root of the git repo from </td>
                       </tr>
                       <tr>
                         <td data-property-name=""><a class="property-name" id="GitModuleSource-commit" href="#GitModuleSource-commit"><code>commit</code></a> - <span class="property-type"><a href="#definition-String"><code>String!</code></a></span> </td>
@@ -6449,6 +6458,10 @@
                       <tr>
                         <td data-property-name=""><a class="property-name" id="GitModuleSource-id" href="#GitModuleSource-id"><code>id</code></a> - <span class="property-type"><a href="#definition-GitModuleSourceID"><code>GitModuleSourceID!</code></a></span> </td>
                         <td> A unique identifier for this GitModuleSource. </td>
+                      </tr>
+                      <tr>
+                        <td data-property-name=""><a class="property-name" id="GitModuleSource-repositoryUrl" href="#GitModuleSource-repositoryUrl"><code>repositoryUrl</code></a> - <span class="property-type"><a href="#definition-String"><code>String!</code></a></span> </td>
+                        <td> The URL to access the web view of the repository (e.g., GitHub, GitLab, Bitbucket) </td>
                       </tr>
                       <tr>
                         <td data-property-name=""><a class="property-name" id="GitModuleSource-root" href="#GitModuleSource-root"><code>root</code></a> - <span class="property-type"><a href="#definition-String"><code>String!</code></a></span> </td>

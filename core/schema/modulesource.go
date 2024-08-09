@@ -70,12 +70,6 @@ func (s *moduleSchema) moduleSource(ctx context.Context, query *core.Query, args
 		src.AsGitSource.Value.Root = parsed.repoRoot.Root
 		src.AsGitSource.Value.RepositoryURL = parsed.repoRoot.Repo
 
-		// keep the username input intact
-		refUsername := parsed.sshusername
-		if refUsername != "" {
-			refUsername += "@"
-		}
-
 		// add git username if SSH ref does not contain it
 		cloneUsername := parsed.sshusername
 		if cloneUsername == "" && parsed.scheme.IsSSH() {
@@ -85,10 +79,8 @@ func (s *moduleSchema) moduleSource(ctx context.Context, query *core.Query, args
 			cloneUsername += "@"
 		}
 
-		// Non destructive reference to the user input ref
-		src.AsGitSource.Value.Ref = parsed.scheme.Prefix() + refUsername + parsed.repoRoot.Root
-		// Ref used to clone the root of the repo (`git+` is removed)
-		src.AsGitSource.Value.CloneRef = parsed.scheme.CloneString() + cloneUsername + parsed.repoRoot.Root
+		// Ref used to clone the root of the repo
+		src.AsGitSource.Value.CloneRef = parsed.scheme.Prefix() + cloneUsername + parsed.repoRoot.Root
 
 		subPath := "/"
 		if parsed.repoRootSubdir != "" {
@@ -141,7 +133,6 @@ func (s *moduleSchema) moduleSource(ctx context.Context, query *core.Query, args
 			commitRefSelector = dagql.Selector{
 				Field: "head",
 			}
-			// src.AsGitSource.Value.Version = "main" // todo: fix, not necessary?
 		}
 
 		var gitRef dagql.Instance[*core.GitRef]
@@ -276,11 +267,19 @@ func parseRefString(ctx context.Context, bk buildkitClient, refString string) pa
 	gitParsed, err := parseGitEndpoint(refString)
 	if err == nil {
 		// Try to isolate the root of the git repo
+		// RepoRootForImportPath does not support SCP-like ref style. In parseGitEndpoint, we made sure that all refs
+		// would be compatible with this function to benefit from the repo URL and root splitting
 		repoRoot, err := vcs.RepoRootForImportPath(gitParsed.modPath, false)
 		if err == nil && repoRoot != nil && repoRoot.VCS != nil && repoRoot.VCS.Name == "Git" {
 			gitParsed.repoRoot = repoRoot
+
 			// the extra "/" trim is important as subpath traversal such as /../ are being cleaned by filePath.Clean
 			gitParsed.repoRootSubdir = strings.TrimPrefix(strings.TrimPrefix(gitParsed.modPath, repoRoot.Root), "/")
+
+			// Restore SCPLike ref format
+			if gitParsed.scheme == core.SchemeSCPLike {
+				gitParsed.repoRoot.Root = strings.Replace(gitParsed.repoRoot.Root, "/", ":", 1)
+			}
 			return gitParsed
 		}
 	}
@@ -292,17 +291,22 @@ func parseRefString(ctx context.Context, bk buildkitClient, refString string) pa
 func parseGitEndpoint(refString string) (parsedRefString, error) {
 	scheme, schemelessRef := parseScheme(refString)
 
-	// we append "ssh" to ensure that NewEndPoint properly parses the host / path and user
-	// HTTP refs are valid SSH refs. Bonus: NewEndpoint library handles correctly implicit SSH refs
+	if scheme == core.NoScheme && isSCPLike(schemelessRef) {
+		scheme = core.SchemeSCPLike
+		// transform the ":" into a "/" to rely on a unified logic after
+		// works because "git@github.com:user" is equivalent to "ssh://git@ref/user"
+		schemelessRef = strings.Replace(schemelessRef, ":", "/", 1)
+	}
+
+	// Trick:
+	// as we removed the scheme above with `parseScheme``, and the SCP-like refs are
+	// now without ":", all refs are in such format: "[git@]github.com/user/path...@version"
+	// transport.NewEndpoint parses users only for SSH refs. As HTTP refs without scheme are valid SSH refs
+	// we use the "ssh://" prefix to parse properly both explicit / SCP-like and HTTP refs
+	// and delegate the logic to parse the host / path and user to the library
 	endpoint, err := transport.NewEndpoint("ssh://" + schemelessRef)
 	if err != nil {
 		return parsedRefString{}, err
-	}
-
-	// handle implicit SSH
-	// e.g. git@host/path[@version]
-	if endpoint.User != "" && !scheme.IsExplicitSSH() {
-		scheme = core.SchemeImplicitSSH
 	}
 
 	gitParsed := parsedRefString{
@@ -322,11 +326,14 @@ func parseGitEndpoint(refString string) (parsedRefString, error) {
 	return gitParsed, nil
 }
 
+func isSCPLike(ref string) bool {
+	return strings.Contains(ref, ":") && !strings.Contains(ref, "//")
+}
+
 func parseScheme(refString string) (core.SchemeType, string) {
 	schemes := []core.SchemeType{
-		core.SchemeGitHTTP,
-		core.SchemeGitHTTPS,
-		core.SchemeGitSSH,
+		core.SchemeHTTP,
+		core.SchemeHTTPS,
 		core.SchemeSSH,
 	}
 
