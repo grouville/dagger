@@ -493,8 +493,10 @@ func (src *GitModuleSource) RefString() string {
 
 func (src *GitModuleSource) Symbolic() string {
 	// ignore error since ref is validated upon module initialization
-	p, _ := url.JoinPath(src.CloneRef, src.RootSubpath)
-	return p
+	if src.RootSubpath == "" || src.RootSubpath == "/" {
+		return src.CloneRef
+	}
+	return fmt.Sprintf("%s/%s", src.CloneRef, strings.TrimPrefix(src.RootSubpath, "/"))
 }
 
 func (src *GitModuleSource) HTMLURL() string {
