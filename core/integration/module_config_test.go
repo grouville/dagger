@@ -1376,7 +1376,7 @@ func (m *Test) Fn() ([]string, error) {
 	require.Contains(t, strings.TrimSpace(out), "random-file")
 }
 
-// VCS to test behavior against
+// Git hosting providers to test behavior against
 type vcsTestCase struct {
 	name              string
 	gitTestRepoRef    string
@@ -1390,12 +1390,16 @@ type vcsTestCase struct {
 	// Azure needs a path prefix
 	expectedPathPrefix string
 	isPrivateRepo      bool
+	skipProxyTest      bool
 }
 
 var vcsTestCases = []vcsTestCase{
-	// public repos
+	// Test cases for public repositories using Go-style references, without '.git' suffix (optional)
+	// These cases verify correct handling of repository URLs across different Git hosting providers
+
+	// GitHub public repository
 	{
-		name:                     "GitHub without .git",
+		name:                     "GitHub public",
 		gitTestRepoRef:           "github.com/dagger/dagger-test-modules",
 		gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
 		expectedHost:             "github.com",
@@ -1404,7 +1408,7 @@ var vcsTestCases = []vcsTestCase{
 		expectedPathPrefix:       "",
 	},
 	{
-		name:                     "GitLab without .git",
+		name:                     "GitLab public",
 		gitTestRepoRef:           "gitlab.com/dagger-modules/test/more/dagger-test-modules-public",
 		gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
 		expectedHost:             "gitlab.com",
@@ -1413,7 +1417,7 @@ var vcsTestCases = []vcsTestCase{
 		expectedPathPrefix:       "",
 	},
 	{
-		name:                     "BitBucket without .git",
+		name:                     "BitBucket public",
 		gitTestRepoRef:           "bitbucket.org/dagger-modules/dagger-test-modules-public",
 		gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
 		expectedHost:             "bitbucket.org",
@@ -1422,7 +1426,7 @@ var vcsTestCases = []vcsTestCase{
 		expectedPathPrefix:       "",
 	},
 	{
-		name:                     "Azure DevOps without .git",
+		name:                     "Azure DevOps public",
 		gitTestRepoRef:           "dev.azure.com/daggere2e/public/_git/dagger-test-modules",
 		gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
 		expectedHost:             "dev.azure.com",
@@ -1430,8 +1434,11 @@ var vcsTestCases = []vcsTestCase{
 		expectedURLPathComponent: "commit",
 		expectedPathPrefix:       "?path=",
 	},
-	// Private repo
-	// Explicit SSH ref format
+
+	// SSH references support both private and public repositories across various Git hosting providers.
+	// The following test cases demonstrate the handling of SSH references for different scenarios.
+
+	// GitLab private repository using explicit SSH reference format
 	{
 		name:                     "SSH Private GitLab",
 		gitTestRepoRef:           "ssh://gitlab.com/dagger-modules/private/test/more/dagger-test-modules-private.git",
@@ -1441,8 +1448,9 @@ var vcsTestCases = []vcsTestCase{
 		expectedURLPathComponent: "tree",
 		expectedPathPrefix:       "",
 		isPrivateRepo:            true,
+		skipProxyTest:            true,
 	},
-	// SCP-like ref format
+	// BitBucket private repository using SCP-like SSH reference format
 	{
 		name:                     "SSH Private BitBucket",
 		gitTestRepoRef:           "git@bitbucket.org:dagger-modules/private-modules-test.git",
@@ -1452,18 +1460,33 @@ var vcsTestCases = []vcsTestCase{
 		expectedURLPathComponent: "src",
 		expectedPathPrefix:       "",
 		isPrivateRepo:            true,
+		skipProxyTest:            true,
 	},
-	// commented for now, as Azure does not allow scoped SSH key at repo level, with read-only rights
-	// This is however a proper example of a ref for such provider
-	// {
-	// 	name:                     "SSH Private Azure",
-	// 	gitTestRepoRef:           "git@gitlab.com/dagger-modules/private/test/more/dagger-test-modules-private.git",
-	// 	gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
-	// 	expectedHost:             "gitlab.com",
-	// 	expectedBaseHTMLURL:      "gitlab.com/dagger-modules/private/test/more/dagger-test-modules-private",
-	// 	expectedURLPathComponent: "tree",
-	// 	withSSHAuth:              true,
-	// },
+	// GitHub public repository using SSH reference
+	// Note: This format is also valid for private GitHub repositories
+	{
+		name:                     "SSH Public GitHub",
+		gitTestRepoRef:           "git@github.com:grouville/dagger-test-modules.git",
+		gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
+		expectedHost:             "github.com",
+		expectedBaseHTMLURL:      "github.com/grouville/dagger-test-modules",
+		expectedURLPathComponent: "tree",
+		expectedPathPrefix:       "",
+		skipProxyTest:            true,
+	},
+	// Azure DevOps private repository using SSH reference
+	// Note: Currently commented out due to Azure DevOps limitations on scoped SSH keys at the repository level
+	//
+	//	{
+	//		name:                     "SSH Private Azure",
+	//		gitTestRepoRef:           "git@ssh.dev.azure.com:v3/daggere2e/private/dagger-test-modules",
+	//		gitTestRepoCommit:        "8723e276a45b2e620ba3185cb07dc35e2be5bc86",
+	//		expectedHost:             "dev.azure.com",
+	//		expectedBaseHTMLURL:      "dev.azure.com/daggere2e/private/_git/dagger-test-modules",
+	//		expectedURLPathComponent: "commit",
+	//		expectedPathPrefix:       "?path=",
+	//		isPrivateRepo:              true,
+	//	},
 }
 
 func testOnMultipleVCS(t *testctx.T, testFunc func(ctx context.Context, t *testctx.T, tc vcsTestCase)) {

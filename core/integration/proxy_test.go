@@ -355,9 +355,9 @@ func (ContainerSuite) TestSystemProxies(ctx context.Context, t *testctx.T) {
 	})
 
 	testOnMultipleVCS(t, func(ctx context.Context, t *testctx.T, tc vcsTestCase) {
-		// Proxy does not work with SSH refs
-		if !tc.isPrivateRepo {
-			t.Run("git uses proxy", func(ctx context.Context, t *testctx.T) {
+		// TODO: test TCP proxy / git over SOCKS5 proxy
+		if !tc.skipProxyTest {
+			t.Run("git uses HTTP proxy", func(ctx context.Context, t *testctx.T) {
 				c := connect(ctx, t)
 
 				customProxyTests(ctx, t, c, false,
@@ -389,9 +389,8 @@ func (ContainerSuite) TestSystemProxies(ctx context.Context, t *testctx.T) {
 
 func (ContainerSuite) TestSystemGoProxy(ctx context.Context, t *testctx.T) {
 	testOnMultipleVCS(t, func(ctx context.Context, t *testctx.T, tc vcsTestCase) {
-		// Proxy does not work with SSH refs
-		if !tc.isPrivateRepo {
-			t.Run("system go proxy", func(ctx context.Context, t *testctx.T) {
+		if !tc.skipProxyTest {
+			t.Run("system HTTP go proxy", func(ctx context.Context, t *testctx.T) {
 				c := connect(ctx, t)
 
 				// just a subset of modules we expect to be downloaded since trying to go one to one would

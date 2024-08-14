@@ -293,6 +293,7 @@ func TestParseRefString(t *testing.T) {
 				sshusername:    "daggere2e",
 			},
 		},
+		// ⚠️ Azure does not allow to have SSH refs ending with .git
 		{
 			urlStr: "git@ssh.dev.azure.com:v3/daggere2e/public/dagger-test-modules/cool-sdk",
 			want: &parsedRefString{
