@@ -87,6 +87,8 @@ func (s *moduleSchema) moduleSource(ctx context.Context, query *core.Query, args
 
 		// Construct the source reference (preserves original input)
 		src.AsGitSource.Value.CloneRef = parsed.scheme.Prefix() + sourceUser + parsed.repoRoot.Root
+		// DEPRECATED: point CloneURL to new CloneRef implementation
+		src.AsGitSource.Value.CloneURL = src.AsGitSource.Value.CloneRef
 
 		// Construct the reference for actual cloning (ensures username for SSH)
 		cloneRef := parsed.scheme.Prefix() + cloneUser + parsed.repoRoot.Root

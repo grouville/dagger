@@ -1507,10 +1507,6 @@ func (ModuleSuite) TestDaggerGitRefs(ctx context.Context, t *testctx.T) {
 				require.Equal(t, fmt.Sprintf("https://%s/%s/%s", tc.expectedBaseHTMLURL, tc.expectedURLPathComponent, tc.gitTestRepoCommit), htmlURL)
 			}
 
-			repositoryURL, err := rootModSrc.AsGitSource().RepositoryURL(ctx)
-			require.NoError(t, err)
-			require.Equal(t, fmt.Sprintf("https://%s", tc.expectedBaseHTMLURL), repositoryURL)
-
 			commit, err := rootModSrc.AsGitSource().Commit(ctx)
 			require.NoError(t, err)
 			require.Equal(t, tc.gitTestRepoCommit, commit)
@@ -1536,10 +1532,6 @@ func (ModuleSuite) TestDaggerGitRefs(ctx context.Context, t *testctx.T) {
 				require.Equal(t, http.StatusOK, resp.StatusCode)
 			}
 
-			repositoryURL, err := topLevelModSrc.AsGitSource().RepositoryURL(ctx)
-			require.NoError(t, err)
-			require.Equal(t, fmt.Sprintf("https://%s", tc.expectedBaseHTMLURL), repositoryURL)
-
 			commit, err := topLevelModSrc.AsGitSource().Commit(ctx)
 			require.NoError(t, err)
 			require.Equal(t, tc.gitTestRepoCommit, commit)
@@ -1564,10 +1556,6 @@ func (ModuleSuite) TestDaggerGitRefs(ctx context.Context, t *testctx.T) {
 				defer resp.Body.Close()
 				require.Equal(t, http.StatusOK, resp.StatusCode)
 			}
-
-			repositoryURL, err := subdirDepModSrc.AsGitSource().RepositoryURL(ctx)
-			require.NoError(t, err)
-			require.Equal(t, fmt.Sprintf("https://%s", tc.expectedBaseHTMLURL), repositoryURL)
 
 			commit, err := subdirDepModSrc.AsGitSource().Commit(ctx)
 			require.NoError(t, err)

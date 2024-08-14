@@ -11,7 +11,19 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
+
+	_ "embed"
 )
+
+// Private key used to test the new SSH modules ref format
+// It has read-only access to our modules testing private repositories.
+// These are all quasi-mirrors of github.com/dagger/dagger-test-modules
+// - gitlab.com/dagger-modules/private/test/more/dagger-test-modules-private.git
+// - bitbucket.org/dagger-modules/private-modules-test
+// - dev.azure.com/daggere2e/private/_git/dagger-test-modules
+//
+//go:embed private_key_ro_dagger_modules_test.pem
+var globalPrivateKeyReadOnly string
 
 func setupPrivateRepoSSHAgent(t *testctx.T) (string, func()) {
 	key, err := ssh.ParseRawPrivateKey([]byte(globalPrivateKeyReadOnly))

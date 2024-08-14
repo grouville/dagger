@@ -223,7 +223,7 @@ sleep infinity
 	require.Equal(t, []string{"README.md"}, entries)
 }
 
-func (GitSuite) TestGitTagsWithAndWithoutSSHAuth(ctx context.Context, t *testctx.T) {
+func (GitSuite) TestGitTagsSSH(ctx context.Context, t *testctx.T) {
 	c := connect(ctx, t)
 
 	repoURL := "git@gitlab.com:dagger-modules/private/test/more/dagger-test-modules-private.git"
