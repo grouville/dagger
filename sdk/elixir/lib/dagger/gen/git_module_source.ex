@@ -20,6 +20,16 @@ defmodule Dagger.GitModuleSource do
     Client.execute(git_module_source.client, query_builder)
   end
 
+  @deprecated "Use CloneRef instead. CloneRef supports both URL-style and SCP-like SSH references"
+  @doc "The URL to clone the root of the git repo from"
+  @spec clone_url(t()) :: {:ok, String.t()} | {:error, term()}
+  def clone_url(%__MODULE__{} = git_module_source) do
+    selection =
+      git_module_source.selection |> select("cloneURL")
+
+    execute(selection, git_module_source.client)
+  end
+
   @doc "The resolved commit of the git repo this source points to."
   @spec commit(t()) :: {:ok, String.t()} | {:error, term()}
   def commit(%__MODULE__{} = git_module_source) do
@@ -57,15 +67,6 @@ defmodule Dagger.GitModuleSource do
       git_module_source.query_builder |> QB.select("id")
 
     Client.execute(git_module_source.client, query_builder)
-  end
-
-  @doc "The URL to access the web view of the repository (e.g., GitHub, GitLab, Bitbucket)"
-  @spec repository_url(t()) :: {:ok, String.t()} | {:error, term()}
-  def repository_url(%__MODULE__{} = git_module_source) do
-    selection =
-      git_module_source.selection |> select("repositoryUrl")
-
-    execute(selection, git_module_source.client)
   end
 
   @doc "The clean module name of the root of the module"

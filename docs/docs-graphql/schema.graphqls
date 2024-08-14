@@ -1584,6 +1584,9 @@ type GitModuleSource {
   """The ref to clone the root of the git repo from"""
   cloneRef: String!
 
+  """The URL to clone the root of the git repo from"""
+  cloneURL: String! @deprecated(reason: "Use CloneRef instead. CloneRef supports both URL-style and SCP-like SSH references")
+
   """The resolved commit of the git repo this source points to."""
   commit: String!
 
@@ -1597,11 +1600,6 @@ type GitModuleSource {
 
   """A unique identifier for this GitModuleSource."""
   id: GitModuleSourceID!
-
-  """
-  The URL to access the web view of the repository (e.g., GitHub, GitLab, Bitbucket)
-  """
-  repositoryUrl: String!
 
   """The clean module name of the root of the module"""
   root: String!

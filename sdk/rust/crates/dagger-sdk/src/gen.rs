@@ -4804,6 +4804,11 @@ impl GitModuleSource {
         let query = self.selection.select("cloneRef");
         query.execute(self.graphql_client.clone()).await
     }
+    /// The URL to clone the root of the git repo from
+    pub async fn clone_url(&self) -> Result<String, DaggerError> {
+        let query = self.selection.select("cloneURL");
+        query.execute(self.graphql_client.clone()).await
+    }
     /// The resolved commit of the git repo this source points to.
     pub async fn commit(&self) -> Result<String, DaggerError> {
         let query = self.selection.select("commit");
@@ -4826,11 +4831,6 @@ impl GitModuleSource {
     /// A unique identifier for this GitModuleSource.
     pub async fn id(&self) -> Result<GitModuleSourceId, DaggerError> {
         let query = self.selection.select("id");
-        query.execute(self.graphql_client.clone()).await
-    }
-    /// The URL to access the web view of the repository (e.g., GitHub, GitLab, Bitbucket)
-    pub async fn repository_url(&self) -> Result<String, DaggerError> {
-        let query = self.selection.select("repositoryUrl");
         query.execute(self.graphql_client.clone()).await
     }
     /// The clean module name of the root of the module
