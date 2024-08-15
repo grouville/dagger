@@ -11,11 +11,11 @@ defmodule Dagger.GitModuleSource do
 
   @type t() :: %__MODULE__{}
 
-  @doc "The URL to clone the root of the git repo from"
-  @spec clone_url(t()) :: {:ok, String.t()} | {:error, term()}
-  def clone_url(%__MODULE__{} = git_module_source) do
+  @doc "The ref to clone the root of the git repo from"
+  @spec clone_ref(t()) :: {:ok, String.t()} | {:error, term()}
+  def clone_ref(%__MODULE__{} = git_module_source) do
     query_builder =
-      git_module_source.query_builder |> QB.select("cloneURL")
+      git_module_source.query_builder |> QB.select("cloneRef")
 
     Client.execute(git_module_source.client, query_builder)
   end
@@ -24,10 +24,10 @@ defmodule Dagger.GitModuleSource do
   @doc "The URL to clone the root of the git repo from"
   @spec clone_url(t()) :: {:ok, String.t()} | {:error, term()}
   def clone_url(%__MODULE__{} = git_module_source) do
-    selection =
-      git_module_source.selection |> select("cloneURL")
+    query_builder =
+      git_module_source.query_builder |> QB.select("cloneURL")
 
-    execute(selection, git_module_source.client)
+    Client.execute(git_module_source.client, query_builder)
   end
 
   @doc "The resolved commit of the git repo this source points to."
