@@ -3909,6 +3909,7 @@ type GitModuleSource struct {
 	cloneRef    *string
 	cloneURL    *string
 	commit      *string
+	htmlRepoURL *string
 	htmlURL     *string
 	id          *GitModuleSourceID
 	root        *string
@@ -3970,6 +3971,19 @@ func (r *GitModuleSource) ContextDirectory() *Directory {
 	return &Directory{
 		query: q,
 	}
+}
+
+// The URL to access the web view of the repository (e.g., GitHub, GitLab, Bitbucket)
+func (r *GitModuleSource) HTMLRepoURL(ctx context.Context) (string, error) {
+	if r.htmlRepoURL != nil {
+		return *r.htmlRepoURL, nil
+	}
+	q := r.query.Select("htmlRepoURL")
+
+	var response string
+
+	q = q.Bind(&response)
+	return response, q.Execute(ctx)
 }
 
 // The URL to the source's git repo in a web browser

@@ -51,6 +51,15 @@ defmodule Dagger.GitModuleSource do
     }
   end
 
+  @doc "The URL to access the web view of the repository (e.g., GitHub, GitLab, Bitbucket)"
+  @spec html_repo_url(t()) :: {:ok, String.t()} | {:error, term()}
+  def html_repo_url(%__MODULE__{} = git_module_source) do
+    query_builder =
+      git_module_source.query_builder |> QB.select("htmlRepoURL")
+
+    Client.execute(git_module_source.client, query_builder)
+  end
+
   @doc "The URL to the source's git repo in a web browser"
   @spec html_url(t()) :: {:ok, String.t()} | {:error, term()}
   def html_url(%__MODULE__{} = git_module_source) do

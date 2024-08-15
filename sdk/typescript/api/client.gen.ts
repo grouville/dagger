@@ -5233,6 +5233,7 @@ export class GitModuleSource extends BaseClient {
   private readonly _cloneRef?: string = undefined
   private readonly _cloneURL?: string = undefined
   private readonly _commit?: string = undefined
+  private readonly _htmlRepoURL?: string = undefined
   private readonly _htmlURL?: string = undefined
   private readonly _root?: string = undefined
   private readonly _rootSubpath?: string = undefined
@@ -5247,6 +5248,7 @@ export class GitModuleSource extends BaseClient {
     _cloneRef?: string,
     _cloneURL?: string,
     _commit?: string,
+    _htmlRepoURL?: string,
     _htmlURL?: string,
     _root?: string,
     _rootSubpath?: string,
@@ -5258,6 +5260,7 @@ export class GitModuleSource extends BaseClient {
     this._cloneRef = _cloneRef
     this._cloneURL = _cloneURL
     this._commit = _commit
+    this._htmlRepoURL = _htmlRepoURL
     this._htmlURL = _htmlURL
     this._root = _root
     this._rootSubpath = _rootSubpath
@@ -5362,6 +5365,27 @@ export class GitModuleSource extends BaseClient {
       ],
       ctx: this._ctx,
     })
+  }
+
+  /**
+   * The URL to access the web view of the repository (e.g., GitHub, GitLab, Bitbucket)
+   */
+  htmlRepoURL = async (): Promise<string> => {
+    if (this._htmlRepoURL) {
+      return this._htmlRepoURL
+    }
+
+    const response: Awaited<string> = await computeQuery(
+      [
+        ...this._queryTree,
+        {
+          operation: "htmlRepoURL",
+        },
+      ],
+      await this._ctx.connection(),
+    )
+
+    return response
   }
 
   /**

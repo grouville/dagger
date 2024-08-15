@@ -455,7 +455,7 @@ type GitModuleSource struct {
 	CloneURL string `field:"true" name:"cloneURL" doc:"The URL to clone the root of the git repo from" deprecated:"Use CloneRef instead. CloneRef supports both URL-style and SCP-like SSH references"`
 	CloneRef string `field:"true" name:"cloneRef" doc:"The ref to clone the root of the git repo from"`
 
-	RepositoryURL string `field:"false" doc:"The URL to access the web view of the repository (e.g., GitHub, GitLab, Bitbucket)"`
+	HtmlRepoURL string `field:"true" name:"htmlRepoURL" doc:"The URL to access the web view of the repository (e.g., GitHub, GitLab, Bitbucket)"`
 
 	ContextDirectory dagql.Instance[*Directory] `field:"true" doc:"The directory containing everything needed to load load and use the module."`
 }
@@ -501,21 +501,21 @@ func (src *GitModuleSource) Symbolic() string {
 }
 
 func (src *GitModuleSource) HTMLURL() string {
-	parsedURL, err := url.Parse(src.RepositoryURL)
+	parsedURL, err := url.Parse(src.HtmlRepoURL)
 	if err != nil {
-		return src.RepositoryURL + path.Join("/src", src.Commit, src.RootSubpath)
+		return src.HtmlRepoURL + path.Join("/src", src.Commit, src.RootSubpath)
 	}
 
 	switch parsedURL.Host {
 	case "github.com", "gitlab.com":
-		return src.RepositoryURL + path.Join("/tree", src.Commit, src.RootSubpath)
+		return src.HtmlRepoURL + path.Join("/tree", src.Commit, src.RootSubpath)
 	case "dev.azure.com":
 		if src.RootSubpath != "" {
-			return fmt.Sprintf("%s/commit/%s?path=/%s", src.RepositoryURL, src.Commit, src.RootSubpath)
+			return fmt.Sprintf("%s/commit/%s?path=/%s", src.HtmlRepoURL, src.Commit, src.RootSubpath)
 		}
-		return src.RepositoryURL + path.Join("/commit", src.Commit)
+		return src.HtmlRepoURL + path.Join("/commit", src.Commit)
 	default:
-		return src.RepositoryURL + path.Join("/src", src.Commit, src.RootSubpath)
+		return src.HtmlRepoURL + path.Join("/src", src.Commit, src.RootSubpath)
 	}
 }
 

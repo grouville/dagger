@@ -50,6 +50,15 @@ class GitModuleSource extends Client\AbstractObject implements Client\IdAble
     }
 
     /**
+     * The URL to access the web view of the repository (e.g., GitHub, GitLab, Bitbucket)
+     */
+    public function htmlRepoURL(): string
+    {
+        $leafQueryBuilder = new \Dagger\Client\QueryBuilder('htmlRepoURL');
+        return (string)$this->queryLeaf($leafQueryBuilder, 'htmlRepoURL');
+    }
+
+    /**
      * The URL to the source's git repo in a web browser
      */
     public function htmlURL(): string

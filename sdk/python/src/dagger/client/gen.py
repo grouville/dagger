@@ -4172,6 +4172,28 @@ class GitModuleSource(Type):
         _ctx = self._select("contextDirectory", _args)
         return Directory(_ctx)
 
+    async def html_repo_url(self) -> str:
+        """The URL to access the web view of the repository (e.g., GitHub,
+        GitLab, Bitbucket)
+
+        Returns
+        -------
+        str
+            The `String` scalar type represents textual data, represented as
+            UTF-8 character sequences. The String type is most often used by
+            GraphQL to represent free-form human-readable text.
+
+        Raises
+        ------
+        ExecuteTimeoutError
+            If the time to execute the query exceeds the configured timeout.
+        QueryError
+            If the API returns an error.
+        """
+        _args: list[Arg] = []
+        _ctx = self._select("htmlRepoURL", _args)
+        return await _ctx.execute(str)
+
     async def html_url(self) -> str:
         """The URL to the source's git repo in a web browser
 

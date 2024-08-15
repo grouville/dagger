@@ -4823,6 +4823,11 @@ impl GitModuleSource {
             graphql_client: self.graphql_client.clone(),
         }
     }
+    /// The URL to access the web view of the repository (e.g., GitHub, GitLab, Bitbucket)
+    pub async fn html_repo_url(&self) -> Result<String, DaggerError> {
+        let query = self.selection.select("htmlRepoURL");
+        query.execute(self.graphql_client.clone()).await
+    }
     /// The URL to the source's git repo in a web browser
     pub async fn html_url(&self) -> Result<String, DaggerError> {
         let query = self.selection.select("htmlURL");
