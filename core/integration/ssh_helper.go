@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/base64"
 	"io"
 	"net"
 	"os"
@@ -23,11 +24,14 @@ import (
 // - dev.azure.com/daggere2e/private/_git/dagger-test-modules
 //
 //go:embed private_key_ro_dagger_modules_test.pem
-var globalPrivateKeyReadOnly string
+var base64EncodedPrivateKey string
 
 func setupPrivateRepoSSHAgent(t *testctx.T) (string, func()) {
-	key, err := ssh.ParseRawPrivateKey([]byte(globalPrivateKeyReadOnly))
-	require.NoError(t, err)
+	decodedPrivateKey, err := base64.StdEncoding.DecodeString(base64EncodedPrivateKey)
+	require.NoError(t, err, "Failed to decode base64 private key")
+
+	key, err := ssh.ParseRawPrivateKey(decodedPrivateKey)
+	require.NoError(t, err, "Failed to parse private key")
 
 	sshAgent := agent.NewKeyring()
 	err = sshAgent.Add(agent.AddedKey{
