@@ -1041,11 +1041,17 @@ func allCacheConfigsFromEnv() (cacheImportConfigs []*controlapi.CacheOptionsEntr
 
 func (c *Client) clientMetadata() engine.ClientMetadata {
 	sshAuthSock := os.Getenv("SSH_AUTH_SOCK")
+	slog := slog.With("client", c.ID)
 
-	expandedPath, err := expandPath(sshAuthSock)
+	slog.Warn(fmt.Sprintf("😈🔥 |%+v|-|%+v|\n", c.ID, c.hostname))
+
+	slog.Warn(fmt.Sprintf("😈 |%+v|\n", sshAuthSock))
+	expandedPath, err := ExpandPath(sshAuthSock)
 	if err == nil {
+		slog.Warn(fmt.Sprintf("😈😈 |%+v|\n", expandedPath))
 		sshAuthSock = expandedPath
 	}
+	slog.Warn(fmt.Sprintf("😈😈😈 |%+v|\n", sshAuthSock))
 
 	clientVersion := c.Version
 	if clientVersion == "" {

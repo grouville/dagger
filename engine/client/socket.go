@@ -53,7 +53,7 @@ func (p SocketProvider) CheckAgent(ctx context.Context, req *sshforward.CheckAge
 
 		stat, err := os.Stat(path)
 		if err != nil {
-			return nil, status.Errorf(codes.NotFound, "socket %s not found: %s", u.Path, err)
+			return nil, status.Errorf(codes.NotFound, "socket not found: original=%q, parsed=%q, mapped=%q, error: %v", req.ID, u.Path, path, err)
 		}
 		if stat.Mode()&os.ModeSocket == 0 {
 			return nil, status.Errorf(codes.InvalidArgument, "not a socket: %s", u.Path)

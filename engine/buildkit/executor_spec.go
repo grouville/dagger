@@ -895,9 +895,27 @@ func (w *Worker) setupNestedClient(ctx context.Context, state *execState) (rerr 
 
 	w.execMD.ClientStableID = randid.NewID()
 
-	// include SSH_AUTH_SOCK if it's set in the exec's env vars
+	if v, ok := state.origEnvMap["HOME"]; ok {
+		bklog.G(ctx).Debugf("💥💥💥💥💥0 path expanded|%+v|\n", v)
+	}
+
 	if v, ok := state.origEnvMap["SSH_AUTH_SOCK"]; ok {
-		w.execMD.SSHAuthSocketPath = v
+		// include SSH_AUTH_SOCK if it's set in the exec's env vars
+		expandedPath, err := client.ExpandPath(v)
+		if err == nil {
+			bklog.G(ctx).Debugf("💥💥💥💥💥4 path expanded|%+v|\n", expandedPath)
+			// v = expandedPath
+			w.execMD.SSHAuthSocketPath = expandedPath
+		}
+		bklog.G(ctx).Debugf("💥💥💥💥💥 |%+v|\n", v)
+
+		md, err := engine.ClientMetadataFromContext(ctx)
+		if err == nil {
+			bklog.G(ctx).Debugf("💥💥💥💥💥2 |%+v|\n", md.SSHAuthSocketPath)
+			w.execMD.SSHAuthSocketPath = md.SSHAuthSocketPath
+		} else {
+			bklog.G(ctx).Debugf("💥💥💥💥💥3|%+v|\n", err)
+		}
 	}
 
 	filesyncer, err := client.NewFilesyncer(

@@ -22,6 +22,7 @@ import (
 	"github.com/containerd/console"
 	runc "github.com/containerd/go-runc"
 	"github.com/dagger/dagger/dagql/call"
+	"github.com/dagger/dagger/engine"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/executor"
 	"github.com/moby/buildkit/executor/oci"
@@ -195,6 +196,15 @@ func (w *Worker) run(
 			})
 		}
 	}()
+
+	bklog.G(ctx).Debugf("🧠 |%+v|-|%+v|-|%+v|-|%+v|\n", w.execMD.CallerClientID, w.execMD.CallerClientID, w.execMD.SessionID, w.execMD.SSHAuthSocketPath)
+	if w.execMD != nil {
+		ctx = engine.ContextWithClientMetadata(ctx, &engine.ClientMetadata{
+			ClientID:          w.execMD.SessionID,
+			ClientHostname:    w.execMD.Hostname,
+			SSHAuthSocketPath: w.execMD.SSHAuthSocketPath,
+		})
+	}
 
 	for _, f := range setupFuncs {
 		if err := f(ctx, state); err != nil {

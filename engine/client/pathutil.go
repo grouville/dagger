@@ -60,7 +60,7 @@ func getDrive(path string) string {
 
 // expandPath expands a given path to its absolute form, handling home directory
 // expansion (~ or ~user) and environment variable expansion. It aims to be cross-platform
-func expandPath(path string) (string, error) {
+func ExpandPath(path string) (string, error) {
 	if path == "" {
 		return "", nil
 	}
