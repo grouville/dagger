@@ -238,6 +238,8 @@ func (gs *gitSourceHandler) getAuthToken(ctx context.Context, g session.Group) e
 	if err != nil {
 		return err
 	}
+
+	bklog.G(ctx).Debugf("💄 getAuthtoken: |%+v|\n", sec)
 	return gs.sm.Any(ctx, g, func(ctx context.Context, _ string, caller session.Caller) error {
 		for _, s := range sec {
 			dt, err := secrets.GetSecret(ctx, caller, s.name)
@@ -247,10 +249,31 @@ func (gs *gitSourceHandler) getAuthToken(ctx context.Context, g session.Group) e
 				}
 				return err
 			}
-			if s.token {
-				dt = []byte("basic " + base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("x-access-token:%s", dt))))
+			bklog.G(ctx).Debugf("💄💄 getAuthtoken - s.name: |%+v| - dt: |%+v|\n", s.name, string(dt))
+
+			// Check if the URL is for Bitbucket
+			if strings.Contains(gs.src.Remote, "bitbucket.org") {
+				// Set up Bitbucket-specific authentication
+				gs.auth = []string{
+					"-c", fmt.Sprintf("credential.helper=!f() { echo \"username=x-token-auth\"; echo \"password=%s\"; }; f", string(dt)),
+					"-c", "credential.https://bitbucket.org.username=x-token-auth",
+					"-c", "credential.useHttpPath=true",
+				}
+			} else {
+				// For other Git providers, use the existing logic
+				if s.token {
+					if strings.HasPrefix(string(dt), "Bearer ") {
+						gs.auth = []string{"-c", "http." + tokenScope(gs.src.Remote) + ".extraheader=Authorization: " + string(dt)}
+					} else {
+						dt = []byte("basic " + base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("x-token-auth:%s", dt))))
+						gs.auth = []string{"-c", "http." + tokenScope(gs.src.Remote) + ".extraheader=Authorization: " + string(dt)}
+					}
+				} else {
+					gs.auth = []string{"-c", "http." + tokenScope(gs.src.Remote) + ".extraheader=Authorization: " + string(dt)}
+				}
 			}
-			gs.auth = []string{"-c", "http." + tokenScope(gs.src.Remote) + ".extraheader=Authorization: " + string(dt)}
+
+			bklog.G(ctx).Debugf("💄💄 getAuthtoken - auth set: %v", gs.auth)
 			break
 		}
 		return nil
@@ -340,6 +363,7 @@ func (gs *gitSourceHandler) CacheKey(ctx context.Context, g session.Group, index
 		gs.cacheKey = cacheKey
 		return cacheKey, ref, nil, true, nil
 	}
+	bklog.G(ctx).Debugf("💄 CacheKey\n")
 
 	gs.getAuthToken(ctx, g)
 
@@ -389,7 +413,7 @@ func (gs *gitSourceHandler) CacheKey(ctx context.Context, g session.Group, index
 
 	buf, err := git.run(ctx, "ls-remote", "origin", ref, ref+"^{}")
 	if err != nil {
-		return "", "", nil, false, errors.Wrapf(err, "failed to fetch remote %s", urlutil.RedactCredentials(remote))
+		return "", "", nil, false, errors.Wrapf(err, "cachekey - failed to fetch remote %s", urlutil.RedactCredentials(remote))
 	}
 	lines := strings.Split(buf.String(), "\n")
 
@@ -441,6 +465,7 @@ func (gs *gitSourceHandler) Snapshot(ctx context.Context, g session.Group) (out 
 			return nil, err
 		}
 	}
+	bklog.G(ctx).Debugf("💄 Snapshot\n")
 
 	gs.getAuthToken(ctx, g)
 
@@ -528,7 +553,7 @@ func (gs *gitSourceHandler) Snapshot(ctx context.Context, g session.Group) (out 
 			// TODO: is there a better way to do this?
 		}
 		if _, err := git.run(ctx, args...); err != nil {
-			return nil, errors.Wrapf(err, "failed to fetch remote %s", urlutil.RedactCredentials(gs.src.Remote))
+			return nil, errors.Wrapf(err, "snapshot - failed to fetch remote %s", urlutil.RedactCredentials(gs.src.Remote))
 		}
 		_, err = git.run(ctx, "reflog", "expire", "--all", "--expire=now")
 		if err != nil {
@@ -719,6 +744,9 @@ func tokenScope(remote string) string {
 
 // getDefaultBranch gets the default branch of a repository using ls-remote
 func getDefaultBranch(ctx context.Context, git *gitCLI, remoteURL string) (string, error) {
+
+	fmt.Fprintf(os.Stderr, "💥 gitCLI: |%+v|\n", git)
+
 	buf, err := git.run(ctx, "ls-remote", "--symref", remoteURL, "HEAD")
 	if err != nil {
 		return "", errors.Wrapf(err, "error fetching default branch for repository %s", urlutil.RedactCredentials(remoteURL))

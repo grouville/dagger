@@ -105,7 +105,8 @@ func (cli *gitCLI) run(ctx context.Context, args ...string) (_ *bytes.Buffer, er
 			"PATH=" + os.Getenv("PATH"),
 			"GIT_TERMINAL_PROMPT=0",
 			"GIT_SSH_COMMAND=" + GetGitSSHCommand(cli.knownHosts),
-			//	"GIT_TRACE=1",
+			// "GIT_TRACE=1",           //todo(guillaume): re-comment
+			"GIT_ASKPASS=echo", // ensure git does not ask for a password. THIS IMPROVES ERROR messages
 			"GIT_CONFIG_NOSYSTEM=1", // Disable reading from system gitconfig.
 			"HOME=/dev/null",        // Disable reading from user gitconfig.
 			"LC_ALL=C",              // Ensure consistent output.
