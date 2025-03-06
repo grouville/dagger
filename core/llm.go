@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	stdlog "log"
 	"net/url"
 	"os"
 	"sort"
 	"strings"
-	"time"
 
 	"dagger.io/dagger/telemetry"
 	"github.com/anthropics/anthropic-sdk-go"
@@ -17,6 +17,8 @@ import (
 	_ "github.com/dagger/dagger/core/bbi/flat"
 	"github.com/dagger/dagger/dagql"
 	"github.com/joho/godotenv"
+	"github.com/mark3labs/mcp-go/mcp"
+	mcpserver "github.com/mark3labs/mcp-go/server"
 	bkgwpb "github.com/moby/buildkit/frontend/gateway/pb"
 	"github.com/moby/buildkit/util/bklog"
 	"github.com/vektah/gqlparser/v2/ast"
@@ -524,66 +526,44 @@ func (llm *Llm) LastReply(ctx context.Context, dag *dagql.Server) (string, error
 }
 
 func (llm *Llm) MCP(ctx context.Context, dag *dagql.Server) error {
-	bklog.G(ctx).Debugf("🎃 Starting MCP function")
+	s := mcpserver.NewMCPServer("Dagger", "0.0.1")
+	s.AddTool(
+		mcp.NewTool("toto",
+			mcp.WithDescription("A tool to greet someone."),
+			mcp.WithString("name", mcp.Required(), mcp.Description("Name of the person to greet")),
+		),
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			name, ok := request.Params.Arguments["name"].(string)
+			if !ok {
+				return mcp.NewToolResultError("name must be a string"), nil
+			}
+			return mcp.NewToolResultText(fmt.Sprintf("Hello %s!", name)), nil
+		})
 
 	bk, err := llm.Query.Buildkit(ctx)
 	if err != nil {
-		bklog.G(ctx).Errorf("🎃 Failed to get Buildkit client: %v", err)
 		return fmt.Errorf("buildkit client error: %w", err)
 	}
 
+	// FIXME: do not use Terminal attachable
 	term, err := bk.OpenTerminal(ctx)
 	if err != nil {
-		bklog.G(ctx).Errorf("🎃 Failed to open terminal: %v", err)
 		return fmt.Errorf("open terminal error: %w", err)
 	}
 	defer term.Close(bkgwpb.UnknownExitStatus)
-	bklog.G(ctx).Debugf("🎃 Terminal opened")
-
-	// Channel to receive data from Stdin
-	dataCh := make(chan []byte)
-	errCh := make(chan error)
-
-	// Read from Stdin in a goroutine
-	go func() {
-		p := make([]byte, 100)
-		bklog.G(ctx).Debug("🎃 About to read from term.Stdin")
-		n, err := term.Stdin.Read(p)
-		bklog.G(ctx).Debugf("🎃 Read %d bytes: %q (err=%v)", n, p[:n], err)
-		if err != nil {
-			errCh <- fmt.Errorf("stdin read error: %w", err)
-			return
-		}
-		dataCh <- p[:n]
-	}()
-	
 	go func() {
 		for range term.ResizeCh {
 		}
 	}()
 
-	// Wait for data, error, or timeout
-	select {
-	case data := <-dataCh:
-		bklog.G(ctx).Debugf("🎃 Received data: %s", string(data))
-		_, err := fmt.Fprintf(term.Stdout, "Hi from llm.mcp. I received %s\n", string(data))
-		if err != nil {
-			bklog.G(ctx).Errorf("🎃 Error writing to Stdout: %v", err)
-			return fmt.Errorf("stdout write error: %w", err)
-		}
-		bklog.G(ctx).Debugf("🎃 Wrote response to Stdout")
-	case err := <-errCh:
-		bklog.G(ctx).Errorf("🎃 Error in goroutine: %v", err)
-		return err
-	case <-time.After(60 * time.Second): // Adjust timeout as needed
-		bklog.G(ctx).Warnf("🎃 Timeout waiting for Stdin input")
-		return fmt.Errorf("timeout waiting for stdin input")
-	case <-ctx.Done():
-		bklog.G(ctx).Warnf("🎃 Context canceled")
-		return ctx.Err()
-	}
+	srv := mcpserver.NewStdioServer(s)
+	srv.SetErrorLogger(stdlog.New(bklog.G(ctx).Writer(), "", 0))
+	// Listen's error is ignored because it is already logged thanks to SetErrorLogger.
+	// The goroutine's lifetime is handled via the ctx context.
+	go srv.Listen(ctx, term.Stdin, term.Stdout)
 
-	return nil
+	<-ctx.Done()
+	return ctx.Err()
 }
 
 // Start a new BBI (Brain-Body Interface) session.
