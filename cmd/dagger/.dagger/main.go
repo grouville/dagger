@@ -38,6 +38,7 @@ func New(
 		values = append(values, "main.RunnerHost="+runnerHost)
 	}
 	return &DaggerCli{
+		Source: source,
 		Gomod: dag.Go(source, dagger.GoOpts{
 			Base:   base,
 			Values: values,
@@ -46,7 +47,8 @@ func New(
 }
 
 type DaggerCli struct {
-	Gomod *dagger.Go // +private
+	Source *dagger.Directory
+	Gomod  *dagger.Go // +private
 }
 
 // Build the dagger CLI binary for a single platform
@@ -59,6 +61,12 @@ func (cli DaggerCli) Binary(
 		NoSymbols: true,
 		NoDwarf:   true,
 	})
+}
+
+// Build the dagger CLI binary for a single platform
+func (cli DaggerCli) MountedSource() *dagger.Container {
+	return dag.Container().From("alpine").WithDirectory("/toto", cli.Source)
+
 }
 
 // Generate a markdown CLI reference doc

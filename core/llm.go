@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	stdlog "log"
+	"io"
 	"net/url"
 	"os"
 	"sort"
@@ -555,28 +555,42 @@ func (llm *Llm) MCP(ctx context.Context, dag *dagql.Server) error {
 	defer term.Close(bkgwpb.UnknownExitStatus)
 	bklog.G(ctx).Debugf("🎃 Terminal opened")
 	go func() {
-		for range term.ResizeCh {
+		for {
+			select {
+			case <-term.ResizeCh:
+			case err := <-term.ErrCh:
+				bklog.G(ctx).Debugf("🎃 error: |%+v|", err)
+				return
+			}
 		}
 	}()
 
-	errCh := make(chan error)
+	// errCh := make(chan error)
+	// dataCh := make(chan []byte)
 
-	srv := mcpserver.NewStdioServer(s)
-	srv.SetErrorLogger(stdlog.New(bklog.G(ctx).Writer(), "", 0))
+	// Read from Stdin in a goroutine
+	go func() {
+		io.Copy(term.Stdout, term.Stdin)
+	}()
+
+	// srv := mcpserver.NewStdioServer(s)
+	// srv.SetErrorLogger(stdlog.New(bklog.G(ctx).Writer(), "", 0))
 	// Listen's error is ignored because it is already logged thanks to SetErrorLogger.
 	// The goroutine's lifetime is handled via the ctx context.
-	go func() {
-		errCh <- srv.Listen(ctx, term.Stdin, term.Stdout)
-	}()
+	// go func() {
+	// 	errCh <- srv.Listen(ctx, term.Stdin, term.Stdout)
+	// }()
 
 	select {
 	case <-ctx.Done():
 	case <-time.After(30 * time.Second):
 		bklog.G(ctx).Warnf("🎃 Timeout waiting for Stdin input")
 		return fmt.Errorf("timeout waiting for stdin input")
-	case <-errCh:
-		bklog.G(ctx).Errorf("🎃 Error in goroutine: %v", err)
+		// case <-errCh:
+		// 	bklog.G(ctx).Errorf("🎃 Error in goroutine: %v", err)
 	}
+
+	term.Close(0) // clean exit
 	return ctx.Err()
 }
 
