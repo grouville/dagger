@@ -8,6 +8,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"dagger.io/dagger/telemetry"
 	"github.com/anthropics/anthropic-sdk-go"
@@ -16,6 +17,8 @@ import (
 	_ "github.com/dagger/dagger/core/bbi/flat"
 	"github.com/dagger/dagger/dagql"
 	"github.com/joho/godotenv"
+	bkgwpb "github.com/moby/buildkit/frontend/gateway/pb"
+	"github.com/moby/buildkit/util/bklog"
 	"github.com/vektah/gqlparser/v2/ast"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -518,6 +521,69 @@ func (llm *Llm) LastReply(ctx context.Context, dag *dagql.Server) (string, error
 		reply = txt
 	}
 	return reply, nil
+}
+
+func (llm *Llm) MCP(ctx context.Context, dag *dagql.Server) error {
+	bklog.G(ctx).Debugf("🎃 Starting MCP function")
+
+	bk, err := llm.Query.Buildkit(ctx)
+	if err != nil {
+		bklog.G(ctx).Errorf("🎃 Failed to get Buildkit client: %v", err)
+		return fmt.Errorf("buildkit client error: %w", err)
+	}
+
+	term, err := bk.OpenTerminal(ctx)
+	if err != nil {
+		bklog.G(ctx).Errorf("🎃 Failed to open terminal: %v", err)
+		return fmt.Errorf("open terminal error: %w", err)
+	}
+	defer term.Close(bkgwpb.UnknownExitStatus)
+	bklog.G(ctx).Debugf("🎃 Terminal opened")
+
+	// Channel to receive data from Stdin
+	dataCh := make(chan []byte)
+	errCh := make(chan error)
+
+	// Read from Stdin in a goroutine
+	go func() {
+		p := make([]byte, 100)
+		bklog.G(ctx).Debug("🎃 About to read from term.Stdin")
+		n, err := term.Stdin.Read(p)
+		bklog.G(ctx).Debugf("🎃 Read %d bytes: %q (err=%v)", n, p[:n], err)
+		if err != nil {
+			errCh <- fmt.Errorf("stdin read error: %w", err)
+			return
+		}
+		dataCh <- p[:n]
+	}()
+	
+	go func() {
+		for range term.ResizeCh {
+		}
+	}()
+
+	// Wait for data, error, or timeout
+	select {
+	case data := <-dataCh:
+		bklog.G(ctx).Debugf("🎃 Received data: %s", string(data))
+		_, err := fmt.Fprintf(term.Stdout, "Hi from llm.mcp. I received %s\n", string(data))
+		if err != nil {
+			bklog.G(ctx).Errorf("🎃 Error writing to Stdout: %v", err)
+			return fmt.Errorf("stdout write error: %w", err)
+		}
+		bklog.G(ctx).Debugf("🎃 Wrote response to Stdout")
+	case err := <-errCh:
+		bklog.G(ctx).Errorf("🎃 Error in goroutine: %v", err)
+		return err
+	case <-time.After(60 * time.Second): // Adjust timeout as needed
+		bklog.G(ctx).Warnf("🎃 Timeout waiting for Stdin input")
+		return fmt.Errorf("timeout waiting for stdin input")
+	case <-ctx.Done():
+		bklog.G(ctx).Warnf("🎃 Context canceled")
+		return ctx.Err()
+	}
+
+	return nil
 }
 
 // Start a new BBI (Brain-Body Interface) session.
