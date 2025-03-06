@@ -9,6 +9,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"dagger.io/dagger/telemetry"
 	"github.com/anthropics/anthropic-sdk-go"
@@ -526,6 +527,7 @@ func (llm *Llm) LastReply(ctx context.Context, dag *dagql.Server) (string, error
 }
 
 func (llm *Llm) MCP(ctx context.Context, dag *dagql.Server) error {
+	bklog.G(ctx).Debugf("🎃 Starting MCP function")
 	s := mcpserver.NewMCPServer("Dagger", "0.0.1")
 	s.AddTool(
 		mcp.NewTool("toto",
@@ -551,18 +553,30 @@ func (llm *Llm) MCP(ctx context.Context, dag *dagql.Server) error {
 		return fmt.Errorf("open terminal error: %w", err)
 	}
 	defer term.Close(bkgwpb.UnknownExitStatus)
+	bklog.G(ctx).Debugf("🎃 Terminal opened")
 	go func() {
 		for range term.ResizeCh {
 		}
 	}()
 
+	errCh := make(chan error)
+
 	srv := mcpserver.NewStdioServer(s)
 	srv.SetErrorLogger(stdlog.New(bklog.G(ctx).Writer(), "", 0))
 	// Listen's error is ignored because it is already logged thanks to SetErrorLogger.
 	// The goroutine's lifetime is handled via the ctx context.
-	go srv.Listen(ctx, term.Stdin, term.Stdout)
+	go func() {
+		errCh <- srv.Listen(ctx, term.Stdin, term.Stdout)
+	}()
 
-	<-ctx.Done()
+	select {
+	case <-ctx.Done():
+	case <-time.After(30 * time.Second):
+		bklog.G(ctx).Warnf("🎃 Timeout waiting for Stdin input")
+		return fmt.Errorf("timeout waiting for stdin input")
+	case <-errCh:
+		bklog.G(ctx).Errorf("🎃 Error in goroutine: %v", err)
+	}
 	return ctx.Err()
 }
 
