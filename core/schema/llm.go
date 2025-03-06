@@ -35,16 +35,11 @@ func (s llmSchema) Install() {
 		dagql.Func("withPrompt", s.withPrompt).
 			Doc("append a prompt to the llm context").
 			ArgDoc("prompt", "The prompt to send"),
-		// dagql.NodeFunc("__mcp", func(ctx context.Context, self dagql.Instance[*core.Llm], _ struct{}) (dagql.ID[*core.Llm], error) {
 		dagql.NodeFunc("mcp", func(ctx context.Context, self dagql.Instance[*core.Llm], _ struct{}) (dagql.ID[*core.Llm], error) {
-			err := self.Self.MCP(ctx, s.srv)
-			if err != nil {
-				var zero dagql.ID[*core.Llm]
-				return zero, err
-			}
-			return dagql.NewID[*core.Llm](self.ID()), nil
+			var zero dagql.ID[*core.Llm]
+			return zero, self.Self.MCP(ctx, s.srv)
 		}).
-			Doc("instanciates an mcp server"),
+			Doc("instantiates an mcp server"),
 		dagql.Func("withPromptFile", s.withPromptFile).
 			Doc("append the contents of a file to the llm context").
 			ArgDoc("file", "The file to read the prompt from"),
