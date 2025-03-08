@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+option go_package = "session";
+
+service Pipe {
+	rpc Write(stream WriteRequest) returns (WriteResponse)
+	rpc Read(ReadRequest) returns (stream ReadResponse)
+}
+
+message ReadRequest {
+	int32 chunk_size = 1;
+}
+
+message ReadResponse {
+	bytes data = 1;
+	bool is_end = 2;
+}
+
+message WriteRequest {
+	bytes data = 1;
+	bool is_end = 2;
+}
+
+message WriteResponse {
+	int32 chunk_size = 1;
+}
