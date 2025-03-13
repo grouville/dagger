@@ -20,7 +20,6 @@ import (
 	_ "github.com/dagger/dagger/core/bbi/empty"
 	_ "github.com/dagger/dagger/core/bbi/flat"
 	"github.com/dagger/dagger/dagql"
-	"github.com/dagger/dagger/engine/session"
 	"github.com/joho/godotenv"
 	"github.com/mark3labs/mcp-go/mcp"
 	mcpserver "github.com/mark3labs/mcp-go/server"
@@ -644,24 +643,12 @@ func (llm *Llm) MCP(ctx context.Context, dag *dagql.Server) error {
 		return fmt.Errorf("buildkit client error: %w", err)
 	}
 
-	// Open terminal
-
-	caller, err := bk.GetMainClientCaller()
+	pc, err := bk.OpenPipe(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get main client caller: %w", err)
+		return fmt.Errorf("open pipe error: %w", err)
 	}
-
-	pipeClient := session.NewPipeClient(caller.Conn())
-	if err != nil {
-		return fmt.Errorf("open terminal error: %w", err)
-	}
-
-	pipe_io, err := pipeClient.IO(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to open pipe: %w", err)
-	}
-
-	bklog.G(ctx).Debugf("🎃 Terminal opened")
+	defer pc.Close()
+	bklog.G(ctx).Debugf("🎃 Pipe opened")
 
 	// Create a context with cancel to coordinate goroutines
 	ctxWithCancel, cancel := context.WithCancel(ctx)
@@ -686,23 +673,22 @@ func (llm *Llm) MCP(ctx context.Context, dag *dagql.Server) error {
 			case <-ctxWithCancel.Done():
 				return
 			default:
-				res, err := pipe_io.Recv()
+				n, err := pc.Stdin.Read(buf)
 				if err != nil {
 					if !errors.Is(err, io.EOF) {
-						bklog.G(ctx).Warnf("terminal recv err: %v", err)
+						bklog.G(ctx).Warnf("pipe recv err: %v", err)
 						errCh <- err
 					}
 					return
 				}
-				data := res.GetData()
 
-				if len(data) > 0 {
+				if n > 0 {
 					bklog.G(ctxWithCancel).Debugf("🎃 Read %d bytes from term.Stdin: %q", n, buf[:n])
 
 					// Add data to buffer
-					jsonBuffer.Write(data)
+					jsonBuffer.Write(buf[:n])
 
-					bklog.G(ctxWithCancel).Debugf("🎃 after write %d\n", data)
+					bklog.G(ctxWithCancel).Debugf("🎃 after write %d\n", n)
 					// Try to extract complete JSON objects
 					for {
 						bklog.G(ctxWithCancel).Debugf("🎃 inside loop\n")
@@ -758,7 +744,7 @@ func (llm *Llm) MCP(ctx context.Context, dag *dagql.Server) error {
 
 	// Create a writer that logs responses
 	responseWriter := &responseWriterWithLogging{
-		writer: term.Stdout,
+		writer: pc.Stdout,
 		ctx:    ctxWithCancel,
 	}
 
@@ -805,6 +791,9 @@ func (llm *Llm) MCP(ctx context.Context, dag *dagql.Server) error {
 	case err := <-errCh:
 		bklog.G(ctx).Errorf("🎃 Error in goroutine: %v", err)
 		return err
+	case err := <-pc.ErrCh:
+		bklog.G(ctx).Errorf("🎃 Error in pipe client: %v", err)
+		return err
 	}
 }
 
@@ -816,7 +805,6 @@ type responseWriterWithLogging struct {
 
 func (w *responseWriterWithLogging) Write(p []byte) (n int, err error) {
 	bklog.G(w.ctx).Debugf("🎃 Writing response: %q", string(p))
-	.send()
 	return w.writer.Write(p)
 }
 

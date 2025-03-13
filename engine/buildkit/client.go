@@ -805,11 +805,10 @@ func (c *Client) OpenPipe(
 
 	var (
 		stdoutR, stdoutW = io.Pipe()
-		stderrR, stderrW = io.Pipe()
 		stdinR, stdinW   = io.Pipe()
 	)
 
-	forwardFD := func(r io.ReadCloser, fn func([]byte) *session.SessionRequest) error {
+	forwardFD := func(r io.ReadCloser, fn func([]byte) *session.Data) error {
 		defer r.Close()
 		b := make([]byte, 2048)
 		for {
@@ -821,33 +820,25 @@ func (c *Client) OpenPipe(
 				return fmt.Errorf("error reading fd: %w", err)
 			}
 
-			if err := term.Send(fn(b[:n])); err != nil {
+			if err := pipeIO.Send(fn(b[:n])); err != nil {
 				return fmt.Errorf("error forwarding fd: %w", err)
 			}
 		}
 	}
 
-	go forwardFD(stdoutR, func(stdout []byte) *session.SessionRequest {
-		return &session.SessionRequest{
-			Msg: &session.SessionRequest_Stdout{Stdout: stdout},
-		}
-	})
-
-	go forwardFD(stderrR, func(stderr []byte) *session.SessionRequest {
-		return &session.SessionRequest{
-			Msg: &session.SessionRequest_Stderr{Stderr: stderr},
+	go forwardFD(stdoutR, func(stdout []byte) *session.Data {
+		return &session.Data{
+			Data: stdout,
 		}
 	})
 
 	errCh := make(chan error, 1)
-	resizeCh := make(chan bkgw.WinSize)
 	go func() {
 		defer stdinW.Close()
 		defer close(errCh)
-		defer close(resizeCh)
 		for {
 			bklog.G(ctx).Debugf("🔥 avant")
-			res, err := term.Recv()
+			res, err := pipeIO.Recv()
 			bklog.G(ctx).Debugf("🔥 apres: |%+v|", err)
 			if err != nil {
 				if !errors.Is(err, io.EOF) {
@@ -856,47 +847,26 @@ func (c *Client) OpenPipe(
 				}
 				return
 			}
-			switch msg := res.GetMsg().(type) {
-			case *session.SessionResponse_Stdin:
-				bklog.G(ctx).Debugf("🔥🔥 avant: |%q|", msg.Stdin)
-				_, err := stdinW.Write(msg.Stdin)
-				bklog.G(ctx).Debugf("🔥🔥 apres: |%+v|", err)
-				if err != nil {
-					bklog.G(ctx).Warnf("failed to write stdin: %v", err)
-					errCh <- err
-					return
-				}
-			case *session.SessionResponse_Resize:
-				bklog.G(ctx).Debugf("🔥🔥🔥 resize")
-				resizeCh <- bkgw.WinSize{
-					Rows: uint32(msg.Resize.Height),
-					Cols: uint32(msg.Resize.Width),
-				}
-				bklog.G(ctx).Debugf("🔥🔥🔥 resize apres")
-			default:
-				bklog.G(ctx).Debugf("🔥🔥🔥 apres: |%+v|", msg)
+			data := res.GetData()
+			bklog.G(ctx).Debugf("🔥🔥 avant: |%q|", data)
+			_, err = stdinW.Write(data)
+			bklog.G(ctx).Debugf("🔥🔥 apres: |%+v|", err)
+			if err != nil {
+				bklog.G(ctx).Warnf("failed to write stdin: %v", err)
+				errCh <- err
+				return
 			}
 		}
 	}()
 
-	return &TerminalClient{
+	return &PipeClient{
 		Stdin:    stdinR,
 		Stdout:   stdoutW,
-		Stderr:   stderrW,
 		ErrCh:    errCh,
-		ResizeCh: resizeCh,
-		Close: onceValueWithArg(func(exitCode int) error {
+		Close:    sync.OnceValue(func() error {
 			defer stdinR.Close()
 			defer stdoutW.Close()
-			defer stderrW.Close()
-			defer term.CloseSend()
-
-			err := term.Send(&session.SessionRequest{
-				Msg: &session.SessionRequest_Exit{Exit: int32(exitCode)},
-			})
-			if err != nil {
-				return fmt.Errorf("failed to close terminal: %w", err)
-			}
+			defer pipeIO.CloseSend()
 			return nil
 		}),
 	}, nil
