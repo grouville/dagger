@@ -20,10 +20,10 @@ import (
 	_ "github.com/dagger/dagger/core/bbi/empty"
 	_ "github.com/dagger/dagger/core/bbi/flat"
 	"github.com/dagger/dagger/dagql"
+	"github.com/dagger/dagger/engine/session"
 	"github.com/joho/godotenv"
 	"github.com/mark3labs/mcp-go/mcp"
 	mcpserver "github.com/mark3labs/mcp-go/server"
-	bkgwpb "github.com/moby/buildkit/frontend/gateway/pb"
 	"github.com/moby/buildkit/util/bklog"
 	"github.com/vektah/gqlparser/v2/ast"
 	"go.opentelemetry.io/otel/attribute"
@@ -645,11 +645,22 @@ func (llm *Llm) MCP(ctx context.Context, dag *dagql.Server) error {
 	}
 
 	// Open terminal
-	term, err := bk.OpenTerminal(ctx)
+
+	caller, err := bk.GetMainClientCaller()
+	if err != nil {
+		return fmt.Errorf("failed to get main client caller: %w", err)
+	}
+
+	pipeClient := session.NewPipeClient(caller.Conn())
 	if err != nil {
 		return fmt.Errorf("open terminal error: %w", err)
 	}
-	defer term.Close(bkgwpb.UnknownExitStatus)
+
+	pipe_io, err := pipeClient.IO(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to open pipe: %w", err)
+	}
+
 	bklog.G(ctx).Debugf("🎃 Terminal opened")
 
 	// Create a context with cancel to coordinate goroutines
@@ -658,24 +669,6 @@ func (llm *Llm) MCP(ctx context.Context, dag *dagql.Server) error {
 
 	// Create channels for coordination
 	errCh := make(chan error, 2)
-
-	// Handle terminal errors and resize events
-	go func() {
-		for {
-			select {
-			case <-term.ResizeCh:
-				bklog.G(ctxWithCancel).Debugf("🎃 Terminal resized")
-			case err := <-term.ErrCh:
-				bklog.G(ctxWithCancel).Debugf("🎃 Terminal error: |%+v|", err)
-				if err != nil {
-					errCh <- fmt.Errorf("terminal error: %w", err)
-				}
-				return
-			case <-ctxWithCancel.Done():
-				return
-			}
-		}
-	}()
 
 	// Create a buffer to accumulate JSON data
 	var jsonBuffer bytes.Buffer
@@ -693,29 +686,31 @@ func (llm *Llm) MCP(ctx context.Context, dag *dagql.Server) error {
 			case <-ctxWithCancel.Done():
 				return
 			default:
-				n, err := term.Stdin.Read(buf)
+				res, err := pipe_io.Recv()
 				if err != nil {
 					if !errors.Is(err, io.EOF) {
-						bklog.G(ctxWithCancel).Errorf("🎃 Error reading from term.Stdin: %v", err)
+						bklog.G(ctx).Warnf("terminal recv err: %v", err)
+						errCh <- err
 					}
 					return
 				}
+				data := res.GetData()
 
-				if n > 0 {
+				if len(data) > 0 {
 					bklog.G(ctxWithCancel).Debugf("🎃 Read %d bytes from term.Stdin: %q", n, buf[:n])
 
 					// Add data to buffer
-					jsonBuffer.Write(buf[:n])
+					jsonBuffer.Write(data)
 
-					bklog.G(ctxWithCancel).Debugf("🎃 after write %d\n", n)
+					bklog.G(ctxWithCancel).Debugf("🎃 after write %d\n", data)
 					// Try to extract complete JSON objects
 					for {
 						bklog.G(ctxWithCancel).Debugf("🎃 inside loop\n")
 						// Look for a complete JSON object
-						data := jsonBuffer.Bytes()
+						data_json := jsonBuffer.Bytes()
 
 						// Find opening and closing braces
-						openBrace := bytes.IndexByte(data, '{')
+						openBrace := bytes.IndexByte(data_json, '{')
 						if openBrace == -1 {
 							break // No JSON object start found
 						}
@@ -724,10 +719,10 @@ func (llm *Llm) MCP(ctx context.Context, dag *dagql.Server) error {
 						braceCount := 0
 						closingIndex := -1
 
-						for i := openBrace; i < len(data); i++ {
-							if data[i] == '{' {
+						for i := openBrace; i < len(data_json); i++ {
+							if data_json[i] == '{' {
 								braceCount++
-							} else if data[i] == '}' {
+							} else if data_json[i] == '}' {
 								braceCount--
 								if braceCount == 0 {
 									closingIndex = i
@@ -741,7 +736,7 @@ func (llm *Llm) MCP(ctx context.Context, dag *dagql.Server) error {
 						}
 
 						// Extract the complete JSON object
-						jsonObj := data[openBrace : closingIndex+1]
+						jsonObj := data_json[openBrace : closingIndex+1]
 						bklog.G(ctxWithCancel).Debugf("🎃 Found complete JSON: %s", jsonObj)
 
 						// Write the complete JSON object to the pipe with a newline
@@ -821,6 +816,7 @@ type responseWriterWithLogging struct {
 
 func (w *responseWriterWithLogging) Write(p []byte) (n int, err error) {
 	bklog.G(w.ctx).Debugf("🎃 Writing response: %q", string(p))
+	.send()
 	return w.writer.Write(p)
 }
 
