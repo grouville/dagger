@@ -611,11 +611,7 @@ func makeRequest(ctx context.Context, q *querybuilder.Selection, response any) e
 
 	q = q.Bind(&response)
 
-	if err := q.Execute(ctx); err != nil {
-		return err
-	}
-
-	return nil
+	return q.Execute(ctx)
 }
 
 func handleResponse(returnType *modTypeDef, response any, o, e io.Writer) error {
