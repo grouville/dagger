@@ -538,6 +538,9 @@ func (llm *Llm) MCP(ctx context.Context, dag *dagql.Server) error {
 	if err != nil {
 		return err
 	}
+
+	bklog.G(ctx).Debugf("✅ |%+v|\n", session.Tools())
+
 	for _, tool := range session.Tools() {
 		toolOpts := []mcp.ToolOption{
 			mcp.WithDescription(tool.Description),
@@ -612,28 +615,46 @@ func (llm *Llm) MCP(ctx context.Context, dag *dagql.Server) error {
 			toolOpts = append(toolOpts, mcpArg(argName, propOpts...))
 		}
 
+		// inception :smirk:
+		// In order to have compatibility between LLM and MCP, we want -> on any given MCP tooling response, to also signify that
+		var toolHandler func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error)
+		toolHandler = func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			if request.Method != "tools/call" {
+				return nil, fmt.Errorf("[dagger] expected MCP request method \"tools/call\" but received %q", request.Method)
+			}
+
+			result, err := tool.Call(ctx, request.Params.Arguments)
+			// TODO: differentiate user module's error from dagger error, for now we assume it's all user error
+			// 	If we could identify a Dagger error, we should simply return nil, err
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+			text, ok := result.(string)
+			if !ok {
+				b, err := json.Marshal(result)
+				if err != nil {
+					return nil, fmt.Errorf("[dagger] could not JSON marshal result %+v: %w", result, err)
+				}
+				text = string(b)
+			}
+
+			///////// TEST
+			newTool := mcp.NewTool(
+				"newTool",
+				mcp.WithDescription("A tool that was added dynamically"),
+				mcp.WithString("exampleArg", mcp.Description("An example string argument")),
+			)
+
+			// 3. Add the new tool to the server
+			s.AddTool(newTool, toolHandler)
+			///////// TEST
+
+			return mcp.NewToolResultText(text), nil
+		}
+
 		s.AddTool(
 			mcp.NewTool(tool.Name, toolOpts...),
-			func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-				if request.Method != "tools/call" {
-					return nil, fmt.Errorf("[dagger] expected MCP request method \"tools/call\" but received %q", request.Method)
-				}
-				result, err := tool.Call(ctx, request.Params.Arguments)
-				// TODO: differentiate user module's error from dagger error, for now we assume it's all user error
-				// 	If we could identify a Dagger error, we should simply return nil, err
-				if err != nil {
-					return mcp.NewToolResultError(err.Error()), nil
-				}
-				text, ok := result.(string)
-				if !ok {
-					b, err := json.Marshal(result)
-					if err != nil {
-						return nil, fmt.Errorf("[dagger] could not JSON marshal result %+v: %w", result, err)
-					}
-					text = string(b)
-				}
-				return mcp.NewToolResultText(text), nil
-			},
+			toolHandler,
 		)
 	}
 
@@ -833,6 +854,9 @@ func (llm *Llm) Sync(ctx context.Context, dag *dagql.Server) (*Llm, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	bklog.G(ctx).Debugf("✅✅ |%+v|\n", session.Tools())
+
 	for {
 		if llm.maxAPICalls > 0 && llm.apiCalls >= llm.maxAPICalls {
 			return nil, fmt.Errorf("reached API call limit: %d", llm.apiCalls)
@@ -840,6 +864,7 @@ func (llm *Llm) Sync(ctx context.Context, dag *dagql.Server) (*Llm, error) {
 		llm.apiCalls++
 
 		tools := session.Tools()
+		bklog.G(ctx).Debugf("✅✅✅ |%+v|\n", session.Tools())
 		res, err := llm.Endpoint.Client.SendQuery(ctx, llm.history, tools)
 		if err != nil {
 			return nil, err
@@ -905,6 +930,7 @@ func (llm *Llm) Sync(ctx context.Context, dag *dagql.Server) (*Llm, error) {
 
 							return errResponse, true
 						}
+
 						stdio := telemetry.SpanStdio(ctx, InstrumentationLibrary)
 						defer stdio.Close()
 						switch v := result.(type) {
