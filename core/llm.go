@@ -541,78 +541,91 @@ func (llm *Llm) MCP(ctx context.Context, dag *dagql.Server) error {
 
 	bklog.G(ctx).Debugf("✅ |%+v|\n", session.Tools())
 
-	for _, tool := range session.Tools() {
+	genToolOpts := func(tool bbi.Tool) ([]mcp.ToolOption, error) {
 		toolOpts := []mcp.ToolOption{
 			mcp.WithDescription(tool.Description),
 		}
-		var required []string
-		if v, ok := tool.Schema["required"]; ok {
-			required, ok = v.([]string)
+		if err := (func(tool bbi.Tool) error {
+			var required []string
+			if v, ok := tool.Schema["required"]; ok {
+				required, ok = v.([]string)
+				if !ok {
+					return fmt.Errorf("Expecting type []string for \"required\" for tool %q", tool.Name)
+				}
+			}
+			props, ok := tool.Schema["properties"]
 			if !ok {
-				return fmt.Errorf("Expecting type []string for \"required\" for tool %q", tool.Name)
+				return fmt.Errorf("Schema of tool %q is missing \"properties\": %+v", tool.Name, tool.Schema)
 			}
-		}
-		props, ok := tool.Schema["properties"]
-		if !ok {
-			return fmt.Errorf("Schema of tool %q is missing \"properties\": %+v", tool.Name, tool.Schema)
-		}
-		for argName, v := range props.(map[string]interface{}) {
-			var propOpts []mcp.PropertyOption
-			argSchema := v.(map[string]interface{})
-			if desc, ok := argSchema["description"]; ok {
-				s, ok := desc.(string)
-				if !ok {
-					return fmt.Errorf("Description of arg %q of tool %q is expected to be of type string, but is %T", argName, tool.Name, desc)
+			for argName, v := range props.(map[string]interface{}) {
+				var propOpts []mcp.PropertyOption
+				argSchema := v.(map[string]interface{})
+				if desc, ok := argSchema["description"]; ok {
+					s, ok := desc.(string)
+					if !ok {
+						return fmt.Errorf("Description of arg %q of tool %q is expected to be of type string, but is %T", argName, tool.Name, desc)
+					}
+					propOpts = append(propOpts, mcp.Description(s))
 				}
-				propOpts = append(propOpts, mcp.Description(s))
-			}
-			var typ string
-			if v, ok := argSchema["type"]; !ok {
-				return fmt.Errorf("Schema of arg %q of tool %q is missing \"type\": %+v", argName, tool.Name, argSchema)
-			} else {
-				typ, ok = v.(string)
-				if !ok {
-					return fmt.Errorf("Schema of arg %q of tool %q should have a \"type\" entry of type string, got %T", argName, tool.Name, v)
+				var typ string
+				if v, ok := argSchema["type"]; !ok {
+					return fmt.Errorf("Schema of arg %q of tool %q is missing \"type\": %+v", argName, tool.Name, argSchema)
+				} else {
+					typ, ok = v.(string)
+					if !ok {
+						return fmt.Errorf("Schema of arg %q of tool %q should have a \"type\" entry of type string, got %T", argName, tool.Name, v)
+					}
 				}
-			}
 
-			if v, ok := argSchema["default"]; ok {
-				// TODO: unclear why default uses DefaultValue.Raw string. What about other types?
-				if typ != "string" {
-					return fmt.Errorf("arg %q of tool %q is of type %q but has a default of type \"string\"", argName, tool.Name, typ)
+				if v, ok := argSchema["default"]; ok {
+					// TODO: unclear why default uses DefaultValue.Raw string. What about other types?
+					if typ != "string" {
+						return fmt.Errorf("arg %q of tool %q is of type %q but has a default of type \"string\"", argName, tool.Name, typ)
+					}
+					defaultVal, ok := v.(string)
+					if !ok {
+						return fmt.Errorf("Only \"string\" is currently supported for the default value of arg %q of tool %q, got %T", v)
+					}
+					propOpts = append(propOpts, mcp.DefaultString(defaultVal))
 				}
-				defaultVal, ok := v.(string)
-				if !ok {
-					return fmt.Errorf("Only \"string\" is currently supported for the default value of arg %q of tool %q, got %T", v)
+				for _, r := range required {
+					if r == argName {
+						propOpts = append(propOpts, mcp.Required())
+						break
+					}
 				}
-				propOpts = append(propOpts, mcp.DefaultString(defaultVal))
-			}
-			for _, r := range required {
-				if r == argName {
-					propOpts = append(propOpts, mcp.Required())
-					break
-				}
-			}
 
-			var mcpArg func(name string, propOpts ...mcp.PropertyOption) mcp.ToolOption
-			switch typ {
-			case "array":
-				if _, ok := argSchema["items"]; !ok {
-					return fmt.Errorf("Schema of array arg %q of tool %q should have an \"items\" entry", argName, tool.Name)
+				var mcpArg func(name string, propOpts ...mcp.PropertyOption) mcp.ToolOption
+				switch typ {
+				case "array":
+					if _, ok := argSchema["items"]; !ok {
+						return fmt.Errorf("Schema of array arg %q of tool %q should have an \"items\" entry", argName, tool.Name)
+					}
+					// TODO: need some recursion: array of array ...
+					return fmt.Errorf("[MCP] array type not implemented")
+				case "boolean":
+					mcpArg = mcp.WithBoolean
+				case "integer":
+					mcpArg = mcp.WithNumber
+				case "number":
+					mcpArg = mcp.WithNumber
+				case "string":
+					// TODO: should ID and custom type, use mcp.WithObject ?
+					mcpArg = mcp.WithString
 				}
-				// TODO: need some recursion: array of array ...
-				return fmt.Errorf("[MCP] array type not implemented")
-			case "boolean":
-				mcpArg = mcp.WithBoolean
-			case "integer":
-				mcpArg = mcp.WithNumber
-			case "number":
-				mcpArg = mcp.WithNumber
-			case "string":
-				// TODO: should ID and custom type, use mcp.WithObject ?
-				mcpArg = mcp.WithString
+				toolOpts = append(toolOpts, mcpArg(argName, propOpts...))
 			}
-			toolOpts = append(toolOpts, mcpArg(argName, propOpts...))
+			return nil
+		})(tool); err != nil {
+			return nil, err
+		}
+		return toolOpts, nil
+	}
+
+	for _, tool := range session.Tools() {
+		toolOpts, err := genToolOpts(tool)
+		if err != nil {
+			return err
 		}
 
 		// inception :smirk:
@@ -638,16 +651,13 @@ func (llm *Llm) MCP(ctx context.Context, dag *dagql.Server) error {
 				text = string(b)
 			}
 
-			///////// TEST
-			newTool := mcp.NewTool(
-				"newTool",
-				mcp.WithDescription("A tool that was added dynamically"),
-				mcp.WithString("exampleArg", mcp.Description("An example string argument")),
-			)
-
-			// 3. Add the new tool to the server
-			s.AddTool(newTool, toolHandler)
-			///////// TEST
+			for _, tool := range session.Tools() {
+				toolOpts, err := genToolOpts(tool)
+				if err != nil {
+					return nil, err
+				}
+				s.AddTool(mcp.NewTool(tool.Name, toolOpts...), toolHandler)
+			}
 
 			return mcp.NewToolResultText(text), nil
 		}
