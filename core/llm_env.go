@@ -202,6 +202,8 @@ func (env *LLMEnv) call(ctx context.Context,
 		return nil, fmt.Errorf("no current context")
 	}
 
+		bklog.G(ctx).Debugf("[dagger]🔧❌ No current context available")
+
 	target, ok := dagql.UnwrapAs[dagql.Object](env.Current())
 	if !ok {
 		bklog.G(ctx).Debugf("[dagger]🔧❌ Current context type error: got %T", env.Current())
