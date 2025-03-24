@@ -10,6 +10,7 @@ import (
 	"dagger.io/dagger/telemetry"
 	"github.com/dagger/dagger/dagql"
 	"github.com/dagger/dagger/dagql/call"
+	"github.com/moby/buildkit/util/bklog"
 	"github.com/opencontainers/go-digest"
 	"github.com/vektah/gqlparser/v2/ast"
 	"go.opentelemetry.io/otel/attribute"
@@ -137,6 +138,8 @@ func (env *LLMEnv) Tools(srv *dagql.Server) []LLMTool {
 			Description: field.Description,
 			Schema:      fieldArgsToJSONSchema(field),
 			Call: func(ctx context.Context, args any) (_ any, rerr error) {
+				bklog.G(ctx).Debugf("[dagger]🤖 Starting call to %s with args: %+v", typeName+"."+field.Name, args)
+
 				ctx, span := Tracer(ctx).Start(ctx,
 					fmt.Sprintf("🤖💻 %s %v", typeName+"."+field.Name, args),
 					telemetry.Passthrough(),
@@ -144,20 +147,34 @@ func (env *LLMEnv) Tools(srv *dagql.Server) []LLMTool {
 				defer telemetry.End(span, func() error {
 					return rerr
 				})
+
+				bklog.G(ctx).Debugf("[dagger]🤖 Calling env.call for %s", field.Name)
 				result, err := env.call(ctx, srv, field, args)
 				if err != nil {
+					bklog.G(ctx).Debugf("[dagger]🤖❌ env.call failed: %v", err)
 					return nil, err
 				}
+				bklog.G(ctx).Debugf("[dagger]🤖✅ env.call succeeded with result type: %T", result)
+
 				stdio := telemetry.SpanStdio(ctx, InstrumentationLibrary)
 				defer stdio.Close()
+
 				switch v := result.(type) {
 				case string:
+					bklog.G(ctx).Debugf("[dagger]🤖 Writing string result to stdio: %s", v)
 					fmt.Fprint(stdio.Stdout, v)
 				default:
+					bklog.G(ctx).Debugf("[dagger]🤖 Encoding non-string result to JSON: %+v", v)
 					enc := json.NewEncoder(stdio.Stdout)
 					enc.SetIndent("", "  ")
-					enc.Encode(v)
+					if err := enc.Encode(v); err != nil {
+						bklog.G(ctx).Debugf("[dagger]🤖❌ JSON encoding failed: %v", err)
+						return nil, fmt.Errorf("failed to encode result: %w", err)
+					}
+					bklog.G(ctx).Debugf("[dagger]🤖✅ JSON encoding successful")
 				}
+
+				bklog.G(ctx).Debugf("[dagger]🤖✅ Call completed successfully")
 				return result, nil
 			},
 		})
@@ -168,105 +185,149 @@ func (env *LLMEnv) Tools(srv *dagql.Server) []LLMTool {
 // Low-level function call plumbing
 func (env *LLMEnv) call(ctx context.Context,
 	srv *dagql.Server,
-	// The definition of the dagql field to call. Example: Container.withExec
 	fieldDef *ast.FieldDefinition,
-	// The arguments to the call. Example: {"args": ["go", "build"], "redirectStderr", "/dev/null"}
 	args any,
 ) (any, error) {
+	bklog.G(ctx).Debugf("[dagger]🔧 Starting call to %s with args: %+v", fieldDef.Name, args)
+
 	// 1. CONVERT CALL INPUTS (BRAIN -> BODY)
 	argsMap, ok := args.(map[string]any)
 	if !ok {
+		bklog.G(ctx).Debugf("[dagger]🔧❌ Args type error: expected map[string]any, got %T", args)
 		return nil, fmt.Errorf("tool call: %s: expected arguments to be a map - got %#v", fieldDef.Name, args)
 	}
+
 	if env.Current() == nil {
+		bklog.G(ctx).Debugf("[dagger]🔧❌ No current context available")
 		return nil, fmt.Errorf("no current context")
 	}
+
 	target, ok := dagql.UnwrapAs[dagql.Object](env.Current())
 	if !ok {
+		bklog.G(ctx).Debugf("[dagger]🔧❌ Current context type error: got %T", env.Current())
 		return nil, fmt.Errorf("current context is not an object, got %T", env.Current())
 	}
+	bklog.G(ctx).Debugf("[dagger]🔧 Unwrapped current context as object: %s", target.Type().Name())
+
 	targetObjType, ok := srv.ObjectType(target.Type().Name())
 	if !ok {
+		bklog.G(ctx).Debugf("[dagger]🔧❌ Object type not found: %s", target.Type().Name())
 		return nil, fmt.Errorf("dagql object type not found: %s", target.Type().Name())
 	}
-	// FIXME: we have to hardcode *a* version here, otherwise Container.withExec disappears
-	// It's still kind of hacky
+
 	field, ok := targetObjType.FieldSpec(fieldDef.Name, "v0.13.2")
 	if !ok {
+		bklog.G(ctx).Debugf("[dagger]🔧❌ Field not found: %q in type %q", fieldDef.Name, targetObjType)
 		return nil, fmt.Errorf("field %q not found in object type %q", fieldDef.Name, targetObjType)
 	}
+	bklog.G(ctx).Debugf("[dagger]🔧 Found field spec: %s", fieldDef.Name)
+
 	fieldSel := dagql.Selector{
 		Field: fieldDef.Name,
 	}
+
+	// Process arguments
+	bklog.G(ctx).Debugf("[dagger]🔧 Processing %d arguments", len(field.Args))
 	for _, arg := range field.Args {
 		val, ok := argsMap[arg.Name]
 		if !ok {
+			bklog.G(ctx).Debugf("[dagger]🔧 Skipping undefined argument: %s", arg.Name)
 			continue
 		}
+		bklog.G(ctx).Debugf("[dagger]🔧 Processing argument %s with value: %+v", arg.Name, val)
+
 		if _, ok := dagql.UnwrapAs[dagql.IDable](arg.Type); ok {
+			bklog.G(ctx).Debugf("[dagger]🔧 Processing IDable argument: %s", arg.Name)
 			if idStr, ok := val.(string); ok {
 				envVal, err := env.Get(idStr)
 				if err != nil {
+					bklog.G(ctx).Debugf("[dagger]🔧❌ Failed to get self: %v", err)
 					return nil, fmt.Errorf("tool call: %s: failed to get self: %w", fieldDef.Name, err)
 				}
 				if obj, ok := dagql.UnwrapAs[dagql.Object](envVal); ok {
 					enc, err := obj.ID().Encode()
 					if err != nil {
+						bklog.G(ctx).Debugf("[dagger]🔧❌ Failed to encode ID: %v", err)
 						return nil, fmt.Errorf("tool call: %s: failed to encode ID: %w", fieldDef.Name, err)
 					}
 					val = enc
+					bklog.G(ctx).Debugf("[dagger]🔧 Encoded ID value: %s", enc)
 				} else {
+					bklog.G(ctx).Debugf("[dagger]🔧❌ Expected object, got %T", val)
 					return nil, fmt.Errorf("tool call: %s: expected object, got %T", fieldDef.Name, val)
 				}
 			} else {
+				bklog.G(ctx).Debugf("[dagger]🔧❌ Expected string for ID, got %T", val)
 				return nil, fmt.Errorf("tool call: %s: expected string, got %T", fieldDef.Name, val)
 			}
 		}
+
 		input, err := arg.Type.Decoder().DecodeInput(val)
 		if err != nil {
+			bklog.G(ctx).Debugf("[dagger]🔧❌ Failed to decode argument: %v", err)
 			return nil, fmt.Errorf("decode arg %q (%T): %w", arg.Name, val, err)
 		}
 		fieldSel.Args = append(fieldSel.Args, dagql.NamedInput{
 			Name:  arg.Name,
 			Value: input,
 		})
+		bklog.G(ctx).Debugf("[dagger]🔧 Added argument to selector: %s=%v", arg.Name, input)
 	}
+
 	// 2. MAKE THE CALL
+	bklog.G(ctx).Debugf("[dagger]🔧 Making call with selector: %+v", fieldSel)
 	if retObjType, ok := srv.ObjectType(field.Type.Type().Name()); ok {
+		bklog.G(ctx).Debugf("[dagger]🔧 Return type is an object: %s", field.Type.Type().Name())
 		var val dagql.Typed
 		if sync, ok := retObjType.FieldSpec("sync"); ok {
+			bklog.G(ctx).Debugf("[dagger]🔧 Object requires sync")
 			syncSel := dagql.Selector{
 				Field: sync.Name,
 			}
 			idType, ok := retObjType.IDType()
 			if !ok {
+				bklog.G(ctx).Debugf("[dagger]🔧❌ Field is not an ID type: %s", sync.Name)
 				return nil, fmt.Errorf("field %q is not an ID type", sync.Name)
 			}
 			if err := srv.Select(ctx, target, &idType, fieldSel, syncSel); err != nil {
+				bklog.G(ctx).Debugf("[dagger]🔧❌ Sync failed: %v", err)
 				return nil, fmt.Errorf("failed to sync: %w", err)
 			}
 			syncedObj, err := srv.Load(ctx, idType.ID())
 			if err != nil {
+				bklog.G(ctx).Debugf("[dagger]🔧❌ Failed to load synced object: %v", err)
 				return nil, fmt.Errorf("failed to load synced object: %w", err)
 			}
 			val = syncedObj
+			bklog.G(ctx).Debugf("[dagger]🔧✅ Successfully synced and loaded object")
 		} else if err := srv.Select(ctx, target, &val, fieldSel); err != nil {
+			bklog.G(ctx).Debugf("[dagger]🔧❌ Select failed: %v", err)
 			return nil, err
 		}
+
 		if obj, ok := dagql.UnwrapAs[dagql.Object](val); ok {
 			env.objsByHash[obj.ID().Digest()] = val
+			bklog.G(ctx).Debugf("[dagger]🔧 Saved object to hash map: %s", obj.ID().Digest())
 		}
 		env.history = append(env.history, val)
-		return env.describe(val), nil
+		desc := env.describe(val)
+		bklog.G(ctx).Debugf("[dagger]🔧✅ Call successful, returning description: %s", desc)
+		return desc, nil
 	}
+
 	var val dagql.Typed
 	if err := srv.Select(ctx, target, &val, fieldSel); err != nil {
+		bklog.G(ctx).Debugf("[dagger]🔧❌ Final select failed: %v", err)
 		return nil, fmt.Errorf("failed to sync: %w", err)
 	}
+
 	if id, ok := val.(dagql.IDType); ok {
-		// avoid dumping full IDs, show the type and hash instead
-		return env.describe(id), nil
+		desc := env.describe(id)
+		bklog.G(ctx).Debugf("[dagger]🔧✅ Returning ID description: %s", desc)
+		return desc, nil
 	}
+
+	bklog.G(ctx).Debugf("[dagger]🔧✅ Returning raw value: %+v", val)
 	return val, nil
 }
 

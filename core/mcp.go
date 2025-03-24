@@ -134,6 +134,8 @@ func (llm *LLM) MCP(ctx context.Context, dag *dagql.Server) error {
 	var genMcpToolHandler func(LLMTool) mcpserver.ToolHandlerFunc
 	genMcpToolHandler = func(tool LLMTool) mcpserver.ToolHandlerFunc {
 		return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			bklog.G(ctx).Debugf("[dagger]🎃 MCP tool %q called with request: %+v", tool.Name, request)
+
 			// should never happen
 			if request.Method != "tools/call" {
 				return nil, fmt.Errorf("[dagger] expected MCP request method \"tools/call\" but received %q", request.Method)
@@ -142,8 +144,12 @@ func (llm *LLM) MCP(ctx context.Context, dag *dagql.Server) error {
 			result, err := tool.Call(ctx, request.Params.Arguments)
 			// TODO: differentiate user module's error from dagger error for better error message
 			if err != nil {
+				bklog.G(ctx).Debugf("[dagger]🎃🎃✅ [dagger] error: |%+v|\n", err)
 				return nil, fmt.Errorf("tool %q called with %v resulted in error: %w", tool.Name, request.Params.Arguments, err)
 			}
+
+			bklog.G(ctx).Debugf("[dagger]🎃🎃 [dagger] error: |%+v|\n", err)
+			bklog.G(ctx).Debugf("[dagger]🎃🎃 [dagger] Raw result from %s: %+v\n", tool.Name, result)
 
 			text, ok := result.(string)
 			if !ok {
@@ -157,6 +163,7 @@ func (llm *LLM) MCP(ctx context.Context, dag *dagql.Server) error {
 			newTools := llm.env.Tools(dag)
 			mcpTools := make([]mcpserver.ServerTool, 0, len(newTools))
 			for _, tool := range newTools {
+				bklog.G(ctx).Debugf("[dagger]🎃🎃🎃 Adding tool |%+v| to MCP server\n", tool)
 				// Skipping methods that return ID
 				if strings.HasSuffix(tool.Name, "_id") {
 					continue
