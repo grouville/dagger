@@ -298,43 +298,45 @@ func (m *moduleDef) loadTypeDefs(ctx context.Context, dag *dagger.Client) (rerr 
 		name = "Query"
 	}
 
+	for _, typeDef := range res.TypeDefs {
+		println("🍎🍎", typeDef.Kind)
+		switch typeDef.Kind {
+		case dagger.TypeDefKindObjectKind:
+			obj := typeDef.AsObject
+			println("🍎🍎🍎", obj.Name)
+			// FIXME: we could get the real constructor's name through the field
+			// in Query which would avoid the need to convert the module name,
+			// but the Query TypeDef is loaded before the module so the module
+			// isn't available in its functions list.
+			if name == gqlObjectName(obj.Name) {
+				m.MainObject = typeDef
+
+				// There's always a constructor, even if the SDK didn't define one.
+				// Make sure one always exists to make it easier to reuse code while
+				// building out Cobra.
+				if obj.Constructor == nil {
+					obj.Constructor = &modFunction{ReturnType: typeDef}
+				}
+
+				if name != "Query" {
+					// Constructors have an empty function name in ObjectTypeDef.
+					obj.Constructor.Name = gqlFieldName(obj.Name)
+				}
+			}
+			m.Objects = append(m.Objects, typeDef)
+		case dagger.TypeDefKindInterfaceKind:
+			m.Interfaces = append(m.Interfaces, typeDef)
+		case dagger.TypeDefKindEnumKind:
+			m.Enums = append(m.Enums, typeDef)
+		case dagger.TypeDefKindInputKind:
+			m.Inputs = append(m.Inputs, typeDef)
+		}
+	}
+
 	if m.SDKSource == "" {
 		m.MainObject = &modTypeDef{Kind: dagger.TypeDefKindObjectKind}
 		m.MainObject.AsObject = &modObject{Constructor: &modFunction{ReturnType: m.MainObject}}
 	} else {
-		for _, typeDef := range res.TypeDefs {
-			switch typeDef.Kind {
-			case dagger.TypeDefKindObjectKind:
-				obj := typeDef.AsObject
-				// FIXME: we could get the real constructor's name through the field
-				// in Query which would avoid the need to convert the module name,
-				// but the Query TypeDef is loaded before the module so the module
-				// isn't available in its functions list.
-				if name == gqlObjectName(obj.Name) {
-					m.MainObject = typeDef
-
-					// There's always a constructor, even if the SDK didn't define one.
-					// Make sure one always exists to make it easier to reuse code while
-					// building out Cobra.
-					if obj.Constructor == nil {
-						obj.Constructor = &modFunction{ReturnType: typeDef}
-					}
-
-					if name != "Query" {
-						// Constructors have an empty function name in ObjectTypeDef.
-						obj.Constructor.Name = gqlFieldName(obj.Name)
-					}
-				}
-				m.Objects = append(m.Objects, typeDef)
-			case dagger.TypeDefKindInterfaceKind:
-				m.Interfaces = append(m.Interfaces, typeDef)
-			case dagger.TypeDefKindEnumKind:
-				m.Enums = append(m.Enums, typeDef)
-			case dagger.TypeDefKindInputKind:
-				m.Inputs = append(m.Inputs, typeDef)
-			}
-		}
-
 		if m.MainObject == nil {
 			return fmt.Errorf("main object not found, check that your module's name and main object match")
 		}
