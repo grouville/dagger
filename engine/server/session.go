@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"dagger.io/dagger/telemetry"
+	graphql99 "github.com/99designs/gqlgen/graphql"
 	"github.com/Khan/genqlient/graphql"
 	"github.com/containerd/containerd/content"
 	"github.com/koron-go/prefixw"
@@ -1142,12 +1143,12 @@ func (srv *Server) serveQuery(w http.ResponseWriter, r *http.Request, client *da
 
 	gqlSrv := dagql.NewDefaultHandler(schema)
 	// NB: break glass when needed:
-	// gqlSrv.AroundResponses(func(ctx context.Context, next graphql.ResponseHandler) *graphql.Response {
-	// 	res := next(ctx)
-	// 	pl, err := json.Marshal(res)
-	// 	slog.Debug("graphql response", "response", string(pl), "error", err)
-	// 	return res
-	// })
+	gqlSrv.AroundResponses(func(ctx context.Context, next graphql99.ResponseHandler) *graphql99.Response {
+		res := next(ctx)
+		pl, err := json.Marshal(res)
+		slog.Debug("graphql response", "response", string(pl), "error", err)
+		return res
+	})
 
 	// turn panics into graphql errors
 	defer func() {
