@@ -2172,7 +2172,20 @@ func (s *moduleSourceSchema) moduleSourceAsModule(
 	srcInstContentHashed := src.WithDigest(digest.Digest(src.Self.Digest))
 
 	modName := src.Self.ModuleName
-	if src.Self.SDKImpl != nil {
+	var objectDefs []*core.TypeDef
+	if src.Self.SDKImpl == nil {
+		objectDefs = []*core.TypeDef{
+			{
+				Kind: core.TypeDefKindObject,
+				AsObject: dagql.Nullable[*core.ObjectTypeDef]{
+					Value: &core.ObjectTypeDef{
+						Name: modName,
+					},
+					Valid: true,
+				},
+			},
+		}
+	} else {
 		// get the runtime container, which is what is exec'd when calling functions in the module
 		mod.Runtime, err = src.Self.SDKImpl.Runtime(ctx, mod.Deps, srcInstContentHashed)
 		if err != nil {
@@ -2231,13 +2244,6 @@ func (s *moduleSourceSchema) moduleSourceAsModule(
 
 		// update the module's types with what was returned from the call above
 		mod.Description = resultInst.Self.Description
-		for _, obj := range resultInst.Self.ObjectDefs {
-			println("🍎🍎🍎🍎🍎🍎", obj.AsObject.Value.Name)
-			mod, err = mod.WithObject(ctx, obj)
-			if err != nil {
-				return inst, fmt.Errorf("failed to add object to module %q: %w", modName, err)
-			}
-		}
 		for _, iface := range resultInst.Self.InterfaceDefs {
 			mod, err = mod.WithInterface(ctx, iface)
 			if err != nil {
@@ -2249,6 +2255,13 @@ func (s *moduleSourceSchema) moduleSourceAsModule(
 			if err != nil {
 				return inst, fmt.Errorf("failed to add enum to module %q: %w", mod.Name(), err)
 			}
+		}
+		objectDefs = resultInst.Self.ObjectDefs
+	}
+	for _, obj := range objectDefs {
+		mod, err = mod.WithObject(ctx, obj)
+		if err != nil {
+			return inst, fmt.Errorf("failed to add object to module %q: %w", modName, err)
 		}
 	}
 
