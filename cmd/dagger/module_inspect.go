@@ -341,7 +341,7 @@ func (m *moduleDef) loadTypeDefs(ctx context.Context, dag *dagger.Client) (rerr 
 		m.MainObject.AsObject = &modObject{
 			Name: "Mnt",
 			Constructor: &modFunction{
-				Name:       "Mnt",
+				Name:       "mnt",
 				ReturnType: m.MainObject,
 			},
 		}
