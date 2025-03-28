@@ -325,10 +325,13 @@ func (m *moduleDef) loadTypeDefs(ctx context.Context, dag *dagger.Client) (rerr 
 			}
 			m.Objects = append(m.Objects, typeDef)
 		case dagger.TypeDefKindInterfaceKind:
+			println("🍎🍎🍎", typeDef.AsInterface.Name)
 			m.Interfaces = append(m.Interfaces, typeDef)
 		case dagger.TypeDefKindEnumKind:
+			println("🍎🍎🍎", typeDef.AsEnum.Name)
 			m.Enums = append(m.Enums, typeDef)
 		case dagger.TypeDefKindInputKind:
+			println("🍎🍎🍎", typeDef.AsInput.Name)
 			m.Inputs = append(m.Inputs, typeDef)
 		}
 	}
