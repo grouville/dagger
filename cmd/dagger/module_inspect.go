@@ -338,7 +338,13 @@ func (m *moduleDef) loadTypeDefs(ctx context.Context, dag *dagger.Client) (rerr 
 
 	if m.SDKSource == "" {
 		m.MainObject = &modTypeDef{Kind: dagger.TypeDefKindObjectKind}
-		m.MainObject.AsObject = &modObject{Constructor: &modFunction{ReturnType: m.MainObject}}
+		m.MainObject.AsObject = &modObject{
+			Name: m.Name,
+			Constructor: &modFunction{
+				Name:       gqlFieldName(m.Name),
+				ReturnType: m.MainObject,
+			},
+		}
 	} else {
 		if m.MainObject == nil {
 			return fmt.Errorf("main object not found, check that your module's name and main object match")
