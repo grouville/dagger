@@ -215,6 +215,8 @@ func inspectModule(ctx context.Context, dag *dagger.Client, source *dagger.Modul
 		return nil, err
 	}
 
+	println("👺 inspectModule |", id, "| 👺")
+
 	err = dag.Do(ctx, &dagger.Request{
 		Query: loadModConfQuery,
 		Variables: map[string]any{

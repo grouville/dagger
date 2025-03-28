@@ -2267,10 +2267,14 @@ func (s *moduleSourceSchema) moduleSourceAsModule(
 
 	mod.InstanceID = dagql.CurrentID(ctx)
 
+	println("🎃 |", mod.InstanceID.Digest(), "| 🎃")
+
 	inst, err = dagql.NewInstanceForCurrentID(ctx, s.dag, srcInstContentHashed, mod)
 	if err != nil {
 		return inst, fmt.Errorf("failed to create instance for module %q: %w", modName, err)
 	}
+
+	println("🎃🎃 |", inst.ID(), "| 🎃🎃")
 
 	return inst, nil
 }
