@@ -810,6 +810,7 @@ func (o *modObject) GetFieldFunctions() []*modFunction {
 }
 
 func (o *modObject) HasFunction(f *modFunction) bool {
+	println("🍎", o, f)
 	for _, fn := range o.Functions {
 		if fn.Name == f.Name {
 			return true
