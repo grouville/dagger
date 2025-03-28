@@ -1,24 +1,27 @@
 query ModuleConfig($source: ModuleSourceID!) {
-  source: loadModuleSourceFromID(id: $source) {
-    kind
-    digest
-    asString
-    sourceRootSubpath
-    commit
-    version
-    htmlRepoURL
-    module: asModule {
-      name
-      description
-      dependencies {
-        name
-        description
-        source {
-          id
-          asString
-          digest
+    source: loadModuleSourceFromID(id: $source) {
+        kind
+        digest
+        asString
+        sdk {
+            source
         }
-      }
+        sourceRootSubpath
+        commit
+        version
+        htmlRepoURL
+        module: asModule {
+            name
+            description
+            dependencies {
+                name
+                description
+                source {
+                    id
+                    asString
+                    digest
+                }
+            }
+        }
     }
-  }
 }
