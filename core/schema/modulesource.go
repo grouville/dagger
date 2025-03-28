@@ -2232,6 +2232,7 @@ func (s *moduleSourceSchema) moduleSourceAsModule(
 		// update the module's types with what was returned from the call above
 		mod.Description = resultInst.Self.Description
 		for _, obj := range resultInst.Self.ObjectDefs {
+			println("🍎🍎🍎🍎🍎🍎", obj.AsObject.Value.Name)
 			mod, err = mod.WithObject(ctx, obj)
 			if err != nil {
 				return inst, fmt.Errorf("failed to add object to module %q: %w", modName, err)
