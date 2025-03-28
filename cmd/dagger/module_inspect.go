@@ -296,6 +296,7 @@ func (m *moduleDef) loadTypeDefs(ctx context.Context, dag *dagger.Client) (rerr 
 	}
 
 	name := gqlObjectName(m.Name)
+	println("👾 >|", name, "| 👾 >>|", m.Name, "| 👾 >>>|", gqlFieldName(m.Name), "| 👾")
 	if name == "" {
 		name = "Query"
 	}
@@ -321,6 +322,7 @@ func (m *moduleDef) loadTypeDefs(ctx context.Context, dag *dagger.Client) (rerr 
 				}
 
 				if name != "Query" {
+					println()
 					// Constructors have an empty function name in ObjectTypeDef.
 					obj.Constructor.Name = gqlFieldName(obj.Name)
 				}
@@ -341,9 +343,9 @@ func (m *moduleDef) loadTypeDefs(ctx context.Context, dag *dagger.Client) (rerr 
 	if m.SDKSource == "" {
 		m.MainObject = &modTypeDef{Kind: dagger.TypeDefKindObjectKind}
 		m.MainObject.AsObject = &modObject{
-			Name: "Mnt",
+			Name: "Mnt", // m.Name
 			Constructor: &modFunction{
-				Name:       "mnt",
+				Name:       "mnt", // gqlFieldName(m.Name)
 				ReturnType: m.MainObject,
 			},
 		}
