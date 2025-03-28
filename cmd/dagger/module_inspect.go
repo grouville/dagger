@@ -339,9 +339,9 @@ func (m *moduleDef) loadTypeDefs(ctx context.Context, dag *dagger.Client) (rerr 
 	if m.SDKSource == "" {
 		m.MainObject = &modTypeDef{Kind: dagger.TypeDefKindObjectKind}
 		m.MainObject.AsObject = &modObject{
-			Name: m.Name,
+			Name: "Mnt",
 			Constructor: &modFunction{
-				Name:       gqlFieldName(m.Name),
+				Name:       "Mnt",
 				ReturnType: m.MainObject,
 			},
 		}
