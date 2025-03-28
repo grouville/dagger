@@ -247,7 +247,7 @@ func (dev *DaggerDev) Dev(
 		target = dag.Directory()
 	}
 
-	svc, err := dev.Engine().Service(ctx, "", image, gpuSupport, sharedCache)
+	svc, err := dev.Engine().WithLogLevel("debugextra").Service(ctx, "", image, gpuSupport, sharedCache)
 	if err != nil {
 		return nil, err
 	}
