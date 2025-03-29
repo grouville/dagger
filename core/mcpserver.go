@@ -131,7 +131,7 @@ func genMcpToolOpts(tool LLMTool) ([]mcp.ToolOption, error) {
 type mcpServer struct {
 	*mcpserver.MCPServer
 	dag  *dagql.Server
-	env  *LLMEnv
+	env  *MCP
 	pipe io.ReadWriteCloser
 }
 
@@ -230,7 +230,7 @@ func (s mcpServer) run(ctx context.Context) error {
 	}
 }
 
-func (llm *LLM) MCP(ctx context.Context, dag *dagql.Server) error {
+func (llm *LLM) ServeStdio(ctx context.Context, dag *dagql.Server) error {
 	// Get buildkit client
 	bk, err := llm.Query.Buildkit(ctx)
 	if err != nil {

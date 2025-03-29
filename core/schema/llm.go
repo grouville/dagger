@@ -40,7 +40,7 @@ func (s llmSchema) Install() {
 			ArgDoc("prompt", "The prompt to send"),
 		dagql.NodeFunc("__mcp", func(ctx context.Context, self dagql.Instance[*core.LLM], _ struct{}) (dagql.ID[*core.LLM], error) {
 			var zero dagql.ID[*core.LLM]
-			return zero, self.Self.MCP(ctx, s.srv)
+			return zero, self.Self.ServeStdio(ctx, s.srv)
 		}).
 			Doc("instantiates an mcp server"),
 		dagql.Func("withPromptFile", s.withPromptFile).
