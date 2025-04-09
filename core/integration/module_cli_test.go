@@ -1159,7 +1159,7 @@ func (m *OtherObj) FnE() *dagger.Container {
 		require.NoError(t, err)
 		lines := strings.Split(out, "\n")
 		// just verify some of the container funcs are there, too many to be exhaustive
-		require.Contains(t, lines, "file                          Retrieve a file at the given path.")
+		require.Contains(t, lines, "file                          Retrieves a file at the given path.")
 		require.Contains(t, lines, "as-tarball                    Package the container state as an OCI image, and return it as a tar archive")
 	})
 
@@ -1173,7 +1173,7 @@ func (m *OtherObj) FnE() *dagger.Container {
 		require.NoError(t, err)
 		lines := strings.Split(out, "\n")
 		// just verify some of the container funcs are there, too many to be exhaustive
-		require.Contains(t, lines, "file                          Retrieve a file at the given path.")
+		require.Contains(t, lines, "file                          Retrieves a file at the given path.")
 		require.Contains(t, lines, "as-tarball                    Package the container state as an OCI image, and return it as a tar archive")
 	})
 

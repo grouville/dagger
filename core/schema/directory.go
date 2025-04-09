@@ -55,7 +55,7 @@ func (s *directorySchema) Install() {
 				It is guaranteed to be stable between invocations of the same Dagger engine.`,
 			),
 		dagql.Func("file", s.file).
-			Doc(`Retrieve a file at the given path.`).
+			Doc(`Retrieves a file at the given path.`).
 			ArgDoc("path", `Location of the file to retrieve (e.g., "README.md").`),
 		dagql.Func("withFile", s.withFile).
 			Doc(`Retrieves this directory plus the contents of the given file copied to the given path.`).
