@@ -7058,7 +7058,7 @@ class Module(Type):
     async def serve(
         self,
         *,
-        serve_dependencies: bool | None = None,
+        include_dependencies: bool | None = None,
     ) -> Void | None:
         """Serve a module's API in the current session.
 
@@ -7067,7 +7067,7 @@ class Module(Type):
 
         Parameters
         ----------
-        serve_dependencies:
+        include_dependencies:
             expose the dependencies of this module to the client
 
         Returns
@@ -7084,7 +7084,7 @@ class Module(Type):
             If the API returns an error.
         """
         _args = [
-            Arg("serveDependencies", serve_dependencies, None),
+            Arg("includeDependencies", include_dependencies, None),
         ]
         _ctx = self._select("serve", _args)
         await _ctx.execute()
