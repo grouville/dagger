@@ -680,7 +680,7 @@ func (m *MCP) returnBuiltin() (LLMTool, bool) {
 	for name, b := range m.env.outputsByName {
 		required = append(required, name)
 
-		typeName := b.ExpectedType
+		typeName := b.expectedType.TypeName()
 
 		outputs = append(outputs,
 			fmt.Sprintf("- %s (%s): %s", name, typeName, b.Description))
@@ -743,23 +743,19 @@ func (m *MCP) returnBuiltin() (LLMTool, bool) {
 				if !ok {
 					return nil, fmt.Errorf("invalid type for argument %s: %T", name, arg)
 				}
-				if output.ExpectedType == "String" {
+				expected := output.expectedType
+				expectedType := expected.TypeName()
+				if expectedType == "String" {
 					output.Value = dagql.String(argStr)
 				} else {
 					bnd, ok := m.env.objsByID[argStr]
 					if !ok {
 						return nil, fmt.Errorf("object not found for argument %s: %s", name, argStr)
 					}
-
 					obj := bnd.Value
-
-					// Propagate description from output to binding so that outputs are
-					// described under `Available objects:`
-					bnd.Description = output.Description
-
 					actualType := obj.Type().Name()
-					if output.ExpectedType != actualType {
-						return nil, fmt.Errorf("incompatible types: %s must be %s, got %s", name, output.ExpectedType, actualType)
+					if expectedType != actualType {
+						return nil, fmt.Errorf("incompatible types: %s must be %s, got %s", name, expectedType, actualType)
 					}
 					output.Value = obj
 				}
@@ -803,57 +799,6 @@ func (m *MCP) Builtins(srv *dagql.Server, tools []LLMTool) ([]LLMTool, error) {
 				return "Finished thinking.", nil
 			}),
 		},
-	}
-
-	if m.env.writable {
-		allTypes := map[string]dagql.Type{
-			"String":  dagql.String(""),
-			"Int":     dagql.Int(0),
-			"Float":   dagql.Float(0.0),
-			"Boolean": dagql.Boolean(false),
-		}
-		for name := range srv.Schema().Types {
-			objectType, ok := srv.ObjectType(name)
-			if !ok {
-				continue
-			}
-			if slices.ContainsFunc(TypesHiddenFromEnvExtensions, func(t dagql.Typed) bool {
-				return t.Type().Name() == name
-			}) {
-				continue
-			}
-			allTypes[name] = objectType
-		}
-		builtins = append(builtins, LLMTool{
-			Name:        "declareOutput",
-			Description: "Declare a new output to be saved.",
-			Schema: map[string]any{
-				"type": "object",
-				"properties": map[string]any{
-					"name": map[string]any{
-						"type":        "string",
-						"description": "The name of the output.",
-					},
-					"type": map[string]any{
-						"type":        "string",
-						"description": "The type of the output.",
-						"enum":        slices.Sorted(maps.Keys(allTypes)),
-					},
-					"description": map[string]any{
-						"type":        "string",
-						"description": "A description of the output.",
-					},
-				},
-				"required": []string{"name", "description"},
-			},
-			Call: ToolFunc(func(ctx context.Context, args struct {
-				Name        string
-				Type        string
-				Description string
-			}) (any, error) {
-				return "done", m.env.DeclareOutput(args.Name, allTypes[args.Type], args.Description)
-			}),
-		})
 	}
 
 	if len(tools) > 0 {
