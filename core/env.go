@@ -158,6 +158,7 @@ func (env *Env) Ingest(obj dagql.Object, desc string) string {
 	if !ok {
 		env.typeCounts[typeName]++
 		llmID = fmt.Sprintf("%s#%d", typeName, env.typeCounts[typeName])
+		println("🍎", typeName, llmID)
 		if desc == "" {
 			desc = env.describe(obj.ID())
 		}
