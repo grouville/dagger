@@ -221,6 +221,17 @@ defmodule Dagger.Binding do
   end
 
   @doc """
+  The binding description
+  """
+  @spec description(t()) :: {:ok, String.t()} | {:error, term()}
+  def description(%__MODULE__{} = binding) do
+    query_builder =
+      binding.query_builder |> QB.select("description")
+
+    Client.execute(binding.client, query_builder)
+  end
+
+  @doc """
   The digest of the binding value
   """
   @spec digest(t()) :: {:ok, String.t()} | {:error, term()}
