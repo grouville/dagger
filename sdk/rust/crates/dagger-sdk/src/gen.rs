@@ -1720,6 +1720,11 @@ impl Binding {
         let query = self.selection.select("asString");
         query.execute(self.graphql_client.clone()).await
     }
+    /// The binding description
+    pub async fn description(&self) -> Result<String, DaggerError> {
+        let query = self.selection.select("description");
+        query.execute(self.graphql_client.clone()).await
+    }
     /// The digest of the binding value
     pub async fn digest(&self) -> Result<String, DaggerError> {
         let query = self.selection.select("digest");

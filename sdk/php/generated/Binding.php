@@ -146,6 +146,15 @@ class Binding extends Client\AbstractObject implements Client\IdAble
     }
 
     /**
+     * The binding description
+     */
+    public function description(): string
+    {
+        $leafQueryBuilder = new \Dagger\Client\QueryBuilder('description');
+        return (string)$this->queryLeaf($leafQueryBuilder, 'description');
+    }
+
+    /**
      * The digest of the binding value
      */
     public function digest(): string
