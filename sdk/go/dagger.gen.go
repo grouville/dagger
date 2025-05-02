@@ -276,12 +276,13 @@ type PortForward struct {
 type Binding struct {
 	query *querybuilder.Selection
 
-	asString *string
-	digest   *string
-	id       *BindingID
-	isNull   *bool
-	name     *string
-	typeName *string
+	asString    *string
+	description *string
+	digest      *string
+	id          *BindingID
+	isNull      *bool
+	name        *string
+	typeName    *string
 }
 
 func (r *Binding) WithGraphQLQuery(q *querybuilder.Selection) *Binding {
@@ -422,6 +423,19 @@ func (r *Binding) AsString(ctx context.Context) (string, error) {
 		return *r.asString, nil
 	}
 	q := r.query.Select("asString")
+
+	var response string
+
+	q = q.Bind(&response)
+	return response, q.Execute(ctx)
+}
+
+// The binding description
+func (r *Binding) Description(ctx context.Context) (string, error) {
+	if r.description != nil {
+		return *r.description, nil
+	}
+	q := r.query.Select("description")
 
 	var response string
 

@@ -1477,6 +1477,7 @@ export type __TypeFieldsOpts = {
 export class Binding extends BaseClient {
   private readonly _id?: BindingID = undefined
   private readonly _asString?: string = undefined
+  private readonly _description?: string = undefined
   private readonly _digest?: string = undefined
   private readonly _isNull?: boolean = undefined
   private readonly _name?: string = undefined
@@ -1489,6 +1490,7 @@ export class Binding extends BaseClient {
     ctx?: Context,
     _id?: BindingID,
     _asString?: string,
+    _description?: string,
     _digest?: string,
     _isNull?: boolean,
     _name?: string,
@@ -1498,6 +1500,7 @@ export class Binding extends BaseClient {
 
     this._id = _id
     this._asString = _asString
+    this._description = _description
     this._digest = _digest
     this._isNull = _isNull
     this._name = _name
@@ -1640,6 +1643,21 @@ export class Binding extends BaseClient {
     }
 
     const ctx = this._ctx.select("asString")
+
+    const response: Awaited<string> = await ctx.execute()
+
+    return response
+  }
+
+  /**
+   * The binding description
+   */
+  description = async (): Promise<string> => {
+    if (this._description) {
+      return this._description
+    }
+
+    const ctx = this._ctx.select("description")
 
     const response: Awaited<string> = await ctx.execute()
 

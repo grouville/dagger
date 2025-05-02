@@ -50,6 +50,8 @@ func (s environmentSchema) Install() {
 	dagql.Fields[*core.Binding]{
 		dagql.Func("name", s.bindingName).
 			Doc("The binding name"),
+		dagql.Func("description", s.bindingDescription).
+			Doc("The binding description"),
 		dagql.Func("typeName", s.bindingTypeName).
 			Doc("The binding type"),
 		dagql.Func("digest", s.bindingDigest).
@@ -127,6 +129,10 @@ func (s environmentSchema) withStringOutput(ctx context.Context, env *core.Env, 
 
 func (s environmentSchema) bindingName(ctx context.Context, b *core.Binding, args struct{}) (string, error) {
 	return b.Key, nil
+}
+
+func (s environmentSchema) bindingDescription(ctx context.Context, b *core.Binding, args struct{}) (string, error) {
+	return b.Description, nil
 }
 
 func (s environmentSchema) bindingTypeName(ctx context.Context, b *core.Binding, args struct{}) (string, error) {
