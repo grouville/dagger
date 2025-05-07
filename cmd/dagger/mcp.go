@@ -30,7 +30,7 @@ func init() {
 	_ = mcpCmd.PersistentFlags().MarkHidden("env-file") // mark it as hidden to avoid showing it in the help
 	mcpCmd.PersistentFlags().
 		BoolVar(&exportEnv, "export-env", false,
-			"Write final environment JSON to /tmp/declare/output (experimental)")
+			"Write environment to /tmp/declare/output (experimental)")
 	_ = mcpCmd.PersistentFlags().MarkHidden("export-env")
 }
 
