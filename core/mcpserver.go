@@ -94,9 +94,10 @@ func genMcpToolOpts(tool LLMTool) ([]mcp.ToolOption, error) {
 
 type mcpServer struct {
 	*mcpserver.MCPServer
-	dag  *dagql.Server
-	env  *MCP
-	pipe io.ReadWriteCloser
+	dag       *dagql.Server
+	env       *MCP
+	pipe      io.ReadWriteCloser
+	exportEnv bool
 }
 
 func (s mcpServer) genMcpToolHandler(tool LLMTool) mcpserver.ToolHandlerFunc {
@@ -106,6 +107,7 @@ func (s mcpServer) genMcpToolHandler(tool LLMTool) mcpserver.ToolHandlerFunc {
 			return nil, fmt.Errorf("[dagger] expected MCP request method \"tools/call\" but received %q", request.Method)
 		}
 
+		bklog.G(ctx).Debugf("🍎🍎[dagger] tool %q with params: |%+v|\n", tool.Name, request.Params.Arguments)
 		result, err := tool.Call(ctx, request.Params.Arguments)
 		// TODO: differentiate user module's error from dagger error for better error message
 		if err != nil {
@@ -122,12 +124,66 @@ func (s mcpServer) genMcpToolHandler(tool LLMTool) mcpserver.ToolHandlerFunc {
 			text = string(b)
 		}
 
+		// question: how to [key:value] map the result so that I can retrieve it later?
+		// what happens when >1 save tool is called in a session?
+		bklog.G(ctx).Debugf("🍎🍎🍎[dagger] tool %q result: %s with this exportEnv: %t", tool.Name, text, s.exportEnv)
+		if tool.Name == "save" && s.exportEnv {
+			err := saveEnvOutputsToFile(ctx, s.dag, s.env.env)
+			if err != nil {
+				return nil, fmt.Errorf("failed to save env to file: %w", err)
+			}
+		}
+
 		if err := s.setTools(); err != nil {
 			return nil, err
 		}
 
 		return mcp.NewToolResultText(text), nil
 	}
+}
+
+type WireBinding struct {
+	Key         string `json:"key"`
+	Value       string `json:"value"`
+	Description string `json:"description,omitempty"`
+}
+
+// used in the context of the MCP server
+func saveEnvOutputsToFile(ctx context.Context, dag *dagql.Server, env *Env) error {
+	var outs []WireBinding
+	for _, b := range env.outputsByName {
+		if b.Value.Type().NamedType == "String" {
+			if v, ok := b.AsString(); ok {
+				outs = append(outs, WireBinding{Key: b.Key, Value: v, Description: b.Description})
+			}
+		}
+	}
+
+	value, err := json.Marshal(outs)
+	if err != nil {
+		return fmt.Errorf("failed to marshal env outputs: %w", err)
+	}
+
+	var output string
+	return dag.Select(ctx, dag.Root(), &output,
+		dagql.Selector{
+			Field: "directory",
+		},
+		dagql.Selector{
+			Field: "withNewFile",
+			Args: []dagql.NamedInput{
+				{Name: "path", Value: dagql.String("output")},
+				{Name: "contents", Value: dagql.String(string(value))},
+			},
+		},
+		dagql.Selector{
+			Field: "export",
+			Args: []dagql.NamedInput{
+				{Name: "path", Value: dagql.String("/tmp/declare")},
+				{Name: "wipe", Value: dagql.Boolean(true)},
+			},
+		},
+	)
 }
 
 func (s mcpServer) convertToMcpTools(llmTools []LLMTool) ([]mcpserver.ServerTool, error) {
@@ -196,7 +252,8 @@ func (s mcpServer) run(ctx context.Context) error {
 	}
 }
 
-func (llm *LLM) MCP(ctx context.Context, dag *dagql.Server) error {
+// need an arg to pass allow / disallow the export on the mcp server bbi
+func (llm *LLM) MCP(ctx context.Context, dag *dagql.Server, exportEnv bool) error {
 	// Get buildkit client
 	bk, err := llm.Query.Buildkit(ctx)
 	if err != nil {
@@ -214,6 +271,7 @@ func (llm *LLM) MCP(ctx context.Context, dag *dagql.Server) error {
 		dag,
 		llm.mcp,
 		rwc,
+		exportEnv,
 	}
 
 	return s.run(ctx)
