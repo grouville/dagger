@@ -127,37 +127,7 @@ func mcpStart(ctx context.Context, engineClient *client.Client) error {
 		q = q.Select("with"+modDef.MainObject.AsObject.Name+"Input").
 			Arg("name", modName).
 			Arg("value", modID).
-			Arg("description", modDef.MainObject.Description()).
-			// this should disappear with the hot reload work from Connor
-			Select("withDirectoryInput").
-			Arg("name", "working_dir").
-			Arg("value", workdirID).
-			Arg("description", "input working directory, often the root of a project").
-			Select("withDirectoryOutput").
-			Arg("name", "result_dir").
-			Arg("description", "output result directory to be exported to the root of the project")
-
-		// TODO: import the env move the string scalar
-		if envFile != "" {
-			seed, err := loadEnvFromFile(envFile)
-			if err != nil {
-				return fmt.Errorf("invalid env-file: %w", err)
-			}
-			for _, in := range seed.Inputs {
-				q = q.Select("withStringInput").
-					Arg("name", in.Key).
-					Arg("value", in.Value).
-					Arg("description", in.Description)
-			}
-			for _, out := range seed.Outputs {
-				q = q.Select("withStringOutput").
-					Arg("name", out.Key).
-					Arg("value", out.Value).
-					Arg("description", out.Description)
-			}
-		}
-
-		q = q.Select("id")
+			Arg("description", modDef.MainObject.Description())
 
 		logMsg = fmt.Sprintf("Exposing module %q%s as an MCP server on standard input/output", modName, extraCore)
 	} else {
@@ -171,8 +141,29 @@ func mcpStart(ctx context.Context, engineClient *client.Client) error {
 		Arg("description", "input working directory, often the root of a project").
 		Select("withDirectoryOutput").
 		Arg("name", "result_dir").
-		Arg("description", "output result directory to be exported to the root of the project").
-		Select("id")
+		Arg("description", "output result directory to be exported to the root of the project")
+
+	// TODO: import the env move the string scalar
+	if envFile != "" {
+		seed, err := loadEnvFromFile(envFile)
+		if err != nil {
+			return fmt.Errorf("invalid env-file: %w", err)
+		}
+		for _, in := range seed.Inputs {
+			q = q.Select("withStringInput").
+				Arg("name", in.Key).
+				Arg("value", in.Value).
+				Arg("description", in.Description)
+		}
+		for _, out := range seed.Outputs {
+			q = q.Select("withStringOutput").
+				Arg("name", out.Key).
+				Arg("value", out.Value).
+				Arg("description", out.Description)
+		}
+	}
+
+	q = q.Select("id")
 
 	var envID string
 	if err := makeRequest(ctx, q, &envID); err != nil {
