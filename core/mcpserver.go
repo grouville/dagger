@@ -95,10 +95,10 @@ func genMcpToolOpts(tool LLMTool) ([]mcp.ToolOption, error) {
 
 type mcpServer struct {
 	*mcpserver.MCPServer
-	dag       *dagql.Server
-	env       *MCP
-	pipe      io.ReadWriteCloser
-	exportEnv bool
+	dag    *dagql.Server
+	env    *MCP
+	pipe   io.ReadWriteCloser
+	envDir string
 }
 
 func (s mcpServer) genMcpToolHandler(tool LLMTool) mcpserver.ToolHandlerFunc {
@@ -150,15 +150,13 @@ func (s mcpServer) genMcpToolHandler(tool LLMTool) mcpserver.ToolHandlerFunc {
 		end:
 		}
 
-		// // question: how to [key:value] map the result so that I can retrieve it later?
-		// // what happens when >1 save tool is called in a session?
-		// bklog.G(ctx).Debugf("🍎🍎🍎[dagger] tool %q result: %s with this exportEnv: %t", tool.Name, text, s.exportEnv)
-		// if tool.Name == "save" && s.exportEnv {
-		// 	err := saveEnvOutputsToFile(ctx, s.dag, s.env.env)
-		// 	if err != nil {
-		// 		return nil, fmt.Errorf("failed to save env to file: %w", err)
-		// 	}
-		// }
+		bklog.G(ctx).Debugf("🍎🍎🍎[dagger] tool %q result: %s with this envDir: |%s|", tool.Name, text, s.envDir)
+		if tool.Name == "save" && s.envDir != "" {
+			err := saveEnvOutputsToFile(ctx, s.dag, s.env.env, s.envDir)
+			if err != nil {
+				return nil, fmt.Errorf("failed to save env to file: %w", err)
+			}
+		}
 
 		if err := s.setTools(); err != nil {
 			return nil, err
@@ -175,7 +173,7 @@ type WireBinding struct {
 }
 
 // used in the context of the MCP server
-func saveEnvOutputsToFile(ctx context.Context, dag *dagql.Server, env *Env) error {
+func saveEnvOutputsToFile(ctx context.Context, dag *dagql.Server, env *Env, envDir string) error {
 	var outs []WireBinding
 	for _, b := range env.outputsByName {
 		if b.Value.Type().NamedType == "String" {
@@ -193,20 +191,17 @@ func saveEnvOutputsToFile(ctx context.Context, dag *dagql.Server, env *Env) erro
 	var output string
 	return dag.Select(ctx, dag.Root(), &output,
 		dagql.Selector{
-			Field: "directory",
-		},
-		dagql.Selector{
-			Field: "withNewFile",
+			Field: "file",
 			Args: []dagql.NamedInput{
-				{Name: "path", Value: dagql.String("output")},
+				{Name: "name", Value: dagql.String("output.json")},
 				{Name: "contents", Value: dagql.String(string(value))},
 			},
 		},
 		dagql.Selector{
 			Field: "export",
 			Args: []dagql.NamedInput{
-				{Name: "path", Value: dagql.String("/tmp/declare")},
-				{Name: "wipe", Value: dagql.Boolean(true)},
+				{Name: "path", Value: dagql.String(fmt.Sprintf("%s/output.json", envDir))},
+				{Name: "allowParentDirPath", Value: dagql.Boolean(true)},
 			},
 		},
 	)
@@ -279,7 +274,7 @@ func (s mcpServer) run(ctx context.Context) error {
 }
 
 // need an arg to pass allow / disallow the export on the mcp server bbi
-func (llm *LLM) MCP(ctx context.Context, dag *dagql.Server, exportEnv bool) error {
+func (llm *LLM) MCP(ctx context.Context, dag *dagql.Server, envDir string) error {
 	// Get buildkit client
 	bk, err := llm.Query.Buildkit(ctx)
 	if err != nil {
@@ -297,7 +292,7 @@ func (llm *LLM) MCP(ctx context.Context, dag *dagql.Server, exportEnv bool) erro
 		dag,
 		llm.mcp,
 		rwc,
-		exportEnv,
+		envDir,
 	}
 
 	return s.run(ctx)

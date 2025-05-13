@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"dagger.io/dagger/querybuilder"
@@ -18,20 +19,15 @@ var (
 	mcpStdio      bool
 	mcpSseAddr    string
 	envPrivileged bool
-	envFile       string
-	exportEnv     bool
+	envDir        string
 )
 
 func init() {
 	mcpCmd.PersistentFlags().BoolVar(&mcpStdio, "stdio", true, "Use standard input/output for communicating with the MCP server")
 	mcpCmd.PersistentFlags().BoolVar(&envPrivileged, "env-privileged", false, "Expose the core API as tools")
 	mcpCmd.PersistentFlags().StringVar(&mcpSseAddr, "sse-addr", "", "Address of the MCP SSE server (no SSE server if empty)")
-	mcpCmd.PersistentFlags().StringVar(&envFile, "env-file", "", "Path to a JSON file used to load the initial MCP environment before starting the server (experimental)")
-	_ = mcpCmd.PersistentFlags().MarkHidden("env-file") // mark it as hidden to avoid showing it in the help
-	mcpCmd.PersistentFlags().
-		BoolVar(&exportEnv, "export-env", false,
-			"Write environment to /tmp/declare/output (experimental)")
-	_ = mcpCmd.PersistentFlags().MarkHidden("export-env")
+	mcpCmd.PersistentFlags().StringVar(&envDir, "env-dir", "", "Optional path to a directory that may include input.json (pre-loaded inputs) and/or output.json (captured outputs) for the MCP server")
+	_ = mcpCmd.PersistentFlags().MarkHidden("env-dir")
 }
 
 var mcpCmd = &cobra.Command{
@@ -48,19 +44,19 @@ var mcpCmd = &cobra.Command{
 			Frontend = idtui.NewPlain(stderr)
 		}
 
-		if cmd.Flags().Changed("env-file") && strings.TrimSpace(envFile) == "" {
-			return errors.New("--env-file value cannot be empty")
+		if cmd.Flags().Changed("env-dir") && strings.TrimSpace(envDir) == "" {
+			return errors.New("--env-dir value cannot be empty")
 		}
 
-		if envFile != "" {
-			info, err := os.Stat(envFile)
+		if envDir != "" {
+			info, err := os.Stat(envDir)
 			switch {
 			case err != nil && os.IsNotExist(err):
-				return fmt.Errorf("--env-file %q does not exist", envFile)
+				return fmt.Errorf("--env-dir %q does not exist", envDir)
 			case err != nil:
-				return fmt.Errorf("cannot stat --env-file: %w", err)
-			case info.IsDir():
-				return fmt.Errorf("--env-file %q is a directory, want a JSON file", envFile)
+				return fmt.Errorf("cannot stat --env-dir: %w", err)
+			case !info.IsDir():
+				return fmt.Errorf("--env-dir %q is a file, want a directory", envDir)
 			}
 		}
 
@@ -138,28 +134,37 @@ func mcpStart(ctx context.Context, engineClient *client.Client) error {
 	q = q.Select("withDirectoryInput").
 		Arg("name", "working_dir").
 		Arg("value", workdirID).
-		Arg("description", "input working directory, often the root of a project").
-		Select("withDirectoryOutput").
-		Arg("name", "result_dir").
-		Arg("description", "output result directory to be exported to the root of the project")
+		Arg("description", "input working directory, often the root of a project")
+	// deactivated until a more secure approach is found
+	// Select("withDirectoryOutput").
+	// Arg("name", "result_dir").
+	// Arg("description", "output result directory to be exported to the root of the project")
 
-	// TODO: import the env move the string scalar
-	if envFile != "" {
-		seed, err := loadEnvFromFile(envFile)
-		if err != nil {
-			return fmt.Errorf("invalid env-file: %w", err)
-		}
-		for _, in := range seed.Inputs {
-			q = q.Select("withStringInput").
-				Arg("name", in.Key).
-				Arg("value", in.Value).
-				Arg("description", in.Description)
-		}
-		for _, out := range seed.Outputs {
-			q = q.Select("withStringOutput").
-				Arg("name", out.Key).
-				Arg("value", out.Value).
-				Arg("description", out.Description)
+	// Only preload the environment if envDir/input.json actually exists.
+	if envDir != "" {
+		inputPath := filepath.Join(envDir, "input.json")
+
+		// Stat the file first; if it isn’t there, just skip pre-loading.
+		if info, err := os.Stat(inputPath); err == nil && !info.IsDir() {
+			seed, err := loadEnvFromFile(inputPath)
+			if err != nil {
+				return fmt.Errorf("invalid env-file %q: %w", inputPath, err)
+			}
+
+			for _, in := range seed.Inputs {
+				q = q.Select("withStringInput").
+					Arg("name", in.Key).
+					Arg("value", in.Value).
+					Arg("description", in.Description)
+			}
+			for _, out := range seed.Outputs {
+				q = q.Select("withStringOutput").
+					Arg("name", out.Key).
+					Arg("description", out.Description)
+			}
+		} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+			// A real error (e.g., permission issue) occurred while stat’ing the file.
+			return fmt.Errorf("cannot stat %q: %w", inputPath, err)
 		}
 	}
 
@@ -171,15 +176,20 @@ func mcpStart(ctx context.Context, engineClient *client.Client) error {
 	}
 
 	fmt.Fprintln(stderr, logMsg)
-	q = q.Root().
+	call := q.Root().
 		Select("llm").
 		Select("withEnv").
 		Arg("env", envID).
-		Select("__mcp").
-		Arg("exportEnv", exportEnv)
+		Select("__mcp")
+
+	// this passes the arg to the mcp server
+	// which uses it to export the state to envdir/output.json
+	if envDir != "" {
+		call = call.Arg("envDir", envDir)
+	}
 
 	var response any
-	if err := makeRequest(ctx, q, &response); err != nil {
+	if err := makeRequest(ctx, call, &response); err != nil {
 		return fmt.Errorf("error starting MCP server: %w", err)
 	}
 
@@ -197,9 +207,10 @@ type Binding struct {
 	// ExpectedType string
 }
 
+type BindingMap map[string]Binding
 type Env struct {
-	Inputs  []Binding
-	Outputs []Binding
+	Inputs  BindingMap `json:"inputs"`
+	Outputs BindingMap `json:"outputs"`
 }
 
 func loadEnvFromFile(p string) (*Env, error) {

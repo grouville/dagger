@@ -53,10 +53,10 @@ func (s llmSchema) Install() {
 				dagql.Arg("prompt").Doc("The prompt to send"),
 			),
 		dagql.NodeFunc("__mcp", func(ctx context.Context, self dagql.Instance[*core.LLM], args struct {
-			ExportEnv dagql.Optional[dagql.Boolean]
+			EnvDir dagql.Optional[dagql.String]
 		}) (dagql.Nullable[core.Void], error) {
-			exportEnv := args.ExportEnv.Valid && args.ExportEnv.Value.Bool()
-			return dagql.Null[core.Void](), self.Self.MCP(ctx, s.srv, exportEnv)
+			envDir := args.EnvDir.Value.String()
+			return dagql.Null[core.Void](), self.Self.MCP(ctx, s.srv, envDir)
 		}).
 			Doc("instantiates an mcp server"),
 		dagql.Func("withPromptFile", s.withPromptFile).
