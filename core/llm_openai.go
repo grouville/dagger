@@ -3,13 +3,16 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 
 	"dagger.io/dagger/telemetry"
 	"github.com/dagger/dagger/engine/slog"
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/azure"
 	"github.com/openai/openai-go/option"
+	"github.com/openai/openai-go/packages/param"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/metric"
@@ -24,7 +27,12 @@ type OpenAIClient struct {
 
 func newOpenAIClient(endpoint *LLMEndpoint, azureVersion string, disableStreaming bool) *OpenAIClient {
 	var opts []option.RequestOption
-	opts = append(opts, option.WithHeader("Content-Type", "application/json"))
+	opts = append(opts,
+		option.WithHeader("Content-Type", "application/json"),
+		option.WithHeader("OpenAI-Beta", "compatible"), // Required by Mistral’s OpenAI-compat endpoint; ignored by OpenAI itself.
+		// option.WithDebug(true),
+	)
+
 	if azureVersion != "" {
 		opts = append(opts, azure.WithEndpoint(endpoint.BaseURL, azureVersion))
 		if endpoint.Key != "" {
@@ -148,6 +156,23 @@ func (c *OpenAIClient) SendQuery(ctx context.Context, history []ModelMessage, to
 		params.Tools = toolParams
 	}
 
+	if c.endpoint.Provider == Mistral {
+		// 1️⃣ Remove seed
+		params.Seed = param.Opt[int64]{} // unset
+
+		// 2️⃣ Remove parallel_tool_calls
+		params.ParallelToolCalls = param.Opt[bool]{}
+
+		// // 3️⃣ Remove function.strict
+		// for i := range params.Tools {
+		// 	params.Tools[i].Function.Strict = param.Opt[bool]{}
+		// }
+
+		// 4️⃣ Disable streaming while tools are present
+		// c.disableStreaming = true
+	}
+	// ------------
+
 	var chatCompletion *openai.ChatCompletion
 
 	if len(tools) > 0 && c.disableStreaming {
@@ -253,6 +278,24 @@ func (c *OpenAIClient) queryWithoutStreaming(
 ) (*openai.ChatCompletion, error) {
 	compl, err := c.client.Chat.Completions.New(ctx, params)
 	if err != nil {
+		var apiErr *openai.Error
+		if errors.As(err, &apiErr) {
+
+			// 1️⃣ Always dump the raw body when we get a 4xx/5xx
+			fmt.Fprintf(os.Stderr, "🍎[LLM] %d raw → %s\n",
+				apiErr.StatusCode, string(apiErr.DumpResponse(true)))
+
+			fmt.Fprintf(os.Stderr, "🍎🍎[LLM] %d raw → %s\n",
+				apiErr.StatusCode, string(apiErr.DumpRequest(true)))
+
+			// 2️⃣ (Optionally) keep the old line, but fall back to the raw text
+			msg := apiErr.Message
+			if msg == "" {
+				msg = string(apiErr.DumpResponse(true))
+			}
+			fmt.Fprintf(os.Stderr, "🍎🍎🍎[LLM] %d – %s\n",
+				apiErr.StatusCode, msg)
+		}
 		return nil, err
 	}
 

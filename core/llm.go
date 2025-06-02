@@ -167,6 +167,10 @@ type LLMRouter struct {
 	GeminiAPIKey  string
 	GeminiBaseURL string
 	GeminiModel   string
+
+	MistralAPIKey  string
+	MistralBaseURL string
+	MistralModel   string
 }
 
 func (r *LLMRouter) isAnthropicModel(model string) bool {
@@ -245,6 +249,17 @@ func (r *LLMRouter) routeGoogleModel() (*LLMEndpoint, error) {
 	return endpoint, nil
 }
 
+func (r *LLMRouter) routeMistralModel() (*LLMEndpoint, error) {
+	endpoint := &LLMEndpoint{
+		BaseURL:  r.MistralBaseURL,
+		Key:      r.MistralAPIKey,
+		Provider: Mistral,
+	}
+	endpoint.Client = newOpenAIClient(endpoint, "", true) // Mistral uses OpenAI-compat, but disables streaming by default
+
+	return endpoint, nil
+}
+
 func (r *LLMRouter) routeOtherModel() *LLMEndpoint {
 	// default to openAI compat from other providers
 	endpoint := &LLMEndpoint{
@@ -269,7 +284,7 @@ func (r *LLMRouter) routeReplayModel(model string) (*LLMEndpoint, error) {
 
 // Return a default model, if configured
 func (r *LLMRouter) DefaultModel() string {
-	for _, model := range []string{r.OpenAIModel, r.AnthropicModel, r.GeminiModel} {
+	for _, model := range []string{r.OpenAIModel, r.AnthropicModel, r.GeminiModel, r.MistralModel} {
 		if model != "" {
 			return model
 		}
@@ -285,6 +300,9 @@ func (r *LLMRouter) DefaultModel() string {
 	}
 	if r.GeminiAPIKey != "" {
 		return modelDefaultGoogle
+	}
+	if r.MistralAPIKey != "" {
+		return modelDefaultMistral
 	}
 	return ""
 }
@@ -310,7 +328,10 @@ func (r *LLMRouter) Route(model string) (*LLMEndpoint, error) {
 			return nil, err
 		}
 	case r.isMistralModel(model):
-		return nil, fmt.Errorf("mistral models are not yet supported")
+		endpoint, err = r.routeMistralModel()
+		if err != nil {
+			return nil, err
+		}
 	case r.isReplay(model):
 		endpoint, err = r.routeReplayModel(model)
 		if err != nil {
@@ -373,6 +394,15 @@ func (r *LLMRouter) LoadConfig(ctx context.Context, getenv func(context.Context,
 	})
 	eg.Go(func() error {
 		return save("GEMINI_MODEL", &r.GeminiModel)
+	})
+	eg.Go(func() error {
+		return save("MISTRAL_API_KEY", &r.MistralAPIKey)
+	})
+	eg.Go(func() error {
+		return save("MISTRAL_BASE_URL", &r.MistralBaseURL)
+	})
+	eg.Go(func() error {
+		return save("MISTRAL_MODEL", &r.MistralModel)
 	})
 
 	var (

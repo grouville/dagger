@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/opencontainers/go-digest"
@@ -50,6 +51,9 @@ func TestLlmConfig(t *testing.T) {
 		"env://GEMINI_API_KEY":           "gemini-api-key",
 		"env://GEMINI_BASE_URL":          "gemini-base-url",
 		"env://GEMINI_MODEL":             "gemini-model",
+		"env://MISTRAL_API_KEY":          "mistral-api-key",
+		"env://MISTRAL_BASE_URL":         "mistral-base-url",
+		"env://MISTRAL_MODEL":            "mistral-model",
 	}
 
 	dagql.Fields[LLMTestQuery]{
@@ -83,6 +87,110 @@ func TestLlmConfig(t *testing.T) {
 	assert.Equal(t, "gemini-api-key", r.GeminiAPIKey)
 	assert.Equal(t, "gemini-base-url", r.GeminiBaseURL)
 	assert.Equal(t, "gemini-model", r.GeminiModel)
+	assert.Equal(t, "mistral-api-key", r.MistralAPIKey)
+	assert.Equal(t, "mistral-base-url", r.MistralBaseURL)
+	assert.Equal(t, "mistral-model", r.MistralModel)
+}
+
+func TestMistralLLMIntegration(t *testing.T) {
+	ctx := context.Background()
+
+	// Test case 1: Router configuration for Mistral
+	t.Run("router configuration", func(t *testing.T) {
+		router := &LLMRouter{
+			MistralAPIKey:  "test-mistral-key",
+			MistralBaseURL: "https://api.mistral.ai/v1",
+			MistralModel:   "mistral-large",
+		}
+
+		// Test model recognition
+		assert.True(t, router.isMistralModel("mistral-7b-instruct"))
+		assert.True(t, router.isMistralModel("mistral-large"))
+		assert.True(t, router.isMistralModel("mistral/codestral"))
+		assert.False(t, router.isMistralModel("gpt-4"))
+		assert.False(t, router.isMistralModel("claude-3"))
+
+		// Test routing
+		endpoint, err := router.Route("mistral-7b-instruct")
+		assert.NoError(t, err)
+		assert.Equal(t, Mistral, endpoint.Provider)
+		assert.Equal(t, "test-mistral-key", endpoint.Key)
+		assert.Equal(t, "https://api.mistral.ai/v1", endpoint.BaseURL)
+		assert.Equal(t, "mistral-7b-instruct", endpoint.Model)
+		assert.NotNil(t, endpoint.Client)
+	})
+
+	// Test case 2: Test model alias resolution
+	t.Run("model alias resolution", func(t *testing.T) {
+		assert.Equal(t, "mistral-7b-instruct", resolveModelAlias("mistral"))
+		assert.Equal(t, "mistral-large", resolveModelAlias("mistral-large"))
+	})
+
+	// Test case 3: Test default model selection with Mistral
+	t.Run("default model selection", func(t *testing.T) {
+		router := &LLMRouter{
+			MistralAPIKey: "test-key",
+		}
+		assert.Equal(t, "mistral-7b-instruct", router.DefaultModel())
+
+		// Test priority - OpenAI should take precedence
+		router.OpenAIAPIKey = "openai-key"
+		assert.Equal(t, "gpt-4.1", router.DefaultModel())
+	})
+
+	// Test case 4: Test actual client creation (this tests the OpenAI client wrapper)
+	t.Run("client creation", func(t *testing.T) {
+		endpoint := &LLMEndpoint{
+			BaseURL:  "https://api.mistral.ai/v1",
+			Key:      "test-key",
+			Provider: Mistral,
+			Model:    "mistral-7b-instruct",
+		}
+
+		client := newOpenAIClient(endpoint, "", false)
+		assert.NotNil(t, client)
+		assert.Equal(t, endpoint, client.endpoint)
+		assert.False(t, client.disableStreaming)
+
+		// Test error handling for missing API key
+		assert.False(t, client.IsRetryable(fmt.Errorf("authentication failed")))
+	})
+
+	// Test case 5: Test environment variable loading
+	t.Run("environment variables", func(t *testing.T) {
+		q := LLMTestQuery{}
+		srv := dagql.NewServer(q, dagql.NewSessionCache(cache.NewCache[digest.Digest, dagql.Typed]()))
+
+		vars := map[string]string{
+			"file://.env":               "",
+			"env://MISTRAL_API_KEY":     "env-mistral-key",
+			"env://MISTRAL_BASE_URL":    "https://custom-mistral.api.com",
+			"env://MISTRAL_MODEL":       "mistral-custom",
+		}
+
+		dagql.Fields[LLMTestQuery]{
+			dagql.Func("secret", func(ctx context.Context, self LLMTestQuery, args struct {
+				URI string
+			}) (mockSecret, error) {
+				return mockSecret{uri: args.URI}, nil
+			}),
+		}.Install(srv)
+
+		dagql.Fields[mockSecret]{
+			dagql.Func("plaintext", func(ctx context.Context, self mockSecret, _ struct{}) (string, error) {
+				if val, ok := vars[self.uri]; ok {
+					return val, nil
+				}
+				return "", nil
+			}),
+		}.Install(srv)
+
+		router, err := NewLLMRouter(ctx, srv)
+		assert.NoError(t, err)
+		assert.Equal(t, "env-mistral-key", router.MistralAPIKey)
+		assert.Equal(t, "https://custom-mistral.api.com", router.MistralBaseURL)
+		assert.Equal(t, "mistral-custom", router.MistralModel)
+	})
 }
 
 func TestLlmConfigDisableStreaming(t *testing.T) {
@@ -178,7 +286,10 @@ OPENAI_MODEL=openai-model
 OPENAI_DISABLE_STREAMING=TRUE
 GEMINI_API_KEY=gemini-api-key
 GEMINI_BASE_URL=gemini-base-url
-GEMINI_MODEL=gemini-model`, nil
+GEMINI_MODEL=gemini-model
+MISTRAL_API_KEY=mistral-api-key
+MISTRAL_BASE_URL=mistral-base-url
+MISTRAL_MODEL=mistral-model`, nil
 			}
 			return "", nil
 		}),
@@ -198,4 +309,8 @@ GEMINI_MODEL=gemini-model`, nil
 	assert.Equal(t, "gemini-api-key", r.GeminiAPIKey)
 	assert.Equal(t, "gemini-base-url", r.GeminiBaseURL)
 	assert.Equal(t, "gemini-model", r.GeminiModel)
+	assert.Equal(t, "mistral-api-key", r.MistralAPIKey)
+	assert.Equal(t, "mistral-base-url", r.MistralBaseURL)
+	assert.Equal(t, "mistral-model", r.MistralModel)
 }
+
