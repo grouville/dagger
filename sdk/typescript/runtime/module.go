@@ -349,7 +349,7 @@ func (m *moduleRuntimeContainer) withEntrypoint() *moduleRuntimeContainer {
 	m.ctr = m.ctr.WithMountedFile(
 		m.cfg.entrypointPath(),
 		entrypointFile(),
-	)
+	).WithWorkdir(m.cfg.modulePath())
 
 	switch m.cfg.runtime {
 	case Bun:
