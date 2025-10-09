@@ -255,6 +255,11 @@ func (dir *Directory) Entries(ctx context.Context, src string) ([]string, error)
 	src = path.Join(dir.Dir, src)
 	paths := []string{}
 	useSlash := SupportsDirSlash(ctx)
+	if dgst, err := dir.Digest(ctx); err == nil {
+		fmt.Fprintf(os.Stderr, "📂 Directory.Entries: digest=%s base=%s src=%s\n", dgst, dir.Dir, src)
+	} else {
+		fmt.Fprintf(os.Stderr, "📂 Directory.Entries: digest-error=%v base=%s src=%s\n", err, dir.Dir, src)
+	}
 	_, err := execInMount(ctx, dir, func(root string) error {
 		resolvedDir, err := containerdfs.RootPath(root, src)
 		if err != nil {

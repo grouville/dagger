@@ -325,21 +325,59 @@ func (r *renderer) renderCall(
 				val := arg.GetValue()
 				fmt.Fprint(out, out.String(" "))
 				if argDig := val.GetCallDigest(); argDig != "" {
-					forceSimplify := false
+					originalCall := r.db.MustCall(argDig)
 					argSpan := r.db.MostInterestingSpan(argDig)
+					friendly := r.shouldExposeCall(originalCall)
+					// Collapse unfriendly producers even if not internal (e.g., .env probes),
+					// so we prefer contextual defaultPath+ignore calls when digests collide.
+					forceSimplify := !friendly
 					if argSpan != nil {
-						forceSimplify = argSpan.Internal && !internal // only for the first internal call (not it's children)
+						if argSpan.Internal && !internal && !friendly {
+							forceSimplify = true
+						}
 						internal = internal || argSpan.Internal
 						if span == nil {
 							argSpan = nil
 						}
 					}
-					argCall := r.db.Simplify(r.db.MustCall(argDig), forceSimplify)
+					if preferredCall, contextual := r.preferredHostDirectoryCall(argDig); preferredCall != nil {
+						originalCall = preferredCall
+						argSpan = nil
+						if contextual {
+							friendly = true
+							forceSimplify = false
+						}
+					}
+					receiverField := ""
+					if originalCall != nil && originalCall.ReceiverDigest != "" {
+						if recv := r.db.Call(originalCall.ReceiverDigest); recv != nil {
+							receiverField = recv.Field
+						}
+					}
+					fmt.Fprintf(os.Stderr,
+						"🎨 renderCall: parent=%s arg=%s argField=%s receiver=%s internalSpan=%t friendly=%t collapsed=%t\n",
+						call.Field,
+						arg.GetName(),
+						func() string {
+							if originalCall != nil {
+								return originalCall.Field
+							}
+							return ""
+						}(),
+						receiverField,
+						argSpan != nil && argSpan.Internal,
+						friendly,
+						forceSimplify,
+					)
+					argCall := originalCall
+					if argCall == nil || forceSimplify {
+						argCall = r.db.Simplify(originalCall, forceSimplify)
+					}
 					if err := r.renderCall(out, argSpan, argCall, prefix, false, depth-1, internal, row); err != nil {
 						return err
 					}
 				} else {
-					r.renderLiteral(out, arg.GetValue())
+					r.renderLiteral(out, val)
 				}
 				fmt.Fprint(out, r.newline)
 			}
@@ -359,7 +397,58 @@ func (r *renderer) renderCall(
 					fmt.Fprint(out, out.String(", "))
 				}
 				fmt.Fprintf(out, out.String("%s: ").Foreground(kwColor).String(), arg.GetName())
-				r.renderLiteral(out, arg.GetValue())
+				val := arg.GetValue()
+				if argDig := val.GetCallDigest(); argDig != "" {
+					originalCall := r.db.MustCall(argDig)
+					argSpan := r.db.MostInterestingSpan(argDig)
+					friendly := r.shouldExposeCall(originalCall)
+					forceSimplify := false
+					if argSpan != nil {
+						forceSimplify = argSpan.Internal && !internal && !friendly
+						internal = internal || argSpan.Internal
+						if span == nil {
+							argSpan = nil
+						}
+					}
+					if preferredCall, contextual := r.preferredHostDirectoryCall(argDig); preferredCall != nil {
+						originalCall = preferredCall
+						argSpan = nil
+						if contextual {
+							friendly = true
+							forceSimplify = false
+						}
+					}
+					receiverField := ""
+					if originalCall != nil && originalCall.ReceiverDigest != "" {
+						if recv := r.db.Call(originalCall.ReceiverDigest); recv != nil {
+							receiverField = recv.Field
+						}
+					}
+					fmt.Fprintf(os.Stderr,
+						"🎨 renderCall: parent=%s arg=%s argField=%s receiver=%s internalSpan=%t friendly=%t collapsed=%t\n",
+						call.Field,
+						arg.GetName(),
+						func() string {
+							if originalCall != nil {
+								return originalCall.Field
+							}
+							return ""
+						}(),
+						receiverField,
+						argSpan != nil && argSpan.Internal,
+						friendly,
+						forceSimplify,
+					)
+					argCall := originalCall
+					if argCall == nil || forceSimplify {
+						argCall = r.db.Simplify(originalCall, forceSimplify)
+					}
+					if err := r.renderCall(out, argSpan, argCall, prefix, false, depth-1, internal, row); err != nil {
+						return err
+					}
+				} else {
+					r.renderLiteral(out, val)
+				}
 			}
 		}
 		fmt.Fprint(out, out.String(")"))
@@ -375,6 +464,150 @@ func (r *renderer) renderCall(
 	}
 
 	return nil
+}
+
+func (r *renderer) literalSummary(lit *callpbv1.Literal) string {
+	if lit == nil {
+		return "<nil>"
+	}
+	switch v := lit.GetValue().(type) {
+	case *callpbv1.Literal_List:
+		vals := v.List.GetValues()
+		parts := make([]string, len(vals))
+		for i, elem := range vals {
+			parts[i] = r.literalSummary(elem)
+		}
+		return fmt.Sprintf("[%s]", strings.Join(parts, ", "))
+	case *callpbv1.Literal_String_:
+		return fmt.Sprintf("%q", v.String_)
+	case *callpbv1.Literal_CallDigest:
+		return r.callSummary(r.db.Call(v.CallDigest))
+	default:
+		return fmt.Sprintf("%T", lit.GetValue())
+	}
+}
+
+func (r *renderer) callSummary(call *callpbv1.Call) string {
+	if call == nil {
+		return "<nil>"
+	}
+	var b strings.Builder
+	if call.ReceiverDigest != "" {
+		if recv := r.db.Call(call.ReceiverDigest); recv != nil {
+			b.WriteString(r.callSummary(recv))
+			b.WriteString(".")
+		}
+	}
+	if call.Field == "list" && len(call.Args) > 0 && call.Args[0].GetName() == "values" {
+		vals := call.Args[0].GetValue().GetList().GetValues()
+		parts := make([]string, 0, len(vals))
+		for _, v := range vals {
+			parts = append(parts, r.literalSummary(v))
+		}
+		return fmt.Sprintf("[%s]", strings.Join(parts, ", "))
+	}
+	b.WriteString(call.Field)
+	if len(call.Args) > 0 {
+		b.WriteString("(")
+		for i, arg := range call.Args {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(arg.GetName())
+			b.WriteString(": ")
+			b.WriteString(r.literalSummary(arg.GetValue()))
+		}
+		b.WriteString(")")
+	}
+	return b.String()
+}
+
+func (r *renderer) shouldExposeCall(call *callpbv1.Call) bool {
+	if call == nil || call.Field != "directory" {
+		return false
+	}
+	if call.ReceiverDigest == "" {
+		return false
+	}
+	receiver := r.db.Call(call.ReceiverDigest)
+	if receiver == nil || receiver.Field != "host" {
+		return false
+	}
+
+	var hasExclude, hasNoCache, hasDotEnvInclude bool
+
+	for _, arg := range call.Args {
+		switch arg.GetName() {
+		case "exclude":
+			fmt.Fprintf(os.Stderr, "🎨 literal attr=exclude value=%s\n", r.literalSummary(arg.GetValue()))
+			hasExclude = r.literalSummary(arg.GetValue()) == `["*", "!src"]`
+		case "include":
+			fmt.Fprintf(os.Stderr, "🎨 literal attr=include value=%s\n", r.literalSummary(arg.GetValue()))
+			hasDotEnvInclude = r.literalSummary(arg.GetValue()) == `[".env"]`
+		case "noCache":
+			hasNoCache = r.literalSummary(arg.GetValue()) == "true"
+		}
+	}
+
+	if hasExclude || hasNoCache {
+		return true // keep the contextual default-path call
+	}
+	if hasDotEnvInclude {
+		return false // hide the dependency .env probe
+	}
+	return true
+}
+
+func (r *renderer) preferredHostDirectoryCall(digest string) (*callpbv1.Call, bool) {
+	creators, ok := r.db.CreatorSpans[digest]
+	if !ok {
+		return nil, false
+	}
+	var contextual *callpbv1.Call
+	var fallback *callpbv1.Call
+	for _, span := range creators.Order {
+		if span.CallDigest == "" {
+			continue
+		}
+		candidate := r.db.Call(span.CallDigest)
+		if !r.isHostDirectoryCall(candidate) {
+			continue
+		}
+		hasExclude := false
+		hasInclude := false
+		for _, arg := range candidate.GetArgs() {
+			switch arg.GetName() {
+			case "exclude":
+				hasExclude = r.literalSummary(arg.GetValue()) == `["*", "!src"]`
+			case "include":
+				hasInclude = r.literalSummary(arg.GetValue()) == `[".env"]`
+			}
+		}
+		if hasExclude && contextual == nil {
+			contextual = candidate
+		}
+		if hasInclude && fallback == nil {
+			fallback = candidate
+		}
+	}
+	if contextual != nil {
+		return contextual, true
+	}
+	if fallback != nil {
+		return fallback, false
+	}
+	return nil, false
+}
+
+func (r *renderer) isHostDirectoryCall(call *callpbv1.Call) bool {
+	if call == nil || call.Field != "directory" {
+		return false
+	}
+	if call.ReceiverDigest == "" {
+		return false
+	}
+	receiver := r.db.Call(call.ReceiverDigest)
+	return receiver != nil && receiver.Field == "host"
 }
 
 func (r *renderer) renderedLen(lit *callpbv1.Literal) int {

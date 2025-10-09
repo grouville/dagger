@@ -477,6 +477,9 @@ func (src *ModuleSource) LoadContextDir(
 	include []string,
 	exclude []string,
 ) (inst dagql.ObjectResult[*Directory], err error) {
+	fmt.Fprintf(os.Stderr, "🛣️ LoadContextDir: module=%s kind=%s path=%s include=%v exclude=%v\n",
+		src.ModuleName, src.Kind, path, include, exclude)
+
 	filterInputs := []dagql.NamedInput{}
 	if len(include) > 0 {
 		filterInputs = append(filterInputs, dagql.NamedInput{
@@ -625,6 +628,7 @@ func (src *ModuleSource) loadContextFromSource(
 		if err != nil {
 			return inst, fmt.Errorf("failed to select host directory: %w", err)
 		}
+		fmt.Fprintf(os.Stderr, "🛣️ LoadContextDir: module=%s returned-digest=%s\n", src.ModuleName, inst.ID().Digest())
 
 	case ModuleSourceKindGit:
 		slog.Debug("moduleSource.LoadContext: loading contextual directory from git", "path", path, "kind", src.Kind, "repo", src.Git.HTMLURL)

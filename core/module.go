@@ -100,9 +100,7 @@ func (mod *Module) UserDefaults(ctx context.Context) (*EnvFile, error) {
 	if src == nil {
 		return defaults, nil
 	}
-	// Add local defaults from the module source
 	defaults = defaults.WithEnvFiles(src.UserDefaults)
-	// If the module source has a blueprint, also add local defaults from that
 	if bp := src.Blueprint.Self(); bp != nil {
 		defaults = defaults.WithEnvFiles(bp.UserDefaults)
 	}

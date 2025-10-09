@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -160,6 +161,13 @@ func (fn *ModuleFunction) setCallInputs(ctx context.Context, opts *CallOpts) ([]
 		converted, err := arg.modType.ConvertToSDKInput(ctx, input.Value)
 		if err != nil {
 			return nil, fmt.Errorf("convert arg %q: %w", input.Name, err)
+		}
+		if b, err := json.Marshal(converted); err == nil {
+			fmt.Fprintf(os.Stderr, "📨 setCallInputs: module=%s func=%s arg=%s converted=%s\n",
+				fn.mod.Name(), fn.metadata.Name, name, string(b))
+		} else {
+			fmt.Fprintf(os.Stderr, "📨 setCallInputs: module=%s func=%s arg=%s converted=<marshal-error:%v>\n",
+				fn.mod.Name(), fn.metadata.Name, name, err)
 		}
 
 		if len(arg.metadata.Ignore) > 0 && !arg.metadata.isContextual() { // contextual args already have ignore applied
@@ -454,7 +462,11 @@ func (fn *ModuleFunction) UserDefaults(ctx context.Context) (*EnvFile, error) {
 	if isConstructor {
 		return objDefaults, nil
 	}
-	return objDefaults.Namespace(ctx, fn.metadata.OriginalName)
+	ns, err := objDefaults.Namespace(ctx, fn.metadata.OriginalName)
+	if err != nil {
+		return nil, err
+	}
+	return ns, nil
 }
 
 func (fn *ModuleFunction) CacheConfigForCall(
@@ -953,6 +965,8 @@ func (fn *ModuleFunction) loadContextualArg(
 	if arg.DefaultPath == "" {
 		return nil, fmt.Errorf("argument %q is not a contextual argument", arg.OriginalName)
 	}
+	fmt.Fprintf(os.Stderr, "🌐 loadContextualArg: module=%s func=%s arg=%s type=%s defaultPath=%s ignore=%v\n",
+		fn.mod.Name(), fn.metadata.Name, arg.OriginalName, arg.TypeDef.AsObject.Value.Name, arg.DefaultPath, arg.Ignore)
 
 	switch arg.TypeDef.AsObject.Value.Name {
 	case "Directory":
@@ -960,6 +974,8 @@ func (fn *ModuleFunction) loadContextualArg(
 		if err != nil {
 			return nil, fmt.Errorf("load contextual directory %q: %w", arg.DefaultPath, err)
 		}
+		fmt.Fprintf(os.Stderr, "📁 loadContextualArg: module=%s func=%s arg=%s resolved-directory-id=%v\n",
+			fn.mod.Name(), fn.metadata.Name, arg.OriginalName, dir.ID())
 		return dagql.NewID[*Directory](dir.ID()), nil
 
 	case "File":
