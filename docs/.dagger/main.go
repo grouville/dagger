@@ -203,8 +203,8 @@ func (d Docs) Bump(version string) (*dagger.Changeset, error) {
 export const daggerVersion = "%s";
 `, version)
 
-	layer := dag.Directory().WithNewFile("docs/current_docs/partials/version.js", versionFile)
-	return layer.Changes(dag.Directory()), nil
+	layer := d.Source.WithNewFile("docs/current_docs/partials/version.js", versionFile)
+	return layer.Changes(d.Source), nil
 }
 
 // Deploys a current build of the docs.

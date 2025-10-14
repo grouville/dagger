@@ -110,7 +110,7 @@ func (t GoSDK) Publish(
 }
 
 // Bump the Go SDK's Engine dependency
-func (t GoSDK) Bump(ctx context.Context, version string) (*dagger.Changeset, error) {
+func (t GoSDK) Bump(_ context.Context, version string) (*dagger.Changeset, error) {
 	// trim leading v from version
 	version = strings.TrimPrefix(version, "v")
 
@@ -121,6 +121,6 @@ package engineconn
 const CLIVersion = %q
 `, version)
 
-	layer := dag.Directory().WithNewFile("sdk/go/engineconn/version.gen.go", versionFile)
-	return layer.Changes(dag.Directory()).Sync(ctx)
+	layer := t.Dagger.Source.WithNewFile("sdk/go/engineconn/version.gen.go", versionFile)
+	return layer.Changes(t.Dagger.Source), nil
 }

@@ -70,24 +70,16 @@ func (r RustSDK) Source() *dagger.Directory {
 // Regenerate the Rust SDK API
 func (r RustSDK) Generate(_ context.Context) (*dagger.Changeset, error) {
 	genClientPath := "crates/dagger-sdk/src/gen.rs"
-	relGeneratorNoiseFilter := dagger.DirectoryFilterOpts{
-		// WARNING: DO NOT EXCLUDE ANYTHING THAT WAS IN THE INPUT!
-		// IT WILL INCORRECTLY ADD REMOVED FILES TO THE FINAL CHANGESET
-		Exclude: []string{
-			"target",
-		},
-	}
-
 	relLayer := r.DevContainer().
 		WithMountedFile("/introspection.json", r.Dagger.introspectionJSON()).
 		WithExec([]string{"cargo", "run", "-p", "dagger-bootstrap", "generate", "/introspection.json", "--output", genClientPath}).
 		WithExec([]string{"cargo", "fix", "--all", "--allow-no-vcs"}).
 		WithExec([]string{"cargo", "fmt"}).
-		Directory(".").
-		Filter(relGeneratorNoiseFilter) // exclude garbage from generation
-	absLayer := dag.Directory().
+		Directory(".")
+	absLayer := r.Source().
+		WithoutDirectory("sdk/rust").
 		WithDirectory("sdk/rust", relLayer)
-	return absLayer.Changes(r.Source()), nil
+	return changes(r.Source(), absLayer, []string{"sdk/rust/target"}), nil
 }
 
 // Test the publishing process
@@ -213,10 +205,10 @@ func (r RustSDK) Bump(ctx context.Context, version string) (*dagger.Changeset, e
 			"cargo", "set-version", "-p", crate, version,
 		})
 
-	layer := dag.Directory().WithNewFile(rustVersionFilePath, versionBumpedContents).
+	layer := r.Source().WithNewFile(rustVersionFilePath, versionBumpedContents).
 		WithFile(rustCargoTomlFilePath, base.File("Cargo.toml")).
 		WithFile(rustCargoLockFilePath, base.File("Cargo.lock"))
-	return layer.Changes(dag.Directory()).Sync(ctx)
+	return layer.Changes(r.Source()), nil
 }
 
 // Return a Rust dev container with the dagger source mounted and

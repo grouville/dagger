@@ -69,7 +69,6 @@ func (t PHPSDK) generateClient() *dagger.Changeset {
 	relLayer := dag.PhpSDKDev(dagger.PhpSDKDevOpts{Source: src}).
 		Base().
 		With(t.Dagger.devEngineSidecar()).
-		// FIXME: really necessary to remove the generated dir before re-creating it?
 		WithoutDirectory("generated").
 		WithDirectory("generated", dag.Directory()).
 		// FIXME: why not inject the right dagger binary, instead of leaking this env var?
@@ -81,8 +80,9 @@ func (t PHPSDK) generateClient() *dagger.Changeset {
 			},
 		})
 	// Make the change relative to the repo root
-	absLayer := dag.Directory().WithDirectory("sdk/php", relLayer)
-	return absLayer.Changes(dag.Directory())
+	absLayer := t.Source().
+		WithoutDirectory("sdk/php").WithDirectory("sdk/php", relLayer)
+	return absLayer.Changes(t.Source())
 }
 
 func (t PHPSDK) generateDocs(ctx context.Context, genClient *dagger.Changeset) (*dagger.Changeset, error) {
@@ -108,7 +108,9 @@ func (t PHPSDK) generateDocs(ctx context.Context, genClient *dagger.Changeset) (
 		WithFile("doctum-search.json", search).
 		// remove the renderer.index file, which seems to not be required to render the docs
 		WithoutFile("renderer.index")
-	absLayer := dag.Directory().WithDirectory("docs/static/reference/php/", relLayer)
+	absLayer := t.Dagger.Source.
+		WithoutDirectory("docs/static/reference/php/").
+		WithDirectory("docs/static/reference/php/", relLayer)
 	return absLayer.Changes(dag.Directory()), nil
 }
 

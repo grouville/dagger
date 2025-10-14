@@ -182,7 +182,7 @@ always-auth=true`, plaintext)
 }
 
 // Bump the Typescript SDK's Engine dependency
-func (t TypescriptSDK) Bump(ctx context.Context, version string) (*dagger.Changeset, error) {
+func (t TypescriptSDK) Bump(_ context.Context, version string) (*dagger.Changeset, error) {
 	// trim leading v from version
 	version = strings.TrimPrefix(version, "v")
 
@@ -191,8 +191,8 @@ func (t TypescriptSDK) Bump(ctx context.Context, version string) (*dagger.Change
 
 	// NOTE: if you change this path, be sure to update .github/workflows/publish.yml so that
 	// provision tests run whenever this file changes.
-	layer := dag.Directory().WithNewFile("sdk/typescript/src/provisioning/default.ts", engineReference)
-	return layer.Changes(dag.Directory()).Sync(ctx)
+	layer := t.Dagger.Source.WithNewFile("sdk/typescript/src/provisioning/default.ts", engineReference)
+	return layer.Changes(t.Dagger.Source), nil
 }
 
 func (t TypescriptSDK) nodeJsBase() *dagger.Container {

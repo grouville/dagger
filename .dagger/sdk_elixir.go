@@ -35,7 +35,6 @@ func (t ElixirSDK) Generate(_ context.Context) (*dagger.Changeset, error) {
 	before := dag.Directory().WithDirectory("sdk/elixir", t.native().Source())
 	layer := t.native().Generate(t.Dagger.introspectionJSON())
 	after := before.WithDirectory("", layer)
-	// return after.Changes(before), nil
 	return changes(before, after, nil), nil
 }
 
