@@ -327,6 +327,9 @@ func (dev *DaggerDev) Generate(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+	if check {
+		return nil, nil
+	}
 	var result *dagger.Changeset
 	// FIXME: this is a workaround to TUI being too noisy
 	err = parallel.Run(ctx, "merge all changesets", func(ctx context.Context) error {
