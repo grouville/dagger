@@ -11,6 +11,7 @@ import (
 
 	"github.com/dagger/dagger/cmd/codegen/generator"
 	gogenerator "github.com/dagger/dagger/cmd/codegen/generator/go"
+	pythongenerator "github.com/dagger/dagger/cmd/codegen/generator/python"
 	typescriptgenerator "github.com/dagger/dagger/cmd/codegen/generator/typescript"
 	"github.com/dagger/dagger/cmd/codegen/introspection"
 )
@@ -27,11 +28,16 @@ func getGenerator(cfg generator.Config) (generator.Generator, error) {
 		return &typescriptgenerator.TypeScriptGenerator{
 			Config: cfg,
 		}, nil
+	case generator.SDKLangPython:
+		return &pythongenerator.PythonGenerator{
+			Config: cfg,
+		}, nil
 
 	default:
 		sdks := []string{
 			string(generator.SDKLangGo),
 			string(generator.SDKLangTypeScript),
+			string(generator.SDKLangPython),
 		}
 
 		return nil, fmt.Errorf("use target SDK language: %s: %w", sdks, generator.ErrUnknownSDKLang)
