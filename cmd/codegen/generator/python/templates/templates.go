@@ -17,7 +17,7 @@ func New(schemaVersion string, cfg generator.Config) *template.Template {
 		top,
 		"header", "types",
 		"objects",
-		"method", "method_solve", "args", "call_args", "method_comment",
+		"method", "method_solve", "args", "call_args", "method_docstring",
 		"default",
 	}
 

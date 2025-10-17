@@ -1,10 +1,10 @@
 {{- define "method_solve" -}}
-  {{- $required := GetRequiredArgs .Args -}}
-  {{- $optionals := GetOptionalArgs .Args -}}
+  {{- $required := RequiredArgs . -}}
+  {{- $optional := OptionalArgs . -}}
   {{- $convertID := ConvertID . -}}
-  {{- template "method_comment" . -}}
 
-  async def {{ .Name | FormatPyName }}(self{{ if or $required $optionals }}, {{ template "args" . }}{{ end }}) -> {{ if IsVoid . }}None{{ else }}{{ .TypeRef | FormatOutputType }}{{ end }}:
+  async def {{ .Name | FormatPyName }}(self{{ if or $required $optional }}, {{ template "args" . }}{{ end }}) -> {{ if IsVoid . }}None{{ else }}{{ .TypeRef | FormatOutputType }}{{ end }}:
+{{- template "method_docstring" . }}
 {{- template "call_args" . }}
     {{- if $convertID }}
     return await self._ctx.execute_sync(self, "{{ .Name }}", _args)

@@ -1,14 +1,13 @@
 {{- define "call_args" -}}
-  {{- $required := GetRequiredArgs .Args -}}
-  {{- $optionals := GetOptionalArgs .Args -}}
-  {{- if or $required $optionals }}
+  {{- $required := RequiredArgs . -}}
+  {{- $optional := OptionalArgs . -}}
+  {{- if or $required $optional }}
 _args = [
   {{- range $required }}
-  Arg("{{ .Name }}", {{ .Name | FormatPyName }}),
+  {{ .ArgExpr }},
   {{- end -}}
-  {{- range $optionals }}
-  {{- /* Optional args set None by default; Arg will omit when None (upstream behavior). */ -}}
-  Arg("{{ .Name }}", {{ .Name | FormatPyName }}),
+  {{- range $optional }}
+  {{ .ArgExpr }},
   {{- end }}
 ]
   {{- else }}

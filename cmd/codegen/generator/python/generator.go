@@ -44,6 +44,7 @@ func (g *PythonGenerator) GenerateTypeDefs(_ context.Context, _ *introspection.S
 
 func generate(config generator.Config, target string, schema *introspection.Schema, schemaVersion string) (*generator.GeneratedState, error) {
 	generator.SetSchema(schema)
+	generator.SetSchemaParents(schema)
 
 	// Keep deterministic ordering similar to the TS generator
 	sort.SliceStable(schema.Types, func(i, j int) bool {

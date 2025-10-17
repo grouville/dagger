@@ -1,52 +1,39 @@
-{{- define "types" -}}
-  {{- range .Types }}
-    {{- template "type" . }}
-  {{- end -}}
-{{- end -}}
+{{ define "types" }}
+{{ range $index, $type := .Types }}{{ if gt $index 0 }}
 
-{{- define "type" -}}
-  {{- if and (eq .Kind "SCALAR") (or (ne .Name "String") (ne .Name "Int")) -}}
-    {{- if and (ne .Name "String") (ne .Name "Int") (ne .Name "Float") (ne .Name "Boolean") -}}
-      {{- if .Description }}
-"""{{- range CommentToLines .Description }}
-{{ . }}{{ end -}}
-"""
-      {{- end }}
+{{ end }}{{ template "type" $type }}{{ end }}
+{{ end }}
+
+{{ define "type" }}
+{{ if and (eq .Kind "SCALAR") (ne .Name "String") (ne .Name "Int") (ne .Name "Float") (ne .Name "Boolean") }}
 class {{ .Name }}(Scalar):
-    ...
-{{ "" }}
-    {{- end -}}
-  {{- end -}}
+{{ if .Description }}    """{{- $lines := CommentToLines .Description -}}{{- range $i, $line := $lines }}{{ if gt $i 0 }}
+    {{ end }}{{ $line }}{{ end }}"""
+{{ else }}    ...
+{{ end }}
 
-  {{- if eq .Kind "ENUM" -}}
-    {{- if .Description }}
-"""{{- range CommentToLines .Description }}
-{{ . }}{{ end -}}
-"""
-    {{- end }}
+{{ else if eq .Kind "ENUM" }}
 class {{ .Name }}(Enum):
-  {{- range $group := SortEnumFields .EnumValues | GroupEnumByValue }}
-    {{- $first := index $group 0 }}
-    {{- $val := or $first.Directives.EnumValue $first.Name }}
-  {{- range $ev := $group }}
+{{ if .Description }}    """{{- $lines := CommentToLines .Description -}}{{- range $i, $line := $lines }}{{ if gt $i 0 }}
+    {{ end }}{{ $line }}{{ end }}"""
+{{ end }}{{ range $group := SortEnumFields .EnumValues | GroupEnumByValue }}
+{{ $first := index $group 0 }}
+{{ $val := or $first.Directives.EnumValue $first.Name }}{{ range $ev := $group }}
     {{ $ev.Name }} = {{ printf "%q" $val }}
-  {{- end }}
-  {{- end }}
-{{ "" }}
-  {{- end -}}
+{{ end }}
+{{ end }}
 
-  {{- if eq .Kind "INPUT_OBJECT" -}}
+{{ else if eq .Kind "INPUT_OBJECT" }}
 @typecheck
 @dataclass(slots=True)
 class {{ .Name }}(Input):
-  {{- range $i, $field := (SortInputFields .InputFields) }}
-    {{- if $field.Description }}
-    """{{- range CommentToLines $field.Description }}
-    {{ . }}{{ end -}}
-    """
-    {{- end }}
-    {{ $field.Name | FormatPyName }}: {{ $field.TypeRef | FormatInputType }}
-  {{- end }}
-{{ "" }}
-  {{- end -}}
-{{- end -}}
+{{ if .Description }}    """{{- $lines := CommentToLines .Description -}}{{- range $i, $line := $lines }}{{ if gt $i 0 }}
+    {{ end }}{{ $line }}{{ end }}"""
+{{ end }}{{ range $field := SortInputFields .InputFields }}
+{{ if $field.Description }}    """{{- $lines := CommentToLines $field.Description -}}{{- range $i, $line := $lines }}{{ if gt $i 0 }}
+    {{ end }}{{ $line }}{{ end }}"""
+{{ end }}    {{ $field.Name | FormatPyName }}: {{ $field.TypeRef | FormatInputType }}{{ if $field.TypeRef.IsOptional }} = None{{ end }}
+{{ end }}
+
+{{ end }}
+{{ end }}

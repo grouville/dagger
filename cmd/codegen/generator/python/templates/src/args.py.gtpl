@@ -1,16 +1,16 @@
 {{- define "args" -}}
-  {{- $required := GetRequiredArgs .Args -}}
-  {{- $optionals := GetOptionalArgs .Args -}}
+  {{- $required := RequiredArgs . -}}
+  {{- $optional := OptionalArgs . -}}
 
   {{- range $i, $arg := $required -}}
     {{- if $i }}, {{ end -}}
-    {{ $arg.Name | FormatPyName }}: {{ $arg.TypeRef | FormatInputType }}
+    {{ $arg.Param }}
   {{- end -}}
 
-  {{- if $optionals -}}
+  {{- if $optional -}}
     {{- if $required }}, *{{ else }}*{{ end -}}
-    {{- range $opt := $optionals -}}
-      , {{ $opt.Name | FormatPyName }}: {{ $opt.TypeRef | FormatInputType }} = None
+    {{- range $opt := $optional -}}
+      , {{ $opt.ParamWithDefault }}
     {{- end -}}
   {{- end -}}
 {{- end -}}
