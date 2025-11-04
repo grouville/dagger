@@ -138,6 +138,8 @@ type Server struct {
 	cacheExporters map[string]remotecache.ResolveCacheExporterFunc
 	cacheImporters map[string]remotecache.ResolveCacheImporterFunc
 
+	corruptDBReset bool
+
 	//
 	// worker file syncer
 	//
@@ -247,9 +249,6 @@ func NewServer(ctx context.Context, opts *NewServerOpts) (*Server, error) {
 	srv.solverCacheDBPath = filepath.Join(srv.rootDir, "cache.db")
 
 	srv.workerRootDir = filepath.Join(srv.rootDir, "worker")
-	if err := os.MkdirAll(srv.workerRootDir, 0700); err != nil {
-		return nil, err
-	}
 	srv.snapshotterRootDir = filepath.Join(srv.workerRootDir, "snapshots")
 	srv.snapshotterDBPath = filepath.Join(srv.snapshotterRootDir, "metadata.db")
 	srv.contentStoreRootDir = filepath.Join(srv.workerRootDir, "content")
@@ -258,18 +257,29 @@ func NewServer(ctx context.Context, opts *NewServerOpts) (*Server, error) {
 	srv.buildkitMountPoolDir = filepath.Join(srv.workerRootDir, "cachemounts")
 
 	srv.executorRootDir = filepath.Join(srv.workerRootDir, "executor")
-	if err := os.MkdirAll(srv.executorRootDir, 0o711); err != nil {
-		return nil, err
-	}
 
 	//
 	// setup various buildkit/containerd entities and DBs
 	//
 
 	if err := srv.initBoltDBs(); err != nil {
-		// it's possible for DBs to get corrupted because we run them w/ Sync: false (for performance)
-		// for now, just error out and let users manually reset engine state
-		return nil, fmt.Errorf("failed to initialize databases: %w", err)
+		// It's possible for DBs to get corrupted because we run them w/ Sync: false (for performance)
+		// Reset all our state, but set corruptDBReset so it can be reported via metrics
+		srv.corruptDBReset = true
+		slog.Error("failed to initialize boltdbs, resetting all local cache state", "error", err)
+		if err := os.RemoveAll(srv.rootDir); err != nil {
+			return nil, fmt.Errorf("failed to remove root dir after boltdb init failure: %w", err)
+		}
+		if err := srv.initBoltDBs(); err != nil {
+			return nil, fmt.Errorf("failed to initialize boltdbs after reset: %w", err)
+		}
+	}
+
+	if err := os.MkdirAll(srv.workerRootDir, 0700); err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(srv.executorRootDir, 0o711); err != nil {
+		return nil, err
 	}
 
 	srv.snapshotter, srv.snapshotterName, err = newSnapshotter(srv.snapshotterRootDir, ociCfg, srv.snapshotterMDStore)
@@ -805,6 +815,10 @@ func (srv *Server) ConnectedClients() int {
 	srv.daggerSessionsMu.RLock()
 	defer srv.daggerSessionsMu.RUnlock()
 	return len(srv.daggerSessions)
+}
+
+func (srv *Server) CorruptDBReset() bool {
+	return srv.corruptDBReset
 }
 
 func (srv *Server) Locker() *locker.Locker {
