@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -16,7 +17,9 @@ import (
 )
 
 const (
-	defaultPlatform = dagger.Platform("")
+	defaultPlatform      = dagger.Platform("")
+	testsEngineTarEnvVar = "_DAGGER_TESTS_ENGINE_TAR"
+	engineVersionLatest  = "latest"
 )
 
 func New(
@@ -681,9 +684,20 @@ func (p *Go) GenerateDaggerRuntime(ctx context.Context, start string) (*Go, erro
 	if isInside {
 		if err := parallel.Run(ctx, "generate dagger runtime: "+daggerModPath, func(ctx context.Context) error {
 			// 4. Match! Load the module and generate its files
-			layer, err := p.Source.
-				AsModule(dagger.DirectoryAsModuleOpts{SourceRootPath: daggerModPath}).
-				GeneratedContextDirectory().Sync(ctx)
+			moduleSource := p.Source.
+				AsModuleSource(dagger.DirectoryAsModuleSourceOpts{SourceRootPath: daggerModPath})
+
+				// When running with a dev engine tarball (e.g. via hack/with-dev),
+				// re-target the module to the currently connected engine so freshly
+				// generated clients include any unreleased schema changes.
+			if os.Getenv(testsEngineTarEnvVar) != "" {
+				moduleSource = moduleSource.WithEngineVersion(engineVersionLatest)
+			}
+
+			layer, err := moduleSource.
+				AsModule().
+				GeneratedContextDirectory().
+				Sync(ctx)
 			if err != nil {
 				return err
 			}
