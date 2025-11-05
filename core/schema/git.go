@@ -118,6 +118,8 @@ func (s *gitSchema) Install(srv *dagql.Server) {
 			Doc(`(Internal-only) Cleans the git repository by removing untracked files and resetting modifications.`),
 		dagql.NodeFunc("uncommitted", s.uncommitted).
 			Doc("Returns the changeset of uncommitted changes in the git repository."),
+		dagql.NodeFunc("__lsRemote", s.lsRemote).
+			Doc(`(Internal-only) Warm the cached metadata for git ls-remote.`),
 
 		dagql.Func("withAuthToken", s.withAuthToken).
 			Doc(`Token to authenticate the remote with.`).
@@ -704,6 +706,29 @@ func keepParentGitDir[A any](_ context.Context, repo *core.GitRepository, _ A) (
 		return local.Directory.Self().Dir, nil
 	}
 	return "", nil
+}
+
+func (s *gitSchema) lsRemote(ctx context.Context, parent dagql.ObjectResult[*core.GitRepository], args struct{}) (inst dagql.Result[dagql.String], _ error) {
+	repo := parent.Self()
+
+	// Local repositories do not require remote metadata.
+	remoteBackend, ok := repo.Backend.(*core.RemoteGitRepository)
+	if !ok {
+		return dagql.NewResultForCurrentID(ctx, dagql.NewString(""))
+	}
+
+	remote, err := remoteBackend.Remote(ctx)
+	if err != nil {
+		return inst, err
+	}
+	repo.Remote = remote
+
+	digest := ""
+	if remote != nil {
+		digest = remote.Digest().String()
+	}
+
+	return dagql.NewResultForCurrentID(ctx, dagql.NewString(digest))
 }
 
 func (s *gitSchema) cleaned(ctx context.Context, parent dagql.ObjectResult[*core.GitRepository], args cleanedArgs) (inst dagql.ObjectResult[*core.Directory], _ error) {

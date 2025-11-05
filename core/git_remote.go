@@ -4,14 +4,17 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -28,11 +31,15 @@ import (
 	"github.com/moby/sys/mount"
 	"golang.org/x/sys/unix"
 
+	"dagger.io/dagger/telemetry"
 	"github.com/dagger/dagger/dagql"
 	"github.com/dagger/dagger/engine"
 	"github.com/dagger/dagger/engine/buildkit"
+	enginecache "github.com/dagger/dagger/engine/cache"
 	"github.com/dagger/dagger/engine/slog"
 	"github.com/dagger/dagger/network"
+	"github.com/dagger/dagger/util/hashutil"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type RemoteGitRepository struct {
@@ -62,7 +69,134 @@ func (repo *RemoteGitRepository) PBDefinitions(ctx context.Context) ([]*pb.Defin
 	return nil, nil
 }
 
-func (repo *RemoteGitRepository) Remote(ctx context.Context) (*gitutil.Remote, error) {
+func (repo *RemoteGitRepository) Remote(ctx context.Context) (result *gitutil.Remote, rerr error) {
+	ctx, span := Tracer(ctx).Start(ctx, "git remote metadata", telemetry.Internal())
+	defer telemetry.End(span, func() error { return rerr })
+
+	// Pull the DagQL server out of context so we can memoize the ls-remote call once per session.
+	srv, err := CurrentDagqlServer(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("query server: %w", err)
+	}
+	cacheKey := repo.remoteCacheKey()
+
+	// If there’s no DagQL cache available (e.g. during early initialization), fall back to
+	// running ls-remote directly and return a cloned copy so callers can’t mutate shared state.
+	if srv == nil || srv.Cache == nil {
+		remote, err := repo.runLsRemote(ctx)
+		if err != nil {
+			return nil, err
+		}
+		span.SetAttributes(attribute.Bool("dagger.git.cached", false), attribute.String("dagger.git.cache_reason", "disabled"))
+		return cloneGitRemote(remote), nil
+	}
+
+	// Otherwise memoize the payload in the session cache. We serialize it to a String result so the
+	// cache can hand it back without knowing about gitutil.Remote.
+	cacheRes, err := srv.Cache.GetOrInitialize(ctx, enginecache.CacheKey[string]{
+		CallKey:        cacheKey,
+		ConcurrencyKey: cacheKey,
+	}, func(ctx context.Context) (dagql.AnyResult, error) {
+		remote, err := repo.runLsRemote(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		payload, err := serializeGitRemote(remote)
+		if err != nil {
+			return nil, err
+		}
+		// Store as a dagql.String instead of registering a new DagQL type just for caching.
+		res, err := dagql.NewResultForCurrentID(ctx, dagql.NewString(payload))
+		if err != nil {
+			return nil, err
+		}
+		return res, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	span.SetAttributes(attribute.Bool("dagger.git.cached", cacheRes.HitCache()))
+
+	val := cacheRes.Result()
+	strRes, ok := val.(dagql.Result[dagql.String])
+	if !ok {
+		return nil, fmt.Errorf("unexpected cache value type %T", val)
+	}
+
+	remote, err := deserializeGitRemote(string(strRes.Self()))
+	if err != nil {
+		return nil, err
+	}
+
+	return remote, nil
+}
+
+func (repo *RemoteGitRepository) Get(ctx context.Context, target *gitutil.Ref) (GitRefBackend, error) {
+	return &RemoteGitRef{
+		repo: repo,
+		Ref:  target,
+	}, nil
+}
+
+// remoteCacheKey hashes just the inputs that influence ls-remote so we get a short,
+// stable key without serializing the entire repository (which would leak secrets and
+// include non-deterministic DagQL wrapper state). The fingerprint covers the repo URL,
+// auth settings (username, secret digests, known-hosts hash), and service bindings
+// (service digest + hostname + sorted aliases).
+func (repo *RemoteGitRepository) remoteCacheKey() string {
+	parts := []string{"remote=" + repo.URL.Remote()}
+
+	if repo.AuthUsername != "" {
+		parts = append(parts, "authUsername="+repo.AuthUsername)
+	}
+	if repo.SSHKnownHosts != "" {
+		hash := hashutil.HashStrings(repo.SSHKnownHosts).String()
+		parts = append(parts, "knownHosts="+hash)
+	}
+	if repo.SSHAuthSocket.Self() != nil {
+		if id := repo.SSHAuthSocket.ID(); id != nil {
+			parts = append(parts, "sshSocket="+id.Digest().String())
+		}
+	}
+	if repo.AuthToken.Self() != nil {
+		if id := repo.AuthToken.ID(); id != nil {
+			parts = append(parts, "authToken="+id.Digest().String())
+		}
+	}
+	if repo.AuthHeader.Self() != nil {
+		if id := repo.AuthHeader.ID(); id != nil {
+			parts = append(parts, "authHeader="+id.Digest().String())
+		}
+	}
+	if len(repo.Services) > 0 {
+		serviceParts := make([]string, 0, len(repo.Services))
+		for _, binding := range repo.Services {
+			var builder strings.Builder
+			if binding.Service.Self() != nil {
+				if id := binding.Service.ID(); id != nil {
+					builder.WriteString(id.Digest().String())
+				}
+			}
+			builder.WriteString("@")
+			builder.WriteString(binding.Hostname)
+			if len(binding.Aliases) > 0 {
+				aliases := append([]string(nil), binding.Aliases...)
+				sort.Strings(aliases)
+				builder.WriteString("[")
+				builder.WriteString(strings.Join(aliases, ","))
+				builder.WriteString("]")
+			}
+			serviceParts = append(serviceParts, builder.String())
+		}
+		sort.Strings(serviceParts)
+		parts = append(parts, "services="+strings.Join(serviceParts, ";"))
+	}
+
+	return hashutil.HashStrings(parts...).String()
+}
+
+func (repo *RemoteGitRepository) runLsRemote(ctx context.Context) (*gitutil.Remote, error) {
 	query, err := CurrentQuery(ctx)
 	if err != nil {
 		return nil, err
@@ -83,18 +217,105 @@ func (repo *RemoteGitRepository) Remote(ctx context.Context) (*gitutil.Remote, e
 	}
 	defer cleanup()
 
-	out, err := git.LsRemote(ctx, repo.URL.Remote())
+	remote, err := git.LsRemote(ctx, repo.URL.Remote())
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	return remote, nil
 }
 
-func (repo *RemoteGitRepository) Get(ctx context.Context, target *gitutil.Ref) (GitRefBackend, error) {
-	return &RemoteGitRef{
-		repo: repo,
-		Ref:  target,
-	}, nil
+// cachedRemoteRef is a detached, JSON-serializable copy of gitutil.Ref used for caching.
+type cachedRemoteRef struct {
+	Name string `json:"name"`
+	SHA  string `json:"sha"`
+}
+
+// cachedRemote captures just the ls-remote data we need in a stable, pointer-free form.
+type cachedRemote struct {
+	Refs    []cachedRemoteRef `json:"refs"`
+	Symrefs map[string]string `json:"symrefs"`
+	Head    *cachedRemoteRef  `json:"head,omitempty"`
+}
+
+func newCachedRemote(remote *gitutil.Remote) *cachedRemote {
+	if remote == nil {
+		return nil
+	}
+
+	cached := &cachedRemote{
+		Symrefs: maps.Clone(remote.Symrefs),
+	}
+
+	for _, ref := range remote.Refs {
+		if ref == nil {
+			continue
+		}
+		cached.Refs = append(cached.Refs, cachedRemoteRef{Name: ref.Name, SHA: ref.SHA})
+	}
+
+	if remote.Head != nil {
+		cached.Head = &cachedRemoteRef{Name: remote.Head.Name, SHA: remote.Head.SHA}
+	}
+
+	return cached
+}
+
+func (payload *cachedRemote) toGitRemote() *gitutil.Remote {
+	if payload == nil {
+		return nil
+	}
+
+	remote := &gitutil.Remote{}
+	remote.Refs = make([]*gitutil.Ref, 0, len(payload.Refs))
+	for _, ref := range payload.Refs {
+		refCopy := gitutil.Ref{Name: ref.Name, SHA: ref.SHA}
+		remote.Refs = append(remote.Refs, &refCopy)
+	}
+	remote.Symrefs = maps.Clone(payload.Symrefs)
+	if payload.Head != nil {
+		headCopy := gitutil.Ref{Name: payload.Head.Name, SHA: payload.Head.SHA}
+		remote.Head = &headCopy
+	}
+
+	return remote
+}
+
+// serializeGitRemote encodes gitutil.Remote state into a DagQL-friendly payload we memoize.
+// gitutil.Remote itself is not a DagQL type, so we keep this explicit copy to persist just the
+// data callers rely on without exposing internal pointers or depending on gitutil's JSON tags.
+func serializeGitRemote(remote *gitutil.Remote) (string, error) {
+	if remote == nil {
+		return "", nil
+	}
+
+	cached := newCachedRemote(remote)
+	data, err := json.Marshal(cached)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+// deserializeGitRemote reverses serializeGitRemote, giving callers a fresh gitutil.Remote
+// rather than reusing pointers from the cache.
+func deserializeGitRemote(encoded string) (*gitutil.Remote, error) {
+	if encoded == "" {
+		return nil, nil
+	}
+
+	var payload cachedRemote
+	if err := json.Unmarshal([]byte(encoded), &payload); err != nil {
+		return nil, err
+	}
+
+	return payload.toGitRemote(), nil
+}
+
+func cloneGitRemote(remote *gitutil.Remote) *gitutil.Remote {
+	if remote == nil {
+		return nil
+	}
+	return newCachedRemote(remote).toGitRemote()
 }
 
 func (repo *RemoteGitRepository) Dirty(ctx context.Context) (inst dagql.ObjectResult[*Directory], _ error) {
