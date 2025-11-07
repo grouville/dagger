@@ -2,6 +2,7 @@ package engine
 
 import (
 	"os"
+	"slices"
 	"strings"
 
 	"golang.org/x/mod/semver"
@@ -137,8 +138,5 @@ func IsDevVersion(version string) bool {
 	if version == "" {
 		return true
 	}
-	if BaseVersion(version) == "v0.0.0" {
-		return true
-	}
-	return false
+	return slices.Contains(strings.Split(semver.Prerelease(version), "-"), "dev")
 }
