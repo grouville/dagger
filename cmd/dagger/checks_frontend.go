@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -131,15 +132,28 @@ func (fe *checksFrontend) Run(ctx context.Context, opts dagui.FrontendOpts, f fu
 	fe.program = tea.NewProgram(fe, tea.WithAltScreen())
 
 	if _, err := fe.program.Run(); err != nil {
+		cleanupErr := fe.runCleanup()
+		if cleanupErr != nil {
+			return errors.Join(err, cleanupErr)
+		}
 		return err
 	}
 
+	cleanupErr := fe.runCleanup()
+
+	fe.mu.Lock()
+	if cleanupErr != nil {
+		fe.err = errors.Join(fe.err, cleanupErr)
+	}
+	finalErr := fe.err
+	fe.mu.Unlock()
+
 	// After TUI exits, pretty-print the final results to stdout
-	if fe.err == nil {
+	if finalErr == nil {
 		fe.db.PrettyPrint(fe.writer)
 	}
 
-	return fe.err
+	return finalErr
 }
 
 // isTTY checks if we have a TTY available
@@ -470,6 +484,18 @@ func (fe *checksFrontend) runChecks() tea.Cmd {
 			err:     err,
 		}
 	}
+}
+
+func (fe *checksFrontend) runCleanup() error {
+	fe.mu.Lock()
+	cleanup := fe.cleanup
+	fe.cleanup = nil
+	fe.mu.Unlock()
+
+	if cleanup == nil {
+		return nil
+	}
+	return cleanup()
 }
 
 // onSpanEvent is called when a span is created or updated
