@@ -19,6 +19,9 @@ import (
 
 type LocalGitRepository struct {
 	Directory dagql.ObjectResult[*Directory]
+
+	// Override what HEAD points to, per-caller (RemoteGitRepository.HeadOverride's mirror)
+	HeadOverride *gitutil.Ref
 }
 
 var _ GitRepositoryBackend = (*LocalGitRepository)(nil)
@@ -48,8 +51,19 @@ func (repo *LocalGitRepository) Remote(ctx context.Context) (*gitutil.Remote, er
 		if err != nil {
 			return err
 		}
-		remote, err = gitutil.NewGitCLI().LsRemote(ctx, gitURL)
-		return err
+
+		r, err := gitutil.NewGitCLI().LsRemote(ctx, gitURL)
+		if err != nil {
+			return err
+		}
+
+		remote = r
+		if repo.HeadOverride != nil {
+			clone := *remote
+			clone.Head = repo.HeadOverride
+			remote = &clone
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, err

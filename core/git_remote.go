@@ -51,6 +51,9 @@ type RemoteGitRepository struct {
 	AuthUsername string
 	AuthToken    dagql.ObjectResult[*Secret]
 	AuthHeader   dagql.ObjectResult[*Secret]
+
+	// Override what HEAD points to, per-caller
+	HeadOverride *gitutil.Ref
 }
 
 var _ GitRepositoryBackend = (*RemoteGitRepository)(nil)
@@ -123,6 +126,13 @@ func (repo *RemoteGitRepository) Remote(ctx context.Context) (result *gitutil.Re
 	if err := json.Unmarshal([]byte(strRes.Self().String()), &remote); err != nil {
 		return nil, fmt.Errorf("decode cached remote: %w", err)
 	}
+
+	if repo.HeadOverride != nil {
+		clone := remote
+		clone.Head = repo.HeadOverride
+		return &clone, nil
+	}
+
 	return &remote, nil
 }
 

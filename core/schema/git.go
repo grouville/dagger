@@ -473,15 +473,7 @@ func (s *gitSchema) git(ctx context.Context, parent dagql.ObjectResult[*core.Que
 		discardGitDir = !args.KeepGitDir.Value.Bool()
 	}
 
-	var head *gitutil.Ref
-	if args.Ref != "" || args.Commit != "" {
-		head = &gitutil.Ref{
-			Name: args.Ref,
-			SHA:  args.Commit,
-		}
-	}
-
-	repo, err := core.NewGitRepository(ctx, &core.RemoteGitRepository{
+	rb := &core.RemoteGitRepository{
 		URL:           remote,
 		SSHKnownHosts: args.SSHKnownHosts,
 		SSHAuthSocket: sshAuthSock,
@@ -490,11 +482,21 @@ func (s *gitSchema) git(ctx context.Context, parent dagql.ObjectResult[*core.Que
 		AuthHeader:    httpAuthHeader,
 		Services:      gitServices,
 		Platform:      parent.Self().Platform(),
-	})
+	}
+
+	var head *gitutil.Ref
+	if args.Ref != "" || args.Commit != "" {
+		head = &gitutil.Ref{
+			Name: args.Ref,
+			SHA:  args.Commit,
+		}
+		rb.HeadOverride = head
+	}
+
+	repo, err := core.NewGitRepository(ctx, rb)
 	if err != nil {
 		return inst, err
 	}
-	repo.Remote.Head = head
 	repo.DiscardGitDir = discardGitDir
 
 	inst, err = dagql.NewResultForCurrentID(ctx, repo)
@@ -505,7 +507,6 @@ func (s *gitSchema) git(ctx context.Context, parent dagql.ObjectResult[*core.Que
 	dgstInputs := []string{
 		// all details of the remote repo
 		repo.URL.Value.String(),
-		string(repo.Remote.Digest()),
 		// legacy args
 		strconv.FormatBool(repo.DiscardGitDir),
 		// also include what auth methods are used, currently we can't
@@ -517,17 +518,27 @@ func (s *gitSchema) git(ctx context.Context, parent dagql.ObjectResult[*core.Que
 
 	var resourceIDs []*resource.ID
 	if sshAuthSock.Self() != nil {
-		dgstInputs = append(dgstInputs, "sshAuthSock", strconv.FormatBool(sshAuthSock.Self() != nil))
+		dgstInputs = append(dgstInputs, "sshAuthSock")
 		resourceIDs = append(resourceIDs, &resource.ID{ID: *sshAuthSock.ID()})
 	}
 	if httpAuthToken.Self() != nil {
-		dgstInputs = append(dgstInputs, "authToken", strconv.FormatBool(httpAuthToken.Self() != nil))
+		dgstInputs = append(dgstInputs, "authToken")
 		resourceIDs = append(resourceIDs, &resource.ID{ID: *httpAuthToken.ID()})
 	}
 	if httpAuthHeader.Self() != nil {
-		dgstInputs = append(dgstInputs, "authHeader", strconv.FormatBool(httpAuthHeader.Self() != nil))
+		dgstInputs = append(dgstInputs, "authHeader")
 		resourceIDs = append(resourceIDs, &resource.ID{ID: *httpAuthHeader.ID()})
 	}
+
+	// encode the user's HEAD override into the digest (since we no longer have remote.Digest())
+	if head != nil {
+		dgstInputs = append(
+			dgstInputs,
+			"head-name:"+head.Name,
+			"head-sha:"+head.SHA,
+		)
+	}
+
 	inst = inst.WithDigest(hashutil.HashStrings(dgstInputs...))
 	if len(resourceIDs) > 0 {
 		postCall, err := core.ResourceTransferPostCall(ctx, parent.Self(), clientMetadata.ClientID, resourceIDs...)
