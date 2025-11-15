@@ -526,6 +526,11 @@ func (ref *RemoteGitRef) Tree(ctx context.Context, srv *dagql.Server, discardGit
 	}
 	cache := query.BuildkitCache()
 
+	// lazily resolve the commit
+	if err := ref.ensureSHA(ctx); err != nil {
+		return nil, err
+	}
+
 	locker := query.Locker()
 	locker.Lock(indexGitSnapshot + cacheKey)
 	defer locker.Unlock(indexGitSnapshot + cacheKey)
@@ -610,6 +615,30 @@ func (ref *RemoteGitRef) Tree(ctx context.Context, srv *dagql.Server, discardGit
 
 func (ref *RemoteGitRef) mount(ctx context.Context, depth int, fn func(*gitutil.GitCLI) error) error {
 	return ref.repo.mount(ctx, depth, []GitRefBackend{ref}, fn)
+}
+
+// ensureSHA resolves ref.Ref.Name to a commit SHA if needed.
+func (ref *RemoteGitRef) ensureSHA(ctx context.Context) error {
+	if ref.Ref.SHA != "" {
+		return nil
+	}
+
+	remote, err := ref.repo.Remote(ctx) // already cached via srv.Cache
+	if err != nil {
+		return err
+	}
+
+	r, err := remote.Lookup(ref.Ref.Name)
+	if err != nil {
+		return err
+	}
+
+	// copy resolved info into our Ref
+	ref.Ref.SHA = r.SHA
+	if ref.Ref.Name == "" {
+		ref.Ref.Name = r.Name
+	}
+	return nil
 }
 
 func DNSConfig(ctx context.Context) (*oci.DNSConfig, error) {

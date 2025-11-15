@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/containerd/continuity/fs"
 	"github.com/dagger/dagger/dagql"
@@ -265,6 +266,11 @@ func (ref *LocalGitRef) Tree(ctx context.Context, srv *dagql.Server, discardGitD
 	}
 	cache := query.BuildkitCache()
 
+	// lazily resolve SHA if needed
+	if err := ref.ensureSHA(ctx); err != nil {
+		return nil, err
+	}
+
 	bkSessionGroup, ok := buildkit.CurrentBuildkitSessionGroup(ctx)
 	if !ok {
 		return nil, fmt.Errorf("no buildkit session group in context")
@@ -314,4 +320,20 @@ func (ref *LocalGitRef) Tree(ctx context.Context, srv *dagql.Server, discardGitD
 	bkref = nil
 	dir.Result = snap
 	return dir, nil
+}
+
+// ensureSHA resolves a local ref.Name to a commit SHA using git CLI.
+func (ref *LocalGitRef) ensureSHA(ctx context.Context) error {
+	if ref.Ref.SHA != "" {
+		return nil
+	}
+	return ref.mount(ctx, 0, func(git *gitutil.GitCLI) error {
+		// `rev-parse --verify <name>^{commit}` is the usual plumbing
+		out, err := git.Run(ctx, "rev-parse", "--verify", ref.Ref.Name+"^{commit}")
+		if err != nil {
+			return err
+		}
+		ref.Ref.SHA = strings.TrimSpace(string(out))
+		return nil
+	})
 }

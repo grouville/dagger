@@ -578,12 +578,10 @@ type refArgs struct {
 
 func (s *gitSchema) ref(ctx context.Context, parent dagql.ObjectResult[*core.GitRepository], args refArgs) (inst dagql.Result[*core.GitRef], _ error) {
 	repo := parent.Self()
-	ref, err := repo.Remote.Lookup(args.Name)
-	if err != nil {
-		return inst, err
-	}
-	if args.Commit != "" && args.Commit != ref.SHA {
-		ref.SHA = args.Commit
+
+	ref := &gitutil.Ref{
+		Name: args.Name,
+		SHA:  args.Commit, // may be empty
 	}
 
 	refBackend, err := repo.Backend.Get(ctx, ref)
@@ -896,7 +894,14 @@ func (s *gitSchema) fetchCommit(
 	parent dagql.ObjectResult[*core.GitRef],
 	args RawDagOpInternalArgs,
 ) (dagql.String, error) {
-	return dagql.NewString(parent.Self().Ref.SHA), nil
+	ref := parent.Self()
+
+	if err := core.EnsureGitRefSHA(ctx, ref); err != nil {
+		var zero dagql.String
+		return zero, err
+	}
+
+	return dagql.NewString(ref.Ref.SHA), nil
 }
 
 func (s *gitSchema) fetchRef(
@@ -924,6 +929,14 @@ func (s *gitSchema) commonAncestor(
 	}
 	other, err := args.Other.Load(ctx, srv)
 	if err != nil {
+		return inst, err
+	}
+
+	// Ensure both refs are resolved
+	if err := core.EnsureGitRefSHA(ctx, parent.Self()); err != nil {
+		return inst, err
+	}
+	if err := core.EnsureGitRefSHA(ctx, other.Self()); err != nil {
 		return inst, err
 	}
 

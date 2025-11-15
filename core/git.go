@@ -204,6 +204,12 @@ func doGitCheckout(
 }
 
 func MergeBase(ctx context.Context, ref1 *GitRef, ref2 *GitRef) (*GitRef, error) {
+	if err := EnsureGitRefSHA(ctx, ref1); err != nil {
+		return nil, err
+	}
+	if err := EnsureGitRefSHA(ctx, ref2); err != nil {
+		return nil, err
+	}
 	if ref1.Repo.ID() == ref2.Repo.ID() { // fast-path, just grab both refs from the same repo
 		var mergeBase string
 		err := ref1.Repo.Self().Backend.mount(ctx, 0, []GitRefBackend{ref1.Backend, ref2.Backend}, func(git *gitutil.GitCLI) error {
@@ -299,4 +305,15 @@ func refJoin(ctx context.Context, refs []*GitRef) (_ *gitutil.GitCLI, _ []string
 		return nil, nil, nil, err
 	}
 	return git, commits, cleanup, nil
+}
+
+func EnsureGitRefSHA(ctx context.Context, ref *GitRef) error {
+	switch backend := ref.Backend.(type) {
+	case *RemoteGitRef:
+		return backend.ensureSHA(ctx)
+	case *LocalGitRef:
+		return backend.ensureSHA(ctx)
+	default:
+		return nil
+	}
 }
