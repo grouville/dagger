@@ -479,6 +479,7 @@ func (fn *ModuleFunction) UserDefaults(ctx context.Context) (*EnvFile, error) {
 	return objDefaults.Namespace(ctx, fn.metadata.OriginalName)
 }
 
+//nolint:gocyclo
 func (fn *ModuleFunction) CacheConfigForCall(
 	ctx context.Context,
 	parent dagql.AnyResult,
@@ -495,10 +496,17 @@ func (fn *ModuleFunction) CacheConfigForCall(
 
 	var ctxArgs []*FunctionArg
 	var userDefaults []*UserDefault
+	var gitArgs []*FunctionArg
 
 	for _, argMetadata := range fn.metadata.Args {
 		if args[argMetadata.Name] != nil {
-			// was explicitly set by the user, skip
+			// Resolve lazy git args so function cache keys track remote state.
+			if argMetadata.TypeDef.Kind == TypeDefKindObject {
+				switch argMetadata.TypeDef.AsObject.Value.Name {
+				case "GitRepository", "GitRef":
+					gitArgs = append(gitArgs, argMetadata)
+				}
+			}
 			continue
 		}
 		if argMetadata.TypeDef.Kind != TypeDefKindObject {
@@ -526,7 +534,7 @@ func (fn *ModuleFunction) CacheConfigForCall(
 		}
 	}
 
-	if len(ctxArgs) > 0 || len(userDefaults) > 0 {
+	if len(ctxArgs) > 0 || len(userDefaults) > 0 || len(gitArgs) > 0 {
 		cacheCfgResp.UpdatedArgs = make(map[string]dagql.Input)
 		var mu sync.Mutex
 		type argInput struct {
@@ -579,6 +587,42 @@ func (fn *ModuleFunction) CacheConfigForCall(
 			})
 		}
 
+		// Resolve git args to canonical IDs before hashing.
+		gitArgVals := make([]*argInput, len(gitArgs))
+		for i, arg := range gitArgs {
+			eg.Go(func() error {
+				idType, ok := args[arg.Name].(dagql.IDType)
+				if !ok {
+					return fmt.Errorf("expected IDType for git arg %q, got %T", arg.Name, args[arg.Name])
+				}
+				obj, err := srv.Load(ctx, idType.ID())
+				if err != nil {
+					return fmt.Errorf("load git arg %q: %w", arg.Name, err)
+				}
+
+				var resolved dagql.AnyObjectResult
+				err = srv.Select(ctx, obj, &resolved,
+					dagql.Selector{Field: "__resolve"},
+				)
+				if err != nil {
+					return fmt.Errorf("resolve git arg %q: %w", arg.Name, err)
+				}
+
+				resolvedID := DynamicID{
+					typeName: arg.TypeDef.AsObject.Value.Name,
+					id:       resolved.ID(),
+				}
+				gitArgVals[i] = &argInput{
+					name: arg.OriginalName,
+					val:  resolvedID,
+				}
+				mu.Lock()
+				cacheCfgResp.UpdatedArgs[arg.Name] = dagql.Opt(resolvedID)
+				mu.Unlock()
+				return nil
+			})
+		}
+
 		if err := eg.Wait(); err != nil {
 			return nil, err
 		}
@@ -601,6 +645,14 @@ func (fn *ModuleFunction) CacheConfigForCall(
 				}
 				dgstInputs = append(dgstInputs, arg.name, dgst.String())
 			}
+		}
+		for _, arg := range gitArgVals {
+			id := arg.val.ID()
+			dgst := id.ContentDigest()
+			if dgst == "" {
+				dgst = id.Digest()
+			}
+			dgstInputs = append(dgstInputs, arg.name, dgst.String())
 		}
 	}
 
