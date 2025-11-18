@@ -100,6 +100,7 @@ func (s *gitSchema) Install(srv *dagql.Server) {
 				// TODO: id is normally a reserved word; we should probably rename this
 				dagql.Arg("id").Doc(`Identifier of the commit (e.g., "b6315d8f2810962c601af73f86831f6866ea798b").`),
 			),
+		// todo(guillaume): see with Tibor for this one
 		dagql.NodeFunc("latestVersion", s.latestVersion).
 			Doc(`Returns details for the latest semver tag.`),
 
@@ -578,17 +579,9 @@ type refArgs struct {
 func (s *gitSchema) ref(ctx context.Context, parent dagql.ObjectResult[*core.GitRepository], args refArgs) (inst dagql.Result[*core.GitRef], _ error) {
 	repo := parent.Self()
 
-	remote, err := repo.Backend.Remote(ctx)
-	if err != nil {
-		return inst, err
-	}
-
-	ref, err := remote.Lookup(args.Name)
-	if err != nil {
-		return inst, err
-	}
-	if args.Commit != "" && args.Commit != ref.SHA {
-		ref.SHA = args.Commit
+	ref := &gitutil.Ref{
+		Name: args.Name,
+		SHA:  args.Commit,
 	}
 
 	refBackend, err := repo.Backend.Get(ctx, ref)
@@ -605,6 +598,11 @@ func (s *gitSchema) ref(ctx context.Context, parent dagql.ObjectResult[*core.Git
 	if err != nil {
 		return inst, err
 	}
+
+	// TODO(guillaume): below cache logic might be removed later ?
+	// caching the GitRef object itself buys almost nothing
+	// object is cheap to construct (just wraps repo + inputs); the expensive work happens later in tree/commit/ref/commonAncesto
+	// leaving as is for now to avoid changing too much at once and better debug caching issues later
 
 	// all the same as in git, but instead of the *remote* details, just use
 	// the *ref* details
@@ -626,6 +624,8 @@ func (s *gitSchema) ref(ctx context.Context, parent dagql.ObjectResult[*core.Git
 			dgstInputs = append(dgstInputs, "authHeader", strconv.FormatBool(remoteRepo.AuthHeader.Self() != nil))
 		}
 	}
+	// apply similar cache logic as the pinned heads
+	dgstInputs = append(dgstInputs, "name:"+ref.Name, "sha:"+ref.SHA)
 	inst = inst.WithDigest(hashutil.HashStrings(dgstInputs...))
 	return inst, nil
 }
