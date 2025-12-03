@@ -725,7 +725,7 @@ func (s *gitSchema) resolveAndLoadRepoObject(
 	}
 
 	if remoteGitRepo.URL == nil {
-		for _, u := range []string{"https://" + repoURL, "ssh://" + repoURL} {
+		for _, u := range []string{"https://" + repoURL, "ssh://git@" + repoURL} {
 			res, err := reenter(u)
 			if err == nil {
 				return res, nil
@@ -856,7 +856,7 @@ func (s *gitSchema) resolveAndLoadRepoScalar(
 	}
 
 	if remoteGitRepo.URL == nil {
-		for _, u := range []string{"https://" + repoURL, "ssh://" + repoURL} {
+		for _, u := range []string{"https://" + repoURL, "ssh://git@" + repoURL} {
 			res, err := reenter(u)
 			if err == nil {
 				return res, nil
@@ -1019,7 +1019,7 @@ func (s *gitSchema) resolveAndLoad(
 	}
 
 	if remoteGitRepo.URL == nil {
-		for _, u := range []string{"https://" + repoURL, "ssh://" + repoURL} {
+		for _, u := range []string{"https://" + repoURL, "ssh://git@" + repoURL} {
 			res, err := reenter(u)
 			if err == nil {
 				return res, nil
@@ -1198,7 +1198,7 @@ func (s *gitSchema) resolveAndLoadScalar(
 	}
 
 	if remoteGitRepo.URL == nil {
-		for _, u := range []string{"https://" + repoURL, "ssh://" + repoURL} {
+		for _, u := range []string{"https://" + repoURL, "ssh://git@" + repoURL} {
 			res, err := reenter(u)
 			if err == nil {
 				return res, nil
