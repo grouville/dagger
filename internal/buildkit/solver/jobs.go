@@ -957,10 +957,7 @@ func (s *sharedOp) Exec(ctx context.Context, inputs []Result) (outputs []Result,
 	}
 	flightControlKey := "exec"
 	res, err := s.gExecRes.Do(ctx, flightControlKey, func(ctx context.Context) (ret *execRes, retErr error) {
-		if s.execDone {
-			if s.execErr != nil {
-				return nil, s.execErr
-			}
+		if s.execRes != nil {
 			return s.execRes, nil
 		}
 		release, err := op.Acquire(ctx)
@@ -1002,19 +999,15 @@ func (s *sharedOp) Exec(ctx context.Context, inputs []Result) (outputs []Result,
 			}
 		}
 
-		if complete {
-			s.execDone = true
-			if res != nil {
-				var subExporters []ExportableCacheKey
-				s.subBuilder.mu.Lock()
-				if len(s.subBuilder.exporters) > 0 {
-					subExporters = append(subExporters, s.subBuilder.exporters...)
-				}
-				s.subBuilder.mu.Unlock()
-
-				s.execRes = &execRes{execRes: wrapShared(res), execExporters: subExporters}
+		if complete && err == nil && res != nil {
+			var subExporters []ExportableCacheKey
+			s.subBuilder.mu.Lock()
+			if len(s.subBuilder.exporters) > 0 {
+				subExporters = append(subExporters, s.subBuilder.exporters...)
 			}
-			s.execErr = err
+			s.subBuilder.mu.Unlock()
+
+			s.execRes = &execRes{execRes: wrapShared(res), execExporters: subExporters}
 		}
 		if s.execRes == nil || err != nil {
 			return nil, err

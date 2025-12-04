@@ -440,8 +440,6 @@ func (e *edge) processUpdate(upt pipeReceiver) (depChanged bool) {
 				for k := range e.cacheRecordsLoaded {
 					delete(e.cacheRecords, k)
 				}
-			} else if !upt.Status().Canceled && e.err == nil {
-				e.err = err
 			}
 		} else {
 			e.result = NewSharedCachedResult(upt.Status().Value.(CachedResult))

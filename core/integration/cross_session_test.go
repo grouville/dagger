@@ -1787,3 +1787,51 @@ func (m *Test) DriveRollsRoyce(ctx context.Context) error {
 	callOutput2, err := callCmd2.CombinedOutput()
 	require.NoError(t, err, string(callOutput2))
 }
+
+func (ModuleSuite) TestSameSessionErrorNotCached(ctx context.Context, t *testctx.T) {
+	c := connect(ctx, t)
+
+	modDir := t.TempDir()
+
+	initCmd := hostDaggerCommand(ctx, t, modDir, "init", "--source=.", "--name=test", "--sdk=go")
+	initOutput, err := initCmd.CombinedOutput()
+	require.NoError(t, err, string(initOutput))
+
+	err = os.WriteFile(filepath.Join(modDir, "main.go"), []byte(`package main
+
+import (
+	"fmt"
+	"math/rand"
+)
+
+type Test struct {}
+
+func (*Test) MaybeError() (int, error) {
+	if rand.Intn(100) < 99 {
+		return 0, fmt.Errorf("random failure")
+	}
+	return 42, nil
+}
+`), 0644)
+	require.NoError(t, err)
+
+	mod, err := c.ModuleSource(modDir).AsModule().Sync(ctx)
+	require.NoError(t, err)
+	err = mod.Serve(ctx)
+	require.NoError(t, err)
+
+	var lastErr error
+	for i := 0; i < 100; i++ {
+		res, err := testutil.QueryWithClient[struct {
+			Test struct {
+				MaybeError int
+			}
+		}](c, t, `{test{maybeError}}`, nil)
+		if err == nil {
+			require.Equal(t, 42, res.Test.MaybeError)
+			return
+		}
+		lastErr = err
+	}
+	require.NoError(t, lastErr, "after 100 attempts, at least one should have succeeded if errors are not cached")
+}
