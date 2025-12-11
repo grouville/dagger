@@ -322,6 +322,9 @@ type ContainerMount struct {
 	// Configure the mount as read-only.
 	Readonly bool
 
+	// Ownership to apply to the mounted source when preparing the mount.
+	Owner *Ownership
+
 	// The following fields are mutually exclusive, only one of them should be set.
 
 	// The mounted directory
@@ -1185,9 +1188,12 @@ func (container *Container) WithMountedDirectory(
 
 	target = absPath(container.Config.WorkingDir, target)
 
-	var err error
+	var (
+		err       error
+		ownership *Ownership
+	)
 	if owner != "" {
-		dir, err = container.chownDir(ctx, dir, owner)
+		ownership, err = container.ownership(ctx, owner)
 		if err != nil {
 			return nil, err
 		}
@@ -1197,6 +1203,7 @@ func (container *Container) WithMountedDirectory(
 		DirectorySource: &dir,
 		Target:          target,
 		Readonly:        readonly,
+		Owner:           ownership,
 	})
 
 	// set image ref to empty string
@@ -1216,9 +1223,12 @@ func (container *Container) WithMountedFile(
 
 	target = absPath(container.Config.WorkingDir, target)
 
-	var err error
+	var (
+		err       error
+		ownership *Ownership
+	)
 	if owner != "" {
-		file, err = container.chownFile(ctx, file, owner)
+		ownership, err = container.ownership(ctx, owner)
 		if err != nil {
 			return nil, err
 		}
@@ -1228,6 +1238,7 @@ func (container *Container) WithMountedFile(
 		FileSource: &file,
 		Target:     target,
 		Readonly:   readonly,
+		Owner:      ownership,
 	})
 
 	// set image ref to empty string
@@ -1568,10 +1579,20 @@ func (container *Container) replaceMount(
 ) (*Container, error) {
 	target = absPath(container.Config.WorkingDir, target)
 
+	var prev ContainerMount
+	for _, mnt := range container.Mounts {
+		if mnt.Target == target {
+			prev = mnt
+			break
+		}
+	}
+
 	var err error
 	container.Mounts, err = container.Mounts.Replace(ContainerMount{
 		DirectorySource: &dir,
 		Target:          target,
+		Readonly:        prev.Readonly,
+		Owner:           prev.Owner,
 	})
 	if err != nil {
 		return nil, err

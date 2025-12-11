@@ -240,11 +240,6 @@ func (container *Container) WithExec(
 		return nil, fmt.Errorf("no dagop here")
 	}
 
-	workerRefs := make([]*worker.WorkerRef, 0, len(mounts.Inputs))
-	for _, ref := range mounts.InputRefs() {
-		workerRefs = append(workerRefs, &worker.WorkerRef{ImmutableRef: ref})
-	}
-
 	bk, err := query.Buildkit(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get buildkit client: %w", err)
@@ -260,6 +255,25 @@ func (container *Container) WithExec(
 	bkSessionGroup, ok := buildkit.CurrentBuildkitSessionGroup(ctx)
 	if !ok {
 		return nil, fmt.Errorf("no buildkit session group in context")
+	}
+
+	inputRefs := mounts.InputRefs()
+	ownedRefs, err := applyMountOwnership(ctx, mounts.Mounts, mounts.Owners, inputRefs, cache, bkSessionGroup)
+	if err != nil {
+		return nil, fmt.Errorf("apply mount ownership: %w", err)
+	}
+	defer func() {
+		for _, ref := range ownedRefs {
+			if ref == nil {
+				continue
+			}
+			_ = ref.Release(context.WithoutCancel(ctx))
+		}
+	}()
+
+	workerRefs := make([]*worker.WorkerRef, 0, len(inputRefs))
+	for _, ref := range inputRefs {
+		workerRefs = append(workerRefs, &worker.WorkerRef{ImmutableRef: ref})
 	}
 
 	opt, ok := buildkit.CurrentOpOpts(ctx)

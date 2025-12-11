@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/containerd/containerd/v2/core/mount"
 	"github.com/dagger/dagger/dagql"
 	"github.com/dagger/dagger/dagql/call"
 	"github.com/dagger/dagger/engine"
@@ -21,6 +22,7 @@ import (
 	"github.com/dagger/dagger/internal/buildkit/solver"
 	"github.com/dagger/dagger/internal/buildkit/solver/pb"
 	"github.com/dagger/dagger/internal/buildkit/worker"
+	fscopy "github.com/dagger/dagger/internal/fsutil/copy"
 	"github.com/opencontainers/go-digest"
 )
 
@@ -406,7 +408,7 @@ func NewContainerDagOp(
 	inputs []llb.State,
 	ctr *Container,
 ) (*Container, error) {
-	mounts, ctrInputs, dgsts, _, outputCount, err := getAllContainerMounts(ctx, ctr)
+	mounts, ctrInputs, dgsts, owners, _, outputCount, err := getAllContainerMounts(ctx, ctr)
 	if err != nil {
 		return nil, err
 	}
@@ -423,6 +425,7 @@ func NewContainerDagOp(
 		ContainerMountData: ContainerMountData{
 			Mounts:      mounts,
 			Digests:     dgsts,
+			Owners:      owners,
 			OutputCount: outputCount,
 		},
 	}
@@ -489,6 +492,8 @@ type ContainerMountData struct {
 	// - nth container.Mounts is at n+2
 	// - secret/socket mounts are at the very end
 	Mounts []*pb.Mount
+	// Owners is parallel to Mounts and describes ownership to apply for each mount.
+	Owners []*Ownership
 
 	// The digests corresponding to each Mount, or "" if no digest available.
 	Digests []digest.Digest
@@ -599,6 +604,7 @@ func getAllContainerMounts(ctx context.Context, container *Container) (
 	mounts []*pb.Mount,
 	states []llb.State,
 	dgsts []digest.Digest,
+	owners []*Ownership,
 	refs []bkcache.ImmutableRef,
 	outputCount int,
 	_ error,
@@ -620,9 +626,12 @@ func getAllContainerMounts(ctx context.Context, container *Container) (
 			mount.Output = pb.SkipOutput
 		}
 
-		var llb *pb.Definition
-		var res bkcache.ImmutableRef
-		var dgst digest.Digest
+		var (
+			llb  *pb.Definition
+			res  bkcache.ImmutableRef
+			dgst digest.Digest
+		)
+		mntOwner := mnt.Owner
 		handleMount(mnt,
 			func(dirMnt *dagql.ObjectResult[*Directory]) {
 				mount.Selector = dirMnt.Self().Dir
@@ -666,13 +675,21 @@ func getAllContainerMounts(ctx context.Context, container *Container) (
 		if err != nil {
 			return err
 		}
+		if dgst != "" && mntOwner != nil {
+			dgst = digest.FromString(fmt.Sprintf("%s:%d:%d", dgst, mntOwner.UID, mntOwner.GID))
+		}
+
+		ownerKey := ""
+		if mntOwner != nil {
+			ownerKey = fmt.Sprintf(":%d:%d", mntOwner.UID, mntOwner.GID)
+		}
 
 		// track and cache this input index, since duplicates are unnecessary
 		// also buildkit's FileOp (which is underlying our DagOp) will
 		// remove them if we don't, which results in significant confusion
 		switch {
 		case res != nil:
-			indexKey := res.ID()
+			indexKey := res.ID() + ownerKey
 			if idx, ok := inputIdxs[indexKey]; ok {
 				// we already track this input, reuse the index
 				mount.Input = idx
@@ -687,7 +704,7 @@ func getAllContainerMounts(ctx context.Context, container *Container) (
 			if err != nil {
 				return err
 			}
-			indexKey := dag.OpDigest.String()
+			indexKey := dag.OpDigest.String() + ownerKey
 			if idx, ok := inputIdxs[indexKey]; ok {
 				// we already track this input, reuse the index
 				mount.Input = idx
@@ -701,6 +718,7 @@ func getAllContainerMounts(ctx context.Context, container *Container) (
 
 		mounts = append(mounts, mount)
 		dgsts = append(dgsts, dgst)
+		owners = append(owners, mntOwner)
 		if mount.Output != pb.SkipOutput {
 			outputIdx++
 		}
@@ -712,13 +730,13 @@ func getAllContainerMounts(ctx context.Context, container *Container) (
 		Target:          "/",
 		DirectorySource: container.FS,
 	}); err != nil {
-		return nil, nil, nil, nil, 0, err
+		return nil, nil, nil, nil, nil, 0, err
 	}
 
 	// meta mount
 	srv, err := CurrentDagqlServer(ctx)
 	if err != nil {
-		return nil, nil, nil, nil, 0, fmt.Errorf("failed to get current dagql server: %w", err)
+		return nil, nil, nil, nil, nil, 0, fmt.Errorf("failed to get current dagql server: %w", err)
 	}
 	metaDir := &Directory{
 		Dir:      "/",
@@ -731,19 +749,19 @@ func getAllContainerMounts(ctx context.Context, container *Container) (
 	}
 	metaDirRes, err := dagql.NewObjectResultForCurrentID(ctx, srv, metaDir)
 	if err != nil {
-		return nil, nil, nil, nil, 0, fmt.Errorf("failed to create meta directory: %w", err)
+		return nil, nil, nil, nil, nil, 0, fmt.Errorf("failed to create meta directory: %w", err)
 	}
 	if err := addMount(ContainerMount{
 		Target:          buildkit.MetaMountDestPath,
 		DirectorySource: &metaDirRes,
 	}); err != nil {
-		return nil, nil, nil, nil, 0, err
+		return nil, nil, nil, nil, nil, 0, err
 	}
 
 	// other normal mounts
 	for _, mount := range container.Mounts {
 		if err := addMount(mount); err != nil {
-			return nil, nil, nil, nil, 0, err
+			return nil, nil, nil, nil, nil, 0, err
 		}
 	}
 
@@ -769,12 +787,13 @@ func getAllContainerMounts(ctx context.Context, container *Container) (
 			},
 		}
 		mounts = append(mounts, mount)
+		owners = append(owners, nil)
 	}
 
 	// handle socket mounts
 	for _, socket := range container.Sockets {
 		if socket.ContainerPath == "" {
-			return nil, nil, nil, nil, 0, fmt.Errorf("unsupported socket: only unix paths are implemented")
+			return nil, nil, nil, nil, nil, 0, fmt.Errorf("unsupported socket: only unix paths are implemented")
 		}
 		uid, gid := 0, 0
 		if socket.Owner != nil {
@@ -793,9 +812,10 @@ func getAllContainerMounts(ctx context.Context, container *Container) (
 			},
 		}
 		mounts = append(mounts, mount)
+		owners = append(owners, nil)
 	}
 
-	return mounts, states, dgsts, refs, outputIdx, nil
+	return mounts, states, dgsts, owners, refs, outputIdx, nil
 }
 
 // setAllContainerMounts is the reverse of getAllContainerMounts, and rewrites
@@ -967,6 +987,132 @@ func extractContainerBkOutputs(ctx context.Context, container *Container, bk *bu
 	}
 
 	return outputs, nil
+}
+
+func applyMountOwnership(
+	ctx context.Context,
+	mounts []*pb.Mount,
+	owners []*Ownership,
+	inputRefs []bkcache.ImmutableRef,
+	cache bkcache.Manager,
+	sessionGroup bksession.Group,
+) ([]bkcache.ImmutableRef, error) {
+	if len(mounts) != len(owners) {
+		return nil, fmt.Errorf("mounts/owners length mismatch: %d vs %d", len(mounts), len(owners))
+	}
+
+	var ownedRefs []bkcache.ImmutableRef
+	ownedInputs := map[pb.InputIndex]bkcache.ImmutableRef{}
+	for i, owner := range owners {
+		if owner == nil {
+			continue
+		}
+		mnt := mounts[i]
+		if mnt.Input == pb.Empty {
+			continue
+		}
+
+		if owned, ok := ownedInputs[mnt.Input]; ok {
+			inputRefs[mnt.Input] = owned
+			continue
+		}
+
+		srcRef := inputRefs[mnt.Input]
+		if srcRef == nil {
+			return nil, fmt.Errorf("mount %d has no source ref", i)
+		}
+
+		ownedRef, err := copyRefWithOwnership(ctx, srcRef, owner, cache, sessionGroup)
+		if err != nil {
+			return nil, fmt.Errorf("apply ownership to mount %s: %w", mnt.Dest, err)
+		}
+
+		ownedRefs = append(ownedRefs, ownedRef)
+		inputRefs[mnt.Input] = ownedRef
+		ownedInputs[mnt.Input] = ownedRef
+	}
+
+	return ownedRefs, nil
+}
+
+func copyRefWithOwnership(
+	ctx context.Context,
+	srcRef bkcache.ImmutableRef,
+	owner *Ownership,
+	cache bkcache.Manager,
+	sessionGroup bksession.Group,
+) (bkcache.ImmutableRef, error) {
+	if owner == nil {
+		return srcRef, nil
+	}
+	if srcRef == nil {
+		return nil, fmt.Errorf("cannot apply ownership to empty ref")
+	}
+
+	newRef, err := cache.New(ctx, nil, sessionGroup,
+		bkcache.CachePolicyRetain,
+		bkcache.WithDescription(fmt.Sprintf("apply ownership %d:%d", owner.UID, owner.GID)))
+	if err != nil {
+		return nil, fmt.Errorf("create owned ref: %w", err)
+	}
+
+	if err := copyWithOwnership(ctx, srcRef, newRef, owner, sessionGroup); err != nil {
+		_ = newRef.Release(context.WithoutCancel(ctx))
+		return nil, err
+	}
+
+	ownedRef, err := newRef.Commit(ctx)
+	if err != nil {
+		_ = newRef.Release(context.WithoutCancel(ctx))
+		return nil, fmt.Errorf("commit owned ref: %w", err)
+	}
+
+	return ownedRef, nil
+}
+
+func copyWithOwnership(
+	ctx context.Context,
+	srcRef bkcache.ImmutableRef,
+	dstRef bkcache.MutableRef,
+	owner *Ownership,
+	sessionGroup bksession.Group,
+) error {
+	return MountRef(ctx, dstRef, sessionGroup, func(dstRoot string, dstMnt *mount.Mount) error {
+		return MountRef(ctx, srcRef, sessionGroup, func(srcRoot string, srcMnt *mount.Mount) error {
+			srcStat, err := os.Stat(srcRoot)
+			if err != nil {
+				return err
+			}
+			srcResolver, err := pathResolverForMount(srcMnt, srcRoot)
+			if err != nil {
+				return err
+			}
+			destResolver, err := pathResolverForMount(dstMnt, dstRoot)
+			if err != nil {
+				return err
+			}
+
+			opts := []fscopy.Opt{
+				fscopy.WithCopyInfo(fscopy.CopyInfo{
+					CopyDirContents:            true,
+					EnableHardlinkOptimization: true,
+					SourcePathResolver:         srcResolver,
+					DestPathResolver:           destResolver,
+				}),
+				fscopy.WithChown(owner.UID, owner.GID),
+			}
+
+			if err := fscopy.Copy(ctx, srcRoot, ".", dstRoot, ".", opts...); err != nil {
+				return err
+			}
+
+			if err := os.Chown(dstRoot, owner.UID, owner.GID); err != nil {
+				return err
+			}
+
+			return os.Chmod(dstRoot, srcStat.Mode().Perm())
+		}, mountRefAsReadOnly)
+	})
 }
 
 func newDagOpLLB(ctx context.Context, dagOp buildkit.CustomOp, id *call.ID, inputs []llb.State) (llb.State, error) {

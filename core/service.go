@@ -397,11 +397,12 @@ func (svc *Service) startContainer(
 	cache := query.BuildkitCache()
 	session := query.BuildkitSession()
 
-	pbmounts, states, _, refs, _, err := getAllContainerMounts(ctx, ctr)
+	pbmounts, states, _, owners, refs, _, err := getAllContainerMounts(ctx, ctr)
 	if err != nil {
 		return nil, fmt.Errorf("could not get mounts: %w", err)
 	}
 
+	bkSessionGroup := bksession.NewGroup(bk.ID())
 	inputs := make([]bkcache.ImmutableRef, len(states))
 	eg, egctx := errgroup.WithContext(ctx)
 	for _, pbmount := range pbmounts {
@@ -445,6 +446,20 @@ func (svc *Service) startContainer(
 		return nil, err
 	}
 
+	ownedRefs, err := applyMountOwnership(ctx, pbmounts, owners, inputs, cache, bkSessionGroup)
+	if err != nil {
+		return nil, fmt.Errorf("apply mount ownership: %w", err)
+	}
+	for _, ownedRef := range ownedRefs {
+		ref := ownedRef
+		cleanup.Add("release owned mount ref", func() error {
+			if ref == nil {
+				return nil
+			}
+			return ref.Release(context.WithoutCancel(ctx))
+		})
+	}
+
 	workerRefs := make([]*worker.WorkerRef, 0, len(inputs))
 	for _, ref := range inputs {
 		workerRefs = append(workerRefs, &worker.WorkerRef{ImmutableRef: ref})
@@ -455,7 +470,6 @@ func (svc *Service) startContainer(
 	name := fmt.Sprintf("container %s", svcID)
 	mm := bkmounts.NewMountManager(name, cache, session)
 
-	bkSessionGroup := bksession.NewGroup(bk.ID())
 	p, err := bkcontainer.PrepareMounts(ctx, mm, cache, bkSessionGroup, "", pbmounts, workerRefs, func(m *pb.Mount, ref bkcache.ImmutableRef) (bkcache.MutableRef, error) {
 		return cache.New(ctx, ref, bkSessionGroup)
 	}, runtime.GOOS)

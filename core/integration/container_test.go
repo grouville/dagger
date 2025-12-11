@@ -3597,6 +3597,36 @@ func (ContainerSuite) TestWithMountedDirectoryOwner(ctx context.Context, t *test
 	})
 }
 
+func (ContainerSuite) TestWithMountedDirectoryOwnerPerf(ctx context.Context, t *testctx.T) {
+	c := connect(ctx, t)
+
+	const fileCount = 1000
+
+	tmp := t.TempDir()
+	for i := 0; i < fileCount; i++ {
+		err := os.WriteFile(filepath.Join(tmp, fmt.Sprintf("%d", i)), []byte("x"), 0o644)
+		require.NoError(t, err)
+	}
+	dir := c.Host().Directory(tmp)
+
+	measure := func(owner string) time.Duration {
+		ctr := c.Container().From(alpineImage).
+			WithMountedDirectory("/data", dir, dagger.ContainerWithMountedDirectoryOpts{
+				Owner: owner,
+			})
+		start := time.Now()
+		_, err := ctr.WithExec([]string{"true"}).Sync(ctx)
+		require.NoError(t, err)
+		return time.Since(start)
+	}
+
+	baseline := measure("")
+	withOwner := measure("1234")
+
+	require.NotZero(t, baseline, "baseline duration should be recorded")
+	require.Less(t, withOwner, time.Duration(float64(baseline)*10), "mounting with ownership should not be significantly slower")
+}
+
 func (ContainerSuite) TestWithFileOwner(ctx context.Context, t *testctx.T) {
 	c := connect(ctx, t)
 
