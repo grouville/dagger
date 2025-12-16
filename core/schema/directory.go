@@ -1033,24 +1033,8 @@ func (s *directorySchema) changesetExport(ctx context.Context, parent *core.Chan
 }
 
 func (s *directorySchema) changesetEmpty(ctx context.Context, parent dagql.ObjectResult[*core.Changeset], args struct{}) (dagql.Boolean, error) {
-	srv, err := core.CurrentDagqlServer(ctx)
-	if err != nil {
-		return false, err
-	}
-
-	var size dagql.Int
-	if err := srv.Select(ctx, parent, &size,
-		dagql.Selector{
-			Field: "asPatch",
-		},
-		dagql.Selector{
-			Field: "size",
-		},
-	); err != nil {
-		return false, err
-	}
-
-	return size == 0, nil
+	ch := parent.Self()
+	return len(ch.AddedPaths) == 0 && len(ch.ModifiedPaths) == 0 && len(ch.RemovedPaths) == 0, nil
 }
 
 type dirExportArgs struct {

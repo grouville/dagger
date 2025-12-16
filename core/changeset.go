@@ -52,22 +52,9 @@ func (ch *Changeset) computeChanges(ctx context.Context) error {
 		return err
 	}
 
-	// Get all paths from before and after directories
-	var beforePaths, afterPaths, diffPaths []string
-	if err := srv.Select(ctx, ch.Before, &beforePaths, dagql.Selector{
-		Field: "glob",
-		Args:  []dagql.NamedInput{{Name: "pattern", Value: dagql.String("**")}},
-	}); err != nil {
-		return err
-	}
-	if err := srv.Select(ctx, ch.After, &afterPaths, dagql.Selector{
-		Field: "glob",
-		Args:  []dagql.NamedInput{{Name: "pattern", Value: dagql.String("**")}},
-	}); err != nil {
-		return err
-	}
-	// Get diff paths (changed + added files)
-	if err := srv.Select(ctx, ch.Before, &diffPaths, dagql.Selector{
+	// Get added/modified files: what's in After that differs from Before
+	var addedModifiedPaths []string
+	if err := srv.Select(ctx, ch.Before, &addedModifiedPaths, dagql.Selector{
 		Field: "diff",
 		Args: []dagql.NamedInput{
 			{Name: "other", Value: dagql.NewID[*Directory](ch.After.ID())},
@@ -79,49 +66,46 @@ func (ch *Changeset) computeChanges(ctx context.Context) error {
 		return err
 	}
 
-	// Create sets for efficient lookups
-	beforePathSet := make(map[string]bool, len(beforePaths))
-	for _, path := range beforePaths {
-		beforePathSet[path] = true
+	// Get removed files: what's in Before that's gone/different in After
+	var removedPaths []string
+	if err := srv.Select(ctx, ch.After, &removedPaths, dagql.Selector{
+		Field: "diff",
+		Args: []dagql.NamedInput{
+			{Name: "other", Value: dagql.NewID[*Directory](ch.Before.ID())},
+		},
+	}, dagql.Selector{
+		Field: "glob",
+		Args:  []dagql.NamedInput{{Name: "pattern", Value: dagql.String("**")}},
+	}); err != nil {
+		return err
 	}
 
-	afterPathSet := make(map[string]bool, len(afterPaths))
-	for _, path := range afterPaths {
-		afterPathSet[path] = true
+	// Build set of paths that existed in Before (appear in reverse diff = were removed or modified)
+	removedSet := make(map[string]bool, len(removedPaths))
+	for _, path := range removedPaths {
+		removedSet[path] = true
 	}
 
-	diffPathSet := make(map[string]bool, len(diffPaths))
-	for _, path := range diffPaths {
-		diffPathSet[path] = true
-	}
-
-	// Compute added files (in after but not in before, and files only)
-	for _, path := range afterPaths {
-		if !beforePathSet[path] {
+	// Categorize added/modified paths
+	addedModifiedSet := make(map[string]bool, len(addedModifiedPaths))
+	for _, path := range addedModifiedPaths {
+		addedModifiedSet[path] = true
+		if strings.HasSuffix(path, "/") {
+			continue
+		}
+		if removedSet[path] {
+			// File exists in both diffs = it was modified
+			ch.ModifiedPaths = append(ch.ModifiedPaths, path)
+		} else {
+			// File only in forward diff = it was added
 			ch.AddedPaths = append(ch.AddedPaths, path)
 		}
 	}
 
-	// Create set of added files for efficient lookup
-	addedFileSet := make(map[string]bool, len(ch.AddedPaths))
-	for _, path := range ch.AddedPaths {
-		addedFileSet[path] = true
-	}
-
-	// Compute changed files (in diff but not added, and files only)
-	for _, path := range diffPaths {
-		// FIXME: we shouldn't skip if the _only_ thing changed was the directory,
-		// i.e. it's not listed here because children were modified, but because the
-		// directory itself was chmodded or something
-		if !strings.HasSuffix(path, "/") && !addedFileSet[path] {
-			ch.ModifiedPaths = append(ch.ModifiedPaths, path)
-		}
-	}
-
-	// Compute removed paths (in before but not in after)
+	// Compute removed paths (in reverse diff but not in forward diff)
 	var allRemovedPaths []string
-	for _, path := range beforePaths {
-		if !afterPathSet[path] {
+	for _, path := range removedPaths {
+		if !addedModifiedSet[path] {
 			allRemovedPaths = append(allRemovedPaths, path)
 		}
 	}

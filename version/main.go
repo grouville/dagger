@@ -130,20 +130,14 @@ func (v Version) ImageTag(ctx context.Context) (string, error) {
 }
 
 func (v Version) Dirty(ctx context.Context) (bool, error) {
-	checkout := v.Git.Head().Tree()
-	// XXX: doesn't handle removed files :(
-	checkout = checkout.WithDirectory("", v.Inputs)
-	status, err := dag.Container().
-		From("alpine/git:latest").
-		WithWorkdir("/src").
-		WithMountedDirectory(".", checkout).
-		WithExec([]string{"git", "status", "--porcelain"}).
-		Stdout(ctx)
+	headTree := v.Git.Head().Tree()
+	merged := headTree.WithDirectory("", v.Inputs)
+	changes := merged.Changes(headTree)
+	isEmpty, err := changes.IsEmpty(ctx)
 	if err != nil {
 		return false, err
 	}
-	status = strings.TrimSpace(status)
-	return status != "", nil
+	return !isEmpty, nil
 }
 
 func (v Version) CurrentTag(ctx context.Context) (string, error) {
