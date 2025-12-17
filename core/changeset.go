@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"syscall"
 
 	"dagger.io/dagger/telemetry"
@@ -24,140 +23,125 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-// NewChangeset creates a Changeset object with all fields computed upfront
 func NewChangeset(ctx context.Context, before, after dagql.ObjectResult[*Directory]) (*Changeset, error) {
-	changes := &Changeset{
+	return &Changeset{
 		Before: before,
 		After:  after,
+	}, nil
+}
+
+type ChangesetPaths struct {
+	Added       []string
+	Modified    []string
+	Removed     []string
+	AllRemoved  []string
+}
+
+// ComputePaths computes the added, modified, and removed paths using git diff.
+// This must be called from a dagql resolver context where buildkit session is available.
+func (ch *Changeset) ComputePaths(ctx context.Context) (*ChangesetPaths, error) {
+	if ch.Before.ID().Digest() == ch.After.ID().Digest() {
+		return &ChangesetPaths{}, nil
 	}
 
-	// Compute all the changes once
-	if err := changes.computeChanges(ctx); err != nil {
+	var result *ChangesetPaths
+	err := ch.withMountedDirs(ctx, func(beforeDir, afterDir string) error {
+		output, err := gitDiffNameStatus(ctx, beforeDir, afterDir)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(os.Stderr, "🔵 gitDiffNameStatus output:\n%s\n", string(output))
+		fmt.Fprintf(os.Stderr, "🔵 beforeDir: %s\n", beforeDir)
+		fmt.Fprintf(os.Stderr, "🔵 afterDir: %s\n", afterDir)
+		diff := parseGitDiffNameStatus(output, beforeDir, afterDir)
+		fmt.Fprintf(os.Stderr, "🟢 diff.Added: %v\n", diff.Added)
+
+		beforeDirs, err := collectDirectories(beforeDir)
+		if err != nil {
+			return fmt.Errorf("collect before directories: %w", err)
+		}
+		afterDirs, err := collectDirectories(afterDir)
+		if err != nil {
+			return fmt.Errorf("collect after directories: %w", err)
+		}
+		addedDirs, removedDirs := diffDirectories(beforeDirs, afterDirs)
+		fmt.Fprintf(os.Stderr, "🟡 addedDirs: %v\n", addedDirs)
+
+		var allRemoved []string
+		allRemoved = append(allRemoved, diff.Removed...)
+		allRemoved = append(allRemoved, removedDirs...)
+
+		result = &ChangesetPaths{
+			Added:      append(diff.Added, addedDirs...),
+			Modified:   diff.Modified,
+			Removed:    rollupRemovedPaths(allRemoved),
+			AllRemoved: allRemoved,
+		}
+		fmt.Fprintf(os.Stderr, "🔴 result.Added: %v\n", result.Added)
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
-
-	return changes, nil
+	return result, nil
 }
 
-// computeChanges calculates added, changed, and removed files/paths
-func (ch *Changeset) computeChanges(ctx context.Context) error {
-	if ch.Before.ID().Digest() == ch.After.ID().Digest() {
-		// No changes if the directories are identical
-		return nil
-	}
-
-	srv, err := CurrentDagqlServer(ctx)
+// withMountedDirs mounts the before and after directories and calls fn with their paths.
+// This is used by IsEmpty and AsPatch which are called through dagql with proper context.
+func (ch *Changeset) withMountedDirs(ctx context.Context, fn func(beforeDir, afterDir string) error) error {
+	beforeRef, err := getRefOrEvaluate(ctx, ch.Before.Self())
 	if err != nil {
-		return err
+		return fmt.Errorf("evaluate before: %w", err)
 	}
 
-	// Get all paths from before and after directories
-	var beforePaths, afterPaths, diffPaths []string
-	if err := srv.Select(ctx, ch.Before, &beforePaths, dagql.Selector{
-		Field: "glob",
-		Args:  []dagql.NamedInput{{Name: "pattern", Value: dagql.String("**")}},
-	}); err != nil {
-		return err
-	}
-	if err := srv.Select(ctx, ch.After, &afterPaths, dagql.Selector{
-		Field: "glob",
-		Args:  []dagql.NamedInput{{Name: "pattern", Value: dagql.String("**")}},
-	}); err != nil {
-		return err
-	}
-	// Get diff paths (changed + added files)
-	if err := srv.Select(ctx, ch.Before, &diffPaths, dagql.Selector{
-		Field: "diff",
-		Args: []dagql.NamedInput{
-			{Name: "other", Value: dagql.NewID[*Directory](ch.After.ID())},
-		},
-	}, dagql.Selector{
-		Field: "glob",
-		Args:  []dagql.NamedInput{{Name: "pattern", Value: dagql.String("**")}},
-	}); err != nil {
-		return err
+	afterRef, err := getRefOrEvaluate(ctx, ch.After.Self())
+	if err != nil {
+		return fmt.Errorf("evaluate after: %w", err)
 	}
 
-	// Create sets for efficient lookups
-	beforePathSet := make(map[string]bool, len(beforePaths))
-	for _, path := range beforePaths {
-		beforePathSet[path] = true
+	bkSessionGroup, ok := buildkit.CurrentBuildkitSessionGroup(ctx)
+	if !ok {
+		return fmt.Errorf("no buildkit session group in context")
 	}
 
-	afterPathSet := make(map[string]bool, len(afterPaths))
-	for _, path := range afterPaths {
-		afterPathSet[path] = true
-	}
-
-	diffPathSet := make(map[string]bool, len(diffPaths))
-	for _, path := range diffPaths {
-		diffPathSet[path] = true
-	}
-
-	// Compute added files (in after but not in before, and files only)
-	for _, path := range afterPaths {
-		if !beforePathSet[path] {
-			ch.AddedPaths = append(ch.AddedPaths, path)
+	return MountRef(ctx, beforeRef, bkSessionGroup, func(beforeMount string, _ *mount.Mount) error {
+		beforeDir, err := containerdfs.RootPath(beforeMount, ch.Before.Self().Dir)
+		if err != nil {
+			return err
 		}
-	}
 
-	// Create set of added files for efficient lookup
-	addedFileSet := make(map[string]bool, len(ch.AddedPaths))
-	for _, path := range ch.AddedPaths {
-		addedFileSet[path] = true
-	}
-
-	// Compute changed files (in diff but not added, and files only)
-	for _, path := range diffPaths {
-		// FIXME: we shouldn't skip if the _only_ thing changed was the directory,
-		// i.e. it's not listed here because children were modified, but because the
-		// directory itself was chmodded or something
-		if !strings.HasSuffix(path, "/") && !addedFileSet[path] {
-			ch.ModifiedPaths = append(ch.ModifiedPaths, path)
-		}
-	}
-
-	// Compute removed paths (in before but not in after)
-	var allRemovedPaths []string
-	for _, path := range beforePaths {
-		if !afterPathSet[path] {
-			allRemovedPaths = append(allRemovedPaths, path)
-		}
-	}
-
-	// Filter out children of removed directories to avoid redundancy
-	dirs := make(map[string]bool)
-
-removed:
-	for _, fp := range allRemovedPaths {
-		// Check if this path is a child of an already removed directory
-		for dir := range dirs {
-			if strings.HasPrefix(fp, dir) {
-				// don't show removed files in directories that were already removed
-				continue removed
+		return MountRef(ctx, afterRef, bkSessionGroup, func(afterMount string, _ *mount.Mount) error {
+			afterDir, err := containerdfs.RootPath(afterMount, ch.After.Self().Dir)
+			if err != nil {
+				return err
 			}
-		}
-		// if the path ends with a slash, it's a directory
-		if strings.HasSuffix(fp, "/") {
-			dirs[fp] = true
-		}
-		ch.RemovedPaths = append(ch.RemovedPaths, fp)
-	}
-	ch.allRemovedPaths = allRemovedPaths
 
-	return nil
+			return fn(beforeDir, afterDir)
+		}, mountRefAsReadOnly)
+	}, mountRefAsReadOnly)
 }
+
+// IsEmpty returns true if there are no changes between before and after.
+// Uses `git diff --quiet` which is fast because it exits on first difference found.
+func (ch *Changeset) IsEmpty(ctx context.Context) (bool, error) {
+	if ch.Before.ID().Digest() == ch.After.ID().Digest() {
+		return true, nil
+	}
+
+	var isEmpty bool
+	err := ch.withMountedDirs(ctx, func(beforeDir, afterDir string) error {
+		var err error
+		isEmpty, err = gitDiffQuiet(ctx, beforeDir, afterDir)
+		return err
+	})
+
+	return isEmpty, err
+}
+
 
 type Changeset struct {
 	Before dagql.ObjectResult[*Directory] `field:"true" doc:"The older/lower snapshot to compare against."`
 	After  dagql.ObjectResult[*Directory] `field:"true" doc:"The newer/upper snapshot."`
-
-	AddedPaths    []string `field:"true" doc:"Files and directories that were added in the newer directory."`
-	ModifiedPaths []string `field:"true" doc:"Files and directories that existed before and were updated in the newer directory."`
-	RemovedPaths  []string `field:"true" doc:"Files and directories that were removed. Directories are indicated by a trailing slash, and their child paths are not included."`
-
-	// same as above, but includes all removed paths (children of removed dirs too)
-	allRemovedPaths []string
 }
 
 func (*Changeset) Type() *ast.Type {
@@ -193,6 +177,9 @@ func (ch *Changeset) PBDefinitions(ctx context.Context) ([]*pb.Definition, error
 
 const ChangesetPatchFilename = "diff.patch"
 
+// AsPatch generates a git-compatible patch file of all changes.
+// Uses a single `git diff` command on the entire directory tree instead of
+// running git diff per file, which is significantly faster.
 func (ch *Changeset) AsPatch(ctx context.Context) (*File, error) {
 	beforeRef, err := getRefOrEvaluate(ctx, ch.Before.Self())
 	if err != nil {
@@ -228,17 +215,20 @@ func (ch *Changeset) AsPatch(ctx context.Context) (*File, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = MountRef(ctx, beforeRef, bkSessionGroup, func(before string, _ *mount.Mount) error {
-		beforeDir, err := containerdfs.RootPath(before, ch.Before.Self().Dir)
+
+	err = MountRef(ctx, beforeRef, bkSessionGroup, func(beforeMount string, _ *mount.Mount) error {
+		beforeDir, err := containerdfs.RootPath(beforeMount, ch.Before.Self().Dir)
 		if err != nil {
 			return err
 		}
-		return MountRef(ctx, afterRef, bkSessionGroup, func(after string, _ *mount.Mount) error {
-			afterDir, err := containerdfs.RootPath(after, ch.After.Self().Dir)
+
+		return MountRef(ctx, afterRef, bkSessionGroup, func(afterMount string, _ *mount.Mount) error {
+			afterDir, err := containerdfs.RootPath(afterMount, ch.After.Self().Dir)
 			if err != nil {
 				return err
 			}
-			return MountRef(ctx, newRef, bkSessionGroup, func(root string, _ *mount.Mount) (rerr error) {
+
+			return MountRef(ctx, newRef, bkSessionGroup, func(root string, _ *mount.Mount) error {
 				beforeMount := filepath.Join(root, "a")
 				afterMount := filepath.Join(root, "b")
 				if err := os.Mkdir(beforeMount, 0755); err != nil {
@@ -250,11 +240,11 @@ func (ch *Changeset) AsPatch(ctx context.Context) (*File, error) {
 				}
 				defer os.RemoveAll(afterMount)
 				if err := syscall.Mount(beforeDir, beforeMount, "", syscall.MS_BIND, ""); err != nil {
-					return fmt.Errorf("mount before to ./a/: %w", err)
+					return fmt.Errorf("bind mount before to a/: %w", err)
 				}
 				defer syscall.Unmount(beforeMount, syscall.MNT_DETACH)
 				if err := syscall.Mount(afterDir, afterMount, "", syscall.MS_BIND, ""); err != nil {
-					return fmt.Errorf("mount after to ./b/: %w", err)
+					return fmt.Errorf("bind mount after to b/: %w", err)
 				}
 				defer syscall.Unmount(afterMount, syscall.MNT_DETACH)
 
@@ -264,69 +254,34 @@ func (ch *Changeset) AsPatch(ctx context.Context) (*File, error) {
 				}
 				defer patchFile.Close()
 
-				// TODO: once there's an Alpine with git 2.51, we can just pass the
-				// paths to git diff --no-index a b -- <all paths>
-				diff := func(a, b string) error {
-					var path1, path2 string
-					if a == "" {
-						path1 = "/dev/null"
+				cmd := exec.Command("git", "diff", "--no-index", "--src-prefix=", "--dst-prefix=", "a", "b")
+				cmd.Dir = root
+				cmd.Stdout = io.MultiWriter(patchFile, stdio.Stdout)
+				cmd.Stderr = stdio.Stderr
+
+				if err := cmd.Run(); err != nil {
+					var exitErr *exec.ExitError
+					if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+						// Exit code 1 means differences found - expected
 					} else {
-						path1 = filepath.Join("a", a)
+						return fmt.Errorf("git diff: %w", err)
 					}
-					if b == "" {
-						path2 = "/dev/null"
-					} else {
-						path2 = filepath.Join("b", b)
-					}
-					cmd := exec.Command("git", "diff", "--no-prefix", "--no-index", path1, path2)
-					cmd.Dir = root
-					cmd.Stdout = io.MultiWriter(patchFile, stdio.Stdout)
-					cmd.Stderr = stdio.Stderr
-					if err := cmd.Run(); err != nil {
-						var exitErr *exec.ExitError
-						// Check if it's exit code 1, which is expected for git diff when files differ
-						if errors.As(err, &exitErr) && exitErr.ExitCode() != 1 {
-							// NB: we could technically populate a buildkit.ExecError here, but that
-							// feels like it leaks implementation details; "exit status 128" isn't
-							// exactly clear
-							return fmt.Errorf("failed to generate patch: %w", err)
-						}
-					}
-					return nil
 				}
 
-				for _, modified := range ch.ModifiedPaths {
-					if err := diff(modified, modified); err != nil {
-						return err
-					}
-				}
-				for _, added := range ch.AddedPaths {
-					if strings.HasSuffix(added, "/") {
-						continue
-					}
-					if err := diff("", added); err != nil {
-						return err
-					}
-				}
-				for _, removed := range ch.allRemovedPaths {
-					if strings.HasSuffix(removed, "/") {
-						continue
-					}
-					if err := diff(removed, ""); err != nil {
-						return err
-					}
-				}
 				return nil
 			})
 		}, mountRefAsReadOnly)
 	}, mountRefAsReadOnly)
+
 	if err != nil {
 		return nil, err
 	}
+
 	snap, err := newRef.Commit(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	return &File{
 		Result:   snap,
 		File:     ChangesetPatchFilename,
@@ -335,6 +290,11 @@ func (ch *Changeset) AsPatch(ctx context.Context) (*File, error) {
 }
 
 func (ch *Changeset) Export(ctx context.Context, destPath string) (rerr error) {
+	paths, err := ch.ComputePaths(ctx)
+	if err != nil {
+		return fmt.Errorf("compute paths: %w", err)
+	}
+
 	dir, err := ch.Before.Self().Diff(ctx, ch.After.Self())
 	if err != nil {
 		return err
@@ -363,5 +323,5 @@ func (ch *Changeset) Export(ctx context.Context, destPath string) (rerr error) {
 		return err
 	}
 
-	return bk.LocalDirExport(ctx, root, destPath, true, ch.RemovedPaths)
+	return bk.LocalDirExport(ctx, root, destPath, true, paths.Removed)
 }
