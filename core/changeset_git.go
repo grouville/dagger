@@ -1,7 +1,6 @@
 package core
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -12,209 +11,192 @@ import (
 	"strings"
 )
 
-// gitDiffNameStatus runs `git diff --no-index --name-status` on two directories
-// and returns the raw output. Exit code 1 (differences found) is not an error.
+// gitDiffNameStatus runs `git diff --no-index --name-status -z` on two directories.
+// Exit code 1 (differences found) is not an error.
 func gitDiffNameStatus(ctx context.Context, beforeDir, afterDir string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "git", "diff", "--no-index", "--name-status", beforeDir, afterDir)
-
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
+	cmd := exec.CommandContext(ctx, "git", "diff", "--no-index", "--name-status", "-z", beforeDir, afterDir)
+	out, err := cmd.Output()
+	if err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
-			// Exit code 1 means differences were found, which is expected
-			return stdout.Bytes(), nil
+			return out, nil
 		}
 		return nil, err
 	}
-
-	return stdout.Bytes(), nil
+	return out, nil
 }
 
-// gitDiffQuiet runs `git diff --no-index --quiet` to check if directories differ.
-// Returns true if directories are identical (no differences).
+// gitDiffQuiet checks if directories differ using `git diff --no-index --quiet`.
+// Returns true if identical (exit 0), false if different (exit 1).
 func gitDiffQuiet(ctx context.Context, beforeDir, afterDir string) (bool, error) {
 	cmd := exec.CommandContext(ctx, "git", "diff", "--no-index", "--quiet", beforeDir, afterDir)
-
 	if err := cmd.Run(); err != nil {
 		var exitErr *exec.ExitError
 		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
-			// Exit code 1 means differences were found
 			return false, nil
 		}
 		return false, err
 	}
-
-	// Exit code 0 means no differences
 	return true, nil
 }
 
-// diffResult holds the parsed result of a git diff --name-status
+// diffResult holds parsed git diff --name-status output.
 type diffResult struct {
 	Added    []string
 	Modified []string
 	Removed  []string
 }
 
-// parseGitDiffNameStatus parses the output of `git diff --no-index --name-status`.
-// The beforeDir and afterDir are used to strip the absolute path prefixes from output.
-//
-// Git outputs lines like:
-//
-//	M       /path/to/before/file.txt
-//	A       /path/to/after/newfile.txt
-//	D       /path/to/before/deleted.txt
-//	R100    /path/to/before/old.txt    /path/to/after/new.txt
+// parseGitDiffNameStatus parses NUL-delimited `git diff --name-status -z` output.
+// Format: STATUS\0PATH\0 or STATUS\0OLD\0NEW\0 for renames/copies.
 func parseGitDiffNameStatus(output []byte, beforeDir, afterDir string) diffResult {
 	var result diffResult
-	trimPath := func(fullPath, dir string) (string, bool) {
-		relPath := strings.TrimPrefix(fullPath, dir)
-		matched := relPath != fullPath
-		relPath = strings.TrimPrefix(relPath, "/")
-		return relPath, matched
+	if len(output) == 0 {
+		return result
 	}
-	trimPathIfPrefixed := func(fullPath, dir string) string {
-		relPath, found := strings.CutPrefix(fullPath, dir)
-		if !found {
+
+	tokens := bytes.Split(output, []byte{0})
+	i := 0
+
+	nextToken := func() string {
+		for i < len(tokens) && len(tokens[i]) == 0 {
+			i++
+		}
+		if i >= len(tokens) {
 			return ""
 		}
-		relPath = strings.TrimPrefix(relPath, "/")
-		return relPath
+		t := string(tokens[i])
+		i++
+		return t
 	}
 
-	scanner := bufio.NewScanner(bytes.NewReader(output))
-	for scanner.Scan() {
-		line := scanner.Text()
-		statusField, rest, ok := strings.Cut(line, "\t")
-		if !ok || statusField == "" {
-			continue
+	for {
+		statusToken := nextToken()
+		if statusToken == "" {
+			break
+		}
+		status := statusToken[0]
+
+		pathOne := nextToken()
+		if pathOne == "" {
+			break
 		}
 
-		status := statusField[0]
+		var pathTwo string
+		if status == 'R' || status == 'C' {
+			pathTwo = nextToken()
+			if pathTwo == "" {
+				break
+			}
+		}
+
 		switch status {
+		case 'A':
+			if rel := trimPrefix(pathOne, afterDir); rel != "" {
+				result.Added = append(result.Added, rel)
+			}
+		case 'D':
+			if rel := trimPrefix(pathOne, beforeDir); rel != "" {
+				result.Removed = append(result.Removed, rel)
+			}
+		case 'M', 'T':
+			rel := trimPrefix(pathOne, beforeDir)
+			if rel == "" {
+				rel = trimPrefix(pathOne, afterDir)
+			}
+			if rel != "" {
+				result.Modified = append(result.Modified, rel)
+			}
 		case 'R':
-			// Format: R100<tab>old_path<tab>new_path
-			oldFull, newFull, ok := strings.Cut(rest, "\t")
-			if !ok {
-				continue
+			if rel := trimPrefix(pathOne, beforeDir); rel != "" {
+				result.Removed = append(result.Removed, rel)
 			}
-			if oldPath := trimPathIfPrefixed(oldFull, beforeDir); oldPath != "" {
-				result.Removed = append(result.Removed, oldPath)
-			}
-			if newPath := trimPathIfPrefixed(newFull, afterDir); newPath != "" {
-				result.Added = append(result.Added, newPath)
+			if rel := trimPrefix(pathTwo, afterDir); rel != "" {
+				result.Added = append(result.Added, rel)
 			}
 		case 'C':
-			// Format: C100<tab>old_path<tab>new_path
-			_, newFull, ok := strings.Cut(rest, "\t")
-			if !ok {
-				continue
+			if rel := trimPrefix(pathTwo, afterDir); rel != "" {
+				result.Added = append(result.Added, rel)
 			}
-			if newPath := trimPathIfPrefixed(newFull, afterDir); newPath != "" {
-				result.Added = append(result.Added, newPath)
-			}
-		case 'A':
-			relPath, _ := trimPath(rest, afterDir)
-			if relPath == "" {
-				continue
-			}
-			result.Added = append(result.Added, relPath)
-		case 'D':
-			relPath, _ := trimPath(rest, beforeDir)
-			if relPath == "" {
-				continue
-			}
-			result.Removed = append(result.Removed, relPath)
-		case 'M':
-			relPath, matched := trimPath(rest, beforeDir)
-			if !matched {
-				relPath, _ = trimPath(rest, afterDir)
-			}
-			if relPath == "" {
-				continue
-			}
-			result.Modified = append(result.Modified, relPath)
 		}
 	}
 
 	return result
 }
 
-// collectDirectories walks a directory tree and returns all directory paths
-// relative to root, with trailing slashes (e.g., "subdir/nested/").
+// trimPrefix removes base prefix from path, returning relative path without leading slash.
+func trimPrefix(path, base string) string {
+	rel, ok := strings.CutPrefix(path, base)
+	if !ok {
+		return ""
+	}
+	return strings.TrimPrefix(rel, "/")
+}
+
+// collectDirectories returns all directory paths relative to root with trailing slashes.
 func collectDirectories(root string) ([]string, error) {
 	var dirs []string
-
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
+		if err != nil || !d.IsDir() || path == root {
 			return err
 		}
-		if !d.IsDir() || path == root {
-			return nil
-		}
-
 		rel, err := filepath.Rel(root, path)
 		if err != nil {
 			return err
 		}
-		dirs = append(dirs, rel+"/")
+		dirs = append(dirs, filepath.ToSlash(rel)+"/")
 		return nil
 	})
-
 	return dirs, err
 }
 
-// diffDirectories compares two sets of directories and returns added and removed ones.
+// diffDirectories returns added and removed directories between two sets.
+// O(N+M) time, O(N) space.
 func diffDirectories(beforeDirs, afterDirs []string) (added, removed []string) {
-	beforeSet := make(map[string]struct{}, len(beforeDirs))
+	before := make(map[string]struct{}, len(beforeDirs))
 	for _, d := range beforeDirs {
-		beforeSet[d] = struct{}{}
-	}
-
-	afterSet := make(map[string]struct{}, len(afterDirs))
-	for _, d := range afterDirs {
-		afterSet[d] = struct{}{}
+		before[d] = struct{}{}
 	}
 
 	for _, d := range afterDirs {
-		if _, ok := beforeSet[d]; !ok {
+		if _, exists := before[d]; exists {
+			delete(before, d)
+		} else {
 			added = append(added, d)
 		}
 	}
 
-	for _, d := range beforeDirs {
-		if _, ok := afterSet[d]; !ok {
-			removed = append(removed, d)
-		}
+	for d := range before {
+		removed = append(removed, d)
 	}
+	slices.Sort(removed)
 
 	return added, removed
 }
 
-// rollupRemovedPaths filters out paths that are children of removed directories.
-// For example, if "dir/" is removed, we don't also list "dir/file.txt".
-// Paths are sorted for deterministic output.
+// rollupRemovedPaths filters out children of removed directories.
+// e.g., ["dir/", "dir/file.txt"] becomes ["dir/"].
+// Output is sorted for determinism.
 func rollupRemovedPaths(paths []string) []string {
 	if len(paths) == 0 {
 		return nil
 	}
 
-	// Sort to ensure parent directories come before their children
-	slices.Sort(paths)
+	sorted := slices.Clone(paths)
+	slices.Sort(sorted)
 
-	var result []string
-	var lastRemovedDir string
+	result := make([]string, 0, len(sorted))
+	var parentDir string
 
-	for _, path := range paths {
-		if lastRemovedDir != "" && strings.HasPrefix(path, lastRemovedDir) {
+	for _, p := range sorted {
+		if parentDir != "" && strings.HasPrefix(p, parentDir) {
 			continue
 		}
-
-		result = append(result, path)
-		if strings.HasSuffix(path, "/") {
-			lastRemovedDir = path
+		result = append(result, p)
+		if strings.HasSuffix(p, "/") {
+			parentDir = p
+		} else {
+			parentDir = ""
 		}
 	}
 
