@@ -69,77 +69,73 @@ type diffResult struct {
 //	R100    /path/to/before/old.txt    /path/to/after/new.txt
 func parseGitDiffNameStatus(output []byte, beforeDir, afterDir string) diffResult {
 	var result diffResult
+	trimPath := func(fullPath, dir string) (string, bool) {
+		relPath := strings.TrimPrefix(fullPath, dir)
+		matched := relPath != fullPath
+		relPath = strings.TrimPrefix(relPath, "/")
+		return relPath, matched
+	}
+	trimPathIfPrefixed := func(fullPath, dir string) string {
+		relPath, found := strings.CutPrefix(fullPath, dir)
+		if !found {
+			return ""
+		}
+		relPath = strings.TrimPrefix(relPath, "/")
+		return relPath
+	}
 
 	scanner := bufio.NewScanner(bytes.NewReader(output))
 	for scanner.Scan() {
 		line := scanner.Text()
-		if len(line) < 3 {
+		statusField, rest, ok := strings.Cut(line, "\t")
+		if !ok || statusField == "" {
 			continue
 		}
 
-		status := line[0]
-
-		// Handle rename (R) and copy (C) which have two paths separated by tab
-		// Format: R100<tab>old_path<tab>new_path
-		if status == 'R' || status == 'C' {
-			_, rest, ok := strings.Cut(line, "\t")
-			if !ok {
-				continue
-			}
+		status := statusField[0]
+		switch status {
+		case 'R':
+			// Format: R100<tab>old_path<tab>new_path
 			oldFull, newFull, ok := strings.Cut(rest, "\t")
 			if !ok {
 				continue
 			}
-			if oldPath, found := strings.CutPrefix(oldFull, beforeDir); found {
-				oldPath = strings.TrimPrefix(oldPath, "/")
-				if oldPath != "" {
-					result.Removed = append(result.Removed, oldPath)
-				}
+			if oldPath := trimPathIfPrefixed(oldFull, beforeDir); oldPath != "" {
+				result.Removed = append(result.Removed, oldPath)
 			}
-			if newPath, found := strings.CutPrefix(newFull, afterDir); found {
-				newPath = strings.TrimPrefix(newPath, "/")
-				if newPath != "" {
-					result.Added = append(result.Added, newPath)
-				}
+			if newPath := trimPathIfPrefixed(newFull, afterDir); newPath != "" {
+				result.Added = append(result.Added, newPath)
 			}
-			continue
-		}
-
-		// The path is after the status and a tab character
-		fullPath := strings.TrimSpace(line[2:])
-
-		// Strip the directory prefix to get the relative path
-		var relPath string
-		switch status {
+		case 'C':
+			// Format: C100<tab>old_path<tab>new_path
+			_, newFull, ok := strings.Cut(rest, "\t")
+			if !ok {
+				continue
+			}
+			if newPath := trimPathIfPrefixed(newFull, afterDir); newPath != "" {
+				result.Added = append(result.Added, newPath)
+			}
 		case 'A':
-			// Added files show the "after" path
-			relPath = strings.TrimPrefix(fullPath, afterDir)
-		case 'D':
-			// Deleted files show the "before" path
-			relPath = strings.TrimPrefix(fullPath, beforeDir)
-		case 'M':
-			// Modified files could show either, but typically show "before" path
-			relPath = strings.TrimPrefix(fullPath, beforeDir)
-			if relPath == fullPath {
-				relPath = strings.TrimPrefix(fullPath, afterDir)
+			relPath, _ := trimPath(rest, afterDir)
+			if relPath == "" {
+				continue
 			}
-		default:
-			continue
-		}
-
-		// Remove leading slash if present
-		relPath = strings.TrimPrefix(relPath, "/")
-		if relPath == "" {
-			continue
-		}
-
-		switch status {
-		case 'A':
 			result.Added = append(result.Added, relPath)
-		case 'M':
-			result.Modified = append(result.Modified, relPath)
 		case 'D':
+			relPath, _ := trimPath(rest, beforeDir)
+			if relPath == "" {
+				continue
+			}
 			result.Removed = append(result.Removed, relPath)
+		case 'M':
+			relPath, matched := trimPath(rest, beforeDir)
+			if !matched {
+				relPath, _ = trimPath(rest, afterDir)
+			}
+			if relPath == "" {
+				continue
+			}
+			result.Modified = append(result.Modified, relPath)
 		}
 	}
 
@@ -172,24 +168,24 @@ func collectDirectories(root string) ([]string, error) {
 
 // diffDirectories compares two sets of directories and returns added and removed ones.
 func diffDirectories(beforeDirs, afterDirs []string) (added, removed []string) {
-	beforeSet := make(map[string]bool, len(beforeDirs))
+	beforeSet := make(map[string]struct{}, len(beforeDirs))
 	for _, d := range beforeDirs {
-		beforeSet[d] = true
+		beforeSet[d] = struct{}{}
 	}
 
-	afterSet := make(map[string]bool, len(afterDirs))
+	afterSet := make(map[string]struct{}, len(afterDirs))
 	for _, d := range afterDirs {
-		afterSet[d] = true
+		afterSet[d] = struct{}{}
 	}
 
 	for _, d := range afterDirs {
-		if !beforeSet[d] {
+		if _, ok := beforeSet[d]; !ok {
 			added = append(added, d)
 		}
 	}
 
 	for _, d := range beforeDirs {
-		if !afterSet[d] {
+		if _, ok := afterSet[d]; !ok {
 			removed = append(removed, d)
 		}
 	}
@@ -199,7 +195,7 @@ func diffDirectories(beforeDirs, afterDirs []string) (added, removed []string) {
 
 // rollupRemovedPaths filters out paths that are children of removed directories.
 // For example, if "dir/" is removed, we don't also list "dir/file.txt".
-// Input paths should be sorted for deterministic output.
+// Paths are sorted for deterministic output.
 func rollupRemovedPaths(paths []string) []string {
 	if len(paths) == 0 {
 		return nil
@@ -209,27 +205,17 @@ func rollupRemovedPaths(paths []string) []string {
 	slices.Sort(paths)
 
 	var result []string
-	removedDirs := make(map[string]bool)
+	var lastRemovedDir string
 
 	for _, path := range paths {
-		// Check if this path is under any already-removed directory
-		skip := false
-		for dir := range removedDirs {
-			if strings.HasPrefix(path, dir) {
-				skip = true
-				break
-			}
-		}
-		if skip {
+		if lastRemovedDir != "" && strings.HasPrefix(path, lastRemovedDir) {
 			continue
 		}
 
-		// Track directories for child filtering
-		if strings.HasSuffix(path, "/") {
-			removedDirs[path] = true
-		}
-
 		result = append(result, path)
+		if strings.HasSuffix(path, "/") {
+			lastRemovedDir = path
+		}
 	}
 
 	return result

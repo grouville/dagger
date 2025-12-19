@@ -31,10 +31,10 @@ func NewChangeset(ctx context.Context, before, after dagql.ObjectResult[*Directo
 }
 
 type ChangesetPaths struct {
-	Added       []string
-	Modified    []string
-	Removed     []string
-	AllRemoved  []string
+	Added      []string
+	Modified   []string
+	Removed    []string
+	AllRemoved []string
 }
 
 // ComputePaths computes the added, modified, and removed paths using git diff.
@@ -50,11 +50,7 @@ func (ch *Changeset) ComputePaths(ctx context.Context) (*ChangesetPaths, error) 
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(os.Stderr, "🔵 gitDiffNameStatus output:\n%s\n", string(output))
-		fmt.Fprintf(os.Stderr, "🔵 beforeDir: %s\n", beforeDir)
-		fmt.Fprintf(os.Stderr, "🔵 afterDir: %s\n", afterDir)
 		diff := parseGitDiffNameStatus(output, beforeDir, afterDir)
-		fmt.Fprintf(os.Stderr, "🟢 diff.Added: %v\n", diff.Added)
 
 		beforeDirs, err := collectDirectories(beforeDir)
 		if err != nil {
@@ -65,7 +61,6 @@ func (ch *Changeset) ComputePaths(ctx context.Context) (*ChangesetPaths, error) 
 			return fmt.Errorf("collect after directories: %w", err)
 		}
 		addedDirs, removedDirs := diffDirectories(beforeDirs, afterDirs)
-		fmt.Fprintf(os.Stderr, "🟡 addedDirs: %v\n", addedDirs)
 
 		var allRemoved []string
 		allRemoved = append(allRemoved, diff.Removed...)
@@ -77,7 +72,6 @@ func (ch *Changeset) ComputePaths(ctx context.Context) (*ChangesetPaths, error) 
 			Removed:    rollupRemovedPaths(allRemoved),
 			AllRemoved: allRemoved,
 		}
-		fmt.Fprintf(os.Stderr, "🔴 result.Added: %v\n", result.Added)
 		return nil
 	})
 	if err != nil {
@@ -116,7 +110,8 @@ func (ch *Changeset) withMountedDirs(ctx context.Context, fn func(beforeDir, aft
 				return err
 			}
 
-			return fn(beforeDir, afterDir)
+			err = fn(beforeDir, afterDir)
+			return err
 		}, mountRefAsReadOnly)
 	}, mountRefAsReadOnly)
 }
@@ -137,7 +132,6 @@ func (ch *Changeset) IsEmpty(ctx context.Context) (bool, error) {
 
 	return isEmpty, err
 }
-
 
 type Changeset struct {
 	Before dagql.ObjectResult[*Directory] `field:"true" doc:"The older/lower snapshot to compare against."`

@@ -76,6 +76,25 @@ A	/after/subdir/another.txt
 				Added: []string{"a/b/c/deep.txt"},
 			},
 		},
+		{
+			name:      "renamed file",
+			output:    "R100\t/before/old.txt\t/after/new.txt\n",
+			beforeDir: "/before",
+			afterDir:  "/after",
+			want: diffResult{
+				Added:   []string{"new.txt"},
+				Removed: []string{"old.txt"},
+			},
+		},
+		{
+			name:      "copied file",
+			output:    "C100\t/before/base.txt\t/after/copy.txt\n",
+			beforeDir: "/before",
+			afterDir:  "/after",
+			want: diffResult{
+				Added: []string{"copy.txt"},
+			},
+		},
 	}
 
 	for _, tt := range tests {
