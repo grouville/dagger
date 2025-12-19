@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"syscall"
 
 	"dagger.io/dagger/telemetry"
@@ -46,30 +47,27 @@ func (ch *Changeset) ComputePaths(ctx context.Context) (*ChangesetPaths, error) 
 
 	var result *ChangesetPaths
 	err := ch.withMountedDirs(ctx, func(beforeDir, afterDir string) error {
-		output, err := gitDiffNameStatus(ctx, beforeDir, afterDir)
+		fileChanges, err := compareDirectories(ctx, beforeDir, afterDir)
 		if err != nil {
 			return err
 		}
-		diff := parseGitDiffNameStatus(output, beforeDir, afterDir)
 
-		beforeDirs, err := collectDirectories(beforeDir)
+		beforeDirs, err := listSubdirectories(beforeDir)
 		if err != nil {
-			return fmt.Errorf("collect before directories: %w", err)
+			return fmt.Errorf("list before directories: %w", err)
 		}
-		afterDirs, err := collectDirectories(afterDir)
+		afterDirs, err := listSubdirectories(afterDir)
 		if err != nil {
-			return fmt.Errorf("collect after directories: %w", err)
+			return fmt.Errorf("list after directories: %w", err)
 		}
-		addedDirs, removedDirs := diffDirectories(beforeDirs, afterDirs)
+		addedDirs, removedDirs := diffStringSlices(beforeDirs, afterDirs)
 
-		var allRemoved []string
-		allRemoved = append(allRemoved, diff.Removed...)
-		allRemoved = append(allRemoved, removedDirs...)
+		allRemoved := slices.Concat(fileChanges.Removed, removedDirs)
 
 		result = &ChangesetPaths{
-			Added:      append(diff.Added, addedDirs...),
-			Modified:   diff.Modified,
-			Removed:    rollupRemovedPaths(allRemoved),
+			Added:      slices.Concat(fileChanges.Added, addedDirs),
+			Modified:   fileChanges.Modified,
+			Removed:    collapseChildPaths(allRemoved),
 			AllRemoved: allRemoved,
 		}
 		return nil
@@ -126,7 +124,7 @@ func (ch *Changeset) IsEmpty(ctx context.Context) (bool, error) {
 	var isEmpty bool
 	err := ch.withMountedDirs(ctx, func(beforeDir, afterDir string) error {
 		var err error
-		isEmpty, err = gitDiffQuiet(ctx, beforeDir, afterDir)
+		isEmpty, err = directoriesAreIdentical(ctx, beforeDir, afterDir)
 		return err
 	})
 

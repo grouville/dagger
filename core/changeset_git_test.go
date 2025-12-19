@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func joinZ(parts ...string) []byte {
+func joinNul(parts ...string) []byte {
 	var b []byte
 	for _, p := range parts {
 		b = append(b, p...)
@@ -19,110 +19,109 @@ func joinZ(parts ...string) []byte {
 	return b
 }
 
-func TestParseGitDiffNameStatus(t *testing.T) {
-	beforeDir := "/before"
-	afterDir := "/after"
+func TestParseGitOutput(t *testing.T) {
+	oldDir := "/old"
+	newDir := "/new"
 
 	tests := []struct {
 		name   string
 		output []byte
-		want   diffResult
+		want   fileChanges
 	}{
 		{
-			name:   "empty output",
+			name:   "empty",
 			output: nil,
-			want:   diffResult{},
+			want:   fileChanges{},
 		},
 		{
-			name: "mixed changes",
-			output: joinZ(
-				"A", afterDir+"/new.txt",
-				"M", beforeDir+"/changed.txt",
-				"D", beforeDir+"/deleted.txt",
-				"A", afterDir+"/a/b/deep.txt",
+			name: "all change types",
+			output: joinNul(
+				"A", newDir+"/added.txt",
+				"M", oldDir+"/modified.txt",
+				"D", oldDir+"/deleted.txt",
+				"A", newDir+"/nested/deep.txt",
 			),
-			want: diffResult{
-				Added:    []string{"new.txt", "a/b/deep.txt"},
-				Modified: []string{"changed.txt"},
+			want: fileChanges{
+				Added:    []string{"added.txt", "nested/deep.txt"},
+				Modified: []string{"modified.txt"},
 				Removed:  []string{"deleted.txt"},
 			},
 		},
 		{
-			name:   "renamed file",
-			output: joinZ("R100", beforeDir+"/old.txt", afterDir+"/new.txt"),
-			want: diffResult{
+			name:   "rename",
+			output: joinNul("R100", oldDir+"/old.txt", newDir+"/new.txt"),
+			want: fileChanges{
 				Added:   []string{"new.txt"},
 				Removed: []string{"old.txt"},
 			},
 		},
 		{
-			name:   "copied file",
-			output: joinZ("C100", beforeDir+"/base.txt", afterDir+"/copy.txt"),
-			want: diffResult{
-				Added: []string{"copy.txt"},
+			name:   "copy",
+			output: joinNul("C100", oldDir+"/src.txt", newDir+"/dst.txt"),
+			want: fileChanges{
+				Added: []string{"dst.txt"},
 			},
 		},
 		{
-			name:   "file with newline",
-			output: joinZ("A", afterDir+"/line\nbreak.txt"),
-			want: diffResult{
-				Added: []string{"line\nbreak.txt"},
+			name:   "filename with newline",
+			output: joinNul("A", newDir+"/has\nnewline.txt"),
+			want: fileChanges{
+				Added: []string{"has\nnewline.txt"},
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := parseGitDiffNameStatus(tt.output, beforeDir, afterDir)
+			got := parseGitOutput(tt.output, oldDir, newDir)
 			require.Equal(t, tt.want, got)
 		})
 	}
 }
 
-func TestCollectDirectories(t *testing.T) {
+func TestListSubdirectories(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "a", "b"), 0755))
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "c"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "file.txt"), []byte("."), 0644))
 
-	dirs, err := collectDirectories(root)
+	dirs, err := listSubdirectories(root)
 	require.NoError(t, err)
 	slices.Sort(dirs)
 	require.Equal(t, []string{"a/", "a/b/", "c/"}, dirs)
 }
 
-func TestDiffDirectories(t *testing.T) {
+func TestDiffStringSlices(t *testing.T) {
 	tests := []struct {
 		name        string
-		beforeDirs  []string
-		afterDirs   []string
+		old, new    []string
 		wantAdded   []string
 		wantRemoved []string
 	}{
 		{
-			name:       "no changes",
-			beforeDirs: []string{"a/", "b/"},
-			afterDirs:  []string{"a/", "b/"},
+			name: "no changes",
+			old:  []string{"a/", "b/"},
+			new:  []string{"a/", "b/"},
 		},
 		{
-			name:        "mixed changes",
-			beforeDirs:  []string{"old/", "kept/"},
-			afterDirs:   []string{"new/", "kept/"},
-			wantAdded:   []string{"new/"},
-			wantRemoved: []string{"old/"},
+			name:        "mixed",
+			old:         []string{"removed/", "kept/"},
+			new:         []string{"added/", "kept/"},
+			wantAdded:   []string{"added/"},
+			wantRemoved: []string{"removed/"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			added, removed := diffDirectories(tt.beforeDirs, tt.afterDirs)
+			added, removed := diffStringSlices(tt.old, tt.new)
 			require.Equal(t, tt.wantAdded, added)
 			require.Equal(t, tt.wantRemoved, removed)
 		})
 	}
 }
 
-func TestRollupRemovedPaths(t *testing.T) {
+func TestCollapseChildPaths(t *testing.T) {
 	tests := []struct {
 		name  string
 		paths []string
@@ -137,7 +136,7 @@ func TestRollupRemovedPaths(t *testing.T) {
 			want:  []string{"dir/"},
 		},
 		{
-			name:  "sibling directories",
+			name:  "siblings preserved",
 			paths: []string{"a/", "a/file.txt", "b/", "b/file.txt"},
 			want:  []string{"a/", "b/"},
 		},
@@ -145,47 +144,44 @@ func TestRollupRemovedPaths(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := rollupRemovedPaths(tt.paths)
+			got := collapseChildPaths(tt.paths)
 			require.Equal(t, tt.want, got)
 		})
 	}
 }
 
-func TestGitDiff_Integration(t *testing.T) {
-	beforeDir := t.TempDir()
-	afterDir := t.TempDir()
+func TestCompareDirectories_Integration(t *testing.T) {
+	oldDir := t.TempDir()
+	newDir := t.TempDir()
 
-	// Before: file1.txt, file2.txt, subdir/nested.txt
-	require.NoError(t, os.WriteFile(filepath.Join(beforeDir, "file1.txt"), []byte("original"), 0644))
-	require.NoError(t, os.WriteFile(filepath.Join(beforeDir, "file2.txt"), []byte("deleted"), 0644))
-	require.NoError(t, os.MkdirAll(filepath.Join(beforeDir, "subdir"), 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(beforeDir, "subdir", "nested.txt"), []byte("nested"), 0644))
+	// old: file1 (will be modified), file2 (will be deleted), subdir/nested
+	require.NoError(t, os.WriteFile(filepath.Join(oldDir, "file1.txt"), []byte("v1"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(oldDir, "file2.txt"), []byte("gone"), 0644))
+	require.NoError(t, os.MkdirAll(filepath.Join(oldDir, "subdir"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(oldDir, "subdir", "nested.txt"), []byte("same"), 0644))
 
-	// After: file1.txt (modified), file3.txt (new), subdir/nested.txt (unchanged)
-	require.NoError(t, os.WriteFile(filepath.Join(afterDir, "file1.txt"), []byte("modified"), 0644))
-	require.NoError(t, os.WriteFile(filepath.Join(afterDir, "file3.txt"), []byte("new"), 0644))
-	require.NoError(t, os.MkdirAll(filepath.Join(afterDir, "subdir"), 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(afterDir, "subdir", "nested.txt"), []byte("nested"), 0644))
+	// new: file1 (modified), file3 (added), subdir/nested (unchanged)
+	require.NoError(t, os.WriteFile(filepath.Join(newDir, "file1.txt"), []byte("v2"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(newDir, "file3.txt"), []byte("new"), 0644))
+	require.NoError(t, os.MkdirAll(filepath.Join(newDir, "subdir"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(newDir, "subdir", "nested.txt"), []byte("same"), 0644))
 
 	ctx := context.Background()
 
-	// Test gitDiffNameStatus + parse
-	output, err := gitDiffNameStatus(ctx, beforeDir, afterDir)
+	changes, err := compareDirectories(ctx, oldDir, newDir)
 	require.NoError(t, err)
-	result := parseGitDiffNameStatus(output, beforeDir, afterDir)
-	slices.Sort(result.Added)
-	slices.Sort(result.Modified)
-	slices.Sort(result.Removed)
-	require.Equal(t, []string{"file3.txt"}, result.Added)
-	require.Equal(t, []string{"file1.txt"}, result.Modified)
-	require.Equal(t, []string{"file2.txt"}, result.Removed)
+	slices.Sort(changes.Added)
+	slices.Sort(changes.Modified)
+	slices.Sort(changes.Removed)
+	require.Equal(t, []string{"file3.txt"}, changes.Added)
+	require.Equal(t, []string{"file1.txt"}, changes.Modified)
+	require.Equal(t, []string{"file2.txt"}, changes.Removed)
 
-	// Test gitDiffQuiet
-	identical, err := gitDiffQuiet(ctx, beforeDir, afterDir)
+	identical, err := directoriesAreIdentical(ctx, oldDir, newDir)
 	require.NoError(t, err)
 	require.False(t, identical)
 
-	identical, err = gitDiffQuiet(ctx, beforeDir, beforeDir)
+	identical, err = directoriesAreIdentical(ctx, oldDir, oldDir)
 	require.NoError(t, err)
 	require.True(t, identical)
 }
