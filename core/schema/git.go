@@ -176,7 +176,6 @@ type gitArgs struct {
 	Ref    string `default:"" internal:"true"`
 }
 
-//nolint:gocyclo
 func (s *gitSchema) git(ctx context.Context, parent dagql.ObjectResult[*core.Query], args gitArgs) (inst dagql.Result[*core.GitRepository], _ error) {
 	srv, err := core.CurrentDagqlServer(ctx)
 	if err != nil {
@@ -296,7 +295,7 @@ func (s *gitSchema) url(ctx context.Context, parent dagql.ObjectResult[*core.Git
 		// errNoAuthResolutionNeeded was returned - verify URL works via ls-remote
 		// This catches the case where a private repo is accessed without auth
 		if _, err := remoteGitRepo.Remote(ctx); err != nil {
-			return "", fmt.Errorf("%w: %v", gitutil.ErrGitAuthFailed, err)
+			return "", fmt.Errorf("%w: %w", gitutil.ErrGitAuthFailed, err)
 		}
 	}
 
@@ -408,6 +407,7 @@ type tagsArgs struct {
 	Patterns dagql.Optional[dagql.ArrayInput[dagql.String]] `name:"patterns"`
 }
 
+//nolint:dupl // Similar to branches() but filters tags instead
 func (s *gitSchema) tags(ctx context.Context, parent dagql.ObjectResult[*core.GitRepository], args tagsArgs) (dagql.Array[dagql.String], error) {
 	srv, err := core.CurrentDagqlServer(ctx)
 	if err != nil {
@@ -444,6 +444,7 @@ type branchesArgs struct {
 	Patterns dagql.Optional[dagql.ArrayInput[dagql.String]] `name:"patterns"`
 }
 
+//nolint:dupl // Similar to tags() but filters branches instead
 func (s *gitSchema) branches(ctx context.Context, parent dagql.ObjectResult[*core.GitRepository], args branchesArgs) (dagql.Array[dagql.String], error) {
 	srv, err := core.CurrentDagqlServer(ctx)
 	if err != nil {
@@ -695,6 +696,7 @@ func (s *gitSchema) resolveRef(ctx context.Context, srv *dagql.Server, ref dagql
 	return resolvedRef.(dagql.ObjectResult[*core.GitRef]), nil
 }
 
+//nolint:dupl // Similar to resolveAndLoadRepoScalar but returns Object instead of Scalar
 func (s *gitSchema) resolveAndLoadRepoObject(
 	ctx context.Context,
 	srv *dagql.Server,
@@ -769,7 +771,6 @@ func (s *gitSchema) resolveAndLoadRepoObject(
 
 	if (remoteGitRepo.URL.Scheme == gitutil.HTTPProtocol || remoteGitRepo.URL.Scheme == gitutil.HTTPSProtocol) &&
 		!remoteGitRepo.AuthToken.Valid && !remoteGitRepo.AuthHeader.Valid {
-
 		query, err := core.CurrentQuery(ctx)
 		if err != nil {
 			return nil, err
@@ -826,6 +827,7 @@ func (s *gitSchema) resolveAndLoadRepoObject(
 	return nil, errNoAuthResolutionNeeded
 }
 
+//nolint:dupl // Similar to resolveAndLoadRepoObject but returns Scalar instead of Object
 func (s *gitSchema) resolveAndLoadRepoScalar(
 	ctx context.Context,
 	srv *dagql.Server,
@@ -900,7 +902,6 @@ func (s *gitSchema) resolveAndLoadRepoScalar(
 
 	if (remoteGitRepo.URL.Scheme == gitutil.HTTPProtocol || remoteGitRepo.URL.Scheme == gitutil.HTTPSProtocol) &&
 		!remoteGitRepo.AuthToken.Valid && !remoteGitRepo.AuthHeader.Valid {
-
 		query, err := core.CurrentQuery(ctx)
 		if err != nil {
 			return nil, err
@@ -973,6 +974,7 @@ func needsAuthResolution(repo *core.RemoteGitRepository) bool {
 	return false
 }
 
+//nolint:dupl // Similar to resolveAndLoadScalar but returns Object instead of Scalar
 func (s *gitSchema) resolveAndLoad(
 	ctx context.Context,
 	srv *dagql.Server,
@@ -1063,7 +1065,6 @@ func (s *gitSchema) resolveAndLoad(
 
 	if (remoteGitRepo.URL.Scheme == gitutil.HTTPProtocol || remoteGitRepo.URL.Scheme == gitutil.HTTPSProtocol) &&
 		!remoteGitRepo.AuthToken.Valid && !remoteGitRepo.AuthHeader.Valid {
-
 		query, err := core.CurrentQuery(ctx)
 		if err != nil {
 			return nil, err
@@ -1152,6 +1153,7 @@ func (s *gitSchema) resolveAndLoad(
 	return srv.Load(ctx, newOpID)
 }
 
+//nolint:dupl // Similar to resolveAndLoad but returns Scalar instead of Object
 func (s *gitSchema) resolveAndLoadScalar(
 	ctx context.Context,
 	srv *dagql.Server,
@@ -1242,7 +1244,6 @@ func (s *gitSchema) resolveAndLoadScalar(
 
 	if (remoteGitRepo.URL.Scheme == gitutil.HTTPProtocol || remoteGitRepo.URL.Scheme == gitutil.HTTPSProtocol) &&
 		!remoteGitRepo.AuthToken.Valid && !remoteGitRepo.AuthHeader.Valid {
-
 		query, err := core.CurrentQuery(ctx)
 		if err != nil {
 			return nil, err
