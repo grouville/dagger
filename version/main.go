@@ -309,6 +309,37 @@ func (v Version) DebugDirtyFixed(ctx context.Context) (*DebugInfo, error) {
 	}, nil
 }
 
+// DebugDirtyGitStatus returns dirty state using git status (respects .gitignore)
+func (v Version) DebugDirtyGitStatus(ctx context.Context) (*DebugGitStatusInfo, error) {
+	checkout := v.Git.Head().Tree()
+	combined := checkout.WithDirectory("", v.Inputs)
+	status, err := dag.Container().
+		From("alpine/git:latest").
+		WithWorkdir("/src").
+		WithMountedDirectory(".", combined).
+		WithExec([]string{"git", "status", "--porcelain"}).
+		Stdout(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to run git status: %w", err)
+	}
+	status = strings.TrimSpace(status)
+	var changedFiles []string
+	if status != "" {
+		changedFiles = strings.Split(status, "\n")
+	}
+	return &DebugGitStatusInfo{
+		IsDirty:      status != "",
+		GitStatus:    status,
+		ChangedFiles: changedFiles,
+	}, nil
+}
+
+type DebugGitStatusInfo struct {
+	IsDirty      bool
+	GitStatus    string
+	ChangedFiles []string
+}
+
 type DebugInfo struct {
 	IsDirty        bool
 	AddedPaths     []string
