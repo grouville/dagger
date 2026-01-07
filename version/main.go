@@ -585,6 +585,7 @@ func (v Version) DebugDirtyOverlayFiltered(
 	ctx context.Context,
 	// Full repo for gitignore context
 	// +defaultPath="/"
+	// +ignore=["**/.git", "**/.dagger"]
 	source *dagger.Directory,
 ) (*DebugGitStatusInfo, error) {
 	checkout := v.Git.Head().Tree()
