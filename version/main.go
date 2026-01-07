@@ -545,3 +545,37 @@ func (v Version) DebugDirtyWithGitignore(
 		ChangedFiles: changedFiles,
 	}, nil
 }
+
+// DebugDirtyOverlay uses the old approach: overlay inputs on checkout, then compare with IsEmpty
+func (v Version) DebugDirtyOverlay(ctx context.Context) (*DebugGitStatusInfo, error) {
+	checkout := v.Git.Head().Tree()
+	combined := checkout.WithDirectory("", v.Inputs)
+	changes := combined.Changes(checkout)
+
+	isEmpty, err := changes.IsEmpty(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check isEmpty: %w", err)
+	}
+
+	var changedFiles []string
+	if !isEmpty {
+		added, _ := changes.AddedPaths(ctx)
+		modified, _ := changes.ModifiedPaths(ctx)
+		removed, _ := changes.RemovedPaths(ctx)
+		for _, p := range added {
+			changedFiles = append(changedFiles, "A  "+p)
+		}
+		for _, p := range modified {
+			changedFiles = append(changedFiles, "M  "+p)
+		}
+		for _, p := range removed {
+			changedFiles = append(changedFiles, "D  "+p)
+		}
+	}
+
+	return &DebugGitStatusInfo{
+		IsDirty:      !isEmpty,
+		GitStatus:    strings.Join(changedFiles, "\n"),
+		ChangedFiles: changedFiles,
+	}, nil
+}
