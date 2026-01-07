@@ -217,3 +217,221 @@ func (v Version) NextReleaseVersion(ctx context.Context) (string, error) {
 	}
 	return "", fmt.Errorf("no valid version found in next version file")
 }
+
+// DebugDirtyInfo returns detailed information about the dirty detection state (current broken impl)
+func (v Version) DebugDirtyInfo(ctx context.Context) (*DebugInfo, error) {
+	checkout := v.Git.Head().Tree()
+	changes := v.Inputs.Changes(checkout)
+
+	isEmpty, err := changes.IsEmpty(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check isEmpty: %w", err)
+	}
+
+	added, err := changes.AddedPaths(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get added paths: %w", err)
+	}
+
+	modified, err := changes.ModifiedPaths(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get modified paths: %w", err)
+	}
+
+	removed, err := changes.RemovedPaths(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get removed paths: %w", err)
+	}
+
+	inputsDigest, err := v.Inputs.Digest(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get inputs digest: %w", err)
+	}
+
+	checkoutDigest, err := checkout.Digest(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get checkout digest: %w", err)
+	}
+
+	return &DebugInfo{
+		IsDirty:        !isEmpty,
+		AddedPaths:     added,
+		ModifiedPaths:  modified,
+		RemovedPaths:   removed,
+		InputsDigest:   inputsDigest,
+		CheckoutDigest: checkoutDigest,
+	}, nil
+}
+
+// DebugDirtyFixed returns info using the fixed approach: overlay inputs on checkout then compare
+func (v Version) DebugDirtyFixed(ctx context.Context) (*DebugInfo, error) {
+	checkout := v.Git.Head().Tree()
+	combined := checkout.WithDirectory("", v.Inputs)
+	changes := combined.Changes(checkout)
+
+	isEmpty, err := changes.IsEmpty(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check isEmpty: %w", err)
+	}
+
+	added, err := changes.AddedPaths(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get added paths: %w", err)
+	}
+
+	modified, err := changes.ModifiedPaths(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get modified paths: %w", err)
+	}
+
+	removed, err := changes.RemovedPaths(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get removed paths: %w", err)
+	}
+
+	combinedDigest, err := combined.Digest(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get combined digest: %w", err)
+	}
+
+	checkoutDigest, err := checkout.Digest(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get checkout digest: %w", err)
+	}
+
+	return &DebugInfo{
+		IsDirty:        !isEmpty,
+		AddedPaths:     added,
+		ModifiedPaths:  modified,
+		RemovedPaths:   removed,
+		InputsDigest:   combinedDigest,
+		CheckoutDigest: checkoutDigest,
+	}, nil
+}
+
+type DebugInfo struct {
+	IsDirty        bool
+	AddedPaths     []string
+	ModifiedPaths  []string
+	RemovedPaths   []string
+	InputsDigest   string
+	CheckoutDigest string
+}
+
+// DebugGitUncommitted returns info using GitRepository.Uncommitted() API
+func (v Version) DebugGitUncommitted(ctx context.Context) (*DebugUncommittedInfo, error) {
+	uncommitted := v.Git.Uncommitted()
+
+	isEmpty, err := uncommitted.IsEmpty(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check isEmpty: %w", err)
+	}
+
+	added, err := uncommitted.AddedPaths(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get added paths: %w", err)
+	}
+
+	modified, err := uncommitted.ModifiedPaths(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get modified paths: %w", err)
+	}
+
+	removed, err := uncommitted.RemovedPaths(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get removed paths: %w", err)
+	}
+
+	return &DebugUncommittedInfo{
+		IsEmpty:       isEmpty,
+		AddedPaths:    added,
+		ModifiedPaths: modified,
+		RemovedPaths:  removed,
+	}, nil
+}
+
+type DebugUncommittedInfo struct {
+	IsEmpty       bool
+	AddedPaths    []string
+	ModifiedPaths []string
+	RemovedPaths  []string
+}
+
+// DebugInputsEntries returns the first N entries from the inputs directory
+func (v Version) DebugInputsEntries(ctx context.Context, limit int) ([]string, error) {
+	entries, err := v.Inputs.Entries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if limit > 0 && len(entries) > limit {
+		entries = entries[:limit]
+	}
+	return entries, nil
+}
+
+// DebugCheckoutEntries returns the first N entries from the git HEAD checkout
+func (v Version) DebugCheckoutEntries(ctx context.Context, limit int) ([]string, error) {
+	checkout := v.Git.Head().Tree()
+	entries, err := checkout.Entries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if limit > 0 && len(entries) > limit {
+		entries = entries[:limit]
+	}
+	return entries, nil
+}
+
+// DebugCompareDirectories shows the difference between inputs and checkout at root level
+func (v Version) DebugCompareDirectories(ctx context.Context) (*DebugDirectoryComparison, error) {
+	checkout := v.Git.Head().Tree()
+
+	inputsEntries, err := v.Inputs.Entries(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get inputs entries: %w", err)
+	}
+
+	checkoutEntries, err := checkout.Entries(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get checkout entries: %w", err)
+	}
+
+	inputsSet := make(map[string]bool)
+	for _, e := range inputsEntries {
+		inputsSet[e] = true
+	}
+	checkoutSet := make(map[string]bool)
+	for _, e := range checkoutEntries {
+		checkoutSet[e] = true
+	}
+
+	var onlyInInputs, onlyInCheckout, inBoth []string
+	for _, e := range inputsEntries {
+		if checkoutSet[e] {
+			inBoth = append(inBoth, e)
+		} else {
+			onlyInInputs = append(onlyInInputs, e)
+		}
+	}
+	for _, e := range checkoutEntries {
+		if !inputsSet[e] {
+			onlyInCheckout = append(onlyInCheckout, e)
+		}
+	}
+
+	return &DebugDirectoryComparison{
+		InputsCount:    len(inputsEntries),
+		CheckoutCount:  len(checkoutEntries),
+		OnlyInInputs:   onlyInInputs,
+		OnlyInCheckout: onlyInCheckout,
+		InBoth:         inBoth,
+	}, nil
+}
+
+type DebugDirectoryComparison struct {
+	InputsCount    int
+	CheckoutCount  int
+	OnlyInInputs   []string
+	OnlyInCheckout []string
+	InBoth         []string
+}
