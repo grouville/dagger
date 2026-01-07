@@ -580,17 +580,20 @@ func (v Version) DebugDirtyOverlay(ctx context.Context) (*DebugGitStatusInfo, er
 	}, nil
 }
 
-// DebugDirtyOverlayFiltered uses overlay approach with gitignore-filtered source
+// DebugDirtyOverlayFiltered uses overlay approach: cleaned tree + source overlay
 func (v Version) DebugDirtyOverlayFiltered(
 	ctx context.Context,
 	// Full repo for gitignore context
 	// +defaultPath="/"
-	// +ignore=["**/.git", "**/.dagger"]
+	// +ignore=["**/.dagger"]
 	source *dagger.Directory,
 ) (*DebugGitStatusInfo, error) {
 	gitRepo := source.AsGit()
 	cleaned := gitRepo.Head().Tree()
-	combined := cleaned.WithDirectory("", source)
+	sourceNoGit := source.Filter(dagger.DirectoryFilterOpts{
+		Exclude: []string{".git"},
+	})
+	combined := cleaned.WithDirectory("", sourceNoGit)
 	changes := combined.Changes(cleaned)
 
 	isEmpty, err := changes.IsEmpty(ctx)
