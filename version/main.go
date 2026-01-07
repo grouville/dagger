@@ -588,12 +588,10 @@ func (v Version) DebugDirtyOverlayFiltered(
 	// +ignore=["**/.git", "**/.dagger"]
 	source *dagger.Directory,
 ) (*DebugGitStatusInfo, error) {
-	checkout := v.Git.Head().Tree()
-	filtered := source.Filter(dagger.DirectoryFilterOpts{
-		Gitignore: true,
-	})
-	combined := checkout.WithDirectory("", filtered)
-	changes := combined.Changes(checkout)
+	gitRepo := source.AsGit()
+	cleaned := gitRepo.Head().Tree()
+	combined := cleaned.WithDirectory("", source)
+	changes := combined.Changes(cleaned)
 
 	isEmpty, err := changes.IsEmpty(ctx)
 	if err != nil {
