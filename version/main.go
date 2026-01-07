@@ -579,3 +579,45 @@ func (v Version) DebugDirtyOverlay(ctx context.Context) (*DebugGitStatusInfo, er
 		ChangedFiles: changedFiles,
 	}, nil
 }
+
+// DebugDirtyOverlayFiltered uses overlay approach with gitignore-filtered source
+func (v Version) DebugDirtyOverlayFiltered(
+	ctx context.Context,
+	// Full repo for gitignore context
+	// +defaultPath="/"
+	source *dagger.Directory,
+) (*DebugGitStatusInfo, error) {
+	checkout := v.Git.Head().Tree()
+	filtered := source.Filter(dagger.DirectoryFilterOpts{
+		Gitignore: true,
+	})
+	combined := checkout.WithDirectory("", filtered)
+	changes := combined.Changes(checkout)
+
+	isEmpty, err := changes.IsEmpty(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check isEmpty: %w", err)
+	}
+
+	var changedFiles []string
+	if !isEmpty {
+		added, _ := changes.AddedPaths(ctx)
+		modified, _ := changes.ModifiedPaths(ctx)
+		removed, _ := changes.RemovedPaths(ctx)
+		for _, p := range added {
+			changedFiles = append(changedFiles, "A  "+p)
+		}
+		for _, p := range modified {
+			changedFiles = append(changedFiles, "M  "+p)
+		}
+		for _, p := range removed {
+			changedFiles = append(changedFiles, "D  "+p)
+		}
+	}
+
+	return &DebugGitStatusInfo{
+		IsDirty:      !isEmpty,
+		GitStatus:    strings.Join(changedFiles, "\n"),
+		ChangedFiles: changedFiles,
+	}, nil
+}
