@@ -472,7 +472,6 @@ func (v Version) DebugDirtyUncommitted(
 	ctx context.Context,
 	// Full repo directory with worktree
 	// +defaultPath="/"
-	// +ignore=["**/.dagger"]
 	source *dagger.Directory,
 ) (*DebugGitStatusInfo, error) {
 	gitRepo := source.AsGit()
