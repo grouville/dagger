@@ -118,7 +118,7 @@ func GetContentHashFromDef(
 	def *pb.Definition,
 	subdir string,
 ) (digest.Digest, error) {
-	return GetContentHashFromDefWithOpts(ctx, bk, def, subdir, bkcontenthash.ChecksumOpts{}, true)
+	return GetContentHashFromDefWithOpts(ctx, bk, def, subdir, bkcontenthash.ChecksumOpts{FollowLinks: true}, true)
 }
 
 // GetContentHashFromDefWithOpts is a variant of GetContentHashFromDef that
@@ -163,7 +163,7 @@ func GetContentHashFromDefWithOpts(
 	key := strings.Join([]string{
 		ref.ID(),
 		strings.TrimPrefix(subdir, "/"),
-		checksumOptsKey(opts, storeMetadata),
+		checksumOptsKey(opts),
 	}, "\x00")
 	dgst, _, err := checksumG.Do(ctx, key, func(ctx context.Context) (_ digest.Digest, rerr error) {
 		if err := ref.Finalize(ctx); err != nil {
@@ -188,11 +188,6 @@ func GetContentHashFromDefWithOpts(
 		)
 		defer telemetry.EndWithCause(span, &rerr)
 
-		if opts.FollowLinks == false && len(opts.IncludePatterns) == 0 && len(opts.ExcludePatterns) == 0 && !opts.Wildcard {
-			// default behavior matches previous implementation
-			opts.FollowLinks = true
-		}
-
 		dgst, err := bkcontenthash.Checksum(ctx, ref, subdir, opts, nil)
 		if err != nil {
 			return "", fmt.Errorf("failed to checksum ref at subdir %s: %w", subdir, err)
@@ -208,9 +203,7 @@ func GetContentHashFromDefWithOpts(
 			}
 		}
 
-		if storeMetadata {
-			bklog.G(ctx).Debugf("GetContentHashKey setting ref %s with digest %s", ref.ID(), dgst)
-		}
+		bklog.G(ctx).Debugf("GetContentHashKey setting ref %s with digest %s", ref.ID(), dgst)
 
 		return dgst, nil
 	})
@@ -218,11 +211,10 @@ func GetContentHashFromDefWithOpts(
 	return dgst, err
 }
 
-func checksumOptsKey(opts bkcontenthash.ChecksumOpts, storeMetadata bool) string {
+func checksumOptsKey(opts bkcontenthash.ChecksumOpts) string {
 	return hashutil.HashStrings(
 		fmt.Sprintf("followlinks=%t", opts.FollowLinks),
 		fmt.Sprintf("wildcard=%t", opts.Wildcard),
-		fmt.Sprintf("store=%t", storeMetadata),
 		"include="+strings.Join(opts.IncludePatterns, "\n"),
 		"exclude="+strings.Join(opts.ExcludePatterns, "\n"),
 	).String()
