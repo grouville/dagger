@@ -26,11 +26,12 @@ import (
 	"github.com/dagger/dagger/dagql/call"
 )
 
-// alreadyResolving returns true if we're inside a redirected __resolve call.
-// When redirect() loads the new ID, it triggers __resolve again. This check
-// prevents infinite recursion by detecting that re-entry.
+// resolveField is the dagql field name for lazy resolution.
+const resolveField = "__resolve"
+
+// alreadyResolving detects re-entry into __resolve (prevents infinite recursion).
 func alreadyResolving(id *call.ID) bool {
-	return id.Field() == "__resolve"
+	return id.Field() == resolveField
 }
 
 // receiverChanged returns true if resolution produced a different receiver.
@@ -38,12 +39,8 @@ func receiverChanged[T dagql.Typed](resolved, original dagql.ObjectResult[T]) bo
 	return resolved.ID().Digest() != original.ID().Digest()
 }
 
-// redirect replays the current operation on a resolved receiver (depth 1).
-//
-// Example: if we're in git("github.com/foo").__resolve and resolve to
-// git("https://github.com/foo"), this produces:
-//
-//	git("https://github.com/foo").__resolve
+// redirect replays the current op on a resolved receiver.
+// git("github.com/foo").__resolve → git("https://github.com/foo").__resolve
 func redirect[T dagql.Typed](
 	ctx context.Context,
 	resolvedReceiverID *call.ID,
@@ -72,7 +69,7 @@ func redirect[T dagql.Typed](
 	return result.(dagql.ObjectResult[T]), nil
 }
 
-// redirectScalar is like redirect but for scalar return types (e.g., String, Array).
+// redirectScalar is like redirect but for scalar return types.
 func redirectScalar[T any](
 	ctx context.Context,
 	resolvedReceiverID *call.ID,
@@ -100,14 +97,8 @@ func redirectScalar[T any](
 	return result.Unwrap().(T), nil
 }
 
-// redirectThroughRef replays through a GitRef when the underlying repo changed (depth 2).
-// This is Git-specific: it hardcodes the GitRef layer between repo and leaf.
-//
-// Example:
-//
-//	Original:  git("github.com/foo").branch("main").__resolve
-//	Rebuilt:   git("https://...").branch("main").__resolve
-//	               ↑ new receiver   ↑ ref to replay  ↑ leaf to replay
+// redirectThroughRef replays through GitRef when repo changed (depth 2, Git-specific).
+// git("github.com/foo").branch("main").__resolve → git("https://...").branch("main").__resolve
 func redirectThroughRef[T dagql.Typed](
 	ctx context.Context,
 	resolvedRepoID *call.ID,

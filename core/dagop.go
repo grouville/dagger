@@ -131,8 +131,6 @@ func (op FSDagOp) Backend() buildkit.CustomOpBackend {
 }
 
 func (op FSDagOp) Digest() (digest.Digest, error) {
-	// TODO(check): consider whether CacheKey should be included here to avoid
-	// unintended merging when different cache keys are used for the same op ID.
 	return digest.FromString(strings.Join([]string{
 		engine.BaseVersion(engine.Version),
 		op.ID.Digest().String(),
