@@ -35,8 +35,10 @@ func alreadyResolving(id *call.ID) bool {
 }
 
 // receiverChanged returns true if resolution produced a different receiver.
+// resolved.ID() is always "original.__resolve" or "newReceiver.__resolve".
+// We compare the receiver (the object before __resolve) with the original.
 func receiverChanged[T dagql.Typed](resolved, original dagql.ObjectResult[T]) bool {
-	return resolved.ID().Digest() != original.ID().Digest()
+	return resolved.ID().Receiver().Digest() != original.ID().Digest()
 }
 
 // redirect replays the current op on a resolved receiver.

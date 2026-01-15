@@ -300,7 +300,7 @@ func (s *gitSchema) url(ctx context.Context, parent dagql.ObjectResult[*core.Git
 	}
 
 	if receiverChanged(resolved, parent) {
-		str, err := redirectScalar[dagql.String](ctx, resolved.ID())
+		str, err := redirectScalar[dagql.String](ctx, resolved.ID().Receiver())
 		if err != nil {
 			return dagql.Null[dagql.String](), err
 		}
@@ -352,7 +352,7 @@ func (s *gitSchema) latestVersion(ctx context.Context, parent dagql.ObjectResult
 	}
 
 	if receiverChanged(resolved, parent) {
-		refObj, err := redirect[*core.GitRef](ctx, resolved.ID())
+		refObj, err := redirect[*core.GitRef](ctx, resolved.ID().Receiver())
 		if err != nil {
 			return inst, err
 		}
@@ -428,7 +428,7 @@ func (s *gitSchema) tags(ctx context.Context, parent dagql.ObjectResult[*core.Gi
 	}
 
 	if receiverChanged(resolved, parent) {
-		return redirectScalar[dagql.Array[dagql.String]](ctx, resolved.ID())
+		return redirectScalar[dagql.Array[dagql.String]](ctx, resolved.ID().Receiver())
 	}
 
 	var patterns []string
@@ -457,7 +457,7 @@ func (s *gitSchema) branches(ctx context.Context, parent dagql.ObjectResult[*cor
 	}
 
 	if receiverChanged(resolved, parent) {
-		return redirectScalar[dagql.Array[dagql.String]](ctx, resolved.ID())
+		return redirectScalar[dagql.Array[dagql.String]](ctx, resolved.ID().Receiver())
 	}
 
 	var patterns []string
@@ -601,7 +601,7 @@ func (s *gitSchema) tree(ctx context.Context, parent dagql.ObjectResult[*core.Gi
 	}
 
 	if receiverChanged(resolved, parent) {
-		return redirect[*core.Directory](ctx, resolved.ID())
+		return redirect[*core.Directory](ctx, resolved.ID().Receiver())
 	}
 
 	ref := resolved.Self()
@@ -693,7 +693,7 @@ func (s *gitSchema) fetchCommit(
 	}
 
 	if receiverChanged(resolved, parent) {
-		return redirectScalar[dagql.String](ctx, resolved.ID())
+		return redirectScalar[dagql.String](ctx, resolved.ID().Receiver())
 	}
 
 	return dagql.NewString(resolved.Self().Ref.SHA), nil
@@ -715,7 +715,7 @@ func (s *gitSchema) fetchRef(
 	}
 
 	if receiverChanged(resolved, parent) {
-		return redirectScalar[dagql.String](ctx, resolved.ID())
+		return redirectScalar[dagql.String](ctx, resolved.ID().Receiver())
 	}
 
 	r := resolved.Self().Ref
@@ -760,10 +760,10 @@ func (s *gitSchema) commonAncestor(
 		newArgs := cur.Args()
 		for i, arg := range newArgs {
 			if arg.Name() == "other" {
-				newArgs[i] = call.NewArgument("other", dagql.NewID[*core.GitRef](resolvedOther.ID()).ToLiteral(), false)
+				newArgs[i] = call.NewArgument("other", dagql.NewID[*core.GitRef](resolvedOther.ID().Receiver()).ToLiteral(), false)
 			}
 		}
-		newLeaf := resolvedSelf.ID().Append(
+		newLeaf := resolvedSelf.ID().Receiver().Append(
 			cur.Type().ToAST(),
 			cur.Field(),
 			call.WithArgs(newArgs...),
@@ -890,7 +890,7 @@ func (s *gitSchema) refResolve(
 	}
 
 	if receiverChanged(resolvedRepo, parent.Self().Repo) {
-		return redirectThroughRef[*core.GitRef](ctx, resolvedRepo.ID(), parent.ID())
+		return redirectThroughRef[*core.GitRef](ctx, resolvedRepo.ID().Receiver(), parent.ID())
 	}
 
 	if err := parent.Self().Resolve(ctx); err != nil {
