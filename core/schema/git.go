@@ -98,12 +98,12 @@ func (s *gitSchema) Install(srv *dagql.Server) {
 		dagql.NodeFunc("latestVersion", s.latestVersion).
 			Doc(`Returns details for the latest semver tag.`),
 
-		dagql.NodeFunc("tags", s.tags).
+		dagql.NodeFuncWithCacheKey("tags", s.tags, dagql.CachePerClient).
 			Doc(`tags that match any of the given glob patterns.`).
 			Args(
 				dagql.Arg("patterns").Doc(`Glob patterns (e.g., "refs/tags/v*").`),
 			),
-		dagql.NodeFunc("branches", s.branches).
+		dagql.NodeFuncWithCacheKey("branches", s.branches, dagql.CachePerClient).
 			Doc(`branches that match any of the given glob patterns.`).
 			Args(
 				dagql.Arg("patterns").Doc(`Glob patterns (e.g., "refs/tags/v*").`),
@@ -129,7 +129,7 @@ func (s *gitSchema) Install(srv *dagql.Server) {
 				dagql.Arg("header").Doc(`Secret used to populate the Authorization HTTP header`),
 			),
 
-		dagql.NodeFuncWithCacheKey("__resolve", s.repoResolve, dagql.CachePerClient).
+		dagql.NodeFuncWithCacheKey(resolveField, s.repoResolve, dagql.CachePerClient).
 			Doc(`(Internal-only) Canonicalizes protocol and auth for this repo, as a DAG node.`),
 	}.Install(srv)
 
@@ -159,7 +159,7 @@ func (s *gitSchema) Install(srv *dagql.Server) {
 				dagql.Arg("other").Doc(`The other ref to compare against.`),
 			),
 
-		dagql.NodeFuncWithCacheKey("__resolve", s.refResolve, dagql.CachePerClient).
+		dagql.NodeFuncWithCacheKey(resolveField, s.refResolve, dagql.CachePerClient).
 			Doc(`(Internal-only) Canonicalizes repo + resolves ref to SHA, as a DAG node.`),
 	}.Install(srv)
 }
@@ -295,7 +295,7 @@ func (s *gitSchema) url(ctx context.Context, parent dagql.ObjectResult[*core.Git
 	}
 
 	var resolved dagql.ObjectResult[*core.GitRepository]
-	if err := srv.Select(ctx, parent, &resolved, dagql.Selector{Field: "__resolve"}); err != nil {
+	if err := srv.Select(ctx, parent, &resolved, dagql.Selector{Field: resolveField}); err != nil {
 		return dagql.Null[dagql.String](), err
 	}
 
@@ -347,7 +347,7 @@ func (s *gitSchema) latestVersion(ctx context.Context, parent dagql.ObjectResult
 	}
 
 	var resolved dagql.ObjectResult[*core.GitRepository]
-	if err := srv.Select(ctx, parent, &resolved, dagql.Selector{Field: "__resolve"}); err != nil {
+	if err := srv.Select(ctx, parent, &resolved, dagql.Selector{Field: resolveField}); err != nil {
 		return inst, err
 	}
 
@@ -423,7 +423,7 @@ func (s *gitSchema) tags(ctx context.Context, parent dagql.ObjectResult[*core.Gi
 	}
 
 	var resolved dagql.ObjectResult[*core.GitRepository]
-	if err := srv.Select(ctx, parent, &resolved, dagql.Selector{Field: "__resolve"}); err != nil {
+	if err := srv.Select(ctx, parent, &resolved, dagql.Selector{Field: resolveField}); err != nil {
 		return nil, err
 	}
 
@@ -452,7 +452,7 @@ func (s *gitSchema) branches(ctx context.Context, parent dagql.ObjectResult[*cor
 	}
 
 	var resolved dagql.ObjectResult[*core.GitRepository]
-	if err := srv.Select(ctx, parent, &resolved, dagql.Selector{Field: "__resolve"}); err != nil {
+	if err := srv.Select(ctx, parent, &resolved, dagql.Selector{Field: resolveField}); err != nil {
 		return nil, err
 	}
 
@@ -596,7 +596,7 @@ func (s *gitSchema) tree(ctx context.Context, parent dagql.ObjectResult[*core.Gi
 	}
 
 	var resolved dagql.ObjectResult[*core.GitRef]
-	if err := srv.Select(ctx, parent, &resolved, dagql.Selector{Field: "__resolve"}); err != nil {
+	if err := srv.Select(ctx, parent, &resolved, dagql.Selector{Field: resolveField}); err != nil {
 		return inst, err
 	}
 
@@ -688,7 +688,7 @@ func (s *gitSchema) fetchCommit(
 	}
 
 	var resolved dagql.ObjectResult[*core.GitRef]
-	if err := srv.Select(ctx, parent, &resolved, dagql.Selector{Field: "__resolve"}); err != nil {
+	if err := srv.Select(ctx, parent, &resolved, dagql.Selector{Field: resolveField}); err != nil {
 		return "", err
 	}
 
@@ -710,7 +710,7 @@ func (s *gitSchema) fetchRef(
 	}
 
 	var resolved dagql.ObjectResult[*core.GitRef]
-	if err := srv.Select(ctx, parent, &resolved, dagql.Selector{Field: "__resolve"}); err != nil {
+	if err := srv.Select(ctx, parent, &resolved, dagql.Selector{Field: resolveField}); err != nil {
 		return "", err
 	}
 
@@ -739,7 +739,7 @@ func (s *gitSchema) commonAncestor(
 	}
 
 	var resolvedSelf dagql.ObjectResult[*core.GitRef]
-	if err := srv.Select(ctx, parent, &resolvedSelf, dagql.Selector{Field: "__resolve"}); err != nil {
+	if err := srv.Select(ctx, parent, &resolvedSelf, dagql.Selector{Field: resolveField}); err != nil {
 		return inst, err
 	}
 	selfChanged := receiverChanged(resolvedSelf, parent)
@@ -750,7 +750,7 @@ func (s *gitSchema) commonAncestor(
 	}
 
 	var resolvedOther dagql.ObjectResult[*core.GitRef]
-	if err := srv.Select(ctx, other, &resolvedOther, dagql.Selector{Field: "__resolve"}); err != nil {
+	if err := srv.Select(ctx, other, &resolvedOther, dagql.Selector{Field: resolveField}); err != nil {
 		return inst, err
 	}
 	otherChanged := receiverChanged(resolvedOther, other)
@@ -846,18 +846,17 @@ func (s *gitSchema) repoResolve(
 		return zero, fmt.Errorf("failed to determine Git URL protocol")
 	}
 
-	if remote.NeedsAuthResolution() {
-		auth, handled, err := s.injectAuth(ctx, srv, remote)
-		if err != nil {
-			return zero, err
+	// Inject auth if not already present; returns (nil, false, nil) if nothing to do.
+	auth, handled, err := s.injectAuth(ctx, srv, remote)
+	if err != nil {
+		return zero, err
+	}
+	if handled {
+		next := repoID.WithArgument(call.NewArgument("url", call.NewLiteralString(auth.urlOverride), false))
+		for _, ni := range auth.extraArgs {
+			next = next.WithArgument(call.NewArgument(ni.Name, ni.Value.ToLiteral(), false))
 		}
-		if handled {
-			next := repoID.WithArgument(call.NewArgument("url", call.NewLiteralString(auth.urlOverride), false))
-			for _, ni := range auth.extraArgs {
-				next = next.WithArgument(call.NewArgument(ni.Name, ni.Value.ToLiteral(), false))
-			}
-			return redirect[*core.GitRepository](ctx, next)
-		}
+		return redirect[*core.GitRepository](ctx, next)
 	}
 
 	if _, err := repo.Backend.Remote(ctx); err != nil {
@@ -886,7 +885,7 @@ func (s *gitSchema) refResolve(
 	}
 
 	var resolvedRepo dagql.ObjectResult[*core.GitRepository]
-	if err := srv.Select(ctx, parent.Self().Repo, &resolvedRepo, dagql.Selector{Field: "__resolve"}); err != nil {
+	if err := srv.Select(ctx, parent.Self().Repo, &resolvedRepo, dagql.Selector{Field: resolveField}); err != nil {
 		return zero, err
 	}
 

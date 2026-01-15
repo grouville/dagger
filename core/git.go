@@ -77,8 +77,7 @@ func (*GitRepository) TypeDescription() string {
 	return "A git repository."
 }
 
-// Resolve resolves the repository's remote metadata. This is the repo-level
-// resolution that GitRef.Resolve() chains to.
+// Resolve fetches remote metadata. Mutates in place: only call from `__resolve`.
 func (repo *GitRepository) Resolve(ctx context.Context) error {
 	if repo.Remote == nil {
 		remote, err := repo.Backend.Remote(ctx)
@@ -116,8 +115,7 @@ func (ref *GitRef) Tree(ctx context.Context, srv *dagql.Server, discardGitDir bo
 	return ref.Backend.Tree(ctx, srv, ref.Repo.Self().DiscardGitDir || discardGitDir, depth)
 }
 
-// Resolve resolves the ref's SHA and name to their canonical forms, and initializes
-// the backend. This chains to GitRepository.Resolve() first.
+// Resolve canonicalizes SHA/name and initializes backend. Mutates in place: only call from `__resolve`.
 func (ref *GitRef) Resolve(ctx context.Context) error {
 	repo := ref.Repo.Self()
 
