@@ -285,7 +285,7 @@ func (s *gitSchema) git(ctx context.Context, parent dagql.ObjectResult[*core.Que
 func (s *gitSchema) url(ctx context.Context, parent dagql.ObjectResult[*core.GitRepository], args struct{}) (dagql.Nullable[dagql.String], error) {
 	repo := parent.Self()
 
-	remoteGitRepo, isRemote := repo.Backend.(*core.RemoteGitRepository)
+	_, isRemote := repo.Backend.(*core.RemoteGitRepository)
 	if !isRemote {
 		return dagql.Null[dagql.String](), nil
 	}
@@ -308,8 +308,8 @@ func (s *gitSchema) url(ctx context.Context, parent dagql.ObjectResult[*core.Git
 		return dagql.NonNull(str), nil
 	}
 
-	remoteGitRepo = resolved.Self().Backend.(*core.RemoteGitRepository)
-	return dagql.NonNull(dagql.String(remoteGitRepo.URL.String())), nil
+	resolvedRemote := resolved.Self().Backend.(*core.RemoteGitRepository)
+	return dagql.NonNull(dagql.String(resolvedRemote.URL.String())), nil
 }
 
 type refArgs struct {
@@ -417,6 +417,7 @@ type branchesArgs struct {
 	Patterns dagql.Optional[dagql.ArrayInput[dagql.String]] `name:"patterns"`
 }
 
+//nolint:dupl
 func (s *gitSchema) tags(ctx context.Context, parent dagql.ObjectResult[*core.GitRepository], args tagsArgs) (dagql.Array[dagql.String], error) {
 	srv, err := core.CurrentDagqlServer(ctx)
 	if err != nil {
@@ -446,6 +447,7 @@ func (s *gitSchema) tags(ctx context.Context, parent dagql.ObjectResult[*core.Gi
 	return dagql.NewStringArray(remote.Filter(patterns).Tags().ShortNames()...), nil
 }
 
+//nolint:dupl
 func (s *gitSchema) branches(ctx context.Context, parent dagql.ObjectResult[*core.GitRepository], args branchesArgs) (dagql.Array[dagql.String], error) {
 	srv, err := core.CurrentDagqlServer(ctx)
 	if err != nil {
