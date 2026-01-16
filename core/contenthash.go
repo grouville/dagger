@@ -24,7 +24,7 @@ import (
 var checksumG singleflight.Group[string, digest.Digest]
 
 // MakeDirectoryContentHashed returns an updated instance of the given Directory that
-// has it's dagql ID digest set to a content hash of the directory. This allows all
+// has its dagql ID digest set to a content hash of the directory. This allows all
 // directory instances with the same content to be deduplicated in dagql's cache.
 func MakeDirectoryContentHashed(
 	ctx context.Context,
@@ -47,8 +47,7 @@ func GetContentHashFromDirectory(
 	return GetContentHashFromDirectoryFiltered(ctx, bk, dirInst, nil, true)
 }
 
-// GetContentHashFromDirectoryFiltered computes a content hash for a directory,
-// optionally excluding paths that match the provided patterns.
+// GetContentHashFromDirectoryFiltered computes a content hash, optionally excluding paths.
 func GetContentHashFromDirectoryFiltered(
 	ctx context.Context,
 	bk *buildkit.Client,
@@ -121,12 +120,8 @@ func GetContentHashFromDef(
 	return GetContentHashFromDefWithOpts(ctx, bk, def, subdir, bkcontenthash.ChecksumOpts{FollowLinks: true}, true)
 }
 
-// GetContentHashFromDefWithOpts is a variant of GetContentHashFromDef that
-// allows callers to customize checksum options (e.g., to exclude paths).
-// When storeMetadata is true, the computed digest may be cached on the ref
-// metadata (same behavior as GetContentHashFromDef). Set it to false if the
-// options make the hash context-specific (e.g., excludes) to avoid polluting
-// the shared cache key.
+// GetContentHashFromDefWithOpts computes a content hash with custom checksum options.
+// Set storeMetadata=false when options are context-specific (e.g., excludes).
 func GetContentHashFromDefWithOpts(
 	ctx context.Context,
 	bk *buildkit.Client,
