@@ -95,7 +95,7 @@ func (s *gitSchema) Install(srv *dagql.Server) {
 				// TODO: id is normally a reserved word; we should probably rename this
 				dagql.Arg("id").Doc(`Identifier of the commit (e.g., "b6315d8f2810962c601af73f86831f6866ea798b").`),
 			),
-		dagql.NodeFunc("latestVersion", s.latestVersion).
+		dagql.NodeFuncWithCacheKey("latestVersion", s.latestVersion, dagql.CachePerClient).
 			Doc(`Returns details for the latest semver tag.`),
 
 		dagql.NodeFuncWithCacheKey("tags", s.tags, dagql.CachePerClient).
@@ -245,8 +245,6 @@ func (s *gitSchema) git(ctx context.Context, parent dagql.ObjectResult[*core.Que
 		return inst, fmt.Errorf("failed to create GitRepository instance: %w", err)
 	}
 
-	// todo(question): do we really care about caching git() now ?
-	// below shall be fine, but wondering if not overkill
 	dgstInputs := []string{
 		// all details of the remote repo
 		args.URL,
@@ -294,11 +292,18 @@ func (s *gitSchema) url(ctx context.Context, parent dagql.ObjectResult[*core.Git
 		return dagql.Null[dagql.String](), fmt.Errorf("failed to get current dagql server: %w", err)
 	}
 
+	// Lazy Resolution
+	//
+	// Git operations are lazy: git("github.com/foo") doesn't hit the network.
+	// Resolution (protocol detection + auth injection) is deferred until a leaf
+	// operation like url(), tree(), or commit() is called. We trigger it here.
 	var resolved dagql.ObjectResult[*core.GitRepository]
 	if err := srv.Select(ctx, parent, &resolved, dagql.Selector{Field: resolveField}); err != nil {
 		return dagql.Null[dagql.String](), err
 	}
 
+	// If resolution changed the receiver (e.g., added protocol or auth), redirect
+	// to the canonical form for cache sharing. See redirect() in git_resolve.go.
 	if receiverChanged(resolved, parent) {
 		str, err := redirectScalar[dagql.String](ctx, resolved.ID().Receiver())
 		if err != nil {
@@ -794,7 +799,7 @@ func (s *gitSchema) repoResolve(
 ) (dagql.ObjectResult[*core.GitRepository], error) {
 	var zero dagql.ObjectResult[*core.GitRepository]
 
-	if alreadyResolving(parent.ID()) {
+	if alreadyResolved(parent.ID()) {
 		return parent, nil
 	}
 
@@ -877,7 +882,7 @@ func (s *gitSchema) refResolve(
 ) (dagql.ObjectResult[*core.GitRef], error) {
 	var zero dagql.ObjectResult[*core.GitRef]
 
-	if alreadyResolving(parent.ID()) {
+	if alreadyResolved(parent.ID()) {
 		return parent, nil
 	}
 

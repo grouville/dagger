@@ -29,8 +29,9 @@ import (
 // resolveField is the dagql field name for lazy resolution.
 const resolveField = "__resolve"
 
-// alreadyResolving detects re-entry into __resolve (prevents infinite recursion).
-func alreadyResolving(id *call.ID) bool {
+// alreadyResolved returns true if this object was already resolved (prevents infinite recursion).
+// If the parent's field is __resolve, we've been redirected here and shouldn't resolve again.
+func alreadyResolved(id *call.ID) bool {
 	return id.Field() == resolveField
 }
 
@@ -41,8 +42,20 @@ func receiverChanged[T dagql.Typed](resolved, original dagql.ObjectResult[T]) bo
 	return resolved.ID().Receiver().Digest() != original.ID().Digest()
 }
 
-// redirect replays the current op on a resolved receiver.
-// git("github.com/foo").__resolve → git("https://github.com/foo").__resolve
+// redirect works like an HTTP 301 redirect.
+//
+// Instead of computing the result here, we tell dagql: "go execute this call
+// on the canonical receiver instead." This ensures the result is cached under
+// the canonical cache key, so future calls (regardless of how the URL was
+// originally written) will hit the same cache entry.
+//
+// Example:
+//
+//	git("github.com/foo").url() is called
+//	  → resolution canonicalizes to git("https://github.com/foo", sshAuthSocket: X)
+//	  → redirect says "go execute git("https://...").url() instead"
+//	  → result is cached under git("https://...").url()
+//	  → future calls to git("https://...").url() get a cache hit
 func redirect[T dagql.Typed](
 	ctx context.Context,
 	resolvedReceiverID *call.ID,
@@ -54,12 +67,14 @@ func redirect[T dagql.Typed](
 		return zero, fmt.Errorf("failed to get current dagql server: %w", err)
 	}
 
-	// The operation we're currently in: we replay it on the resolved receiver
+	// Get the current operation (e.g., "url" from git("...").url())
 	opToReplay := dagql.CurrentID(ctx)
 
+	// Build the redirected call: canonicalReceiver.currentOp()
+	// e.g., git("github.com/foo").url() → git("https://github.com/foo").url()
 	redirectedID := resolvedReceiverID.Append(
-		opToReplay.Type().ToAST(),
-		opToReplay.Field(),
+		opToReplay.Type().ToAST(), // return type
+		opToReplay.Field(),        // field name (e.g., "url")
 		call.WithArgs(opToReplay.Args()...),
 		call.WithView(opToReplay.View()),
 	)
@@ -99,8 +114,22 @@ func redirectScalar[T any](
 	return result.Unwrap().(T), nil
 }
 
-// redirectThroughRef replays through GitRef when repo changed (depth 2, Git-specific).
-// git("github.com/foo").branch("main").__resolve → git("https://...").branch("main").__resolve
+// redirectThroughRef is like redirect but for 2-level deep calls (Git-specific).
+//
+// Why is this needed? When resolving a GitRef, we first resolve the underlying
+// repo. If the repo changes (e.g., adds auth), we can't use plain redirect()
+// because that only replays ONE operation. Here we have TWO levels:
+//
+//	git("github.com/foo").branch("main").__resolve
+//	         ↑ repo              ↑ ref       ↑ leaf (current op)
+//
+// If just the repo changed, redirect() would try: newRepo.__resolve
+// But we need: newRepo.branch("main").__resolve
+//
+// So redirectThroughRef rebuilds both the ref AND the leaf on the canonical repo:
+//
+//	BEFORE: git("github.com/foo").branch("main").__resolve
+//	AFTER:  git("https://github.com/foo").branch("main").__resolve
 func redirectThroughRef[T dagql.Typed](
 	ctx context.Context,
 	resolvedRepoID *call.ID,
@@ -113,20 +142,23 @@ func redirectThroughRef[T dagql.Typed](
 		return zero, fmt.Errorf("failed to get current dagql server: %w", err)
 	}
 
+	// Get the leaf operation we're currently in (e.g., __resolve, tree, commit)
 	leafOpToReplay := dagql.CurrentID(ctx)
 
-	// Replay ref: resolvedRepo.branch("main")
+	// Step 1: Rebuild the ref on the canonical repo
+	// git("https://github.com/foo").branch("main")
 	rebuiltRefID := resolvedRepoID.Append(
 		(*core.GitRef)(nil).Type(),
-		refOpToReplay.Field(),
+		refOpToReplay.Field(), // "branch", "tag", etc.
 		call.WithArgs(refOpToReplay.Args()...),
 		call.WithView(refOpToReplay.View()),
 	)
 
-	// Replay leaf: rebuiltRef.__resolve (or .tree(), etc.)
+	// Step 2: Append the leaf operation to the rebuilt ref
+	// git("https://github.com/foo").branch("main").__resolve
 	redirectedID := rebuiltRefID.Append(
 		leafOpToReplay.Type().ToAST(),
-		leafOpToReplay.Field(),
+		leafOpToReplay.Field(), // "__resolve", "tree", etc.
 		call.WithArgs(leafOpToReplay.Args()...),
 		call.WithView(refOpToReplay.View()),
 	)
