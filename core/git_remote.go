@@ -219,7 +219,10 @@ func (repo *RemoteGitRepository) setup(ctx context.Context) (_ *gitutil.GitCLI, 
 	if repo.SSHAuthSocket.Valid && repo.SSHAuthSocket.Value.ID() != nil {
 		socketStore, err := query.Sockets(ctx)
 		if err == nil {
-			srv, _ := CurrentDagqlServer(ctx)
+			srv, err := CurrentDagqlServer(ctx)
+			if err != nil {
+				return nil, nil, fmt.Errorf("failed to get dagql server: %w", err)
+			}
 			sockObj, err := repo.SSHAuthSocket.Value.Load(ctx, srv)
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to load SSH socket: %w", err)
