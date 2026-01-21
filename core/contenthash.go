@@ -78,7 +78,7 @@ func GetContentHashFromDirectoryFiltered(
 	if len(exclude) > 0 {
 		opts.ExcludePatterns = exclude
 	}
-	dgst, err := GetContentHashFromDefWithOpts(ctx, bk, def.ToPB(), dirPath, opts, len(exclude) == 0)
+	dgst, err := GetContentHashFromDefWithOpts(ctx, bk, def.ToPB(), dirPath, opts)
 	if err != nil {
 		return "", fmt.Errorf("failed to get content hash: %w", err)
 	}
@@ -117,22 +117,27 @@ func GetContentHashFromDef(
 	def *pb.Definition,
 	subdir string,
 ) (digest.Digest, error) {
-	return GetContentHashFromDefWithOpts(ctx, bk, def, subdir, bkcontenthash.ChecksumOpts{FollowLinks: true}, true)
+	return GetContentHashFromDefWithOpts(ctx, bk, def, subdir, bkcontenthash.ChecksumOpts{FollowLinks: true})
 }
 
 // GetContentHashFromDefWithOpts computes a content hash with custom checksum options.
-// Set storeMetadata=false when options are context-specific (e.g., excludes).
 func GetContentHashFromDefWithOpts(
 	ctx context.Context,
 	bk *buildkit.Client,
 	def *pb.Definition,
 	subdir string,
 	opts bkcontenthash.ChecksumOpts,
-	storeMetadata bool,
 ) (digest.Digest, error) {
 	if subdir == "" {
 		subdir = "/"
 	}
+
+	// Only store metadata for unfiltered root hashes. Filtered hashes (with
+	// include/exclude patterns) are context-specific and would pollute the
+	// shared cache if stored.
+	storeMetadata := subdir == "/" &&
+		len(opts.IncludePatterns) == 0 &&
+		len(opts.ExcludePatterns) == 0
 
 	res, err := bk.Solve(ctx, bkgw.SolveRequest{
 		Definition: def,
