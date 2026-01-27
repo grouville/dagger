@@ -19,18 +19,12 @@ import (
 	"github.com/dagger/dagger/engine/server/resource"
 	"github.com/dagger/dagger/engine/slog"
 	"github.com/dagger/dagger/engine/sources/netconfhttp"
-	"github.com/dagger/dagger/internal/buildkit/executor/oci"
 	"golang.org/x/mod/semver"
 
 	"github.com/dagger/dagger/util/gitutil"
 	"github.com/dagger/dagger/util/hashutil"
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/config"
-	"github.com/go-git/go-git/v5/plumbing/format/pktline"
-	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/client"
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
-	"github.com/go-git/go-git/v5/storage/memory"
 )
 
 func init() {
@@ -427,8 +421,7 @@ func (s *gitSchema) git(ctx context.Context, parent dagql.ObjectResult[*core.Que
 				break
 			}
 
-			// start services if needed, before checking for auth
-			var dnsConfig *oci.DNSConfig
+			// start services if needed, before getting credentials
 			if len(gitServices) > 0 {
 				svcs, err := parent.Self().Services(ctx)
 				if err != nil {
@@ -439,21 +432,12 @@ func (s *gitSchema) git(ctx context.Context, parent dagql.ObjectResult[*core.Que
 					return inst, err
 				}
 				defer detach()
-
-				dnsConfig, err = core.DNSConfig(ctx)
-				if err != nil {
-					return inst, err
-				}
 			}
 
-			public, err := IsRemotePublic(netconfhttp.WithDNSConfig(ctx, dnsConfig), remote)
-			if err != nil {
-				return inst, err
-			}
-			if public {
-				break
-			}
-
+			// Try to retrieve credentials from host.
+			// Skip the IsRemotePublic check - it does an extra network call (ls-remote without auth)
+			// just to determine if the repo is public. Instead, we just try to get credentials
+			// and use them if available. Using credentials for public repos is harmless.
 			// Retrieve credential from host
 			authCtx := engine.ContextWithClientMetadata(ctx, parentClientMetadata)
 			bk, err := parent.Self().Buildkit(authCtx)
@@ -611,26 +595,26 @@ func (s *gitSchema) git(ctx context.Context, parent dagql.ObjectResult[*core.Que
 	return inst, nil
 }
 
-func IsRemotePublic(ctx context.Context, remote *gitutil.GitURL) (bool, error) {
-	// check if repo is public
-	repo := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
-		Name: "origin",
-		URLs: []string{remote.Remote()},
-	})
-	_, err := repo.ListContext(ctx, &git.ListOptions{Auth: nil})
-	if err != nil {
-		// Some Git hosts (Azure Repos and custom portals) return a 200 HTML login page for unauthenticated refs: go-git reports ErrInvalidPktLen
-		// treat as auth-required/private
-		if errors.Is(err, pktline.ErrInvalidPktLen) {
-			return false, nil
-		}
-		if errors.Is(err, transport.ErrAuthenticationRequired) {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
-}
+// func IsRemotePublic(ctx context.Context, remote *gitutil.GitURL) (bool, error) {
+// 	// check if repo is public
+// 	repo := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
+// 		Name: "origin",
+// 		URLs: []string{remote.Remote()},
+// 	})
+// 	_, err := repo.ListContext(ctx, &git.ListOptions{Auth: nil})
+// 	if err != nil {
+// 		// Some Git hosts (Azure Repos and custom portals) return a 200 HTML login page for unauthenticated refs: go-git reports ErrInvalidPktLen
+// 		// treat as auth-required/private
+// 		if errors.Is(err, pktline.ErrInvalidPktLen) {
+// 			return false, nil
+// 		}
+// 		if errors.Is(err, transport.ErrAuthenticationRequired) {
+// 			return false, nil
+// 		}
+// 		return false, err
+// 	}
+// 	return true, nil
+// }
 
 type refArgs struct {
 	Name   string
