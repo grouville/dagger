@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"dagger.io/dagger"
 	"github.com/dagger/dagger/core/modules"
@@ -646,6 +647,75 @@ func (m *Test) UsesDep(ctx context.Context) (string, error) {
 
 		// The generated code should be byte-for-byte identical
 		require.Equal(t, firstGen, secondGen, "Generated code should be deterministic across multiple runs")
+	})
+
+	t.Run("go secondary type and interface", func(ctx context.Context, t *testctx.T) {
+		c := connect(ctx, t)
+
+		modGen := goGitBase(t, c).
+			WithMountedFile(testCLIBinPath, daggerCliFile(t, c)).
+			WithWorkdir("/work").
+			With(daggerExec("init", "--name=git-repo", "--sdk=go", "--source=."))
+
+		for _, file := range []struct {
+			path     string
+			contents string
+		}{
+			{
+				path: "/work/main.go",
+				contents: `package main
+type GitRepo struct{}
+
+func (m *GitRepo) RemoteA() *RemoteA {
+	return &RemoteA{}
+}
+
+func (m *GitRepo) RemoteB() *RemoteB {
+	return &RemoteB{}
+}
+`,
+			},
+			{
+				path: "/work/remote_a.go",
+				contents: `package main
+
+type RemoteA struct{}
+`,
+			},
+			{
+				path: "/work/remote_b.go",
+				contents: `package main
+
+type RemoteB struct{}
+`,
+			},
+		} {
+			modGen = modGen.WithNewFile(file.path, file.contents)
+		}
+
+		const iterations = 24
+		var baseline string
+		for i := 1; i <= iterations; i++ {
+			// Force module context digest to change every run, so codegen work is
+			// recomputed instead of being served only from cached outputs.
+			expectedNonce := fmt.Sprintf("nonce-%d", i)
+			modGen = modGen.WithNewFile("/work/.repro_nonce.txt", expectedNonce)
+			modGen = modGen.WithEnvVariable("CACHE_BUSTER", time.Now().String()).With(daggerExec("develop"))
+
+			nonceNow, err := modGen.File("/work/.repro_nonce.txt").Contents(ctx)
+			require.NoError(t, err)
+			require.Equalf(t, expectedNonce, strings.TrimSpace(nonceNow), "Nonce mismatch on iteration %d", i)
+
+			generated, err := modGen.File("/work/dagger.gen.go").Contents(ctx)
+			require.NoError(t, err)
+
+			if i == 1 {
+				baseline = generated
+				continue
+			}
+
+			require.Equalf(t, baseline, generated, "Generated code changed on iteration %d", i)
+		}
 	})
 }
 
