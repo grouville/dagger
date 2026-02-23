@@ -1,0 +1,100 @@
+#!/usr/bin/env bpftrace
+
+/*
+ * Trace git subprocesses spawned by the Dagger engine process tree.
+ *
+ * This file is a template. __ENGINE_PID__ is replaced by run-git-ebpf.sh.
+ */
+
+BEGIN
+{
+  @tracked[__ENGINE_PID__] = 1;
+__SEED_TRACKED__
+  printf("Tracing git subprocesses for engine root pid=%d (Ctrl-C to stop)\n", __ENGINE_PID__);
+}
+
+tracepoint:sched:sched_process_fork
+/args->parent_pid == __ENGINE_PID__ || @tracked[args->parent_pid]/
+{
+  @tracked[args->child_pid] = 1;
+}
+
+tracepoint:sched:sched_process_exec
+/@tracked[pid]/
+{
+  // Avoid stringifying filename (large stack usage); comm is enough here.
+  // "git-remote-https" can be truncated in comm to "git-remote-http".
+  if (comm == "git" || comm == "git-remote-http" || comm == "git-remote-ssh") {
+    @git_start_ns[pid] = nsecs;
+    time("%H:%M:%S ");
+    printf("git_exec pid=%d comm=%s\n", pid, comm);
+  }
+}
+
+tracepoint:syscalls:sys_enter_connect
+/@git_start_ns[pid]/
+{
+  @connect_start_ns[tid] = nsecs;
+}
+
+tracepoint:syscalls:sys_exit_connect
+/@connect_start_ns[tid]/
+{
+  $dur_ms = (nsecs - @connect_start_ns[tid]) / 1000000;
+  @connect_count[pid] = @connect_count[pid] + 1;
+  @connect_total_ms[pid] = @connect_total_ms[pid] + $dur_ms;
+  time("%H:%M:%S ");
+  printf("git_connect pid=%d tid=%d ret=%d dur_ms=%d\n", pid, tid, args->ret, $dur_ms);
+  delete(@connect_start_ns[tid]);
+}
+
+tracepoint:syscalls:sys_exit_sendto
+/@git_start_ns[pid] && args->ret > 0/
+{
+  $n = (uint64)args->ret;
+  @send_bytes[pid] = @send_bytes[pid] + $n;
+}
+
+tracepoint:syscalls:sys_exit_recvfrom
+/@git_start_ns[pid] && args->ret > 0/
+{
+  $n = (uint64)args->ret;
+  @recv_bytes[pid] = @recv_bytes[pid] + $n;
+}
+
+tracepoint:sched:sched_process_exit
+/@git_start_ns[pid]/
+{
+  $dur_ms = (nsecs - @git_start_ns[pid]) / 1000000;
+  $conn_n = @connect_count[pid];
+  $conn_ms = @connect_total_ms[pid];
+  $send = @send_bytes[pid];
+  $recv = @recv_bytes[pid];
+
+  time("%H:%M:%S ");
+  printf("git_exit pid=%d dur_ms=%d conn_count=%d conn_ms=%d send_bytes=%d recv_bytes=%d\n",
+    pid, $dur_ms, $conn_n, $conn_ms, $send, $recv);
+
+  @git_dur_ms = hist($dur_ms);
+  @git_total_ms = sum($dur_ms);
+  @git_count = count();
+
+  delete(@tracked[pid]);
+  delete(@git_start_ns[pid]);
+  delete(@connect_count[pid]);
+  delete(@connect_total_ms[pid]);
+  delete(@send_bytes[pid]);
+  delete(@recv_bytes[pid]);
+}
+
+tracepoint:sched:sched_process_exit
+/@tracked[pid] && !@git_start_ns[pid]/
+{
+  // Keep tracking map bounded even for non-git descendants.
+  delete(@tracked[pid]);
+}
+
+END
+{
+  printf("Done.\n");
+}
