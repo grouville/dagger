@@ -1,0 +1,79 @@
+#!/usr/bin/env bpftrace
+
+/*
+ * Trace all git subprocesses on the host kernel.
+ *
+ * Use this mode when git execs are not direct descendants of the engine pid
+ * (for example, when BuildKit worker execs are launched by another supervisor).
+ */
+
+BEGIN
+{
+  printf("Tracing ALL git subprocesses on host (Ctrl-C to stop)\n");
+}
+
+tracepoint:sched:sched_process_exec
+/comm == "git" || comm == "git-remote-http" || comm == "git-remote-ssh"/
+{
+  @git_start_ns[pid] = nsecs;
+  time("%H:%M:%S ");
+  printf("git_exec pid=%d comm=%s cgroup=%llu\n", pid, comm, cgroup);
+}
+
+tracepoint:syscalls:sys_enter_connect
+/@git_start_ns[pid]/
+{
+  @connect_start_ns[tid] = nsecs;
+}
+
+tracepoint:syscalls:sys_exit_connect
+/@connect_start_ns[tid]/
+{
+  $dur_ms = (nsecs - @connect_start_ns[tid]) / 1000000;
+  @connect_count[pid] = @connect_count[pid] + 1;
+  @connect_total_ms[pid] = @connect_total_ms[pid] + $dur_ms;
+  delete(@connect_start_ns[tid]);
+}
+
+tracepoint:syscalls:sys_exit_sendto
+/@git_start_ns[pid] && args->ret > 0/
+{
+  $n = (uint64)args->ret;
+  @send_bytes[pid] = @send_bytes[pid] + $n;
+}
+
+tracepoint:syscalls:sys_exit_recvfrom
+/@git_start_ns[pid] && args->ret > 0/
+{
+  $n = (uint64)args->ret;
+  @recv_bytes[pid] = @recv_bytes[pid] + $n;
+}
+
+tracepoint:sched:sched_process_exit
+/@git_start_ns[pid]/
+{
+  $dur_ms = (nsecs - @git_start_ns[pid]) / 1000000;
+  $conn_n = @connect_count[pid];
+  $conn_ms = @connect_total_ms[pid];
+  $send = @send_bytes[pid];
+  $recv = @recv_bytes[pid];
+
+  time("%H:%M:%S ");
+  printf("git_exit pid=%d dur_ms=%d conn_count=%d conn_ms=%d send_bytes=%d recv_bytes=%d cgroup=%llu\n",
+    pid, $dur_ms, $conn_n, $conn_ms, $send, $recv, cgroup);
+
+  @git_dur_ms = hist($dur_ms);
+  @git_total_ms = sum($dur_ms);
+  @git_count = count();
+
+  delete(@git_start_ns[pid]);
+  delete(@connect_count[pid]);
+  delete(@connect_total_ms[pid]);
+  delete(@send_bytes[pid]);
+  delete(@recv_bytes[pid]);
+}
+
+END
+{
+  printf("Done.\n");
+}
