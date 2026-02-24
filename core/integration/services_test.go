@@ -1108,6 +1108,123 @@ func (ServiceSuite) TestServiceNoExec(ctx context.Context, t *testctx.T) {
 	requireErrOut(t, err, "start "+host+" (aliased as www)")
 }
 
+// TestReproHostAliasLookupWithFastExitingDependency is an env-gated stress test
+// to reproduce transient "lookup <host> for hosts file" failures observed with
+// nested service bindings under load.
+func (ServiceSuite) TestReproHostAliasLookupWithFastExitingDependency(ctx context.Context, t *testctx.T) {
+	if os.Getenv("DAGGER_REPRO_HOST_ALIAS_LOOKUP") == "" {
+		t.Skip("set DAGGER_REPRO_HOST_ALIAS_LOOKUP=1 to run this repro test")
+	}
+
+	c := connect(ctx, t)
+
+	const (
+		attempts    = 80
+		concurrency = 16
+	)
+	exposePorts := os.Getenv("DAGGER_REPRO_HOST_ALIAS_LOOKUP_EXPOSE_PORTS") != ""
+
+	sem := make(chan struct{}, concurrency)
+	var (
+		mu              sync.Mutex
+		lookupErrCount  int
+		depExitErrCount int
+		depHealthErrs   int
+		otherErrCount   int
+		firstLookupErr  string
+		firstOtherErr   string
+	)
+
+	eg := new(errgroup.Group)
+	for i := range attempts {
+		i := i
+		eg.Go(func() error {
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			dep := c.Container().
+				From(alpineImage).
+				WithEnvVariable("REPRO_ATTEMPT", strconv.Itoa(i)).
+				WithDefaultArgs([]string{"sh", "-c", "sleep 0.05"})
+			if exposePorts {
+				dep = dep.WithExposedPort(12345)
+			}
+			depSvc := dep.AsService()
+
+			depHost, err := depSvc.Hostname(ctx)
+			if err != nil {
+				return err
+			}
+
+			backend := c.Container().
+				From(alpineImage).
+				WithEnvVariable("REPRO_ATTEMPT", strconv.Itoa(i)).
+				WithServiceBinding("dep", depSvc).
+				WithDefaultArgs([]string{"sh", "-c", "sleep 1"})
+			if exposePorts {
+				backend = backend.WithExposedPort(18080)
+			}
+			backendSvc := backend.AsService()
+
+			_, err = c.Container().
+				From(alpineImage).
+				WithServiceBinding("backend", backendSvc).
+				WithEnvVariable("CACHEBUST", identity.NewID()).
+				WithExec([]string{"sh", "-c", "echo ok >/dev/null"}).
+				Sync(ctx)
+			if err == nil {
+				return nil
+			}
+
+			msg := err.Error()
+
+			mu.Lock()
+			defer mu.Unlock()
+
+			if strings.Contains(msg, "lookup "+depHost+" for hosts file") {
+				lookupErrCount++
+				if firstLookupErr == "" {
+					firstLookupErr = msg
+				}
+				return nil
+			}
+			if strings.Contains(msg, "start "+depHost+" (aliased as dep): exit code:") {
+				depExitErrCount++
+				return nil
+			}
+			if strings.Contains(msg, "start "+depHost+" (aliased as dep): service exited before healthcheck") {
+				depHealthErrs++
+				return nil
+			}
+
+			otherErrCount++
+			if firstOtherErr == "" {
+				firstOtherErr = msg
+			}
+			return nil
+		})
+	}
+
+	require.NoError(t, eg.Wait())
+
+	t.Logf("repro summary: lookup_errors=%d dep_exit_errors=%d dep_health_errors=%d other_errors=%d",
+		lookupErrCount, depExitErrCount, depHealthErrs, otherErrCount)
+	if firstLookupErr != "" {
+		t.Logf("sample lookup error: %s", firstLookupErr)
+	}
+	if firstOtherErr != "" {
+		t.Logf("sample other error: %s", firstOtherErr)
+	}
+
+	if exposePorts {
+		require.Equalf(t, 0, lookupErrCount, "unexpected lookup hosts-file errors with exposed ports across %d attempts", attempts)
+		require.Greaterf(t, depHealthErrs, 0, "expected dependency healthcheck exits with exposed ports across %d attempts", attempts)
+		return
+	}
+
+	require.Greaterf(t, lookupErrCount, 0, "did not reproduce lookup hosts-file error across %d attempts", attempts)
+}
+
 //go:embed testdata/udp-service.go
 var udpSrc string
 
