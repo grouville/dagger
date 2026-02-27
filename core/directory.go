@@ -21,6 +21,7 @@ import (
 	bkclient "github.com/dagger/dagger/internal/buildkit/client"
 	"github.com/dagger/dagger/internal/buildkit/client/llb"
 	bkgw "github.com/dagger/dagger/internal/buildkit/frontend/gateway/client"
+	bksession "github.com/dagger/dagger/internal/buildkit/session"
 	"github.com/dagger/dagger/internal/buildkit/snapshot"
 	"github.com/dagger/dagger/internal/buildkit/solver/pb"
 	fscopy "github.com/dagger/dagger/internal/fsutil/copy"
@@ -387,6 +388,65 @@ func (dir *Directory) WithNewFile(ctx context.Context, dest string, content []by
 }
 
 func (dir *Directory) WithPatch(ctx context.Context, patch string) (*Directory, error) {
+	return dir.withAppliedPatch(ctx, func(_ context.Context, resolvedDir string, _ bksession.Group, stdio telemetry.SpanStreams) error {
+		apply := exec.Command("git", "apply", "--allow-empty", "-")
+		apply.Dir = resolvedDir
+		apply.Stdin = strings.NewReader(patch)
+		apply.Stdout = stdio.Stdout
+		apply.Stderr = stdio.Stderr
+		if err := apply.Run(); err != nil {
+			// NB: we could technically populate a buildkit.ExecError here, but that
+			// feels like it leaks implementation details; "exit status 128" isn't
+			// exactly clear
+			return errors.New("failed to apply patch")
+		}
+		return nil
+	})
+}
+
+func (dir *Directory) WithPatchFile(ctx context.Context, patch *File) (*Directory, error) {
+	if patch == nil {
+		return dir.Clone(), nil
+	}
+
+	patchRef, err := getRefOrEvaluate(ctx, patch)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get patch ref: %w", err)
+	}
+
+	return dir.withAppliedPatch(ctx, func(ctx context.Context, resolvedDir string, bkSessionGroup bksession.Group, stdio telemetry.SpanStreams) error {
+		return MountRef(ctx, patchRef, bkSessionGroup, func(patchRoot string, _ *mount.Mount) error {
+			patchPath, err := containerdfs.RootPath(patchRoot, patch.File)
+			if err != nil {
+				return err
+			}
+
+			patchFile, err := os.Open(patchPath)
+			if err != nil {
+				return fmt.Errorf("open patch file: %w", err)
+			}
+			defer patchFile.Close()
+
+			apply := exec.Command("git", "apply", "--allow-empty", "-")
+			apply.Dir = resolvedDir
+			apply.Stdin = patchFile
+			apply.Stdout = stdio.Stdout
+			apply.Stderr = stdio.Stderr
+			if err := apply.Run(); err != nil {
+				// NB: we could technically populate a buildkit.ExecError here, but that
+				// feels like it leaks implementation details; "exit status 128" isn't
+				// exactly clear
+				return errors.New("failed to apply patch")
+			}
+			return nil
+		}, mountRefAsReadOnly)
+	})
+}
+
+func (dir *Directory) withAppliedPatch(
+	ctx context.Context,
+	applyPatch func(context.Context, string, bksession.Group, telemetry.SpanStreams) error,
+) (*Directory, error) {
 	dir = dir.Clone()
 
 	parentRef, err := getRefOrEvaluate(ctx, dir)
@@ -417,23 +477,12 @@ func (dir *Directory) WithPatch(ctx context.Context, patch string) (*Directory, 
 	if err != nil {
 		return nil, err
 	}
-	err = MountRef(ctx, newRef, bkSessionGroup, func(root string, _ *mount.Mount) (rerr error) {
+	err = MountRef(ctx, newRef, bkSessionGroup, func(root string, _ *mount.Mount) error {
 		resolvedDir, err := containerdfs.RootPath(root, dir.Dir)
 		if err != nil {
 			return err
 		}
-		apply := exec.Command("git", "apply", "--allow-empty", "-")
-		apply.Dir = resolvedDir
-		apply.Stdin = strings.NewReader(patch)
-		apply.Stdout = stdio.Stdout
-		apply.Stderr = stdio.Stderr
-		if err := apply.Run(); err != nil {
-			// NB: we could technically populate a buildkit.ExecError here, but that
-			// feels like it leaks implementation details; "exit status 128" isn't
-			// exactly clear
-			return errors.New("failed to apply patch")
-		}
-		return nil
+		return applyPatch(ctx, resolvedDir, bkSessionGroup, stdio)
 	})
 	if err != nil {
 		return nil, err

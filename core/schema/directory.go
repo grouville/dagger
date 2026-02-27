@@ -610,13 +610,7 @@ func (s *directorySchema) withPatchFile(ctx context.Context, parent dagql.Object
 	if err != nil {
 		return inst, err
 	}
-	// FIXME: would be nice to avoid reading into memory, need to adjust WithPatch
-	// for that
-	patch, err := patchFile.Self().Contents(ctx, nil, nil)
-	if err != nil {
-		return inst, err
-	}
-	dir, err := parent.Self().WithPatch(ctx, string(patch))
+	dir, err := parent.Self().WithPatchFile(ctx, patchFile.Self())
 	if err != nil {
 		return inst, err
 	}
