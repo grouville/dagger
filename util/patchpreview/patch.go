@@ -13,6 +13,7 @@ import (
 
 type Changeset interface {
 	AddedPaths(context.Context) ([]string, error)
+	ModifiedPaths(context.Context) ([]string, error)
 	RemovedPaths(context.Context) ([]string, error)
 }
 
@@ -21,9 +22,14 @@ type File interface {
 }
 
 type PatchPreview struct {
-	Patch       *diffparser.Diff
+	Patch *diffparser.Diff
+
 	AddedDirs   []string
 	RemovedDirs []string
+
+	addedPaths    []string
+	removedPaths  []string
+	modifiedPaths []string
 }
 
 func New(ctx context.Context, rawPatch string, changeset Changeset) (*PatchPreview, error) {
@@ -56,6 +62,32 @@ func New(ctx context.Context, rawPatch string, changeset Changeset) (*PatchPrevi
 		Patch:       patch,
 		AddedDirs:   addedDirectories,
 		RemovedDirs: removedDirectories,
+	}, nil
+}
+
+// NewFromChangesetPaths builds a preview from change paths without parsing patch contents.
+func NewFromChangesetPaths(ctx context.Context, changeset Changeset) (*PatchPreview, error) {
+	addedPaths, err := changeset.AddedPaths(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("get added paths: %w", err)
+	}
+	modifiedPaths, err := changeset.ModifiedPaths(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("get modified paths: %w", err)
+	}
+	removedPaths, err := changeset.RemovedPaths(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("get removed paths: %w", err)
+	}
+
+	if len(addedPaths) == 0 && len(removedPaths) == 0 && len(modifiedPaths) == 0 {
+		return nil, nil
+	}
+
+	return &PatchPreview{
+		addedPaths:    addedPaths,
+		removedPaths:  removedPaths,
+		modifiedPaths: modifiedPaths,
 	}, nil
 }
 
@@ -162,6 +194,32 @@ type patchPreviewLine struct {
 }
 
 func (preview *PatchPreview) lines() []patchPreviewLine {
+	if preview.Patch == nil {
+		modeByFilename := map[string]diffparser.FileMode{}
+		for _, filename := range preview.modifiedPaths {
+			modeByFilename[filename] = diffparser.MODIFIED
+		}
+		for _, filename := range preview.addedPaths {
+			modeByFilename[filename] = diffparser.NEW
+		}
+		for _, filename := range preview.removedPaths {
+			modeByFilename[filename] = diffparser.DELETED
+		}
+
+		previews := make([]patchPreviewLine, 0, len(modeByFilename))
+		for filename, mode := range modeByFilename {
+			previews = append(previews, patchPreviewLine{
+				filename: filename,
+				mode:     mode,
+			})
+		}
+
+		slices.SortFunc(previews, func(a, b patchPreviewLine) int {
+			return strings.Compare(a.filename, b.filename)
+		})
+		return previews
+	}
+
 	addedDirs := make([]patchPreviewLine, 0, len(preview.AddedDirs))
 	for _, filename := range preview.AddedDirs {
 		addedDirs = append(addedDirs, patchPreviewLine{filename: filename, mode: diffparser.NEW})
