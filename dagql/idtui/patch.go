@@ -9,13 +9,20 @@ import (
 )
 
 func PreviewPatch(ctx context.Context, changeset *dagger.Changeset) (*patchpreview.PatchPreview, error) {
-	rawPatch, err := changeset.AsPatch().Contents(ctx)
+	diffStat, err := changeset.DiffStat(ctx)
 	if err != nil {
-		preview, fallbackErr := patchpreview.NewFromChangesetPaths(ctx, changeset)
-		if fallbackErr == nil {
-			return preview, nil
-		}
-		return nil, fmt.Errorf("get patch: %w", err)
+		return nil, fmt.Errorf("get diff stat: %w", err)
 	}
-	return patchpreview.New(ctx, rawPatch, changeset)
+
+	entries := make([]patchpreview.Entry, 0, len(diffStat))
+	for _, entry := range diffStat {
+		entries = append(entries, patchpreview.Entry{
+			Path:    entry.Path,
+			Kind:    string(entry.Kind),
+			Added:   entry.AddedLines,
+			Removed: entry.RemovedLines,
+		})
+	}
+
+	return patchpreview.New(entries), nil
 }

@@ -1,7 +1,6 @@
 package patchpreview
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -9,37 +8,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type fakeChangeset struct {
-	added    []string
-	removed  []string
-	modified []string
+func TestNewEmpty(t *testing.T) {
+	require.Nil(t, New(nil))
+	require.Nil(t, New([]Entry{{Path: ""}}))
 }
 
-func (f fakeChangeset) AddedPaths(context.Context) ([]string, error) {
-	return f.added, nil
-}
-
-func (f fakeChangeset) RemovedPaths(context.Context) ([]string, error) {
-	return f.removed, nil
-}
-
-func (f fakeChangeset) ModifiedPaths(context.Context) ([]string, error) {
-	return f.modified, nil
-}
-
-func TestNewFromChangesetPathsNoChanges(t *testing.T) {
-	preview, err := NewFromChangesetPaths(context.Background(), fakeChangeset{})
-	require.NoError(t, err)
-	require.Nil(t, preview)
-}
-
-func TestNewFromChangesetPathsSummary(t *testing.T) {
-	preview, err := NewFromChangesetPaths(context.Background(), fakeChangeset{
-		added:    []string{"new.txt"},
-		removed:  []string{"old.txt"},
-		modified: []string{"mod.txt"},
+func TestSummary(t *testing.T) {
+	preview := New([]Entry{
+		{Path: "mod.txt", Kind: "MODIFIED", Added: 1, Removed: 1},
+		{Path: "new.txt", Kind: "ADDED", Added: 1},
+		{Path: "old.txt", Kind: "REMOVED", Removed: 1},
+		{Path: "removed-dir/", Kind: "REMOVED"},
+		{Path: "removed-dir/file.txt", Kind: "REMOVED", Removed: 2},
 	})
-	require.NoError(t, err)
 	require.NotNil(t, preview)
 
 	var summary strings.Builder
@@ -47,8 +28,12 @@ func TestNewFromChangesetPathsSummary(t *testing.T) {
 	require.NoError(t, preview.Summarize(out, 80))
 
 	text := summary.String()
+	require.Contains(t, text, "mod.txt")
 	require.Contains(t, text, "new.txt")
 	require.Contains(t, text, "old.txt")
-	require.Contains(t, text, "mod.txt")
-	require.Contains(t, text, "3 files changed")
+	require.Contains(t, text, "removed-dir/")
+	require.NotContains(t, text, "removed-dir/file.txt")
+	require.Contains(t, text, "4 files changed")
+	require.Contains(t, text, "+2")
+	require.Contains(t, text, "-4")
 }

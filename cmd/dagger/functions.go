@@ -747,27 +747,12 @@ func handleChangesetResponse(ctx context.Context, dag *dagger.Client, response a
 		return nil
 	}
 
-	var summary strings.Builder
-	var noChanges bool
-	if err := (func() (rerr error) {
-		ctx, span := Tracer().Start(ctx, "analyzing changes")
-		defer telemetry.EndWithCause(span, &rerr)
-
-		preview, err := idtui.PreviewPatch(ctx, changeset)
-		if err != nil {
-			return err
-		}
-		noChanges = preview == nil
-		if noChanges {
-			slog.Info("no changes to apply")
-			return nil
-		}
-		return preview.Summarize(idtui.NewOutput(&summary), 80)
-	})(); err != nil {
+	description, noChanges, err := summarizeChangesetPaths(ctx, changeset)
+	if err != nil {
 		return err
 	}
-
 	if noChanges {
+		slog.Info("no changes to apply")
 		return nil
 	}
 
@@ -777,7 +762,7 @@ func handleChangesetResponse(ctx context.Context, dag *dagger.Client, response a
 			huh.NewGroup(
 				huh.NewConfirm().
 					Title("Apply changes?").
-					Description(summary.String()).
+					Description(description).
 					Affirmative("Apply").
 					Negative("Discard").
 					Value(&confirm),
@@ -797,6 +782,57 @@ func handleChangesetResponse(ctx context.Context, dag *dagger.Client, response a
 		return err
 	}
 	return nil
+}
+
+func summarizeChangesetPaths(ctx context.Context, changeset *dagger.Changeset) (summary string, noChanges bool, _ error) {
+	added, err := changeset.AddedPaths(ctx)
+	if err != nil {
+		return "", false, fmt.Errorf("get added paths: %w", err)
+	}
+	modified, err := changeset.ModifiedPaths(ctx)
+	if err != nil {
+		return "", false, fmt.Errorf("get modified paths: %w", err)
+	}
+	removed, err := changeset.RemovedPaths(ctx)
+	if err != nil {
+		return "", false, fmt.Errorf("get removed paths: %w", err)
+	}
+
+	total := len(added) + len(modified) + len(removed)
+	if total == 0 {
+		return "", true, nil
+	}
+
+	sort.Strings(added)
+	sort.Strings(modified)
+	sort.Strings(removed)
+
+	const maxPreviewLines = 20
+	lines := make([]string, 0, total)
+
+	for _, path := range added {
+		lines = append(lines, "+ "+path)
+	}
+	for _, path := range modified {
+		lines = append(lines, "~ "+path)
+	}
+	for _, path := range removed {
+		lines = append(lines, "- "+path)
+	}
+
+	shown := lines
+	if len(lines) > maxPreviewLines {
+		shown = lines[:maxPreviewLines]
+	}
+
+	var out strings.Builder
+	out.WriteString("Apply generated changes to the current directory.\n\n")
+	out.WriteString(strings.Join(shown, "\n"))
+	if len(lines) > len(shown) {
+		fmt.Fprintf(&out, "\n... and %d more paths", len(lines)-len(shown))
+	}
+
+	return out.String(), false, nil
 }
 
 // startInteractivePromptMode starts the interactive shell with the returned LLM assigned as $agent

@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -18,6 +19,11 @@ type fileChanges struct {
 	Removed  []string
 }
 
+type lineChanges struct {
+	Added   int
+	Removed int
+}
+
 // compareDirectories returns the file-level differences between two directories.
 func compareDirectories(ctx context.Context, oldDir, newDir string) (fileChanges, error) {
 	out, err := runGitDiff(ctx, oldDir, newDir)
@@ -25,6 +31,14 @@ func compareDirectories(ctx context.Context, oldDir, newDir string) (fileChanges
 		return fileChanges{}, err
 	}
 	return parseGitOutput(out, oldDir, newDir), nil
+}
+
+func compareDirectoriesNumStat(ctx context.Context, oldDir, newDir string) (map[string]lineChanges, error) {
+	out, err := runGitDiffNumStat(ctx, oldDir, newDir)
+	if err != nil {
+		return nil, err
+	}
+	return parseGitNumStatOutput(out, oldDir, newDir), nil
 }
 
 // directoriesAreIdentical returns true if both directories have identical content.
@@ -49,6 +63,19 @@ func runGitDiff(ctx context.Context, oldDir, newDir string) ([]byte, error) {
 		return out, nil
 	}
 	// git diff exits 1 when differences exist - that's not an error for us
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+		return out, nil
+	}
+	return nil, err
+}
+
+func runGitDiffNumStat(ctx context.Context, oldDir, newDir string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, "git", "diff", "--no-index", "--numstat", "-z", oldDir, newDir)
+	out, err := cmd.Output()
+	if err == nil {
+		return out, nil
+	}
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
 		return out, nil
@@ -92,6 +119,57 @@ func parseGitOutput(out []byte, oldDir, newDir string) fileChanges {
 	return changes
 }
 
+func parseGitNumStatOutput(out []byte, oldDir, newDir string) map[string]lineChanges {
+	stats := make(map[string]lineChanges)
+	tokens := splitOnNul(out)
+	for i := 0; i < len(tokens); {
+		parts := strings.SplitN(tokens[i], "\t", 3)
+		if len(parts) < 2 {
+			i++
+			continue
+		}
+
+		added := parseNumStatCount(parts[0])
+		removed := parseNumStatCount(parts[1])
+
+		var path string
+		switch {
+		case len(parts) == 3 && parts[2] != "":
+			path = relativeDiffPath(parts[2], oldDir, newDir)
+			i++
+		case i+2 < len(tokens):
+			path = relativeDiffPath(tokens[i+2], newDir, oldDir)
+			if path == "" {
+				path = relativeDiffPath(tokens[i+1], newDir, oldDir)
+			}
+			i += 3
+		default:
+			i++
+		}
+		if path == "" {
+			continue
+		}
+
+		stats[path] = lineChanges{
+			Added:   added,
+			Removed: removed,
+		}
+	}
+
+	return stats
+}
+
+func parseNumStatCount(raw string) int {
+	if raw == "-" {
+		return 0
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
 func splitOnNul(data []byte) []string {
 	if len(data) == 0 {
 		return nil
@@ -107,15 +185,26 @@ func splitOnNul(data []byte) []string {
 }
 
 func appendRelativePath(paths []string, fullPath, baseDir string) []string {
-	relative, found := strings.CutPrefix(fullPath, baseDir)
-	if !found {
-		return paths
-	}
-	relative = strings.TrimPrefix(relative, "/")
+	relative := relativeDiffPath(fullPath, baseDir)
 	if relative == "" {
 		return paths
 	}
 	return append(paths, relative)
+}
+
+func relativeDiffPath(fullPath string, baseDirs ...string) string {
+	for _, baseDir := range baseDirs {
+		relative, found := strings.CutPrefix(fullPath, baseDir)
+		if !found {
+			continue
+		}
+		relative = strings.TrimPrefix(relative, "/")
+		if relative == "" {
+			return ""
+		}
+		return relative
+	}
+	return ""
 }
 
 // listSubdirectories returns all subdirectory paths relative to root.

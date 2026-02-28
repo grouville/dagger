@@ -27,7 +27,6 @@ import (
 	"github.com/dagger/dagger/util/hashutil"
 	"github.com/dagger/dagger/util/patchpreview"
 	"github.com/iancoleman/strcase"
-	"github.com/jedevc/diffparser"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/muesli/termenv"
 	"github.com/opencontainers/go-digest"
@@ -414,33 +413,27 @@ func (m *MCP) summarizePatch(ctx context.Context, srv *dagql.Server, changes dag
 	}
 	if strings.Count(rawPatch, "\n") > 100 {
 		// If the patch is too large, show a summary instead
-		var addedPaths, removedPaths []string
-		if err := srv.Select(ctx, changes, &addedPaths, dagql.Selector{
+		var diffStat []*ChangesetDiffStatEntry
+		if err := srv.Select(ctx, changes, &diffStat, dagql.Selector{
 			View:  srv.View,
-			Field: "addedPaths",
+			Field: "diffStat",
 		}); err != nil {
-			return fmt.Sprintf("WARNING: failed to fetch added paths: %s", err), nil
+			return fmt.Sprintf("WARNING: failed to fetch diff stat: %s", err), nil
 		}
-		if err := srv.Select(ctx, changes, &removedPaths, dagql.Selector{
-			View:  srv.View,
-			Field: "removedPaths",
-		}); err != nil {
-			return fmt.Sprintf("WARNING: failed to fetch removed paths: %s", err), nil
+
+		entries := make([]patchpreview.Entry, 0, len(diffStat))
+		for _, stat := range diffStat {
+			entries = append(entries, patchpreview.Entry{
+				Path:    stat.Path,
+				Kind:    string(stat.Kind),
+				Added:   stat.AddedLines,
+				Removed: stat.RemovedLines,
+			})
 		}
-		addedDirectories := slices.DeleteFunc(addedPaths, func(s string) bool {
-			return !strings.HasSuffix(s, "/")
-		})
-		removedDirectories := slices.DeleteFunc(removedPaths, func(s string) bool {
-			return !strings.HasSuffix(s, "/")
-		})
-		patch, err := diffparser.Parse(rawPatch)
-		if err != nil {
-			return "", fmt.Errorf("parse patch: %w", err)
-		}
-		preview := &patchpreview.PatchPreview{
-			Patch:       patch,
-			AddedDirs:   addedDirectories,
-			RemovedDirs: removedDirectories,
+
+		preview := patchpreview.New(entries)
+		if preview == nil {
+			return "", nil
 		}
 		var res strings.Builder
 		llmOut := termenv.NewOutput(&res, termenv.WithProfile(termenv.Ascii))

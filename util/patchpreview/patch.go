@@ -1,8 +1,6 @@
 package patchpreview
 
 import (
-	"cmp"
-	"context"
 	"fmt"
 	"slices"
 	"strings"
@@ -11,101 +9,48 @@ import (
 	"github.com/muesli/termenv"
 )
 
-type Changeset interface {
-	AddedPaths(context.Context) ([]string, error)
-	ModifiedPaths(context.Context) ([]string, error)
-	RemovedPaths(context.Context) ([]string, error)
-}
-
-type File interface {
-	Contents(context.Context) (string, error)
+type Entry struct {
+	Path    string
+	Kind    string
+	Added   int
+	Removed int
 }
 
 type PatchPreview struct {
-	Patch *diffparser.Diff
-
-	AddedDirs   []string
-	RemovedDirs []string
-
-	addedPaths    []string
-	removedPaths  []string
-	modifiedPaths []string
+	lines []patchPreviewLine
 }
 
-func New(ctx context.Context, rawPatch string, changeset Changeset) (*PatchPreview, error) {
-	addedDirectories, err := changeset.AddedPaths(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("get added paths: %w", err)
+func New(entries []Entry) *PatchPreview {
+	if len(entries) == 0 {
+		return nil
 	}
-	addedDirectories = slices.DeleteFunc(addedDirectories, func(s string) bool {
-		return !strings.HasSuffix(s, "/")
+
+	lines := make([]patchPreviewLine, 0, len(entries))
+	for _, entry := range entries {
+		if entry.Path == "" {
+			continue
+		}
+		lines = append(lines, patchPreviewLine{
+			filename: entry.Path,
+			mode:     modeFromKind(entry.Kind),
+			added:    entry.Added,
+			removed:  entry.Removed,
+		})
+	}
+	if len(lines) == 0 {
+		return nil
+	}
+
+	lines = consolidateRemovedDirs(lines)
+	slices.SortFunc(lines, func(a, b patchPreviewLine) int {
+		return strings.Compare(a.filename, b.filename)
 	})
-	removedDirectories, err := changeset.RemovedPaths(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("get removed paths: %w", err)
-	}
-	removedDirectories = slices.DeleteFunc(removedDirectories, func(s string) bool {
-		return !strings.HasSuffix(s, "/")
-	})
 
-	if rawPatch == "" && len(addedDirectories) == 0 && len(removedDirectories) == 0 {
-		// No changes
-		return nil, nil
-	}
-
-	patch, err := diffparser.Parse(rawPatch)
-	if err != nil {
-		return nil, fmt.Errorf("parse patch: %w", err)
-	}
-
-	return &PatchPreview{
-		Patch:       patch,
-		AddedDirs:   addedDirectories,
-		RemovedDirs: removedDirectories,
-	}, nil
-}
-
-// NewFromChangesetPaths builds a preview from change paths without parsing patch contents.
-func NewFromChangesetPaths(ctx context.Context, changeset Changeset) (*PatchPreview, error) {
-	addedPaths, err := changeset.AddedPaths(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("get added paths: %w", err)
-	}
-	modifiedPaths, err := changeset.ModifiedPaths(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("get modified paths: %w", err)
-	}
-	removedPaths, err := changeset.RemovedPaths(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("get removed paths: %w", err)
-	}
-
-	if len(addedPaths) == 0 && len(removedPaths) == 0 && len(modifiedPaths) == 0 {
-		return nil, nil
-	}
-
-	return &PatchPreview{
-		addedPaths:    addedPaths,
-		removedPaths:  removedPaths,
-		modifiedPaths: modifiedPaths,
-	}, nil
-}
-
-func SummarizeString(ctx context.Context, rawPatch string, changeset Changeset) (string, error) {
-	preview, err := New(ctx, rawPatch, changeset)
-	if err != nil {
-		return "", err
-	}
-	var summary strings.Builder
-	out := termenv.NewOutput(&summary)
-	if err := preview.Summarize(out, 80); err != nil {
-		return "", err
-	}
-	return summary.String(), nil
+	return &PatchPreview{lines: lines}
 }
 
 func (preview *PatchPreview) Summarize(out *termenv.Output, maxWidth int) error {
-	lines := preview.lines()
+	lines := preview.lines
 
 	longestFilenameLen := 0
 	for _, line := range lines {
@@ -113,9 +58,10 @@ func (preview *PatchPreview) Summarize(out *termenv.Output, maxWidth int) error 
 			longestFilenameLen = len(line.filename)
 		}
 	}
+
 	var maxFilenameLen int
 	if maxWidth > 0 {
-		maxFilenameLen := max(maxWidth-20, 10) // Leave space for " | ", change count, and bars
+		maxFilenameLen = max(maxWidth-20, 10) // Leave space for " | ", change count, and bars
 		if longestFilenameLen > maxFilenameLen {
 			longestFilenameLen = maxFilenameLen
 		}
@@ -140,15 +86,12 @@ func (preview *PatchPreview) Summarize(out *termenv.Output, maxWidth int) error 
 		totalAdded += line.added
 		totalRemoved += line.removed
 
-		// Format line with colors
 		out.WriteString(out.String(filename).Foreground(filenameColor).String())
 		if len(filename) < longestFilenameLen {
 			out.WriteString(strings.Repeat(" ", longestFilenameLen-len(filename)))
 		}
 
-		// Show change indicator
 		if maxWidth > 0 {
-			// Simplified text form for constrained width
 			if line.added > 0 {
 				fmt.Fprintf(out, " %s", out.String(fmt.Sprintf("+%d", line.added)).Foreground(termenv.ANSIGreen))
 			}
@@ -157,8 +100,6 @@ func (preview *PatchPreview) Summarize(out *termenv.Output, maxWidth int) error 
 			}
 		} else {
 			out.WriteString(" | ")
-
-			// Absolute bars representation
 			if line.added > 0 {
 				out.WriteString(out.String(strings.Repeat("+", line.added)).Foreground(termenv.ANSIGreen).String())
 			}
@@ -169,7 +110,6 @@ func (preview *PatchPreview) Summarize(out *termenv.Output, maxWidth int) error 
 		out.WriteString("\n")
 	}
 
-	// Add total summary line
 	fmt.Fprintln(out)
 	fmt.Fprintf(out, "%d %s changed", len(lines), pluralize(len(lines), "file", "files"))
 	if totalAdded+totalRemoved > 0 {
@@ -193,87 +133,47 @@ type patchPreviewLine struct {
 	removed  int
 }
 
-func (preview *PatchPreview) lines() []patchPreviewLine {
-	if preview.Patch == nil {
-		modeByFilename := map[string]diffparser.FileMode{}
-		for _, filename := range preview.modifiedPaths {
-			modeByFilename[filename] = diffparser.MODIFIED
+func consolidateRemovedDirs(lines []patchPreviewLine) []patchPreviewLine {
+	removedDirs := make([]patchPreviewLine, 0, len(lines))
+	otherLines := make([]patchPreviewLine, 0, len(lines))
+	for _, line := range lines {
+		if line.mode == diffparser.DELETED && strings.HasSuffix(line.filename, "/") {
+			removedDirs = append(removedDirs, line)
+			continue
 		}
-		for _, filename := range preview.addedPaths {
-			modeByFilename[filename] = diffparser.NEW
-		}
-		for _, filename := range preview.removedPaths {
-			modeByFilename[filename] = diffparser.DELETED
-		}
-
-		previews := make([]patchPreviewLine, 0, len(modeByFilename))
-		for filename, mode := range modeByFilename {
-			previews = append(previews, patchPreviewLine{
-				filename: filename,
-				mode:     mode,
-			})
-		}
-
-		slices.SortFunc(previews, func(a, b patchPreviewLine) int {
-			return strings.Compare(a.filename, b.filename)
-		})
-		return previews
+		otherLines = append(otherLines, line)
+	}
+	if len(removedDirs) == 0 {
+		return lines
 	}
 
-	addedDirs := make([]patchPreviewLine, 0, len(preview.AddedDirs))
-	for _, filename := range preview.AddedDirs {
-		addedDirs = append(addedDirs, patchPreviewLine{filename: filename, mode: diffparser.NEW})
-	}
-
-	removedDirs := make([]patchPreviewLine, 0, len(preview.RemovedDirs))
-	for _, filename := range preview.RemovedDirs {
-		removedDirs = append(removedDirs, patchPreviewLine{filename: filename, mode: diffparser.DELETED})
-	}
-
-	previews := make([]patchPreviewLine, 0, len(preview.Patch.Files)+len(preview.AddedDirs)+len(preview.RemovedDirs))
-loop:
-	for _, f := range preview.Patch.Files {
-		filename := cmp.Or(f.NewName, f.OrigName)
-
-		var removedLines, addedLines int
-		for _, h := range f.Hunks {
-			for _, l := range h.WholeRange.Lines {
-				switch l.Mode {
-				case diffparser.ADDED:
-					addedLines++
-				case diffparser.REMOVED:
-					removedLines++
+	result := make([]patchPreviewLine, 0, len(otherLines)+len(removedDirs))
+lineLoop:
+	for _, line := range otherLines {
+		if line.mode == diffparser.DELETED {
+			for i := range removedDirs {
+				if strings.HasPrefix(line.filename, removedDirs[i].filename) {
+					removedDirs[i].removed += line.removed
+					continue lineLoop
 				}
 			}
 		}
-
-		// consolidate into removed dirs (avoids listing every file in a removed dir)
-		if f.Mode == diffparser.DELETED {
-			for i, dir := range removedDirs {
-				if strings.HasPrefix(filename, dir.filename) {
-					dir.removed += removedLines
-					removedDirs[i] = dir
-					continue loop
-				}
-			}
-		}
-
-		previews = append(previews, patchPreviewLine{
-			filename: filename,
-			mode:     f.Mode,
-			added:    addedLines,
-			removed:  removedLines,
-		})
+		result = append(result, line)
 	}
 
-	previews = append(previews, addedDirs...)
-	previews = append(previews, removedDirs...)
+	result = append(result, removedDirs...)
+	return result
+}
 
-	slices.SortFunc(previews, func(a, b patchPreviewLine) int {
-		return strings.Compare(a.filename, b.filename)
-	})
-
-	return previews
+func modeFromKind(kind string) diffparser.FileMode {
+	switch kind {
+	case "ADDED":
+		return diffparser.NEW
+	case "REMOVED":
+		return diffparser.DELETED
+	default:
+		return diffparser.MODIFIED
+	}
 }
 
 func pluralize(count int, singular, plural string) string {
