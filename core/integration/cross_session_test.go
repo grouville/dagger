@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -1142,9 +1143,15 @@ func (ModuleSuite) TestCrossSessionContextualDirChangeMonorepoContextDirectory(c
 	)
 	require.NoError(t, err)
 
-	// Keep test cost bounded while still verifying that contextual dir sees .git content.
-	require.NoError(t, os.MkdirAll(filepath.Join(monorepoCopyDir, ".git"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(monorepoCopyDir, ".git", "HEAD"), []byte("ref: refs/heads/main\n"), 0o644))
+	// Use a real git repo shape so runtime git introspection does not fail due to malformed metadata.
+	gitInitCmd := exec.CommandContext(ctx, "git", "-C", monorepoCopyDir, "init", "-q")
+	gitInitOutput, err := gitInitCmd.CombinedOutput()
+	require.NoError(t, err, string(gitInitOutput))
+
+	gitHeadBytes, err := os.ReadFile(filepath.Join(monorepoCopyDir, ".git", "HEAD"))
+	require.NoError(t, err)
+	expectedGitHead := string(gitHeadBytes)
+	require.NotEmpty(t, expectedGitHead)
 
 	initCmd := hostDaggerCommand(ctx, t, monorepoCopyDir, "init", "--source=src", "--name=test", "--sdk=go")
 	initOutput, err := initCmd.CombinedOutput()
@@ -1196,7 +1203,7 @@ func (t *Test) GitHead(ctx context.Context) (string, error) {
 	}](c1, t, `{test{probe gitHead}}`, nil)
 	require.NoError(t, err)
 	require.Equal(t, rand1, res1.Test.Probe)
-	require.Equal(t, "ref: refs/heads/main\n", res1.Test.GitHead)
+	require.Equal(t, expectedGitHead, res1.Test.GitHead)
 
 	rand2 := identity.NewID()
 	require.NoError(t, os.WriteFile(filepath.Join(monorepoCopyDir, probeRelPath), []byte(rand2), 0o644))
@@ -1215,7 +1222,7 @@ func (t *Test) GitHead(ctx context.Context) (string, error) {
 	}](c2, t, `{test{probe gitHead}}`, nil)
 	require.NoError(t, err)
 	require.Equal(t, rand2, res2.Test.Probe)
-	require.Equal(t, "ref: refs/heads/main\n", res2.Test.GitHead)
+	require.Equal(t, expectedGitHead, res2.Test.GitHead)
 }
 
 func (ModuleSuite) TestCrossSessionContextualDirCacheHit(ctx context.Context, t *testctx.T) {
