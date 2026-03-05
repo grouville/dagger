@@ -31,6 +31,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/dagger/dagger/engine/contenthash"
+	"github.com/dagger/dagger/engine/filesync/cas"
 	telemetry "github.com/dagger/otel-go"
 )
 
@@ -74,9 +75,10 @@ type localFS struct {
 	filterFS fsutil.FS
 	includes []string // the include patterns we're using for this sync
 	excludes []string // the exclude patterns we're using for this sync
+	scopeKey cas.ScopeKey
 }
 
-func newLocalFS(sharedState *localFSSharedState, subdir string, includes, excludes []string, copyPath string) (*localFS, error) {
+func newLocalFS(sharedState *localFSSharedState, subdir string, includes, excludes []string, copyPath string, scopeKey cas.ScopeKey) (*localFS, error) {
 	baseFS, err := fsutil.NewFS(filepath.Join(sharedState.rootPath, subdir))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create base fs: %w", err)
@@ -97,6 +99,7 @@ func newLocalFS(sharedState *localFSSharedState, subdir string, includes, exclud
 		includes:           includes,
 		excludes:           excludes,
 		copyPath:           copyPath,
+		scopeKey:           scopeKey,
 	}, nil
 }
 
@@ -541,6 +544,9 @@ func (local *localFS) Sync( //nolint:gocyclo
 		attribute.Int("filesync.change.deferred_hardlink", deferredHardlinkCount),
 		attribute.Int64("filesync.diff_apply.duration_ms", diffApplyDurationMs),
 	)
+	if local.scopeKey != "" {
+		copySpan.SetAttributes(attribute.String("filesync.scope.key", local.scopeKey.String()))
+	}
 
 	// If we didn't find any files/dir in the given relative path, we can early return an error.
 	if local.copyPath != "" && !relPathFound {

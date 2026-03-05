@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dagger/dagger/engine/filesync/cas"
 	bkcache "github.com/dagger/dagger/internal/buildkit/cache"
 	bkclient "github.com/dagger/dagger/internal/buildkit/client"
 	"github.com/dagger/dagger/internal/buildkit/identity"
@@ -159,8 +160,18 @@ func (ls *FileSyncer) sync(
 
 	// now sync in the clientPath dir
 	remote := newRemoteFS(caller, drive+clientPath, opts.IncludePatterns, opts.ExcludePatterns, opts.GitIgnore)
+	scopeKey, err := cas.NewScopeKey(cas.ScopeInput{
+		ClientPath:      drive + clientPath,
+		IncludePatterns: opts.IncludePatterns,
+		ExcludePatterns: opts.ExcludePatterns,
+		GitIgnore:       opts.GitIgnore,
+		RelativePath:    opts.RelativePath,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to compute filesync scope key: %w", err)
+	}
 	// local mirror should not apply gitignore; remote stats carry ignore metadata.
-	local, err := newLocalFS(ref.sharedState, clientPath, opts.IncludePatterns, opts.ExcludePatterns, opts.RelativePath)
+	local, err := newLocalFS(ref.sharedState, clientPath, opts.IncludePatterns, opts.ExcludePatterns, opts.RelativePath, scopeKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create local fs: %w", err)
 	}
@@ -198,7 +209,7 @@ func (ls *FileSyncer) syncParentDirs(
 	}
 
 	remote := newRemoteFS(caller, root, includes, excludes, false)
-	local, err := newLocalFS(ref.sharedState, "/", includes, excludes, opts.RelativePath)
+	local, err := newLocalFS(ref.sharedState, "/", includes, excludes, opts.RelativePath, "")
 	if err != nil {
 		return fmt.Errorf("failed to create local fs: %w", err)
 	}
