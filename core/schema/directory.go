@@ -316,6 +316,9 @@ func (s *directorySchema) Install(srv *dagql.Server) {
 		dagql.NodeFunc("removedPaths", DagOpWrapper(srv, s.changesetRemovedPaths)).
 			Doc(`Files and directories that were removed. Directories are indicated by a trailing slash, and their child paths are not included.`),
 		dagql.NodeFunc("diffStat", DagOpWrapper(srv, s.changesetDiffStat)).
+			// Keep this out of older schema views so PreviewPatch can detect
+			// unsupported engines and fall back to path-only summaries.
+			View(AfterVersion("v0.20.1")).
 			Doc(`Structured per-path diff statistics (kind and line counts) for this changeset.`),
 		dagql.NodeFunc("withChangeset", DagOpChangesetWrapper(srv, s.changesetWithChangeset)).
 			Doc(`Add changes to an existing changeset`,

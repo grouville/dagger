@@ -396,6 +396,68 @@ func (m *MCP) updateEnvWorkspace(ctx context.Context, workspace dagql.ObjectResu
 }
 
 func (m *MCP) summarizePatch(ctx context.Context, srv *dagql.Server, changes dagql.ObjectResult[*Changeset]) (string, error) {
+	diffStat, err := loadChangesetDiffStat(ctx, srv, changes)
+	if err != nil {
+		return fmt.Sprintf("WARNING: failed to fetch diff stat: %s", err), nil
+	}
+	if len(diffStat) == 0 {
+		// No changes; don't say anything, since saying "No changes" could be
+		// confusing depending on other context (like logs from a `git show`)
+		return "", nil
+	}
+
+	entries := make([]patchpreview.Entry, 0, len(diffStat))
+	totalLineChanges := 0
+	for _, stat := range diffStat {
+		totalLineChanges += stat.AddedLines + stat.RemovedLines
+		entries = append(entries, patchpreview.Entry{
+			Path:    stat.Path,
+			Kind:    string(stat.Kind),
+			Added:   stat.AddedLines,
+			Removed: stat.RemovedLines,
+		})
+	}
+
+	preview := patchpreview.New(entries)
+	if preview == nil {
+		return "", nil
+	}
+
+	const (
+		maxInlinePatchLineChanges = 100
+		maxInlinePatchFiles       = 20
+	)
+	if shouldInlineRawPatch(totalLineChanges, len(entries), maxInlinePatchLineChanges, maxInlinePatchFiles) {
+		if rawPatch, ok := tryLoadRawPatch(ctx, srv, changes); ok {
+			return rawPatch, nil
+		}
+	}
+
+	summary, err := renderPatchSummary(preview)
+	if err != nil {
+		return fmt.Sprintf("WARNING: failed to render patch summary: %s", err), nil
+	}
+	return summary, nil
+}
+
+func loadChangesetDiffStat(ctx context.Context, srv *dagql.Server, changes dagql.ObjectResult[*Changeset]) ([]*ChangesetDiffStatEntry, error) {
+	var diffStat []*ChangesetDiffStatEntry
+	if err := srv.Select(ctx, changes, &diffStat, dagql.Selector{
+		View:  srv.View,
+		Field: "diffStat",
+	}); err != nil {
+		return nil, err
+	}
+	return diffStat, nil
+}
+
+func shouldInlineRawPatch(totalLineChanges, fileCount, maxLineChanges, maxFiles int) bool {
+	// Line changes of 0 usually means binary-only diffs; avoid loading raw patch
+	// contents for those to keep the response path fast.
+	return totalLineChanges > 0 && totalLineChanges <= maxLineChanges && fileCount <= maxFiles
+}
+
+func tryLoadRawPatch(ctx context.Context, srv *dagql.Server, changes dagql.ObjectResult[*Changeset]) (string, bool) {
 	var rawPatch string
 	if err := srv.Select(ctx, changes, &rawPatch, dagql.Selector{
 		View:  srv.View,
@@ -403,46 +465,19 @@ func (m *MCP) summarizePatch(ctx context.Context, srv *dagql.Server, changes dag
 	}, dagql.Selector{
 		View:  srv.View,
 		Field: "contents",
-	}); err != nil {
-		return fmt.Sprintf("WARNING: failed to fetch patch summary: %s", err), nil
+	}); err != nil || rawPatch == "" {
+		return "", false
 	}
-	if rawPatch == "" {
-		// No changes; don't say anything, since saying "No changes" could be
-		// confusing depending on other context (like logs from a `git show`)
-		return "", nil
-	}
-	if strings.Count(rawPatch, "\n") > 100 {
-		// If the patch is too large, show a summary instead
-		var diffStat []*ChangesetDiffStatEntry
-		if err := srv.Select(ctx, changes, &diffStat, dagql.Selector{
-			View:  srv.View,
-			Field: "diffStat",
-		}); err != nil {
-			return fmt.Sprintf("WARNING: failed to fetch diff stat: %s", err), nil
-		}
+	return rawPatch, true
+}
 
-		entries := make([]patchpreview.Entry, 0, len(diffStat))
-		for _, stat := range diffStat {
-			entries = append(entries, patchpreview.Entry{
-				Path:    stat.Path,
-				Kind:    string(stat.Kind),
-				Added:   stat.AddedLines,
-				Removed: stat.RemovedLines,
-			})
-		}
-
-		preview := patchpreview.New(entries)
-		if preview == nil {
-			return "", nil
-		}
-		var res strings.Builder
-		llmOut := termenv.NewOutput(&res, termenv.WithProfile(termenv.Ascii))
-		if err := preview.Summarize(llmOut, 80); err != nil {
-			return fmt.Sprintf("WARNING: failed to render patch summary: %s", err), nil
-		}
-		return res.String(), nil
+func renderPatchSummary(preview *patchpreview.PatchPreview) (string, error) {
+	var res strings.Builder
+	llmOut := termenv.NewOutput(&res, termenv.WithProfile(termenv.Ascii))
+	if err := preview.Summarize(llmOut, 80); err != nil {
+		return "", err
 	}
-	return rawPatch, nil
+	return res.String(), nil
 }
 
 func toAny(v any) (res map[string]any, rerr error) {

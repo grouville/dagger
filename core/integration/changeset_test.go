@@ -20,6 +20,32 @@ func TestChangeset(t *testing.T) {
 	testctx.New(t, Middleware()...).RunTests(ChangesetSuite{})
 }
 
+type changesetDiffStatEntry struct {
+	Path         string `json:"path"`
+	Kind         string `json:"kind"`
+	AddedLines   int    `json:"addedLines"`
+	RemovedLines int    `json:"removedLines"`
+}
+
+func queryChangesetDiffStat(ctx context.Context, c *dagger.Client, changeset *dagger.Changeset) (_ []changesetDiffStatEntry, available bool, _ error) {
+	q := c.QueryBuilder().
+		Select("loadChangesetFromID").
+		Arg("id", changeset).
+		Select("diffStat")
+
+	var diffStat []changesetDiffStatEntry
+	if err := q.Bind(&diffStat).Execute(ctx); err != nil {
+		msg := err.Error()
+		if strings.Contains(msg, "Cannot query field") &&
+			strings.Contains(msg, "diffStat") &&
+			strings.Contains(msg, "Changeset") {
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+	return diffStat, true, nil
+}
+
 func (ChangesetSuite) TestChangeset(ctx context.Context, t *testctx.T) {
 	t.Run("removedPaths basic", func(ctx context.Context, t *testctx.T) {
 		// Create a directory with files
@@ -260,23 +286,26 @@ func (ChangesetSuite) TestChangeset(ctx context.Context, t *testctx.T) {
 			WithNewFile("add.txt", "hello\n")
 
 		changes := newDir.Changes(oldDir)
-		diffStat, err := changes.DiffStat(ctx)
+		diffStat, available, err := queryChangesetDiffStat(ctx, c, changes)
 		require.NoError(t, err)
+		if !available {
+			t.Skip("diffStat is not available on this engine version")
+		}
 
-		byPath := make(map[string]dagger.ChangesetDiffStatEntry, len(diffStat))
+		byPath := make(map[string]changesetDiffStatEntry, len(diffStat))
 		for _, entry := range diffStat {
 			byPath[entry.Path] = entry
 		}
 
-		require.Equal(t, dagger.ChangesetDiffKindAdded, byPath["add.txt"].Kind)
+		require.Equal(t, "ADDED", byPath["add.txt"].Kind)
 		require.Equal(t, 1, byPath["add.txt"].AddedLines)
 		require.Equal(t, 0, byPath["add.txt"].RemovedLines)
 
-		require.Equal(t, dagger.ChangesetDiffKindModified, byPath["mod.txt"].Kind)
+		require.Equal(t, "MODIFIED", byPath["mod.txt"].Kind)
 		require.Equal(t, 1, byPath["mod.txt"].AddedLines)
 		require.Equal(t, 1, byPath["mod.txt"].RemovedLines)
 
-		require.Equal(t, dagger.ChangesetDiffKindRemoved, byPath["remove.txt"].Kind)
+		require.Equal(t, "REMOVED", byPath["remove.txt"].Kind)
 		require.Equal(t, 0, byPath["remove.txt"].AddedLines)
 		require.Equal(t, 1, byPath["remove.txt"].RemovedLines)
 	})
@@ -796,7 +825,7 @@ func (ChangesetSuite) TestPreviewPatchLargerThanMaxFileContentsSize(ctx context.
 	_, err := changes.AsPatch().Contents(ctx)
 	require.Error(t, err)
 
-	preview, err := idtui.PreviewPatch(ctx, changes)
+	preview, err := idtui.PreviewPatch(ctx, c, changes)
 	require.NoError(t, err)
 	require.NotNil(t, preview)
 
@@ -805,6 +834,36 @@ func (ChangesetSuite) TestPreviewPatchLargerThanMaxFileContentsSize(ctx context.
 	require.NoError(t, preview.Summarize(out, 80))
 	require.Contains(t, summary.String(), "large.txt")
 	require.Contains(t, summary.String(), "1 file changed")
+}
+
+func (ChangesetSuite) TestPreviewPatchFallbackWithoutDiffStat(ctx context.Context, t *testctx.T) {
+	// diffStat is a newer schema field; older schema views must continue to
+	// render previews via added/modified/removed path APIs.
+	c := connect(ctx, t, dagger.WithVersionOverride("v0.20.0"))
+
+	oldDir := c.Directory().
+		WithNewFile("mod.txt", "one\nold\n")
+
+	newDir := c.Directory().
+		WithNewFile("mod.txt", "one\nnew\n").
+		WithNewFile("add.txt", "hello\n")
+
+	changes := newDir.Changes(oldDir)
+
+	_, available, err := queryChangesetDiffStat(ctx, c, changes)
+	require.NoError(t, err)
+	require.False(t, available, "diffStat should be hidden in v0.20.0 view")
+
+	preview, err := idtui.PreviewPatch(ctx, c, changes)
+	require.NoError(t, err)
+	require.NotNil(t, preview)
+
+	var summary strings.Builder
+	out := termenv.NewOutput(&summary, termenv.WithProfile(termenv.Ascii))
+	require.NoError(t, preview.Summarize(out, 80))
+	require.Contains(t, summary.String(), "add.txt")
+	require.Contains(t, summary.String(), "mod.txt")
+	require.Contains(t, summary.String(), "2 files changed")
 }
 
 func (ChangesetSuite) testChangeApplying(t *testctx.T, apply func(*dagger.Directory, *dagger.Changeset) *dagger.Directory, leaveDirs bool) {

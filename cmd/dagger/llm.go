@@ -362,7 +362,7 @@ func (s *LLMSession) updateSidebar(llm *dagger.LLM) error {
 
 	dirDiff := s.afterFS.Changes(s.beforeFS)
 
-	preview, err := idtui.PreviewPatch(s.plumbingCtx, dirDiff)
+	preview, err := idtui.PreviewPatch(s.plumbingCtx, s.dag, dirDiff)
 	if err != nil {
 		return err
 	}
@@ -797,7 +797,7 @@ func (s *LLMSession) SyncFromLocal(ctx context.Context) (rerr error) {
 	dirDiff := withChanges.Changes(currentFS)
 
 	// Add an LLM prompt as a cue to the model so it knows what files changed.
-	preview, err := idtui.PreviewPatch(s.plumbingCtx, dirDiff)
+	preview, err := idtui.PreviewPatch(s.plumbingCtx, s.dag, dirDiff)
 	if err != nil {
 		return err
 	}

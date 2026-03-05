@@ -113,6 +113,12 @@ func TestParseGitNumStatOutput(t *testing.T) {
 	}, got)
 }
 
+func TestRelativeDiffPath(t *testing.T) {
+	require.Equal(t, "sub/file.txt", relativeDiffPath("/tmp/old/sub/file.txt", "/tmp/old"))
+	require.Equal(t, "", relativeDiffPath("/tmp/old2/file.txt", "/tmp/old"))
+	require.Equal(t, "sub/file.txt", relativeDiffPath("old/sub/file.txt", "old"))
+}
+
 func TestListSubdirectories(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "a", "b"), 0755))

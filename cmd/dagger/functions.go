@@ -747,7 +747,7 @@ func handleChangesetResponse(ctx context.Context, dag *dagger.Client, response a
 		return nil
 	}
 
-	description, noChanges, err := summarizeChangesetPaths(ctx, changeset)
+	description, noChanges, err := renderChangesetConfirmationDescription(ctx, dag, changeset)
 	if err != nil {
 		return err
 	}
@@ -784,54 +784,21 @@ func handleChangesetResponse(ctx context.Context, dag *dagger.Client, response a
 	return nil
 }
 
-func summarizeChangesetPaths(ctx context.Context, changeset *dagger.Changeset) (summary string, noChanges bool, _ error) {
-	added, err := changeset.AddedPaths(ctx)
+func renderChangesetConfirmationDescription(ctx context.Context, dag *dagger.Client, changeset *dagger.Changeset) (description string, noChanges bool, _ error) {
+	preview, err := idtui.PreviewPatch(ctx, dag, changeset)
 	if err != nil {
-		return "", false, fmt.Errorf("get added paths: %w", err)
+		return "", false, err
 	}
-	modified, err := changeset.ModifiedPaths(ctx)
-	if err != nil {
-		return "", false, fmt.Errorf("get modified paths: %w", err)
-	}
-	removed, err := changeset.RemovedPaths(ctx)
-	if err != nil {
-		return "", false, fmt.Errorf("get removed paths: %w", err)
-	}
-
-	total := len(added) + len(modified) + len(removed)
-	if total == 0 {
+	if preview == nil {
 		return "", true, nil
 	}
 
-	sort.Strings(added)
-	sort.Strings(modified)
-	sort.Strings(removed)
-
-	const maxPreviewLines = 20
-	lines := make([]string, 0, total)
-
-	for _, path := range added {
-		lines = append(lines, "+ "+path)
-	}
-	for _, path := range modified {
-		lines = append(lines, "~ "+path)
-	}
-	for _, path := range removed {
-		lines = append(lines, "- "+path)
-	}
-
-	shown := lines
-	if len(lines) > maxPreviewLines {
-		shown = lines[:maxPreviewLines]
-	}
-
+	const previewWidth = 80
 	var out strings.Builder
 	out.WriteString("Apply generated changes to the current directory.\n\n")
-	out.WriteString(strings.Join(shown, "\n"))
-	if len(lines) > len(shown) {
-		fmt.Fprintf(&out, "\n... and %d more paths", len(lines)-len(shown))
+	if err := preview.Summarize(idtui.NewOutput(&out), previewWidth); err != nil {
+		return "", false, fmt.Errorf("summarize changes: %w", err)
 	}
-
 	return out.String(), false, nil
 }
 
