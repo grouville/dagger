@@ -602,6 +602,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 			}...)
 		}
 	}
+	rootIndexStore := cas.RootIndexStore{Store: cacheManager}
 	persistScopeHead := func(ref bkcache.ImmutableRef, rootDigest digest.Digest, materialized bool) {
 		if local.scopeKey == "" || ref == nil {
 			return
@@ -632,6 +633,9 @@ func (local *localFS) Sync( //nolint:gocyclo
 		if err := scopeHeadStore.Save(ctx, ref, head, prevGeneration); err != nil {
 			bklog.G(ctx).Warnf("failed to save filesync scope head for %q: %v", local.scopeKey, err)
 		}
+		if err := rootIndexStore.Save(ref, rootDigest); err != nil {
+			bklog.G(ctx).Warnf("failed to save filesync root index for %q: %v", local.scopeKey, err)
+		}
 		scopeHead = head
 		scopeHeadFound = true
 	}
@@ -658,6 +662,68 @@ func (local *localFS) Sync( //nolint:gocyclo
 	checksumSpan.End()
 	copySpan.SetAttributes(attribute.Int64("filesync.checksum.duration_ms", checksumDurationMs))
 
+	rootSearchCtx, rootSearchSpan := Tracer(ctx).Start(ctx, "filesync.search_root_index")
+	rootSearchStart := time.Now()
+	rootIndexHits := []string{}
+	if local.scopeKey != "" {
+		rootIndexHits, err = rootIndexStore.Resolve(rootSearchCtx, dgst)
+		if err != nil {
+			bklog.G(ctx).Warnf("failed to resolve filesync root index for %q: %v", local.scopeKey, err)
+			rootIndexHits = nil
+		}
+	}
+	rootSearchDurationMs := time.Since(rootSearchStart).Milliseconds()
+	rootSearchSpan.SetAttributes(
+		attribute.Int64("filesync.search_root_index.duration_ms", rootSearchDurationMs),
+		attribute.Int("filesync.search_root_index.candidates", len(rootIndexHits)),
+	)
+	rootSearchSpan.End()
+	copySpan.SetAttributes(attribute.Int64("filesync.search_root_index.duration_ms", rootSearchDurationMs))
+	for _, hitID := range rootIndexHits {
+		finalRef, getErr := cacheManager.Get(ctx, hitID, nil)
+		if getErr != nil {
+			bklog.G(ctx).Debugf("failed to get root index cache ref %s: %v", hitID, getErr)
+			continue
+		}
+		copySpan.SetAttributes(
+			attribute.Bool("filesync.contenthash.hit", true),
+			attribute.String("filesync.lookup.source", "root_index"),
+			attribute.Int("filesync.search_root_index.candidates", len(rootIndexHits)),
+		)
+		materializeDurationMs := time.Since(materializeStart).Milliseconds()
+		copySpan.SetAttributes(attribute.Int64("filesync.materialize.duration_ms", materializeDurationMs))
+		setFilesyncAttrs(
+			attribute.Bool("filesync.contenthash.hit", true),
+			attribute.String("filesync.lookup.source", "root_index"),
+			attribute.Int("filesync.path.only", len(only)),
+			attribute.Int("filesync.delta.upsert", upsertCount),
+			attribute.Int("filesync.delta.delete", deleteSetCount),
+			attribute.Int("filesync.delta.none", noneSetCount),
+			attribute.Int("filesync.change.add", addCount),
+			attribute.Int("filesync.change.modify", modifyCount),
+			attribute.Int("filesync.change.delete", deleteCount),
+			attribute.Int("filesync.change.none", noneCount),
+			attribute.Int64("filesync.diff_apply.duration_ms", diffApplyDurationMs),
+			attribute.Int64("filesync.checksum.duration_ms", checksumDurationMs),
+			attribute.Int64("filesync.search_root_index.duration_ms", rootSearchDurationMs),
+			attribute.Int64("filesync.materialize.duration_ms", materializeDurationMs),
+			attribute.String("filesync.checksum.digest", dgst.String()),
+		)
+		emitEvent("filesync.rootindex.hit", []attribute.KeyValue{
+			attribute.Int("filesync.delta.upsert", upsertCount),
+			attribute.Int("filesync.delta.delete", deleteSetCount),
+			attribute.Int("filesync.delta.none", noneSetCount),
+			attribute.Int("filesync.path.only", len(only)),
+			attribute.Int64("filesync.search_root_index.duration_ms", rootSearchDurationMs),
+			attribute.Int64("filesync.materialize.duration_ms", materializeDurationMs),
+			attribute.String("filesync.checksum.digest", dgst.String()),
+		}...,
+		)
+		bklog.G(ctx).Debugf("reusing root-index ref %s", hitID)
+		persistScopeHead(finalRef, dgst, false)
+		return finalRef, nil
+	}
+
 	// If we have already created a cache ref with the same content hash, use that instead of copying
 	// another equivalent one.
 	searchCtx, searchSpan := Tracer(ctx).Start(ctx, "filesync.search_contenthash")
@@ -681,12 +747,14 @@ func (local *localFS) Sync( //nolint:gocyclo
 		if err == nil {
 			copySpan.SetAttributes(
 				attribute.Bool("filesync.contenthash.hit", true),
+				attribute.String("filesync.lookup.source", "contenthash"),
 				attribute.Int("filesync.contenthash.candidates", len(sis)),
 			)
 			materializeDurationMs := time.Since(materializeStart).Milliseconds()
 			copySpan.SetAttributes(attribute.Int64("filesync.materialize.duration_ms", materializeDurationMs))
 			setFilesyncAttrs(
 				attribute.Bool("filesync.contenthash.hit", true),
+				attribute.String("filesync.lookup.source", "contenthash"),
 				attribute.Int("filesync.path.only", len(only)),
 				attribute.Int("filesync.delta.upsert", upsertCount),
 				attribute.Int("filesync.delta.delete", deleteSetCount),
@@ -697,6 +765,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 				attribute.Int("filesync.change.none", noneCount),
 				attribute.Int64("filesync.diff_apply.duration_ms", diffApplyDurationMs),
 				attribute.Int64("filesync.checksum.duration_ms", checksumDurationMs),
+				attribute.Int64("filesync.search_root_index.duration_ms", rootSearchDurationMs),
 				attribute.Int64("filesync.search_contenthash.duration_ms", searchDurationMs),
 				attribute.Int64("filesync.materialize.duration_ms", materializeDurationMs),
 				attribute.String("filesync.checksum.digest", dgst.String()),
@@ -714,6 +783,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 				attribute.Int("filesync.change.deferred_hardlink", deferredHardlinkCount),
 				attribute.Int64("filesync.diff_apply.duration_ms", diffApplyDurationMs),
 				attribute.Int64("filesync.checksum.duration_ms", checksumDurationMs),
+				attribute.Int64("filesync.search_root_index.duration_ms", rootSearchDurationMs),
 				attribute.Int64("filesync.search_contenthash.duration_ms", searchDurationMs),
 				attribute.Int64("filesync.materialize.duration_ms", materializeDurationMs),
 				attribute.String("filesync.checksum.digest", dgst.String()),
@@ -728,10 +798,12 @@ func (local *localFS) Sync( //nolint:gocyclo
 	}
 	copySpan.SetAttributes(
 		attribute.Bool("filesync.contenthash.hit", false),
+		attribute.String("filesync.lookup.source", "materialize"),
 		attribute.Int("filesync.contenthash.candidates", len(sis)),
 	)
 	setFilesyncAttrs(
 		attribute.Bool("filesync.contenthash.hit", false),
+		attribute.String("filesync.lookup.source", "materialize"),
 		attribute.Int("filesync.path.only", len(only)),
 		attribute.Int("filesync.delta.upsert", upsertCount),
 		attribute.Int("filesync.delta.delete", deleteSetCount),
@@ -742,6 +814,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 		attribute.Int("filesync.change.none", noneCount),
 		attribute.Int64("filesync.diff_apply.duration_ms", diffApplyDurationMs),
 		attribute.Int64("filesync.checksum.duration_ms", checksumDurationMs),
+		attribute.Int64("filesync.search_root_index.duration_ms", rootSearchDurationMs),
 		attribute.Int64("filesync.search_contenthash.duration_ms", searchDurationMs),
 		attribute.String("filesync.checksum.digest", dgst.String()),
 	)
@@ -758,6 +831,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 		attribute.Int("filesync.change.deferred_hardlink", deferredHardlinkCount),
 		attribute.Int64("filesync.diff_apply.duration_ms", diffApplyDurationMs),
 		attribute.Int64("filesync.checksum.duration_ms", checksumDurationMs),
+		attribute.Int64("filesync.search_root_index.duration_ms", rootSearchDurationMs),
 		attribute.Int64("filesync.search_contenthash.duration_ms", searchDurationMs),
 		attribute.String("filesync.checksum.digest", dgst.String()),
 	}...,
@@ -936,6 +1010,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 		attribute.Int("filesync.change.none", noneCount),
 		attribute.Int64("filesync.diff_apply.duration_ms", diffApplyDurationMs),
 		attribute.Int64("filesync.checksum.duration_ms", checksumDurationMs),
+		attribute.Int64("filesync.search_root_index.duration_ms", rootSearchDurationMs),
 		attribute.Int64("filesync.search_contenthash.duration_ms", searchDurationMs),
 		attribute.Int64("filesync.copy.duration_ms", copyDurationMs),
 		attribute.Int64("filesync.commit.duration_ms", commitDurationMs),
@@ -946,6 +1021,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 	emitEvent("filesync.materialize.finished", []attribute.KeyValue{
 		attribute.Int64("filesync.diff_apply.duration_ms", diffApplyDurationMs),
 		attribute.Int64("filesync.checksum.duration_ms", checksumDurationMs),
+		attribute.Int64("filesync.search_root_index.duration_ms", rootSearchDurationMs),
 		attribute.Int64("filesync.search_contenthash.duration_ms", searchDurationMs),
 		attribute.Int64("filesync.copy.duration_ms", copyDurationMs),
 		attribute.Int64("filesync.commit.duration_ms", commitDurationMs),
