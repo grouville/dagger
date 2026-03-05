@@ -150,7 +150,9 @@ func (local *localFS) Sync( //nolint:gocyclo
 		}
 	}
 
-	eg, egCtx := errgroup.WithContext(ctx)
+	diffCtx, diffSpan := Tracer(ctx).Start(ctx, "filesync.diff_apply")
+	eg, egCtx := errgroup.WithContext(diffCtx)
+	diffApplyStart := time.Now()
 
 	// When a file or dir is added, modified, or deleted, we need to apply the change to the local fs. The local.changeCache
 	// keeps track of which modifications we have made during this sync on a per-path basis. This is shared between
@@ -171,6 +173,8 @@ func (local *localFS) Sync( //nolint:gocyclo
 
 	only := map[string]struct{}{}
 	ignoredDirs := map[string]struct{}{}
+	var addCount, modifyCount, deleteCount, noneCount int
+	var deferredHardlinkCount, ignoredPathCount int
 	isIgnoredPath := func(path string) bool {
 		for {
 			if _, ok := ignoredDirs[path]; ok {
@@ -244,6 +248,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 
 	doubleWalkDiff(egCtx, eg, local, remote, func(kind ChangeKind, path string, lowerStat, upperStat *types.Stat) error {
 		if upperStat != nil && upperStat.GitIgnored {
+			ignoredPathCount++
 			if upperStat.IsDir() {
 				ignoredDirs[path] = struct{}{}
 			}
@@ -251,6 +256,11 @@ func (local *localFS) Sync( //nolint:gocyclo
 		}
 		switch kind {
 		case ChangeKindAdd, ChangeKindModify:
+			if kind == ChangeKindAdd {
+				addCount++
+			} else {
+				modifyCount++
+			}
 			switch {
 			case upperStat.IsDir():
 				appliedChange, err := local.Mkdir(egCtx, kind, path, upperStat)
@@ -308,6 +318,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 
 			case upperStat.Linkname != "":
 				// delay hardlinks until after everything else so we know the source of the link exists
+				deferredHardlinkCount++
 				hardlinkMu.Lock()
 				hardlinks = append(hardlinks, &hardlinkChange{
 					kind:      kind,
@@ -376,6 +387,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 			}
 
 		case ChangeKindDelete:
+			deleteCount++
 			/*
 				Deletes don't have upperStat, so we can't consult GitIgnored directly.
 
@@ -405,6 +417,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 			return nil
 
 		case ChangeKindNone:
+			noneCount++
 			appliedChange, err := local.GetPreviousChange(egCtx, path, lowerStat)
 			if err != nil {
 				return err
@@ -434,11 +447,17 @@ func (local *localFS) Sync( //nolint:gocyclo
 	})
 
 	if err := eg.Wait(); err != nil {
+		diffSpan.RecordError(err)
+		diffSpan.SetStatus(codes.Error, err.Error())
+		diffSpan.End()
 		return nil, err
 	}
 	for _, hardlink := range hardlinks {
 		appliedChange, err := local.Hardlink(ctx, hardlink.kind, hardlink.path, hardlink.upperStat)
 		if err != nil {
+			diffSpan.RecordError(err)
+			diffSpan.SetStatus(codes.Error, err.Error())
+			diffSpan.End()
 			return nil, err
 		}
 		cachedResultsMu.Lock()
@@ -455,44 +474,169 @@ func (local *localFS) Sync( //nolint:gocyclo
 			relPathFound = true
 			applied := appliedChange.result()
 			if err := cacheCtx.HandleChange(applied.kind, path, applied.stat, nil); err != nil {
+				diffSpan.RecordError(err)
+				diffSpan.SetStatus(codes.Error, err.Error())
+				diffSpan.End()
 				return nil, fmt.Errorf("failed to handle change in content hasher: %w", err)
 			}
 		}
 	}
 
 	if forParents {
+		diffSpan.End()
 		// we created the parent dirs, nothing else to do now
 		return nil, nil
 	}
+	diffApplyDurationMs := time.Since(diffApplyStart).Milliseconds()
+	diffSpan.SetAttributes(
+		attribute.Int("filesync.change.add", addCount),
+		attribute.Int("filesync.change.modify", modifyCount),
+		attribute.Int("filesync.change.delete", deleteCount),
+		attribute.Int("filesync.change.none", noneCount),
+		attribute.Int("filesync.path.ignored", ignoredPathCount),
+		attribute.Int("filesync.change.deferred_hardlink", deferredHardlinkCount),
+		attribute.Int64("filesync.diff_apply.duration_ms", diffApplyDurationMs),
+	)
+	diffSpan.End()
 
+	filesyncSpan := trace.SpanFromContext(ctx)
 	ctx, copySpan := Tracer(ctx).Start(ctx, "copy")
 	defer telemetry.EndWithCause(copySpan, &rerr)
+	materializeStart := time.Now()
+	// TEMPORARY: keep detailed phase tracing until CAS rollout is validated on
+	// large-context incremental syncs, then collapse to stable long-term metrics.
+	setFilesyncAttrs := func(attrs ...attribute.KeyValue) {
+		if filesyncSpan != nil {
+			filesyncSpan.SetAttributes(attrs...)
+		}
+	}
+	emitEvent := func(name string, attrs ...attribute.KeyValue) {
+		copySpan.AddEvent(name, trace.WithAttributes(attrs...))
+	}
+	copySpan.SetAttributes(
+		attribute.Int("filesync.change.add", addCount),
+		attribute.Int("filesync.change.modify", modifyCount),
+		attribute.Int("filesync.change.delete", deleteCount),
+		attribute.Int("filesync.change.none", noneCount),
+		attribute.Int("filesync.path.only", len(only)),
+		attribute.Int("filesync.path.ignored", ignoredPathCount),
+		attribute.Int("filesync.change.deferred_hardlink", deferredHardlinkCount),
+		attribute.Int64("filesync.diff_apply.duration_ms", diffApplyDurationMs),
+	)
 
 	// If we didn't find any files/dir in the given relative path, we can early return an error.
 	if local.copyPath != "" && !relPathFound {
 		return nil, fmt.Errorf("%s: no such file or directory", local.copyPath)
 	}
 
-	dgst, err := cacheCtx.Checksum(ctx, newCopyRef, "/", bkcontenthash.ChecksumOpts{}, session)
+	checksumCtx, checksumSpan := Tracer(ctx).Start(ctx, "filesync.checksum")
+	checksumStart := time.Now()
+	dgst, err := cacheCtx.Checksum(checksumCtx, newCopyRef, "/", bkcontenthash.ChecksumOpts{}, session)
 	if err != nil {
+		checksumSpan.RecordError(err)
+		checksumSpan.SetStatus(codes.Error, err.Error())
+		checksumSpan.End()
 		return nil, fmt.Errorf("failed to checksum: %w", err)
 	}
+	checksumDurationMs := time.Since(checksumStart).Milliseconds()
+	checksumSpan.SetAttributes(
+		attribute.Int64("filesync.checksum.duration_ms", checksumDurationMs),
+		attribute.String("filesync.checksum.digest", dgst.String()),
+	)
+	checksumSpan.End()
+	copySpan.SetAttributes(attribute.Int64("filesync.checksum.duration_ms", checksumDurationMs))
 
 	// If we have already created a cache ref with the same content hash, use that instead of copying
 	// another equivalent one.
-	sis, err := contenthash.SearchContentHash(ctx, cacheManager, dgst)
+	searchCtx, searchSpan := Tracer(ctx).Start(ctx, "filesync.search_contenthash")
+	searchStart := time.Now()
+	sis, err := contenthash.SearchContentHash(searchCtx, cacheManager, dgst)
 	if err != nil {
+		searchSpan.RecordError(err)
+		searchSpan.SetStatus(codes.Error, err.Error())
+		searchSpan.End()
 		return nil, fmt.Errorf("failed to search content hash: %w", err)
 	}
+	searchDurationMs := time.Since(searchStart).Milliseconds()
+	searchSpan.SetAttributes(
+		attribute.Int64("filesync.search_contenthash.duration_ms", searchDurationMs),
+		attribute.Int("filesync.contenthash.candidates", len(sis)),
+	)
+	searchSpan.End()
+	copySpan.SetAttributes(attribute.Int64("filesync.search_contenthash.duration_ms", searchDurationMs))
 	for _, si := range sis {
 		finalRef, err := cacheManager.Get(ctx, si.ID(), nil)
 		if err == nil {
-			bklog.G(ctx).Debugf("reusing copy ref %s", si.ID())
-			return finalRef, nil
-		} else {
+				copySpan.SetAttributes(
+					attribute.Bool("filesync.contenthash.hit", true),
+					attribute.Int("filesync.contenthash.candidates", len(sis)),
+				)
+				materializeDurationMs := time.Since(materializeStart).Milliseconds()
+				copySpan.SetAttributes(attribute.Int64("filesync.materialize.duration_ms", materializeDurationMs))
+				setFilesyncAttrs(
+					attribute.Bool("filesync.contenthash.hit", true),
+					attribute.Int("filesync.path.only", len(only)),
+					attribute.Int("filesync.change.add", addCount),
+					attribute.Int("filesync.change.modify", modifyCount),
+					attribute.Int("filesync.change.delete", deleteCount),
+					attribute.Int("filesync.change.none", noneCount),
+					attribute.Int64("filesync.diff_apply.duration_ms", diffApplyDurationMs),
+					attribute.Int64("filesync.checksum.duration_ms", checksumDurationMs),
+					attribute.Int64("filesync.search_contenthash.duration_ms", searchDurationMs),
+					attribute.Int64("filesync.materialize.duration_ms", materializeDurationMs),
+					attribute.String("filesync.checksum.digest", dgst.String()),
+				)
+				emitEvent("filesync.contenthash.hit", []attribute.KeyValue{
+					attribute.Int("filesync.change.add", addCount),
+					attribute.Int("filesync.change.modify", modifyCount),
+					attribute.Int("filesync.change.delete", deleteCount),
+					attribute.Int("filesync.change.none", noneCount),
+					attribute.Int("filesync.path.only", len(only)),
+					attribute.Int("filesync.path.ignored", ignoredPathCount),
+					attribute.Int("filesync.change.deferred_hardlink", deferredHardlinkCount),
+					attribute.Int64("filesync.diff_apply.duration_ms", diffApplyDurationMs),
+					attribute.Int64("filesync.checksum.duration_ms", checksumDurationMs),
+					attribute.Int64("filesync.search_contenthash.duration_ms", searchDurationMs),
+					attribute.Int64("filesync.materialize.duration_ms", materializeDurationMs),
+					attribute.String("filesync.checksum.digest", dgst.String()),
+				}...,
+				)
+				bklog.G(ctx).Debugf("reusing copy ref %s", si.ID())
+				return finalRef, nil
+			} else {
 			bklog.G(ctx).Debugf("failed to get cache ref: %v", err)
 		}
 	}
+	copySpan.SetAttributes(
+		attribute.Bool("filesync.contenthash.hit", false),
+		attribute.Int("filesync.contenthash.candidates", len(sis)),
+	)
+	setFilesyncAttrs(
+		attribute.Bool("filesync.contenthash.hit", false),
+		attribute.Int("filesync.path.only", len(only)),
+		attribute.Int("filesync.change.add", addCount),
+		attribute.Int("filesync.change.modify", modifyCount),
+		attribute.Int("filesync.change.delete", deleteCount),
+		attribute.Int("filesync.change.none", noneCount),
+		attribute.Int64("filesync.diff_apply.duration_ms", diffApplyDurationMs),
+		attribute.Int64("filesync.checksum.duration_ms", checksumDurationMs),
+		attribute.Int64("filesync.search_contenthash.duration_ms", searchDurationMs),
+		attribute.String("filesync.checksum.digest", dgst.String()),
+	)
+	emitEvent("filesync.contenthash.miss", []attribute.KeyValue{
+		attribute.Int("filesync.change.add", addCount),
+		attribute.Int("filesync.change.modify", modifyCount),
+		attribute.Int("filesync.change.delete", deleteCount),
+		attribute.Int("filesync.change.none", noneCount),
+		attribute.Int("filesync.path.only", len(only)),
+		attribute.Int("filesync.path.ignored", ignoredPathCount),
+		attribute.Int("filesync.change.deferred_hardlink", deferredHardlinkCount),
+		attribute.Int64("filesync.diff_apply.duration_ms", diffApplyDurationMs),
+		attribute.Int64("filesync.checksum.duration_ms", checksumDurationMs),
+		attribute.Int64("filesync.search_contenthash.duration_ms", searchDurationMs),
+		attribute.String("filesync.checksum.digest", dgst.String()),
+	}...,
+	)
 
 	copyRefMntable, err := newCopyRef.Mount(ctx, false, session)
 	if err != nil {
@@ -524,14 +668,33 @@ func (local *localFS) Sync( //nolint:gocyclo
 		}),
 	}
 
-	if err := fscopy.Copy(ctx,
+	copyCtx, copyDataSpan := Tracer(ctx).Start(ctx, "filesync.copy_data")
+	copyStart := time.Now()
+	if err := fscopy.Copy(copyCtx,
 		local.rootPath,
 		filepath.Join(local.subdir, local.copyPath),
 		copyRefMntPath, "/",
 		copyOpts...,
 	); err != nil {
+		copyDataSpan.RecordError(err)
+		copyDataSpan.SetStatus(codes.Error, err.Error())
+		copyDataSpan.End()
 		return nil, fmt.Errorf("failed to copy %q: %w", local.subdir, err)
 	}
+	copyDurationMs := time.Since(copyStart).Milliseconds()
+	copyDataSpan.SetAttributes(
+		attribute.Int64("filesync.copy.duration_ms", copyDurationMs),
+		attribute.Int("filesync.path.only", len(only)),
+		attribute.String("filesync.checksum.digest", dgst.String()),
+	)
+	copyDataSpan.End()
+	copySpan.SetAttributes(attribute.Int64("filesync.copy.duration_ms", copyDurationMs))
+	emitEvent("filesync.copy.finished", []attribute.KeyValue{
+		attribute.Int64("filesync.copy.duration_ms", copyDurationMs),
+		attribute.Int("filesync.path.only", len(only)),
+		attribute.String("filesync.checksum.digest", dgst.String()),
+	}...,
+	)
 
 	if err := copyRefMnter.Unmount(); err != nil {
 		copyRefMnter = nil
@@ -539,10 +702,19 @@ func (local *localFS) Sync( //nolint:gocyclo
 	}
 	copyRefMnter = nil
 
-	finalRef, err := newCopyRef.Commit(ctx)
+	commitCtx, commitSpan := Tracer(ctx).Start(ctx, "filesync.commit")
+	commitStart := time.Now()
+	finalRef, err := newCopyRef.Commit(commitCtx)
 	if err != nil {
+		commitSpan.RecordError(err)
+		commitSpan.SetStatus(codes.Error, err.Error())
+		commitSpan.End()
 		return nil, fmt.Errorf("failed to commit: %w", err)
 	}
+	commitDurationMs := time.Since(commitStart).Milliseconds()
+	commitSpan.SetAttributes(attribute.Int64("filesync.commit.duration_ms", commitDurationMs))
+	commitSpan.End()
+	copySpan.SetAttributes(attribute.Int64("filesync.commit.duration_ms", commitDurationMs))
 	defer func() {
 		if rerr != nil {
 			if finalRef != nil {
@@ -554,9 +726,18 @@ func (local *localFS) Sync( //nolint:gocyclo
 		}
 	}()
 
-	if err := finalRef.Finalize(ctx); err != nil {
+	finalizeCtx, finalizeSpan := Tracer(ctx).Start(ctx, "filesync.finalize")
+	finalizeStart := time.Now()
+	if err := finalRef.Finalize(finalizeCtx); err != nil {
+		finalizeSpan.RecordError(err)
+		finalizeSpan.SetStatus(codes.Error, err.Error())
+		finalizeSpan.End()
 		return nil, fmt.Errorf("failed to finalize: %w", err)
 	}
+	finalizeDurationMs := time.Since(finalizeStart).Milliseconds()
+	finalizeSpan.SetAttributes(attribute.Int64("filesync.finalize.duration_ms", finalizeDurationMs))
+	finalizeSpan.End()
+	copySpan.SetAttributes(attribute.Int64("filesync.finalize.duration_ms", finalizeDurationMs))
 
 	// FIXME: when the ID of the ref given to SetCacheContext is different from the ID of the
 	// ref the cacheCtx was created with, buildkit just stores it in a in-memory LRU that's
@@ -591,6 +772,36 @@ func (local *localFS) Sync( //nolint:gocyclo
 		return nil, fmt.Errorf("failed to release: %w", err)
 	}
 	newCopyRef = nil
+	materializeDurationMs := time.Since(materializeStart).Milliseconds()
+	copySpan.SetAttributes(attribute.Int64("filesync.materialize.duration_ms", materializeDurationMs))
+	setFilesyncAttrs(
+		attribute.Bool("filesync.contenthash.hit", false),
+		attribute.Int("filesync.path.only", len(only)),
+		attribute.Int("filesync.change.add", addCount),
+		attribute.Int("filesync.change.modify", modifyCount),
+		attribute.Int("filesync.change.delete", deleteCount),
+		attribute.Int("filesync.change.none", noneCount),
+		attribute.Int64("filesync.diff_apply.duration_ms", diffApplyDurationMs),
+		attribute.Int64("filesync.checksum.duration_ms", checksumDurationMs),
+		attribute.Int64("filesync.search_contenthash.duration_ms", searchDurationMs),
+		attribute.Int64("filesync.copy.duration_ms", copyDurationMs),
+		attribute.Int64("filesync.commit.duration_ms", commitDurationMs),
+		attribute.Int64("filesync.finalize.duration_ms", finalizeDurationMs),
+		attribute.Int64("filesync.materialize.duration_ms", materializeDurationMs),
+		attribute.String("filesync.checksum.digest", dgst.String()),
+	)
+	emitEvent("filesync.materialize.finished", []attribute.KeyValue{
+		attribute.Int64("filesync.diff_apply.duration_ms", diffApplyDurationMs),
+		attribute.Int64("filesync.checksum.duration_ms", checksumDurationMs),
+		attribute.Int64("filesync.search_contenthash.duration_ms", searchDurationMs),
+		attribute.Int64("filesync.copy.duration_ms", copyDurationMs),
+		attribute.Int64("filesync.commit.duration_ms", commitDurationMs),
+		attribute.Int64("filesync.finalize.duration_ms", finalizeDurationMs),
+		attribute.Int64("filesync.materialize.duration_ms", materializeDurationMs),
+		attribute.Int("filesync.path.only", len(only)),
+		attribute.String("filesync.checksum.digest", dgst.String()),
+	}...,
+	)
 
 	return finalRef, nil
 }

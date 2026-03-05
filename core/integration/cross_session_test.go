@@ -1085,6 +1085,139 @@ func (o *Obj) Foo(ctx context.Context) (string, error) {
 	require.Equal(t, rand2, res2.Test.Obj.Foo)
 }
 
+func (ModuleSuite) TestCrossSessionContextualDirChangeMonorepo(ctx context.Context, t *testctx.T) {
+	thisRepoPath, err := filepath.Abs("../..")
+	require.NoError(t, err)
+
+	monorepoCopyDir := filepath.Join(t.TempDir(), "dagger-monorepo-copy")
+	require.NoError(t, os.MkdirAll(monorepoCopyDir, 0o755))
+
+	err = fscopy.Copy(
+		ctx,
+		thisRepoPath, "/",
+		monorepoCopyDir, "/",
+		fscopy.WithExcludePattern(".git"),
+		fscopy.WithExcludePattern(".git/**"),
+	)
+	require.NoError(t, err)
+
+	probeRelPath := "filesync-monorepo-probe.txt"
+	rand1 := identity.NewID()
+	require.NoError(t, os.WriteFile(filepath.Join(monorepoCopyDir, probeRelPath), []byte(rand1), 0o644))
+
+	c1 := connect(ctx, t)
+	dir1 := c1.Host().Directory(monorepoCopyDir, dagger.HostDirectoryOpts{NoCache: true})
+	id1, err := dir1.ID(ctx)
+	require.NoError(t, err)
+	contents1, err := dir1.File(probeRelPath).Contents(ctx)
+	require.NoError(t, err)
+	require.Equal(t, rand1, contents1)
+
+	rand2 := identity.NewID()
+	require.NoError(t, os.WriteFile(filepath.Join(monorepoCopyDir, probeRelPath), []byte(rand2), 0o644))
+
+	c2 := connect(ctx, t)
+	dir2 := c2.Host().Directory(monorepoCopyDir, dagger.HostDirectoryOpts{NoCache: true})
+	id2, err := dir2.ID(ctx)
+	require.NoError(t, err)
+	contents2, err := dir2.File(probeRelPath).Contents(ctx)
+	require.NoError(t, err)
+	require.Equal(t, rand2, contents2)
+	require.NotEqual(t, id1, id2)
+}
+
+func (ModuleSuite) TestCrossSessionContextualDirChangeMonorepoContextDirectory(ctx context.Context, t *testctx.T) {
+	thisRepoPath, err := filepath.Abs("../..")
+	require.NoError(t, err)
+
+	monorepoCopyDir := filepath.Join(t.TempDir(), "dagger-monorepo-copy")
+	require.NoError(t, os.MkdirAll(monorepoCopyDir, 0o755))
+
+	err = fscopy.Copy(
+		ctx,
+		thisRepoPath, "/",
+		monorepoCopyDir, "/",
+		fscopy.WithExcludePattern(".git"),
+		fscopy.WithExcludePattern(".git/**"),
+	)
+	require.NoError(t, err)
+
+	// Keep test cost bounded while still verifying that contextual dir sees .git content.
+	require.NoError(t, os.MkdirAll(filepath.Join(monorepoCopyDir, ".git"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(monorepoCopyDir, ".git", "HEAD"), []byte("ref: refs/heads/main\n"), 0o644))
+
+	initCmd := hostDaggerCommand(ctx, t, monorepoCopyDir, "init", "--source=src", "--name=test", "--sdk=go")
+	initOutput, err := initCmd.CombinedOutput()
+	require.NoError(t, err, string(initOutput))
+
+	probeRelPath := "filesync-monorepo-context-probe.txt"
+	rand1 := identity.NewID()
+	require.NoError(t, os.WriteFile(filepath.Join(monorepoCopyDir, probeRelPath), []byte(rand1), 0o644))
+
+	err = os.WriteFile(filepath.Join(monorepoCopyDir, "src", "main.go"), []byte(`package main
+import (
+	"context"
+
+	"dagger/test/internal/dagger"
+)
+
+type Test struct {
+	Dir *dagger.Directory
+}
+
+func New(
+	// +defaultPath="/"
+	dir *dagger.Directory,
+) *Test {
+	return &Test{Dir: dir}
+}
+
+func (t *Test) Probe(ctx context.Context) (string, error) {
+	return t.Dir.File("filesync-monorepo-context-probe.txt").Contents(ctx)
+}
+
+func (t *Test) GitHead(ctx context.Context) (string, error) {
+	return t.Dir.File(".git/HEAD").Contents(ctx)
+}
+`), 0o644)
+	require.NoError(t, err)
+
+	c1 := connect(ctx, t)
+	mod1, err := c1.ModuleSource(monorepoCopyDir).AsModule().Sync(ctx)
+	require.NoError(t, err)
+	err = mod1.Serve(ctx)
+	require.NoError(t, err)
+
+	res1, err := testutil.QueryWithClient[struct {
+		Test struct {
+			Probe   string
+			GitHead string
+		}
+	}](c1, t, `{test{probe gitHead}}`, nil)
+	require.NoError(t, err)
+	require.Equal(t, rand1, res1.Test.Probe)
+	require.Equal(t, "ref: refs/heads/main\n", res1.Test.GitHead)
+
+	rand2 := identity.NewID()
+	require.NoError(t, os.WriteFile(filepath.Join(monorepoCopyDir, probeRelPath), []byte(rand2), 0o644))
+
+	c2 := connect(ctx, t)
+	mod2, err := c2.ModuleSource(monorepoCopyDir).AsModule().Sync(ctx)
+	require.NoError(t, err)
+	err = mod2.Serve(ctx)
+	require.NoError(t, err)
+
+	res2, err := testutil.QueryWithClient[struct {
+		Test struct {
+			Probe   string
+			GitHead string
+		}
+	}](c2, t, `{test{probe gitHead}}`, nil)
+	require.NoError(t, err)
+	require.Equal(t, rand2, res2.Test.Probe)
+	require.Equal(t, "ref: refs/heads/main\n", res2.Test.GitHead)
+}
+
 func (ModuleSuite) TestCrossSessionContextualDirCacheHit(ctx context.Context, t *testctx.T) {
 	modDir := t.TempDir()
 
