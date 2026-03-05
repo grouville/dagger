@@ -172,6 +172,9 @@ func (local *localFS) Sync( //nolint:gocyclo
 	}()
 
 	only := map[string]struct{}{}
+	upsertSet := map[string]struct{}{}
+	deleteSet := map[string]struct{}{}
+	noneSet := map[string]struct{}{}
 	ignoredDirs := map[string]struct{}{}
 	var addCount, modifyCount, deleteCount, noneCount int
 	var deferredHardlinkCount, ignoredPathCount int
@@ -270,6 +273,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 				cachedResultsMu.Lock()
 				cachedResults = append(cachedResults, appliedChange)
 				only[path] = struct{}{}
+				upsertSet[path] = struct{}{}
 				cachedResultsMu.Unlock()
 
 				doHandle := cacheCtx != nil
@@ -300,6 +304,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 				cachedResultsMu.Lock()
 				cachedResults = append(cachedResults, appliedChange)
 				only[path] = struct{}{}
+				upsertSet[path] = struct{}{}
 				cachedResultsMu.Unlock()
 
 				doHandle := cacheCtx != nil
@@ -367,6 +372,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 					cachedResultsMu.Lock()
 					cachedResults = append(cachedResults, appliedChange)
 					only[path] = struct{}{}
+					upsertSet[path] = struct{}{}
 					cachedResultsMu.Unlock()
 
 					doHandle := cacheCtx != nil
@@ -412,6 +418,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 			cachedResultsMu.Lock()
 			cachedResults = append(cachedResults, appliedChange)
 			only[path] = struct{}{}
+			deleteSet[path] = struct{}{}
 			cachedResultsMu.Unlock()
 			// no need to apply removals to the cacheCtx since it starts empty every Sync call.
 			return nil
@@ -425,6 +432,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 			cachedResultsMu.Lock()
 			cachedResults = append(cachedResults, appliedChange)
 			only[path] = struct{}{}
+			noneSet[path] = struct{}{}
 			cachedResultsMu.Unlock()
 
 			doHandle := cacheCtx != nil
@@ -463,6 +471,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 		cachedResultsMu.Lock()
 		cachedResults = append(cachedResults, appliedChange)
 		only[hardlink.path] = struct{}{}
+		upsertSet[hardlink.path] = struct{}{}
 		cachedResultsMu.Unlock()
 
 		doHandle := cacheCtx != nil
@@ -488,11 +497,17 @@ func (local *localFS) Sync( //nolint:gocyclo
 		return nil, nil
 	}
 	diffApplyDurationMs := time.Since(diffApplyStart).Milliseconds()
+	upsertCount := len(upsertSet)
+	deleteSetCount := len(deleteSet)
+	noneSetCount := len(noneSet)
 	diffSpan.SetAttributes(
 		attribute.Int("filesync.change.add", addCount),
 		attribute.Int("filesync.change.modify", modifyCount),
 		attribute.Int("filesync.change.delete", deleteCount),
 		attribute.Int("filesync.change.none", noneCount),
+		attribute.Int("filesync.delta.upsert", upsertCount),
+		attribute.Int("filesync.delta.delete", deleteSetCount),
+		attribute.Int("filesync.delta.none", noneSetCount),
 		attribute.Int("filesync.path.ignored", ignoredPathCount),
 		attribute.Int("filesync.change.deferred_hardlink", deferredHardlinkCount),
 		attribute.Int64("filesync.diff_apply.duration_ms", diffApplyDurationMs),
@@ -518,6 +533,9 @@ func (local *localFS) Sync( //nolint:gocyclo
 		attribute.Int("filesync.change.modify", modifyCount),
 		attribute.Int("filesync.change.delete", deleteCount),
 		attribute.Int("filesync.change.none", noneCount),
+		attribute.Int("filesync.delta.upsert", upsertCount),
+		attribute.Int("filesync.delta.delete", deleteSetCount),
+		attribute.Int("filesync.delta.none", noneSetCount),
 		attribute.Int("filesync.path.only", len(only)),
 		attribute.Int("filesync.path.ignored", ignoredPathCount),
 		attribute.Int("filesync.change.deferred_hardlink", deferredHardlinkCount),
@@ -567,43 +585,49 @@ func (local *localFS) Sync( //nolint:gocyclo
 	for _, si := range sis {
 		finalRef, err := cacheManager.Get(ctx, si.ID(), nil)
 		if err == nil {
-				copySpan.SetAttributes(
-					attribute.Bool("filesync.contenthash.hit", true),
-					attribute.Int("filesync.contenthash.candidates", len(sis)),
-				)
-				materializeDurationMs := time.Since(materializeStart).Milliseconds()
-				copySpan.SetAttributes(attribute.Int64("filesync.materialize.duration_ms", materializeDurationMs))
-				setFilesyncAttrs(
-					attribute.Bool("filesync.contenthash.hit", true),
-					attribute.Int("filesync.path.only", len(only)),
-					attribute.Int("filesync.change.add", addCount),
-					attribute.Int("filesync.change.modify", modifyCount),
-					attribute.Int("filesync.change.delete", deleteCount),
-					attribute.Int("filesync.change.none", noneCount),
-					attribute.Int64("filesync.diff_apply.duration_ms", diffApplyDurationMs),
-					attribute.Int64("filesync.checksum.duration_ms", checksumDurationMs),
-					attribute.Int64("filesync.search_contenthash.duration_ms", searchDurationMs),
-					attribute.Int64("filesync.materialize.duration_ms", materializeDurationMs),
-					attribute.String("filesync.checksum.digest", dgst.String()),
-				)
-				emitEvent("filesync.contenthash.hit", []attribute.KeyValue{
-					attribute.Int("filesync.change.add", addCount),
-					attribute.Int("filesync.change.modify", modifyCount),
-					attribute.Int("filesync.change.delete", deleteCount),
-					attribute.Int("filesync.change.none", noneCount),
-					attribute.Int("filesync.path.only", len(only)),
-					attribute.Int("filesync.path.ignored", ignoredPathCount),
-					attribute.Int("filesync.change.deferred_hardlink", deferredHardlinkCount),
-					attribute.Int64("filesync.diff_apply.duration_ms", diffApplyDurationMs),
-					attribute.Int64("filesync.checksum.duration_ms", checksumDurationMs),
-					attribute.Int64("filesync.search_contenthash.duration_ms", searchDurationMs),
-					attribute.Int64("filesync.materialize.duration_ms", materializeDurationMs),
-					attribute.String("filesync.checksum.digest", dgst.String()),
-				}...,
-				)
-				bklog.G(ctx).Debugf("reusing copy ref %s", si.ID())
-				return finalRef, nil
-			} else {
+			copySpan.SetAttributes(
+				attribute.Bool("filesync.contenthash.hit", true),
+				attribute.Int("filesync.contenthash.candidates", len(sis)),
+			)
+			materializeDurationMs := time.Since(materializeStart).Milliseconds()
+			copySpan.SetAttributes(attribute.Int64("filesync.materialize.duration_ms", materializeDurationMs))
+			setFilesyncAttrs(
+				attribute.Bool("filesync.contenthash.hit", true),
+				attribute.Int("filesync.path.only", len(only)),
+				attribute.Int("filesync.delta.upsert", upsertCount),
+				attribute.Int("filesync.delta.delete", deleteSetCount),
+				attribute.Int("filesync.delta.none", noneSetCount),
+				attribute.Int("filesync.change.add", addCount),
+				attribute.Int("filesync.change.modify", modifyCount),
+				attribute.Int("filesync.change.delete", deleteCount),
+				attribute.Int("filesync.change.none", noneCount),
+				attribute.Int64("filesync.diff_apply.duration_ms", diffApplyDurationMs),
+				attribute.Int64("filesync.checksum.duration_ms", checksumDurationMs),
+				attribute.Int64("filesync.search_contenthash.duration_ms", searchDurationMs),
+				attribute.Int64("filesync.materialize.duration_ms", materializeDurationMs),
+				attribute.String("filesync.checksum.digest", dgst.String()),
+			)
+			emitEvent("filesync.contenthash.hit", []attribute.KeyValue{
+				attribute.Int("filesync.change.add", addCount),
+				attribute.Int("filesync.change.modify", modifyCount),
+				attribute.Int("filesync.change.delete", deleteCount),
+				attribute.Int("filesync.change.none", noneCount),
+				attribute.Int("filesync.delta.upsert", upsertCount),
+				attribute.Int("filesync.delta.delete", deleteSetCount),
+				attribute.Int("filesync.delta.none", noneSetCount),
+				attribute.Int("filesync.path.only", len(only)),
+				attribute.Int("filesync.path.ignored", ignoredPathCount),
+				attribute.Int("filesync.change.deferred_hardlink", deferredHardlinkCount),
+				attribute.Int64("filesync.diff_apply.duration_ms", diffApplyDurationMs),
+				attribute.Int64("filesync.checksum.duration_ms", checksumDurationMs),
+				attribute.Int64("filesync.search_contenthash.duration_ms", searchDurationMs),
+				attribute.Int64("filesync.materialize.duration_ms", materializeDurationMs),
+				attribute.String("filesync.checksum.digest", dgst.String()),
+			}...,
+			)
+			bklog.G(ctx).Debugf("reusing copy ref %s", si.ID())
+			return finalRef, nil
+		} else {
 			bklog.G(ctx).Debugf("failed to get cache ref: %v", err)
 		}
 	}
@@ -614,6 +638,9 @@ func (local *localFS) Sync( //nolint:gocyclo
 	setFilesyncAttrs(
 		attribute.Bool("filesync.contenthash.hit", false),
 		attribute.Int("filesync.path.only", len(only)),
+		attribute.Int("filesync.delta.upsert", upsertCount),
+		attribute.Int("filesync.delta.delete", deleteSetCount),
+		attribute.Int("filesync.delta.none", noneSetCount),
 		attribute.Int("filesync.change.add", addCount),
 		attribute.Int("filesync.change.modify", modifyCount),
 		attribute.Int("filesync.change.delete", deleteCount),
@@ -628,6 +655,9 @@ func (local *localFS) Sync( //nolint:gocyclo
 		attribute.Int("filesync.change.modify", modifyCount),
 		attribute.Int("filesync.change.delete", deleteCount),
 		attribute.Int("filesync.change.none", noneCount),
+		attribute.Int("filesync.delta.upsert", upsertCount),
+		attribute.Int("filesync.delta.delete", deleteSetCount),
+		attribute.Int("filesync.delta.none", noneSetCount),
 		attribute.Int("filesync.path.only", len(only)),
 		attribute.Int("filesync.path.ignored", ignoredPathCount),
 		attribute.Int("filesync.change.deferred_hardlink", deferredHardlinkCount),
@@ -777,6 +807,9 @@ func (local *localFS) Sync( //nolint:gocyclo
 	setFilesyncAttrs(
 		attribute.Bool("filesync.contenthash.hit", false),
 		attribute.Int("filesync.path.only", len(only)),
+		attribute.Int("filesync.delta.upsert", upsertCount),
+		attribute.Int("filesync.delta.delete", deleteSetCount),
+		attribute.Int("filesync.delta.none", noneSetCount),
 		attribute.Int("filesync.change.add", addCount),
 		attribute.Int("filesync.change.modify", modifyCount),
 		attribute.Int("filesync.change.delete", deleteCount),
@@ -798,6 +831,9 @@ func (local *localFS) Sync( //nolint:gocyclo
 		attribute.Int64("filesync.commit.duration_ms", commitDurationMs),
 		attribute.Int64("filesync.finalize.duration_ms", finalizeDurationMs),
 		attribute.Int64("filesync.materialize.duration_ms", materializeDurationMs),
+		attribute.Int("filesync.delta.upsert", upsertCount),
+		attribute.Int("filesync.delta.delete", deleteSetCount),
+		attribute.Int("filesync.delta.none", noneSetCount),
 		attribute.Int("filesync.path.only", len(only)),
 		attribute.String("filesync.checksum.digest", dgst.String()),
 	}...,
