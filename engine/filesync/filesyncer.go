@@ -31,6 +31,7 @@ type FileSyncer struct {
 	refs         map[string]*filesyncCacheRef
 	mu           sync.RWMutex
 	perClientMu  *locker.Locker
+	scopeHeads   *runtimeScopeHeadStore
 }
 
 type FileSyncerOpt struct {
@@ -42,7 +43,39 @@ func NewFileSyncer(opt FileSyncerOpt) *FileSyncer {
 		cacheManager: opt.CacheAccessor,
 		refs:         make(map[string]*filesyncCacheRef),
 		perClientMu:  locker.New(),
+		scopeHeads: &runtimeScopeHeadStore{
+			heads: map[cas.ScopeKey]cas.ScopeHead{},
+		},
 	}
+}
+
+type runtimeScopeHeadStore struct {
+	mu    sync.RWMutex
+	heads map[cas.ScopeKey]cas.ScopeHead
+}
+
+func (store *runtimeScopeHeadStore) load(scope cas.ScopeKey) (cas.ScopeHead, bool) {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+	head, ok := store.heads[scope]
+	return head, ok
+}
+
+func (store *runtimeScopeHeadStore) save(head cas.ScopeHead, expectedPrevGeneration uint64) error {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	current, found := store.heads[head.Scope]
+	if found {
+		if current.Generation != expectedPrevGeneration {
+			return fmt.Errorf("scope head generation mismatch: current=%d expected=%d", current.Generation, expectedPrevGeneration)
+		}
+	} else if expectedPrevGeneration != 0 {
+		return fmt.Errorf("scope head does not exist but expected previous generation=%d", expectedPrevGeneration)
+	}
+
+	store.heads[head.Scope] = head
+	return nil
 }
 
 type SnapshotOpts struct {
@@ -313,6 +346,7 @@ func (ls *FileSyncer) getRef(
 		ref.sharedState = &localFSSharedState{
 			rootPath:    ref.mntPath,
 			changeCache: newChangeCache(),
+			scopeHeads:  ls.scopeHeads,
 		}
 
 		ls.mu.Lock()

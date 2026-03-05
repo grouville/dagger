@@ -51,6 +51,7 @@ type localFSSharedState struct {
 	// changeCache is the cache we use to dedupe/cache changes made to the local fs across
 	// different syncs (see docs on localFS.Sync for more info)
 	changeCache *changeCache
+	scopeHeads  *runtimeScopeHeadStore
 }
 
 type ChangeWithStat struct {
@@ -59,6 +60,20 @@ type ChangeWithStat struct {
 }
 
 type CachedChange = *cachedChange
+
+func (state *localFSSharedState) loadScopeHead(scope cas.ScopeKey) (cas.ScopeHead, bool) {
+	if state.scopeHeads == nil {
+		return cas.ScopeHead{}, false
+	}
+	return state.scopeHeads.load(scope)
+}
+
+func (state *localFSSharedState) saveScopeHead(head cas.ScopeHead, expectedPrevGeneration uint64) error {
+	if state.scopeHeads == nil {
+		return fmt.Errorf("scope head store is not configured")
+	}
+	return state.scopeHeads.save(head, expectedPrevGeneration)
+}
 
 // localFS holds the state for a single sync of a client's fs into our cache
 type localFS struct {
@@ -143,11 +158,8 @@ func (local *localFS) Sync( //nolint:gocyclo
 	if !forParents {
 		var err error
 		if local.scopeKey != "" {
-			scopeHeadStore := cas.ScopeHeadStore{Store: cacheManager}
-			loadedScopeHead, found, loadErr := scopeHeadStore.Load(ctx, local.scopeKey)
-			if loadErr != nil {
-				bklog.G(ctx).Warnf("failed to load filesync scope head for %q: %v", local.scopeKey, loadErr)
-			} else if found {
+			loadedScopeHead, found := local.localFSSharedState.loadScopeHead(local.scopeKey)
+			if found {
 				scopeHead = loadedScopeHead
 				scopeHeadFound = true
 				if !shouldUseParentFromScopeHead(loadedScopeHead) {
@@ -574,6 +586,24 @@ func (local *localFS) Sync( //nolint:gocyclo
 	emitEvent := func(name string, attrs ...attribute.KeyValue) {
 		copySpan.AddEvent(name, trace.WithAttributes(attrs...))
 	}
+	logPerf := func(mode string, copyOnly int, copyDurationMs, materializeDurationMs int64, checksum string) {
+		bklog.G(ctx).Warnf(
+			"filesync perf mode=%s parent_based=%t add=%d modify=%d delete=%d none=%d upsert=%d delete_set=%d only=%d copy_only=%d copy_ms=%d materialize_ms=%d checksum=%s",
+			mode,
+			parentBasedMaterialize,
+			addCount,
+			modifyCount,
+			deleteCount,
+			noneCount,
+			upsertCount,
+			deleteSetCount,
+			len(only),
+			copyOnly,
+			copyDurationMs,
+			materializeDurationMs,
+			checksum,
+		)
+	}
 	copySpan.SetAttributes(
 		attribute.Int("filesync.change.add", addCount),
 		attribute.Int("filesync.change.modify", modifyCount),
@@ -629,8 +659,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 			Generation:    prevGeneration + 1,
 			ChainDepth:    nextDepth,
 		}
-		scopeHeadStore := cas.ScopeHeadStore{Store: cacheManager}
-		if err := scopeHeadStore.Save(ctx, ref, head, prevGeneration); err != nil {
+		if err := local.localFSSharedState.saveScopeHead(head, prevGeneration); err != nil {
 			bklog.G(ctx).Warnf("failed to save filesync scope head for %q: %v", local.scopeKey, err)
 		}
 		if err := rootIndexStore.Save(ref, rootDigest); err != nil {
@@ -719,6 +748,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 			attribute.String("filesync.checksum.digest", dgst.String()),
 		}...,
 		)
+		logPerf("root_index_hit", len(only), 0, materializeDurationMs, dgst.String())
 		bklog.G(ctx).Debugf("reusing root-index ref %s", hitID)
 		persistScopeHead(finalRef, dgst, false)
 		return finalRef, nil
@@ -789,6 +819,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 				attribute.String("filesync.checksum.digest", dgst.String()),
 			}...,
 			)
+			logPerf("contenthash_hit", len(only), 0, materializeDurationMs, dgst.String())
 			bklog.G(ctx).Debugf("reusing copy ref %s", si.ID())
 			persistScopeHead(finalRef, dgst, false)
 			return finalRef, nil
@@ -1034,6 +1065,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 		attribute.String("filesync.checksum.digest", dgst.String()),
 	}...,
 	)
+	logPerf("materialized", len(copyOnly), copyDurationMs, materializeDurationMs, dgst.String())
 
 	return finalRef, nil
 }
