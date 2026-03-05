@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"path/filepath"
 	"strings"
 
 	digest "github.com/opencontainers/go-digest"
@@ -105,7 +106,7 @@ func NormalizeRelativePath(relativePath string) (string, error) {
 	if cleaned == "." {
 		return "", nil
 	}
-	if cleaned == ".." || strings.HasPrefix(cleaned, "../") {
+	if !filepath.IsLocal(filepath.FromSlash(cleaned)) {
 		return "", fmt.Errorf("relative path escapes root: %q", relativePath)
 	}
 
@@ -126,7 +127,7 @@ func NormalizeEntryPath(entryPath string) (string, error) {
 	if cleaned == "." {
 		return "", fmt.Errorf("entry path is empty")
 	}
-	if cleaned == ".." || strings.HasPrefix(cleaned, "../") {
+	if !filepath.IsLocal(filepath.FromSlash(cleaned)) {
 		return "", fmt.Errorf("entry path escapes root: %q", entryPath)
 	}
 
