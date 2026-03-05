@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/dagger/dagger/engine/filesync/cas"
 	"gotest.tools/v3/assert"
 	is "gotest.tools/v3/assert/cmp"
 )
@@ -75,4 +76,12 @@ func TestRemoveProjectedPathRejectsEscape(t *testing.T) {
 	root := t.TempDir()
 	err := removeProjectedPath(root, "../escape")
 	assert.Assert(t, err != nil)
+}
+
+func TestShouldUseParentFromScopeHead(t *testing.T) {
+	t.Parallel()
+
+	assert.Assert(t, shouldUseParentFromScopeHead(cas.ScopeHead{ChainDepth: 0}))
+	assert.Assert(t, shouldUseParentFromScopeHead(cas.ScopeHead{ChainDepth: maxParentMaterializeChainDepth - 1}))
+	assert.Assert(t, !shouldUseParentFromScopeHead(cas.ScopeHead{ChainDepth: maxParentMaterializeChainDepth}))
 }

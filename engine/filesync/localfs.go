@@ -38,7 +38,8 @@ import (
 )
 
 const (
-	hashXattrKey = "user.daggerContentHash"
+	hashXattrKey                   = "user.daggerContentHash"
+	maxParentMaterializeChainDepth = uint32(128)
 )
 
 // localFSSharedState is the state shared between all syncs for a given client
@@ -136,6 +137,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 	var scopeHeadFound bool
 	var scopeParentRef bkcache.ImmutableRef
 	parentBasedMaterialize := false
+	scopeHeadDepthCapped := false
 
 	// skip creating a cache ref if we're only syncing parent dirs
 	if !forParents {
@@ -148,17 +150,21 @@ func (local *localFS) Sync( //nolint:gocyclo
 			} else if found {
 				scopeHead = loadedScopeHead
 				scopeHeadFound = true
-				parentRef, getErr := cacheManager.Get(ctx, loadedScopeHead.MaterialRefID, nil)
-				if getErr != nil {
-					bklog.G(ctx).Warnf(
-						"failed to get filesync scope parent ref for %q (ref=%q): %v",
-						local.scopeKey,
-						loadedScopeHead.MaterialRefID,
-						getErr,
-					)
+				if !shouldUseParentFromScopeHead(loadedScopeHead) {
+					scopeHeadDepthCapped = true
 				} else {
-					scopeParentRef = parentRef
-					parentBasedMaterialize = true
+					parentRef, getErr := cacheManager.Get(ctx, loadedScopeHead.MaterialRefID, nil)
+					if getErr != nil {
+						bklog.G(ctx).Warnf(
+							"failed to get filesync scope parent ref for %q (ref=%q): %v",
+							local.scopeKey,
+							loadedScopeHead.MaterialRefID,
+							getErr,
+						)
+					} else {
+						scopeParentRef = parentRef
+						parentBasedMaterialize = true
+					}
 				}
 			}
 		}
@@ -583,7 +589,18 @@ func (local *localFS) Sync( //nolint:gocyclo
 	)
 	copySpan.SetAttributes(attribute.Bool("filesync.materialize.parent_based", parentBasedMaterialize))
 	if local.scopeKey != "" {
-		copySpan.SetAttributes(attribute.String("filesync.scope.key", local.scopeKey.String()))
+		copySpan.SetAttributes(
+			attribute.String("filesync.scope.key", local.scopeKey.String()),
+			attribute.Int("filesync.scope.chain_depth.prev", int(scopeHead.ChainDepth)),
+			attribute.Int("filesync.scope.chain_depth.cap", int(maxParentMaterializeChainDepth)),
+			attribute.Bool("filesync.scope.chain_depth.capped", scopeHeadDepthCapped),
+		)
+		if scopeHeadDepthCapped {
+			emitEvent("filesync.scope.chain_depth.capped", []attribute.KeyValue{
+				attribute.Int("filesync.scope.chain_depth.prev", int(scopeHead.ChainDepth)),
+				attribute.Int("filesync.scope.chain_depth.cap", int(maxParentMaterializeChainDepth)),
+			}...)
+		}
 	}
 	persistScopeHead := func(ref bkcache.ImmutableRef, rootDigest digest.Digest, materialized bool) {
 		if local.scopeKey == "" || ref == nil {
@@ -962,6 +979,10 @@ func expandCopyOnlySet(paths map[string]struct{}) map[string]struct{} {
 		}
 	}
 	return out
+}
+
+func shouldUseParentFromScopeHead(head cas.ScopeHead) bool {
+	return head.ChainDepth < maxParentMaterializeChainDepth
 }
 
 func projectDeleteTargets(deleteSet map[string]struct{}, copyPath string) []string {
