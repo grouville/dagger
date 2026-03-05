@@ -8,10 +8,12 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	cfs "github.com/containerd/continuity/fs"
 	"github.com/containerd/continuity/sysx"
 	bkcache "github.com/dagger/dagger/internal/buildkit/cache"
 	bkcontenthash "github.com/dagger/dagger/internal/buildkit/cache/contenthash"
@@ -130,11 +132,38 @@ func (local *localFS) Sync( //nolint:gocyclo
 ) (_ bkcache.ImmutableRef, rerr error) {
 	var newCopyRef bkcache.MutableRef       // the mutable ref we will copy into with the frozen files+dirs if needed
 	var cacheCtx bkcontenthash.CacheContext // track file+dir hashes
+	var scopeHead cas.ScopeHead
+	var scopeHeadFound bool
+	var scopeParentRef bkcache.ImmutableRef
+	parentBasedMaterialize := false
 
 	// skip creating a cache ref if we're only syncing parent dirs
 	if !forParents {
 		var err error
-		newCopyRef, err = cacheManager.New(ctx, nil, nil)
+		if local.scopeKey != "" {
+			scopeHeadStore := cas.ScopeHeadStore{Store: cacheManager}
+			loadedScopeHead, found, loadErr := scopeHeadStore.Load(ctx, local.scopeKey)
+			if loadErr != nil {
+				bklog.G(ctx).Warnf("failed to load filesync scope head for %q: %v", local.scopeKey, loadErr)
+			} else if found {
+				scopeHead = loadedScopeHead
+				scopeHeadFound = true
+				parentRef, getErr := cacheManager.Get(ctx, loadedScopeHead.MaterialRefID, nil)
+				if getErr != nil {
+					bklog.G(ctx).Warnf(
+						"failed to get filesync scope parent ref for %q (ref=%q): %v",
+						local.scopeKey,
+						loadedScopeHead.MaterialRefID,
+						getErr,
+					)
+				} else {
+					scopeParentRef = parentRef
+					parentBasedMaterialize = true
+				}
+			}
+		}
+
+		newCopyRef, err = cacheManager.New(ctx, scopeParentRef, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create new copy ref: %w", err)
 		}
@@ -143,6 +172,14 @@ func (local *localFS) Sync( //nolint:gocyclo
 			if newCopyRef != nil {
 				if err := newCopyRef.Release(ctx); err != nil {
 					rerr = errors.Join(rerr, fmt.Errorf("failed to release copy ref: %w", err))
+				}
+			}
+		}()
+		defer func() {
+			ctx := context.WithoutCancel(ctx)
+			if scopeParentRef != nil {
+				if err := scopeParentRef.Release(ctx); err != nil {
+					rerr = errors.Join(rerr, fmt.Errorf("failed to release scope parent ref: %w", err))
 				}
 			}
 		}()
@@ -544,8 +581,42 @@ func (local *localFS) Sync( //nolint:gocyclo
 		attribute.Int("filesync.change.deferred_hardlink", deferredHardlinkCount),
 		attribute.Int64("filesync.diff_apply.duration_ms", diffApplyDurationMs),
 	)
+	copySpan.SetAttributes(attribute.Bool("filesync.materialize.parent_based", parentBasedMaterialize))
 	if local.scopeKey != "" {
 		copySpan.SetAttributes(attribute.String("filesync.scope.key", local.scopeKey.String()))
+	}
+	persistScopeHead := func(ref bkcache.ImmutableRef, rootDigest digest.Digest, materialized bool) {
+		if local.scopeKey == "" || ref == nil {
+			return
+		}
+
+		prevGeneration := uint64(0)
+		prevDepth := uint32(0)
+		if scopeHeadFound {
+			prevGeneration = scopeHead.Generation
+			prevDepth = scopeHead.ChainDepth
+		}
+		nextDepth := uint32(1)
+		switch {
+		case !materialized && scopeHeadFound && scopeHead.RootDigest == rootDigest:
+			nextDepth = scopeHead.ChainDepth
+		case materialized && parentBasedMaterialize && prevDepth > 0:
+			nextDepth = prevDepth + 1
+		}
+
+		head := cas.ScopeHead{
+			Scope:         local.scopeKey,
+			RootDigest:    rootDigest,
+			MaterialRefID: ref.ID(),
+			Generation:    prevGeneration + 1,
+			ChainDepth:    nextDepth,
+		}
+		scopeHeadStore := cas.ScopeHeadStore{Store: cacheManager}
+		if err := scopeHeadStore.Save(ctx, ref, head, prevGeneration); err != nil {
+			bklog.G(ctx).Warnf("failed to save filesync scope head for %q: %v", local.scopeKey, err)
+		}
+		scopeHead = head
+		scopeHeadFound = true
 	}
 
 	// If we didn't find any files/dir in the given relative path, we can early return an error.
@@ -632,6 +703,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 			}...,
 			)
 			bklog.G(ctx).Debugf("reusing copy ref %s", si.ID())
+			persistScopeHead(finalRef, dgst, false)
 			return finalRef, nil
 		} else {
 			bklog.G(ctx).Debugf("failed to get cache ref: %v", err)
@@ -691,10 +763,31 @@ func (local *localFS) Sync( //nolint:gocyclo
 		}
 	}()
 
+	copyOnly := only
+	if parentBasedMaterialize {
+		copyOnly = expandCopyOnlySet(upsertSet)
+	}
+	deleteTargets := make([]string, 0, len(deleteSet))
+	if parentBasedMaterialize {
+		deleteTargets = projectDeleteTargets(deleteSet, local.copyPath)
+	}
+	copySpan.SetAttributes(
+		attribute.Int("filesync.path.copy_only", len(copyOnly)),
+		attribute.Int("filesync.path.delete_targets", len(deleteTargets)),
+	)
+
+	if parentBasedMaterialize {
+		for _, relDeletePath := range deleteTargets {
+			if err := removeProjectedPath(copyRefMntPath, relDeletePath); err != nil {
+				return nil, fmt.Errorf("failed to apply delete %q: %w", relDeletePath, err)
+			}
+		}
+	}
+
 	copyOpts := []fscopy.Opt{
 		func(ci *fscopy.CopyInfo) {
 			// only copy files that we know about changes for
-			ci.Only = only
+			ci.Only = copyOnly
 			ci.CopyDirContents = true
 			ci.BaseCopyPath = local.copyPath
 		},
@@ -705,29 +798,32 @@ func (local *localFS) Sync( //nolint:gocyclo
 	}
 
 	copyCtx, copyDataSpan := Tracer(ctx).Start(ctx, "filesync.copy_data")
-	copyStart := time.Now()
-	if err := fscopy.Copy(copyCtx,
-		local.rootPath,
-		filepath.Join(local.subdir, local.copyPath),
-		copyRefMntPath, "/",
-		copyOpts...,
-	); err != nil {
-		copyDataSpan.RecordError(err)
-		copyDataSpan.SetStatus(codes.Error, err.Error())
-		copyDataSpan.End()
-		return nil, fmt.Errorf("failed to copy %q: %w", local.subdir, err)
+	var copyDurationMs int64
+	if len(copyOnly) > 0 {
+		copyStart := time.Now()
+		if err := fscopy.Copy(copyCtx,
+			local.rootPath,
+			filepath.Join(local.subdir, local.copyPath),
+			copyRefMntPath, "/",
+			copyOpts...,
+		); err != nil {
+			copyDataSpan.RecordError(err)
+			copyDataSpan.SetStatus(codes.Error, err.Error())
+			copyDataSpan.End()
+			return nil, fmt.Errorf("failed to copy %q: %w", local.subdir, err)
+		}
+		copyDurationMs = time.Since(copyStart).Milliseconds()
 	}
-	copyDurationMs := time.Since(copyStart).Milliseconds()
 	copyDataSpan.SetAttributes(
 		attribute.Int64("filesync.copy.duration_ms", copyDurationMs),
-		attribute.Int("filesync.path.only", len(only)),
+		attribute.Int("filesync.path.only", len(copyOnly)),
 		attribute.String("filesync.checksum.digest", dgst.String()),
 	)
 	copyDataSpan.End()
 	copySpan.SetAttributes(attribute.Int64("filesync.copy.duration_ms", copyDurationMs))
 	emitEvent("filesync.copy.finished", []attribute.KeyValue{
 		attribute.Int64("filesync.copy.duration_ms", copyDurationMs),
-		attribute.Int("filesync.path.only", len(only)),
+		attribute.Int("filesync.path.only", len(copyOnly)),
 		attribute.String("filesync.checksum.digest", dgst.String()),
 	}...,
 	)
@@ -808,6 +904,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 		return nil, fmt.Errorf("failed to release: %w", err)
 	}
 	newCopyRef = nil
+	persistScopeHead(finalRef, dgst, true)
 	materializeDurationMs := time.Since(materializeStart).Milliseconds()
 	copySpan.SetAttributes(attribute.Int64("filesync.materialize.duration_ms", materializeDurationMs))
 	setFilesyncAttrs(
@@ -846,6 +943,86 @@ func (local *localFS) Sync( //nolint:gocyclo
 	)
 
 	return finalRef, nil
+}
+
+func expandCopyOnlySet(paths map[string]struct{}) map[string]struct{} {
+	out := make(map[string]struct{}, len(paths))
+	for rawPath := range paths {
+		path := filepath.Clean(rawPath)
+		for path != "." && path != string(os.PathSeparator) && path != "" {
+			if _, ok := out[path]; ok {
+				break
+			}
+			out[path] = struct{}{}
+			next := filepath.Dir(path)
+			if next == path {
+				break
+			}
+			path = next
+		}
+	}
+	return out
+}
+
+func projectDeleteTargets(deleteSet map[string]struct{}, copyPath string) []string {
+	targetSet := make(map[string]struct{}, len(deleteSet))
+	for rawPath := range deleteSet {
+		relPath := rawPath
+		if copyPath != "" {
+			var ok bool
+			relPath, ok = strings.CutPrefix(relPath, copyPath)
+			if !ok {
+				continue
+			}
+		}
+		relPath = strings.TrimPrefix(relPath, string(os.PathSeparator))
+		relPath = strings.TrimPrefix(relPath, "/")
+		relPath = filepath.Clean(relPath)
+		if relPath == "" {
+			relPath = "."
+		}
+		targetSet[relPath] = struct{}{}
+	}
+
+	targets := make([]string, 0, len(targetSet))
+	for target := range targetSet {
+		targets = append(targets, target)
+	}
+	sort.Slice(targets, func(i, j int) bool {
+		depthI := strings.Count(targets[i], string(os.PathSeparator))
+		depthJ := strings.Count(targets[j], string(os.PathSeparator))
+		if depthI == depthJ {
+			return targets[i] < targets[j]
+		}
+		return depthI > depthJ
+	})
+	return targets
+}
+
+func removeProjectedPath(root, relPath string) error {
+	if relPath == "." {
+		entries, err := os.ReadDir(root)
+		if err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			if err := os.RemoveAll(filepath.Join(root, entry.Name())); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	normalizedRelPath, err := cas.NormalizeEntryPath(relPath)
+	if err != nil {
+		return err
+	}
+
+	target, err := cfs.RootPath(root, filepath.Join("/", normalizedRelPath))
+	if err != nil {
+		return err
+	}
+	return os.RemoveAll(target)
 }
 
 // the full absolute path on the local filesystem
