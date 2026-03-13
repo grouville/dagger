@@ -25,6 +25,21 @@ const (
 	entryKindRemoved  = "REMOVED"
 )
 
+// EntriesFromPaths builds a flat list of entries from categorized path slices.
+func EntriesFromPaths(added, modified, removed []string) []Entry {
+	entries := make([]Entry, 0, len(added)+len(modified)+len(removed))
+	for _, p := range added {
+		entries = append(entries, Entry{Path: p, Kind: entryKindAdded})
+	}
+	for _, p := range modified {
+		entries = append(entries, Entry{Path: p, Kind: entryKindModified})
+	}
+	for _, p := range removed {
+		entries = append(entries, Entry{Path: p, Kind: entryKindRemoved})
+	}
+	return entries
+}
+
 func New(entries []Entry) *PatchPreview {
 	normalized := make([]Entry, 0, len(entries))
 	for _, entry := range entries {

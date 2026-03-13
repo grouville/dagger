@@ -315,52 +315,24 @@ func (ch *Changeset) DiffStat(ctx context.Context) ([]*ChangesetDiffStatEntry, e
 		return nil, nil
 	}
 
-	kindsByPath := make(map[string]string, len(paths.Added)+len(paths.Modified)+len(paths.AllRemoved))
-	for _, path := range paths.Added {
-		kindsByPath[path] = ChangesetDiffKindAdded
+	type pathGroup struct {
+		paths []string
+		kind  string
 	}
-	for _, path := range paths.Modified {
-		kindsByPath[path] = ChangesetDiffKindModified
-	}
-	for _, path := range paths.AllRemoved {
-		kindsByPath[path] = ChangesetDiffKindRemoved
-	}
-
-	entries := make([]*ChangesetDiffStatEntry, 0, len(statsByPath)+len(paths.Added)+len(paths.Modified)+len(paths.Removed))
-	seen := make(map[string]struct{}, len(statsByPath))
-	for path, stat := range statsByPath {
-		kind, ok := kindsByPath[path]
-		if !ok {
-			// Keep a best-effort stat entry if numstat reports a path that wasn't
-			// categorized by name-status/path-set comparisons.
-			kind = ChangesetDiffKindModified
+	entries := make([]*ChangesetDiffStatEntry, 0, len(paths.Added)+len(paths.Modified)+len(paths.Removed))
+	for _, g := range []pathGroup{
+		{paths.Added, ChangesetDiffKindAdded},
+		{paths.Modified, ChangesetDiffKindModified},
+		{paths.Removed, ChangesetDiffKindRemoved},
+	} {
+		for _, path := range g.paths {
+			entry := &ChangesetDiffStatEntry{Path: path, Kind: g.kind}
+			if stat, ok := statsByPath[path]; ok {
+				entry.AddedLines = stat.Added
+				entry.RemovedLines = stat.Removed
+			}
+			entries = append(entries, entry)
 		}
-		entries = append(entries, &ChangesetDiffStatEntry{
-			Path:         path,
-			Kind:         kind,
-			AddedLines:   stat.Added,
-			RemovedLines: stat.Removed,
-		})
-		seen[path] = struct{}{}
-	}
-
-	for _, path := range paths.Added {
-		if _, ok := seen[path]; ok {
-			continue
-		}
-		entries = append(entries, &ChangesetDiffStatEntry{Path: path, Kind: ChangesetDiffKindAdded})
-	}
-	for _, path := range paths.Modified {
-		if _, ok := seen[path]; ok {
-			continue
-		}
-		entries = append(entries, &ChangesetDiffStatEntry{Path: path, Kind: ChangesetDiffKindModified})
-	}
-	for _, path := range paths.Removed {
-		if _, ok := seen[path]; ok {
-			continue
-		}
-		entries = append(entries, &ChangesetDiffStatEntry{Path: path, Kind: ChangesetDiffKindRemoved})
 	}
 	slices.SortFunc(entries, func(a, b *ChangesetDiffStatEntry) int {
 		return strings.Compare(a.Path, b.Path)

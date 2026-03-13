@@ -51,24 +51,5 @@ func PreviewPatch(ctx context.Context, dag *dagger.Client, changeset *dagger.Cha
 		return nil, fmt.Errorf("fallback removed paths: %w", err)
 	}
 
-	entries := make([]patchpreview.Entry, 0, len(addedPaths)+len(modifiedPaths)+len(removedPaths))
-	for _, path := range addedPaths {
-		entries = append(entries, patchpreview.Entry{
-			Path: path,
-			Kind: "ADDED",
-		})
-	}
-	for _, path := range modifiedPaths {
-		entries = append(entries, patchpreview.Entry{
-			Path: path,
-			Kind: "MODIFIED",
-		})
-	}
-	for _, path := range removedPaths {
-		entries = append(entries, patchpreview.Entry{
-			Path: path,
-			Kind: "REMOVED",
-		})
-	}
-	return patchpreview.New(entries), nil
+	return patchpreview.New(patchpreview.EntriesFromPaths(addedPaths, modifiedPaths, removedPaths)), nil
 }

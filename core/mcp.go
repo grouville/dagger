@@ -430,16 +430,7 @@ func (m *MCP) summarizePatch(ctx context.Context, srv *dagql.Server, changes dag
 			return "", nil
 		}
 
-		entries = make([]patchpreview.Entry, 0, len(paths.Added)+len(paths.Modified)+len(paths.Removed))
-		for _, path := range paths.Added {
-			entries = append(entries, patchpreview.Entry{Path: path, Kind: ChangesetDiffKindAdded})
-		}
-		for _, path := range paths.Modified {
-			entries = append(entries, patchpreview.Entry{Path: path, Kind: ChangesetDiffKindModified})
-		}
-		for _, path := range paths.Removed {
-			entries = append(entries, patchpreview.Entry{Path: path, Kind: ChangesetDiffKindRemoved})
-		}
+		entries = patchpreview.EntriesFromPaths(paths.Added, paths.Modified, paths.Removed)
 	} else {
 		return fmt.Sprintf("WARNING: failed to fetch patch summary: %s", err), nil
 	}
