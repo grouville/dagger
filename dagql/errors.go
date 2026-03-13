@@ -1,8 +1,6 @@
 package dagql
 
-import (
-	"fmt"
-)
+import "fmt"
 
 type PanicError struct {
 	Cause     any

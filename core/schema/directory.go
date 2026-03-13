@@ -606,29 +606,29 @@ type withPatchFileArgs struct {
 var _ core.Inputs = withPatchFileArgs{}
 
 func (args withPatchFileArgs) Inputs(ctx context.Context) ([]llb.State, error) {
-	if args.Patch.ID() == nil {
-		return nil, nil
-	}
-
+	deps := []llb.State{}
 	srv, err := core.CurrentDagqlServer(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current dagql server: %w", err)
+	}
+
+	if args.Patch.ID() == nil {
+		return nil, nil
 	}
 
 	patchRes, err := args.Patch.Load(ctx, srv)
 	if err != nil {
 		return nil, fmt.Errorf("load patch: %w", err)
 	}
-
 	patchOp, err := llb.NewDefinitionOp(patchRes.Self().LLB)
 	if err != nil {
 		return nil, fmt.Errorf("patch op: %w", err)
 	}
-	if patchOp.Output() == nil {
-		return nil, nil
+	if patchOp.Output() != nil {
+		deps = append(deps, llb.NewState(patchOp))
 	}
 
-	return []llb.State{llb.NewState(patchOp)}, nil
+	return deps, nil
 }
 
 func (s *directorySchema) withPatchFile(ctx context.Context, parent dagql.ObjectResult[*core.Directory], args withPatchFileArgs) (inst dagql.ObjectResult[*core.Directory], _ error) {

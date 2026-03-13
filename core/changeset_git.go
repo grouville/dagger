@@ -25,18 +25,29 @@ type lineChanges struct {
 }
 
 // compareDirectories returns the file-level differences between two directories.
+// -z uses NUL delimiters so filenames with spaces/newlines are handled correctly.
 func compareDirectories(ctx context.Context, oldDir, newDir string) (fileChanges, error) {
-	out, err := runGitDiffOutput(ctx, "--name-status", oldDir, newDir)
+	cmd := exec.CommandContext(ctx, "git", "diff", "--no-index", "--name-status", "-z", oldDir, newDir)
+	out, err := cmd.Output()
 	if err != nil {
-		return fileChanges{}, err
+		// git diff exits 1 when differences exist, which is not an error here.
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+			return fileChanges{}, err
+		}
 	}
 	return parseGitOutput(out, oldDir, newDir), nil
 }
 
+// compareDirectoriesNumStat returns per-file line-change counts between two directories.
 func compareDirectoriesNumStat(ctx context.Context, oldDir, newDir string) (map[string]lineChanges, error) {
-	out, err := runGitDiffOutput(ctx, "--numstat", oldDir, newDir)
+	cmd := exec.CommandContext(ctx, "git", "diff", "--no-index", "--numstat", "-z", oldDir, newDir)
+	out, err := cmd.Output()
 	if err != nil {
-		return nil, err
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+			return nil, err
+		}
 	}
 	return parseGitNumStatOutput(out, oldDir, newDir), nil
 }
@@ -53,21 +64,6 @@ func directoriesAreIdentical(ctx context.Context, dir1, dir2 string) (bool, erro
 		return false, nil
 	}
 	return false, err
-}
-
-// runGitDiffOutput runs git diff --no-index with NUL-delimited output.
-// git exits 1 when differences exist, which is not an error here.
-func runGitDiffOutput(ctx context.Context, format, oldDir, newDir string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "git", "diff", "--no-index", format, "-z", oldDir, newDir)
-	out, err := cmd.Output()
-	if err == nil {
-		return out, nil
-	}
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
-		return out, nil
-	}
-	return nil, err
 }
 
 func parseGitOutput(out []byte, oldDir, newDir string) fileChanges {

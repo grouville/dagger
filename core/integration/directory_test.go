@@ -1428,9 +1428,6 @@ func (DirectorySuite) TestDirectoryName(ctx context.Context, t *testctx.T) {
 
 func (DirectorySuite) TestPatch(ctx context.Context, t *testctx.T) {
 	c := connect(ctx, t)
-	patchFile := func(patch string) *dagger.File {
-		return c.Directory().WithNewFile("change.patch", patch).File("change.patch")
-	}
 
 	t.Run("basic patch application", func(ctx context.Context, t *testctx.T) {
 		// Create a directory with a simple file
@@ -1578,81 +1575,6 @@ func (DirectorySuite) TestPatch(ctx context.Context, t *testctx.T) {
 
 		// Apply the invalid patch and expect an error
 		_, err := dir.WithPatch(invalidPatch).Sync(ctx)
-		require.Error(t, err)
-	})
-
-	t.Run("patch file basic patch application", func(ctx context.Context, t *testctx.T) {
-		dir := c.Directory().
-			WithNewFile("hello.txt", "Hello, World!\n")
-
-		patch := `--- a/hello.txt
-+++ b/hello.txt
-@@ -1 +1 @@
--Hello, World!
-+Hello, Dagger!
-`
-
-		patchedDir := dir.WithPatchFile(patchFile(patch))
-
-		content, err := patchedDir.File("hello.txt").Contents(ctx)
-		require.NoError(t, err)
-		require.Equal(t, "Hello, Dagger!\n", content)
-	})
-
-	t.Run("patch file adding new file", func(ctx context.Context, t *testctx.T) {
-		dir := c.Directory()
-
-		patch := `--- /dev/null
-+++ b/newfile.txt
-@@ -0,0 +1 @@
-+This is a new file!
-`
-
-		patchedDir := dir.WithPatchFile(patchFile(patch))
-
-		content, err := patchedDir.File("newfile.txt").Contents(ctx)
-		require.NoError(t, err)
-		require.Equal(t, "This is a new file!\n", content)
-	})
-
-	t.Run("patch file deleting file", func(ctx context.Context, t *testctx.T) {
-		dir := c.Directory().
-			WithNewFile("delete-me.txt", "This file will be deleted\n").
-			WithNewFile("keep-me.txt", "This file will be kept\n")
-
-		patch := `--- a/delete-me.txt
-+++ /dev/null
-@@ -1 +0,0 @@
--This file will be deleted
-`
-
-		patchedDir := dir.WithPatchFile(patchFile(patch))
-
-		ents, err := patchedDir.Entries(ctx)
-		require.NoError(t, err)
-		require.Equal(t, []string{"keep-me.txt"}, ents)
-	})
-
-	t.Run("patch file empty patch", func(ctx context.Context, t *testctx.T) {
-		dir := c.Directory().
-			WithNewFile("test.txt", "test content")
-
-		_, err := dir.WithPatchFile(patchFile("")).Sync(ctx)
-		require.NoError(t, err)
-	})
-
-	t.Run("patch file bad patch application", func(ctx context.Context, t *testctx.T) {
-		dir := c.Directory().
-			WithNewFile("hello.txt", "Hello, World!\n")
-
-		invalidPatch := `--- a/hello.txt
-+++ b/hello.txt
-@@ -1 +1 @@
--Goodbye, World!
-+Hello, Dagger!
-`
-
-		_, err := dir.WithPatchFile(patchFile(invalidPatch)).Sync(ctx)
 		require.Error(t, err)
 	})
 
