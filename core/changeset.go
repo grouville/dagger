@@ -337,7 +337,9 @@ func (ch *Changeset) DiffStat(ctx context.Context) ([]*ChangesetDiffStatEntry, e
 	for _, path := range paths.Modified {
 		entries = addEntry(entries, path, patchpreview.KindModified)
 	}
-	for _, path := range paths.Removed {
+	// Use AllRemoved (uncollapsed) so that patchpreview.foldRemovedDirs can
+	// fold child files into their parent directory with summed line counts.
+	for _, path := range paths.AllRemoved {
 		if renamedOld[path] {
 			continue
 		}
