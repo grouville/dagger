@@ -3,10 +3,15 @@ package core
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"dagger.io/dagger"
+	"github.com/dagger/dagger/dagql"
+	"github.com/dagger/dagger/dagql/idtui"
+	"github.com/dagger/dagger/engine/buildkit"
 	"github.com/dagger/testctx"
+	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,6 +19,32 @@ type ChangesetSuite struct{}
 
 func TestChangeset(t *testing.T) {
 	testctx.New(t, Middleware()...).RunTests(ChangesetSuite{})
+}
+
+type changesetDiffStatEntry struct {
+	// Keep this in sync with dagql/idtui/patch.go:changesetDiffStatEntry.
+	// We keep a local copy here so querybuilder can bind directly in tests
+	// without importing UI-layer internals.
+	Path         string `json:"path"`
+	Kind         string `json:"kind"`
+	AddedLines   int    `json:"addedLines"`
+	RemovedLines int    `json:"removedLines"`
+}
+
+func queryChangesetDiffStat(ctx context.Context, c *dagger.Client, changeset *dagger.Changeset) (_ []changesetDiffStatEntry, available bool, _ error) {
+	q := c.QueryBuilder().
+		Select("loadChangesetFromID").
+		Arg("id", changeset).
+		Select("diffStat")
+
+	var diffStat []changesetDiffStatEntry
+	if err := q.Bind(&diffStat).Execute(ctx); err != nil {
+		if dagql.IsUnavailableFieldError(err, "Changeset", "diffStat") {
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+	return diffStat, true, nil
 }
 
 func (ChangesetSuite) TestChangeset(ctx context.Context, t *testctx.T) {
@@ -242,6 +273,42 @@ func (ChangesetSuite) TestChangeset(ctx context.Context, t *testctx.T) {
 		// Should NOT include directories or added files
 		require.NotContains(t, modifiedPaths, "dir/")
 		require.NotContains(t, modifiedPaths, "dir/added.txt")
+	})
+
+	t.Run("diffStat basic", func(ctx context.Context, t *testctx.T) {
+		c := connect(ctx, t)
+
+		oldDir := c.Directory().
+			WithNewFile("mod.txt", "one\nold\n").
+			WithNewFile("remove.txt", "gone\n")
+
+		newDir := c.Directory().
+			WithNewFile("mod.txt", "one\nnew\n").
+			WithNewFile("add.txt", "hello\n")
+
+		changes := newDir.Changes(oldDir)
+		diffStat, available, err := queryChangesetDiffStat(ctx, c, changes)
+		require.NoError(t, err)
+		if !available {
+			t.Skip("diffStat is not available on this engine version")
+		}
+
+		byPath := make(map[string]changesetDiffStatEntry, len(diffStat))
+		for _, entry := range diffStat {
+			byPath[entry.Path] = entry
+		}
+
+		require.Equal(t, "ADDED", byPath["add.txt"].Kind)
+		require.Equal(t, 1, byPath["add.txt"].AddedLines)
+		require.Equal(t, 0, byPath["add.txt"].RemovedLines)
+
+		require.Equal(t, "MODIFIED", byPath["mod.txt"].Kind)
+		require.Equal(t, 1, byPath["mod.txt"].AddedLines)
+		require.Equal(t, 1, byPath["mod.txt"].RemovedLines)
+
+		require.Equal(t, "REMOVED", byPath["remove.txt"].Kind)
+		require.Equal(t, 0, byPath["remove.txt"].AddedLines)
+		require.Equal(t, 1, byPath["remove.txt"].RemovedLines)
 	})
 
 	t.Run("layer basic", func(ctx context.Context, t *testctx.T) {
@@ -737,6 +804,67 @@ func (s ChangesetSuite) TestChangesAsPatch(ctx context.Context, t *testctx.T) {
 	s.testChangeApplying(t, func(dest *dagger.Directory, source *dagger.Changeset) *dagger.Directory {
 		return dest.WithPatchFile(source.AsPatch())
 	}, true)
+}
+
+func (ChangesetSuite) TestPreviewPatchLargerThanMaxFileContentsSize(ctx context.Context, t *testctx.T) {
+	// Regression: previewing a large changeset should not fail just because
+	// AsPatch().Contents() exceeds the File.Contents() size limit.
+	c := connect(ctx, t)
+
+	largeFile := c.Container().
+		From(alpineImage).
+		WithExec([]string{
+			"sh", "-c",
+			fmt.Sprintf("head -c %d /dev/zero | tr '\\000' 'a' > /large.txt", buildkit.MaxFileContentsSize+1),
+		}).
+		File("/large.txt")
+
+	changes := c.Directory().
+		WithFile("large.txt", largeFile).
+		Changes(c.Directory())
+
+	_, err := changes.AsPatch().Contents(ctx)
+	require.Error(t, err)
+
+	preview, err := idtui.PreviewPatch(ctx, c, changes)
+	require.NoError(t, err)
+	require.NotNil(t, preview)
+
+	var summary strings.Builder
+	out := termenv.NewOutput(&summary, termenv.WithProfile(termenv.Ascii))
+	require.NoError(t, preview.Summarize(out, 80))
+	require.Contains(t, summary.String(), "large.txt")
+	require.Contains(t, summary.String(), "1 file changed")
+}
+
+func (ChangesetSuite) TestPreviewPatchFallbackWithoutDiffStat(ctx context.Context, t *testctx.T) {
+	// diffStat is a newer schema field; older schema views must continue to
+	// render previews via added/modified/removed path APIs.
+	c := connect(ctx, t, dagger.WithVersionOverride("v0.20.0"))
+
+	oldDir := c.Directory().
+		WithNewFile("mod.txt", "one\nold\n")
+
+	newDir := c.Directory().
+		WithNewFile("mod.txt", "one\nnew\n").
+		WithNewFile("add.txt", "hello\n")
+
+	changes := newDir.Changes(oldDir)
+
+	_, available, err := queryChangesetDiffStat(ctx, c, changes)
+	require.NoError(t, err)
+	require.False(t, available, "diffStat should be hidden in v0.20.0 view")
+
+	preview, err := idtui.PreviewPatch(ctx, c, changes)
+	require.NoError(t, err)
+	require.NotNil(t, preview)
+
+	var summary strings.Builder
+	out := termenv.NewOutput(&summary, termenv.WithProfile(termenv.Ascii))
+	require.NoError(t, preview.Summarize(out, 80))
+	require.Contains(t, summary.String(), "add.txt")
+	require.Contains(t, summary.String(), "mod.txt")
+	require.Contains(t, summary.String(), "2 files changed")
 }
 
 func (ChangesetSuite) testChangeApplying(t *testctx.T, apply func(*dagger.Directory, *dagger.Changeset) *dagger.Directory, leaveDirs bool) {
