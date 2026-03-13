@@ -17,6 +17,7 @@ type fileChanges struct {
 	Added    []string
 	Modified []string
 	Removed  []string
+	Renamed  map[string]string // newPath → oldPath
 }
 
 type lineChanges struct {
@@ -82,14 +83,20 @@ func parseGitOutput(out []byte, oldDir, newDir string) fileChanges {
 			changes.Removed = appendRelativePath(changes.Removed, path, oldDir)
 		case 'M', 'T':
 			changes.Modified = appendRelativePath(changes.Modified, path, oldDir)
-		case 'R': // rename: old path removed, new path added
+		case 'R': // rename: consume extra destination token
 			if len(tokens) == 0 {
 				continue
 			}
 			newPath := tokens[0]
 			tokens = tokens[1:]
-			changes.Removed = appendRelativePath(changes.Removed, path, oldDir)
-			changes.Added = appendRelativePath(changes.Added, newPath, newDir)
+			oldRel := relativeDiffPath(path, oldDir)
+			newRel := relativeDiffPath(newPath, newDir)
+			if oldRel != "" && newRel != "" {
+				if changes.Renamed == nil {
+					changes.Renamed = make(map[string]string)
+				}
+				changes.Renamed[newRel] = oldRel
+			}
 		case 'C': // copy: only new path added (old still exists)
 			if len(tokens) == 0 {
 				continue

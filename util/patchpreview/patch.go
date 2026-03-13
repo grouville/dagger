@@ -19,6 +19,7 @@ const (
 	KindAdded    = "ADDED"
 	KindModified = "MODIFIED"
 	KindRemoved  = "REMOVED"
+	KindRenamed  = "RENAMED"
 )
 
 // SummarizeString returns a plain-text diff summary (no ANSI colors).

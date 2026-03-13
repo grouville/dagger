@@ -51,8 +51,7 @@ func TestParseGitOutput(t *testing.T) {
 			name:   "rename",
 			output: joinNul("R100", oldDir+"/old.txt", newDir+"/new.txt"),
 			want: fileChanges{
-				Added:   []string{"new.txt"},
-				Removed: []string{"old.txt"},
+				Renamed: map[string]string{"new.txt": "old.txt"},
 			},
 		},
 		{

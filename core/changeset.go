@@ -59,11 +59,12 @@ type ChangesetPaths struct {
 	Modified   []string
 	Removed    []string
 	AllRemoved []string
+	Renamed    map[string]string // newPath → oldPath (also included in Added/Removed)
 }
 
 type ChangesetDiffStatEntry struct {
 	Path         string `field:"true" doc:"Path of the changed file or directory."`
-	Kind         string `field:"true" doc:"Type of change: ADDED, MODIFIED, or REMOVED."`
+	Kind         string `field:"true" doc:"Type of change: ADDED, MODIFIED, REMOVED, or RENAMED."`
 	AddedLines   int    `field:"true" doc:"Number of added lines for this path."`
 	RemovedLines int    `field:"true" doc:"Number of removed lines for this path."`
 }
@@ -101,7 +102,7 @@ func (ch *Changeset) computePathsOnce(ctx context.Context) (*ChangesetPaths, err
 }
 
 func computeChangesetPaths(ctx context.Context, beforeDir, afterDir string) (*ChangesetPaths, error) {
-	fileChanges, err := compareDirectories(ctx, beforeDir, afterDir)
+	fc, err := compareDirectories(ctx, beforeDir, afterDir)
 	if err != nil {
 		return nil, err
 	}
@@ -116,13 +117,22 @@ func computeChangesetPaths(ctx context.Context, beforeDir, afterDir string) (*Ch
 	}
 	addedDirs, removedDirs := diffStringSlices(beforeDirs, afterDirs)
 
-	allRemoved := slices.Concat(fileChanges.Removed, removedDirs)
+	// Expand renames into Added/Removed so addedPaths/removedPaths stay complete.
+	renamedNew := make([]string, 0, len(fc.Renamed))
+	renamedOld := make([]string, 0, len(fc.Renamed))
+	for newPath, oldPath := range fc.Renamed {
+		renamedNew = append(renamedNew, newPath)
+		renamedOld = append(renamedOld, oldPath)
+	}
+
+	allRemoved := slices.Concat(fc.Removed, renamedOld, removedDirs)
 
 	return &ChangesetPaths{
-		Added:      slices.Concat(fileChanges.Added, addedDirs),
-		Modified:   fileChanges.Modified,
+		Added:      slices.Concat(fc.Added, renamedNew, addedDirs),
+		Modified:   fc.Modified,
 		Removed:    collapseChildPaths(allRemoved),
 		AllRemoved: allRemoved,
+		Renamed:    fc.Renamed,
 	}, nil
 }
 
@@ -309,14 +319,28 @@ func (ch *Changeset) DiffStat(ctx context.Context) ([]*ChangesetDiffStatEntry, e
 		return append(entries, entry)
 	}
 
+	// Build a set of old renamed paths so we can skip them in Removed
+	// (they'll appear as KindRenamed via their new path in Added).
+	renamedOld := make(map[string]bool, len(paths.Renamed))
+	for _, oldPath := range paths.Renamed {
+		renamedOld[oldPath] = true
+	}
+
 	var entries []*ChangesetDiffStatEntry
 	for _, path := range paths.Added {
-		entries = addEntry(entries, path, patchpreview.KindAdded)
+		if _, isRenamed := paths.Renamed[path]; isRenamed {
+			entries = addEntry(entries, path, patchpreview.KindRenamed)
+		} else {
+			entries = addEntry(entries, path, patchpreview.KindAdded)
+		}
 	}
 	for _, path := range paths.Modified {
 		entries = addEntry(entries, path, patchpreview.KindModified)
 	}
 	for _, path := range paths.Removed {
+		if renamedOld[path] {
+			continue
+		}
 		entries = addEntry(entries, path, patchpreview.KindRemoved)
 	}
 
