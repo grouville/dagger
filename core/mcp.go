@@ -417,9 +417,7 @@ func (m *MCP) summarizePatch(ctx context.Context, srv *dagql.Server, changes dag
 
 	var summary strings.Builder
 	llmOut := termenv.NewOutput(&summary, termenv.WithProfile(termenv.Ascii))
-	if err := preview.Summarize(llmOut, summaryWidth); err != nil {
-		return fmt.Sprintf("WARNING: failed to render patch summary: %s", err), nil
-	}
+	preview.Summarize(llmOut, summaryWidth)
 	return summary.String(), nil
 }
 

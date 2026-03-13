@@ -10,7 +10,7 @@ import (
 
 func TestNewEmpty(t *testing.T) {
 	require.Nil(t, New(nil))
-	require.Nil(t, New([]Entry{{Path: ""}}))
+	require.Nil(t, New([]Entry{}))
 }
 
 func TestSummary(t *testing.T) {
@@ -25,7 +25,7 @@ func TestSummary(t *testing.T) {
 
 	var summary strings.Builder
 	out := termenv.NewOutput(&summary, termenv.WithProfile(termenv.Ascii))
-	require.NoError(t, preview.Summarize(out, 80))
+	preview.Summarize(out, 80)
 
 	text := summary.String()
 	require.Contains(t, text, "mod.txt")

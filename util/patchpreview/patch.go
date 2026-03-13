@@ -15,10 +15,6 @@ type Entry struct {
 	Removed int
 }
 
-type PatchPreview struct {
-	entries []Entry
-}
-
 // Kind constants categorize how a path changed between two directory snapshots.
 const (
 	KindAdded    = "ADDED"
@@ -26,52 +22,44 @@ const (
 	KindRemoved  = "REMOVED"
 )
 
+type PatchPreview struct {
+	entries []Entry
+}
 
 func New(entries []Entry) *PatchPreview {
-	normalized := make([]Entry, 0, len(entries))
-	for _, entry := range entries {
-		if entry.Path == "" {
-			continue
-		}
-		if entry.Kind == "" {
-			entry.Kind = KindModified
-		}
-		normalized = append(normalized, entry)
-	}
-	if len(normalized) == 0 {
+	if len(entries) == 0 {
 		return nil
 	}
 
-	normalized = consolidateRemovedDirs(normalized)
-	// Normalize output order regardless of caller input ordering.
-	slices.SortFunc(normalized, func(a, b Entry) int {
+	entries = consolidateRemovedDirs(entries)
+	slices.SortFunc(entries, func(a, b Entry) int {
 		return strings.Compare(a.Path, b.Path)
 	})
 
-	return &PatchPreview{entries: normalized}
+	return &PatchPreview{entries: entries}
 }
 
-func (preview *PatchPreview) Summarize(out *termenv.Output, maxWidth int) error {
+func (preview *PatchPreview) Summarize(out *termenv.Output, maxWidth int) {
+	maxFilenameLen := max(maxWidth-20, 10)
+
 	longestFilenameLen := 0
 	for _, entry := range preview.entries {
-		if len(entry.Path) > longestFilenameLen {
-			longestFilenameLen = len(entry.Path)
+		if l := len(entry.Path); l > longestFilenameLen {
+			longestFilenameLen = l
 		}
 	}
-
-	var maxFilenameLen int
-	if maxWidth > 0 {
-		maxFilenameLen = max(maxWidth-20, 10) // Leave space for " | ", change count, and bars
-		if longestFilenameLen > maxFilenameLen {
-			longestFilenameLen = maxFilenameLen
-		}
+	if longestFilenameLen > maxFilenameLen {
+		longestFilenameLen = maxFilenameLen
 	}
 
 	totalAdded := 0
 	totalRemoved := 0
 
 	for _, entry := range preview.entries {
-		filename := shortenPath(entry.Path, maxFilenameLen)
+		filename := entry.Path
+		if len(filename) > maxFilenameLen {
+			filename = "..." + filename[len(filename)-(maxFilenameLen-3):]
+		}
 
 		var filenameColor termenv.Color
 		switch entry.Kind {
@@ -91,27 +79,20 @@ func (preview *PatchPreview) Summarize(out *termenv.Output, maxWidth int) error 
 			out.WriteString(strings.Repeat(" ", longestFilenameLen-len(filename)))
 		}
 
-		if maxWidth > 0 {
-			if entry.Added > 0 {
-				fmt.Fprintf(out, " %s", out.String(fmt.Sprintf("+%d", entry.Added)).Foreground(termenv.ANSIGreen))
-			}
-			if entry.Removed > 0 {
-				fmt.Fprintf(out, " %s", out.String(fmt.Sprintf("-%d", entry.Removed)).Foreground(termenv.ANSIRed))
-			}
-		} else {
-			out.WriteString(" | ")
-			if entry.Added > 0 {
-				out.WriteString(out.String(strings.Repeat("+", entry.Added)).Foreground(termenv.ANSIGreen).String())
-			}
-			if entry.Removed > 0 {
-				out.WriteString(out.String(strings.Repeat("-", entry.Removed)).Foreground(termenv.ANSIRed).String())
-			}
+		if entry.Added > 0 {
+			fmt.Fprintf(out, " %s", out.String(fmt.Sprintf("+%d", entry.Added)).Foreground(termenv.ANSIGreen))
+		}
+		if entry.Removed > 0 {
+			fmt.Fprintf(out, " %s", out.String(fmt.Sprintf("-%d", entry.Removed)).Foreground(termenv.ANSIRed))
 		}
 		out.WriteString("\n")
 	}
 
-	fmt.Fprintln(out)
-	fmt.Fprintf(out, "%d %s changed", len(preview.entries), pluralize(len(preview.entries), "file", "files"))
+	fileWord := "files"
+	if len(preview.entries) == 1 {
+		fileWord = "file"
+	}
+	fmt.Fprintf(out, "\n%d %s changed", len(preview.entries), fileWord)
 	if totalAdded+totalRemoved > 0 {
 		fmt.Fprint(out, ",")
 		if totalAdded > 0 {
@@ -122,55 +103,46 @@ func (preview *PatchPreview) Summarize(out *termenv.Output, maxWidth int) error 
 		}
 		out.WriteString(" lines")
 	}
-
-	return nil
 }
 
+// consolidateRemovedDirs folds removed files into their parent removed
+// directory, summing line counts. E.g. if "dir/" and "dir/file.txt" are
+// both removed, only "dir/" is kept with the combined line count.
 func consolidateRemovedDirs(entries []Entry) []Entry {
-	removedDirs := make([]Entry, 0, len(entries))
-	otherEntries := make([]Entry, 0, len(entries))
+	// Collect removed directories (paths ending in "/").
+	var removedDirs []Entry
 	for _, entry := range entries {
 		if entry.Kind == KindRemoved && strings.HasSuffix(entry.Path, "/") {
 			removedDirs = append(removedDirs, entry)
-			continue
 		}
-		otherEntries = append(otherEntries, entry)
 	}
 	if len(removedDirs) == 0 {
 		return entries
 	}
 
-	result := make([]Entry, 0, len(otherEntries)+len(removedDirs))
-entryLoop:
-	for _, entry := range otherEntries {
-		if entry.Kind == KindRemoved {
+	// Build a set of removed-dir prefixes for O(d*n) matching.
+	result := make([]Entry, 0, len(entries))
+	for _, entry := range entries {
+		if entry.Kind == KindRemoved && !strings.HasSuffix(entry.Path, "/") {
+			folded := false
 			for i := range removedDirs {
 				if strings.HasPrefix(entry.Path, removedDirs[i].Path) {
 					removedDirs[i].Removed += entry.Removed
-					continue entryLoop
+					folded = true
+					break
 				}
 			}
+			if folded {
+				continue
+			}
+		}
+		// Keep non-removed entries and directory entries themselves.
+		// Directory entries will be replaced by the updated removedDirs below.
+		if entry.Kind == KindRemoved && strings.HasSuffix(entry.Path, "/") {
+			continue
 		}
 		result = append(result, entry)
 	}
 
-	result = append(result, removedDirs...)
-	return result
-}
-
-func pluralize(count int, singular, plural string) string {
-	if count == 1 {
-		return singular
-	}
-	return plural
-}
-
-func shortenPath(filename string, maxFilenameLen int) string {
-	if maxFilenameLen == 0 {
-		return filename
-	}
-	if len(filename) > maxFilenameLen {
-		filename = "..." + filename[len(filename)-(maxFilenameLen-3):]
-	}
-	return filename
+	return append(result, removedDirs...)
 }

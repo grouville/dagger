@@ -770,9 +770,7 @@ func handleChangesetResponse(ctx context.Context, dag *dagger.Client, response a
 
 		var out strings.Builder
 		out.WriteString("Apply generated changes to the current directory.\n\n")
-		if err := preview.Summarize(idtui.NewOutput(&out), summaryWidth); err != nil {
-			return false, fmt.Errorf("summarize changes: %w", err)
-		}
+		preview.Summarize(idtui.NewOutput(&out), summaryWidth)
 		description = out.String()
 		return false, nil
 	}()

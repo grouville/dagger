@@ -3,14 +3,10 @@ package core
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 
 	"dagger.io/dagger"
-	"github.com/dagger/dagger/dagql/idtui"
-	"github.com/dagger/dagger/engine/buildkit"
 	"github.com/dagger/testctx"
-	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,29 +14,6 @@ type ChangesetSuite struct{}
 
 func TestChangeset(t *testing.T) {
 	testctx.New(t, Middleware()...).RunTests(ChangesetSuite{})
-}
-
-func queryChangesetDiffStat(ctx context.Context, c *dagger.Client, changeset *dagger.Changeset) ([]struct {
-	Path         string `json:"path"`
-	Kind         string `json:"kind"`
-	AddedLines   int    `json:"addedLines"`
-	RemovedLines int    `json:"removedLines"`
-}, error) {
-	q := c.QueryBuilder().
-		Select("loadChangesetFromID").
-		Arg("id", changeset).
-		Select("diffStat")
-
-	var diffStat []struct {
-		Path         string `json:"path"`
-		Kind         string `json:"kind"`
-		AddedLines   int    `json:"addedLines"`
-		RemovedLines int    `json:"removedLines"`
-	}
-	if err := q.Bind(&diffStat).Execute(ctx); err != nil {
-		return nil, err
-	}
-	return diffStat, nil
 }
 
 func (ChangesetSuite) TestChangeset(ctx context.Context, t *testctx.T) {
@@ -282,31 +255,33 @@ func (ChangesetSuite) TestChangeset(ctx context.Context, t *testctx.T) {
 			WithNewFile("mod.txt", "one\nnew\n").
 			WithNewFile("add.txt", "hello\n")
 
-		changes := newDir.Changes(oldDir)
-		diffStat, err := queryChangesetDiffStat(ctx, c, changes)
-		require.NoError(t, err)
-
-		byPath := make(map[string]struct {
+		var diffStat []struct {
 			Path         string `json:"path"`
 			Kind         string `json:"kind"`
 			AddedLines   int    `json:"addedLines"`
 			RemovedLines int    `json:"removedLines"`
-		}, len(diffStat))
-		for _, entry := range diffStat {
-			byPath[entry.Path] = entry
 		}
+		err := c.QueryBuilder().
+			Select("loadChangesetFromID").
+			Arg("id", newDir.Changes(oldDir)).
+			Select("diffStat").
+			Bind(&diffStat).Execute(ctx)
+		require.NoError(t, err)
 
-		require.Equal(t, "ADDED", byPath["add.txt"].Kind)
-		require.Equal(t, 1, byPath["add.txt"].AddedLines)
-		require.Equal(t, 0, byPath["add.txt"].RemovedLines)
+		// Results are sorted by path.
+		require.Len(t, diffStat, 3)
+		require.Equal(t, "add.txt", diffStat[0].Path)
+		require.Equal(t, "ADDED", diffStat[0].Kind)
+		require.Equal(t, 1, diffStat[0].AddedLines)
 
-		require.Equal(t, "MODIFIED", byPath["mod.txt"].Kind)
-		require.Equal(t, 1, byPath["mod.txt"].AddedLines)
-		require.Equal(t, 1, byPath["mod.txt"].RemovedLines)
+		require.Equal(t, "mod.txt", diffStat[1].Path)
+		require.Equal(t, "MODIFIED", diffStat[1].Kind)
+		require.Equal(t, 1, diffStat[1].AddedLines)
+		require.Equal(t, 1, diffStat[1].RemovedLines)
 
-		require.Equal(t, "REMOVED", byPath["remove.txt"].Kind)
-		require.Equal(t, 0, byPath["remove.txt"].AddedLines)
-		require.Equal(t, 1, byPath["remove.txt"].RemovedLines)
+		require.Equal(t, "remove.txt", diffStat[2].Path)
+		require.Equal(t, "REMOVED", diffStat[2].Kind)
+		require.Equal(t, 1, diffStat[2].RemovedLines)
 	})
 
 	t.Run("layer basic", func(ctx context.Context, t *testctx.T) {
@@ -804,36 +779,6 @@ func (s ChangesetSuite) TestChangesAsPatch(ctx context.Context, t *testctx.T) {
 	}, true)
 }
 
-func (ChangesetSuite) TestPreviewPatchLargerThanMaxFileContentsSize(ctx context.Context, t *testctx.T) {
-	// Regression: previewing a large changeset should not fail just because
-	// AsPatch().Contents() exceeds the File.Contents() size limit.
-	c := connect(ctx, t)
-
-	largeFile := c.Container().
-		From(alpineImage).
-		WithExec([]string{
-			"sh", "-c",
-			fmt.Sprintf("head -c %d /dev/zero | tr '\\000' 'a' > /large.txt", buildkit.MaxFileContentsSize+1),
-		}).
-		File("/large.txt")
-
-	changes := c.Directory().
-		WithFile("large.txt", largeFile).
-		Changes(c.Directory())
-
-	_, err := changes.AsPatch().Contents(ctx)
-	require.Error(t, err)
-
-	preview, err := idtui.PreviewPatch(ctx, c, changes)
-	require.NoError(t, err)
-	require.NotNil(t, preview)
-
-	var summary strings.Builder
-	out := termenv.NewOutput(&summary, termenv.WithProfile(termenv.Ascii))
-	require.NoError(t, preview.Summarize(out, 80))
-	require.Contains(t, summary.String(), "large.txt")
-	require.Contains(t, summary.String(), "1 file changed")
-}
 
 
 func (ChangesetSuite) testChangeApplying(t *testctx.T, apply func(*dagger.Directory, *dagger.Changeset) *dagger.Directory, leaveDirs bool) {

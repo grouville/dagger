@@ -26,7 +26,7 @@ type lineChanges struct {
 
 // compareDirectories returns the file-level differences between two directories.
 func compareDirectories(ctx context.Context, oldDir, newDir string) (fileChanges, error) {
-	out, err := runGitDiff(ctx, oldDir, newDir)
+	out, err := runGitDiffOutput(ctx, "--name-status", oldDir, newDir)
 	if err != nil {
 		return fileChanges{}, err
 	}
@@ -34,7 +34,7 @@ func compareDirectories(ctx context.Context, oldDir, newDir string) (fileChanges
 }
 
 func compareDirectoriesNumStat(ctx context.Context, oldDir, newDir string) (map[string]lineChanges, error) {
-	out, err := runGitDiffNumStat(ctx, oldDir, newDir)
+	out, err := runGitDiffOutput(ctx, "--numstat", oldDir, newDir)
 	if err != nil {
 		return nil, err
 	}
@@ -55,23 +55,11 @@ func directoriesAreIdentical(ctx context.Context, dir1, dir2 string) (bool, erro
 	return false, err
 }
 
-func runGitDiff(ctx context.Context, oldDir, newDir string) ([]byte, error) {
-	// -z uses NUL delimiters, safe for filenames with spaces/newlines
-	cmd := exec.CommandContext(ctx, "git", "diff", "--no-index", "--name-status", "-z", oldDir, newDir)
-	out, err := cmd.Output()
-	if err == nil {
-		return out, nil
-	}
-	// git diff exits 1 when differences exist - that's not an error for us
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
-		return out, nil
-	}
-	return nil, err
-}
-
-func runGitDiffNumStat(ctx context.Context, oldDir, newDir string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "git", "diff", "--no-index", "--numstat", "-z", oldDir, newDir)
+// runGitDiffOutput runs git diff --no-index with the given format flag
+// (e.g. "--name-status", "--numstat") and NUL-delimited output.
+// Exit code 1 (differences found) is not treated as an error.
+func runGitDiffOutput(ctx context.Context, format, oldDir, newDir string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, "git", "diff", "--no-index", format, "-z", oldDir, newDir)
 	out, err := cmd.Output()
 	if err == nil {
 		return out, nil

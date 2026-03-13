@@ -372,10 +372,7 @@ func (s *LLMSession) updateSidebar(llm *dagger.LLM) error {
 			Title: "Changes",
 			ContentFunc: func(width int) string {
 				var buf strings.Builder
-				out := idtui.NewOutput(&buf)
-				if err := preview.Summarize(out, width); err != nil {
-					return "ERROR: " + err.Error()
-				}
+				preview.Summarize(idtui.NewOutput(&buf), width)
 				return buf.String()
 			},
 			KeyMap: []key.Binding{
@@ -807,16 +804,13 @@ func (s *LLMSession) SyncFromLocal(ctx context.Context) (rerr error) {
 
 		var buf strings.Builder
 		out := termenv.NewOutput(&buf, termenv.WithProfile(termenv.Ascii))
-		if err := preview.Summarize(out, summaryWidth); err != nil {
-			slog.Warn("failed to summarize uploaded changes", "error", err)
-		} else {
-			newLLM = newLLM.WithPrompt(
-				fmt.Sprintf("I have made the following changes:\n\n```\n%s\n```", buf.String()),
-			)
-		}
+		preview.Summarize(out, summaryWidth)
+		newLLM = newLLM.WithPrompt(
+			fmt.Sprintf("I have made the following changes:\n\n```\n%s\n```", buf.String()),
+		)
 
 		// Show colorized summary to user.
-		_ = preview.Summarize(idtui.NewOutput(stdio.Stdout), summaryWidth)
+		preview.Summarize(idtui.NewOutput(stdio.Stdout), summaryWidth)
 	}
 
 	s.updateLLMAndAgentVar(newLLM)
