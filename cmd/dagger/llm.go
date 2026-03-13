@@ -362,7 +362,7 @@ func (s *LLMSession) updateSidebar(llm *dagger.LLM) error {
 
 	dirDiff := s.afterFS.Changes(s.beforeFS)
 
-	preview, err := idtui.PreviewPatch(s.plumbingCtx, dirDiff)
+	preview, err := idtui.PreviewPatch(s.plumbingCtx, s.dag, dirDiff)
 	if err != nil {
 		return err
 	}
@@ -797,15 +797,17 @@ func (s *LLMSession) SyncFromLocal(ctx context.Context) (rerr error) {
 	dirDiff := withChanges.Changes(currentFS)
 
 	// Add an LLM prompt as a cue to the model so it knows what files changed.
-	preview, err := idtui.PreviewPatch(s.plumbingCtx, dirDiff)
+	preview, err := idtui.PreviewPatch(s.plumbingCtx, s.dag, dirDiff)
 	if err != nil {
 		return err
 	}
 
 	if preview != nil {
+		const summaryWidth = 80
+
 		var buf strings.Builder
 		out := termenv.NewOutput(&buf, termenv.WithProfile(termenv.Ascii))
-		if err := preview.Summarize(out, 80); err != nil {
+		if err := preview.Summarize(out, summaryWidth); err != nil {
 			slog.Warn("failed to summarize uploaded changes", "error", err)
 		} else {
 			newLLM = newLLM.WithPrompt(
@@ -814,7 +816,7 @@ func (s *LLMSession) SyncFromLocal(ctx context.Context) (rerr error) {
 		}
 
 		// Show colorized summary to user.
-		_ = preview.Summarize(idtui.NewOutput(stdio.Stdout), 80)
+		_ = preview.Summarize(idtui.NewOutput(stdio.Stdout), summaryWidth)
 	}
 
 	s.updateLLMAndAgentVar(newLLM)

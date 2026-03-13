@@ -27,7 +27,6 @@ import (
 	"github.com/dagger/dagger/util/patchpreview"
 	telemetry "github.com/dagger/otel-go"
 	"github.com/iancoleman/strcase"
-	"github.com/jedevc/diffparser"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/muesli/termenv"
 	"github.com/opencontainers/go-digest"
@@ -111,6 +110,10 @@ type MCPServerConfig struct {
 	// Command to run the MCP server
 	Service dagql.ObjectResult[*Service]
 }
+
+const (
+	patchSummaryTextWidth = 80
+)
 
 func (srv *MCPServerConfig) Dial(ctx context.Context) (_ *mcp.ClientSession, rerr error) {
 	ctx, span := Tracer(ctx).Start(ctx, "start mcp server: "+srv.Name, telemetry.Reveal())
@@ -397,59 +400,63 @@ func (m *MCP) updateEnvWorkspace(ctx context.Context, workspace dagql.ObjectResu
 }
 
 func (m *MCP) summarizePatch(ctx context.Context, srv *dagql.Server, changes dagql.ObjectResult[*Changeset]) (string, error) {
-	var rawPatch string
-	if err := srv.Select(ctx, changes, &rawPatch, dagql.Selector{
+	var entries []patchpreview.Entry
+
+	var diffStat []*ChangesetDiffStatEntry
+	err := srv.Select(ctx, changes, &diffStat, dagql.Selector{
 		View:  srv.View,
-		Field: "asPatch",
-	}, dagql.Selector{
-		View:  srv.View,
-		Field: "contents",
-	}); err != nil {
-		return fmt.Sprintf("WARNING: failed to fetch patch summary: %s", err), nil
+		Field: "diffStat",
+	})
+	if err == nil {
+		if len(diffStat) == 0 {
+			// No changes; don't say anything, since saying "No changes" could be
+			// confusing depending on other context (like logs from a `git show`)
+			return "", nil
+		}
+
+		entries = make([]patchpreview.Entry, 0, len(diffStat))
+		for _, stat := range diffStat {
+			entries = append(entries, patchpreview.Entry{
+				Path:    stat.Path,
+				Kind:    string(stat.Kind),
+				Added:   stat.AddedLines,
+				Removed: stat.RemovedLines,
+			})
+		}
+	} else {
+		slog.Debug("changeset diffStat failed; falling back to path summary", "error", err)
+
+		paths, pathErr := changes.Self().ComputePaths(ctx)
+		if pathErr != nil {
+			return fmt.Sprintf("WARNING: failed to compute path summary: %s", pathErr), nil
+		}
+		if paths == nil {
+			return "", nil
+		}
+
+		entries = make([]patchpreview.Entry, 0, len(paths.Added)+len(paths.Modified)+len(paths.Removed))
+		for _, path := range paths.Added {
+			entries = append(entries, patchpreview.Entry{Path: path, Kind: string(ChangesetDiffKindAdded)})
+		}
+		for _, path := range paths.Modified {
+			entries = append(entries, patchpreview.Entry{Path: path, Kind: string(ChangesetDiffKindModified)})
+		}
+		for _, path := range paths.Removed {
+			entries = append(entries, patchpreview.Entry{Path: path, Kind: string(ChangesetDiffKindRemoved)})
+		}
 	}
-	if rawPatch == "" {
-		// No changes; don't say anything, since saying "No changes" could be
-		// confusing depending on other context (like logs from a `git show`)
+
+	preview := patchpreview.New(entries)
+	if preview == nil {
 		return "", nil
 	}
-	if strings.Count(rawPatch, "\n") > 100 {
-		// If the patch is too large, show a summary instead
-		var addedPaths, removedPaths []string
-		if err := srv.Select(ctx, changes, &addedPaths, dagql.Selector{
-			View:  srv.View,
-			Field: "addedPaths",
-		}); err != nil {
-			return fmt.Sprintf("WARNING: failed to fetch added paths: %s", err), nil
-		}
-		if err := srv.Select(ctx, changes, &removedPaths, dagql.Selector{
-			View:  srv.View,
-			Field: "removedPaths",
-		}); err != nil {
-			return fmt.Sprintf("WARNING: failed to fetch removed paths: %s", err), nil
-		}
-		addedDirectories := slices.DeleteFunc(addedPaths, func(s string) bool {
-			return !strings.HasSuffix(s, "/")
-		})
-		removedDirectories := slices.DeleteFunc(removedPaths, func(s string) bool {
-			return !strings.HasSuffix(s, "/")
-		})
-		patch, err := diffparser.Parse(rawPatch)
-		if err != nil {
-			return "", fmt.Errorf("parse patch: %w", err)
-		}
-		preview := &patchpreview.PatchPreview{
-			Patch:       patch,
-			AddedDirs:   addedDirectories,
-			RemovedDirs: removedDirectories,
-		}
-		var res strings.Builder
-		llmOut := termenv.NewOutput(&res, termenv.WithProfile(termenv.Ascii))
-		if err := preview.Summarize(llmOut, 80); err != nil {
-			return fmt.Sprintf("WARNING: failed to render patch summary: %s", err), nil
-		}
-		return res.String(), nil
+
+	var summary strings.Builder
+	llmOut := termenv.NewOutput(&summary, termenv.WithProfile(termenv.Ascii))
+	if err := preview.Summarize(llmOut, patchSummaryTextWidth); err != nil {
+		return fmt.Sprintf("WARNING: failed to render patch summary: %s", err), nil
 	}
-	return rawPatch, nil
+	return summary.String(), nil
 }
 
 func toAny(v any) (res map[string]any, rerr error) {
