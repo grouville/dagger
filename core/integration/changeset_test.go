@@ -21,23 +21,23 @@ func TestChangeset(t *testing.T) {
 	testctx.New(t, Middleware()...).RunTests(ChangesetSuite{})
 }
 
-type changesetDiffStatEntry struct {
-	// Keep this in sync with dagql/idtui/patch.go:changesetDiffStatEntry.
-	// We keep a local copy here so querybuilder can bind directly in tests
-	// without importing UI-layer internals.
+func queryChangesetDiffStat(ctx context.Context, c *dagger.Client, changeset *dagger.Changeset) (_ []struct {
 	Path         string `json:"path"`
 	Kind         string `json:"kind"`
 	AddedLines   int    `json:"addedLines"`
 	RemovedLines int    `json:"removedLines"`
-}
-
-func queryChangesetDiffStat(ctx context.Context, c *dagger.Client, changeset *dagger.Changeset) (_ []changesetDiffStatEntry, available bool, _ error) {
+}, available bool, _ error) {
 	q := c.QueryBuilder().
 		Select("loadChangesetFromID").
 		Arg("id", changeset).
 		Select("diffStat")
 
-	var diffStat []changesetDiffStatEntry
+	var diffStat []struct {
+		Path         string `json:"path"`
+		Kind         string `json:"kind"`
+		AddedLines   int    `json:"addedLines"`
+		RemovedLines int    `json:"removedLines"`
+	}
 	if err := q.Bind(&diffStat).Execute(ctx); err != nil {
 		if dagql.IsUnavailableFieldError(err, "Changeset", "diffStat") {
 			return nil, false, nil
@@ -293,7 +293,12 @@ func (ChangesetSuite) TestChangeset(ctx context.Context, t *testctx.T) {
 			t.Skip("diffStat is not available on this engine version")
 		}
 
-		byPath := make(map[string]changesetDiffStatEntry, len(diffStat))
+		byPath := make(map[string]struct {
+			Path         string `json:"path"`
+			Kind         string `json:"kind"`
+			AddedLines   int    `json:"addedLines"`
+			RemovedLines int    `json:"removedLines"`
+		}, len(diffStat))
 		for _, entry := range diffStat {
 			byPath[entry.Path] = entry
 		}

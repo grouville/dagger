@@ -59,40 +59,17 @@ type ChangesetPaths struct {
 	AllRemoved []string
 }
 
-type ChangesetDiffKind string
-
-var ChangesetDiffKinds = dagql.NewEnum[ChangesetDiffKind]()
-
-var (
-	ChangesetDiffKindAdded    = ChangesetDiffKinds.Register("ADDED", "Path was added.")
-	ChangesetDiffKindModified = ChangesetDiffKinds.Register("MODIFIED", "Path was modified.")
-	ChangesetDiffKindRemoved  = ChangesetDiffKinds.Register("REMOVED", "Path was removed.")
+const (
+	ChangesetDiffKindAdded    = "ADDED"
+	ChangesetDiffKindModified = "MODIFIED"
+	ChangesetDiffKindRemoved  = "REMOVED"
 )
 
 type ChangesetDiffStatEntry struct {
-	Path         string            `field:"true" doc:"Path of the changed file or directory."`
-	Kind         ChangesetDiffKind `field:"true" doc:"Type of change: ADDED, MODIFIED, or REMOVED."`
-	AddedLines   int               `field:"true" doc:"Number of added lines for this path."`
-	RemovedLines int               `field:"true" doc:"Number of removed lines for this path."`
-}
-
-func (kind ChangesetDiffKind) Type() *ast.Type {
-	return &ast.Type{
-		NamedType: "ChangesetDiffKind",
-		NonNull:   true,
-	}
-}
-
-func (kind ChangesetDiffKind) TypeDescription() string {
-	return "Type of change for a path in a changeset diff stat."
-}
-
-func (kind ChangesetDiffKind) Decoder() dagql.InputDecoder {
-	return ChangesetDiffKinds
-}
-
-func (kind ChangesetDiffKind) ToLiteral() call.Literal {
-	return ChangesetDiffKinds.Literal(kind)
+	Path         string `field:"true" doc:"Path of the changed file or directory."`
+	Kind         string `field:"true" doc:"Type of change: ADDED, MODIFIED, or REMOVED."`
+	AddedLines   int    `field:"true" doc:"Number of added lines for this path."`
+	RemovedLines int    `field:"true" doc:"Number of removed lines for this path."`
 }
 
 func (*ChangesetDiffStatEntry) Type() *ast.Type {
@@ -117,13 +94,9 @@ func (ch *Changeset) computePathsOnce(ctx context.Context) (*ChangesetPaths, err
 	}
 
 	var result *ChangesetPaths
-	err := ch.withMountedDirs(ctx, func(beforeDir, afterDir string) error {
-		paths, err := computeChangesetPaths(ctx, beforeDir, afterDir)
-		if err != nil {
-			return err
-		}
-		result = paths
-		return nil
+	err := ch.withMountedDirs(ctx, func(beforeDir, afterDir string) (err error) {
+		result, err = computeChangesetPaths(ctx, beforeDir, afterDir)
+		return err
 	})
 	if err != nil {
 		return nil, err
@@ -311,13 +284,8 @@ func (ch *Changeset) IsEmpty(ctx context.Context) (bool, error) {
 }
 
 func (ch *Changeset) DiffStat(ctx context.Context) ([]*ChangesetDiffStatEntry, error) {
-	return ch.computeDiffStat(ctx)
-}
-
-func (ch *Changeset) computeDiffStat(ctx context.Context) ([]*ChangesetDiffStatEntry, error) {
 	var paths *ChangesetPaths
 	var statsByPath map[string]lineChanges
-	var numStatErr error
 	err := ch.withMountedDirs(ctx, func(beforeDir, afterDir string) error {
 		// ComputePaths has its own sync.Once cache, but it mounts refs internally.
 		// DiffStat is already running inside withMountedDirs, so we compute paths
@@ -331,28 +299,23 @@ func (ch *Changeset) computeDiffStat(ctx context.Context) ([]*ChangesetDiffStatE
 
 		// We intentionally keep --name-status and --numstat parsing separate for
 		// readability and simpler parser logic.
-		stats, err := compareDirectoriesNumStat(ctx, beforeDir, afterDir)
+		statsByPath, err = compareDirectoriesNumStat(ctx, beforeDir, afterDir)
 		if err != nil {
 			// numstat is best-effort metadata; keep diff entries usable even if git
 			// fails to compute line counts for large/pathological diffs.
-			numStatErr = err
-			statsByPath = map[string]lineChanges{}
-			return nil
+			slog.Debug("changeset numstat failed; returning path-only diff stat entries", "error", err)
+			statsByPath = nil
 		}
-		statsByPath = stats
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
-	if numStatErr != nil {
-		slog.Debug("changeset numstat failed; returning path-only diff stat entries", "error", numStatErr)
-	}
 	if len(paths.Added) == 0 && len(paths.Modified) == 0 && len(paths.Removed) == 0 {
 		return nil, nil
 	}
 
-	kindsByPath := make(map[string]ChangesetDiffKind, len(paths.Added)+len(paths.Modified)+len(paths.AllRemoved))
+	kindsByPath := make(map[string]string, len(paths.Added)+len(paths.Modified)+len(paths.AllRemoved))
 	for _, path := range paths.Added {
 		kindsByPath[path] = ChangesetDiffKindAdded
 	}
@@ -363,19 +326,8 @@ func (ch *Changeset) computeDiffStat(ctx context.Context) ([]*ChangesetDiffStatE
 		kindsByPath[path] = ChangesetDiffKindRemoved
 	}
 
-	entriesByPath := make(map[string]*ChangesetDiffStatEntry, len(statsByPath)+len(paths.Added)+len(paths.Modified)+len(paths.Removed))
-	ensureEntry := func(path string, kind ChangesetDiffKind) *ChangesetDiffStatEntry {
-		if entry, ok := entriesByPath[path]; ok {
-			return entry
-		}
-		entry := &ChangesetDiffStatEntry{
-			Path: path,
-			Kind: kind,
-		}
-		entriesByPath[path] = entry
-		return entry
-	}
-
+	entries := make([]*ChangesetDiffStatEntry, 0, len(statsByPath)+len(paths.Added)+len(paths.Modified)+len(paths.Removed))
+	seen := make(map[string]struct{}, len(statsByPath))
 	for path, stat := range statsByPath {
 		kind, ok := kindsByPath[path]
 		if !ok {
@@ -383,24 +335,32 @@ func (ch *Changeset) computeDiffStat(ctx context.Context) ([]*ChangesetDiffStatE
 			// categorized by name-status/path-set comparisons.
 			kind = ChangesetDiffKindModified
 		}
-		entry := ensureEntry(path, kind)
-		entry.AddedLines = stat.Added
-		entry.RemovedLines = stat.Removed
+		entries = append(entries, &ChangesetDiffStatEntry{
+			Path:         path,
+			Kind:         kind,
+			AddedLines:   stat.Added,
+			RemovedLines: stat.Removed,
+		})
+		seen[path] = struct{}{}
 	}
 
 	for _, path := range paths.Added {
-		ensureEntry(path, ChangesetDiffKindAdded)
+		if _, ok := seen[path]; ok {
+			continue
+		}
+		entries = append(entries, &ChangesetDiffStatEntry{Path: path, Kind: ChangesetDiffKindAdded})
 	}
 	for _, path := range paths.Modified {
-		ensureEntry(path, ChangesetDiffKindModified)
+		if _, ok := seen[path]; ok {
+			continue
+		}
+		entries = append(entries, &ChangesetDiffStatEntry{Path: path, Kind: ChangesetDiffKindModified})
 	}
 	for _, path := range paths.Removed {
-		ensureEntry(path, ChangesetDiffKindRemoved)
-	}
-
-	entries := make([]*ChangesetDiffStatEntry, 0, len(entriesByPath))
-	for _, entry := range entriesByPath {
-		entries = append(entries, entry)
+		if _, ok := seen[path]; ok {
+			continue
+		}
+		entries = append(entries, &ChangesetDiffStatEntry{Path: path, Kind: ChangesetDiffKindRemoved})
 	}
 	slices.SortFunc(entries, func(a, b *ChangesetDiffStatEntry) int {
 		return strings.Compare(a.Path, b.Path)

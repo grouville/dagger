@@ -111,10 +111,6 @@ type MCPServerConfig struct {
 	Service dagql.ObjectResult[*Service]
 }
 
-const (
-	patchSummaryTextWidth = 80
-)
-
 func (srv *MCPServerConfig) Dial(ctx context.Context) (_ *mcp.ClientSession, rerr error) {
 	ctx, span := Tracer(ctx).Start(ctx, "start mcp server: "+srv.Name, telemetry.Reveal())
 	defer telemetry.EndWithCause(span, &rerr)
@@ -400,6 +396,8 @@ func (m *MCP) updateEnvWorkspace(ctx context.Context, workspace dagql.ObjectResu
 }
 
 func (m *MCP) summarizePatch(ctx context.Context, srv *dagql.Server, changes dagql.ObjectResult[*Changeset]) (string, error) {
+	const summaryWidth = 80
+
 	var entries []patchpreview.Entry
 
 	var diffStat []*ChangesetDiffStatEntry
@@ -418,14 +416,12 @@ func (m *MCP) summarizePatch(ctx context.Context, srv *dagql.Server, changes dag
 		for _, stat := range diffStat {
 			entries = append(entries, patchpreview.Entry{
 				Path:    stat.Path,
-				Kind:    string(stat.Kind),
+				Kind:    stat.Kind,
 				Added:   stat.AddedLines,
 				Removed: stat.RemovedLines,
 			})
 		}
-	} else {
-		slog.Debug("changeset diffStat failed; falling back to path summary", "error", err)
-
+	} else if dagql.IsUnavailableFieldError(err, "Changeset", "diffStat") {
 		paths, pathErr := changes.Self().ComputePaths(ctx)
 		if pathErr != nil {
 			return fmt.Sprintf("WARNING: failed to compute path summary: %s", pathErr), nil
@@ -436,14 +432,16 @@ func (m *MCP) summarizePatch(ctx context.Context, srv *dagql.Server, changes dag
 
 		entries = make([]patchpreview.Entry, 0, len(paths.Added)+len(paths.Modified)+len(paths.Removed))
 		for _, path := range paths.Added {
-			entries = append(entries, patchpreview.Entry{Path: path, Kind: string(ChangesetDiffKindAdded)})
+			entries = append(entries, patchpreview.Entry{Path: path, Kind: ChangesetDiffKindAdded})
 		}
 		for _, path := range paths.Modified {
-			entries = append(entries, patchpreview.Entry{Path: path, Kind: string(ChangesetDiffKindModified)})
+			entries = append(entries, patchpreview.Entry{Path: path, Kind: ChangesetDiffKindModified})
 		}
 		for _, path := range paths.Removed {
-			entries = append(entries, patchpreview.Entry{Path: path, Kind: string(ChangesetDiffKindRemoved)})
+			entries = append(entries, patchpreview.Entry{Path: path, Kind: ChangesetDiffKindRemoved})
 		}
+	} else {
+		return fmt.Sprintf("WARNING: failed to fetch patch summary: %s", err), nil
 	}
 
 	preview := patchpreview.New(entries)
@@ -453,7 +451,7 @@ func (m *MCP) summarizePatch(ctx context.Context, srv *dagql.Server, changes dag
 
 	var summary strings.Builder
 	llmOut := termenv.NewOutput(&summary, termenv.WithProfile(termenv.Ascii))
-	if err := preview.Summarize(llmOut, patchSummaryTextWidth); err != nil {
+	if err := preview.Summarize(llmOut, summaryWidth); err != nil {
 		return fmt.Sprintf("WARNING: failed to render patch summary: %s", err), nil
 	}
 	return summary.String(), nil

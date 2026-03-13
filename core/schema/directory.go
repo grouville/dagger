@@ -35,7 +35,6 @@ func (s *directorySchema) Install(srv *dagql.Server) {
 
 	core.ExistsTypes.Install(srv)
 	core.FileTypes.Install(srv)
-	core.ChangesetDiffKinds.Install(srv)
 	dagql.Fields[*core.Stat]{}.Install(srv)
 
 	dagql.Fields[*core.Directory]{

@@ -5,16 +5,9 @@ import (
 	"fmt"
 
 	"dagger.io/dagger"
-	"github.com/dagger/dagger/engine/slog"
+	"github.com/dagger/dagger/dagql"
 	"github.com/dagger/dagger/util/patchpreview"
 )
-
-type changesetDiffStatEntry struct {
-	Path         string `json:"path"`
-	Kind         string `json:"kind"`
-	AddedLines   int    `json:"addedLines"`
-	RemovedLines int    `json:"removedLines"`
-}
 
 func PreviewPatch(ctx context.Context, dag *dagger.Client, changeset *dagger.Changeset) (*patchpreview.PatchPreview, error) {
 	q := dag.QueryBuilder().
@@ -22,7 +15,12 @@ func PreviewPatch(ctx context.Context, dag *dagger.Client, changeset *dagger.Cha
 		Arg("id", changeset).
 		Select("diffStat")
 
-	var diffStat []changesetDiffStatEntry
+	var diffStat []struct {
+		Path         string `json:"path"`
+		Kind         string `json:"kind"`
+		AddedLines   int    `json:"addedLines"`
+		RemovedLines int    `json:"removedLines"`
+	}
 	err := q.Bind(&diffStat).Execute(ctx)
 	if err == nil {
 		entries := make([]patchpreview.Entry, 0, len(diffStat))
@@ -36,7 +34,9 @@ func PreviewPatch(ctx context.Context, dag *dagger.Client, changeset *dagger.Cha
 		}
 		return patchpreview.New(entries), nil
 	}
-	slog.Debug("changeset diffStat failed; falling back to path summary", "error", err)
+	if !dagql.IsUnavailableFieldError(err, "Changeset", "diffStat") {
+		return nil, fmt.Errorf("query diff stat: %w", err)
+	}
 
 	addedPaths, err := changeset.AddedPaths(ctx)
 	if err != nil {

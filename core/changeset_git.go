@@ -135,7 +135,10 @@ func parseGitNumStatOutput(out []byte, oldDir, newDir string) map[string]lineCha
 		var path string
 		switch {
 		case len(parts) == 3 && parts[2] != "":
-			path = relativeDiffPath(parts[2], oldDir, newDir)
+			path = relativeDiffPath(parts[2], newDir)
+			if path == "" {
+				path = relativeDiffPath(parts[2], oldDir)
+			}
 			i++
 		case i+2 < len(tokens):
 			oldPath := tokens[i+1]
@@ -146,9 +149,9 @@ func parseGitNumStatOutput(out []byte, oldDir, newDir string) map[string]lineCha
 			case oldPath != "/dev/null":
 				path = relativeDiffPath(oldPath, oldDir)
 			default:
-				path = relativeDiffPath(newPath, newDir, oldDir)
+				path = relativeDiffPath(newPath, newDir)
 				if path == "" {
-					path = relativeDiffPath(oldPath, oldDir, newDir)
+					path = relativeDiffPath(oldPath, oldDir)
 				}
 			}
 			i += 3
@@ -201,25 +204,22 @@ func appendRelativePath(paths []string, fullPath, baseDir string) []string {
 	return append(paths, relative)
 }
 
-func relativeDiffPath(fullPath string, baseDirs ...string) string {
-	for _, baseDir := range baseDirs {
-		relative, err := filepath.Rel(baseDir, fullPath)
-		if err != nil {
-			continue
-		}
-
-		relative = filepath.Clean(relative)
-		if relative == "." || relative == "" {
-			continue
-		}
-		if relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
-			continue
-		}
-
-		// Keep stable slash-separated paths in diff output.
-		return filepath.ToSlash(relative)
+func relativeDiffPath(fullPath, baseDir string) string {
+	relative, err := filepath.Rel(baseDir, fullPath)
+	if err != nil {
+		return ""
 	}
-	return ""
+
+	relative = filepath.Clean(relative)
+	if relative == "." || relative == "" {
+		return ""
+	}
+	if relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+		return ""
+	}
+
+	// Keep stable slash-separated paths in diff output.
+	return filepath.ToSlash(relative)
 }
 
 // listSubdirectories returns all subdirectory paths relative to root.

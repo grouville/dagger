@@ -750,30 +750,39 @@ func handleChangesetResponse(ctx context.Context, dag *dagger.Client, response a
 		return nil
 	}
 
-	analyzeCtx, analyzeSpan := Tracer().Start(ctx, "analyzing changes")
-	preview, err := idtui.PreviewPatch(analyzeCtx, dag, changeset)
+	var description string
+	noChanges, err := func() (_ bool, rerr error) {
+		analyzeCtx, analyzeSpan := Tracer().Start(ctx, "analyzing changes")
+		defer telemetry.EndWithCause(analyzeSpan, &rerr)
+
+		preview, err := idtui.PreviewPatch(analyzeCtx, dag, changeset)
+		if err != nil {
+			return false, err
+		}
+		if preview == nil {
+			return true, nil
+		}
+
+		summaryWidth := min(getViewWidth(), 80)
+		if summaryWidth <= 0 {
+			summaryWidth = 80
+		}
+
+		var out strings.Builder
+		out.WriteString("Apply generated changes to the current directory.\n\n")
+		if err := preview.Summarize(idtui.NewOutput(&out), summaryWidth); err != nil {
+			return false, fmt.Errorf("summarize changes: %w", err)
+		}
+		description = out.String()
+		return false, nil
+	}()
 	if err != nil {
-		telemetry.EndWithCause(analyzeSpan, &err)
 		return err
 	}
-	if preview == nil {
-		telemetry.EndWithCause(analyzeSpan, nil)
+	if noChanges {
 		slog.Info("no changes to apply")
 		return nil
 	}
-
-	summaryWidth := min(getViewWidth(), 80)
-	if summaryWidth <= 0 {
-		summaryWidth = 80
-	}
-	var description strings.Builder
-	description.WriteString("Apply generated changes to the current directory.\n\n")
-	if err := preview.Summarize(idtui.NewOutput(&description), summaryWidth); err != nil {
-		err = fmt.Errorf("summarize changes: %w", err)
-		telemetry.EndWithCause(analyzeSpan, &err)
-		return err
-	}
-	telemetry.EndWithCause(analyzeSpan, nil)
 
 	if !autoApply {
 		var confirm bool
@@ -781,7 +790,7 @@ func handleChangesetResponse(ctx context.Context, dag *dagger.Client, response a
 			huh.NewGroup(
 				huh.NewConfirm().
 					Title("Apply changes?").
-					Description(description.String()).
+					Description(description).
 					Affirmative("Apply").
 					Negative("Discard").
 					Value(&confirm),

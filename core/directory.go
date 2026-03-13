@@ -481,10 +481,10 @@ func applyGitPatch(ctx context.Context, dir string, patch io.Reader, stdio telem
 	apply.Stdout = stdio.Stdout
 	apply.Stderr = stdio.Stderr
 	if err := apply.Run(); err != nil {
-		// NB: we could technically populate a buildkit.ExecError here, but that
-		// feels like it leaks implementation details; "exit status 128" isn't
-		// exactly clear.
-		return errors.New("failed to apply patch")
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return fmt.Errorf("git apply: %w", err)
 	}
 	return nil
 }
