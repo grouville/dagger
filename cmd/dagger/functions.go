@@ -763,9 +763,6 @@ func handleChangesetResponse(ctx context.Context, dag *dagger.Client, response a
 	}
 
 	summaryWidth := min(getViewWidth(), 80)
-	if summaryWidth <= 0 {
-		summaryWidth = 80
-	}
 
 	var descBuf strings.Builder
 	descBuf.WriteString("Apply generated changes to the current directory.\n\n")
