@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -18,11 +19,11 @@ import (
 	"github.com/dagger/dagger/dagql"
 	"github.com/dagger/dagger/dagql/call"
 	"github.com/dagger/dagger/engine/buildkit"
+	"github.com/dagger/dagger/engine/slog"
 	bkcache "github.com/dagger/dagger/internal/buildkit/cache"
 	bkclient "github.com/dagger/dagger/internal/buildkit/client"
 	telemetry "github.com/dagger/otel-go"
 	"github.com/vektah/gqlparser/v2/ast"
-	"go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -58,6 +59,49 @@ type ChangesetPaths struct {
 	AllRemoved []string
 }
 
+type ChangesetDiffKind string
+
+var ChangesetDiffKinds = dagql.NewEnum[ChangesetDiffKind]()
+
+var (
+	ChangesetDiffKindAdded    = ChangesetDiffKinds.Register("ADDED", "Path was added.")
+	ChangesetDiffKindModified = ChangesetDiffKinds.Register("MODIFIED", "Path was modified.")
+	ChangesetDiffKindRemoved  = ChangesetDiffKinds.Register("REMOVED", "Path was removed.")
+)
+
+type ChangesetDiffStatEntry struct {
+	Path         string            `field:"true" doc:"Path of the changed file or directory."`
+	Kind         ChangesetDiffKind `field:"true" doc:"Type of change: ADDED, MODIFIED, or REMOVED."`
+	AddedLines   int               `field:"true" doc:"Number of added lines for this path."`
+	RemovedLines int               `field:"true" doc:"Number of removed lines for this path."`
+}
+
+func (kind ChangesetDiffKind) Type() *ast.Type {
+	return &ast.Type{
+		NamedType: "ChangesetDiffKind",
+		NonNull:   true,
+	}
+}
+
+func (kind ChangesetDiffKind) TypeDescription() string {
+	return "Type of change for a path in a changeset diff stat."
+}
+
+func (kind ChangesetDiffKind) Decoder() dagql.InputDecoder {
+	return ChangesetDiffKinds
+}
+
+func (kind ChangesetDiffKind) ToLiteral() call.Literal {
+	return ChangesetDiffKinds.Literal(kind)
+}
+
+func (*ChangesetDiffStatEntry) Type() *ast.Type {
+	return &ast.Type{
+		NamedType: "ChangesetDiffStatEntry",
+		NonNull:   true,
+	}
+}
+
 // ComputePaths computes the added, modified, and removed paths using git diff.
 // This must be called from a dagql resolver context where buildkit session is available.
 func (ch *Changeset) ComputePaths(ctx context.Context) (*ChangesetPaths, error) {
@@ -74,35 +118,43 @@ func (ch *Changeset) computePathsOnce(ctx context.Context) (*ChangesetPaths, err
 
 	var result *ChangesetPaths
 	err := ch.withMountedDirs(ctx, func(beforeDir, afterDir string) error {
-		fileChanges, err := compareDirectories(ctx, beforeDir, afterDir)
+		paths, err := computeChangesetPaths(ctx, beforeDir, afterDir)
 		if err != nil {
 			return err
 		}
-
-		beforeDirs, err := listSubdirectories(beforeDir)
-		if err != nil {
-			return fmt.Errorf("list before directories: %w", err)
-		}
-		afterDirs, err := listSubdirectories(afterDir)
-		if err != nil {
-			return fmt.Errorf("list after directories: %w", err)
-		}
-		addedDirs, removedDirs := diffStringSlices(beforeDirs, afterDirs)
-
-		allRemoved := slices.Concat(fileChanges.Removed, removedDirs)
-
-		result = &ChangesetPaths{
-			Added:      slices.Concat(fileChanges.Added, addedDirs),
-			Modified:   fileChanges.Modified,
-			Removed:    collapseChildPaths(allRemoved),
-			AllRemoved: allRemoved,
-		}
+		result = paths
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 	return result, nil
+}
+
+func computeChangesetPaths(ctx context.Context, beforeDir, afterDir string) (*ChangesetPaths, error) {
+	fileChanges, err := compareDirectories(ctx, beforeDir, afterDir)
+	if err != nil {
+		return nil, err
+	}
+
+	beforeDirs, err := listSubdirectories(beforeDir)
+	if err != nil {
+		return nil, fmt.Errorf("list before directories: %w", err)
+	}
+	afterDirs, err := listSubdirectories(afterDir)
+	if err != nil {
+		return nil, fmt.Errorf("list after directories: %w", err)
+	}
+	addedDirs, removedDirs := diffStringSlices(beforeDirs, afterDirs)
+
+	allRemoved := slices.Concat(fileChanges.Removed, removedDirs)
+
+	return &ChangesetPaths{
+		Added:      slices.Concat(fileChanges.Added, addedDirs),
+		Modified:   fileChanges.Modified,
+		Removed:    collapseChildPaths(allRemoved),
+		AllRemoved: allRemoved,
+	}, nil
 }
 
 // withMountedDirs mounts the before and after directories and calls fn with their paths.
@@ -258,6 +310,105 @@ func (ch *Changeset) IsEmpty(ctx context.Context) (bool, error) {
 	return isEmpty, nil
 }
 
+func (ch *Changeset) DiffStat(ctx context.Context) ([]*ChangesetDiffStatEntry, error) {
+	return ch.computeDiffStat(ctx)
+}
+
+func (ch *Changeset) computeDiffStat(ctx context.Context) ([]*ChangesetDiffStatEntry, error) {
+	var paths *ChangesetPaths
+	var statsByPath map[string]lineChanges
+	var numStatErr error
+	err := ch.withMountedDirs(ctx, func(beforeDir, afterDir string) error {
+		// ComputePaths has its own sync.Once cache, but it mounts refs internally.
+		// DiffStat is already running inside withMountedDirs, so we compute paths
+		// here to avoid remounting and to keep both path kinds and numstat derived
+		// from the same mounted snapshot pair.
+		computedPaths, err := computeChangesetPaths(ctx, beforeDir, afterDir)
+		if err != nil {
+			return fmt.Errorf("compute paths: %w", err)
+		}
+		paths = computedPaths
+
+		// We intentionally keep --name-status and --numstat parsing separate for
+		// readability and simpler parser logic.
+		stats, err := compareDirectoriesNumStat(ctx, beforeDir, afterDir)
+		if err != nil {
+			// numstat is best-effort metadata; keep diff entries usable even if git
+			// fails to compute line counts for large/pathological diffs.
+			numStatErr = err
+			statsByPath = map[string]lineChanges{}
+			return nil
+		}
+		statsByPath = stats
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if numStatErr != nil {
+		slog.Debug("changeset numstat failed; returning path-only diff stat entries", "error", numStatErr)
+	}
+	if len(paths.Added) == 0 && len(paths.Modified) == 0 && len(paths.Removed) == 0 {
+		return nil, nil
+	}
+
+	kindsByPath := make(map[string]ChangesetDiffKind, len(paths.Added)+len(paths.Modified)+len(paths.AllRemoved))
+	for _, path := range paths.Added {
+		kindsByPath[path] = ChangesetDiffKindAdded
+	}
+	for _, path := range paths.Modified {
+		kindsByPath[path] = ChangesetDiffKindModified
+	}
+	for _, path := range paths.AllRemoved {
+		kindsByPath[path] = ChangesetDiffKindRemoved
+	}
+
+	entriesByPath := make(map[string]*ChangesetDiffStatEntry, len(statsByPath)+len(paths.Added)+len(paths.Modified)+len(paths.Removed))
+	ensureEntry := func(path string, kind ChangesetDiffKind) *ChangesetDiffStatEntry {
+		if entry, ok := entriesByPath[path]; ok {
+			return entry
+		}
+		entry := &ChangesetDiffStatEntry{
+			Path: path,
+			Kind: kind,
+		}
+		entriesByPath[path] = entry
+		return entry
+	}
+
+	for path, stat := range statsByPath {
+		kind, ok := kindsByPath[path]
+		if !ok {
+			// Keep a best-effort stat entry if numstat reports a path that wasn't
+			// categorized by name-status/path-set comparisons.
+			kind = ChangesetDiffKindModified
+		}
+		entry := ensureEntry(path, kind)
+		entry.AddedLines = stat.Added
+		entry.RemovedLines = stat.Removed
+	}
+
+	for _, path := range paths.Added {
+		ensureEntry(path, ChangesetDiffKindAdded)
+	}
+	for _, path := range paths.Modified {
+		ensureEntry(path, ChangesetDiffKindModified)
+	}
+	for _, path := range paths.Removed {
+		ensureEntry(path, ChangesetDiffKindRemoved)
+	}
+
+	entries := make([]*ChangesetDiffStatEntry, 0, len(entriesByPath))
+	for _, entry := range entriesByPath {
+		entries = append(entries, entry)
+	}
+	slices.SortFunc(entries, func(a, b *ChangesetDiffStatEntry) int {
+		return strings.Compare(a.Path, b.Path)
+	})
+
+	return entries, nil
+}
+
 func (ch *Changeset) AsPatch(ctx context.Context) (*File, error) {
 	beforeRef, err := getRefOrEvaluate(ctx, ch.Before.Self())
 	if err != nil {
@@ -284,7 +435,7 @@ func (ch *Changeset) AsPatch(ctx context.Context) (*File, error) {
 		return nil, fmt.Errorf("no buildkit opts in context")
 	}
 	ctx = trace.ContextWithSpanContext(ctx, opt.CauseCtx)
-	stdio := telemetry.SpanStdio(ctx, InstrumentationLibrary, log.Bool(telemetry.LogsVerboseAttr, true))
+	stdio := telemetry.SpanStdio(ctx, InstrumentationLibrary)
 	defer stdio.Close()
 
 	newRef, err := query.BuildkitCache().New(ctx, nil, bkSessionGroup,
@@ -331,7 +482,7 @@ func (ch *Changeset) AsPatch(ctx context.Context) (*File, error) {
 
 				cmd := exec.CommandContext(ctx, "git", "diff", "--binary", "--no-prefix", "--no-index", "a", "b")
 				cmd.Dir = root
-				cmd.Stdout = io.MultiWriter(patchFile, stdio.Stdout)
+				cmd.Stdout = patchFile
 				cmd.Stderr = stdio.Stderr
 				if err := cmd.Run(); err != nil {
 					var exitErr *exec.ExitError

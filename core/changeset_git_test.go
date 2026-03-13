@@ -79,6 +79,48 @@ func TestParseGitOutput(t *testing.T) {
 	}
 }
 
+func TestParseGitNumStatOutput(t *testing.T) {
+	oldDir := "/old"
+	newDir := "/new"
+
+	got := parseGitNumStatOutput(joinNul(
+		"1\t0\t"+newDir+"/added.txt",
+		"0\t2\t"+oldDir+"/removed.txt",
+		"3\t4\t"+oldDir+"/modified.txt",
+		"-\t-\t"+oldDir+"/binary.bin",
+	), oldDir, newDir)
+
+	require.Equal(t, map[string]lineChanges{
+		"added.txt":   {Added: 1, Removed: 0},
+		"removed.txt": {Added: 0, Removed: 2},
+		"modified.txt": {
+			Added:   3,
+			Removed: 4,
+		},
+		"binary.bin": {Added: 0, Removed: 0},
+	}, got)
+
+	got = parseGitNumStatOutput(joinNul(
+		"1\t0\t", "/dev/null", newDir+"/added-v2.txt",
+		"2\t3\t", oldDir+"/modified-v2.txt", newDir+"/modified-v2.txt",
+		"7\t8\t", oldDir+"/renamed-old.txt", newDir+"/renamed-new.txt",
+		"0\t1\t", oldDir+"/removed-v2.txt", "/dev/null",
+	), oldDir, newDir)
+
+	require.Equal(t, map[string]lineChanges{
+		"added-v2.txt":    {Added: 1, Removed: 0},
+		"modified-v2.txt": {Added: 2, Removed: 3},
+		"renamed-new.txt": {Added: 7, Removed: 8},
+		"removed-v2.txt":  {Added: 0, Removed: 1},
+	}, got)
+}
+
+func TestRelativeDiffPath(t *testing.T) {
+	require.Equal(t, "sub/file.txt", relativeDiffPath("/tmp/old/sub/file.txt", "/tmp/old"))
+	require.Equal(t, "", relativeDiffPath("/tmp/old2/file.txt", "/tmp/old"))
+	require.Equal(t, "sub/file.txt", relativeDiffPath("old/sub/file.txt", "old"))
+}
+
 func TestListSubdirectories(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "a", "b"), 0755))
@@ -184,4 +226,21 @@ func TestCompareDirectories_Integration(t *testing.T) {
 	identical, err = directoriesAreIdentical(ctx, oldDir, oldDir)
 	require.NoError(t, err)
 	require.True(t, identical)
+}
+
+func TestCompareDirectoriesNumStat_Integration(t *testing.T) {
+	oldDir := t.TempDir()
+	newDir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(oldDir, "modified.txt"), []byte("a\nb\n"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(oldDir, "removed.txt"), []byte("gone\n"), 0644))
+
+	require.NoError(t, os.WriteFile(filepath.Join(newDir, "modified.txt"), []byte("a\nc\n"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(newDir, "added.txt"), []byte("new\n"), 0644))
+
+	stats, err := compareDirectoriesNumStat(context.Background(), oldDir, newDir)
+	require.NoError(t, err)
+	require.Equal(t, lineChanges{Added: 1, Removed: 1}, stats["modified.txt"])
+	require.Equal(t, lineChanges{Added: 1, Removed: 0}, stats["added.txt"])
+	require.Equal(t, lineChanges{Added: 0, Removed: 1}, stats["removed.txt"])
 }
