@@ -19,26 +19,13 @@ type PatchPreview struct {
 	entries []Entry
 }
 
+// Kind constants categorize how a path changed between two directory snapshots.
 const (
-	entryKindAdded    = "ADDED"
-	entryKindModified = "MODIFIED"
-	entryKindRemoved  = "REMOVED"
+	KindAdded    = "ADDED"
+	KindModified = "MODIFIED"
+	KindRemoved  = "REMOVED"
 )
 
-// EntriesFromPaths builds a flat list of entries from categorized path slices.
-func EntriesFromPaths(added, modified, removed []string) []Entry {
-	entries := make([]Entry, 0, len(added)+len(modified)+len(removed))
-	for _, p := range added {
-		entries = append(entries, Entry{Path: p, Kind: entryKindAdded})
-	}
-	for _, p := range modified {
-		entries = append(entries, Entry{Path: p, Kind: entryKindModified})
-	}
-	for _, p := range removed {
-		entries = append(entries, Entry{Path: p, Kind: entryKindRemoved})
-	}
-	return entries
-}
 
 func New(entries []Entry) *PatchPreview {
 	normalized := make([]Entry, 0, len(entries))
@@ -47,7 +34,7 @@ func New(entries []Entry) *PatchPreview {
 			continue
 		}
 		if entry.Kind == "" {
-			entry.Kind = entryKindModified
+			entry.Kind = KindModified
 		}
 		normalized = append(normalized, entry)
 	}
@@ -88,9 +75,9 @@ func (preview *PatchPreview) Summarize(out *termenv.Output, maxWidth int) error 
 
 		var filenameColor termenv.Color
 		switch entry.Kind {
-		case entryKindAdded:
+		case KindAdded:
 			filenameColor = termenv.ANSIGreen
-		case entryKindRemoved:
+		case KindRemoved:
 			filenameColor = termenv.ANSIRed
 		default:
 			filenameColor = termenv.ANSIYellow
@@ -143,7 +130,7 @@ func consolidateRemovedDirs(entries []Entry) []Entry {
 	removedDirs := make([]Entry, 0, len(entries))
 	otherEntries := make([]Entry, 0, len(entries))
 	for _, entry := range entries {
-		if entry.Kind == entryKindRemoved && strings.HasSuffix(entry.Path, "/") {
+		if entry.Kind == KindRemoved && strings.HasSuffix(entry.Path, "/") {
 			removedDirs = append(removedDirs, entry)
 			continue
 		}
@@ -156,7 +143,7 @@ func consolidateRemovedDirs(entries []Entry) []Entry {
 	result := make([]Entry, 0, len(otherEntries)+len(removedDirs))
 entryLoop:
 	for _, entry := range otherEntries {
-		if entry.Kind == entryKindRemoved {
+		if entry.Kind == KindRemoved {
 			for i := range removedDirs {
 				if strings.HasPrefix(entry.Path, removedDirs[i].Path) {
 					removedDirs[i].Removed += entry.Removed

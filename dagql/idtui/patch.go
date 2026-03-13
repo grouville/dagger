@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"dagger.io/dagger"
-	"github.com/dagger/dagger/dagql"
 	"github.com/dagger/dagger/util/patchpreview"
 )
 
@@ -21,35 +20,13 @@ func PreviewPatch(ctx context.Context, dag *dagger.Client, changeset *dagger.Cha
 		AddedLines   int    `json:"addedLines"`
 		RemovedLines int    `json:"removedLines"`
 	}
-	err := q.Bind(&diffStat).Execute(ctx)
-	if err == nil {
-		entries := make([]patchpreview.Entry, 0, len(diffStat))
-		for _, stat := range diffStat {
-			entries = append(entries, patchpreview.Entry{
-				Path:    stat.Path,
-				Kind:    stat.Kind,
-				Added:   stat.AddedLines,
-				Removed: stat.RemovedLines,
-			})
-		}
-		return patchpreview.New(entries), nil
-	}
-	if !dagql.IsUnavailableFieldError(err, "Changeset", "diffStat") {
+	if err := q.Bind(&diffStat).Execute(ctx); err != nil {
 		return nil, fmt.Errorf("query diff stat: %w", err)
 	}
 
-	addedPaths, err := changeset.AddedPaths(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("fallback added paths: %w", err)
+	entries := make([]patchpreview.Entry, len(diffStat))
+	for i, s := range diffStat {
+		entries[i] = patchpreview.Entry{Path: s.Path, Kind: s.Kind, Added: s.AddedLines, Removed: s.RemovedLines}
 	}
-	modifiedPaths, err := changeset.ModifiedPaths(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("fallback modified paths: %w", err)
-	}
-	removedPaths, err := changeset.RemovedPaths(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("fallback removed paths: %w", err)
-	}
-
-	return patchpreview.New(patchpreview.EntriesFromPaths(addedPaths, modifiedPaths, removedPaths)), nil
+	return patchpreview.New(entries), nil
 }

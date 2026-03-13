@@ -398,43 +398,18 @@ func (m *MCP) updateEnvWorkspace(ctx context.Context, workspace dagql.ObjectResu
 func (m *MCP) summarizePatch(ctx context.Context, srv *dagql.Server, changes dagql.ObjectResult[*Changeset]) (string, error) {
 	const summaryWidth = 80
 
-	var entries []patchpreview.Entry
-
 	var diffStat []*ChangesetDiffStatEntry
-	err := srv.Select(ctx, changes, &diffStat, dagql.Selector{
+	if err := srv.Select(ctx, changes, &diffStat, dagql.Selector{
 		View:  srv.View,
 		Field: "diffStat",
-	})
-	if err == nil {
-		if len(diffStat) == 0 {
-			// No changes; don't say anything, since saying "No changes" could be
-			// confusing depending on other context (like logs from a `git show`)
-			return "", nil
-		}
-
-		entries = make([]patchpreview.Entry, 0, len(diffStat))
-		for _, stat := range diffStat {
-			entries = append(entries, patchpreview.Entry{
-				Path:    stat.Path,
-				Kind:    stat.Kind,
-				Added:   stat.AddedLines,
-				Removed: stat.RemovedLines,
-			})
-		}
-	} else if dagql.IsUnavailableFieldError(err, "Changeset", "diffStat") {
-		paths, pathErr := changes.Self().ComputePaths(ctx)
-		if pathErr != nil {
-			return fmt.Sprintf("WARNING: failed to compute path summary: %s", pathErr), nil
-		}
-		if paths == nil {
-			return "", nil
-		}
-
-		entries = patchpreview.EntriesFromPaths(paths.Added, paths.Modified, paths.Removed)
-	} else {
+	}); err != nil {
 		return fmt.Sprintf("WARNING: failed to fetch patch summary: %s", err), nil
 	}
 
+	entries := make([]patchpreview.Entry, len(diffStat))
+	for i, s := range diffStat {
+		entries[i] = patchpreview.Entry{Path: s.Path, Kind: s.Kind, Added: s.AddedLines, Removed: s.RemovedLines}
+	}
 	preview := patchpreview.New(entries)
 	if preview == nil {
 		return "", nil

@@ -19,6 +19,7 @@ import (
 	"github.com/dagger/dagger/dagql"
 	"github.com/dagger/dagger/dagql/call"
 	"github.com/dagger/dagger/engine/buildkit"
+	"github.com/dagger/dagger/util/patchpreview"
 	"github.com/dagger/dagger/engine/slog"
 	bkcache "github.com/dagger/dagger/internal/buildkit/cache"
 	bkclient "github.com/dagger/dagger/internal/buildkit/client"
@@ -58,12 +59,6 @@ type ChangesetPaths struct {
 	Removed    []string
 	AllRemoved []string
 }
-
-const (
-	ChangesetDiffKindAdded    = "ADDED"
-	ChangesetDiffKindModified = "MODIFIED"
-	ChangesetDiffKindRemoved  = "REMOVED"
-)
 
 type ChangesetDiffStatEntry struct {
 	Path         string `field:"true" doc:"Path of the changed file or directory."`
@@ -321,9 +316,9 @@ func (ch *Changeset) DiffStat(ctx context.Context) ([]*ChangesetDiffStatEntry, e
 	}
 	entries := make([]*ChangesetDiffStatEntry, 0, len(paths.Added)+len(paths.Modified)+len(paths.Removed))
 	for _, g := range []pathGroup{
-		{paths.Added, ChangesetDiffKindAdded},
-		{paths.Modified, ChangesetDiffKindModified},
-		{paths.Removed, ChangesetDiffKindRemoved},
+		{paths.Added, patchpreview.KindAdded},
+		{paths.Modified, patchpreview.KindModified},
+		{paths.Removed, patchpreview.KindRemoved},
 	} {
 		for _, path := range g.paths {
 			entry := &ChangesetDiffStatEntry{Path: path, Kind: g.kind}
