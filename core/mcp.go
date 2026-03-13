@@ -28,7 +28,6 @@ import (
 	telemetry "github.com/dagger/otel-go"
 	"github.com/iancoleman/strcase"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/muesli/termenv"
 	"github.com/opencontainers/go-digest"
 	"github.com/sourcegraph/conc/pool"
 	"github.com/vektah/gqlparser/v2/ast"
@@ -410,15 +409,7 @@ func (m *MCP) summarizePatch(ctx context.Context, srv *dagql.Server, changes dag
 	for i, s := range diffStat {
 		entries[i] = patchpreview.Entry{Path: s.Path, Kind: s.Kind, Added: s.AddedLines, Removed: s.RemovedLines}
 	}
-	preview := patchpreview.New(entries)
-	if preview == nil {
-		return "", nil
-	}
-
-	var summary strings.Builder
-	llmOut := termenv.NewOutput(&summary, termenv.WithProfile(termenv.Ascii))
-	preview.Summarize(llmOut, summaryWidth)
-	return summary.String(), nil
+	return patchpreview.SummarizeString(entries, summaryWidth), nil
 }
 
 func toAny(v any) (res map[string]any, rerr error) {

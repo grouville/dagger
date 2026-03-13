@@ -8,7 +8,7 @@ import (
 	"github.com/dagger/dagger/util/patchpreview"
 )
 
-func PreviewPatch(ctx context.Context, dag *dagger.Client, changeset *dagger.Changeset) (*patchpreview.PatchPreview, error) {
+func PreviewPatch(ctx context.Context, dag *dagger.Client, changeset *dagger.Changeset) ([]patchpreview.Entry, error) {
 	q := dag.QueryBuilder().
 		Select("loadChangesetFromID").
 		Arg("id", changeset).
@@ -28,5 +28,5 @@ func PreviewPatch(ctx context.Context, dag *dagger.Client, changeset *dagger.Cha
 	for i, s := range diffStat {
 		entries[i] = patchpreview.Entry{Path: s.Path, Kind: s.Kind, Added: s.AddedLines, Removed: s.RemovedLines}
 	}
-	return patchpreview.New(entries), nil
+	return entries, nil
 }

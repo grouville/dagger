@@ -55,9 +55,8 @@ func directoriesAreIdentical(ctx context.Context, dir1, dir2 string) (bool, erro
 	return false, err
 }
 
-// runGitDiffOutput runs git diff --no-index with the given format flag
-// (e.g. "--name-status", "--numstat") and NUL-delimited output.
-// Exit code 1 (differences found) is not treated as an error.
+// runGitDiffOutput runs git diff --no-index with NUL-delimited output.
+// git exits 1 when differences exist, which is not an error here.
 func runGitDiffOutput(ctx context.Context, format, oldDir, newDir string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "git", "diff", "--no-index", format, "-z", oldDir, newDir)
 	out, err := cmd.Output()
@@ -110,63 +109,57 @@ func parseGitOutput(out []byte, oldDir, newDir string) fileChanges {
 func parseGitNumStatOutput(out []byte, oldDir, newDir string) map[string]lineChanges {
 	stats := make(map[string]lineChanges)
 	tokens := splitOnNul(out)
-	for i := 0; i < len(tokens); {
-		parts := strings.SplitN(tokens[i], "\t", 3)
+
+	for len(tokens) > 0 {
+		parts := strings.SplitN(tokens[0], "\t", 3)
 		if len(parts) < 2 {
-			i++
+			tokens = tokens[1:]
 			continue
 		}
 
 		added := parseNumStatCount(parts[0])
 		removed := parseNumStatCount(parts[1])
 
+		// git numstat -z has two formats:
+		//   normal:  "added\tremoved\tpath\0"
+		//   rename:  "added\tremoved\t\0oldpath\0newpath\0"
 		var path string
-		switch {
-		case len(parts) == 3 && parts[2] != "":
-			path = relativeDiffPath(parts[2], newDir)
-			if path == "" {
-				path = relativeDiffPath(parts[2], oldDir)
-			}
-			i++
-		case i+2 < len(tokens):
-			oldPath := tokens[i+1]
-			newPath := tokens[i+2]
-			switch {
-			case newPath != "/dev/null":
+		if len(parts) == 3 && parts[2] != "" {
+			// Normal: path is inline in the first token.
+			path = resolveDiffPath(parts[2], oldDir, newDir)
+			tokens = tokens[1:]
+		} else if len(tokens) >= 3 {
+			// Rename/copy: old and new paths follow as separate tokens.
+			oldPath, newPath := tokens[1], tokens[2]
+			if newPath != "/dev/null" {
 				path = relativeDiffPath(newPath, newDir)
-			case oldPath != "/dev/null":
+			} else {
 				path = relativeDiffPath(oldPath, oldDir)
-			default:
-				path = relativeDiffPath(newPath, newDir)
-				if path == "" {
-					path = relativeDiffPath(oldPath, oldDir)
-				}
 			}
-			i += 3
-		default:
-			i++
-		}
-		if path == "" {
+			tokens = tokens[3:]
+		} else {
+			tokens = tokens[1:]
 			continue
 		}
 
-		stats[path] = lineChanges{
-			Added:   added,
-			Removed: removed,
+		if path != "" {
+			stats[path] = lineChanges{Added: added, Removed: removed}
 		}
 	}
 
 	return stats
 }
 
+// resolveDiffPath returns a relative path, trying newDir first then oldDir.
+func resolveDiffPath(fullPath, oldDir, newDir string) string {
+	if p := relativeDiffPath(fullPath, newDir); p != "" {
+		return p
+	}
+	return relativeDiffPath(fullPath, oldDir)
+}
+
 func parseNumStatCount(raw string) int {
-	if raw == "-" {
-		return 0
-	}
-	n, err := strconv.Atoi(raw)
-	if err != nil {
-		return 0
-	}
+	n, _ := strconv.Atoi(raw) // "-" (binary) and bad data both → 0
 	return n
 }
 

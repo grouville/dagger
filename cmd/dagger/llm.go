@@ -25,6 +25,7 @@ import (
 	"github.com/dagger/dagger/dagql/idtui"
 	"github.com/dagger/dagger/engine/slog"
 	"github.com/dagger/dagger/util/hashutil"
+	"github.com/dagger/dagger/util/patchpreview"
 	telemetry "github.com/dagger/otel-go"
 )
 
@@ -362,17 +363,17 @@ func (s *LLMSession) updateSidebar(llm *dagger.LLM) error {
 
 	dirDiff := s.afterFS.Changes(s.beforeFS)
 
-	preview, err := idtui.PreviewPatch(s.plumbingCtx, s.dag, dirDiff)
+	entries, err := idtui.PreviewPatch(s.plumbingCtx, s.dag, dirDiff)
 	if err != nil {
 		return err
 	}
 
-	if preview != nil {
+	if len(entries) > 0 {
 		s.frontend.SetSidebarContent(idtui.SidebarSection{
 			Title: "Changes",
 			ContentFunc: func(width int) string {
 				var buf strings.Builder
-				preview.Summarize(idtui.NewOutput(&buf), width)
+				patchpreview.Summarize(idtui.NewOutput(&buf), entries, width)
 				return buf.String()
 			},
 			KeyMap: []key.Binding{
@@ -794,23 +795,21 @@ func (s *LLMSession) SyncFromLocal(ctx context.Context) (rerr error) {
 	dirDiff := withChanges.Changes(currentFS)
 
 	// Add an LLM prompt as a cue to the model so it knows what files changed.
-	preview, err := idtui.PreviewPatch(s.plumbingCtx, s.dag, dirDiff)
+	entries, err := idtui.PreviewPatch(s.plumbingCtx, s.dag, dirDiff)
 	if err != nil {
 		return err
 	}
 
-	if preview != nil {
+	if len(entries) > 0 {
 		const summaryWidth = 80
 
-		var buf strings.Builder
-		out := termenv.NewOutput(&buf, termenv.WithProfile(termenv.Ascii))
-		preview.Summarize(out, summaryWidth)
 		newLLM = newLLM.WithPrompt(
-			fmt.Sprintf("I have made the following changes:\n\n```\n%s\n```", buf.String()),
+			fmt.Sprintf("I have made the following changes:\n\n```\n%s\n```",
+				patchpreview.SummarizeString(entries, summaryWidth)),
 		)
 
 		// Show colorized summary to user.
-		preview.Summarize(idtui.NewOutput(stdio.Stdout), summaryWidth)
+		patchpreview.Summarize(idtui.NewOutput(stdio.Stdout), entries, summaryWidth)
 	}
 
 	s.updateLLMAndAgentVar(newLLM)
