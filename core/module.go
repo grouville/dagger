@@ -76,6 +76,11 @@ type Module struct {
 	// When true and WorkspaceConfig is set, also load .env defaults
 	// for args not found in WorkspaceConfig. Off by default.
 	DefaultsFromDotEnv bool
+
+	// cacheKeySalt allows callers to extend the cache key used for this module's content digest.
+	// It should include any configuration that mutates the module definition beyond the source
+	// content (e.g. legacy toolchain customizations).
+	cacheKeySalt string
 }
 
 func (*Module) Type() *ast.Type {
@@ -105,6 +110,13 @@ func (mod *Module) Generators(ctx context.Context, include []string) (*Generator
 
 func (mod *Module) Services(ctx context.Context, include []string) (*UpGroup, error) {
 	return NewUpGroup(ctx, mod, include)
+}
+
+// SetCacheKeySalt extends the module's content-based cache key with additional inputs.
+// Used by callers (e.g. legacy toolchain loader) to ensure customizations or overrides
+// produce distinct cached module instances.
+func (mod *Module) SetCacheKeySalt(salt string) {
+	mod.cacheKeySalt = salt
 }
 
 func (mod *Module) MainObject() (*ObjectTypeDef, bool) {
@@ -181,12 +193,12 @@ func (mod *Module) ContentDigestCacheKey() string {
 		contentDigest = source.Digest
 		contentCacheScope = source.ContentCacheScope()
 	}
+	parts := []string{contentDigest, contentCacheScope, "asModule"}
+	if mod.cacheKeySalt != "" {
+		parts = []string{contentDigest, contentCacheScope, mod.cacheKeySalt, "asModule"}
+	}
 
-	return hashutil.HashStrings(
-		contentDigest,
-		contentCacheScope,
-		"asModule",
-	).String()
+	return hashutil.HashStrings(parts...).String()
 }
 
 // GetModuleFromContentDigest loads a module based on the same content+provenance key used
@@ -361,15 +373,22 @@ func (mod *Module) ApplyLegacyCustomizationsToTypeDefs(customizations []*modules
 		if cust == nil {
 			continue
 		}
-		fn, found := mod.lookupCustomizationFunction(cust.Function)
-		if !found {
+		var fns []*Function
+		if pathHasGlob(cust.Function) {
+			fns = mod.lookupCustomizationFunctions(cust.Function)
+		} else if fn, ok := mod.lookupCustomizationFunction(cust.Function); ok {
+			fns = []*Function{fn}
+		}
+		if len(fns) == 0 {
 			continue
 		}
-		arg, found := lookupFunctionArg(fn, cust.Argument)
-		if !found {
-			continue
+		for _, fn := range fns {
+			arg, found := lookupFunctionArg(fn, cust.Argument)
+			if !found {
+				continue
+			}
+			applyLegacyArgCustomization(arg, cust)
 		}
-		applyLegacyArgCustomization(arg, cust)
 	}
 }
 
@@ -387,6 +406,70 @@ func nameMatches(pattern string, names ...string) bool {
 		}
 	}
 	return false
+}
+
+func pathHasGlob(path []string) bool {
+	for _, segment := range path {
+		if segmentHasGlob(segment) {
+			return true
+		}
+	}
+	return false
+}
+
+func (mod *Module) lookupCustomizationFunctions(path []string) []*Function {
+	obj, ok := mod.MainObject()
+	if !ok {
+		return nil
+	}
+	if len(path) == 0 {
+		if !obj.Constructor.Valid {
+			return nil
+		}
+		return []*Function{obj.Constructor.Value}
+	}
+	return mod.lookupCustomizationFunctionsFromObject(obj, path)
+}
+
+func (mod *Module) lookupCustomizationFunctionsFromObject(obj *ObjectTypeDef, path []string) []*Function {
+	if len(path) == 0 {
+		return nil
+	}
+	segment := path[0]
+	if !segmentHasGlob(segment) {
+		fn, ok := functionByOriginalName(obj, segment)
+		if !ok {
+			return nil
+		}
+		if len(path) == 1 {
+			return []*Function{fn}
+		}
+		nextObj, ok := mod.lookupCustomizationObject(fn.ReturnType)
+		if !ok {
+			return nil
+		}
+		return mod.lookupCustomizationFunctionsFromObject(nextObj, path[1:])
+	}
+	var matches []*Function
+	for _, fn := range obj.Functions {
+		if !nameMatches(segment, fn.OriginalName, fn.Name) {
+			continue
+		}
+		if len(path) == 1 {
+			matches = append(matches, fn)
+			continue
+		}
+		nextObj, ok := mod.lookupCustomizationObject(fn.ReturnType)
+		if !ok {
+			continue
+		}
+		matches = append(matches, mod.lookupCustomizationFunctionsFromObject(nextObj, path[1:])...)
+	}
+	return matches
+}
+
+func segmentHasGlob(pattern string) bool {
+	return strings.ContainsAny(pattern, "*?[")
 }
 
 func (mod *Module) lookupCustomizationFunction(path []string) (*Function, bool) {
@@ -1250,6 +1333,7 @@ func (mod Module) Clone() *Module {
 			cp.WorkspaceConfig[k] = v
 		}
 	}
+	cp.cacheKeySalt = mod.cacheKeySalt
 	return &cp
 }
 

@@ -3174,6 +3174,29 @@ func (s *moduleSourceSchema) moduleSourceAsModule(
 		return inst, fmt.Errorf("module name must be set")
 	}
 
+	legacyCacheSalt := func() string {
+		var parts []string
+		if args.LegacyDefaultPath {
+			parts = append(parts, "legacyDefaultPath:true")
+		}
+		if args.LegacyArgCustomizationsJSON != "" {
+			parts = append(parts, "legacyArgCustomizations:"+args.LegacyArgCustomizationsJSON)
+		}
+		if args.LegacyWorkspaceConfigJSON != "" {
+			parts = append(parts, "legacyWorkspaceConfig:"+args.LegacyWorkspaceConfigJSON)
+		}
+		if args.LegacyNameOverride != "" {
+			parts = append(parts, "legacyNameOverride:"+args.LegacyNameOverride)
+		}
+		if args.LegacyDefaultsFromDotEnv {
+			parts = append(parts, "legacyDefaultsFromDotEnv:true")
+		}
+		if len(parts) == 0 {
+			return ""
+		}
+		return hashutil.HashStrings(parts...).String()
+	}()
+
 	// Check engine version compatibility
 	engineVersion := src.Self().EngineVersion
 	if !engine.CheckVersionCompatibility(engineVersion, engine.MinimumModuleVersion) {
@@ -3188,6 +3211,7 @@ func (s *moduleSourceSchema) moduleSourceAsModule(
 	if err != nil {
 		return inst, err
 	}
+	mod.SetCacheKeySalt(legacyCacheSalt)
 
 	// Apply ForceDefaultFunctionCaching if requested
 	if args.ForceDefaultFunctionCaching {
