@@ -196,6 +196,17 @@ func (build *Builder) typescriptSDKContent(ctx context.Context) (*sdkContent, er
 	}, nil
 }
 
+// TypescriptSDK builds and returns the packaged TypeScript SDK directory that is
+// normally embedded in the engine image.
+func (build *Builder) TypescriptSDK(ctx context.Context) (*dagger.Directory, error) {
+	content, err := build.typescriptSDKContent(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return content.sdkDir, nil
+}
+
 func (build *Builder) goSDKContent(ctx context.Context) (*sdkContent, error) {
 	sdkCache := dag.Container().
 		From(consts.GolangImage).

@@ -203,6 +203,25 @@ func (dev *EngineDev) Container(
 	return ctr, nil
 }
 
+// TypescriptSDK packages the TypeScript SDK runtime and returns the directory
+// layout that the engine normally embeds as a builtin SDK.
+func (dev *EngineDev) TypescriptSDK(
+	ctx context.Context,
+	// +optional
+	platform dagger.Platform,
+) (*dagger.Directory, error) {
+	builder, err := build.NewBuilder(ctx, dev.Source, "", "")
+	if err != nil {
+		return nil, err
+	}
+	builder = builder.WithRace(dev.Race)
+	if platform != "" {
+		builder = builder.WithPlatform(platform)
+	}
+
+	return builder.TypescriptSDK(ctx)
+}
+
 // Create a test engine service
 func (dev *EngineDev) Service(
 	ctx context.Context,
