@@ -200,6 +200,60 @@ To change the base image, set the field `dagger.baseImage` in your Dagger module
 Currently, only Alpine-based images are supported.
 :::
 
+### Using a locally modified TypeScript SDK
+
+Sometimes you need to exercise TypeScript SDK changes against a real module before they ship. Because the SDK runtime depends on prebuilt assets (`codegen`, `bundled_lib`, `typescript-library`, `tsx_module`, etc.), simply pointing `sdk.source` at the raw `sdk/typescript/runtime` sources is not enough. Instead, package the SDK bundle, copy it into your module so Dagger can upload it, and point `sdk.source` at that bundled directory.
+
+1. **Rebuild the dev CLI/Engine once** so the loader knows how to pass local bundles to the SDK:
+
+   ```sh
+   ./hack/dev
+   ```
+
+2. **Export the TypeScript SDK bundle** for the platform you need (use `linux/arm64` on Apple Silicon Docker hosts):
+
+   ```sh
+   ./hack/with-dev dagger --mod toolchains/engine-dev call typescript-sdk \
+       --platform=linux/arm64 export --path /tmp/dagger-ts-sdk
+   ```
+
+   This produces an OCI-style directory containing the runtime plus every prebuilt asset the SDK expects.
+
+3. **Place the bundle inside your module** so it becomes part of the workspace the engine loads. For example:
+
+   ```sh
+   rm -rf sdk-overrides/ts-sdk
+   cp -R /tmp/dagger-ts-sdk sdk-overrides/ts-sdk
+   # Flatten so the module root contains codegen/bundled_lib/etc.
+   rsync -a sdk-overrides/ts-sdk/runtime/ sdk-overrides/ts-sdk/
+   rm -rf sdk-overrides/ts-sdk/runtime
+   ```
+
+4. **Point your module at the bundled SDK and ensure it is uploaded** by editing `dagger.json`:
+
+   ```json
+   {
+     "sdk": {
+       "source": "./sdk-overrides/ts-sdk"
+     },
+     "include": [
+       "sdk-overrides/ts-sdk/**"
+     ]
+   }
+   ```
+
+   The copied bundle already contains its own `dagger.json` with `"source": "runtime"`, so referencing the bundle root works as-is.
+
+5. **Run your module through the dev binaries** so the SDK uses the bundle you just copied:
+
+   ```sh
+   ./hack/with-dev dagger functions
+   # or
+   ./hack/with-dev dagger develop
+   ```
+
+Whenever you tweak the SDK sources, repeat steps 2–3 to re-export the bundle before running the module again. Keeping the bundle inside the module (and listed under `include`) is required because the engine can only access files that live within the module’s context directory.
+
 ### Bundled or vendored SDK
 
 By default, the SDK is installed as a bundled local dependency, so all SDK related dependencies are already pre-bundled in the module's code

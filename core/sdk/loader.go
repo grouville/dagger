@@ -112,7 +112,7 @@ func (l *Loader) externalSDKForModule(
 		return nil, fmt.Errorf("failed to load sdk module %q: %w", sdk.Source, err)
 	}
 
-	return newModuleSDK(ctx, query, sdkMod, dagql.ObjectResult[*core.Directory]{}, sdk.Config)
+	return newModuleSDK(ctx, query, sdkMod, sdkModSrc.Self().ContextDirectory, sdk.Config)
 }
 
 func (l *Loader) namedSDK(

@@ -19,6 +19,7 @@ import (
 type sdkContent struct {
 	index   ocispecs.Index
 	sdkDir  *dagger.Directory
+	rootfs  *dagger.Directory
 	envName string
 }
 
@@ -115,6 +116,7 @@ func (build *Builder) pythonSDKContent(ctx context.Context) (*sdkContent, error)
 	return &sdkContent{
 		index:   index,
 		sdkDir:  sdkDir,
+		rootfs:  nil,
 		envName: distconsts.PythonSDKManifestDigestEnvName,
 	}, nil
 }
@@ -164,7 +166,7 @@ func (build *Builder) typescriptSDKContent(ctx context.Context) (*sdkContent, er
 		WithExec([]string{"tsc", "--emitDeclarationOnly"}).
 		WithExec([]string{"bun", "x", "rollup", "-c", "rollup.dts.config.mjs", "-o", "/out-node/core.d.ts"})
 
-	sdkCtrTarball := dag.Container().
+	sdkCtr := dag.Container().
 		WithRootfs(rootfs).
 		WithFile("/codegen", build.CodegenBinary()).
 		// We need to mount the typescript library because bun will not be able to resolve the
@@ -174,11 +176,13 @@ func (build *Builder) typescriptSDKContent(ctx context.Context) (*sdkContent, er
 		WithDirectory("/typescript-library", bunBuilderCtr.Directory("/src/node_modules/typescript")).
 		WithFile("/bin/ts-introspector", bunBuilderCtr.File("/bin/ts-introspector")).
 		WithDirectory("/tsx_module", tsxNodeModule).
-		WithDirectory("/bundled_lib", bunBuilderCtr.Directory("/out-node")).
-		AsTarball(dagger.ContainerAsTarballOpts{
-			ForcedCompression: dagger.ImageLayerCompressionZstd,
-		})
+		WithDirectory("/bundled_lib", bunBuilderCtr.Directory("/out-node"))
+
+	sdkCtrTarball := sdkCtr.AsTarball(dagger.ContainerAsTarballOpts{
+		ForcedCompression: dagger.ImageLayerCompressionZstd,
+	})
 	sdkDir := unpackTar(sdkCtrTarball)
+	sdkRootfs := sdkCtr.Rootfs()
 
 	var index ocispecs.Index
 	indexContents, err := sdkDir.File("index.json").Contents(ctx)
@@ -192,6 +196,7 @@ func (build *Builder) typescriptSDKContent(ctx context.Context) (*sdkContent, er
 	return &sdkContent{
 		index:   index,
 		sdkDir:  sdkDir,
+		rootfs:  sdkRootfs,
 		envName: distconsts.TypescriptSDKManifestDigestEnvName,
 	}, nil
 }
@@ -204,7 +209,11 @@ func (build *Builder) TypescriptSDK(ctx context.Context) (*dagger.Directory, err
 		return nil, err
 	}
 
-	return content.sdkDir, nil
+	if content.rootfs == nil {
+		return nil, fmt.Errorf("typescript sdk rootfs unavailable")
+	}
+
+	return content.rootfs, nil
 }
 
 func (build *Builder) goSDKContent(ctx context.Context) (*sdkContent, error) {
@@ -257,6 +266,7 @@ func (build *Builder) goSDKContent(ctx context.Context) (*sdkContent, error) {
 	return &sdkContent{
 		index:   index,
 		sdkDir:  sdkDir,
+		rootfs:  nil,
 		envName: distconsts.GoSDKManifestDigestEnvName,
 	}, nil
 }
