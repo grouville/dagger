@@ -1,8 +1,10 @@
 package main
 
 import (
-	"dagger/hello-with-generators/internal/dagger"
+	"context"
 	"errors"
+
+	"dagger/hello-with-generators/internal/dagger"
 )
 
 type HelloWithGenerators struct{}
@@ -33,6 +35,14 @@ func (m *HelloWithGenerators) EmptyChangeset() *dagger.Changeset {
 // +generate
 func (m *HelloWithGenerators) ChangesetFailure() (*dagger.Changeset, error) {
 	return nil, errors.New("could not generate the changeset")
+}
+
+func (m *HelloWithGenerators) WorkspaceGeneratorsEmpty(ctx context.Context) (bool, error) {
+	empty, err := dag.CurrentWorkspace().Generators().IsEmpty(ctx)
+	if err != nil {
+		return false, err
+	}
+	return empty, nil
 }
 
 type MetaGen struct{}

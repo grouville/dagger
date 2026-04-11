@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"dagger.io/dagger"
@@ -220,6 +221,19 @@ func (GeneratorsSuite) TestGeneratorsAsToolchain(ctx context.Context, t *testctx
 			})
 		})
 	}
+}
+
+func (GeneratorsSuite) TestWorkspaceGeneratorsVisibleFromModule(ctx context.Context, t *testctx.T) {
+	c := connect(ctx, t)
+	modGen, err := generatorsTestEnv(t, c)
+	require.NoError(t, err)
+
+	out, err := modGen.
+		WithWorkdir("hello-with-generators").
+		With(daggerCall("workspace-generators-empty")).
+		Stdout(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "false", strings.TrimSpace(out))
 }
 
 func (GeneratorsSuite) TestToolchainIgnoreGenerators(ctx context.Context, t *testctx.T) {
