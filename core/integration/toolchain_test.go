@@ -396,6 +396,85 @@ func (ToolchainSuite) TestToolchainsWithConfiguration(ctx context.Context, t *te
 	})
 }
 
+func (ToolchainSuite) TestToolchainCustomizationCacheKey(ctx context.Context, t *testctx.T) {
+	c := connect(ctx, t)
+
+	const readerSource = `package main
+
+import (
+	"context"
+	"strconv"
+	"time"
+
+	"dagger/reader/internal/dagger"
+)
+
+type Reader struct{}
+
+func (*Reader) Nonce(ctx context.Context, src *dagger.Directory) (string, error) {
+	_, err := src.Entries(ctx)
+	if err != nil {
+		return "", err
+	}
+	return strconv.FormatInt(time.Now().UnixNano(), 10), nil
+}
+`
+
+	legacyToolchainConsumerConfig := func(moduleName, ignoredPattern string) string {
+		return fmt.Sprintf(`{
+  "name": %q,
+  "engineVersion": "v0.20.3",
+  "toolchains": [
+    {
+      "name": "reader",
+      "source": "../toolchain",
+      "customizations": [
+        {
+          "function": ["nonce"],
+          "argument": "src",
+          "defaultPath": "payload",
+          "ignore": [%q]
+        }
+      ]
+    }
+  ]
+}`, moduleName, ignoredPattern)
+	}
+
+	runNonce := func(ctr *dagger.Container, moduleDir string) (*dagger.Container, string) {
+		ctr = ctr.
+			WithWorkdir("/work/"+moduleDir).
+			WithExec([]string{"dagger", "call", "reader", "nonce"}, dagger.ContainerWithExecOpts{
+				UseEntrypoint: true,
+			})
+
+		out, err := ctr.Stdout(ctx)
+		require.NoError(t, err)
+		return ctr, strings.TrimSpace(out)
+	}
+
+	const payloadContents = "same content"
+
+	base := goGitBase(t, c).
+		WithWorkdir("/work/toolchain").
+		With(daggerExec("init", "--sdk=go", "--name=reader", "--source=.")).
+		With(sdkSource("go", readerSource)).
+		WithNewFile("/work/app-ignore-a/dagger.json", legacyToolchainConsumerConfig("app-ignore-a", "ignored-by-a")).
+		WithNewFile("/work/app-ignore-a/payload/keep.txt", payloadContents).
+		WithNewFile("/work/app-ignore-b/dagger.json", legacyToolchainConsumerConfig("app-ignore-b", "ignored-by-b")).
+		WithNewFile("/work/app-ignore-b/payload/keep.txt", payloadContents).
+		With(nonNestedDevEngine(c))
+
+	firstRun, ignoreAFirstNonce := runNonce(base, "app-ignore-a")
+	secondRun, ignoreASecondNonce := runNonce(firstRun, "app-ignore-a")
+	require.Equal(t, ignoreAFirstNonce, ignoreASecondNonce, "same toolchain customization should cache-hit")
+
+	// The default Directory arg content is identical for both modules. The only
+	// relevant difference is the legacy toolchain customization metadata.
+	_, ignoreBNonce := runNonce(secondRun, "app-ignore-b")
+	require.NotEqual(t, ignoreAFirstNonce, ignoreBNonce, "different toolchain customizations must not cache-hit")
+}
+
 func (ToolchainSuite) TestToolchainIgnoreChecks(ctx context.Context, t *testctx.T) {
 	c := connect(ctx, t)
 	t.Run("ignore checks from toolchain using ignoreChecks config", func(ctx context.Context, t *testctx.T) {
