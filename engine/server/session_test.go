@@ -144,9 +144,9 @@ func TestModuleResolutionFromSubdirectory(t *testing.T) {
 
 	// Module source must resolve relative to dagger.json (/repo),
 	// not relative to CWD (/repo/sdk/go).
-	require.Len(t, client.pendingModules, 2) // declared module + implicit module
-	require.Equal(t, "/repo/modules/changelog", client.pendingModules[0].Ref)
-	require.Equal(t, "changelog", client.pendingModules[0].Name)
+	require.Len(t, client.pendingModuleLoads, 2) // declared module + implicit module
+	require.Equal(t, "/repo/modules/changelog", client.pendingModuleLoads[0].mod.Ref)
+	require.Equal(t, "changelog", client.pendingModuleLoads[0].mod.Name)
 }
 
 func TestDetectAndLoadWorkspaceDoesNotLoadModulesByDefault(t *testing.T) {
@@ -196,7 +196,147 @@ func TestDetectAndLoadWorkspaceDoesNotLoadModulesByDefault(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, client.workspace)
-	require.Empty(t, client.pendingModules)
+	require.Empty(t, client.pendingModuleLoads)
+}
+
+func TestDetectAndLoadWorkspaceNormalizesMatchingLegacyExtraModule(t *testing.T) {
+	t.Parallel()
+
+	existingFiles := map[string]bool{
+		"/repo/.git":        true,
+		"/repo/dagger.json": true,
+	}
+
+	statFS := core.StatFSFunc(func(_ context.Context, path string) (string, *core.Stat, error) {
+		path = filepath.Clean(path)
+		if existingFiles[path] {
+			return filepath.Dir(path), &core.Stat{
+				Name: filepath.Base(path),
+			}, nil
+		}
+		return "", nil, os.ErrNotExist
+	})
+
+	readFile := func(_ context.Context, path string) ([]byte, error) {
+		if filepath.Clean(path) == "/repo/dagger.json" {
+			return []byte(`{
+				"name":"myproject",
+				"toolchains":[{
+					"name":"docs",
+					"source":"toolchains/docs-dev",
+					"customizations":[
+						{"argument":"source","defaultPath":"/"},
+						{"argument":"target","default":"sdk/php"}
+					]
+				}]
+			}`), nil
+		}
+		return nil, os.ErrNotExist
+	}
+
+	client := &daggerClient{
+		pendingWorkspaceLoad: true,
+		clientMetadata:       &engine.ClientMetadata{},
+		pendingExtraModules: []engine.ExtraModule{{
+			Ref:        "toolchains/docs-dev",
+			Entrypoint: true,
+		}},
+	}
+
+	srv := &Server{}
+	err := srv.detectAndLoadWorkspace(
+		engine.ContextWithClientMetadata(context.Background(), &engine.ClientMetadata{ClientID: "test-client"}),
+		client,
+		statFS,
+		readFile,
+		"/repo",
+		func(ws *workspace.Workspace, relPath string) string {
+			return filepath.Join(ws.Root, ws.Path, relPath)
+		},
+		nil,
+		true,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, client.workspace)
+	require.Empty(t, client.pendingExtraModules)
+	require.Len(t, client.pendingModuleLoads, 1)
+
+	load := client.pendingModuleLoads[0]
+	require.True(t, load.extra)
+	mod := load.mod
+	require.Equal(t, "/repo/toolchains/docs-dev", mod.Ref)
+	require.Equal(t, "docs", mod.Name)
+	require.True(t, mod.Entrypoint)
+	require.True(t, mod.LegacyDefaultPath)
+	require.Equal(t, map[string]any{"target": "sdk/php"}, mod.ConfigDefaults)
+	require.Len(t, mod.ArgCustomizations, 2)
+	require.Equal(t, "/", mod.ArgCustomizations[0].DefaultPath)
+}
+
+func TestNormalizeExtraModuleLoads(t *testing.T) {
+	t.Parallel()
+
+	ws := &workspace.Workspace{Root: "/repo", Path: "."}
+	resolveLocalRef := func(ws *workspace.Workspace, relPath string) string {
+		return filepath.Join(ws.Root, ws.Path, relPath)
+	}
+
+	t.Run("leaves non matching extras plain", func(t *testing.T) {
+		t.Parallel()
+
+		loads := normalizeExtraModuleLoads(
+			ws,
+			resolveLocalRef,
+			resolveLocalRef,
+			[]workspace.LegacyToolchain{{
+				Name:   "docs",
+				Source: "toolchains/docs-dev",
+			}},
+			nil,
+			"",
+			[]engine.ExtraModule{{
+				Ref:        "github.com/acme/other",
+				Name:       "other",
+				Entrypoint: true,
+			}},
+		)
+
+		require.Len(t, loads, 1)
+		require.True(t, loads[0].extra)
+		require.Equal(t, "github.com/acme/other", loads[0].mod.Ref)
+		require.Equal(t, "other", loads[0].mod.Name)
+		require.True(t, loads[0].mod.Entrypoint)
+		require.False(t, loads[0].mod.LegacyDefaultPath)
+	})
+
+	t.Run("preserves legacy blueprint caller dir", func(t *testing.T) {
+		t.Parallel()
+
+		loads := normalizeExtraModuleLoads(
+			ws,
+			resolveLocalRef,
+			resolveLocalRef,
+			nil,
+			&workspace.LegacyBlueprint{
+				Name:   "app",
+				Source: "blueprints/app",
+			},
+			"/repo",
+			[]engine.ExtraModule{{
+				Ref:        "/repo/blueprints/app",
+				Name:       "renamed",
+				Entrypoint: true,
+			}},
+		)
+
+		require.Len(t, loads, 1)
+		require.True(t, loads[0].extra)
+		require.Equal(t, "/repo/blueprints/app", loads[0].mod.Ref)
+		require.Equal(t, "renamed", loads[0].mod.Name)
+		require.True(t, loads[0].mod.Entrypoint)
+		require.True(t, loads[0].mod.LegacyDefaultPath)
+		require.Equal(t, "/repo", loads[0].mod.LegacyCallerModuleDir)
+	})
 }
 
 func TestIsSameModuleReference(t *testing.T) {
@@ -385,9 +525,9 @@ func TestGatherModuleLoadRequests(t *testing.T) {
 	t.Parallel()
 
 	loads := gatherModuleLoadRequests(
-		[]pendingModule{
-			{Ref: "github.com/acme/a", Name: "a"},
-			{Ref: "github.com/acme/b", Name: "b"},
+		[]moduleLoadRequest{
+			{mod: pendingModule{Ref: "github.com/acme/a", Name: "a"}, extra: true},
+			{mod: pendingModule{Ref: "github.com/acme/b", Name: "b"}},
 		},
 		[]engine.ExtraModule{
 			{Ref: "github.com/acme/extra1", Name: "extra1", Entrypoint: true},
@@ -396,7 +536,7 @@ func TestGatherModuleLoadRequests(t *testing.T) {
 	)
 
 	require.Len(t, loads, 4)
-	require.False(t, loads[0].extra)
+	require.True(t, loads[0].extra)
 	require.False(t, loads[1].extra)
 	require.True(t, loads[2].extra)
 	require.True(t, loads[3].extra)

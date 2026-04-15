@@ -188,8 +188,8 @@ type daggerClient struct {
 	// Cached workspace result from ensureWorkspaceLoaded.
 	workspace *core.Workspace
 
-	pendingModules      []pendingModule      // gathered in detectAndLoadWorkspaceWithRootfs
-	pendingExtraModules []engine.ExtraModule // populated from clientMD, can arrive late
+	pendingModuleLoads  []moduleLoadRequest  // normalized in detectAndLoadWorkspaceWithRootfs
+	pendingExtraModules []engine.ExtraModule // raw client metadata until workspace detection
 	modulesMu           sync.Mutex
 	modulesLoaded       bool
 	modulesErr          error

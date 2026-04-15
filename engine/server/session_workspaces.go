@@ -419,6 +419,120 @@ func pendingLegacyModule(
 	return mod
 }
 
+func normalizeExtraModuleLoads(
+	ws *workspace.Workspace,
+	resolveLegacyRef func(ws *workspace.Workspace, relPath string) string,
+	resolveExtraRef func(ws *workspace.Workspace, relPath string) string,
+	toolchains []workspace.LegacyToolchain,
+	blueprint *workspace.LegacyBlueprint,
+	legacyCallerDir string,
+	extras []engine.ExtraModule,
+) []moduleLoadRequest {
+	loads := make([]moduleLoadRequest, 0, len(extras))
+	for _, extra := range extras {
+		mod, ok := legacyModuleForExtra(ws, resolveLegacyRef, resolveExtraRef, toolchains, blueprint, legacyCallerDir, extra)
+		if !ok {
+			mod = pendingModule{
+				Ref:        extra.Ref,
+				Name:       extra.Name,
+				Entrypoint: extra.Entrypoint,
+			}
+		}
+		loads = append(loads, moduleLoadRequest{mod: mod, extra: true})
+	}
+	return loads
+}
+
+func legacyModuleForExtra(
+	ws *workspace.Workspace,
+	resolveLegacyRef func(ws *workspace.Workspace, relPath string) string,
+	resolveExtraRef func(ws *workspace.Workspace, relPath string) string,
+	toolchains []workspace.LegacyToolchain,
+	blueprint *workspace.LegacyBlueprint,
+	legacyCallerDir string,
+	extra engine.ExtraModule,
+) (pendingModule, bool) {
+	for _, tc := range toolchains {
+		mod := pendingLegacyModule(
+			ws,
+			resolveLegacyRef,
+			tc.Name,
+			tc.Source,
+			tc.Pin,
+			extra.Entrypoint,
+			tc.ConfigDefaults,
+			tc.Customizations,
+		)
+		if !extraMatchesLegacyModule(ws, resolveExtraRef, extra, tc.Source, tc.Pin, mod) {
+			continue
+		}
+		if extra.Name != "" {
+			mod.Name = extra.Name
+		}
+		return mod, true
+	}
+
+	if blueprint != nil {
+		mod := pendingLegacyModule(
+			ws,
+			resolveLegacyRef,
+			blueprint.Name,
+			blueprint.Source,
+			blueprint.Pin,
+			extra.Entrypoint,
+			nil,
+			nil,
+		)
+		if extraMatchesLegacyModule(ws, resolveExtraRef, extra, blueprint.Source, blueprint.Pin, mod) {
+			if extra.Name != "" {
+				mod.Name = extra.Name
+			}
+			mod.LegacyCallerModuleDir = legacyCallerDir
+			return mod, true
+		}
+	}
+
+	return pendingModule{}, false
+}
+
+func extraMatchesLegacyModule(
+	ws *workspace.Workspace,
+	resolveExtraRef func(ws *workspace.Workspace, relPath string) string,
+	extra engine.ExtraModule,
+	source string,
+	pin string,
+	mod pendingModule,
+) bool {
+	if sameModuleRef(extra.Ref, "", source, pin) ||
+		sameModuleRef(extra.Ref, "", mod.Ref, mod.RefPin) {
+		return true
+	}
+
+	if core.FastModuleSourceKindCheck(extra.Ref, "") != core.ModuleSourceKindLocal {
+		return false
+	}
+	resolvedExtraRef := resolveExtraRef(ws, extra.Ref)
+	return sameModuleRef(resolvedExtraRef, "", source, pin) ||
+		sameModuleRef(resolvedExtraRef, "", mod.Ref, mod.RefPin)
+}
+
+func sameModuleRef(aRef, aPin, bRef, bPin string) bool {
+	if aRef == "" || bRef == "" {
+		return false
+	}
+	if aPin != "" && bPin != "" && aPin != bPin {
+		return false
+	}
+	if aRef == bRef {
+		return true
+	}
+	if core.FastModuleSourceKindCheck(aRef, aPin) != core.ModuleSourceKindLocal ||
+		core.FastModuleSourceKindCheck(bRef, bPin) != core.ModuleSourceKindLocal {
+		return false
+	}
+	return filepath.Clean(aRef) == filepath.Clean(bRef)
+}
+
 func legacyCallerModuleDir(isLocal bool, moduleDir string) string {
 	if !isLocal || moduleDir == "" {
 		return ""
@@ -478,24 +592,6 @@ func (srv *Server) detectAndLoadWorkspaceWithRootfs(
 		slog.Info("No workspace modules detected.", "path", wsDir)
 	}
 
-	// Build + cache core.Workspace.
-	address := ""
-	if workspaceAddress != nil {
-		address = workspaceAddress(ws)
-	}
-	coreWS, err := srv.buildCoreWorkspace(ctx, client, ws, isLocal, prebuiltRootfs, address)
-	if err != nil {
-		return fmt.Errorf("building workspace: %w", err)
-	}
-	client.workspace = coreWS
-
-	if !loadModules {
-		return nil
-	}
-
-	// --- Gather all modules to load ---
-	var pending []pendingModule
-
 	// resolveConfigRef resolves module source paths declared in dagger.json
 	// relative to the config file location rather than the client's CWD.
 	// When a client connects from a subdirectory, ws.Path points there,
@@ -508,9 +604,42 @@ func (srv *Server) detectAndLoadWorkspaceWithRootfs(
 		}
 	}
 
+	// Build + cache core.Workspace.
+	address := ""
+	if workspaceAddress != nil {
+		address = workspaceAddress(ws)
+	}
+	coreWS, err := srv.buildCoreWorkspace(ctx, client, ws, isLocal, prebuiltRootfs, address)
+	if err != nil {
+		return fmt.Errorf("building workspace: %w", err)
+	}
+	client.workspace = coreWS
+
+	// Normalize raw client-selected extra modules at the point where workspace
+	// config is available. Selection stays opt-in; matching legacy refs only
+	// affect how the selected module is resolved.
+	var pending []moduleLoadRequest
+	pending = append(pending, normalizeExtraModuleLoads(
+		ws,
+		resolveConfigRef,
+		resolveLocalRef,
+		legacyToolchains,
+		legacyBlueprint,
+		legacyCallerDir,
+		client.pendingExtraModules,
+	)...)
+	client.pendingExtraModules = nil
+
+	if !loadModules {
+		client.pendingModuleLoads = pending
+		return nil
+	}
+
+	// --- Gather all modules to load ---
+
 	// (1a) Legacy toolchains (from compat mode, extracted above)
 	for _, tc := range legacyToolchains {
-		pending = append(pending, pendingLegacyModule(
+		pending = append(pending, moduleLoadRequest{mod: pendingLegacyModule(
 			ws,
 			resolveConfigRef,
 			tc.Name,
@@ -519,7 +648,7 @@ func (srv *Server) detectAndLoadWorkspaceWithRootfs(
 			false,
 			tc.ConfigDefaults,
 			tc.Customizations,
-		))
+		)})
 	}
 
 	// (1b) Legacy blueprint (from compat mode, extracted above)
@@ -535,7 +664,7 @@ func (srv *Server) detectAndLoadWorkspaceWithRootfs(
 			nil,
 		)
 		blueprint.LegacyCallerModuleDir = legacyCallerDir
-		pending = append(pending, blueprint)
+		pending = append(pending, moduleLoadRequest{mod: blueprint})
 	}
 
 	// (2) Implicit module (dagger.json near CWD)
@@ -545,7 +674,7 @@ func (srv *Server) detectAndLoadWorkspaceWithRootfs(
 			wsDir := filepath.Join(ws.Root, ws.Path)
 			rel, _ := filepath.Rel(wsDir, moduleDir)
 			name := cwdModuleName(ctx, readFile, moduleDir)
-			pending = append(pending, pendingModule{
+			pending = append(pending, moduleLoadRequest{mod: pendingModule{
 				Ref:  resolveLocalRef(ws, rel),
 				Name: name,
 				// If the root module references a separate blueprint, only that
@@ -553,15 +682,11 @@ func (srv *Server) detectAndLoadWorkspaceWithRootfs(
 				// The root app module still needs to be served, but only as a
 				// namespaced module.
 				Entrypoint: legacyBlueprint == nil,
-			})
+			}})
 		}
 	}
 
-	// (3) Extra modules from -m flag are stored separately in
-	//     client.pendingExtraModules (already populated from clientMD).
-	//     They go through the same loadModule chokepoint in ensureModulesLoaded.
-
-	client.pendingModules = pending
+	client.pendingModuleLoads = pending
 
 	return nil
 }
@@ -649,7 +774,7 @@ func (srv *Server) cloneGitTree(ctx context.Context, dag *dagql.Server, cloneRef
 // ensureWorkspaceLoaded. Uses a mutex+flag instead of sync.Once so that
 // transient failures (e.g. session not yet registered) can be retried.
 func (srv *Server) ensureModulesLoaded(ctx context.Context, client *daggerClient) error {
-	if len(client.pendingModules) == 0 && len(client.pendingExtraModules) == 0 {
+	if len(client.pendingModuleLoads) == 0 && len(client.pendingExtraModules) == 0 {
 		return nil
 	}
 
@@ -666,7 +791,7 @@ func (srv *Server) ensureModulesLoaded(ctx context.Context, client *daggerClient
 		return fmt.Errorf("waiting for client session: %w", err)
 	}
 
-	loads := gatherModuleLoadRequests(client.pendingModules, client.pendingExtraModules)
+	loads := gatherModuleLoadRequests(client.pendingModuleLoads, client.pendingExtraModules)
 	resolvedLoads := make([]resolvedModuleLoad, len(loads))
 	resolveErrs := make([]error, len(loads))
 
@@ -926,11 +1051,9 @@ func (srv *Server) serveAllResolvedModuleLoads(client *daggerClient, loads []mod
 	return nil
 }
 
-func gatherModuleLoadRequests(pending []pendingModule, extras []engine.ExtraModule) []moduleLoadRequest {
+func gatherModuleLoadRequests(pending []moduleLoadRequest, extras []engine.ExtraModule) []moduleLoadRequest {
 	loads := make([]moduleLoadRequest, 0, len(pending)+len(extras))
-	for _, mod := range pending {
-		loads = append(loads, moduleLoadRequest{mod: mod})
-	}
+	loads = append(loads, pending...)
 	for _, extra := range extras {
 		loads = append(loads, moduleLoadRequest{
 			mod: pendingModule{
