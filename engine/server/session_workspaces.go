@@ -57,7 +57,7 @@ func canonicalModuleReference(src *core.ModuleSource) string {
 // (not initializeDaggerClient) because it requires the client's buildkit session
 // to access the client's filesystem for workspace detection.
 func (srv *Server) ensureWorkspaceLoaded(ctx context.Context, client *daggerClient) error {
-	mode, workspaceRef := workspaceBindingMode(client)
+	mode, workspaceRef := workspaceBindingMode(ctx, client)
 	if mode == workspaceBindingInherit {
 		return srv.inheritWorkspaceBinding(ctx, client)
 	}
@@ -101,15 +101,39 @@ const (
 )
 
 // workspaceBindingMode resolves binding behavior for the current client:
-// explicit workspace declaration, own host detection, or parent inheritance.
-func workspaceBindingMode(client *daggerClient) (workspaceBindingModeType, string) {
+// explicit workspace declaration, remote explicit module binding, own host
+// detection, or parent inheritance.
+func workspaceBindingMode(ctx context.Context, client *daggerClient) (workspaceBindingModeType, string) {
 	if workspaceRef, ok := workspaceRefFromClientMetadata(client.clientMetadata); ok {
 		return workspaceBindingDeclared, workspaceRef
 	}
 	if client.pendingWorkspaceLoad {
+		if workspaceRef, ok := workspaceRefFromExplicitRemoteModule(ctx, client.clientMetadata); ok {
+			return workspaceBindingDeclared, workspaceRef
+		}
 		return workspaceBindingDetectHost, ""
 	}
 	return workspaceBindingInherit, ""
+}
+
+// workspaceRefFromExplicitRemoteModule preserves legacy session behavior for
+// SDK clients that select a remote module through DAGGER_MODULE but do not
+// also provide WithWorkspace. In that case, currentWorkspace should point at
+// the selected module's repository, not the small host runner workspace.
+func workspaceRefFromExplicitRemoteModule(ctx context.Context, clientMD *engine.ClientMetadata) (string, bool) {
+	if clientMD == nil || len(clientMD.ExtraModules) != 1 {
+		return "", false
+	}
+
+	ref := clientMD.ExtraModules[0].Ref
+	if ref == "" || core.FastModuleSourceKindCheck(ref, "") == core.ModuleSourceKindLocal {
+		return "", false
+	}
+	parsedRef, err := parseWorkspaceRemoteRef(ctx, ref)
+	if err != nil {
+		return "", false
+	}
+	return remoteWorkspaceAddress(parsedRef.cloneRef, ".", parsedRef.version), true
 }
 
 // workspaceRefFromClientMetadata returns the explicitly declared workspace
@@ -478,6 +502,18 @@ func (srv *Server) detectAndLoadWorkspaceWithRootfs(
 		slog.Info("No workspace modules detected.", "path", wsDir)
 	}
 
+	// resolveConfigRef resolves module source paths declared in dagger.json
+	// relative to the config file location rather than the client's CWD.
+	// When a client connects from a subdirectory, ws.Path points there,
+	// but module sources in the config are relative to the config itself.
+	resolveConfigRef := resolveLocalRef
+	if hasModuleConfig && isLocal {
+		configDir := moduleDir
+		resolveConfigRef = func(_ *workspace.Workspace, relPath string) string {
+			return filepath.Join(configDir, relPath)
+		}
+	}
+
 	// Build + cache core.Workspace.
 	address := ""
 	if workspaceAddress != nil {
@@ -495,18 +531,6 @@ func (srv *Server) detectAndLoadWorkspaceWithRootfs(
 
 	// --- Gather all modules to load ---
 	var pending []pendingModule
-
-	// resolveConfigRef resolves module source paths declared in dagger.json
-	// relative to the config file location rather than the client's CWD.
-	// When a client connects from a subdirectory, ws.Path points there,
-	// but module sources in the config are relative to the config itself.
-	resolveConfigRef := resolveLocalRef
-	if hasModuleConfig && isLocal {
-		configDir := moduleDir
-		resolveConfigRef = func(_ *workspace.Workspace, relPath string) string {
-			return filepath.Join(configDir, relPath)
-		}
-	}
 
 	// (1a) Legacy toolchains (from compat mode, extracted above)
 	for _, tc := range legacyToolchains {
@@ -556,10 +580,6 @@ func (srv *Server) detectAndLoadWorkspaceWithRootfs(
 			})
 		}
 	}
-
-	// (3) Extra modules from -m flag are stored separately in
-	//     client.pendingExtraModules (already populated from clientMD).
-	//     They go through the same loadModule chokepoint in ensureModulesLoaded.
 
 	client.pendingModules = pending
 

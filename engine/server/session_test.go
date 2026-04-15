@@ -293,9 +293,63 @@ func TestWorkspaceBindingMode(t *testing.T) {
 			},
 		}
 
-		mode, workspaceRef := workspaceBindingMode(client)
+		mode, workspaceRef := workspaceBindingMode(context.Background(), client)
 		require.Equal(t, workspaceBindingDeclared, mode)
 		require.Equal(t, "github.com/dagger/dagger@main", workspaceRef)
+	})
+
+	t.Run("remote explicit module binds workspace", func(t *testing.T) {
+		t.Parallel()
+
+		client := &daggerClient{
+			pendingWorkspaceLoad: true,
+			clientMetadata: &engine.ClientMetadata{
+				ExtraModules: []engine.ExtraModule{{
+					Ref:        "github.com/dagger/dagger@main",
+					Entrypoint: true,
+				}},
+			},
+		}
+
+		mode, workspaceRef := workspaceBindingMode(context.Background(), client)
+		require.Equal(t, workspaceBindingDeclared, mode)
+		require.Equal(t, "github.com/dagger/dagger@main", workspaceRef)
+	})
+
+	t.Run("remote explicit module subdir binds repo root", func(t *testing.T) {
+		t.Parallel()
+
+		client := &daggerClient{
+			pendingWorkspaceLoad: true,
+			clientMetadata: &engine.ClientMetadata{
+				ExtraModules: []engine.ExtraModule{{
+					Ref:        "https://github.com/dagger/dagger/toolchains/changelog@main",
+					Entrypoint: true,
+				}},
+			},
+		}
+
+		mode, workspaceRef := workspaceBindingMode(context.Background(), client)
+		require.Equal(t, workspaceBindingDeclared, mode)
+		require.Equal(t, "https://github.com/dagger/dagger@main", workspaceRef)
+	})
+
+	t.Run("local explicit module keeps host detection", func(t *testing.T) {
+		t.Parallel()
+
+		client := &daggerClient{
+			pendingWorkspaceLoad: true,
+			clientMetadata: &engine.ClientMetadata{
+				ExtraModules: []engine.ExtraModule{{
+					Ref:        "./toolchains/docs-dev",
+					Entrypoint: true,
+				}},
+			},
+		}
+
+		mode, workspaceRef := workspaceBindingMode(context.Background(), client)
+		require.Equal(t, workspaceBindingDetectHost, mode)
+		require.Equal(t, "", workspaceRef)
 	})
 
 	t.Run("non-module defaults to host detection", func(t *testing.T) {
@@ -306,7 +360,7 @@ func TestWorkspaceBindingMode(t *testing.T) {
 			clientMetadata:       &engine.ClientMetadata{},
 		}
 
-		mode, workspaceRef := workspaceBindingMode(client)
+		mode, workspaceRef := workspaceBindingMode(context.Background(), client)
 		require.Equal(t, workspaceBindingDetectHost, mode)
 		require.Equal(t, "", workspaceRef)
 	})
@@ -319,7 +373,7 @@ func TestWorkspaceBindingMode(t *testing.T) {
 			clientMetadata:       &engine.ClientMetadata{},
 		}
 
-		mode, workspaceRef := workspaceBindingMode(client)
+		mode, workspaceRef := workspaceBindingMode(context.Background(), client)
 		require.Equal(t, workspaceBindingInherit, mode)
 		require.Equal(t, "", workspaceRef)
 	})
