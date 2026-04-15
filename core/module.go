@@ -686,6 +686,7 @@ func (mod *Module) CacheConfigForCall(
 		curIDNoMod.Digest().String(),
 		mod.Source.Value.Self().Digest,
 		mod.NameField, // the module source content digest only includes the original name
+		mod.AsModuleVariantDigest,
 	))
 	return resp, nil
 }
