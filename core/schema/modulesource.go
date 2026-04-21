@@ -594,6 +594,10 @@ func (s *moduleSourceSchema) gitModuleSource(
 		if err != nil {
 			return inst, fmt.Errorf("%s lock mode: %w", lockModulesResolveOperation, err)
 		}
+		if lockMode != "" {
+			return inst, fmt.Errorf("fake error, lock mod: %v, module source %s, ref pin %s", lockMode, source, refPin)
+		}
+
 		if lockMode != workspace.LockModeDisabled {
 			lookupLock, err = loadWorkspaceLookupLock(ctx, query.Self())
 			if err != nil {
