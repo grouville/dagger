@@ -411,7 +411,9 @@ func (fc *FuncCommand) cobraBuilder(ctx context.Context, fn *modFunction) func(*
 			fn.ReturnType.AsObject != nil &&
 			fn.ReturnType.AsObject.Name == "Query"
 		if isQueryConstructor && fn.Name == "" {
-			fc.addConstructorLocalFlags(c, fn.ReturnType)
+			if err := fc.addConstructorLocalFlags(c, fn.ReturnType); err != nil {
+				return err
+			}
 		} else if isQueryConstructor && fn.Name == "with" {
 			fc.withFn = fn
 		}
@@ -457,12 +459,12 @@ func (fc *FuncCommand) cobraBuilder(ctx context.Context, fn *modFunction) func(*
 
 // addConstructorLocalFlags looks for a `with` field on the Query root and
 // registers its args as local flags on the root command. This lets users
-// write `dagger call --foo=abc build` — the root command consumes the
+// write `dagger call --foo=abc build` - the root command consumes the
 // flag, and selectWith adds `with(foo: "abc")` to the query builder.
-func (fc *FuncCommand) addConstructorLocalFlags(cmd *cobra.Command, rootType *modTypeDef) {
+func (fc *FuncCommand) addConstructorLocalFlags(cmd *cobra.Command, rootType *modTypeDef) error {
 	fp := rootType.AsFunctionProvider()
 	if fp == nil {
-		return
+		return nil
 	}
 	for _, fn := range fp.GetFunctions() {
 		if fn.Name != "with" {
@@ -471,8 +473,14 @@ func (fc *FuncCommand) addConstructorLocalFlags(cmd *cobra.Command, rootType *mo
 		// Found the `with` field — register its args as local flags.
 		fc.withFn = fn
 		for _, arg := range fn.SupportedArgs() {
-			if cmd.Flags().Lookup(arg.FlagName()) != nil {
+			if cmd.LocalNonPersistentFlags().Lookup(arg.FlagName()) != nil {
 				continue // already registered
+			}
+			if cmd.Flags().Lookup(arg.FlagName()) != nil {
+				if arg.IsRequired() {
+					return fmt.Errorf("argument flag --%s conflicts with an existing CLI flag", arg.FlagName())
+				}
+				continue
 			}
 			fc.mod.LoadTypeDef(arg.TypeDef)
 			if err := arg.AddFlag(cmd.Flags()); err != nil {
@@ -486,6 +494,7 @@ func (fc *FuncCommand) addConstructorLocalFlags(cmd *cobra.Command, rootType *mo
 		}
 		break
 	}
+	return nil
 }
 
 // selectWith adds a `with(args...)` selection to the query builder if any
@@ -496,9 +505,10 @@ func (fc *FuncCommand) selectWith(cmd *cobra.Command) error {
 	}
 	// Check if any with-args flags were changed.
 	anyChanged := false
+	flags := cmd.LocalNonPersistentFlags()
 	for _, a := range fc.withFn.SupportedArgs() {
-		flag, err := a.GetFlag(cmd.Flags())
-		if err != nil {
+		flag := flags.Lookup(a.FlagName())
+		if flag == nil {
 			continue
 		}
 		if flag.Changed {
@@ -521,6 +531,16 @@ func (fc *FuncCommand) addFlagsForFunction(cmd *cobra.Command, fn *modFunction) 
 	for _, arg := range fn.Args {
 		if err := fc.mod.LoadTypeDef(arg.TypeDef); err != nil {
 			return err
+		}
+
+		if cmd.LocalNonPersistentFlags().Lookup(arg.FlagName()) != nil {
+			continue
+		}
+		if cmd.Flags().Lookup(arg.FlagName()) != nil {
+			if arg.IsRequired() {
+				return fmt.Errorf("argument flag --%s conflicts with an existing CLI flag", arg.FlagName())
+			}
+			continue
 		}
 
 		if err := arg.AddFlag(cmd.Flags()); err != nil {
@@ -630,10 +650,14 @@ func (fc *FuncCommand) selectFunc(fn *modFunction, cmd *cobra.Command) error {
 
 	p := pool.NewWithResults[flagResult]().WithErrors()
 
+	flags := cmd.LocalNonPersistentFlags()
 	for i, a := range fn.SupportedArgs() {
-		flag, err := a.GetFlag(cmd.Flags())
-		if err != nil {
-			return err
+		flag := flags.Lookup(a.FlagName())
+		if flag == nil {
+			if a.IsRequired() {
+				missingFlags = append(missingFlags, a.FlagName())
+			}
+			continue
 		}
 
 		if !flag.Changed {
