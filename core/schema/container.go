@@ -2351,6 +2351,7 @@ func (s *containerSchema) withMountedCacheDynamicInputs(
 	if hasSourceArg {
 		source = args.Source
 	}
+
 	if !needsRewrite {
 		return nil
 	}

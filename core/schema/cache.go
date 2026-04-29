@@ -2,11 +2,12 @@ package schema
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 
 	"github.com/dagger/dagger/core"
 	"github.com/dagger/dagger/dagql"
+	"github.com/dagger/dagger/engine"
+	"github.com/dagger/dagger/util/hashutil"
 )
 
 type cacheSchema struct{}
@@ -65,9 +66,15 @@ func (s *cacheSchema) cacheVolumeCacheKey(
 	}
 
 	if args.Sharing == core.CacheSharingModePrivate {
-		// For now, PRIVATE means "always unique cache volume" to avoid
-		// surprising cross-call sharing behavior.
-		if err := req.SetArgInput(ctx, "privateNonce", dagql.NewString(rand.Text()), false); err != nil {
+		clientMetadata, err := engine.ClientMetadataFromContext(ctx)
+		if err != nil {
+			return err
+		}
+		if clientMetadata.SessionID == "" {
+			return errors.New("private cache identity requires a session ID")
+		}
+		privateID := hashutil.HashStrings("private-cache", clientMetadata.SessionID, "cacheVolume").String()
+		if err := req.SetArgInput(ctx, "privateID", dagql.NewString(privateID), false); err != nil {
 			return err
 		}
 	}
