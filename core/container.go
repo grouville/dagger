@@ -5294,11 +5294,6 @@ func (container *Container) WithMountedCache(
 	if cacheSelf == nil {
 		return nil, errors.New("cache volume is nil")
 	}
-	if cacheSelf.getSnapshot() == nil {
-		if err := cacheSelf.InitializeSnapshot(ctx); err != nil {
-			return nil, fmt.Errorf("initialize cache volume snapshot: %w", err)
-		}
-	}
 
 	mount := ContainerMount{
 		Target: target,

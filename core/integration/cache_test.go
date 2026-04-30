@@ -137,6 +137,138 @@ rmdir /cache/in-use`,
 	require.Len(t, strings.Fields(strings.TrimSpace(out)), writers)
 }
 
+func (CacheSuite) TestPrivateCacheVolumeReusesSequentialWriter(ctx context.Context, t *testctx.T) {
+	c := connect(ctx, t)
+	cacheKey := "private-cache-sequential-" + identity.NewID()
+
+	_, err := c.Container().
+		From(alpineImage).
+		WithMountedCache("/cache", c.CacheVolume(cacheKey, dagger.CacheVolumeOpts{
+			Sharing: dagger.CacheSharingModePrivate,
+		})).
+		WithExec([]string{"sh", "-c", "echo first > /cache/value"}).
+		Sync(ctx)
+	require.NoError(t, err)
+
+	out, err := c.Container().
+		From(alpineImage).
+		WithMountedCache("/cache", c.CacheVolume(cacheKey, dagger.CacheVolumeOpts{
+			Sharing: dagger.CacheSharingModePrivate,
+		})).
+		WithExec([]string{"cat", "/cache/value"}).
+		Stdout(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "first\n", out)
+}
+
+func (CacheSuite) TestPrivateCacheVolumeSplitsConcurrentWriters(ctx context.Context, t *testctx.T) {
+	const writers = 3
+
+	cacheKey := "private-cache-concurrent-" + identity.NewID()
+	clients := make([]*dagger.Client, writers)
+	for i := range clients {
+		clients[i] = connect(ctx, t)
+	}
+
+	start := make(chan struct{})
+	var eg errgroup.Group
+	for i := range writers {
+		i := i
+		eg.Go(func() error {
+			<-start
+			_, err := clients[i].
+				Container().
+				From(alpineImage).
+				WithEnvVariable("RUN_ID", fmt.Sprint(i)).
+				WithEnvVariable("CACHEBUSTER", identity.NewID()).
+				WithMountedCache("/cache", clients[i].CacheVolume(cacheKey, dagger.CacheVolumeOpts{
+					Sharing: dagger.CacheSharingModePrivate,
+				})).
+				WithExec([]string{
+					"sh",
+					"-euxc",
+					`mkdir /cache/in-use
+echo "$RUN_ID" > /cache/in-use/writer
+sleep 1
+test "$(cat /cache/in-use/writer)" = "$RUN_ID"`,
+				}).
+				Sync(ctx)
+			return err
+		})
+	}
+
+	close(start)
+	require.NoError(t, eg.Wait())
+}
+
+func (CacheSuite) TestMountedCachePrivateSharingOptionSplitsConcurrentWriters(ctx context.Context, t *testctx.T) {
+	const writers = 3
+
+	cacheKey := "private-cache-mount-option-" + identity.NewID()
+	clients := make([]*dagger.Client, writers)
+	for i := range clients {
+		clients[i] = connect(ctx, t)
+	}
+
+	start := make(chan struct{})
+	var eg errgroup.Group
+	for i := range writers {
+		i := i
+		eg.Go(func() error {
+			<-start
+			_, err := clients[i].
+				Container().
+				From(alpineImage).
+				WithEnvVariable("RUN_ID", fmt.Sprint(i)).
+				WithEnvVariable("CACHEBUSTER", identity.NewID()).
+				WithMountedCache("/cache", clients[i].CacheVolume(cacheKey), dagger.ContainerWithMountedCacheOpts{
+					Sharing: dagger.CacheSharingModePrivate,
+				}).
+				WithExec([]string{
+					"sh",
+					"-euxc",
+					`mkdir /cache/in-use
+echo "$RUN_ID" > /cache/in-use/writer
+sleep 1
+test "$(cat /cache/in-use/writer)" = "$RUN_ID"`,
+				}).
+				Sync(ctx)
+			return err
+		})
+	}
+
+	close(start)
+	require.NoError(t, eg.Wait())
+}
+
+func (CacheSuite) TestPrivateCacheVolumeWithSourceReusesSequentialWriter(ctx context.Context, t *testctx.T) {
+	c := connect(ctx, t)
+	cacheKey := "private-cache-source-" + identity.NewID()
+	source := c.Directory().WithNewFile("seed", "from-source")
+
+	out, err := c.Container().
+		From(alpineImage).
+		WithMountedCache("/cache", c.CacheVolume(cacheKey, dagger.CacheVolumeOpts{
+			Sharing: dagger.CacheSharingModePrivate,
+			Source:  source,
+		})).
+		WithExec([]string{"sh", "-c", "cat /cache/seed && echo first > /cache/value"}).
+		Stdout(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "from-source", out)
+
+	out, err = c.Container().
+		From(alpineImage).
+		WithMountedCache("/cache", c.CacheVolume(cacheKey, dagger.CacheVolumeOpts{
+			Sharing: dagger.CacheSharingModePrivate,
+			Source:  source,
+		})).
+		WithExec([]string{"sh", "-c", "cat /cache/seed; printf ':'; cat /cache/value"}).
+		Stdout(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "from-source:first\n", out)
+}
+
 func (CacheSuite) TestLocalImportCacheReuse(ctx context.Context, t *testctx.T) {
 	hostDirPath := t.TempDir()
 	err := os.WriteFile(filepath.Join(hostDirPath, "foo"), []byte("bar"), 0o644)

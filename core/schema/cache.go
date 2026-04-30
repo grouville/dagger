@@ -6,8 +6,6 @@ import (
 
 	"github.com/dagger/dagger/core"
 	"github.com/dagger/dagger/dagql"
-	"github.com/dagger/dagger/engine"
-	"github.com/dagger/dagger/util/hashutil"
 )
 
 type cacheSchema struct{}
@@ -65,20 +63,6 @@ func (s *cacheSchema) cacheVolumeCacheKey(
 		}
 	}
 
-	if args.Sharing == core.CacheSharingModePrivate {
-		clientMetadata, err := engine.ClientMetadataFromContext(ctx)
-		if err != nil {
-			return err
-		}
-		if clientMetadata.SessionID == "" {
-			return errors.New("private cache identity requires a session ID")
-		}
-		privateID := hashutil.HashStrings("private-cache", clientMetadata.SessionID, "cacheVolume").String()
-		if err := req.SetArgInput(ctx, "privateID", dagql.NewString(privateID), false); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -90,9 +74,6 @@ func (s *cacheSchema) cacheVolume(ctx context.Context, parent dagql.ObjectResult
 		args.Sharing,
 		args.Owner,
 	)
-	if err := cache.InitializeSnapshot(ctx); err != nil {
-		return dagql.Result[*core.CacheVolume]{}, err
-	}
 	return dagql.NewResultForCurrentCall(ctx, cache)
 }
 

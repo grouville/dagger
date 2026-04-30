@@ -372,6 +372,7 @@ type execMountState struct {
 	ActiveRef       bkcache.MutableRef
 	OutputMutable   bkcache.MutableRef
 	OutputImmutable bkcache.ImmutableRef
+	ReleaseSource   func(context.Context) error
 }
 
 type materializedExecPlan struct {
@@ -427,6 +428,10 @@ func lockMountedCaches(ctx context.Context, mounts []ContainerMount) (func(), er
 func (plan *materializedExecPlan) releaseActives(ctx context.Context) error {
 	var rerr error
 	for i := len(plan.States) - 1; i >= 0; i-- {
+		if release := plan.States[i].ReleaseSource; release != nil {
+			rerr = errors.Join(rerr, release(ctx))
+			plan.States[i].ReleaseSource = nil
+		}
 		active := plan.States[i].ActiveRef
 		if active == nil {
 			continue
@@ -673,17 +678,25 @@ func prepareMounts(
 			if cacheSrc.Volume.Self() == nil {
 				return materialized, fmt.Errorf("mount %d has nil cache volume source", i)
 			}
-			if cacheSrc.Volume.Self().getSnapshot() == nil {
-				if err := cacheSrc.Volume.Self().InitializeSnapshot(ctx); err != nil {
-					return materialized, fmt.Errorf("initialize cache volume snapshot for mount %d: %w", i, err)
-				}
+			cacheMount, err := cacheSrc.Volume.Self().AcquireMount(ctx)
+			if err != nil {
+				return materialized, fmt.Errorf("acquire cache volume snapshot for mount %d: %w", i, err)
 			}
-			cacheSnapshot := cacheSrc.Volume.Self().getSnapshot()
-			if cacheSnapshot == nil {
+			if cacheMount == nil || cacheMount.Ref == nil {
 				return materialized, fmt.Errorf("mount %d has nil cache volume snapshot", i)
 			}
-			mountState.SourceRef = cacheSnapshot
-			mountState.Selector = cacheSrc.Volume.Self().getSnapshotSelector()
+			dagCache, err := dagql.EngineCache(ctx)
+			if err != nil {
+				_ = cacheMount.Release(context.WithoutCancel(ctx))
+				return materialized, err
+			}
+			if err := dagCache.SyncResultSnapshotOwnerLeases(ctx, cacheSrc.Volume); err != nil {
+				_ = cacheMount.Release(context.WithoutCancel(ctx))
+				return materialized, fmt.Errorf("sync cache volume snapshot leases for mount %d: %w", i, err)
+			}
+			mountState.SourceRef = cacheMount.Ref
+			mountState.Selector = cacheMount.Selector
+			mountState.ReleaseSource = cacheMount.Release
 
 		case ctrMount.TmpfsSource != nil:
 			mountState.MountType = pb.MountType_TMPFS
@@ -701,6 +714,10 @@ func prepareMounts(
 			}
 		}
 		if err := materializeState(mountState); err != nil {
+			if release := mountState.ReleaseSource; release != nil {
+				_ = release(context.WithoutCancel(ctx))
+				mountState.ReleaseSource = nil
+			}
 			return materialized, err
 		}
 	}
@@ -1201,6 +1218,10 @@ func (state *ContainerExecState) Evaluate(ctx context.Context, container *Contai
 		releaseActives := func() error {
 			var releaseErr error
 			for i := len(mountStates) - 1; i >= 0; i-- {
+				if release := mountStates[i].ReleaseSource; release != nil {
+					releaseErr = errors.Join(releaseErr, release(context.WithoutCancel(ctx)))
+					mountStates[i].ReleaseSource = nil
+				}
 				active := mountStates[i].ActiveRef
 				if active == nil {
 					continue
@@ -1457,17 +1478,20 @@ func (state *ContainerExecState) Evaluate(ctx context.Context, container *Contai
 				if cacheSrc.Volume.Self() == nil {
 					return failPrepare(fmt.Errorf("mount %d has nil cache volume source", i))
 				}
-				if cacheSrc.Volume.Self().getSnapshot() == nil {
-					if err := cacheSrc.Volume.Self().InitializeSnapshot(ctx); err != nil {
-						return failPrepare(fmt.Errorf("initialize cache volume snapshot for mount %d: %w", i, err))
-					}
+				cacheMount, err := cacheSrc.Volume.Self().AcquireMount(ctx)
+				if err != nil {
+					return failPrepare(fmt.Errorf("acquire cache volume snapshot for mount %d: %w", i, err))
 				}
-				cacheSnapshot := cacheSrc.Volume.Self().getSnapshot()
-				if cacheSnapshot == nil {
+				if cacheMount == nil || cacheMount.Ref == nil {
 					return failPrepare(fmt.Errorf("mount %d has nil cache volume snapshot", i))
 				}
-				mountState.SourceRef = cacheSnapshot
-				mountState.Selector = cacheSrc.Volume.Self().getSnapshotSelector()
+				if err := dagCache.SyncResultSnapshotOwnerLeases(ctx, cacheSrc.Volume); err != nil {
+					_ = cacheMount.Release(context.WithoutCancel(ctx))
+					return failPrepare(fmt.Errorf("sync cache volume snapshot leases for mount %d: %w", i, err))
+				}
+				mountState.SourceRef = cacheMount.Ref
+				mountState.Selector = cacheMount.Selector
+				mountState.ReleaseSource = cacheMount.Release
 
 			case ctrMount.TmpfsSource != nil:
 				mountState.MountType = pb.MountType_TMPFS
@@ -1483,6 +1507,10 @@ func (state *ContainerExecState) Evaluate(ctx context.Context, container *Contai
 				mountState.ApplyOutput = output
 			}
 			if err := materializeState(mountState); err != nil {
+				if release := mountState.ReleaseSource; release != nil {
+					_ = release(context.WithoutCancel(ctx))
+					mountState.ReleaseSource = nil
+				}
 				return failPrepare(err)
 			}
 		}
