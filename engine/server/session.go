@@ -901,6 +901,9 @@ func (srv *Server) getOrInitClient(
 		if opts.SkipWorkspaceModules {
 			client.clientMetadata.SkipWorkspaceModules = true
 		}
+		if opts.SuppressCompatWorkspaceWarning {
+			client.clientMetadata.SuppressCompatWorkspaceWarning = true
+		}
 		if client.clientMetadata.Workspace == nil && !client.workspaceLoaded {
 			if workspaceRef, ok := workspaceRefFromClientMetadata(opts.ClientMetadata); ok {
 				ref := workspaceRef
@@ -1035,6 +1038,7 @@ func nestedClientMetadata(execMD *engineutil.ExecutionMetadata, forwarded *engin
 	var skipWorkspaceModules bool
 	lockMode := inheritedLockMode
 	var eagerRuntime bool
+	var suppressCompatWorkspaceWarning bool
 	var workspaceRef *string
 	var workspaceEnv *string
 	if forwarded != nil {
@@ -1047,6 +1051,7 @@ func nestedClientMetadata(execMD *engineutil.ExecutionMetadata, forwarded *engin
 			lockMode = forwarded.LockMode
 		}
 		eagerRuntime = forwarded.EagerRuntime
+		suppressCompatWorkspaceWarning = forwarded.SuppressCompatWorkspaceWarning
 		if declaredWorkspace, ok := workspaceRefFromClientMetadata(forwarded); ok {
 			ref := declaredWorkspace
 			workspaceRef = &ref
@@ -1058,22 +1063,23 @@ func nestedClientMetadata(execMD *engineutil.ExecutionMetadata, forwarded *engin
 	}
 
 	return &engine.ClientMetadata{
-		ClientID:             execMD.ClientID,
-		ClientVersion:        clientVersion,
-		ClientSecretToken:    execMD.SecretToken,
-		SessionID:            execMD.SessionID,
-		ClientHostname:       execMD.Hostname,
-		ClientStableID:       execMD.ClientStableID,
-		Labels:               map[string]string{},
-		SSHAuthSocketPath:    execMD.SSHAuthSocketPath,
-		AllowedLLMModules:    allowedLLMModules,
-		ExtraModules:         extraModules,
-		LoadWorkspaceModules: loadWorkspaceModules,
-		SkipWorkspaceModules: skipWorkspaceModules,
-		LockMode:             lockMode,
-		EagerRuntime:         eagerRuntime,
-		Workspace:            workspaceRef,
-		WorkspaceEnv:         workspaceEnv,
+		ClientID:                       execMD.ClientID,
+		ClientVersion:                  clientVersion,
+		ClientSecretToken:              execMD.SecretToken,
+		SessionID:                      execMD.SessionID,
+		ClientHostname:                 execMD.Hostname,
+		ClientStableID:                 execMD.ClientStableID,
+		Labels:                         map[string]string{},
+		SSHAuthSocketPath:              execMD.SSHAuthSocketPath,
+		AllowedLLMModules:              allowedLLMModules,
+		ExtraModules:                   extraModules,
+		LoadWorkspaceModules:           loadWorkspaceModules,
+		SkipWorkspaceModules:           skipWorkspaceModules,
+		LockMode:                       lockMode,
+		EagerRuntime:                   eagerRuntime,
+		SuppressCompatWorkspaceWarning: suppressCompatWorkspaceWarning,
+		Workspace:                      workspaceRef,
+		WorkspaceEnv:                   workspaceEnv,
 	}
 }
 

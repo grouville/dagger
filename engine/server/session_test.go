@@ -588,14 +588,15 @@ func TestNestedClientMetadata(t *testing.T) {
 		t.Parallel()
 
 		md := nestedClientMetadata(execMD, &engine.ClientMetadata{
-			ClientVersion:        "v-test",
-			AllowedLLMModules:    []string{"child"},
-			ExtraModules:         []engine.ExtraModule{{Ref: "github.com/dagger/mod", Entrypoint: true}},
-			SkipWorkspaceModules: true,
-			LockMode:             string(workspace.LockModeLive),
-			EagerRuntime:         true,
-			Workspace:            stringPtr("github.com/dagger/dagger@main"),
-			WorkspaceEnv:         stringPtr("ci"),
+			ClientVersion:                  "v-test",
+			AllowedLLMModules:              []string{"child"},
+			ExtraModules:                   []engine.ExtraModule{{Ref: "github.com/dagger/mod", Entrypoint: true}},
+			SkipWorkspaceModules:           true,
+			LockMode:                       string(workspace.LockModeLive),
+			EagerRuntime:                   true,
+			SuppressCompatWorkspaceWarning: true,
+			Workspace:                      stringPtr("github.com/dagger/dagger@main"),
+			WorkspaceEnv:                   stringPtr("ci"),
 		}, string(workspace.LockModeFrozen))
 
 		require.Equal(t, "nested-client", md.ClientID)
@@ -604,6 +605,7 @@ func TestNestedClientMetadata(t *testing.T) {
 		require.Equal(t, string(workspace.LockModeLive), md.LockMode)
 		require.True(t, md.SkipWorkspaceModules)
 		require.True(t, md.EagerRuntime)
+		require.True(t, md.SuppressCompatWorkspaceWarning)
 		require.Equal(t, "github.com/dagger/dagger@main", *md.Workspace)
 		require.Equal(t, "ci", *md.WorkspaceEnv)
 		require.Len(t, md.ExtraModules, 1)
