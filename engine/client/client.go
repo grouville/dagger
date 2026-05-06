@@ -126,6 +126,7 @@ type Params struct {
 	EagerRuntime bool
 
 	LoadWorkspaceModules bool
+	SingleQuery          bool
 
 	SkipWorkspaceModules bool
 
@@ -1438,6 +1439,7 @@ func (c *Client) clientMetadata() engine.ClientMetadata {
 		SSHAuthSocketPath:              sshAuthSock,
 		AllowedLLMModules:              c.AllowedLLMModules,
 		EagerRuntime:                   c.EagerRuntime,
+		SingleQuery:                    c.SingleQuery,
 		SuppressCompatWorkspaceWarning: c.SuppressCompatWorkspaceWarning,
 		CloudAuth:                      c.CloudAuth,
 		EnableCloudScaleOut:            c.EnableCloudScaleOut,

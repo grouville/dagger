@@ -203,6 +203,8 @@ type daggerClient struct {
 	modulesMu           sync.Mutex
 	modulesLoaded       bool
 	modulesErr          error
+	singleQueryMu       sync.Mutex
+	singleQueryServed   bool
 
 	// NOTE: do not use this field directly as it may not be open
 	// after the client has shutdown; use TelemetryDB() instead
@@ -898,6 +900,9 @@ func (srv *Server) getOrInitClient(
 		if opts.LoadWorkspaceModules {
 			client.clientMetadata.LoadWorkspaceModules = true
 		}
+		if opts.SingleQuery {
+			client.clientMetadata.SingleQuery = true
+		}
 		if opts.SkipWorkspaceModules {
 			client.clientMetadata.SkipWorkspaceModules = true
 		}
@@ -1036,6 +1041,7 @@ func nestedClientMetadata(execMD *engineutil.ExecutionMetadata, forwarded *engin
 	var extraModules []engine.ExtraModule
 	var loadWorkspaceModules bool
 	var skipWorkspaceModules bool
+	var singleQuery bool
 	lockMode := inheritedLockMode
 	var eagerRuntime bool
 	var suppressCompatWorkspaceWarning bool
@@ -1047,6 +1053,7 @@ func nestedClientMetadata(execMD *engineutil.ExecutionMetadata, forwarded *engin
 		extraModules = forwarded.ExtraModules
 		loadWorkspaceModules = forwarded.LoadWorkspaceModules
 		skipWorkspaceModules = forwarded.SkipWorkspaceModules
+		singleQuery = forwarded.SingleQuery
 		if forwarded.LockMode != "" {
 			lockMode = forwarded.LockMode
 		}
@@ -1074,6 +1081,7 @@ func nestedClientMetadata(execMD *engineutil.ExecutionMetadata, forwarded *engin
 		AllowedLLMModules:              allowedLLMModules,
 		ExtraModules:                   extraModules,
 		LoadWorkspaceModules:           loadWorkspaceModules,
+		SingleQuery:                    singleQuery,
 		SkipWorkspaceModules:           skipWorkspaceModules,
 		LockMode:                       lockMode,
 		EagerRuntime:                   eagerRuntime,
@@ -1335,12 +1343,24 @@ func (srv *Server) serveQuery(w http.ResponseWriter, r *http.Request, client *da
 
 	r = r.WithContext(ctx)
 
+	if err := client.claimSingleQueryRequest(); err != nil {
+		return gqlErr(err, http.StatusBadRequest)
+	}
+
+	peekRootFieldsOK, peekRootFields, err := peekSingleQueryRootFields(r, client.clientMetadata)
+	if err != nil {
+		return gqlErr(fmt.Errorf("peeking single-query root fields: %w", err), http.StatusBadRequest)
+	}
+
 	// Load workspace modules and extra modules (e.g. from -m flag). These are
 	// deferred from initializeDaggerClient because they need the client's
 	// buildkit session, which only becomes available after the session
 	// attachables handshake completes (after init locks are released).
 	if err := srv.ensureWorkspaceLoaded(ctx, client); err != nil {
 		return gqlErr(fmt.Errorf("loading workspace: %w", err), http.StatusInternalServerError)
+	}
+	if peekRootFieldsOK {
+		client.narrowPendingWorkspaceModulesForSingleQuery(peekRootFields)
 	}
 	if err := srv.ensureModulesLoaded(ctx, client); err != nil {
 		return gqlErr(fmt.Errorf("loading modules: %w", err), http.StatusInternalServerError)
@@ -1363,6 +1383,27 @@ func (srv *Server) serveQuery(w http.ResponseWriter, r *http.Request, client *da
 
 	gqlSrv.ServeHTTP(w, r)
 	return nil
+}
+
+func (client *daggerClient) claimSingleQueryRequest() error {
+	if client.clientMetadata == nil || !client.clientMetadata.SingleQuery {
+		return nil
+	}
+
+	client.singleQueryMu.Lock()
+	defer client.singleQueryMu.Unlock()
+	if client.singleQueryServed {
+		return errors.New("client declared single_query but sent multiple GraphQL requests")
+	}
+	client.singleQueryServed = true
+	return nil
+}
+
+func peekSingleQueryRootFields(r *http.Request, clientMD *engine.ClientMetadata) (bool, []string, error) {
+	if clientMD == nil || !clientMD.SingleQuery || !clientMD.LoadWorkspaceModules || clientMD.SkipWorkspaceModules {
+		return false, nil, nil
+	}
+	return dagql.PeekRootFields(r)
 }
 
 func (srv *Server) serveInit(w http.ResponseWriter, _ *http.Request, client *daggerClient) (rerr error) {
