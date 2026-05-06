@@ -56,7 +56,7 @@ type Test struct {
 `, alpineImage), 0644)
 		require.NoError(t, err)
 
-		_, err = hostDaggerExec(ctx, t, modDir, "init", "--source=.", "--sdk=go", "test")
+		_, err = hostDaggerExec(ctx, t, modDir, "module", "init", "--source=.", "--sdk=go", "test")
 		require.NoError(t, err)
 
 		// cache the module load itself so there's less to wait for in the shell invocation below
@@ -147,7 +147,7 @@ type Test struct {
 	`, alpineImage), 0644)
 		require.NoError(t, err)
 
-		_, err = hostDaggerExec(ctx, t, modDir, "init", "--source=.", "--sdk=go", "test")
+		_, err = hostDaggerExec(ctx, t, modDir, "module", "init", "--source=.", "--sdk=go", "test")
 		require.NoError(t, err)
 
 		// cache the module load itself so there's less to wait for in the shell invocation below
@@ -263,7 +263,7 @@ type Test struct {
 	`, alpineImage), 0644)
 		require.NoError(t, err)
 
-		_, err = hostDaggerExec(ctx, t, modDir, "init", "--source=.", "--sdk=go", "test")
+		_, err = hostDaggerExec(ctx, t, modDir, "module", "init", "--source=.", "--sdk=go", "test")
 		require.NoError(t, err)
 
 		// cache the module load itself so there's less to wait for in the shell invocation below
@@ -348,7 +348,7 @@ type Test struct {
 	`, alpineImage), 0644)
 		require.NoError(t, err)
 
-		_, err = hostDaggerExec(ctx, t, modDir, "init", "--source=.", "--sdk=go", "test")
+		_, err = hostDaggerExec(ctx, t, modDir, "module", "init", "--source=.", "--sdk=go", "test")
 		require.NoError(t, err)
 
 		// cache the returned container so there's less to wait for in the shell invocation below
@@ -421,7 +421,7 @@ type Test struct {
 	 `), 0644)
 		require.NoError(t, err)
 
-		_, err = hostDaggerExec(ctx, t, modDir, "init", "--source=.", "--sdk=go", "test")
+		_, err = hostDaggerExec(ctx, t, modDir, "module", "init", "--source=.", "--sdk=go", "test")
 		require.NoError(t, err)
 
 		// cache the module load itself so there's less to wait for in the shell invocation below
@@ -511,7 +511,7 @@ type Test struct {
 `), 0644)
 		require.NoError(t, err)
 
-		_, err = hostDaggerExec(ctx, t, modDir, "init", "--source=.", "--sdk=go", "test")
+		_, err = hostDaggerExec(ctx, t, modDir, "module", "init", "--source=.", "--sdk=go", "test")
 		require.NoError(t, err)
 
 		// cache the module load itself so there's less to wait for in the shell invocation below
@@ -592,7 +592,7 @@ type Test struct {
 	`, alpineImage), 0644)
 		require.NoError(t, err)
 
-		_, err = hostDaggerExec(ctx, t, modDir, "init", "--source=.", "--sdk=go", "test")
+		_, err = hostDaggerExec(ctx, t, modDir, "module", "init", "--source=.", "--sdk=go", "test")
 		require.NoError(t, err)
 
 		// cache the module load itself so there's less to wait for in the shell invocation below
