@@ -1881,7 +1881,6 @@ func (state *ContainerExecState) Evaluate(ctx context.Context, container *Contai
 				SessionID:         clientMetadata.SessionID,
 				AllowedLLMModules: slices.Clone(clientMetadata.AllowedLLMModules),
 				LockMode:          clientMetadata.LockMode,
-				WorkspaceEnv:      clientMetadata.WorkspaceEnv,
 			}
 		}
 
