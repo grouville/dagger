@@ -1318,8 +1318,15 @@ type changesetExportArgs struct {
 }
 
 func (s *directorySchema) changesetExport(ctx context.Context, parent dagql.ObjectResult[*core.Changeset], args changesetExportArgs) (dagql.String, error) {
-	err := parent.Self().Export(ctx, args.Path)
+	ctx, path, hasCallerHostPath, err := resolveCallerHostExportPath(ctx, args.Path)
 	if err != nil {
+		return "", err
+	}
+	if !hasCallerHostPath {
+		return dagql.String(os.DevNull), nil
+	}
+
+	if err := parent.Self().Export(ctx, path); err != nil {
 		return "", err
 	}
 	query, err := core.CurrentQuery(ctx)
@@ -1330,7 +1337,7 @@ func (s *directorySchema) changesetExport(ctx context.Context, parent dagql.Obje
 	if err != nil {
 		return "", fmt.Errorf("failed to get engine client: %w", err)
 	}
-	stat, err := bk.StatCallerHostPath(ctx, args.Path, true)
+	stat, err := bk.StatCallerHostPath(ctx, path, true)
 	if err != nil {
 		return "", err
 	}
@@ -1385,8 +1392,15 @@ type dirExportArgs struct {
 }
 
 func (s *directorySchema) export(ctx context.Context, parent dagql.ObjectResult[*core.Directory], args dirExportArgs) (dagql.String, error) {
-	err := parent.Self().Export(ctx, parent, args.Path, !args.Wipe)
+	ctx, path, hasCallerHostPath, err := resolveCallerHostExportPath(ctx, args.Path)
 	if err != nil {
+		return "", err
+	}
+	if !hasCallerHostPath {
+		return dagql.String(os.DevNull), nil
+	}
+
+	if err := parent.Self().Export(ctx, parent, path, !args.Wipe); err != nil {
 		return "", err
 	}
 	query, err := core.CurrentQuery(ctx)
@@ -1397,7 +1411,7 @@ func (s *directorySchema) export(ctx context.Context, parent dagql.ObjectResult[
 	if err != nil {
 		return "", fmt.Errorf("failed to get engine client: %w", err)
 	}
-	stat, err := bk.StatCallerHostPath(ctx, args.Path, true)
+	stat, err := bk.StatCallerHostPath(ctx, path, true)
 	if err != nil {
 		return "", err
 	}

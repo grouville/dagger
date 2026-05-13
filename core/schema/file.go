@@ -3,6 +3,7 @@ package schema
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 
@@ -275,6 +276,14 @@ func (s *fileSchema) withReplaced(ctx context.Context, parent dagql.ObjectResult
 }
 
 func (s *fileSchema) export(ctx context.Context, parent dagql.ObjectResult[*core.File], args fileExportArgs) (dagql.String, error) {
+	ctx, path, hasCallerHostPath, err := resolveCallerHostExportPath(ctx, args.Path)
+	if err != nil {
+		return "", err
+	}
+	if !hasCallerHostPath {
+		return dagql.String(os.DevNull), nil
+	}
+
 	filePath, err := parent.Self().File.GetOrEval(ctx, parent.Result)
 	if err != nil {
 		return "", err
@@ -283,7 +292,7 @@ func (s *fileSchema) export(ctx context.Context, parent dagql.ObjectResult[*core
 	if err != nil {
 		return "", fmt.Errorf("failed to evaluate file: %w", err)
 	}
-	err = core.ExportFile(ctx, snapshot, filePath, args.Path, args.AllowParentDirPath)
+	err = core.ExportFile(ctx, snapshot, filePath, path, args.AllowParentDirPath)
 	if err != nil {
 		return "", err
 	}
@@ -295,7 +304,7 @@ func (s *fileSchema) export(ctx context.Context, parent dagql.ObjectResult[*core
 	if err != nil {
 		return "", fmt.Errorf("failed to get engine client: %w", err)
 	}
-	stat, err := bk.StatCallerHostPath(ctx, args.Path, true)
+	stat, err := bk.StatCallerHostPath(ctx, path, true)
 	if err != nil {
 		return "", err
 	}

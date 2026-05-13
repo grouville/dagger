@@ -7,6 +7,7 @@ import (
 
 	"github.com/dagger/dagger/core"
 	"github.com/dagger/dagger/core/workspace"
+	"github.com/dagger/dagger/engine"
 	"github.com/stretchr/testify/require"
 )
 
@@ -214,6 +215,119 @@ func TestResolveWorkspacePath(t *testing.T) {
 	t.Run("relative path cannot escape workspace root", func(t *testing.T) {
 		got, err := resolveWorkspacePath("../../..", "services/payment")
 		require.ErrorContains(t, err, "escapes workspace root", fmt.Sprintf("got %q instead of an error", got))
+	})
+}
+
+type currentWorkspaceTestServer struct {
+	currentTypeDefsTestServer
+	workspace *core.Workspace
+	err       error
+}
+
+func (s *currentWorkspaceTestServer) CurrentWorkspace(context.Context) (*core.Workspace, error) {
+	return s.workspace, s.err
+}
+
+func (s *currentWorkspaceTestServer) SpecificClientMetadata(_ context.Context, clientID string) (*engine.ClientMetadata, error) {
+	return &engine.ClientMetadata{ClientID: clientID}, nil
+}
+
+func contextWithWorkspace(ws *core.Workspace) context.Context {
+	return core.ContextWithQuery(context.Background(), &core.Query{
+		Server: &currentWorkspaceTestServer{workspace: ws},
+	})
+}
+
+func contextWithWorkspaceError(err error) context.Context {
+	return core.ContextWithQuery(context.Background(), &core.Query{
+		Server: &currentWorkspaceTestServer{err: err},
+	})
+}
+
+func TestResolveCallerHostExportPath(t *testing.T) {
+	t.Run("no workspace preserves caller relative path", func(t *testing.T) {
+		ctx := contextWithWorkspace(nil)
+
+		_, path, hasCallerHostPath, err := resolveCallerHostExportPath(ctx, "out")
+		require.NoError(t, err)
+		require.Equal(t, "out", path)
+		require.True(t, hasCallerHostPath)
+	})
+
+	t.Run("no workspace preserves caller absolute path", func(t *testing.T) {
+		ctx := contextWithWorkspace(nil)
+
+		_, path, hasCallerHostPath, err := resolveCallerHostExportPath(ctx, "/tmp/out")
+		require.NoError(t, err)
+		require.Equal(t, "/tmp/out", path)
+		require.True(t, hasCallerHostPath)
+	})
+
+	t.Run("no current workspace preserves caller relative path", func(t *testing.T) {
+		ctx := contextWithWorkspaceError(core.ErrNoCurrentWorkspace)
+
+		_, path, hasCallerHostPath, err := resolveCallerHostExportPath(ctx, "out")
+		require.NoError(t, err)
+		require.Equal(t, "out", path)
+		require.True(t, hasCallerHostPath)
+	})
+
+	t.Run("local workspace resolves relative path from workspace cwd", func(t *testing.T) {
+		ws := &core.Workspace{
+			Address:  "file:///repo/services/payment",
+			Cwd:      "services/payment",
+			ClientID: "workspace-client",
+		}
+		ws.SetHostPath("/repo")
+		ctx := contextWithWorkspace(ws)
+
+		ctx, path, hasCallerHostPath, err := resolveCallerHostExportPath(ctx, "out/result.txt")
+		require.NoError(t, err)
+		require.Equal(t, "/repo/services/payment/out/result.txt", path)
+		require.True(t, hasCallerHostPath)
+
+		md, err := engine.ClientMetadataFromContext(ctx)
+		require.NoError(t, err)
+		require.Equal(t, "workspace-client", md.ClientID)
+	})
+
+	t.Run("local workspace resolves absolute path from workspace root", func(t *testing.T) {
+		ws := &core.Workspace{
+			Address:  "file:///repo/services/payment",
+			Cwd:      "services/payment",
+			ClientID: "workspace-client",
+		}
+		ws.SetHostPath("/repo")
+		ctx := contextWithWorkspace(ws)
+
+		_, path, hasCallerHostPath, err := resolveCallerHostExportPath(ctx, "/out/result.txt")
+		require.NoError(t, err)
+		require.Equal(t, "/repo/out/result.txt", path)
+		require.True(t, hasCallerHostPath)
+	})
+
+	t.Run("relative path cannot escape workspace root", func(t *testing.T) {
+		ws := &core.Workspace{
+			Cwd:      ".",
+			ClientID: "workspace-client",
+		}
+		ws.SetHostPath("/repo")
+		ctx := contextWithWorkspace(ws)
+
+		_, _, _, err := resolveCallerHostExportPath(ctx, "../out")
+		require.ErrorContains(t, err, "escapes workspace root")
+	})
+
+	t.Run("remote workspace discards relative host export", func(t *testing.T) {
+		ctx := contextWithWorkspace(&core.Workspace{
+			Address: "github.com/acme/repo",
+			Cwd:     ".",
+		})
+
+		_, path, hasCallerHostPath, err := resolveCallerHostExportPath(ctx, "out")
+		require.NoError(t, err)
+		require.Empty(t, path)
+		require.False(t, hasCallerHostPath)
 	})
 }
 

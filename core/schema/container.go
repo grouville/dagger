@@ -3540,6 +3540,13 @@ func (s *containerSchema) export(ctx context.Context, parent dagql.ObjectResult[
 	if err != nil {
 		return "", err
 	}
+	ctx, path, hasCallerHostPath, err := resolveCallerHostExportPath(ctx, path)
+	if err != nil {
+		return "", err
+	}
+	if !hasCallerHostPath {
+		return dagql.String(os.DevNull), nil
+	}
 
 	_, err = parent.Self().Export(
 		ctx,

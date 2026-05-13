@@ -495,6 +495,12 @@ func (WorkspaceSelectionSuite) TestSelectedWorkspaceFileIO(ctx context.Context, 
 			wantContents: "returned file",
 		},
 		{
+			name:         "returned File export with absolute path writes selected workspace root",
+			args:         []string{"returned-file", "export", "--path", "/returned-absolute-file.txt"},
+			hostPath:     "returned-absolute-file.txt",
+			wantContents: "returned file",
+		},
+		{
 			name:         "returned Container rootfs export writes selected workspace",
 			args:         []string{"returned-container", "rootfs", "export", "--path", "./returned-container-rootfs"},
 			hostPath:     "returned-container-rootfs",
@@ -558,40 +564,33 @@ func (WorkspaceSelectionSuite) TestSelectedWorkspaceFileIO(ctx context.Context, 
 
 	t.Run("selected workspace is local", func(ctx context.Context, t *testctx.T) {
 		for _, tc := range scenarios {
-			tc := tc
-			t.Run(tc.name, func(ctx context.Context, t *testctx.T) {
-				for _, action := range readActions {
-					t.Run(action.name, func(ctx context.Context, t *testctx.T) {
-						fixture := newLocalFixture(ctx, t, tc)
+			for _, action := range readActions {
+				fixture := newLocalFixture(ctx, t, tc)
 
-						args := daggerCallArgs(tc.selectedWorkspaceArgs, action.args, false)
-						out, err := hostDaggerExec(ctx, t, fixture.commandDir, args...)
-						command := "dagger " + strings.Join(args, " ")
-						require.NoError(t, err, "command: %s", command)
-						require.Equal(t, "selected marker", strings.TrimSpace(string(out)), "command: %s", command)
-					})
-				}
+				args := daggerCallArgs(tc.selectedWorkspaceArgs, action.args, false)
+				out, err := hostDaggerExec(ctx, t, fixture.commandDir, args...)
+				command := "dagger " + strings.Join(args, " ")
+				require.NoError(t, err, "%s: %s\ncommand: %s", tc.name, action.name, command)
+				require.Equal(t, "selected marker", strings.TrimSpace(string(out)), "%s: %s\ncommand: %s", tc.name, action.name, command)
+			}
 
-				for _, action := range writeActions {
-					t.Run(action.name, func(ctx context.Context, t *testctx.T) {
-						fixture := newLocalFixture(ctx, t, tc)
+			for _, action := range writeActions {
+				fixture := newLocalFixture(ctx, t, tc)
 
-						args := daggerCallArgs(tc.selectedWorkspaceArgs, action.args, action.autoApply)
-						_, err := hostDaggerExec(ctx, t, fixture.commandDir, args...)
-						command := "dagger " + strings.Join(args, " ")
-						require.NoError(t, err, "command: %s", command)
+				args := daggerCallArgs(tc.selectedWorkspaceArgs, action.args, action.autoApply)
+				_, err := hostDaggerExec(ctx, t, fixture.commandDir, args...)
+				command := "dagger " + strings.Join(args, " ")
+				require.NoError(t, err, "%s: %s\ncommand: %s", tc.name, action.name, command)
 
-						selectedFile := selectedHostPath(fixture.selectedDir, action)
-						contents, err := os.ReadFile(selectedFile)
-						require.NoError(t, err, "command: %s\nexpected selected file: %s", command, selectedFile)
-						require.Equal(t, action.wantContents, string(contents), "command: %s\nselected file: %s", command, selectedFile)
+				selectedFile := selectedHostPath(fixture.selectedDir, action)
+				contents, err := os.ReadFile(selectedFile)
+				require.NoError(t, err, "%s: %s\ncommand: %s\nexpected selected file: %s", tc.name, action.name, command, selectedFile)
+				require.Equal(t, action.wantContents, string(contents), "%s: %s\ncommand: %s\nselected file: %s", tc.name, action.name, command, selectedFile)
 
-						callerPath := filepath.Join(fixture.callerDir, action.hostPath)
-						_, err = os.Stat(callerPath)
-						require.ErrorIs(t, err, os.ErrNotExist, "command: %s\nleaked caller path: %s", command, callerPath)
-					})
-				}
-			})
+				callerPath := filepath.Join(fixture.callerDir, action.hostPath)
+				_, err = os.Stat(callerPath)
+				require.ErrorIs(t, err, os.ErrNotExist, "%s: %s\ncommand: %s\nleaked caller path: %s", tc.name, action.name, command, callerPath)
+			}
 		}
 	})
 
@@ -608,27 +607,24 @@ func (WorkspaceSelectionSuite) TestSelectedWorkspaceFileIO(ctx context.Context, 
 		require.NoError(t, os.WriteFile(filepath.Join(callerDir, "marker.txt"), []byte("caller marker"), 0o644))
 
 		for _, action := range readActions {
-			t.Run(action.name, func(ctx context.Context, t *testctx.T) {
-				args := daggerCallArgs([]string{"-W", remoteRef}, action.args, false)
-				out, err := hostDaggerExec(ctx, t, callerDir, args...)
-				command := "dagger " + strings.Join(args, " ")
-				require.NoError(t, err, "command: %s", command)
-				require.Equal(t, "remote marker", strings.TrimSpace(string(out)), "command: %s", command)
-			})
+			args := daggerCallArgs([]string{"-W", remoteRef}, action.args, false)
+			out, err := hostDaggerExec(ctx, t, callerDir, args...)
+			command := "dagger " + strings.Join(args, " ")
+			require.NoError(t, err, "%s\ncommand: %s", action.name, command)
+			require.Equal(t, "remote marker", strings.TrimSpace(string(out)), "%s\ncommand: %s", action.name, command)
 		}
 
 		for _, action := range writeActions {
-			t.Run(action.name, func(ctx context.Context, t *testctx.T) {
-				args := daggerCallArgs([]string{"-W", remoteRef}, action.args, action.autoApply)
-				_, runErr := hostDaggerExec(ctx, t, callerDir, args...)
-				command := "dagger " + strings.Join(args, " ")
+			args := daggerCallArgs([]string{"-W", remoteRef}, action.args, action.autoApply)
+			_, runErr := hostDaggerExec(ctx, t, callerDir, args...)
+			command := "dagger " + strings.Join(args, " ")
+			require.NoError(t, runErr, "%s\ncommand: %s", action.name, command)
 
-				// Remote workspaces have no selected host directory. These
-				// commands may fail / no-op, but they must not write to the caller cwd.
-				callerPath := filepath.Join(callerDir, action.hostPath)
-				_, err := os.Stat(callerPath)
-				require.ErrorIs(t, err, os.ErrNotExist, "command: %s\nrun error: %v\nleaked caller path: %s", command, runErr, callerPath)
-			})
+			// Remote workspaces have no selected host directory for relative writes.
+			// Discard the write instead of falling back to the caller cwd.
+			callerPath := filepath.Join(callerDir, action.hostPath)
+			_, err := os.Stat(callerPath)
+			require.ErrorIs(t, err, os.ErrNotExist, "%s\ncommand: %s\nrun error: %v\nleaked caller path: %s", action.name, command, runErr, callerPath)
 		}
 	})
 }
