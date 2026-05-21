@@ -22,7 +22,7 @@ type TypescriptSdkDev {
   """
   Check the formatting of the SDK
   """
-  pub lintTypescript: Void! @check {
+  pub lintTypescript: Void @check {
     nodejsDevContainer
       .withExec(["yarn", "--cwd", sourcePath, "lint"])
       .sync
@@ -43,7 +43,7 @@ type TypescriptSdkDev {
       "!**/*prettier*",
       "!**/*eslint*",
     ]),
-  ): Void! @check {
+  ): Void @check {
     let path = "docs/current_docs"
     nodejsDevContainer
       # Add docs snippets on top of the already-mounted SDK source
@@ -57,21 +57,21 @@ type TypescriptSdkDev {
   """
   Test the SDK with LTS version of Node
   """
-  pub testNodejsLts: Void! @check {
+  pub testNodejsLts: Void @check {
     testNodejs(nodeVersionLts)
   }
 
   """
   Test the SDK with previous LTS version of Node
   """
-  pub testNodejsPrevLts: Void! @check {
+  pub testNodejsPrevLts: Void @check {
     testNodejs(nodeVersionPrevLts)
   }
 
   """
   Test the SDK with the given version of NodeJS
   """
-  pub testNodejs(nodeVersion: String!): Void! {
+  pub testNodejs(nodeVersion: String!): Void {
     daggerEngine
       .installClient(nodejsDevContainer(nodeVersion))
       .withWorkdir(sourcePath)
@@ -85,7 +85,7 @@ type TypescriptSdkDev {
   """
   Test the SDK with BunJS
   """
-  pub testBunjs: Void! @check {
+  pub testBunjs: Void @check {
     daggerEngine
       .installClient(bunjsDevContainer)
       .withWorkdir(sourcePath)
@@ -114,11 +114,11 @@ type TypescriptSdkDev {
       .changes(workspace)
   }
 
-  pub releaseDryRun: Void! @check {
+  pub releaseDryRun: Void @check {
     release(
       dryRun: true,
       sourceTag: "HEAD",
-      npmToken: null,
+      npmToken: setSecret("npm-token", ""),
     )
   }
 
@@ -135,7 +135,7 @@ type TypescriptSdkDev {
     Execute a dry-run release, with no side effects
     """
     dryRun: Boolean,
-  ): Void! {
+  ): Void {
     let version = versionFromTag(sourceTag)
     let versionFlag = if (isSemver(version)) {
       version.trimPrefix("v")

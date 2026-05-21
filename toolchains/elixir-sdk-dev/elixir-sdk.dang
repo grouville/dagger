@@ -23,7 +23,7 @@ type ElixirSdkDev {
   """
   Lint the SDK
   """
-  pub lint: Void! @check {
+  pub lint: Void @check {
     devContainer
       .withExec(["mix", "credo"])
       .sync
@@ -56,7 +56,7 @@ type ElixirSdkDev {
   """
   Run the SDK tests
   """
-  pub sdkTest: Void! @check {
+  pub sdkTest: Void @check {
     devContainer
       .withExec(["mix", "test"], experimentalPrivilegedNesting: true)
       .sync
@@ -67,7 +67,7 @@ type ElixirSdkDev {
   """
   Run dagger_codegen tests
   """
-  pub codegenTest: Void! @check {
+  pub codegenTest: Void @check {
     withCodegen(devContainer)
       .withExec(["mix", "test"])
       .sync
@@ -78,11 +78,11 @@ type ElixirSdkDev {
   """
   Test the publishing process
   """
-  pub releaseDryRun: Void! @check {
+  pub releaseDryRun: Void @check {
     publish(
       tag: "HEAD",
       dryRun: true,
-      hexApiKey: null,
+      hexApiKey: setSecret("hex-api-key", ""),
     )
   }
 
@@ -102,7 +102,7 @@ type ElixirSdkDev {
     Execute a dry-run release, with no side effects
     """
     dryRun: Boolean,
-  ): Void! {
+  ): Void {
     let version = versionFromTag(tag)
     let ctr = devContainer
 
