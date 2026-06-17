@@ -506,6 +506,27 @@ func workspaceRootfs(ws *core.Workspace) (dagql.ObjectResult[*core.Directory], e
 	return rootfs, nil
 }
 
+func workspaceOverlayRootfs(ws *core.Workspace) (dagql.ObjectResult[*core.Directory], error) {
+	if ws == nil {
+		return dagql.ObjectResult[*core.Directory]{}, fmt.Errorf("workspace is required")
+	}
+	rootfs, ok := ws.SourceDirectory()
+	if !ok || rootfs.Self() == nil {
+		return rootfs, fmt.Errorf("workspace overlay APIs are only supported for value workspaces")
+	}
+	return rootfs, nil
+}
+
+func requireLocalWorkspace(ws *core.Workspace, operation string) error {
+	if ws == nil {
+		return fmt.Errorf("workspace is required")
+	}
+	if ws.HostPath() == "" {
+		return fmt.Errorf("%s is local-only", operation)
+	}
+	return nil
+}
+
 func isSyntheticWorkspace(ws *core.Workspace) bool {
 	return ws != nil && ws.IsValueWorkspace()
 }
@@ -626,7 +647,7 @@ func (s *workspaceSchema) withNewFile(
 		return dagql.ObjectResult[*core.Workspace]{}, err
 	}
 
-	root, err := workspaceRootfs(parent.Self())
+	root, err := workspaceOverlayRootfs(parent.Self())
 	if err != nil {
 		return dagql.ObjectResult[*core.Workspace]{}, err
 	}
@@ -664,7 +685,7 @@ func (s *workspaceSchema) withNewDirectory(
 		return dagql.ObjectResult[*core.Workspace]{}, err
 	}
 
-	root, err := workspaceRootfs(parent.Self())
+	root, err := workspaceOverlayRootfs(parent.Self())
 	if err != nil {
 		return dagql.ObjectResult[*core.Workspace]{}, err
 	}
@@ -695,7 +716,7 @@ func (s *workspaceSchema) withChanges(
 	parent dagql.ObjectResult[*core.Workspace],
 	args withChangesArgs,
 ) (dagql.ObjectResult[*core.Workspace], error) {
-	root, err := workspaceRootfs(parent.Self())
+	root, err := workspaceOverlayRootfs(parent.Self())
 	if err != nil {
 		return dagql.ObjectResult[*core.Workspace]{}, err
 	}
@@ -733,15 +754,15 @@ func (s *workspaceSchema) changes(
 	if err != nil {
 		return inst, err
 	}
+	after, err := workspaceOverlayRootfs(parent.Self())
+	if err != nil {
+		return inst, err
+	}
 	other, err := args.Other.Load(ctx, srv)
 	if err != nil {
 		return inst, err
 	}
-	before, err := workspaceRootfs(other.Self())
-	if err != nil {
-		return inst, err
-	}
-	after, err := workspaceRootfs(parent.Self())
+	before, err := workspaceOverlayRootfs(other.Self())
 	if err != nil {
 		return inst, err
 	}
