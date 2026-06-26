@@ -1,6 +1,7 @@
 package git
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -62,6 +63,29 @@ osxkeychain` + nullChar + ``,
 			require.Equal(t, tc.expected, parsed)
 		})
 	}
+}
+
+func TestReadCredentialRequest(t *testing.T) {
+	req, err := ReadCredentialRequest(strings.NewReader("protocol=https\nhost=GitLab.COM\npath=org/repo.git\n\n"))
+
+	require.NoError(t, err)
+	require.Equal(t, &GitCredentialRequest{
+		Protocol: "https",
+		Host:     "gitlab.com",
+		Path:     "org/repo.git",
+	}, req)
+}
+
+func TestWriteCredential(t *testing.T) {
+	var out strings.Builder
+
+	err := WriteCredential(&out, &CredentialInfo{
+		Username: "x-token-auth",
+		Password: "secret",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "username=x-token-auth\npassword=secret\n\n", out.String())
 }
 
 // More tests are in ./core/integration/git_test.go

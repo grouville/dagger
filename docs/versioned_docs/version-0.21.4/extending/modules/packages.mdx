@@ -31,7 +31,7 @@ Dagger lets you import [private Go modules](https://go.dev/ref/mod#private-modul
 
 Multiple URLs can be specified as comma-separated values. The repository name is optional; if left unspecified, all modules under the specified prefix will be included. For example, setting the `goprivate` URL to `github.com/username` will include all private modules with the `github.com/username` prefix.
 
-Note that this feature requires a `.gitconfig` file entry to use SSH instead of HTTPS for the host. Use the command `git config --global url."git@github.com:".insteadOf "https://github.com/"` to create the necessary `.gitconfig` entry.
+Dagger supports private Go modules over HTTPS using credentials from the client's Git credential system. SSH-based access also remains supported by configuring a `.gitconfig` `insteadOf` rule such as `git config --global url."git@github.com:".insteadOf "https://github.com/"`.
 </TabItem>
 <TabItem value="python" label="Python">
 

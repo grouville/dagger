@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 
 	"github.com/dagger/dagger/core"
 	"github.com/dagger/dagger/dagql"
+	"github.com/dagger/dagger/dagql/call"
 	"github.com/dagger/dagger/engine"
 	"github.com/dagger/dagger/engine/distconsts"
 	"github.com/dagger/dagger/engine/engineutil"
@@ -393,7 +396,7 @@ func (sdk *goSDK) ModuleTypes(
 		},
 	}
 
-	dependencySelectors, cleanupDependencySelectors, err := sdk.moduleDependencyConfigSelectors(ctx)
+	dependencySelectors, cleanupDependencySelectors, err := sdk.moduleDependencyConfigSelectors(core.WithSDKDependencyCredentialAccess(ctx))
 	if err != nil {
 		return inst, fmt.Errorf("failed to configure go module type deps generation container: %w", err)
 	}
@@ -686,7 +689,7 @@ func (sdk *goSDK) baseWithCodegen(
 		},
 	}
 
-	dependencySelectors, cleanupDependencySelectors, err := sdk.moduleDependencyConfigSelectors(ctx)
+	dependencySelectors, cleanupDependencySelectors, err := sdk.moduleDependencyConfigSelectors(core.WithSDKDependencyCredentialAccess(ctx))
 	if err != nil {
 		return ctr, err
 	}
@@ -739,7 +742,8 @@ func (sdk *goSDK) moduleDependencyConfigSelectors(ctx context.Context) ([]dagql.
 		return nil, nil, fmt.Errorf("unknown sdk config keys found %v", mapstructureMetadata.Unused)
 	}
 
-	selectors := getSDKConfigSelectors(ctx, config)
+	goPrivate := effectiveGoPrivate(config.GoPrivate)
+	selectors := getSDKConfigSelectors(ctx, goPrivate)
 
 	bk, err := sdk.root.Engine(ctx)
 	if err != nil {
@@ -752,6 +756,12 @@ func (sdk *goSDK) moduleDependencyConfigSelectors(ctx context.Context) ([]dagql.
 	}
 	selectors = append(selectors, gitConfigSelectors...)
 
+	httpAuthSelectors, cleanupHTTPAuthSelectors, err := sdk.goPrivateHTTPSCredentialSelectors(ctx, goPrivate)
+	if err != nil {
+		return nil, nil, err
+	}
+	selectors = append(selectors, httpAuthSelectors...)
+
 	// TODO(rajatjindal): verify with Erik as to why this
 	// cause failures if we also mount this in Runtime.
 	// Issue we run into is that when we try to run sdk checks
@@ -762,7 +772,182 @@ func (sdk *goSDK) moduleDependencyConfigSelectors(ctx context.Context) ([]dagql.
 	}
 	selectors = append(selectors, setSSHAuthSelectors...)
 
-	return selectors, unsetSSHAuthSelectors, nil
+	return selectors, append(cleanupHTTPAuthSelectors, unsetSSHAuthSelectors...), nil
+}
+
+const (
+	goSDKGitCredentialSocketPath = "/tmp/dagger-go-sdk-git-credential.sock"
+	daggerEngineSystemEnvPrefix  = "_DAGGER_ENGINE_SYSTEMENV_"
+)
+
+func (sdk *goSDK) goPrivateHTTPSCredentialSelectors(ctx context.Context, goPrivate string) ([]dagql.Selector, []dagql.Selector, error) {
+	if goPrivate == "" || !core.IsSDKDependencyCredentialAccess(ctx) {
+		return nil, nil, nil
+	}
+
+	clientIDs, err := sdk.gitCredentialClientIDs(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	socketID, err := sdk.gitCredentialSocketID(ctx, goPrivate, clientIDs)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create go sdk git credential socket: %w", err)
+	}
+
+	selectors := []dagql.Selector{
+		withUnixSocketSelector(goSDKGitCredentialSocketPath, dagql.NewID[*core.Socket](socketID)),
+		withEnvVariableSelector("GIT_ASKPASS", ""),
+		withEnvVariableSelector("GIT_TERMINAL_PROMPT", "0"),
+		withExecSelector("git", "config", "--global", "--replace-all", "credential.helper", goSDKGitCredentialHelper()),
+		withExecSelector("git", "config", "--global", "--replace-all", "credential.useHttpPath", "true"),
+	}
+	cleanupSelectors := []dagql.Selector{
+		withExecSelector("git", "config", "--global", "--unset-all", "credential.helper"),
+		withExecSelector("git", "config", "--global", "--unset-all", "credential.useHttpPath"),
+		withoutUnixSocketSelector(goSDKGitCredentialSocketPath),
+		withoutEnvVariableSelector("GIT_ASKPASS"),
+		withoutEnvVariableSelector("GIT_TERMINAL_PROMPT"),
+	}
+
+	return selectors, cleanupSelectors, nil
+}
+
+func (sdk *goSDK) gitCredentialSocketID(ctx context.Context, patterns string, clientIDs []string) (*call.ID, error) {
+	dag, err := sdk.root.Server.Server(ctx)
+	if err != nil {
+		return nil, err
+	}
+	handle := goSDKGitCredentialHandle(sdk.root.SecretSalt(), patterns, clientIDs)
+	provider := newGoSDKGitCredentialProvider(patterns, clientIDs)
+	return core.NewMountProviderSocketID(ctx, dag, handle, provider)
+}
+
+// gitCredentialClientIDs returns the client sessions whose credentials the provider may
+// use, in order: the non-module parent (the relevant client across nesting) then the main
+// client. Routing to these is what makes credentials resolve correctly under nested
+// module execution.
+func (sdk *goSDK) gitCredentialClientIDs(ctx context.Context) ([]string, error) {
+	var clientIDs []string
+	add := func(md *engine.ClientMetadata) {
+		if md == nil || md.ClientID == "" || slices.Contains(clientIDs, md.ClientID) {
+			return
+		}
+		clientIDs = append(clientIDs, md.ClientID)
+	}
+
+	nonModuleParent, err := sdk.root.NonModuleParentClientMetadata(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get non-module parent client metadata for git credentials: %w", err)
+	}
+	add(nonModuleParent)
+
+	mainClient, err := sdk.root.MainClientCallerMetadata(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get main client metadata for git credentials: %w", err)
+	}
+	add(mainClient)
+
+	return clientIDs, nil
+}
+
+func effectiveGoPrivate(configured string) string {
+	return goPrivateCredentialPatterns(configured, os.Getenv(daggerEngineSystemEnvPrefix+"GOPRIVATE"))
+}
+
+// goPrivateCredentialPatterns merges GOPRIVATE values (e.g. the SDK config plus the
+// engine system env) into a single comma-separated list, trimming blanks and
+// de-duplicating. Entries are kept verbatim: they are go module path patterns, matched
+// with the same gomodule.MatchPrefixPatterns that go itself uses for GOPRIVATE, so the
+// credential allowlist is exactly go's own notion of "private".
+func goPrivateCredentialPatterns(values ...string) string {
+	var patterns []string
+	for _, value := range values {
+		for _, raw := range strings.Split(value, ",") {
+			pattern := strings.TrimSpace(raw)
+			if pattern == "" || slices.Contains(patterns, pattern) {
+				continue
+			}
+			patterns = append(patterns, pattern)
+		}
+	}
+	return strings.Join(patterns, ",")
+}
+
+func goSDKGitCredentialHelper() string {
+	return "!/usr/local/bin/dagger-git-credential-helper " + goSDKGitCredentialSocketPath
+}
+
+func withEnvVariableSelector(name, value string) dagql.Selector {
+	return dagql.Selector{
+		Field: "withEnvVariable",
+		Args: []dagql.NamedInput{
+			{
+				Name:  "name",
+				Value: dagql.NewString(name),
+			},
+			{
+				Name:  "value",
+				Value: dagql.NewString(value),
+			},
+		},
+	}
+}
+
+func withoutEnvVariableSelector(name string) dagql.Selector {
+	return dagql.Selector{
+		Field: "withoutEnvVariable",
+		Args: []dagql.NamedInput{
+			{
+				Name:  "name",
+				Value: dagql.NewString(name),
+			},
+		},
+	}
+}
+
+func withUnixSocketSelector(path string, socketID dagql.Input) dagql.Selector {
+	return dagql.Selector{
+		Field: "withUnixSocket",
+		Args: []dagql.NamedInput{
+			{
+				Name:  "path",
+				Value: dagql.NewString(path),
+			},
+			{
+				Name:  "source",
+				Value: socketID,
+			},
+		},
+	}
+}
+
+func withoutUnixSocketSelector(path string) dagql.Selector {
+	return dagql.Selector{
+		Field: "withoutUnixSocket",
+		Args: []dagql.NamedInput{
+			{
+				Name:  "path",
+				Value: dagql.NewString(path),
+			},
+		},
+	}
+}
+
+func withExecSelector(args ...string) dagql.Selector {
+	input := make(dagql.ArrayInput[dagql.String], len(args))
+	for i, arg := range args {
+		input[i] = dagql.NewString(arg)
+	}
+	return dagql.Selector{
+		Field: "withExec",
+		Args: []dagql.NamedInput{
+			{
+				Name:  "args",
+				Value: input,
+			},
+		},
+	}
 }
 
 func (sdk *goSDK) base(ctx context.Context) (dagql.ObjectResult[*core.Container], error) {
@@ -1064,9 +1249,9 @@ func (sdk *goSDK) getUnixSocketSelector(ctx context.Context) ([]dagql.Selector, 
 	return set, unset, nil
 }
 
-func getSDKConfigSelectors(_ context.Context, config goSDKConfig) []dagql.Selector {
+func getSDKConfigSelectors(_ context.Context, goPrivate string) []dagql.Selector {
 	var selectors []dagql.Selector
-	if config.GoPrivate != "" {
+	if goPrivate != "" {
 		selectors = append(selectors, dagql.Selector{
 			Field: "withEnvVariable",
 			Args: []dagql.NamedInput{
@@ -1076,7 +1261,7 @@ func getSDKConfigSelectors(_ context.Context, config goSDKConfig) []dagql.Select
 				},
 				{
 					Name:  "value",
-					Value: dagql.NewString(config.GoPrivate),
+					Value: dagql.NewString(goPrivate),
 				},
 			},
 		})

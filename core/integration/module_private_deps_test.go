@@ -263,4 +263,100 @@ func (m *Foo) HowCoolIsDagger() string {
 		require.NoError(t, err)
 		require.Equal(t, "private-transitive-go-dep:ubercool", howCoolIsDagger)
 	})
+
+	t.Run("golang transitive existing go.mod with https credentials", func(ctx context.Context, t *testctx.T) {
+		c := connect(ctx, t)
+		tc := getVCSTestCase(t, "https://gitlab.com/dagger-modules/private/test/more/dagger-test-modules-private.git")
+		require.NotEmpty(t, tc.token())
+
+		const (
+			privateDep        = "gitlab.com/dagger-modules/private/test/more/dagger-test-modules-private.git/privatewrapper"
+			privateDepVersion = "v0.0.1"
+		)
+
+		modGen := goGitBase(t, c).
+			WithNewFile("/tmp/git-config", makeGitCredentials("https://"+tc.expectedHost, "x-token-auth", tc.token())).
+			WithEnvVariable("GIT_CONFIG_GLOBAL", "/tmp/git-config").
+			WithEnvVariable("GIT_CONFIG_SYSTEM", "/dev/null").
+			WithEnvVariable("GIT_CONFIG_NOSYSTEM", "1").
+			WithNewFile("/work/dagger.toml", `[modules.foo]
+source = ".dagger/modules/foo"
+entrypoint = true
+`).
+			WithNewFile("/work/.dagger/modules/foo/dagger.json", `{
+  "name": "foo",
+  "engineVersion": "latest",
+  "sdk": {
+    "source": "go",
+    "config": {
+      "goprivate": "gitlab.com/dagger-modules/private/test/more/dagger-test-modules-private.git"
+    }
+  }
+}`).
+			WithNewFile("/work/.dagger/modules/foo/go.mod", fmt.Sprintf(`module dagger/foo
+
+go 1.21.3
+
+require %s %s
+`, privateDep, privateDepVersion)).
+			WithNewFile("/work/.dagger/modules/foo/main.go", fmt.Sprintf(`package main
+
+import (
+	"context"
+	"os"
+	"os/exec"
+
+	"%s/pkg/coolwrapper"
+)
+
+type Foo struct{}
+
+func (m *Foo) HowCoolIsDagger() string {
+	return coolwrapper.HowCoolIsThat()
+}
+
+func (m *Foo) GitAuthEnvClean() string {
+	for _, key := range []string{"GIT_ASKPASS", "GIT_TERMINAL_PROMPT"} {
+		if os.Getenv(key) != "" {
+			return key
+		}
+	}
+	if _, err := os.Stat("/tmp/dagger-go-sdk-git-credential.sock"); err == nil {
+		return "socket"
+	}
+	for _, key := range []string{"credential.helper", "credential.useHttpPath"} {
+		if out, err := exec.Command("git", "config", "--global", "--get", key).CombinedOutput(); err == nil {
+			return key + ":" + string(out)
+		}
+	}
+	return "clean"
+}
+
+func (m *Foo) PrivateGitFromRuntime(ctx context.Context) string {
+	if _, err := dag.Git("%s").Head().Commit(ctx); err == nil {
+		return "leaked"
+	}
+	return "blocked"
+}
+`, privateDep, tc.gitTestRepoRef)).
+			WithWorkdir("/work")
+
+		howCoolIsDagger, err := modGen.
+			With(daggerExec("call", "how-cool-is-dagger")).
+			Stdout(ctx)
+		require.NoError(t, err)
+		require.Equal(t, "private-transitive-go-dep:ubercool", howCoolIsDagger)
+
+		authEnvClean, err := modGen.
+			With(daggerExec("call", "git-auth-env-clean")).
+			Stdout(ctx)
+		require.NoError(t, err)
+		require.Equal(t, "clean", authEnvClean)
+
+		privateGitFromRuntime, err := modGen.
+			With(daggerExec("call", "private-git-from-runtime")).
+			Stdout(ctx)
+		require.NoError(t, err)
+		require.Equal(t, "blocked", privateGitFromRuntime)
+	})
 }

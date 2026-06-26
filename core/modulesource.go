@@ -1880,6 +1880,7 @@ type DirModuleSource struct {
 }
 
 type moduleDependencyResolutionKey struct{}
+type sdkDependencyCredentialAccessKey struct{}
 
 // WithModuleDependencyResolution marks ctx as resolving a module's declared
 // dependency or SDK source. This is trusted resolution performed on the user's
@@ -1896,6 +1897,24 @@ func WithModuleDependencyResolution(ctx context.Context) context.Context {
 // declared dependency or SDK source. See WithModuleDependencyResolution.
 func IsModuleDependencyResolution(ctx context.Context) bool {
 	allowed, _ := ctx.Value(moduleDependencyResolutionKey{}).(bool)
+	return allowed
+}
+
+// WithSDKDependencyCredentialAccess marks ctx as an engine-owned SDK dependency
+// preparation operation that may project narrowly scoped client credentials
+// into an SDK build/codegen container. This is intentionally separate from
+// WithModuleDependencyResolution: resolving declared module refs can use
+// credentials internally, but arbitrary module runtime code and module-backed
+// SDKs must not be able to request credential projection.
+func WithSDKDependencyCredentialAccess(ctx context.Context) context.Context {
+	return context.WithValue(ctx, sdkDependencyCredentialAccessKey{}, true)
+}
+
+// IsSDKDependencyCredentialAccess reports whether ctx may project credentials
+// for engine-owned SDK dependency preparation. See
+// WithSDKDependencyCredentialAccess.
+func IsSDKDependencyCredentialAccess(ctx context.Context) bool {
+	allowed, _ := ctx.Value(sdkDependencyCredentialAccessKey{}).(bool)
 	return allowed
 }
 

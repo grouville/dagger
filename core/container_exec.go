@@ -1112,7 +1112,7 @@ type execSSHMount struct {
 }
 
 func (ssh *execSSHMount) Mount(ctx context.Context, _ bool) (bkcache.MountableRef, error) {
-	sock, cleanup, err := ssh.socket.Self().MountSSHAgent(ctx)
+	sock, cleanup, err := ssh.socket.Self().Mount(ctx)
 	if err != nil {
 		return nil, err
 	}

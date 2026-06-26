@@ -5,6 +5,7 @@ import (
 	bytes "bytes"
 	context "context"
 	fmt "fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -145,6 +146,38 @@ func (s GitAttachable) getCredentialFromNetrc(ctx context.Context, req *GitCrede
 	}
 
 	return newGitCredentialErrorResponse(CREDENTIAL_RETRIEVAL_FAILED, "No matching credentials found in .netrc"), nil
+}
+
+func ReadCredentialRequest(r io.Reader) (*GitCredentialRequest, error) {
+	req := &GitCredentialRequest{}
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			break
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		switch key {
+		case "protocol":
+			req.Protocol = value
+		case "host":
+			req.Host = strings.ToLower(value)
+		case "path":
+			req.Path = strings.Trim(value, "/")
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return req, nil
+}
+
+func WriteCredential(w io.Writer, cred *CredentialInfo) error {
+	_, err := fmt.Fprintf(w, "username=%s\npassword=%s\n\n", cred.GetUsername(), cred.GetPassword())
+	return err
 }
 
 func parseGitCredentialOutput(output []byte) (*CredentialInfo, error) {
