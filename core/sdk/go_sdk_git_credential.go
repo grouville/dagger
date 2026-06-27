@@ -22,7 +22,7 @@ import (
 // During Go SDK codegen, `go mod download` runs git over HTTPS for private modules. We
 // give that git a credential helper backed by the host's own credentials:
 //
-//	git (in container) -> dagger-git-credential-helper -> unix socket
+//	git (in container) -> codegen _git-credential -> unix socket
 //	  -> goSDKGitCredentialProvider (here) -> bk.GetCredential -> host `git credential fill`
 //
 // The provider only answers for hosts/paths matching GOPRIVATE — the same rule go uses to

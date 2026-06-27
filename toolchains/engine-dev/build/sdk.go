@@ -226,7 +226,6 @@ func (build *Builder) goSDKContent(ctx context.Context) (*sdkContent, error) {
 		WithExec([]string{"apk", "add", "git", "openssh", "openssl"}).
 		WithEnvVariable("GOTOOLCHAIN", "auto").
 		WithFile("/usr/local/bin/codegen", build.CodegenBinary()).
-		WithFile("/usr/local/bin/dagger-git-credential-helper", build.GitCredentialHelperBinary()).
 		// these cache directories should match the cache volume locations in the engine's goSDK.base
 		WithDirectory("/go/pkg/mod", sdkCache.Directory("/go/pkg/mod")).
 		WithDirectory("/root/.cache/go-build", sdkCache.Directory("/root/.cache/go-build")).

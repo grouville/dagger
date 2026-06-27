@@ -23,6 +23,7 @@ func init() {
 	rootCmd.AddCommand(generateLibraryCmd)
 	rootCmd.AddCommand(generateTypeDefsCmd)
 	rootCmd.AddCommand(generateEntrypointCmd)
+	rootCmd.AddCommand(gitCredentialCmd)
 
 	rootCmd.PersistentFlags().StringVar(&lang, "lang", "go", "language to generate")
 	rootCmd.PersistentFlags().StringVarP(&outputDir, "output", "o", ".", "output directory")

@@ -49,6 +49,8 @@ func NewMountProviderSocketID(ctx context.Context, dag *dagql.Server, handle dag
 		return nil, err
 	}
 
+	// Wrap the socket value as a dagql result, content-addressed by its handle and tagged
+	// as a session resource.
 	socket := &Socket{Kind: SocketKindMountProvider, Handle: handle}
 	inst, err := dagql.NewResultForCall(socket, &dagql.ResultCall{
 		Kind:        dagql.ResultCallKindSynthetic,
@@ -64,6 +66,9 @@ func NewMountProviderSocketID(ctx context.Context, dag *dagql.Server, handle dag
 	if inst, err = inst.WithSessionResourceHandle(ctx, handle); err != nil {
 		return nil, err
 	}
+
+	// Bind the provider under the handle (so Socket.Mount can resolve it at mount time),
+	// then attach the result to the session to obtain its ID.
 	if err := cache.BindSessionResource(ctx, clientMetadata.SessionID, clientMetadata.ClientID, handle, provider); err != nil {
 		return nil, err
 	}

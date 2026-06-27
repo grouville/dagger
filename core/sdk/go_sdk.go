@@ -780,6 +780,13 @@ const (
 	daggerEngineSystemEnvPrefix  = "_DAGGER_ENGINE_SYSTEMENV_"
 )
 
+// goPrivateHTTPSCredentialSelectors returns the selectors that mount the git credential
+// socket and point git at it, plus the cleanup selectors that remove them. The caller
+// applies the first set before the codegen exec and the second after — so the credential
+// channel exists only during dependency resolution and never reaches the module runtime
+// container. The two lists mirror each other in reverse.
+//
+// Only runs for engine-vetted SDK dependency prep (IsSDKDependencyCredentialAccess).
 func (sdk *goSDK) goPrivateHTTPSCredentialSelectors(ctx context.Context, goPrivate string) ([]dagql.Selector, []dagql.Selector, error) {
 	if goPrivate == "" || !core.IsSDKDependencyCredentialAccess(ctx) {
 		return nil, nil, nil
@@ -795,6 +802,9 @@ func (sdk *goSDK) goPrivateHTTPSCredentialSelectors(ctx context.Context, goPriva
 		return nil, nil, fmt.Errorf("failed to create go sdk git credential socket: %w", err)
 	}
 
+	// git uses the helper only for hosts it fetches over HTTPS; useHttpPath makes it send
+	// the repo path so we can answer per-repo. GIT_ASKPASS="" + GIT_TERMINAL_PROMPT=0
+	// keep git from prompting if a credential isn't found.
 	selectors := []dagql.Selector{
 		withUnixSocketSelector(goSDKGitCredentialSocketPath, dagql.NewID[*core.Socket](socketID)),
 		withEnvVariableSelector("GIT_ASKPASS", ""),
@@ -875,7 +885,7 @@ func goPrivateCredentialPatterns(values ...string) string {
 }
 
 func goSDKGitCredentialHelper() string {
-	return "!/usr/local/bin/dagger-git-credential-helper " + goSDKGitCredentialSocketPath
+	return "!codegen _git-credential " + goSDKGitCredentialSocketPath
 }
 
 func withEnvVariableSelector(name, value string) dagql.Selector {

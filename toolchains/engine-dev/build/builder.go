@@ -193,10 +193,6 @@ func (build *Builder) CodegenBinary() *dagger.File {
 	return build.binary("./cmd/codegen", false, false)
 }
 
-func (build *Builder) GitCredentialHelperBinary() *dagger.File {
-	return build.binary("./cmd/dagger-git-credential-helper", false, false)
-}
-
 func (build *Builder) engineBinary(race bool) *dagger.File {
 	return build.binaryWithSource("./cmd/engine", true, race, build.source)
 }
