@@ -171,3 +171,81 @@ func (RuntimeCodegenSuite) TestPythonTrustedFilesUsed(ctx context.Context, t *te
 	requireErrOut(t, err, "generated file")
 	requireErrOut(t, err, "run `dagger generate`")
 }
+
+// TestTrustedFilesRemainHiddenByLegacyGitignore characterizes the migration
+// gap for modules which now disable automatic gitignore updates but retain an
+// SDK-generated ignore entry from before the switch to committed codegen.
+//
+// Setting automaticGitignore=false prevents future .gitignore edits; it does
+// not remove an existing rule. Local module loading therefore filters the
+// generated files before the trusted runtime checks for them. Keep all three
+// SDKs covered here because this is a source-loading/config migration issue
+// rather than a language-runtime-specific behavior.
+//
+// The TypeScript case exercises the upcoming trusted runtime from
+// https://github.com/dagger/dagger/pull/13621.
+func (RuntimeCodegenSuite) TestTrustedFilesRemainHiddenByLegacyGitignore(ctx context.Context, t *testctx.T) {
+	c := connect(ctx, t)
+	automaticGitignore := false
+
+	t.Run("go", func(ctx context.Context, t *testctx.T) {
+		generated := moduleFixture(t, c, "go/minimal").
+			With(configFile(".", &modules.ModuleConfig{
+				Name:          "minimal",
+				EngineVersion: modules.EngineVersionLatest,
+				SDK:           &modules.SDK{Source: "go"},
+				Codegen: &modules.ModuleCodegenConfig{
+					AutomaticGitignore: &automaticGitignore,
+				},
+			})).
+			With(daggerQuery(`{moduleSource(refString:"."){generatedContextDirectory{export(path:".")}}}`)).
+			WithNewFile(".gitignore", "/dagger.gen.go\n/internal/dagger\n/internal/telemetry\n").
+			// Prove the file exists on disk immediately before local module
+			// loading filters it from the context.
+			WithExec([]string{"test", "-f", "dagger.gen.go"})
+
+		_, err := generated.With(daggerCall("hello")).Sync(ctx)
+		requireErrOut(t, err, `generated file "dagger.gen.go" is missing`)
+		requireErrOut(t, err, "run `dagger generate`")
+	})
+
+	t.Run("python", func(ctx context.Context, t *testctx.T) {
+		generated := moduleFixture(t, c, "python/minimal").
+			With(configFile(".", &modules.ModuleConfig{
+				Name:          "minimal",
+				EngineVersion: modules.EngineVersionLatest,
+				SDK:           &modules.SDK{Source: "python"},
+				Codegen: &modules.ModuleCodegenConfig{
+					AutomaticGitignore: &automaticGitignore,
+				},
+			})).
+			With(daggerQuery(`{moduleSource(refString:"."){generatedContextDirectory{export(path:".")}}}`)).
+			WithNewFile(".gitignore", "/sdk\n").
+			WithExec([]string{"test", "-f", "sdk/pyproject.toml"})
+
+		_, err := generated.With(daggerCall("hello")).Sync(ctx)
+		requireErrOut(t, err, `generated file "sdk/pyproject.toml" is missing`)
+		requireErrOut(t, err, "run `dagger generate`")
+	})
+
+	t.Run("typescript", func(ctx context.Context, t *testctx.T) {
+		generated := moduleFixture(t, c, "typescript/base-test").
+			With(configFile(".", &modules.ModuleConfig{
+				Name:          "test",
+				EngineVersion: modules.EngineVersionLatest,
+				SDK:           &modules.SDK{Source: "typescript"},
+				Codegen: &modules.ModuleCodegenConfig{
+					AutomaticGitignore: &automaticGitignore,
+				},
+			})).
+			With(daggerQuery(`{moduleSource(refString:"."){generatedContextDirectory{export(path:".")}}}`)).
+			WithNewFile(".gitignore", "/sdk\n/__dagger.entrypoint.ts\n").
+			WithExec([]string{"test", "-f", "sdk/client.gen.ts"}).
+			WithExec([]string{"test", "-f", "__dagger.entrypoint.ts"})
+
+		_, err := generated.With(daggerCall("hello")).Sync(ctx)
+		requireErrOut(t, err, "runtime codegen disabled")
+		requireErrOut(t, err, `generated file "sdk/client.gen.ts" is missing`)
+		requireErrOut(t, err, "run `dagger generate`")
+	})
+}
