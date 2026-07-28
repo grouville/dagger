@@ -427,6 +427,67 @@ func (m *ClientGeneratorFixture) GenerateClients(ctx context.Context, ws *dagger
 	require.Contains(t, two, "client-generator-fixture")
 }
 
+// TestGoSDKModuleGeneratesClients runs client generation end-to-end through
+// the go-sdk module (dagger/go-sdk#15) instead of the engine's builtin
+// generator: the workspace installs go-sdk from git as the "go" SDK, registers
+// a client bound to a local Go module, and `dagger generate` produces the
+// typed client — core bindings with the serveBoundModule bootstrap, the bound
+// module's own bindings, and a go.mod.
+func (GeneratorsSuite) TestGoSDKModuleGeneratesClients(ctx context.Context, t *testctx.T) {
+	c := connect(ctx, t)
+
+	// dagger/go-sdk branch feat/extract-client-codegen-in-go-sdk, pinned so the
+	// run is reproducible.
+	const goSDKRef = "github.com/dagger/go-sdk@f3c98084ecb7174fea2adf3b55f4d86ccef56bd6"
+
+	base := goGitBase(t, c).
+		WithEnvVariable("_EXPERIMENTAL_DAGGER_CLI_BIN", testCLIBinPath).
+		With(nonNestedDevEngine(c)).
+		WithNewFile("dagger.toml", `[modules.go-sdk]
+source = "`+goSDKRef+`"
+
+[modules.go-sdk.as-sdk]
+name = "go"
+
+[[modules.go-sdk.as-sdk.clients]]
+path = "clients/hello"
+module = "hello"
+`).
+		WithNewFile("hello/dagger.json", `{
+  "name": "hello",
+  "engineVersion": "latest",
+  "sdk": { "source": "go" }
+}`).
+		WithNewFile("hello/main.go", `package main
+
+type Hello struct{}
+
+func (m *Hello) Greet(name string) string {
+	return "hello " + name
+}
+`)
+
+	list, err := base.With(daggerExec("generate", "-l")).CombinedOutput(ctx)
+	require.NoError(t, err, list)
+	require.Contains(t, list, "go-sdk:generate-all-client")
+
+	generated := base.With(daggerExec("generate", "-y", "go-sdk:generate-all-client"))
+
+	gen, err := generated.File("clients/hello/dagger.gen.go").Contents(ctx)
+	require.NoError(t, err)
+	require.Contains(t, gen, "serveBoundModule")
+	require.Contains(t, gen, `ModuleSource("/hello")`)
+	require.NotContains(t, gen, "serveModuleDependencies")
+
+	bindings, err := generated.File("clients/hello/hello.gen.go").Contents(ctx)
+	require.NoError(t, err)
+	require.Contains(t, bindings, "func (r *Hello) Greet(")
+
+	gomod, err := generated.File("clients/hello/go.mod").Contents(ctx)
+	require.NoError(t, err)
+	require.Contains(t, gomod, "dagger.io/dagger")
+}
+
 func (GeneratorsSuite) TestGeneratorGroupChangesSyncWithNestedSDKCodegen(ctx context.Context, t *testctx.T) {
 	c := connect(ctx, t)
 
