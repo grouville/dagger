@@ -991,6 +991,35 @@ type Inner {
 			"the source path is preserved as-is")
 	})
 
+	t.Run("migrates selected config under hidden directory", func(ctx context.Context, t *testctx.T) {
+		ctr := workspaceBase(t, c).
+			WithNewFile(".internal/tool/dagger.json", `{
+  "name": "internal-tool",
+  "sdk": {"source": "dang"},
+  "source": "src"
+}`).
+			WithNewFile(".internal/tool/src/main.dang", `
+type InternalTool {
+  pub greet: String! {
+    "hello from internal tool"
+  }
+}
+`).
+			WithExec([]string{"git", "add", "."}).
+			WithExec([]string{"git", "commit", "-m", "initial"}).
+			WithWorkdir("/work/.internal/tool").
+			With(daggerExec("setup", "--auto-apply"))
+
+		_, err := ctr.WithExec([]string{"test", "-f", "dagger.toml"}).Sync(ctx)
+		require.NoError(t, err, "selected project should be migrated even when its path contains a hidden directory")
+
+		_, err = ctr.WithExec([]string{"test", "-f", "dagger-module.toml"}).Sync(ctx)
+		require.NoError(t, err, "selected legacy module config should be converted in place")
+
+		_, err = ctr.WithExec([]string{"test", "!", "-e", "../../dagger.toml"}).Sync(ctx)
+		require.NoError(t, err, "migration should not write a workspace config at the repository root")
+	})
+
 	t.Run("does not migrate unrelated child config from root", func(ctx context.Context, t *testctx.T) {
 		ctr := workspaceBase(t, c).
 			WithNewFile("services/api/dagger.json", `{
