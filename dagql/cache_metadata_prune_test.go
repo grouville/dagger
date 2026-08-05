@@ -414,6 +414,71 @@ func TestRemovePersistedEdgeRechecksUnpruneableAfterPlanning(t *testing.T) {
 	}
 }
 
+func TestRemovePersistedEdgeRechecksActiveSessionAfterPlanning(t *testing.T) {
+	baseCtx := t.Context()
+	c, err := NewCache(baseCtx, "", nil, nil)
+	assert.NilError(t, err)
+
+	coldCtx := engine.ContextWithClientMetadata(baseCtx, &engine.ClientMetadata{
+		ClientID:  "cold-client",
+		SessionID: "cold-session",
+	})
+	call := cacheTestIntCall("late-active-recheck")
+	res, err := c.GetOrInitCall(coldCtx, "cold-session", noopTypeResolver{}, &CallRequest{
+		ResultCall:    call,
+		IsPersistable: true,
+	}, func(context.Context) (AnyResult, error) {
+		return cacheTestIntResult(call, 1), nil
+	})
+	assert.NilError(t, err)
+	assert.NilError(t, c.ReleaseSession(coldCtx, "cold-session"))
+
+	// Reproduce the metadata-prune race deterministically: pruning snapshots
+	// active roots before another session starts using a persisted result, then
+	// snapshots the graph after that session has acquired it.
+	activeRoots := c.snapshotSessionResultIDs()
+	assert.Equal(t, 0, len(activeRoots))
+
+	activeCtx := engine.ContextWithClientMetadata(baseCtx, &engine.ClientMetadata{
+		ClientID:  "late-active-client",
+		SessionID: "active-session",
+	})
+	activeRes, err := c.GetOrInitCall(activeCtx, "active-session", noopTypeResolver{}, &CallRequest{
+		ResultCall:    call,
+		IsPersistable: true,
+	}, func(context.Context) (AnyResult, error) {
+		return nil, fmt.Errorf("expected persisted cache hit")
+	})
+	assert.NilError(t, err)
+	assert.Equal(t, res.cacheSharedResult().id, activeRes.cacheSharedResult().id)
+	t.Cleanup(func() {
+		assert.NilError(t, c.ReleaseSession(activeCtx, "active-session"))
+	})
+
+	direct := metadataDirectResultBytes(c.MetadataEstimate())
+	snapshot := c.snapshotPruneState(activeRoots, pruneSnapshotMetadata, direct)
+	activeClosure := pruneActiveClosure(snapshot, activeRoots)
+	candidates := c.collectPruneCandidates(
+		withMetadataPruneContext(baseCtx),
+		-1,
+		snapshot,
+		activeClosure,
+		CachePrunePolicy{All: true},
+		time.Now(),
+	)
+	plan, _, _ := buildPrunePlan(snapshot, candidates, 1)
+	assert.Assert(t, cmp.Len(plan, 1))
+
+	removed, err := c.removePersistedEdge(baseCtx, plan[0].candidate.resultID)
+	assert.NilError(t, err)
+	assert.Assert(t, !removed, "persisted edge removed while an active session owned the result")
+
+	c.egraphMu.RLock()
+	_, persisted := c.persistedEdgesByResult[res.cacheSharedResult().id]
+	c.egraphMu.RUnlock()
+	assert.Assert(t, persisted)
+}
+
 func TestCachePruneMetadataEstimateCancellationDoesNotMutate(t *testing.T) {
 	t.Parallel()
 
