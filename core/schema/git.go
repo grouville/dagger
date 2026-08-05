@@ -1488,6 +1488,13 @@ func (s *gitSchema) gitCommitResult(ctx context.Context, parent dagql.ObjectResu
 		dgstInputs = append(dgstInputs, "localRepo", dirDgst.String())
 	}
 	if remoteRepo, ok := repo.Backend.(*core.RemoteGitRepository); ok {
+		// releaseTag and ancestorReleaseTag depend on the advertised tags, so
+		// commits resolved from different remote snapshots must not share their
+		// cached field results even when their URL and SHA are identical. Tags
+		// carries Head through for lookup purposes, but Head is not tag state.
+		tags := repo.Remote.Tags()
+		tags.Head = nil
+		dgstInputs = append(dgstInputs, "remoteTags", tags.Digest().String())
 		if remoteRepo.SSHAuthSocket.Self() != nil {
 			dgstInputs = append(dgstInputs, "sshAuthSock", string(remoteRepo.SSHAuthSocket.Self().Handle))
 		}

@@ -1353,6 +1353,98 @@ func (GitSuite) TestGitCommitReleaseTags(ctx context.Context, t *testctx.T) {
 	require.Equal(t, "refs/tags/v2.0.0", offlineStable)
 }
 
+func (GitSuite) TestGitCommitReleaseTagRemoteStateIdentity(ctx context.Context, t *testctx.T) {
+	c := connect(ctx, t)
+
+	svc, url := gitService(ctx, t, c, c.Directory().WithNewFile("README.md", "content"))
+	svc, err := svc.Start(ctx)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_, err := svc.Stop(ctx)
+		require.NoError(t, err)
+	})
+
+	ctr := c.Container().
+		From(alpineImage).
+		WithExec([]string{"apk", "add", "git"}).
+		With(gitUserConfig).
+		WithWorkdir("/src").
+		WithExec([]string{"git", "clone", url, "."}).
+		WithExec([]string{"sh", "-c", "git tag v1.0.0 && git push origin v1.0.0"})
+	sha, err := ctr.WithExec([]string{"git", "rev-parse", "HEAD"}).Stdout(ctx)
+	require.NoError(t, err)
+	sha = strings.TrimSpace(sha)
+
+	first := c.Git(url, dagger.GitOpts{
+		HTTPAuthUsername: "git-tag-state-1",
+	}).Commit(sha)
+	firstTag, err := first.ReleaseTag().Name(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "refs/tags/v1.0.0", firstTag)
+
+	ctr = ctr.WithExec([]string{"sh", "-c", "git tag v2.0.0 && git push origin v2.0.0"})
+	_, err = ctr.Sync(ctx)
+	require.NoError(t, err)
+
+	second := c.Git(url, dagger.GitOpts{
+		HTTPAuthUsername: "git-tag-state-2",
+	}).Commit(sha)
+	secondTag, err := second.ReleaseTag().Name(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "refs/tags/v2.0.0", secondTag)
+}
+
+func (GitSuite) TestGitCommitEmptyIdentities(ctx context.Context, t *testctx.T) {
+	c := connect(ctx, t)
+
+	ctr := c.Container().
+		From(alpineImage).
+		WithExec([]string{"apk", "add", "git"}).
+		WithWorkdir("/src").
+		WithExec([]string{"git", "init"}).
+		WithNewFile("file.txt", "content").
+		WithExec([]string{"git", "add", "file.txt"}).
+		WithExec([]string{"sh", "-c", `
+			tree=$(git write-tree)
+			commit=$(printf 'tree %s\nauthor  <> 1667499276 +0000\ncommitter  <> 1667499276 +0000\n\nanonymous commit\n' "$tree" | git hash-object -t commit -w --stdin)
+			git update-ref refs/heads/main "$commit"
+			git symbolic-ref HEAD refs/heads/main
+			git fsck --strict
+		`})
+
+	repo := ctr.Directory(".").AsGit()
+	commit := repo.Head().TargetCommit()
+	sha, err := commit.Sha(ctx)
+	require.NoError(t, err)
+	requireIsCommitSHA(ctx, t, sha)
+
+	authorName, err := commit.AuthorName(ctx)
+	require.NoError(t, err)
+	require.Empty(t, authorName)
+	authorEmail, err := commit.AuthorEmail(ctx)
+	require.NoError(t, err)
+	require.Empty(t, authorEmail)
+	committerName, err := commit.CommitterName(ctx)
+	require.NoError(t, err)
+	require.Empty(t, committerName)
+	committerEmail, err := commit.CommitterEmail(ctx)
+	require.NoError(t, err)
+	require.Empty(t, committerEmail)
+	authoredDate, err := commit.AuthoredDate(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "2022-11-03T18:14:36Z", authoredDate)
+	committedDate, err := commit.CommittedDate(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "2022-11-03T18:14:36Z", committedDate)
+
+	log, err := repo.Head().Log(ctx)
+	require.NoError(t, err)
+	require.Len(t, log, 1)
+	logSHA, err := log[0].Sha(ctx)
+	require.NoError(t, err)
+	require.Equal(t, sha, logSHA)
+}
+
 func (GitSuite) TestGitLog(ctx context.Context, t *testctx.T) {
 	c := connect(ctx, t)
 

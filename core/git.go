@@ -646,7 +646,7 @@ func parseGitCommitMetadata(sha string, raw string) (*GitCommitMetadata, error) 
 	if len(sha) > 7 {
 		meta.ShortSHA = sha[:7]
 	}
-
+	var hasAuthor, hasCommitter bool
 	for _, line := range strings.Split(headers, "\n") {
 		key, value, ok := strings.Cut(line, " ")
 		if !ok {
@@ -663,6 +663,7 @@ func parseGitCommitMetadata(sha string, raw string) (*GitCommitMetadata, error) 
 			meta.AuthorName = sig.Name
 			meta.AuthorEmail = sig.Email
 			meta.AuthoredDate = sig.Date
+			hasAuthor = true
 		case "committer":
 			sig, err := parseGitCommitSignature(value)
 			if err != nil {
@@ -671,13 +672,14 @@ func parseGitCommitMetadata(sha string, raw string) (*GitCommitMetadata, error) 
 			meta.CommitterName = sig.Name
 			meta.CommitterEmail = sig.Email
 			meta.CommittedDate = sig.Date
+			hasCommitter = true
 		}
 	}
 
-	if meta.AuthorName == "" || meta.AuthorEmail == "" || meta.AuthoredDate == "" {
+	if !hasAuthor || meta.AuthoredDate == "" {
 		return nil, fmt.Errorf("missing author metadata")
 	}
-	if meta.CommitterName == "" || meta.CommitterEmail == "" || meta.CommittedDate == "" {
+	if !hasCommitter || meta.CommittedDate == "" {
 		return nil, fmt.Errorf("missing committer metadata")
 	}
 	return meta, nil
