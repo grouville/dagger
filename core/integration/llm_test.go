@@ -586,6 +586,51 @@ func (LLMSuite) TestPortableID(ctx context.Context, t *testctx.T) {
 	require.Equal(t, origModel, reloadedModel)
 }
 
+// TestPortableIDPreservesExplicitProvider verifies that portableID preserves
+// explicit provider overrides. Here a local endpoint has llama3 configured as
+// its default, while the user explicitly selects another model it serves;
+// model-name inference alone cannot route that model back to the local endpoint.
+func (LLMSuite) TestPortableIDPreservesExplicitProvider(ctx context.Context, t *testctx.T) {
+	c := connect(ctx, t,
+		dagger.WithEnvironmentVariable("LOCAL_BASE_URL", "http://localhost:11434"),
+		dagger.WithEnvironmentVariable("LOCAL_MODEL", "llama3"),
+		dagger.WithEnvironmentVariable("LOCAL_API_COMPAT", "openai"),
+	)
+
+	for _, tc := range []struct {
+		name string
+		llm  *dagger.LLM
+	}{
+		{
+			name: "set on llm",
+			llm: c.LLM(dagger.LLMOpts{
+				Model:    "qwen2.5-coder",
+				Provider: "local",
+			}),
+		},
+		{
+			name: "set with model",
+			llm: c.LLM().WithModel("qwen2.5-coder", dagger.LLMWithModelOpts{
+				Provider: "local",
+			}),
+		},
+	} {
+		t.Run(tc.name, func(ctx context.Context, t *testctx.T) {
+			provider, err := tc.llm.Provider(ctx)
+			require.NoError(t, err)
+			require.Equal(t, "local", provider)
+
+			portableID, err := tc.llm.PortableID(ctx)
+			require.NoError(t, err)
+
+			reloaded := dagger.Ref[*dagger.LLM](c, portableID)
+			provider, err = reloaded.Provider(ctx)
+			require.NoError(t, err)
+			require.Equal(t, "local", provider)
+		})
+	}
+}
+
 // TestPortableIDWithResponse verifies that a conversation containing
 // assistant content blocks survives the portableID round trip. Empty
 // "arguments" on a
