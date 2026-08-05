@@ -909,7 +909,7 @@ func (c *Cache) removePersistedEdge(ctx context.Context, resultID sharedResultID
 	)
 	c.egraphMu.Lock()
 	edge, found := c.persistedEdgesByResult[resultID]
-	if !found || edge.unpruneable {
+	if !found || edge.unpruneable || c.resultTrackedByAnySessionLocked(resultID) {
 		c.egraphMu.Unlock()
 		return false, nil
 	}
@@ -926,6 +926,21 @@ func (c *Cache) removePersistedEdge(ctx context.Context, resultID sharedResultID
 	c.egraphMu.Unlock()
 
 	return true, errors.Join(rerr, runOnReleaseFuncs(ctx, onReleases))
+}
+
+// resultTrackedByAnySessionLocked reports whether a live session currently
+// tracks resultID. Caller must hold egraphMu so the answer stays valid while
+// the caller acts on it: sessions acquire persisted results while holding
+// egraphMu, and this helper takes sessionMu inside egraphMu in that same order.
+func (c *Cache) resultTrackedByAnySessionLocked(resultID sharedResultID) bool {
+	c.sessionMu.Lock()
+	defer c.sessionMu.Unlock()
+	for _, resultIDs := range c.sessionResultIDsBySession {
+		if _, found := resultIDs[resultID]; found {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Cache) incrementIncomingOwnershipLocked(ctx context.Context, res *sharedResult) {
