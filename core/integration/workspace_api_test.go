@@ -1524,3 +1524,49 @@ func (WorkspaceAPISuite) TestWorkspaceBoundLLMAcrossSessions(ctx context.Context
 	require.NoError(t, err, "second session must not fail on a stale workspace client binding")
 	require.Equal(t, string(out1), string(out2))
 }
+
+// TestWorkspaceReloadedFromModuleContext verifies that a module can use
+// reloaded to observe host edits made during a long-lived client session.
+func (WorkspaceAPISuite) TestWorkspaceReloadedFromModuleContext(ctx context.Context, t *testctx.T) {
+	workdir := t.TempDir()
+	initGitRepo(ctx, t, workdir)
+	require.NoError(t, os.WriteFile(filepath.Join(workdir, "x.txt"), []byte("OLD"), 0o644))
+
+	modDir := filepath.Join(workdir, "reloadmod")
+	require.NoError(t, os.MkdirAll(modDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(modDir, "dagger.json"),
+		[]byte(`{"name":"reloadmod","engineVersion":"latest","sdk":{"source":"dang"}}`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(modDir, "main.dang"), []byte(`type Reloadmod {
+  pub read(ws: Workspace!): String! {
+    ws.file(path: "x.txt").contents
+  }
+
+  pub readFresh(ws: Workspace!): String! {
+    ws.reloaded.file(path: "x.txt").contents
+  }
+}
+`), 0o644))
+
+	c := connect(ctx, t, dagger.WithWorkdir(workdir))
+	require.NoError(t, c.ModuleSource(modDir).AsModule().Serve(ctx))
+
+	// The module's first read primes the owning (main) client's host-read cache.
+	before, err := testutil.QueryWithClient[struct {
+		Reloadmod struct {
+			Read string
+		}
+	}](c, t, `{reloadmod{read}}`, nil)
+	require.NoError(t, err)
+	require.Equal(t, "OLD", before.Reloadmod.Read)
+
+	// Change the host behind the cache, then ask the module to explicitly reload
+	// the owning client's workspace before reading it.
+	require.NoError(t, os.WriteFile(filepath.Join(workdir, "x.txt"), []byte("NEW"), 0o644))
+	res, err := testutil.QueryWithClient[struct {
+		Reloadmod struct {
+			ReadFresh string
+		}
+	}](c, t, `{reloadmod{readFresh}}`, nil)
+	require.NoError(t, err)
+	require.Equal(t, "NEW", res.Reloadmod.ReadFresh)
+}

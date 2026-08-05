@@ -1554,9 +1554,13 @@ func (s *workspaceSchema) reloaded(
 	if err != nil {
 		return dagql.ObjectResult[*core.Workspace]{}, err
 	}
+	workspaceCtx, err := s.withWorkspaceClientContext(ctx, parent.Self())
+	if err != nil {
+		return dagql.ObjectResult[*core.Workspace]{}, err
+	}
 	// Best-effort, like export's invalidation: failing to bump only falls back
 	// to the prior (stale) read behavior, which is not worth failing over.
-	if err := core.BumpWorkspaceReadEpoch(ctx); err != nil {
+	if err := core.BumpWorkspaceReadEpoch(workspaceCtx); err != nil {
 		slog.Warn("could not bump workspace read epoch", "error", err)
 	}
 	return dagql.NewObjectResultForCurrentCall(ctx, srv, parent.Self().Clone())
