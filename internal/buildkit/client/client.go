@@ -191,7 +191,10 @@ func (c *Client) Dialer() session.Dialer {
 
 func (c *Client) Wait(ctx context.Context) error {
 	for {
-		_, err := c.ControlClient().Info(ctx, &controlapi.InfoRequest{})
+		// Let transport readiness wake this probe instead of turning a transient
+		// connection failure into an additional one-second polling delay. Keep
+		// the retry below for Unavailable responses from a connected server.
+		_, err := c.ControlClient().Info(ctx, &controlapi.InfoRequest{}, grpc.WaitForReady(true))
 		if err == nil {
 			return nil
 		}
