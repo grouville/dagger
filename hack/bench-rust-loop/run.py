@@ -102,11 +102,16 @@ def main():
                     writer.writerows(rows)
         # Failure then repair validates fresh source is actually consumed.
         write("dagger", "library/src/lib.rs", 'compile_error!("invalidation-probe");\n')
-        run(commands()["dagger"], "failure-probe", root / "dagger", expected=1)
+        run(commands()["dagger"], "failure-probe", root / "dagger", expected=101)
         write("dagger", "library/src/lib.rs", 'pub fn value() -> u64 { 123456789 }\n')
         dump("before.wcprof")
         run(commands(profile=True)["dagger"], "profile-library-repair", root / "dagger")
         dump("library-repair.wcprof")
+        run(commands(profile=True)["dagger"], "profile-exact", root / "dagger")
+        dump("exact.wcprof")
+        write("dagger", "app/src/main.rs", 'fn main() { println!("profile-edit: {}", library::value()); }\n')
+        run(commands(profile=True)["dagger"], "profile-application", root / "dagger")
+        dump("application.wcprof")
         for scenario in ("exact", "application", "workspace-library"):
             print(scenario, {side: statistics.median(r[3] for r in rows if r[0] == scenario and r[2] == side)
                              for side in ("native", "dagger")}, flush=True)
