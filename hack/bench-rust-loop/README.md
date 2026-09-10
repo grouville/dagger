@@ -70,6 +70,13 @@ Check event drops and unresolved waits before interpreting critical-path
 rankings. Validate optimization hypotheses with paired unprofiled runs. Preserve
 engine image/binary identity alongside results when changing deployments.
 
+For a CLI-only change, `compare-cli.py --before /path/to/before --after
+/path/to/after --workdir /path/to/workspace --samples 30 -- check rust:check`
+alternates two binaries against the same workspace and records whole-process
+timings. It deliberately shares cache history and does not test invalidation.
+See [the Unicode-table startup report](cli-startup-width-results.md) for a
+matched example, profiler coverage boundaries and correctness checks.
+
 Remaining coverage: additional real repositories and dependency versions,
 Clippy/tests/fmt, artifact generation/export, cold installation, concurrent CLI
 calls, remote engines and macOS. This fixture cannot establish those claims.
