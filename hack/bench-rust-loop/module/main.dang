@@ -4,17 +4,29 @@ type Rust {
   pub image: String!
   pub cacheKey: String!
 
-  pub check(ws: Workspace!): Void @check {
+  let action(ws: Workspace!): Container! {
     container
       .from(image)
       .withExec(["sh", "-c", "apt-get update -qq && apt-get install -y --no-install-recommends rsync"])
       .withWorkdir("/src")
       .withMountedDirectory("/input", ws.directory("/", exclude: [".git", "target", "dagger.toml", "dagger.lock"]))
       .withMountedCache("/src", cacheVolume(cacheKey + "-source"), sharing: CacheSharingMode.LOCKED)
+      .withMountedCache("/usr/local/cargo/registry", cacheVolume(cacheKey + "-registry"))
+      .withMountedCache("/usr/local/cargo/git", cacheVolume(cacheKey + "-git"))
       .withEnvVariable("CARGO_TARGET_DIR", "/target")
       .withMountedCache("/target", cacheVolume(cacheKey), sharing: CacheSharingMode.LOCKED)
       .withExec(["sh", "-c", "rsync -rclp --delete /input/ /src/ && cargo check --workspace --locked"])
-      .sync
+  }
+
+  pub check(ws: Workspace!): Void @check {
+    action(ws).sync
     null
+  }
+
+  """
+  Read the cached Cargo diagnostic output after a measured check, outside its timer.
+  """
+  pub checkLog(ws: Workspace!): String! {
+    action(ws).stderr
   }
 }
