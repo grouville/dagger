@@ -7,11 +7,13 @@ type Rust {
   pub check(ws: Workspace!): Void @check {
     container
       .from(image)
+      .withExec(["sh", "-c", "apt-get update -qq && apt-get install -y --no-install-recommends rsync"])
       .withWorkdir("/src")
-      .withMountedDirectory("/src", ws.directory("/", exclude: [".git", "target", "dagger.toml", "dagger.lock"]))
+      .withMountedDirectory("/input", ws.directory("/", exclude: [".git", "target", "dagger.toml", "dagger.lock"]))
+      .withMountedCache("/src", cacheVolume(cacheKey + "-source"), sharing: CacheSharingMode.LOCKED)
       .withEnvVariable("CARGO_TARGET_DIR", "/target")
       .withMountedCache("/target", cacheVolume(cacheKey), sharing: CacheSharingMode.LOCKED)
-      .withExec(["cargo", "check", "--workspace", "--locked"])
+      .withExec(["sh", "-c", "rsync -rclp --delete /input/ /src/ && cargo check --workspace --locked"])
       .sync
     null
   }
