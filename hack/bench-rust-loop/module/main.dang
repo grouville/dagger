@@ -1,0 +1,18 @@
+pub description = "Minimal ordinary Cargo action for engine latency measurements"
+
+type Rust {
+  pub image: String!
+  pub cacheKey: String!
+
+  pub check(ws: Workspace!): Void @check {
+    container
+      .from(image)
+      .withWorkdir("/src")
+      .withMountedDirectory("/src", ws.directory("/", exclude: [".git", "target", "dagger.toml", "dagger.lock"]))
+      .withEnvVariable("CARGO_TARGET_DIR", "/target")
+      .withMountedCache("/target", cacheVolume(cacheKey), sharing: CacheSharingMode.LOCKED)
+      .withExec(["cargo", "check", "--workspace", "--locked"])
+      .sync
+    null
+  }
+}
