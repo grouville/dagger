@@ -49,7 +49,34 @@ the second result; timings must not be interpreted as a verified performance
 win. The source file read directly through the engine contained `compile_error!`.
 A subsequent wcprof capture showed `Container.withExec` as a cache hit and no
 process execution. A different, unique compile error failed twice with 101.
-The cause of this history-dependent discrepancy is not established yet.
+Cargo alone reproduced the underlying freshness hazard: after a successful
+check, replace the library with a compile error but set its mtime to an older
+date. Cargo returns 0; updating that mtime makes it return 101. Immutable source
+reuse can preserve older timestamps while a mutable target contains newer
+fingerprints. The diagnostic exec confirmed the invalid source's old mtime.
+
+The source-sync candidate uses standard rsync checksum comparison into a locked
+source cache before Cargo. It deliberately does not preserve source timestamps:
+changed files receive fresh timestamps, unchanged files remain untouched, and
+deleted paths are removed. The source and target caches use existing Dagger
+LOCKED mounts; no engine API or lifecycle changes are required. The harness also
+revisits the original failing source after a successful repair.
+
+Rsync is installed in a cached toolchain layer for this experiment. This adds
+provisioning work and is not a demonstrated one-second cold-install solution.
+The first source-sync run passed failure/repair. Seven-sample medians (ms):
+
+| Scenario | Cargo via docker exec | Dagger CLI |
+| --- | ---: | ---: |
+| Exact | 111.97 | 1101.42 |
+| Application edit | 125.20 | 1258.44 |
+| Workspace-library edit | 137.74 | 1239.25 |
+
+Separate library-repair wcprof capture: 367.1 ms recorded span, 204.8 ms command
+time, 354 ops, no open ops or dropped events. Exact capture: 140.4 ms. These are
+diagnostic samples, not the medians above; engine spans do not cover the full
+CLI lifecycle. CLI startup in this environment repeatedly attempted an expired
+LLM OAuth refresh. Do not extrapolate these small-fixture results to ripgrep.
 
 This branch is a diagnostic baseline, not an optimized or fully validated module.
 The fixed error string is intentional: repeated fixture runs should not turn a
