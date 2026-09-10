@@ -38,6 +38,28 @@ compile error followed by repair checks that Dagger consumes changed input.
 All samples, including outliers, are retained. No-change and edited workloads
 are reported separately. A profiled repair is outside the headline timing set.
 
+## Reset / first-use loop
+
+Add `--fresh-engine localhost/dagger-engine.dev` to create a uniquely named
+engine container, empty engine-state volume, and fresh XDG CLI state per trial.
+The engine image must already exist locally. The script deletes only the engine
+container/volume it creates, even if the check fails; source copies, logs and
+results remain in the printed directory. Existing engine and Cargo caches are
+not cleared. Docker's shared image store and OS page cache are not reset.
+
+Repeat the command to repeat the reset. Each trial measures provisioning through
+the first Dagger check before priming Dagger, records native's first check and
+an existing-cache check, then retains caches for application/library edits.
+`first-use.json` stores the phase timings. Add `--profile-first` for a separate
+diagnostic trial that captures `first-check.wcprof`; do not mix that trial into
+unprofiled headline timings. Engine readiness is included in the elapsed first
+check, not overlapped with native compilation.
+
+This is **engine-cache cold**, not a complete installation benchmark: Docker,
+the CLI, the engine image, local module source, and native Rust image already
+exist. Their download/install costs remain explicitly unmeasured. A complete
+new-user journey must add those costs and a public module install step.
+
 Analyze `library-repair.wcprof` with the separately maintained wcprof analyzer.
 The in-tree README's `go run ./cmd/wcprof-analyze` command is stale: the analyzer
 was removed in e3b4e9c820. The last public analyzer can be extracted from that
