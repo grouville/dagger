@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 """Paired ordinary-CLI check timings; separate wcprof diagnostic samples.
 
-Uses an isolated two-crate fixture. Not a real-project or cold-install claim.
+Uses an isolated two-crate fixture or pinned ripgrep. Not a cold-install claim.
 Native Cargo uses docker exec; that lifecycle is explicitly included.
 """
 import argparse
 import csv
+import difflib
 import hashlib
 import json
 import os
+import re
 import shutil
 from pathlib import Path
 import statistics
 import subprocess
 import tempfile
 import time
+import tomllib
 import urllib.request
 import urllib.error
 
@@ -28,9 +31,16 @@ def main():
     parser.add_argument("--ripgrep", type=Path, help="Clean checkout of the pinned ripgrep revision")
     parser.add_argument("--fresh-engine", help="Locally installed engine image; use a disposable empty state volume")
     parser.add_argument("--profile-first", action="store_true", help="Diagnostic first check with native wcprof enabled; not an unprofiled timing")
+    parser.add_argument("--dependency-upgrade", action="store_true", help="With --ripgrep, prime bstr 1.12.0 then upgrade the application to 1.13.0 once")
+    parser.add_argument("--profile-dependency-upgrade", action="store_true", help="Capture the first dependency upgrade with wcprof; label its timing as profiled")
+    parser.add_argument("--dependency-first", choices=("native", "dagger"), default="native", help="First side for the single dependency upgrade; alternate across isolated runs")
     args = parser.parse_args()
     if "@sha256:" not in args.image or args.samples < 1:
         parser.error("use a digest-pinned image and at least one sample")
+    if args.dependency_upgrade and not args.ripgrep:
+        parser.error("--dependency-upgrade requires --ripgrep")
+    if args.profile_dependency_upgrade and not args.dependency_upgrade:
+        parser.error("--profile-dependency-upgrade requires --dependency-upgrade")
     args.dagger = args.dagger.resolve()
     root = Path(tempfile.mkdtemp(prefix="dagger-rust-loop-"))
     print(root, flush=True)
@@ -60,9 +70,17 @@ def main():
 
     def run(command, label, cwd=None, expected=0):
         with (root / (label + ".log")).open("wb") as log:
+            wall_start = time.time_ns()
             start = time.perf_counter_ns()
             result = subprocess.run(command, cwd=cwd, env=env, stdout=log, stderr=subprocess.STDOUT)
             elapsed = (time.perf_counter_ns() - start) / 1_000_000
+            wall_end = time.time_ns()
+        # Process boundaries expose startup/shutdown outside the root OTel span.
+        # Write this diagnostic record after the measured process has exited.
+        with (root / "processes.jsonl").open("a") as output:
+            output.write(json.dumps({"label": label, "start_unix_ns": wall_start,
+                                     "end_unix_ns": wall_end, "milliseconds": elapsed,
+                                     "exit_code": result.returncode}) + "\n")
         if result.returncode != expected:
             raise RuntimeError(f"{label}: exit {result.returncode}; see {root / (label + '.log')}")
         return elapsed
@@ -83,6 +101,24 @@ def main():
             write(side, "app/src/main.rs", 'fn main() { println!("{}", library::value()); }\n')
             write(side, "library/src/lib.rs", 'pub fn value() -> u64 { 0 }\n')
         run(["git", "init", "-q"], "init-" + side, root / side)
+    if args.dependency_upgrade:
+        upgrade = {name: (root / "native" / name).read_text() for name in ("Cargo.toml", "Cargo.lock")}
+        assert upgrade["Cargo.toml"].count('bstr = "1.7.0"') == 1
+        upgrade["Cargo.toml"] = upgrade["Cargo.toml"].replace('bstr = "1.7.0"', 'bstr = "=1.13.0"')
+        for side in ("native", "dagger"):
+            run(["git", "apply", str(module.parent / "fixtures" / "ripgrep-bstr-1.12.0.patch")],
+                "dependency-baseline-" + side, root / side)
+        baseline = {name: (root / "native" / name).read_text() for name in upgrade}
+        # The committed baseline was resolved by Cargo. Guard against accidentally
+        # turning this into an upgrade of unrelated packages in a future edit.
+        before_packages = tomllib.loads(baseline["Cargo.lock"])["package"]
+        after_packages = tomllib.loads(upgrade["Cargo.lock"])["package"]
+        assert [p for p in before_packages if p["name"] != "bstr"] == [p for p in after_packages if p["name"] != "bstr"]
+        assert [p["version"] for p in before_packages if p["name"] == "bstr"] == ["1.12.0"]
+        assert [p["version"] for p in after_packages if p["name"] == "bstr"] == ["1.13.0"]
+        diff = "".join("".join(difflib.unified_diff(baseline[name].splitlines(True), upgrade[name].splitlines(True),
+                                                   fromfile="before/" + name, tofile="after/" + name)) for name in upgrade)
+        (root / "dependency-upgrade.diff").write_text(diff)
     app_path = "crates/core/flags/doc/version.rs" if args.ripgrep else "app/src/main.rs"
     library_path = "crates/printer/src/standard.rs" if args.ripgrep else "library/src/lib.rs"
     app_base = (root / "native" / app_path).read_text()
@@ -111,6 +147,9 @@ def main():
     metadata["reset_mode"] = "empty-engine-and-cli-state" if args.fresh_engine else "existing-engine"
     metadata["preinstalled"] = ["Docker", "Dagger CLI", "engine image", "local module source", "native Rust image"]
     metadata["first_check_profiled"] = args.profile_first
+    metadata["dependency_upgrade"] = {"package": "bstr", "from": "1.12.0", "to": "1.13.0",
+                                      "transitions_per_run": 1, "first": args.dependency_first,
+                                      "profiled": args.profile_dependency_upgrade} if args.dependency_upgrade else None
     if args.ripgrep:
         metadata.update(fixture="ripgrep", fixture_revision=revision)
     (root / "metadata.json").write_text(json.dumps(metadata, indent=2))
@@ -131,6 +170,12 @@ def main():
                 # This pre-capture drain is optional; actual captures must work.
                 return
             raise
+
+    def save_timings():
+        with (root / "timings.csv").open("w") as output:
+            writer = csv.writer(output)
+            writer.writerow(["scenario", "sample", "side", "milliseconds", "profiled"])
+            writer.writerows(rows)
 
     try:
         run(["docker", "run", "-d", "--name", container, "-v", f"{root / 'native'}:/src",
@@ -176,17 +221,46 @@ def main():
                 order = ("native", "dagger") if sample % 2 == 0 else ("dagger", "native")
                 for side in order:
                     elapsed = run(commands()[side], f"{scenario}-{sample}-{side}", root / side)
-                    rows.append([scenario, sample, side, elapsed])
+                    rows.append([scenario, sample, side, elapsed, False])
                 if args.ripgrep:
                     # Retrieval is outside the timed commands. The identical
                     # action should already be evaluated; preserve Cargo's
                     # Checking/Compiling lines for invalidation auditing.
                     run([str(args.dagger), "api", "call", "rust", "check-log"],
                         f"{scenario}-{sample}-cargo-diagnostic", root / "dagger")
-                with (root / "timings.csv").open("w") as output:
-                    writer = csv.writer(output)
-                    writer.writerow(["scenario", "sample", "side", "milliseconds"])
-                    writer.writerows(rows)
+                save_timings()
+        if args.dependency_upgrade:
+            # Exactly one new dependency version per isolated run. Repeated
+            # A->B->A transitions would mix artifact reuse with recompilation.
+            for side in ("native", "dagger"):
+                for name, content in upgrade.items():
+                    assert (root / side / name).read_text() == baseline[name]
+                    write(side, name, content)
+            if args.profile_dependency_upgrade:
+                dump("before.wcprof")
+            dependency_order = (args.dependency_first, "dagger" if args.dependency_first == "native" else "native")
+            for side in dependency_order:
+                profiled = args.profile_dependency_upgrade and side == "dagger"
+                elapsed = run(commands(profile=profiled)[side], "dependency-upgrade-" + side, root / side)
+                rows.append(["dependency-upgrade", 0, side, elapsed, profiled])
+                if profiled:
+                    dump("dependency-upgrade.wcprof")
+            run([str(args.dagger), "api", "call", "rust", "check-log"], "dependency-upgrade-cargo-diagnostic", root / "dagger")
+            rebuilt = {}
+            for side, log_name in (("native", "dependency-upgrade-native.log"), ("dagger", "dependency-upgrade-cargo-diagnostic.log")):
+                log_text = (root / log_name).read_text()
+                rebuilt[side] = sorted(set(re.findall(r"^\s*(?:Checking|Compiling) (\S+) v([^\s]+)", log_text, re.MULTILINE)))
+                assert ("bstr", "1.13.0") in rebuilt[side], (side, rebuilt[side])
+                assert all(name != "memchr" for name, _ in rebuilt[side]), (side, "unrelated memchr rebuilt")
+                for name, content in upgrade.items():
+                    assert (root / side / name).read_text() == content, (side, name, "Cargo changed locked inputs")
+            (root / "dependency-rebuilds.json").write_text(json.dumps(rebuilt, indent=2))
+            assert rebuilt["native"] == rebuilt["dagger"], rebuilt
+            save_timings()
+            for side in ("dagger", "native"):
+                elapsed = run(commands()[side], "dependency-followup-" + side, root / side)
+                rows.append(["dependency-followup", 0, side, elapsed, False])
+            save_timings()
         # Failure then repair validates fresh source is actually consumed.
         invalid_source = library_base + '\ncompile_error!("invalidation-probe");\n'
         write("dagger", library_path, invalid_source)
@@ -208,7 +282,7 @@ def main():
         write("dagger", app_path, app_edit("profile"))
         run(commands(profile=True)["dagger"], "profile-application", root / "dagger")
         dump("application.wcprof")
-        for scenario in ("exact", "application", "workspace-library"):
+        for scenario in dict.fromkeys(r[0] for r in rows):
             print(scenario, {side: statistics.median(r[3] for r in rows if r[0] == scenario and r[2] == side)
                              for side in ("native", "dagger")}, flush=True)
     finally:
