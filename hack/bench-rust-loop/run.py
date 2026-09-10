@@ -107,6 +107,14 @@ def main():
         dump("before.wcprof")
         run(commands(profile=True)["dagger"], "profile-library-repair", root / "dagger")
         dump("library-repair.wcprof")
+        # Revisit an older immutable source snapshot after a newer successful
+        # compile populated the mutable target. Timestamp-only freshness can
+        # incorrectly accept this previously rejected source.
+        write("dagger", "library/src/lib.rs", 'compile_error!("invalidation-probe");\n')
+        run(commands()["dagger"], "failure-revisit", root / "dagger", expected=101)
+        write("dagger", "library/src/lib.rs", 'pub fn value() -> u64 { 123456789 }\n')
+        run(commands()["dagger"], "repair-revisit", root / "dagger")
+        dump("revisit.wcprof")
         run(commands(profile=True)["dagger"], "profile-exact", root / "dagger")
         dump("exact.wcprof")
         write("dagger", "app/src/main.rs", 'fn main() { println!("profile-edit: {}", library::value()); }\n')
