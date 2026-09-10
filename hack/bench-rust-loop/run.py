@@ -16,6 +16,7 @@ import subprocess
 import tempfile
 import time
 import urllib.request
+import urllib.error
 
 
 def main():
@@ -25,6 +26,8 @@ def main():
     parser.add_argument("--samples", type=int, default=7)
     parser.add_argument("--debug-url", default="http://localhost:6060")
     parser.add_argument("--ripgrep", type=Path, help="Clean checkout of the pinned ripgrep revision")
+    parser.add_argument("--fresh-engine", help="Locally installed engine image; use a disposable empty state volume")
+    parser.add_argument("--profile-first", action="store_true", help="Diagnostic first check with native wcprof enabled; not an unprofiled timing")
     args = parser.parse_args()
     if "@sha256:" not in args.image or args.samples < 1:
         parser.error("use a digest-pinned image and at least one sample")
@@ -36,6 +39,15 @@ def main():
         if key.startswith("_EXPERIMENTAL_DAGGER_") or key in {"DAGGER_SESSION_PORT", "DAGGER_SESSION_TOKEN"}:
             env.pop(key)
     container = "rust-loop-" + root.name
+    fresh_engine = container + "-engine"
+    volume_created = False
+    engine_created = False
+    first_use = {}
+    if args.fresh_engine:
+        for category in ("CONFIG", "CACHE", "DATA", "STATE"):
+            env[f"XDG_{category}_HOME"] = str(root / "cli-state" / category.lower())
+        env.pop("DAGGER_CONFIG", None)
+        env["DAGGER_ENGINE"] = "container://" + fresh_engine
     module = Path(__file__).resolve().parent / "module"
     rows = []
     revision = "3fce3b5bb0236da2df6d99672afb8a719642eca7"
@@ -96,6 +108,9 @@ def main():
     metadata["source_diff_sha256"] = hashlib.sha256(subprocess.check_output(["git", "diff", "HEAD"], cwd=module)).hexdigest()
     metadata["module_sha256"] = hashlib.sha256((module / "main.dang").read_bytes()).hexdigest()
     metadata["do_not_track"] = env.get("DO_NOT_TRACK")
+    metadata["reset_mode"] = "empty-engine-and-cli-state" if args.fresh_engine else "existing-engine"
+    metadata["preinstalled"] = ["Docker", "Dagger CLI", "engine image", "local module source", "native Rust image"]
+    metadata["first_check_profiled"] = args.profile_first
     if args.ripgrep:
         metadata.update(fixture="ripgrep", fixture_revision=revision)
     (root / "metadata.json").write_text(json.dumps(metadata, indent=2))
@@ -107,14 +122,50 @@ def main():
         }
 
     def dump(name):
-        with urllib.request.urlopen(args.debug_url + "/debug/wcprof/dump", timeout=30) as response:
-            (root / name).write_bytes(response.read())
+        try:
+            with urllib.request.urlopen(args.debug_url + "/debug/wcprof/dump", timeout=30) as response:
+                (root / name).write_bytes(response.read())
+        except urllib.error.HTTPError as error:
+            if name == "before.wcprof" and error.code == 503:
+                # A fresh engine has no recorder until profiling first starts.
+                # This pre-capture drain is optional; actual captures must work.
+                return
+            raise
 
     try:
         run(["docker", "run", "-d", "--name", container, "-v", f"{root / 'native'}:/src",
              "-w", "/src", "-e", "CARGO_TARGET_DIR=/target", args.image, "sleep", "infinity"], "native-start")
-        for side, command in commands().items():
-            run(command, "warmup-" + side, root / side)
+        if args.fresh_engine:
+            # Resolve locally before starting: pulling/installing the engine is
+            # explicitly not covered by this partial first-use measurement.
+            metadata["engine_image_id"] = subprocess.check_output(
+                ["docker", "image", "inspect", args.fresh_engine, "--format", "{{.Id}}"], text=True).strip()
+            (root / "metadata.json").write_text(json.dumps(metadata, indent=2))
+            provision_start = time.perf_counter_ns()
+            run(["docker", "volume", "create", "--label", f"dagger.rust-bench={root.name}", fresh_engine], "volume-create")
+            volume_created = True
+            run(["docker", "run", "-d", "--privileged", "--name", fresh_engine,
+                 "--label", f"dagger.rust-bench={root.name}",
+                 "-v", f"{fresh_engine}:/var/lib/dagger",
+                 "-p", "127.0.0.1::6060", metadata["engine_image_id"],
+                 "--debugaddr=0.0.0.0:6060"], "engine-start")
+            engine_created = True
+            first_use["engine_provision_ms"] = (time.perf_counter_ns() - provision_start) / 1e6
+            binding = subprocess.check_output(["docker", "port", fresh_engine, "6060/tcp"], text=True).strip()
+            args.debug_url = "http://" + binding
+        initial_order = ("dagger", "native") if args.fresh_engine else ("native", "dagger")
+        for side in initial_order:
+            command = commands(profile=args.profile_first and side == "dagger")[side]
+            first_use[side + "_first_check_ms"] = run(command, "warmup-" + side, root / side)
+            if args.fresh_engine and side == "dagger":
+                first_use["dagger_provision_plus_first_check_ms"] = (time.perf_counter_ns() - provision_start) / 1e6
+            (root / "first-use.json").write_text(json.dumps(first_use, indent=2))
+            if args.profile_first and side == "dagger":
+                dump("first-check.wcprof")
+        if args.fresh_engine:
+            first_use["native_existing_cache_check_ms"] = run(commands()["native"], "native-existing-cache", root / "native")
+            (root / "first-use.json").write_text(json.dumps(first_use, indent=2))
+            print("first-use", first_use, flush=True)
         for scenario in ("exact", "application", "workspace-library"):
             for sample in range(args.samples):
                 for side in ("native", "dagger"):
@@ -162,6 +213,13 @@ def main():
                              for side in ("native", "dagger")}, flush=True)
     finally:
         subprocess.run(["docker", "rm", "-f", container], stdout=subprocess.DEVNULL, check=False)
+        if engine_created:
+            with (root / "engine.log").open("wb") as log:
+                subprocess.run(["docker", "logs", fresh_engine], stdout=log, stderr=subprocess.STDOUT, check=False)
+            subprocess.run(["docker", "rm", "-f", fresh_engine], stdout=subprocess.DEVNULL, check=False)
+        if volume_created:
+            subprocess.run(["docker", "volume", "rm", fresh_engine], stdout=subprocess.DEVNULL, check=True)
+            print("Removed disposable engine/cache; benchmark files retained at", root, flush=True)
 
 
 if __name__ == "__main__":
