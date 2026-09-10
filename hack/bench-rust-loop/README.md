@@ -118,6 +118,16 @@ existing capture. The wcprof structural gate still needs to pass before using
 its ranking. Analytics opt-outs and export configuration must be recorded when
 comparing runs; timings with `DO_NOT_TRACK=1` are not default-analytics timings.
 
+For shell-level attribution, add `--trace-phases`. The action prints
+`RUST_BENCH_PHASE_NS sync=... cargo=...` to stderr, using three GNU date probes
+around the existing rsync and Cargo commands. Both commands remain in one
+execution with the same locked caches, and a failed command preserves its
+failure status. This diagnostic changes the action and adds probe overhead;
+its Dagger rows are marked `profiled=True` and metadata records the shell
+instrumentation separately from the native wcprof flag. Use a separate run for
+ordinary timings. Phase lines returned on exact hits describe the producer's
+earlier execution, not a repeated sync or compile.
+
 ## Current-main validation (2026-09-10)
 
 On engine/CLI built from 59a9b904d1 with `hack/dev`, the first run reached the
