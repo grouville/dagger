@@ -34,6 +34,7 @@ def main():
     parser.add_argument("--dependency-upgrade", action="store_true", help="With --ripgrep, prime bstr 1.12.0 then upgrade the application to 1.13.0 once")
     parser.add_argument("--profile-dependency-upgrade", action="store_true", help="Capture the first dependency upgrade with wcprof; label its timing as profiled")
     parser.add_argument("--dependency-first", choices=("native", "dagger"), default="native", help="First side for the single dependency upgrade; alternate across isolated runs")
+    parser.add_argument("--trace-phases", action="store_true", help="Diagnostic shell timing of source reconciliation and Cargo; changes the Dagger action")
     args = parser.parse_args()
     if "@sha256:" not in args.image or args.samples < 1:
         parser.error("use a digest-pinned image and at least one sample")
@@ -136,6 +137,9 @@ def main():
             return library_base.replace("[Omitted long context line]", f"[Omitted long context line bench-{sample}]")
         return f'pub fn value() -> u64 {{ {sample} }}\n'
     write("dagger", "dagger.toml", f'[modules.rust]\nsource = {json.dumps(str(module))}\n[modules.rust.settings]\nimage = {json.dumps(args.image)}\ncacheKey = {json.dumps(container)}\n')
+    if args.trace_phases:
+        with (root / "dagger" / "dagger.toml").open("a") as config:
+            config.write("tracePhases = true\n")
     metadata = {"image": args.image, "dagger": str(args.dagger), "samples": args.samples,
                 "native_lifecycle": "docker exec", "fixture": "synthetic two-crate workspace",
                 "engine": env.get("DAGGER_ENGINE"), "cold_claim": False}
@@ -147,6 +151,7 @@ def main():
     metadata["reset_mode"] = "empty-engine-and-cli-state" if args.fresh_engine else "existing-engine"
     metadata["preinstalled"] = ["Docker", "Dagger CLI", "engine image", "local module source", "native Rust image"]
     metadata["first_check_profiled"] = args.profile_first
+    metadata["shell_phase_instrumentation"] = args.trace_phases
     metadata["dependency_upgrade"] = {"package": "bstr", "from": "1.12.0", "to": "1.13.0",
                                       "transitions_per_run": 1, "first": args.dependency_first,
                                       "profiled": args.profile_dependency_upgrade} if args.dependency_upgrade else None
@@ -221,7 +226,7 @@ def main():
                 order = ("native", "dagger") if sample % 2 == 0 else ("dagger", "native")
                 for side in order:
                     elapsed = run(commands()[side], f"{scenario}-{sample}-{side}", root / side)
-                    rows.append([scenario, sample, side, elapsed, False])
+                    rows.append([scenario, sample, side, elapsed, args.trace_phases and side == "dagger"])
                 if args.ripgrep:
                     # Retrieval is outside the timed commands. The identical
                     # action should already be evaluated; preserve Cargo's
@@ -242,7 +247,7 @@ def main():
             for side in dependency_order:
                 profiled = args.profile_dependency_upgrade and side == "dagger"
                 elapsed = run(commands(profile=profiled)[side], "dependency-upgrade-" + side, root / side)
-                rows.append(["dependency-upgrade", 0, side, elapsed, profiled])
+                rows.append(["dependency-upgrade", 0, side, elapsed, profiled or (args.trace_phases and side == "dagger")])
                 if profiled:
                     dump("dependency-upgrade.wcprof")
             run([str(args.dagger), "api", "call", "rust", "check-log"], "dependency-upgrade-cargo-diagnostic", root / "dagger")
@@ -259,7 +264,7 @@ def main():
             save_timings()
             for side in ("dagger", "native"):
                 elapsed = run(commands()[side], "dependency-followup-" + side, root / side)
-                rows.append(["dependency-followup", 0, side, elapsed, False])
+                rows.append(["dependency-followup", 0, side, elapsed, args.trace_phases and side == "dagger"])
             save_timings()
         # Failure then repair validates fresh source is actually consumed.
         invalid_source = library_base + '\ncompile_error!("invalidation-probe");\n'
