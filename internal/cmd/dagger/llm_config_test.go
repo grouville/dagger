@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -13,6 +14,54 @@ import (
 	"github.com/dagger/dagger/engine/client/secretprovider"
 	"github.com/dagger/dagger/internal/cmd/dagger/llmconfig"
 )
+
+type oauthStartupTransport func(*http.Request) (*http.Response, error)
+
+func (fn oauthStartupTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	return fn(req)
+}
+
+func TestLLMConfigStartupDefersOAuthNetworkUntilSecretResolution(t *testing.T) {
+	origRoot, origFile := llmconfig.ConfigRoot, llmconfig.ConfigFile
+	origTransport := http.DefaultTransport
+	t.Cleanup(func() {
+		llmconfig.ConfigRoot, llmconfig.ConfigFile = origRoot, origFile
+		http.DefaultTransport = origTransport
+	})
+	llmconfig.ConfigRoot = t.TempDir()
+	llmconfig.ConfigFile = filepath.Join(llmconfig.ConfigRoot, llmconfig.ConfigFileName)
+	cfg := &llmconfig.Config{LLM: llmconfig.LLMConfig{
+		Providers: map[string]llmconfig.Provider{"openai-codex": {
+			AuthType: "oauth", AuthToken: "expired-test-token", RefreshToken: "test-refresh",
+			TokenExpiresAt: time.Now().Add(-time.Hour).UnixMilli(), Enabled: true,
+		}},
+	}}
+	if err := cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("OPENAI_CODEX_AUTH_TOKEN", "")
+	t.Setenv("OPENAI_CODEX_AUTH_TOKEN_EXPIRES_AT", "")
+	var requests atomic.Int32
+	http.DefaultTransport = oauthStartupTransport(func(*http.Request) (*http.Response, error) {
+		requests.Add(1)
+		return nil, errors.New("test OAuth endpoint unavailable")
+	})
+	applyLLMConfigEnv()
+	if got := requests.Load(); got != 0 {
+		t.Fatalf("startup made %d OAuth requests; want no network until credentials are used", got)
+	}
+	resolver, name, err := secretprovider.ResolverForID("env://OPENAI_CODEX_AUTH_TOKEN")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The existing secret provider logs refresh errors and falls back to the
+	// persisted environment value. Preserve that behavior; what matters here
+	// is that credential use, not unrelated CLI startup, triggers the request.
+	_, _ = resolver(t.Context(), name)
+	if requests.Load() == 0 {
+		t.Fatal("on-demand resolution did not attempt OAuth refresh")
+	}
+}
 
 // TestRemoveKeyClearsDefaultModel verifies that removing the default provider
 // also clears the default model. Otherwise the stale model stays bound to
