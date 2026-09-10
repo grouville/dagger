@@ -36,7 +36,13 @@ Current hook points:
 - `engine/engineutil/executor.go`: one `exec` op per container run, one
   `exec_phase` op per setup phase (`exec.setupNetwork`, `exec.setupRootfs`,
   ..., `exec.runContainer`), plus a split of `exec.containerStart`
-  (engine overhead) vs `exec.processRun` (user work).
+  and `exec.processRun` (classified as user work). The current split starts
+  `processRun` when go-runc reports the **runc monitor PID**, before the command
+  inside the container necessarily starts. It ends when the runtime call and
+  its I/O handling return. Thus this interval includes runtime startup and
+  finalization as well as the command; it is not a pure user-code duration.
+  Independent in-command timings can help identify this envelope. The native
+  recorder and OTel split use the same boundary in `executor_spec.go`.
 - `core/container_exec.go`: cache-volume lock waits, mount preparation and
   output-commit phases, and the wait on the executor.
 - `core/services.go`: `service_start` ops with singleflight wait edges.
@@ -80,12 +86,16 @@ Typical dev-engine workflow:
 
 ```bash
 ./hack/dev   # build + start dagger-engine.dev (publishes debug port 6060)
-./hack/with-dev ./bin/dagger --profile call engine-dev container sync
+./hack/with-dev ./bin/dagger --profile api call engine-dev container sync
 curl -s http://localhost:6060/debug/wcprof/dump > /tmp/wcprof.dump
-go run ./cmd/wcprof-analyze /tmp/wcprof.dump
+wcprof-analyze /tmp/wcprof.dump
 ```
 
-## Analysis (`cmd/wcprof-analyze`, `engine/wcprof/wcanalyze`)
+## Analysis (separately maintained `wcprof-analyze`)
+
+The analyzer was moved out of this repository. The command above assumes its
+executable is installed; `go run ./cmd/wcprof-analyze` no longer works from the
+engine checkout. Native recording and the debug endpoints remain in this tree.
 
 The analyzer reconstructs the op graph (parents, waits, nested-client
 stitching) and reports:
