@@ -1,7 +1,7 @@
 # Ordinary Rust check loop
 
-This is a small platform-overhead fixture, not the official Rust module and not
-a real-project, fully cold, or Bazel comparison. No session retention, custom
+This is a platform-overhead fixture with an optional pinned ripgrep workload,
+not the official Rust module, a fully cold comparison, or a Bazel comparison. No session retention, custom
 mutable snapshot APIs, or resident CLI is used. The Dagger engine persists,
 as do Cargo target caches. Image provisioning and target warmup are excluded.
 
@@ -18,6 +18,18 @@ directory: raw command logs, paired timings, metadata, and a wcprof diagnostic
 capture. Each run creates a unique fixture and target-cache namespace. Only its
 named native container is removed automatically; files and engine cache remain.
 Use ordinary engine cache GC for the latter. Run without competing builds.
+
+For the real-project workload, add `--ripgrep /path/to/clean/ripgrep`. The script
+requires revision `3fce3b5bb0236da2df6d99672afb8a719642eca7` and copies it into
+isolated workspaces. Application edits change the version output string; library
+edits change grep-printer's omitted-context output. Diagnostic `check-log` calls
+outside the timers retrieve the evaluated Cargo action's stderr, permitting
+comparison of the rebuilt package chains with the native logs.
+
+The module now mounts registry/Git caches as well as target/source caches. A
+first diagnostic real-project pass without these mounts was asymmetric with the
+persistent native container and must not be used as the headline comparison.
+Both sides prime downloads and targets before warm-loop timing; no cold claim.
 
 Both sides run `cargo check --workspace --locked` with the same image, source and
 target paths. The native timer includes `docker exec` (not a raw host Cargo
