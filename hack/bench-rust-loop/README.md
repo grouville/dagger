@@ -39,3 +39,18 @@ engine image/binary identity alongside results when changing deployments.
 Remaining coverage: real repositories, external dependency-version changes,
 Clippy/tests/fmt, artifact generation/export, cold installation, concurrent CLI
 calls, remote engines and macOS. This fixture cannot establish those claims.
+
+## Current-main validation (2026-09-10)
+
+On engine/CLI built from 59a9b904d1 with `hack/dev`, the first run reached the
+deliberate compile error and returned Cargo's exit code 101. A second complete
+run returned **0** for that same invalid source. The harness correctly rejects
+the second result; timings must not be interpreted as a verified performance
+win. The source file read directly through the engine contained `compile_error!`.
+A subsequent wcprof capture showed `Container.withExec` as a cache hit and no
+process execution. A different, unique compile error failed twice with 101.
+The cause of this history-dependent discrepancy is not established yet.
+
+This branch is a diagnostic baseline, not an optimized or fully validated module.
+The fixed error string is intentional: repeated fixture runs should not turn a
+previously rejected source into a successful check.
