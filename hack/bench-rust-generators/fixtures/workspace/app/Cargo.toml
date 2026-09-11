@@ -1,0 +1,18 @@
+[package]
+name = "prototype-app"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "prototype-app"
+path = "src/main.rs"
+
+[[bin]]
+name = "prototype-secondary"
+path = "src/secondary.rs"
+
+[features]
+loud = ["prototype-library/loud"]
+
+[dependencies]
+prototype-library = { path = "../library" }
