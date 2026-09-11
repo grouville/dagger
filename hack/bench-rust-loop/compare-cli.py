@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Alternate two CLI binaries on the same command; no cache resets or source edits.
+"""Alternate two CLI configurations on the same command; no resets or edits.
 
-This isolates CLI changes. It is NOT a native Cargo or invalidation benchmark:
-both binaries see the same workspace and may reuse an earlier execution.
+This isolates CLI changes, or module settings in prepared workspaces. It is NOT
+a native Cargo or invalidation benchmark: either side may reuse an earlier execution.
 Environment, engine and CLI-state isolation belong to the caller.
 """
 
@@ -23,6 +23,8 @@ def main():
     parser.add_argument("--before", required=True, type=Path)
     parser.add_argument("--after", required=True, type=Path)
     parser.add_argument("--workdir", default=Path.cwd(), type=Path)
+    parser.add_argument("--before-workdir", type=Path, help="Optional prepared workspace override for the before side")
+    parser.add_argument("--after-workdir", type=Path, help="Optional prepared workspace override for the after side")
     parser.add_argument("--samples", default=30, type=int)
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
@@ -30,11 +32,14 @@ def main():
     if not command or args.samples < 1:
         parser.error("provide at least one sample and a command after --")
     binaries = {"before": args.before.resolve(), "after": args.after.resolve()}
+    workdirs = {"before": (args.before_workdir or args.workdir).resolve(),
+                "after": (args.after_workdir or args.workdir).resolve()}
     root = Path(tempfile.mkdtemp(prefix="dagger-rust-cli-pair-"))
     print(root, flush=True)
     metadata = {
         "command": command,
         "workdir": str(args.workdir.resolve()),
+        "workdirs": {side: str(path) for side, path in workdirs.items()},
         "samples": args.samples,
         "warmup_pairs": 1,
         "engine": os.getenv("DAGGER_ENGINE"),
@@ -57,7 +62,7 @@ def main():
                 argv = [str(binaries[side]), *command]
                 with (root / f"{label}.log").open("xb") as log:
                     wall_start, start = time.time_ns(), time.perf_counter_ns()
-                    result = subprocess.run(argv, cwd=args.workdir, stdout=log, stderr=subprocess.STDOUT)
+                    result = subprocess.run(argv, cwd=workdirs[side], stdout=log, stderr=subprocess.STDOUT)
                     end, wall_end = time.perf_counter_ns(), time.time_ns()
                 elapsed = (end - start) / 1e6
                 records.write(json.dumps(dict(label=label, command=argv, start_unix_ns=wall_start,
