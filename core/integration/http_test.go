@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -340,6 +341,96 @@ func (HTTPSuite) TestHTTPETag(ctx context.Context, t *testctx.T) {
 	require.Equal(t, "cache: 1", contents)
 }
 
+func (HTTPSuite) TestHTTPChecksumCacheAcrossSessions(ctx context.Context, t *testctx.T) {
+	c := connect(ctx, t)
+	const hostname = "testhttpchecksumcache"
+	port := counterService(ctx, t, true)
+	svc := c.Host().Service([]dagger.PortForward{{Backend: port, Frontend: port}}).
+		WithHostname(hostname)
+	stateKey := "http-checksum-state-" + identity.NewID()
+	startEngine := func() (*dagger.Service, *dagger.Service, string) {
+		devEngine := devEngineContainerWithStateKey(c, stateKey,
+			engineWithConfig(ctx, t, engineConfigWithEnabled(true)),
+			func(ctr *dagger.Container) *dagger.Container {
+				return ctr.WithServiceBinding(hostname, svc)
+			})
+		upstream := devEngineContainerAsService(devEngine)
+		tunnel, err := c.Host().Tunnel(upstream).Start(ctx)
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			_, _ = upstream.Stop(ctx)
+			_, _ = tunnel.Stop(ctx, dagger.ServiceStopOpts{Kill: true})
+		})
+		endpoint, err := tunnel.Endpoint(ctx, dagger.ServiceEndpointOpts{Scheme: "tcp"})
+		require.NoError(t, err)
+		return upstream, tunnel, endpoint
+	}
+	upstream, tunnel, endpoint := startEngine()
+
+	newClient := func() *dagger.Client {
+		client, err := dagger.Connect(ctx, dagger.WithRunnerHost(endpoint),
+			dagger.WithLogOutput(testutil.NewTWriter(t)))
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = client.Close() })
+		return client
+	}
+	baseURL := fmt.Sprintf("http://%s:%d", hostname, port)
+	url := baseURL + "?query=1"
+	pin := digest.FromString("count: 0").String()
+	c1 := newClient()
+	contents, err := c1.HTTP(url, dagger.HTTPOpts{Checksum: pin}).Contents(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "count: 0", contents)
+	require.NoError(t, c1.Close())
+
+	// Do not use ExperimentalServiceHost on the HTTP call: that path bypasses
+	// HTTPState. The nested engine's binding supplies reachability instead.
+	c2 := newClient()
+	f := c2.HTTP(url, dagger.HTTPOpts{Checksum: pin, Name: "renamed.txt"})
+	contents, err = f.Contents(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "count: 0", contents)
+	name, err := f.Name(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "renamed.txt", name)
+	contents, err = c2.HTTP(baseURL + "?requests=1").Contents(ctx)
+	require.NoError(t, err)
+	// Count every request to the query URL, including unconditional fetches
+	// and conditional GETs. Only the first client's download may contact it.
+	require.Equal(t, "requests: 1", contents)
+	contents, err = c2.HTTP(baseURL + "?add=1").Contents(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "count: 1", contents)
+	require.NoError(t, c2.Close())
+
+	// Reopen from actual persisted engine state, not a still-live HTTPState.
+	// The origin now serves different bytes, so a refetch cannot pass this pin.
+	_, err = upstream.Stop(ctx)
+	require.NoError(t, err)
+	_, err = tunnel.Stop(ctx, dagger.ServiceStopOpts{Kill: true})
+	require.NoError(t, err)
+	_, _, endpoint = startEngine()
+
+	c3 := newClient()
+	contents, err = c3.HTTP(url, dagger.HTTPOpts{Checksum: pin}).Contents(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "count: 0", contents, "the checksum pins the cached representation")
+	// Without a checksum, the same URL must still revalidate and observe the
+	// changed origin. This replaces the canonical HTTPState representation.
+	contents, err = c3.HTTP(url).Contents(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "count: 1", contents)
+
+	c4 := newClient()
+	_, err = c4.HTTP(url, dagger.HTTPOpts{Checksum: pin}).Contents(ctx)
+	require.ErrorContains(t, err, "http checksum mismatch")
+	contents, err = c4.HTTP(url, dagger.HTTPOpts{
+		Checksum: digest.FromString("count: 1").String(),
+	}).Contents(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "count: 1", contents)
+}
+
 func (HTTPSuite) TestHTTPServiceStableDigest(ctx context.Context, t *testctx.T) {
 	content := identity.NewID()
 	hostname := func(c *dagger.Client) string {
@@ -387,12 +478,16 @@ func counterService(ctx context.Context, t *testctx.T, serveEtags bool) (port in
 	})
 	port = l.Addr().(*net.TCPAddr).Port
 
+	var mu sync.Mutex
 	counters := make(map[string]int)
+	queryRequests := make(map[string]int)
 	cacheHits := make(map[string]int)
 	lastModified := make(map[string]time.Time)
 	httpSrv := http.Server{
 		BaseContext: func(net.Listener) context.Context { return ctx },
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mu.Lock()
+			defer mu.Unlock()
 			path := r.URL.Path
 			if path == "/" {
 				path = "/index.html"
@@ -405,6 +500,7 @@ func counterService(ctx context.Context, t *testctx.T, serveEtags bool) (port in
 				counters[path]++
 				lastModified[path] = time.Now()
 			case r.URL.Query().Get("query") != "":
+				queryRequests[path]++
 				if vals := r.Header.Values("If-None-Match"); serveEtags && len(vals) > 0 {
 					for _, val := range vals {
 						n, err := strconv.Atoi(val)
@@ -423,6 +519,10 @@ func counterService(ctx context.Context, t *testctx.T, serveEtags bool) (port in
 			case r.URL.Query().Get("cache") != "":
 				w.WriteHeader(http.StatusOK)
 				fmt.Fprintf(w, "cache: %d", cacheHits[path])
+				return
+			case r.URL.Query().Get("requests") != "":
+				w.WriteHeader(http.StatusOK)
+				fmt.Fprintf(w, "requests: %d", queryRequests[path])
 				return
 
 			default:
