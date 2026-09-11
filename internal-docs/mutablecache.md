@@ -54,13 +54,24 @@ The snapshot is stored as an immutable ref plus a persisted snapshot ID for relo
 
 The public `Query.http` API has two paths:
 
-1. If auth or service-host context is involved, it bypasses `HTTPState` and does a direct fetch with `FetchHTTPFile`.
+1. If an explicit `authHeader` or `experimentalServiceHost` is provided, it bypasses `HTTPState` and does a direct fetch with `FetchHTTPFile`.
 2. Otherwise it routes through the internal persistent `_httpState` object and then `_resolve`.
 
-So the mutable-backed state object is specifically the normal unauthenticated/no-service-host path.
+So the mutable-backed state object is specifically the path without those explicit arguments.
 
 ### Update logic
 
+When a nonempty checksum is provided, `HTTPState.Resolve` can reuse its owned
+canonical snapshot if the recorded content digest matches. This works after
+reopening a persisted snapshot as well. A checksum pins the cached
+representation: origin changes, outages, and updated Last-Modified/ETag headers
+are not observed on this path. The caller's filename and permissions still
+produce a separate immutable `File`. Requests with an explicit `authHeader`
+or `experimentalServiceHost` remain on the direct-fetch path and do not use
+this shortcut. URL-embedded credentials and signed query parameters are still
+part of the URL identity; they do not select that separate direct-fetch path.
+
+With no checksum, a different checksum, or no retained matching snapshot,
 `HTTPState.Resolve` does conditional requests:
 
 - sends `If-None-Match` when it has an ETag

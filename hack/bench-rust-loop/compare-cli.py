@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Alternate two CLI configurations on the same command; no resets or edits.
 
-This isolates CLI changes, or module settings in prepared workspaces. It is NOT
+This isolates CLI changes, engine changes, or module settings in prepared workspaces. It is NOT
 a native Cargo or invalidation benchmark: either side may reuse an earlier execution.
 Environment, engine and CLI-state isolation belong to the caller.
 """
@@ -25,6 +25,8 @@ def main():
     parser.add_argument("--workdir", default=Path.cwd(), type=Path)
     parser.add_argument("--before-workdir", type=Path, help="Optional prepared workspace override for the before side")
     parser.add_argument("--after-workdir", type=Path, help="Optional prepared workspace override for the after side")
+    parser.add_argument("--before-engine", help="Optional DAGGER_ENGINE override for the before side")
+    parser.add_argument("--after-engine", help="Optional DAGGER_ENGINE override for the after side")
     parser.add_argument("--samples", default=30, type=int)
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args()
@@ -34,6 +36,12 @@ def main():
     binaries = {"before": args.before.resolve(), "after": args.after.resolve()}
     workdirs = {"before": (args.before_workdir or args.workdir).resolve(),
                 "after": (args.after_workdir or args.workdir).resolve()}
+    engines = {"before": args.before_engine, "after": args.after_engine}
+    environments = {}
+    for side in binaries:
+        environments[side] = os.environ.copy()
+        if engines[side] is not None:
+            environments[side]["DAGGER_ENGINE"] = engines[side]
     root = Path(tempfile.mkdtemp(prefix="dagger-rust-cli-pair-"))
     print(root, flush=True)
     metadata = {
@@ -43,6 +51,7 @@ def main():
         "samples": args.samples,
         "warmup_pairs": 1,
         "engine": os.getenv("DAGGER_ENGINE"),
+        "engines": {side: env.get("DAGGER_ENGINE") for side, env in environments.items()},
         "do_not_track": os.getenv("DO_NOT_TRACK"),
         "native_wcprof": "--profile" in command,
         "local_otel": os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
@@ -62,7 +71,8 @@ def main():
                 argv = [str(binaries[side]), *command]
                 with (root / f"{label}.log").open("xb") as log:
                     wall_start, start = time.time_ns(), time.perf_counter_ns()
-                    result = subprocess.run(argv, cwd=workdirs[side], stdout=log, stderr=subprocess.STDOUT)
+                    result = subprocess.run(argv, cwd=workdirs[side], env=environments[side],
+                                            stdout=log, stderr=subprocess.STDOUT)
                     end, wall_end = time.perf_counter_ns(), time.time_ns()
                 elapsed = (end - start) / 1e6
                 records.write(json.dumps(dict(label=label, command=argv, start_unix_ns=wall_start,
