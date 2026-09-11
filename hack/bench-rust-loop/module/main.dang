@@ -5,6 +5,7 @@ type Rust {
   pub cacheKey: String!
   pub tracePhases: Boolean! = false
   pub pinnedSourceSync: Boolean! = false
+  pub prepareProjectToolchain: Boolean! = false
 
   # Packaging experiment for the pinned Debian bookworm/amd64 image only.
   # Resolve dependencies with APT when refreshing these pins, not on every
@@ -27,13 +28,33 @@ type Rust {
     }
   }
 
+  # Resolve only the root toolchain files before introducing edit-sensitive
+  # source. The installed compiler/components become ordinary immutable
+  # container state, not a second ambient or session-local cache.
+  let projectToolchain(ws: Workspace!): Container! {
+    if (prepareProjectToolchain) {
+      let config = ws.directory("/", include: ["rust-toolchain", "rust-toolchain.toml"])
+      if (config.entries.isEmpty) {
+        toolchain
+      } else {
+        toolchain
+          .withWorkdir("/src")
+          .withMountedDirectory("/src", config)
+          .withExec(["rustup", "toolchain", "install", "--no-self-update"])
+          .withoutMount("/src")
+      }
+    } else {
+      toolchain
+    }
+  }
+
   let action(ws: Workspace!): Container! {
     let command = if (tracePhases) {
       "set -e; start=$(date +%s%N); rsync -rclp --delete /input/ /src/; synced=$(date +%s%N); cargo check --workspace --locked; checked=$(date +%s%N); printf 'RUST_BENCH_PHASE_NS sync=%s cargo=%s\\n' \"$((synced-start))\" \"$((checked-synced))\" >&2"
     } else {
       "rsync -rclp --delete /input/ /src/ && cargo check --workspace --locked"
     }
-    toolchain
+    projectToolchain(ws)
       .withWorkdir("/src")
       .withMountedDirectory("/input", ws.directory("/", exclude: [".git", "target", "dagger.toml", "dagger.lock"]))
       .withMountedCache("/src", cacheVolume(cacheKey + "-source"), sharing: CacheSharingMode.LOCKED)
@@ -54,5 +75,13 @@ type Rust {
   """
   pub checkLog(ws: Workspace!): String! {
     action(ws).stderr
+  }
+
+  """
+  Inspect prepared toolchain files without running a proxy that could install
+  missing components. Used only by the correctness harness, outside timings.
+  """
+  pub toolchainFiles(ws: Workspace!): Directory! {
+    projectToolchain(ws).directory("/usr/local/rustup/toolchains")
   }
 }
