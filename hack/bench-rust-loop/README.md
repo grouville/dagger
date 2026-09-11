@@ -1,5 +1,8 @@
 # Ordinary Rust check loop
 
+For branch ancestry, the reason for each change, measured impact and retained
+limitations, see the [Rust performance stack index](stack-index.md).
+
 This is a platform-overhead fixture with an optional pinned ripgrep workload,
 not the official Rust module, a fully cold comparison, or a Bazel comparison. No session retention, custom
 mutable snapshot APIs, or resident CLI is used. The Dagger engine persists,
