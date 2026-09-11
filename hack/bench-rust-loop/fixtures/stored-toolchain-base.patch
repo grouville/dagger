@@ -1,0 +1,12 @@
+diff --git a/main.dang b/main.dang
+--- a/main.dang
++++ b/main.dang
+@@ -10,7 +10,7 @@ type Rust {
+   # Packaging experiment for the pinned Debian bookworm/amd64 image only.
+   # Resolve dependencies with APT when refreshing these pins, not on every
+   # user's first check. Dagger verifies and owns the downloaded File inputs.
+-  let toolchain: Container! {
++  let toolchain: Container! = {
+     let base = container.from(image)
+     if (pinnedSourceSync) {
+       base

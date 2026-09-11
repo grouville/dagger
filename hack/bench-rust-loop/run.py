@@ -23,8 +23,12 @@ import urllib.error
 
 
 def main():
+    benchmark_dir = Path(__file__).resolve().parent
+    repository = benchmark_dir.parent.parent
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dagger", required=True, type=Path)
+    parser.add_argument("--module-dir", type=Path, default=benchmark_dir / "module",
+                        help="Opt-in module variant; defaults to the committed benchmark module")
     parser.add_argument("--image", required=True, help="Same digest-pinned Rust image on both sides")
     parser.add_argument("--samples", type=int, default=7)
     parser.add_argument("--debug-url", default="http://localhost:6060")
@@ -47,6 +51,10 @@ def main():
         parser.error("--profile-dependency-upgrade requires --dependency-upgrade")
     if args.pinned_source_sync and args.image != "rust@sha256:39f68a3e8e3ff425f8945ffa91128e60ff930d53e17fbb5214e95824bdd46f1b":
         parser.error("--pinned-source-sync is validated only against the pinned slim-bookworm/amd64 image")
+    module = args.module_dir.resolve()
+    for name in ("main.dang", "dagger-module.toml"):
+        if not (module / name).is_file():
+            parser.error(f"--module-dir requires a file at {module / name}")
     toolchain_contents = args.project_toolchain.read_bytes() if args.project_toolchain else None
     if toolchain_contents is not None:
         tomllib.loads(toolchain_contents.decode())
@@ -67,7 +75,6 @@ def main():
             env[f"XDG_{category}_HOME"] = str(root / "cli-state" / category.lower())
         env.pop("DAGGER_CONFIG", None)
         env["DAGGER_ENGINE"] = "container://" + fresh_engine
-    module = Path(__file__).resolve().parent / "module"
     rows = []
     revision = "3fce3b5bb0236da2df6d99672afb8a719642eca7"
     if args.ripgrep:
@@ -119,7 +126,7 @@ def main():
         assert upgrade["Cargo.toml"].count('bstr = "1.7.0"') == 1
         upgrade["Cargo.toml"] = upgrade["Cargo.toml"].replace('bstr = "1.7.0"', 'bstr = "=1.13.0"')
         for side in ("native", "dagger"):
-            run(["git", "apply", str(module.parent / "fixtures" / "ripgrep-bstr-1.12.0.patch")],
+            run(["git", "apply", str(benchmark_dir / "fixtures" / "ripgrep-bstr-1.12.0.patch")],
                 "dependency-baseline-" + side, root / side)
         baseline = {name: (root / "native" / name).read_text() for name in upgrade}
         # The committed baseline was resolved by Cargo. Guard against accidentally
@@ -162,9 +169,12 @@ def main():
                 "native_lifecycle": "docker exec", "fixture": "synthetic two-crate workspace",
                 "engine": env.get("DAGGER_ENGINE"), "cold_claim": False}
     metadata["cli_sha256"] = hashlib.file_digest(args.dagger.open("rb"), "sha256").hexdigest()
-    metadata["source_commit"] = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=module, text=True).strip()
-    metadata["source_diff_sha256"] = hashlib.sha256(subprocess.check_output(["git", "diff", "HEAD"], cwd=module)).hexdigest()
+    metadata["source_root"] = str(repository)
+    metadata["source_commit"] = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repository, text=True).strip()
+    metadata["source_diff_sha256"] = hashlib.sha256(subprocess.check_output(["git", "diff", "HEAD"], cwd=repository)).hexdigest()
+    metadata["module_dir"] = str(module)
     metadata["module_sha256"] = hashlib.sha256((module / "main.dang").read_bytes()).hexdigest()
+    metadata["module_config_sha256"] = hashlib.sha256((module / "dagger-module.toml").read_bytes()).hexdigest()
     metadata["do_not_track"] = env.get("DO_NOT_TRACK")
     metadata["reset_mode"] = "empty-engine-and-cli-state" if args.fresh_engine else "existing-engine"
     metadata["preinstalled"] = ["Docker", "Dagger CLI", "engine image", "local module source", "native Rust image"]
