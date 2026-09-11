@@ -11,11 +11,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"slices"
 	"sort"
-	"time"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/dagger/dagger/core"
@@ -40,57 +38,10 @@ func WithNestedClientServer(
 	moduleContext dagql.ObjectResult[*core.Module],
 	fn func(ctx context.Context, gqlClient graphql.Client) ([]byte, error),
 ) ([]byte, error) {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return nil, fmt.Errorf("listen: %w", err)
-	}
-	defer l.Close()
-
-	httpSrv := &http.Server{
-		ReadHeaderTimeout: 10 * time.Second,
-		Handler: http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-			telemetry.Propagator.Inject(ctx, propagation.HeaderCarrier(req.Header))
-			query.ServeHTTPToNestedClient(resp, req, nestedClientMetadata, callerClientID, hostServiceProxyToCaller, moduleContext, fnCall)
-		}),
-	}
-	defer func() {
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
-		defer shutdownCancel()
-		_ = httpSrv.Shutdown(shutdownCtx)
-	}()
-
-	srvErrCh := make(chan error, 1)
-	go func() {
-		err := httpSrv.Serve(l)
-		if err != nil && !errors.Is(err, http.ErrServerClosed) && !errors.Is(err, net.ErrClosed) {
-			srvErrCh <- err
-		}
-		close(srvErrCh)
-	}()
-
-	gqlClient := graphql.NewClient(fmt.Sprintf("http://%s/query", l.Addr()), nil)
-
-	out, err := fn(ctx, gqlClient)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := checkServerError(srvErrCh); err != nil {
-		return nil, err
-	}
-
-	return out, nil
-}
-
-func checkServerError(srvErrCh <-chan error) error {
-	select {
-	case serveErr, ok := <-srvErrCh:
-		if ok && serveErr != nil {
-			return fmt.Errorf("serve nested client: %w", serveErr)
-		}
-	default:
-	}
-	return nil
+	return newNestedClientServer(http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		telemetry.Propagator.Inject(ctx, propagation.HeaderCarrier(req.Header))
+		query.ServeHTTPToNestedClient(resp, req, nestedClientMetadata, callerClientID, hostServiceProxyToCaller, moduleContext, fnCall)
+	})).withClient(ctx, fn)
 }
 
 // NewNestedClientMetadata returns the caller's client metadata along with
