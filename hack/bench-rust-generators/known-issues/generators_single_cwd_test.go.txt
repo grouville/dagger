@@ -1,0 +1,131 @@
+// Manual regression for the retained nested-workspace root-mode defect.
+// This currently fails on both baseline and candidate; see ../results.md.
+package core
+
+import (
+	"context"
+
+	"dagger.io/dagger"
+	"github.com/dagger/testctx"
+	"github.com/stretchr/testify/require"
+)
+
+func singleGeneratorCwdFixture(t *testctx.T, c *dagger.Client) *dagger.Container {
+	t.Helper()
+	return workspaceBase(t, c).
+		WithNewFile("dagger.toml", `[modules.good]
+source = ".dagger/modules/good"
+`).
+		WithNewFile(".dagger/modules/good/dagger-module.toml", `name = "good"
+engineVersion = "latest"
+[runtime]
+source = "dang"
+`).
+		WithNewFile(".dagger/modules/good/main.dang", `type Good {
+  pub generate(ws: Workspace!): Changeset! @generate {
+    let cwd = ws.directory(".")
+    let output = directory.withNewFile("result", cwd.file("input.txt").contents, permissions: 384)
+    cwd
+      .withoutFile("out/old")
+      .withFile("out/result", output.file("result"))
+      .changes(cwd)
+  }
+}`).
+		WithNewFile("input.txt", "root input must not be read\n").
+		WithNewFile("out/result", "root output must not be changed\n").
+		WithNewFile("out/old", "root file must not be removed\n").
+		WithNewFile("nested/input.txt", "nested input\n").
+		WithNewFile("nested/out/old", "remove only this file\n").
+		WithNewFile("nested/out/untouched", "keep nested sibling\n").
+		WithExec([]string{"chmod", "0751", "/work"}).
+		WithExec([]string{"chmod", "0701", "/work/out"}).
+		WithExec([]string{"chmod", "0750", "/work/nested"}).
+		WithExec([]string{"chmod", "0700", "/work/nested/out"}).
+		WithExec([]string{"chmod", "0664", "/work/out/result", "/work/out/old", "/work/nested/out/untouched"}).
+		WithWorkdir("/work/nested")
+}
+
+func (GeneratorsSuite) TestSingleGeneratorNestedCwd(ctx context.Context, t *testctx.T) {
+	c := connect(ctx, t)
+	base := singleGeneratorCwdFixture(t, c)
+	head, err := base.File("/work/.git/HEAD").Contents(ctx)
+	require.NoError(t, err)
+	metadata, err := base.With(daggerQuery(`{
+  currentWorkspace {
+    directory(path: ".") { stat(path: ".") { permissions } }
+    generators(include: ["good"]) { run {
+      changes {
+        before { stat(path: ".") { permissions } }
+        after { stat(path: ".") { permissions } }
+      }
+    } }
+  }
+}`)).Stdout(ctx)
+	require.NoError(t, err)
+	t.Logf("nested directory metadata at import and rooted changes: %s", metadata)
+
+	// The public changes result is cwd-relative even though the internal
+	// aggregation and filtering operate on workspace-root paths.
+	out, err := base.With(daggerQuery(`{
+  currentWorkspace { generators(include: ["good"]) { run { changes {
+    before { file(path: "out/old") { contents } }
+    after { file(path: "out/result") { contents } }
+  } } } }
+}`)).Stdout(ctx)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"currentWorkspace":{"generators":{"run":{"changes":{"before":{"file":{"contents":"remove only this file\n"}},"after":{"file":{"contents":"nested input\n"}}}}}}}`, out)
+
+	generated := base.With(daggerExec("generate", "good", "-y"))
+	out, err = generated.CombinedOutput(ctx)
+	require.NoError(t, err, out)
+	for _, result := range []*dagger.Container{generated, generated.With(daggerExec("generate", "good", "-y"))} {
+		for path, expected := range map[string]string{
+			"/work/input.txt":            "root input must not be read\n",
+			"/work/out/result":           "root output must not be changed\n",
+			"/work/out/old":              "root file must not be removed\n",
+			"/work/nested/out/result":    "nested input\n",
+			"/work/nested/out/untouched": "keep nested sibling\n",
+			"/work/.git/HEAD":            head,
+		} {
+			contents, err := result.File(path).Contents(ctx)
+			require.NoError(t, err)
+			require.Equal(t, expected, contents, path)
+		}
+		exists, err := result.Exists(ctx, "/work/nested/out/old")
+		require.NoError(t, err)
+		require.False(t, exists)
+		modes, err := result.WithExec([]string{"stat", "-c", "%a",
+			"/work", "/work/out", "/work/out/result", "/work/out/old",
+			"/work/nested", "/work/nested/out", "/work/nested/out/result", "/work/nested/out/untouched",
+		}).Stdout(ctx)
+		require.NoError(t, err)
+		require.Equal(t, "751\n701\n664\n664\n750\n700\n600\n664\n", modes)
+	}
+}
+
+func (GeneratorsSuite) TestSingleGeneratorZeroSelectedResults(ctx context.Context, t *testctx.T) {
+	c := connect(ctx, t)
+	base := singleGeneratorCwdFixture(t, c)
+	out, err := base.With(daggerQuery(`{
+  currentWorkspace { generators(include: ["good:unselected"]) {
+    list { name }
+    run {
+      isEmpty
+      changes { isEmpty }
+      workspace { file(path: "out/old") { contents } }
+    }
+  } }
+}`)).Stdout(ctx)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"currentWorkspace":{"generators":{"list":[],"run":{"isEmpty":true,"changes":{"isEmpty":true},"workspace":{"file":{"contents":"remove only this file\n"}}}}}}`, out)
+
+	generated := base.With(daggerExec("generate", "good:unselected", "-y"))
+	out, err = generated.CombinedOutput(ctx)
+	require.NoError(t, err, out)
+	contents, err := generated.File("out/old").Contents(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "remove only this file\n", contents)
+	exists, err := generated.Exists(ctx, "out/result")
+	require.NoError(t, err)
+	require.False(t, exists)
+}
