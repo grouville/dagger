@@ -141,6 +141,12 @@ matched example, profiler coverage boundaries and correctness checks.
 in two prepared workspaces using the same binary. Verify equivalent sources
 first; this still tests exact warm invocation, not edited-source performance.
 
+The [engine-discovery comparison](engine-discovery-results.md) measures a
+CLI-only name-filtering change with the image-managed driver. Its 163ms paired
+gain is specifically for `cleanup=false` exact-name discovery; default cleanup
+must still discover old engines. The report also retains a separate real-edit
+and external-dependency validation, complete profiler gates, and raw samples.
+
 Remaining coverage: additional real repositories and dependency versions,
 Clippy/tests/fmt, artifact generation/export, cold installation, concurrent CLI
 calls, remote engines and macOS. This fixture cannot establish those claims.
