@@ -23,7 +23,7 @@ import tempfile
 import time
 import tomllib
 import uuid
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 
 IMAGE = "rust@sha256:39f68a3e8e3ff425f8945ffa91128e60ff930d53e17fbb5214e95824bdd46f1b"
@@ -280,7 +280,9 @@ def verify_native_owner(identity, native_id, nonce):
             "refusing cleanup: native ownership changed")
 
 
-def validate_mode_discrepancies(discrepancies):
+def validate_mode_discrepancies(discrepancies, allow_known_baseline=True):
+    if not allow_known_baseline:
+        require(not discrepancies, "CLI comparison requires exact native permissions on both sides")
     require(all(item["known_baseline_bug"] for item in discrepancies),
             "unrecognized permission discrepancy; raw evidence retained, outputs were not normalized")
 
@@ -322,10 +324,79 @@ def initialize_generator_workspaces(process):
         process("setup-" + side + "-git-init", ["git", "init", "--quiet"], side)
 
 
+def comparison_engine_name(runner):
+    # This mode is a local Docker fixture, not a general runner-identity API.
+    parsed = urlparse(runner)
+    options = parse_qs(parsed.query, keep_blank_values=True, strict_parsing=True)
+    require(parsed.scheme == "docker-image" and parsed.netloc and not parsed.fragment,
+            "CLI comparison requires an explicit docker-image runner")
+    require(parsed.username is None and parsed.password is None, "runner userinfo is not supported")
+    require(set(options) <= {"container", "volume", "cleanup"}, "unknown runner options")
+    require(all(len(values) == 1 for values in options.values()), "duplicate runner options")
+    require(options.get("cleanup") == ["false"], "CLI comparison requires cleanup=false")
+    names = options.get("container", [])
+    require(len(names) == 1 and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", names[0]),
+            "CLI comparison requires an exact container name")
+    if "volume" in options:
+        require(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", options["volume"][0]),
+                "CLI comparison requires an exact volume name")
+    return names[0]
+
+
+def record_comparison_engine(process, label, runner, expected_image):
+    name = comparison_engine_name(runner)
+    parsed = urlparse(runner)
+    image_reference = parsed.netloc + parsed.path
+    # A retagged image can make the CLI replace the named engine. Reject that
+    # before either CLI runs, and verify the reference again at the end.
+    image_log = process(label + "-image", ["docker", "image", "inspect", "--format", "{{.Id}}", image_reference], "before")
+    resolved_image = image_log.read_text().strip()
+    require(resolved_image == expected_image, "runner image reference does not resolve to expected image")
+    # Retain only identity fields, not engine environment/configuration values.
+    fields = ('{"Id":{{json .Id}},"Name":{{json .Name}},"Image":{{json .Image}},'
+              '"Running":{{json .State.Running}},"StartedAt":{{json .State.StartedAt}},'
+              '"Pid":{{json .State.Pid}},"RestartCount":{{json .RestartCount}}}')
+    log = process(label, ["docker", "inspect", "--type", "container", "--format", fields, name], "before")
+    row = json.loads(log.read_text())
+    require(isinstance(row, dict), "expected one engine container")
+    require(re.fullmatch(r"[a-f0-9]{64}", row.get("Id", "")) and row.get("Name") == "/" + name,
+            "engine container identity does not match runner")
+    require(row.get("Image") == expected_image, "engine image identity does not match expected image")
+    require(row.get("Running") is True and row.get("StartedAt") and row.get("Pid", 0) > 0,
+            "comparison engine must already be running")
+    return dict(runner=runner, container_id=row["Id"], name=row["Name"], image_id=row["Image"],
+                image_reference=image_reference, resolved_image_id=resolved_image,
+                started_at=row["StartedAt"], pid=row["Pid"], restart_count=row.get("RestartCount"))
+
+
+def select_clis(args):
+    clis = {"before": args.dagger.resolve(strict=True),
+            "after": (args.after_dagger if args.compare_clis else args.dagger).resolve(strict=True)}
+    require(all(path.is_file() and os.access(path, os.X_OK) for path in clis.values()), "CLIs must be executable files")
+    hashes = {side: digest(path) for side, path in clis.items()}
+    if args.compare_clis:
+        require(hashes["before"] != hashes["after"], "CLI comparison requires distinct binary hashes")
+    return clis, hashes
+
+
+def verify_cli_hashes(clis, hashes):
+    require(all(digest(path) == hashes[side] for side, path in clis.items()), "CLI changed during run")
+
+
+def verify_comparison_engine_identity(before, after):
+    require(before == after, "comparison engine changed during run")
+
+
+def run_dagger(process, clis, label, side, *argv, **kwargs):
+    return process(label, [str(clis[side]), *argv], side, **kwargs)
+
+
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--dagger", required=True, type=Path)
+    parser.add_argument("--compare-clis", action="store_true", help="Compare --dagger and --after-dagger on one existing engine")
+    parser.add_argument("--after-dagger", type=Path, help="Candidate CLI; requires --compare-clis")
     parser.add_argument("--before-engine", required=True)
     parser.add_argument("--after-engine", required=True)
     parser.add_argument("--before-image-id")
@@ -339,14 +410,28 @@ def parse_args(argv=None):
     args = parser.parse_args(argv)
     if not args.execute:
         parser.error("refusing setup or commands without --execute")
-    if args.samples < 1 or args.before_engine == args.after_engine:
+    if args.samples < 1:
+        parser.error("positive samples are required")
+    if args.compare_clis:
+        if args.after_dagger is None or args.before_engine != args.after_engine:
+            parser.error("CLI comparison requires --after-dagger and identical before/after runner URLs")
+        if not args.before_image_id or args.before_image_id != args.after_image_id or not re.fullmatch(r"sha256:[a-f0-9]{64}", args.before_image_id):
+            parser.error("CLI comparison requires matching explicit engine image IDs")
+        try:
+            comparison_engine_name(args.before_engine)
+        except ValueError as error:
+            parser.error(str(error))
+    elif args.after_dagger is not None:
+        parser.error("--after-dagger requires explicit --compare-clis")
+    elif args.before_engine == args.after_engine:
         parser.error("positive samples and distinct before/after engine URLs are required")
     return args
 
 
 def main(argv=None):
     args = parse_args(argv)
-    cli = args.dagger.resolve(strict=True)
+    clis, cli_hashes = select_clis(args)
+    cli = clis["before"]
     module = args.module.resolve(strict=True)
     fixture = (args.fixture or module / "fixtures/workspace").resolve(strict=True)
     require(tomllib.loads((fixture / "app/Cargo.toml").read_text())["package"]["name"] == "prototype-app", "wrong fixture app")
@@ -400,6 +485,9 @@ def main(argv=None):
                 'pinnedSourceSync = true\nprepareProjectToolchain = true\n' +
                 'features = []\nallFeatures = false\nnoDefaultFeatures = false\n')
     env_base, git_environment = isolated_git_environment(os.environ)
+    if args.compare_clis:
+        # URL cleanup=false is the sole policy input for this controlled mode.
+        env_base.pop("DAGGER_LEAVE_OLD_ENGINE", None)
     for key in list(env_base):
         if key.startswith("_EXPERIMENTAL_DAGGER_") or key in {
             "DAGGER_ENGINE", "DAGGER_CONFIG", "DAGGER_SESSION_PORT", "DAGGER_SESSION_TOKEN",
@@ -423,7 +511,10 @@ def main(argv=None):
         native_wcprof=False, actual_exec_audit="required offline from captured timed-command OTel; logs are not proof",
         archive_tool=archive_tool,
         archive_policy="Raw hashes retained; differing fixture archives require exact bytes except verified compiler-member identifiers, audited outside timers",
-        cli=str(cli), cli_sha256=digest(cli), script_sha256=digest(Path(__file__)),
+        cli=str(cli), cli_sha256=cli_hashes["before"], script_sha256=digest(Path(__file__)),
+        comparison_mode="cli" if args.compare_clis else "engine",
+        clis={side: dict(path=str(path), sha256=cli_hashes[side]) for side, path in clis.items()},
+        comparison_engine_identity={},
         module_source=str(module), frozen_module=str(frozen), frozen_module_hashes=module_hashes,
         moduleGitRoot=None, git_environment=git_environment,
         fixture_source=str(fixture), initial_source_hashes=initial_sources, nonce=nonce,
@@ -470,10 +561,26 @@ def main(argv=None):
                 "env", "CARGO_BUILD_BUILD_DIR=/build", "CARGO_TARGET_DIR=/out", *argv]
 
     def run_build(side, label, timed=False, scenario=None, sample=None):
-        command = native_command("cargo", "build", *FLAGS) if side == "native" else [str(cli), "generate", "-y"]
-        return process(label, command, side, timed, scenario, sample)
+        if side == "native":
+            return process(label, native_command("cargo", "build", *FLAGS), side, timed, scenario, sample)
+        return run_dagger(process, clis, label, side, "generate", "-y", timed=timed, scenario=scenario, sample=sample)
+
+    def verify_engine_after():
+        metadata["comparison_engine_identity"]["post_attempted"] = True
+        identity = record_comparison_engine(process, "comparison-engine-after", args.after_engine, args.after_image_id)
+        metadata["comparison_engine_identity"]["after"] = identity
+        verify_comparison_engine_identity(metadata["comparison_engine_identity"]["before"], identity)
 
     try:
+        if args.compare_clis:
+            metadata["known_semantic_difference"] = "None allowed: both CLIs must preserve exact native permissions."
+            metadata["output_history"] = "Each side retains its own outputs; every permission difference fails."
+            metadata["comparison_engine_identity"]["before"] = record_comparison_engine(
+                process, "comparison-engine-before", args.before_engine, args.before_image_id)
+            for side in ("before", "after"):
+                version = run_dagger(process, clis, "setup-" + side + "-cli-version", side, "version")
+                metadata["clis"][side]["reported_version"] = version.read_text().strip()
+            write_json(root / "metadata.json", metadata)
         metadata["moduleGitRoot"] = initialize_frozen_module_git(process, frozen)
         write_json(root / "metadata.json", metadata)
         initialize_generator_workspaces(process)
@@ -526,8 +633,8 @@ def main(argv=None):
                 modes = {}
                 for side in SIDES:
                     if side != "native":
-                        logs[side] = process(f"{scenario}-{sample}-{side}-messages",
-                            [str(cli), "api", "call", "rust", "build-messages", "contents"], side)
+                        logs[side] = run_dagger(process, clis, f"{scenario}-{sample}-{side}-messages",
+                            side, "api", "call", "rust", "build-messages", "contents")
                     artifacts[side] = cargo_artifacts(logs[side].read_text(), workspace_members)
                     manifests[side] = artifact_manifest(workdirs[side] / "target/dagger", artifacts[side], side != "native")
                     require((workdirs[side] / "target/KEEP").read_bytes() == b"outside generated subtree\n", "outside sentinel bytes changed")
@@ -562,7 +669,7 @@ def main(argv=None):
                 append_json(root / "semantic-discrepancies.jsonl", dict(scenario=scenario, sample=sample, mode_differences=delta))
                 discrepancies.extend(delta)
                 # Keep the known baseline bug visible, but do not accept an unrelated/candidate regression.
-                validate_mode_discrepancies(delta)
+                validate_mode_discrepancies(delta, allow_known_baseline=not args.compare_clis)
                 for side in SIDES:
                     for binary in ("prototype-app", "prototype-secondary"):
                         executable = f"/bench/{side}/target/dagger/debug/{binary}"
@@ -573,9 +680,11 @@ def main(argv=None):
                         require(output == expected_output, f"wrong executable behavior: {side}/{binary}: {output!r}")
                 print(f"validated {scenario} sample {sample}; modes differ={len(delta)}; "
                       f"archive identifier equivalences={sum(not row['raw_bytes_equal'] for row in archive_audits)}", flush=True)
-        require(digest(cli) == metadata["cli_sha256"], "CLI changed during run")
+        verify_cli_hashes(clis, cli_hashes)
         require(all(digest(frozen / name) == value for name, value in module_hashes.items()), "frozen module changed")
         require(digest(ar) == archive_tool["sha256"], "archive reader changed during run")
+        if args.compare_clis:
+            verify_engine_after()
         summary = {}
         for scenario in EDITS:
             values = {side: {row["sample"]: row["milliseconds"] for row in timings
@@ -599,6 +708,13 @@ def main(argv=None):
         metadata.update(status="failed", error=f"{type(error).__name__}: {error}")
         raise
     finally:
+        if args.compare_clis and "before" in metadata["comparison_engine_identity"] and not metadata["comparison_engine_identity"].get("post_attempted"):
+            # Failed runs stay failed, but attempt to retain post-run identity
+            # without preventing the existing exact-owner native cleanup.
+            try:
+                verify_engine_after()
+            except Exception as error:
+                metadata["comparison_engine_identity"]["post_validation_error"] = str(error)
         metadata["finished_unix_ns"] = time.time_ns()
         if native_id and not args.keep_native:
             try:
