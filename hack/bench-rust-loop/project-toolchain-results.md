@@ -169,6 +169,11 @@ hypothesis, **not yet a connection-state diagnosis or an implemented engine fix*
 Next: verify connection states and scope a transport to the invocation; retain
 graceful draining and never close the process-global pool.
 
+Follow-up: the [nested-client lifecycle investigation](nested-client-lifecycle-results.md)
+confirms the actual shutdown wait, adds owned-pool cleanup and regression tests,
+and records an uninstrumented comparison. This section preserves the original
+experiment's evidence and limitations.
+
 Raw [warm pairs](project-toolchain-warm-pairs.csv); local runs
 `/tmp/dagger-rust-cli-pair-t4dw7n0f` and `/tmp/dagger-rust-cli-pair-_onxt2zs`.
 No-file fixture setup/regression runs: `/tmp/dagger-rust-loop-jki90z74` (before)
