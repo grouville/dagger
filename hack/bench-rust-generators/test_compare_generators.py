@@ -333,5 +333,172 @@ class CompareGeneratorGuards(unittest.TestCase):
                 bench.artifact_manifest(root, {"linked/app"}, exact=False)
 
 
+class CompareCLIGuards(unittest.TestCase):
+    runner = "docker-image://localhost/candidate?container=dagger-engine.candidate&volume=candidate&cleanup=false"
+    image = "sha256:" + "a" * 64
+
+    def argv(self):
+        return ["--execute", "--compare-clis", "--dagger", "/before", "--after-dagger", "/after",
+                "--before-engine", self.runner, "--after-engine", self.runner,
+                "--before-image-id", self.image, "--after-image-id", self.image]
+
+    def test_cli_mode_is_explicit_and_requires_two_clis(self):
+        for flag in ("--compare-clis", "--after-dagger"):
+            with self.subTest(flag=flag):
+                args = self.argv()
+                index = args.index(flag)
+                del args[index:index + (1 if flag == "--compare-clis" else 2)]
+                with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                    bench.parse_args(args)
+
+    def test_cli_mode_requires_same_exact_runner_and_image(self):
+        for flag, value in (("--after-engine", self.runner + "&other=value"),
+                            ("--after-image-id", "sha256:" + "b" * 64),
+                            ("--before-image-id", "not-an-image-id")):
+            with self.subTest(flag=flag):
+                args = self.argv()
+                args[args.index(flag) + 1] = value
+                with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                    bench.parse_args(args)
+        args = self.argv()
+        index = args.index("--after-image-id")
+        del args[index:index+2]
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            bench.parse_args(args)
+
+    def test_cli_mode_accepts_explicit_single_engine(self):
+        args = bench.parse_args(self.argv())
+        self.assertTrue(args.compare_clis)
+        self.assertEqual(args.before_engine, args.after_engine)
+        self.assertEqual(args.samples, 3)
+
+    def test_cli_runner_rejects_ambiguous_or_implicit_identity(self):
+        for runner in ("container://candidate", self.runner.replace("cleanup=false", "cleanup=true"),
+                       self.runner.replace("&cleanup=false", ""), self.runner + "&container=another",
+                       self.runner.replace("container=dagger-engine.candidate", "container="),
+                       self.runner.replace("container=dagger-engine.candidate", "container=%2Fother")):
+            with self.subTest(runner=runner), self.assertRaises(ValueError):
+                bench.comparison_engine_name(runner)
+
+    def test_cli_runner_rejects_userinfo_unknown_options_and_bad_volume(self):
+        for runner in (self.runner.replace("//localhost", "//user:secret@localhost"),
+                       self.runner.replace("//localhost", "//@localhost"), self.runner + "&privileged=true",
+                       self.runner + "&unknown=", self.runner + "&bare-option",
+                       self.runner.replace("volume=candidate", "volume=%2Ftmp%2Funrelated"),
+                       self.runner.replace("volume=candidate", "volume="),
+                       self.runner + "&volume=duplicate"):
+            with self.subTest(runner=runner), self.assertRaises(ValueError):
+                bench.comparison_engine_name(runner)
+
+    def test_default_cli_selection_reuses_existing_binary(self):
+        with tempfile.TemporaryDirectory(prefix="generator-cli-guard-") as directory:
+            cli = Path(directory) / "dagger"
+            cli.write_bytes(b"fake executable, never run")
+            cli.chmod(0o755)
+            paths, hashes = bench.select_clis(SimpleNamespace(dagger=cli, compare_clis=False, after_dagger=None))
+            self.assertEqual(paths, dict(before=cli, after=cli))
+            self.assertEqual(hashes["before"], hashes["after"])
+            bench.verify_cli_hashes(paths, hashes)
+
+    def test_cli_hashes_must_differ_and_remain_unchanged(self):
+        with tempfile.TemporaryDirectory(prefix="generator-cli-guard-") as directory:
+            before, after = Path(directory) / "before", Path(directory) / "after"
+            for cli in (before, after):
+                cli.write_bytes(b"same fake executable")
+                cli.chmod(0o755)
+            args = SimpleNamespace(dagger=before, after_dagger=after, compare_clis=True)
+            with self.assertRaisesRegex(ValueError, "distinct binary hashes"):
+                bench.select_clis(args)
+            after.write_bytes(b"different fake executable")
+            paths, hashes = bench.select_clis(args)
+            self.assertNotEqual(hashes["before"], hashes["after"])
+            bench.verify_cli_hashes(paths, hashes)
+            after.write_bytes(b"changed after selection")
+            with self.assertRaisesRegex(ValueError, "CLI changed"):
+                bench.verify_cli_hashes(paths, hashes)
+            after.chmod(0o644)
+            with self.assertRaisesRegex(ValueError, "executable files"):
+                bench.select_clis(args)
+
+    def test_side_cli_used_for_setup_timing_and_diagnostics(self):
+        clis = dict(before=Path("/control/dagger"), after=Path("/candidate/dagger"))
+        calls = []
+        def process(*args, **kwargs):
+            calls.append((args, kwargs))
+            return "recorded"
+        for side in ("before", "after"):
+            for label, argv, timed in (("setup", ("version",), False),
+                                       ("build", ("generate", "-y"), True),
+                                       ("messages", ("api", "call", "rust", "build-messages", "contents"), False)):
+                self.assertEqual(bench.run_dagger(process, clis, label, side, *argv, timed=timed), "recorded")
+                self.assertEqual(calls[-1], ((label, [str(clis[side]), *argv], side), dict(timed=timed)))
+
+    def identity(self):
+        return dict(Id="c"*64, Name="/dagger-engine.candidate", Image=self.image,
+                    Running=True, StartedAt="2026-09-11T20:00:00Z", Pid=123, RestartCount=0)
+
+    def record(self, row):
+        log = SimpleNamespace(read_text=lambda: json.dumps(row))
+        calls = []
+        def process(*args):
+            calls.append(args)
+            if args[0].endswith("-image"):
+                return SimpleNamespace(read_text=lambda: self.image + "\n")
+            return log
+        observed = bench.record_comparison_engine(process, "engine-before", self.runner, self.image)
+        self.assertEqual(calls[0], ("engine-before-image", ["docker", "image", "inspect", "--format", "{{.Id}}", "localhost/candidate"], "before"))
+        self.assertEqual(calls[1][0], "engine-before")
+        self.assertEqual(calls[1][1][:5], ["docker", "inspect", "--type", "container", "--format"])
+        self.assertIn(".State.StartedAt", calls[1][1][5])
+        self.assertEqual(calls[1][1][-1], "dagger-engine.candidate")
+        self.assertNotIn("Config", calls[1][1][5], "do not capture engine environment/secrets")
+        self.assertEqual(calls[1][2], "before")
+        return observed
+
+    def test_engine_identity_record_is_exact_and_read_only(self):
+        observed = self.record(self.identity())
+        self.assertEqual(observed["container_id"], "c"*64)
+        self.assertEqual(observed["image_id"], self.image)
+        self.assertEqual(observed["runner"], self.runner)
+        self.assertEqual(observed["image_reference"], "localhost/candidate")
+        self.assertEqual(observed["resolved_image_id"], self.image)
+        bench.verify_comparison_engine_identity(observed, self.record(self.identity()))
+
+    def test_retagged_image_is_rejected_before_container_or_cli_calls(self):
+        calls = []
+        def process(*args):
+            calls.append(args)
+            return SimpleNamespace(read_text=lambda: "sha256:" + "b"*64 + "\n")
+        with self.assertRaisesRegex(ValueError, "image reference does not resolve"):
+            bench.record_comparison_engine(process, "engine-before", self.runner, self.image)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][1][:3], ["docker", "image", "inspect"])
+
+    def test_stopped_wrong_name_or_wrong_image_rejected(self):
+        for key, value in (("Id", "short-id"), ("Name", "/other"), ("Image", "sha256:"+"b"*64),
+                           ("Running", False), ("Pid", 0), ("StartedAt", "")):
+            with self.subTest(key=key):
+                row = self.identity()
+                row[key] = value
+                with self.assertRaises(ValueError):
+                    self.record(row)
+
+    def test_engine_restart_or_replacement_is_rejected(self):
+        before = self.record(self.identity())
+        for key, value in (("Id", "d"*64), ("Pid", 456), ("StartedAt", "later"), ("RestartCount", 1)):
+            with self.subTest(key=key):
+                row = self.identity()
+                row[key] = value
+                after = self.record(row)
+                with self.assertRaisesRegex(ValueError, "engine changed during run"):
+                    bench.verify_comparison_engine_identity(before, after)
+
+    def test_cli_mode_accepts_no_permission_discrepancies(self):
+        bench.validate_mode_discrepancies([], allow_known_baseline=False)
+        for known in (True, False):
+            with self.subTest(known=known), self.assertRaisesRegex(ValueError, "exact native permissions"):
+                bench.validate_mode_discrepancies([dict(known_baseline_bug=known)], allow_known_baseline=False)
+
+
 if __name__ == "__main__":
     unittest.main()
