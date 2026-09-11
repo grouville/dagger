@@ -7,6 +7,7 @@ command that could install missing components and mask an error.
 """
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -15,13 +16,34 @@ import time
 
 
 def main():
+    benchmark_dir = Path(__file__).resolve().parent
+    repository = benchmark_dir.parent.parent
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dagger", required=True, type=Path)
+    parser.add_argument("--module-dir", type=Path, default=benchmark_dir / "module",
+                        help="Opt-in module variant; defaults to the committed benchmark module")
     args = parser.parse_args()
     dagger = args.dagger.resolve()
-    module = Path(__file__).resolve().parent / "module"
+    module = args.module_dir.resolve()
+    for name in ("main.dang", "dagger-module.toml"):
+        if not (module / name).is_file():
+            parser.error(f"--module-dir requires a file at {module / name}")
     root = Path(tempfile.mkdtemp(prefix="dagger-rust-toolchain-test-"))
     print(root, flush=True)
+    with dagger.open("rb") as cli:
+        cli_sha256 = hashlib.file_digest(cli, "sha256").hexdigest()
+    metadata = {
+        "dagger": str(dagger),
+        "cli_sha256": cli_sha256,
+        "source_root": str(repository),
+        "source_commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repository, text=True).strip(),
+        "source_diff_sha256": hashlib.sha256(subprocess.check_output(["git", "diff", "HEAD"], cwd=repository)).hexdigest(),
+        "module_dir": str(module),
+        "module_sha256": hashlib.sha256((module / "main.dang").read_bytes()).hexdigest(),
+        "module_config_sha256": hashlib.sha256((module / "dagger-module.toml").read_bytes()).hexdigest(),
+        "purpose": "correctness-only",
+    }
+    (root / "metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
     source = root / "source"
     source.mkdir()
     subprocess.run(["git", "init", "-q", str(source)], check=True)

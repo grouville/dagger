@@ -94,6 +94,33 @@ All inputs, command outputs and process boundaries are retained in its printed
 temporary directory. Only its own temporary toolchain files are removed during
 the deletion tests; previous contents remain in per-check input records.
 
+Both `run.py` and `test-toolchain.py` accept `--module-dir /path/to/variant`
+for opt-in comparisons of local module implementations with the same CLI and
+engine. The default remains this directory's `module/`. A variant must contain
+`main.dang` and `dagger-module.toml` and implement the same fixture API/settings;
+this option does not install a public module or establish workload equivalence.
+Keep variants unchanged during a run. Each script records the resolved module
+path, `module_sha256` (the main file), and `module_config_sha256` in
+`metadata.json`. `source_root`, `source_commit`, and `source_diff_sha256` describe
+the harness repository, even when the selected module is outside Git. Dependency
+upgrade patches still come from the committed `fixtures/`, never the variant.
+Run the correctness suite for each variant and compare identical workloads;
+alternate variant order across separate runs and retain all samples.
+
+`compare-module-edits.py` compares two module variants on alternating novel
+application/library edits against the same engine and CLI. It deliberately
+accepts only matching pinned ripgrep workspaces produced by `run.py`, verifies
+the recorded module/CLI hashes and settings, and requires `--execute` plus an
+explicit `DAGGER_ENGINE`. It changes those benchmark copies, preserves their
+original files and leaves the copies edited. It does not reset caches, start
+Docker containers, measure native Cargo, or measure cold installation.
+Each scenario retains one excluded warmup pair. Cargo diagnostic retrieval is
+outside the check timers; measured package sets must match the expected affected
+crates exactly. Use complete OTel to verify real execution, since cached stderr
+alone cannot prove that Cargo reran. See the
+[stored-toolchain experiment](stored-toolchain-results.md) for the retained
+positive exact-hit result, noise-scale edit results, and design limitations.
+
 Analyze `library-repair.wcprof` with the separately maintained wcprof analyzer.
 The in-tree README's `go run ./cmd/wcprof-analyze` command is stale: the analyzer
 was removed in e3b4e9c820. The last public analyzer can be extracted from that
