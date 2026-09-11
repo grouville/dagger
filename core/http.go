@@ -239,17 +239,12 @@ func (state *HTTPState) Resolve(
 	state.mu.Lock()
 	defer state.mu.Unlock()
 
-	// Encapsulated like the resolver's "pulling" span: hidden unless it
-	// fails, surfacing as a labeled progress row only when bytes actually
-	// move (a 304 revalidation emits no progress).
-	span, ctx := tracing.StartSpan(ctx, "fetching "+state.URL, telemetry.Encapsulated(), telemetry.Encapsulate())
-	defer func() {
-		tracing.FinishWithError(span, rerr)
-	}()
-
 	expectedChecksum, err := parseOptionalChecksum(checksum)
 	if err != nil {
 		return nil, fmt.Errorf("invalid checksum %q: %w", checksum.Value, err)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 
 	if state.snapshot == nil && state.snapshotID != "" {
@@ -259,6 +254,22 @@ func (state *HTTPState) Resolve(
 		}
 		state.snapshot = snapshot
 	}
+
+	// A checksum pins the representation, not the current state of its URL.
+	// Reuse only an owned snapshot whose bytes were already verified. Keep
+	// ordinary revalidation when no checksum is given or the requested digest
+	// differs, and leave auth/service-bound fetches on their separate path.
+	if expectedChecksum != "" && state.snapshot != nil && state.ContentDigest == expectedChecksum {
+		return state.fileResult(ctx, query, name, permissions)
+	}
+
+	// Encapsulated like the resolver's "pulling" span: hidden unless it
+	// fails, surfacing as a labeled progress row only when bytes actually
+	// move (a 304 revalidation emits no progress).
+	span, ctx := tracing.StartSpan(ctx, "fetching "+state.URL, telemetry.Encapsulated(), telemetry.Encapsulate())
+	defer func() {
+		tracing.FinishWithError(span, rerr)
+	}()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, state.URL, nil)
 	if err != nil {
