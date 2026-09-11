@@ -60,6 +60,12 @@ the CLI, the engine image, local module source, and native Rust image already
 exist. Their download/install costs remain explicitly unmeasured. A complete
 new-user journey must add those costs and a public module install step.
 
+`--pinned-source-sync` opts into a packaging experiment for the pinned
+slim-bookworm/amd64 image: verified Debian rsync/libpopt files replace runtime
+APT resolution. Downloads and installation remain inside the first check.
+This is not a cross-platform default; see [the delivery experiment](source-sync-delivery-results.md)
+for the cold gain, measured warm regression, correctness checks and limitations.
+
 Analyze `library-repair.wcprof` with the separately maintained wcprof analyzer.
 The in-tree README's `go run ./cmd/wcprof-analyze` command is stale: the analyzer
 was removed in e3b4e9c820. The last public analyzer can be extracted from that
@@ -76,6 +82,9 @@ alternates two binaries against the same workspace and records whole-process
 timings. It deliberately shares cache history and does not test invalidation.
 See [the Unicode-table startup report](cli-startup-width-results.md) for a
 matched example, profiler coverage boundaries and correctness checks.
+`--before-workdir` and `--after-workdir` can instead compare module settings
+in two prepared workspaces using the same binary. Verify equivalent sources
+first; this still tests exact warm invocation, not edited-source performance.
 
 Remaining coverage: additional real repositories and dependency versions,
 Clippy/tests/fmt, artifact generation/export, cold installation, concurrent CLI
