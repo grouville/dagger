@@ -7,9 +7,13 @@ requires faster-than-native reusable results, near-native invalidations and
 low-overhead first use.
 
 The completed [30-pair comparison](stable-root-results.md) improves Dagger
-versus Dagger, **not versus native Cargo**: the candidate still adds about
-1.15–1.44 seconds on these edits. See [results](results.md) for the preceding
-pilot and failed larger attempt, which remain separate and unchanged.
+versus Dagger, **not versus native Cargo**: that candidate still adds about
+1.15–1.44 seconds on these edits. A separate [same-engine CLI comparison](cli-comparison-results.md)
+tests skipping unused previews for explicit apply. It shows about 33/215 ms
+less analyzing work, but no consistent application-edit process improvement
+and a remaining 1.31–1.54 second paired native gap in that noisier batch.
+These are separate comparisons, not additive savings. See [results](results.md)
+for the earlier engine pilot and failed attempt, preserved unchanged.
 
 ## Scope and ownership
 
@@ -68,6 +72,15 @@ artifacts, failures and logs are retained; no shared engine, image, volume or
 cache is pruned. Rerun the command to get new owned state, rather than deleting
 a workspace or shared caches. This reset controls Cargo keys, not image/page
 caches or engine readiness.
+
+To compare two CLIs against one already-running engine, use `--compare-clis`
+with `--dagger CONTROL --after-dagger CANDIDATE`. This opt-in mode requires
+identical runner URLs, matching explicit image IDs, distinct executable CLI
+hashes, and strict permission equality on both sides. It verifies exact image
+alias/container identity before and after; it never starts a replacement
+engine intentionally. Only explicit named `docker-image://` runners with
+`cleanup=false` are supported by this diagnostic mode. See the full command,
+guards and results in [CLI comparison](cli-comparison-results.md).
 
 ## Correctness and measurement caveats
 
