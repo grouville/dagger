@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -98,7 +99,10 @@ type containerBackend interface {
 	ContainerRemove(ctx context.Context, name string) error
 	ContainerStart(ctx context.Context, name string) error
 	ContainerExists(ctx context.Context, name string) (bool, error)
-	ContainerLs(ctx context.Context) ([]string, error)
+	// namePatterns are optional, OR-combined regular expressions that backends
+	// may use to narrow the list. Callers must still filter the returned names:
+	// backends that cannot filter may return all containers.
+	ContainerLs(ctx context.Context, namePatterns ...string) ([]string, error)
 }
 
 var errContainerAlreadyExists = errors.New("container already exists")
@@ -251,7 +255,7 @@ func (d *imageDriver) create(ctx context.Context, opts containerCreateOpts, dopt
 		containerName = containerNamePrefix + id
 	}
 
-	leftoverEngines, err := d.collectLeftoverEngines(ctx, containerName)
+	leftoverEngines, err := d.collectEngines(ctx, opts.cleanup, containerName)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			return nil, err
@@ -376,7 +380,7 @@ func CleanupOldEngines(ctx context.Context, preserveVersions []string) error {
 	if !ok {
 		return nil
 	}
-	leftoverEngines, err := imageDriver.collectLeftoverEngines(ctx)
+	leftoverEngines, err := imageDriver.collectEngines(ctx, true)
 	if err != nil {
 		return err
 	}
@@ -384,15 +388,30 @@ func CleanupOldEngines(ctx context.Context, preserveVersions []string) error {
 	return nil
 }
 
-func (d *imageDriver) collectLeftoverEngines(ctx context.Context, additionalNames ...string) ([]string, error) {
-	engines, err := d.backend.ContainerLs(ctx)
+func (d *imageDriver) collectEngines(ctx context.Context, includeOld bool, additionalNames ...string) ([]string, error) {
+	var namePatterns []string
+	if includeOld {
+		namePatterns = append(namePatterns, "^/?"+regexp.QuoteMeta(containerNamePrefix))
+	}
+	for _, name := range additionalNames {
+		if includeOld && strings.HasPrefix(name, containerNamePrefix) {
+			continue
+		}
+		pattern := "^/?" + regexp.QuoteMeta(name) + "$"
+		if !slices.Contains(namePatterns, pattern) {
+			namePatterns = append(namePatterns, pattern)
+		}
+	}
+	engines, err := d.backend.ContainerLs(ctx, namePatterns...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list containers %s: %w", engines, err)
 	}
 
 	var filteredEngines []string
 	for _, name := range engines {
-		if strings.HasPrefix(name, containerNamePrefix) || slices.Contains(additionalNames, name) {
+		// The backend filters are only hints. Keep the literal-name check here
+		// as the boundary for deciding which containers we may start or remove.
+		if (includeOld && strings.HasPrefix(name, containerNamePrefix)) || slices.Contains(additionalNames, name) {
 			filteredEngines = append(filteredEngines, name)
 		}
 	}
