@@ -66,6 +66,34 @@ APT resolution. Downloads and installation remain inside the first check.
 This is not a cross-platform default; see [the delivery experiment](source-sync-delivery-results.md)
 for the cold gain, measured warm regression, correctness checks and limitations.
 
+`--project-toolchain fixtures/rust-toolchain-rustfmt.toml` copies the exact same
+toolchain file into both isolated workspaces before their first checks. Component
+installation is included in the first-check timer, not done in a hidden warmup.
+Existing project toolchain files are never replaced. `--prepare-project-toolchain`
+opts the Dagger side into a separate immutable setup action that reads only the
+root `rust-toolchain` / `rust-toolchain.toml` files. Ordinary source edits should
+reuse that setup; changes to the toolchain configuration must invalidate it.
+The native container naturally retains its installed components across commands.
+
+The candidate uses explicit `rustup toolchain install --no-self-update`,
+validated with the pinned image's rustup 1.29.0. It does not set
+`RUSTUP_TOOLCHAIN`, change Cargo arguments, or create a mutable rustup cache.
+With no toolchain file it skips setup entirely (but still pays for the filtered
+directory lookup). This is a root-workspace experiment, not the final official
+module: nested Cargo working directories, custom toolchain paths, explicit
+overrides, rolling-channel updates and cross-platform delivery need separate
+compatibility validation. Its pinned fixture requests the already selected
+compiler plus rustfmt; it does not substitute a faster compiler.
+
+`python3 hack/bench-rust-loop/test-toolchain.py --dagger ./bin/dagger` runs a
+separate correctness-only suite against the selected engine. It adds a component,
+changes/repairs/removes configuration, tests legacy-file precedence and checks a
+source failure/repair. It inspects the prepared toolchain's component manifest
+directly, without a rustup proxy invocation that could mask a missing component.
+All inputs, command outputs and process boundaries are retained in its printed
+temporary directory. Only its own temporary toolchain files are removed during
+the deletion tests; previous contents remain in per-check input records.
+
 Analyze `library-repair.wcprof` with the separately maintained wcprof analyzer.
 The in-tree README's `go run ./cmd/wcprof-analyze` command is stale: the analyzer
 was removed in e3b4e9c820. The last public analyzer can be extracted from that

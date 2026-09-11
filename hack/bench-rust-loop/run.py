@@ -36,6 +36,8 @@ def main():
     parser.add_argument("--dependency-first", choices=("native", "dagger"), default="native", help="First side for the single dependency upgrade; alternate across isolated runs")
     parser.add_argument("--trace-phases", action="store_true", help="Diagnostic shell timing of source reconciliation and Cargo; changes the Dagger action")
     parser.add_argument("--pinned-source-sync", action="store_true", help="Experimental checksum-pinned Debian rsync packages instead of runtime APT resolution; only the pinned bookworm/amd64 fixture")
+    parser.add_argument("--project-toolchain", type=Path, help="Copy this rust-toolchain.toml into both isolated workspaces before the first check; installation is inside the timer")
+    parser.add_argument("--prepare-project-toolchain", action="store_true", help="Experimental immutable toolchain setup keyed by root toolchain files before edit-sensitive source")
     args = parser.parse_args()
     if "@sha256:" not in args.image or args.samples < 1:
         parser.error("use a digest-pinned image and at least one sample")
@@ -45,6 +47,9 @@ def main():
         parser.error("--profile-dependency-upgrade requires --dependency-upgrade")
     if args.pinned_source_sync and args.image != "rust@sha256:39f68a3e8e3ff425f8945ffa91128e60ff930d53e17fbb5214e95824bdd46f1b":
         parser.error("--pinned-source-sync is validated only against the pinned slim-bookworm/amd64 image")
+    toolchain_contents = args.project_toolchain.read_bytes() if args.project_toolchain else None
+    if toolchain_contents is not None:
+        tomllib.loads(toolchain_contents.decode())
     args.dagger = args.dagger.resolve()
     root = Path(tempfile.mkdtemp(prefix="dagger-rust-loop-"))
     print(root, flush=True)
@@ -104,6 +109,10 @@ def main():
             write(side, "library/Cargo.toml", '[package]\nname = "library"\nversion = "0.1.0"\nedition = "2021"\n')
             write(side, "app/src/main.rs", 'fn main() { println!("{}", library::value()); }\n')
             write(side, "library/src/lib.rs", 'pub fn value() -> u64 { 0 }\n')
+        if toolchain_contents is not None:
+            if any((root / side / name).exists() for name in ("rust-toolchain", "rust-toolchain.toml")):
+                parser.error("--project-toolchain must not replace an existing project toolchain file")
+            (root / side / "rust-toolchain.toml").write_bytes(toolchain_contents)
         run(["git", "init", "-q"], "init-" + side, root / side)
     if args.dependency_upgrade:
         upgrade = {name: (root / "native" / name).read_text() for name in ("Cargo.toml", "Cargo.lock")}
@@ -146,6 +155,9 @@ def main():
     if args.pinned_source_sync:
         with (root / "dagger" / "dagger.toml").open("a") as config:
             config.write("pinnedSourceSync = true\n")
+    if args.prepare_project_toolchain:
+        with (root / "dagger" / "dagger.toml").open("a") as config:
+            config.write("prepareProjectToolchain = true\n")
     metadata = {"image": args.image, "dagger": str(args.dagger), "samples": args.samples,
                 "native_lifecycle": "docker exec", "fixture": "synthetic two-crate workspace",
                 "engine": env.get("DAGGER_ENGINE"), "cold_claim": False}
@@ -159,6 +171,8 @@ def main():
     metadata["first_check_profiled"] = args.profile_first
     metadata["shell_phase_instrumentation"] = args.trace_phases
     metadata["source_sync_delivery"] = "pinned-debian-packages" if args.pinned_source_sync else "runtime-apt"
+    metadata["prepare_project_toolchain"] = args.prepare_project_toolchain
+    metadata["project_toolchain_sha256"] = hashlib.sha256(toolchain_contents).hexdigest() if toolchain_contents is not None else None
     metadata["dependency_upgrade"] = {"package": "bstr", "from": "1.12.0", "to": "1.13.0",
                                       "transitions_per_run": 1, "first": args.dependency_first,
                                       "profiled": args.profile_dependency_upgrade} if args.dependency_upgrade else None
