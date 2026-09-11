@@ -4,6 +4,28 @@ type Rust {
   pub image: String!
   pub cacheKey: String!
   pub tracePhases: Boolean! = false
+  pub pinnedSourceSync: Boolean! = false
+
+  # Packaging experiment for the pinned Debian bookworm/amd64 image only.
+  # Resolve dependencies with APT when refreshing these pins, not on every
+  # user's first check. Dagger verifies and owns the downloaded File inputs.
+  let toolchain: Container! {
+    let base = container.from(image)
+    if (pinnedSourceSync) {
+      base
+        .withMountedFile("/tmp/rust-sync-libpopt.deb", http(
+          "https://deb.debian.org/debian/pool/main/p/popt/libpopt0_1.19%2Bdfsg-1_amd64.deb",
+          checksum: "sha256:6f94b488255acd996254f775c77ff3956557c61f860a3c9caeaf65457554194f",
+        ))
+        .withMountedFile("/tmp/rust-sync-rsync.deb", http(
+          "https://deb.debian.org/debian/pool/main/r/rsync/rsync_3.2.7-1%2Bdeb12u6_amd64.deb",
+          checksum: "sha256:ce99de6b36cbb62dc614a73463e467f2c1ef509545a9a2b33cab19b50530b672",
+        ))
+        .withExec(["sh", "-c", "test \"$(dpkg --print-architecture)\" = amd64 && dpkg -i /tmp/rust-sync-libpopt.deb /tmp/rust-sync-rsync.deb"])
+    } else {
+      base.withExec(["sh", "-c", "apt-get update -qq && apt-get install -y --no-install-recommends rsync"])
+    }
+  }
 
   let action(ws: Workspace!): Container! {
     let command = if (tracePhases) {
@@ -11,9 +33,7 @@ type Rust {
     } else {
       "rsync -rclp --delete /input/ /src/ && cargo check --workspace --locked"
     }
-    container
-      .from(image)
-      .withExec(["sh", "-c", "apt-get update -qq && apt-get install -y --no-install-recommends rsync"])
+    toolchain
       .withWorkdir("/src")
       .withMountedDirectory("/input", ws.directory("/", exclude: [".git", "target", "dagger.toml", "dagger.lock"]))
       .withMountedCache("/src", cacheVolume(cacheKey + "-source"), sharing: CacheSharingMode.LOCKED)
