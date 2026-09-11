@@ -35,6 +35,7 @@ def main():
     parser.add_argument("--profile-dependency-upgrade", action="store_true", help="Capture the first dependency upgrade with wcprof; label its timing as profiled")
     parser.add_argument("--dependency-first", choices=("native", "dagger"), default="native", help="First side for the single dependency upgrade; alternate across isolated runs")
     parser.add_argument("--trace-phases", action="store_true", help="Diagnostic shell timing of source reconciliation and Cargo; changes the Dagger action")
+    parser.add_argument("--pinned-source-sync", action="store_true", help="Experimental checksum-pinned Debian rsync packages instead of runtime APT resolution; only the pinned bookworm/amd64 fixture")
     args = parser.parse_args()
     if "@sha256:" not in args.image or args.samples < 1:
         parser.error("use a digest-pinned image and at least one sample")
@@ -42,6 +43,8 @@ def main():
         parser.error("--dependency-upgrade requires --ripgrep")
     if args.profile_dependency_upgrade and not args.dependency_upgrade:
         parser.error("--profile-dependency-upgrade requires --dependency-upgrade")
+    if args.pinned_source_sync and args.image != "rust@sha256:39f68a3e8e3ff425f8945ffa91128e60ff930d53e17fbb5214e95824bdd46f1b":
+        parser.error("--pinned-source-sync is validated only against the pinned slim-bookworm/amd64 image")
     args.dagger = args.dagger.resolve()
     root = Path(tempfile.mkdtemp(prefix="dagger-rust-loop-"))
     print(root, flush=True)
@@ -140,6 +143,9 @@ def main():
     if args.trace_phases:
         with (root / "dagger" / "dagger.toml").open("a") as config:
             config.write("tracePhases = true\n")
+    if args.pinned_source_sync:
+        with (root / "dagger" / "dagger.toml").open("a") as config:
+            config.write("pinnedSourceSync = true\n")
     metadata = {"image": args.image, "dagger": str(args.dagger), "samples": args.samples,
                 "native_lifecycle": "docker exec", "fixture": "synthetic two-crate workspace",
                 "engine": env.get("DAGGER_ENGINE"), "cold_claim": False}
@@ -152,6 +158,7 @@ def main():
     metadata["preinstalled"] = ["Docker", "Dagger CLI", "engine image", "local module source", "native Rust image"]
     metadata["first_check_profiled"] = args.profile_first
     metadata["shell_phase_instrumentation"] = args.trace_phases
+    metadata["source_sync_delivery"] = "pinned-debian-packages" if args.pinned_source_sync else "runtime-apt"
     metadata["dependency_upgrade"] = {"package": "bstr", "from": "1.12.0", "to": "1.13.0",
                                       "transitions_per_run": 1, "first": args.dependency_first,
                                       "profiled": args.profile_dependency_upgrade} if args.dependency_upgrade else None
