@@ -134,12 +134,36 @@ python3 hack/bench-rust-loop/compare-cli.py \
   -- check rust:check
 ```
 
-Use the configured ripgrep workspace described in the module experiment. For
-this run, credentials/config and OTLP headers were unset, `DO_NOT_TRACK=1`, CLI
-XDG directories isolated, and complete OTel sent only to localhost:43185.
+Use the configured ripgrep workspace described in the module experiment, at
+revision `3fce3b5bb0236da2df6d99672afb8a719642eca7`. For this run,
+credentials/config and OTLP headers were unset, `DO_NOT_TRACK=1`, CLI XDG
+directories isolated, and complete OTel sent only to localhost:43185.
 Native `--profile` was not enabled in these timing rows. Raw results:
 [all pairs including warmups](nested-client-warm-pairs.csv), local directory
 `/tmp/dagger-rust-cli-pair-tyzspp82`.
+
+Reproduce that diagnostic environment in a dedicated shell, with a local
+`hack/otlpdump` receiver already listening on 43185:
+
+```sh
+rust_bench_state=$(mktemp -d /tmp/rust-nested-bench.XXXXXX)
+export XDG_CONFIG_HOME="$rust_bench_state/config"
+export XDG_DATA_HOME="$rust_bench_state/data"
+export XDG_STATE_HOME="$rust_bench_state/state"
+unset DAGGER_CONFIG DAGGER_CLOUD_TOKEN DAGGER_API_TOKEN DAGGER_CLOUD_URL DAGGER_API_URL
+unset DAGGER_SESSION_PORT DAGGER_SESSION_TOKEN _EXPERIMENTAL_DAGGER_RUNNER_HOST
+unset OTEL_EXPORTER_OTLP_HEADERS OTEL_EXPORTER_OTLP_TRACES_HEADERS
+unset OTEL_EXPORTER_OTLP_LOGS_HEADERS OTEL_EXPORTER_OTLP_METRICS_HEADERS
+export DO_NOT_TRACK=1 OTEL_EXPORTER_OTLP_TRACES_LIVE=1
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:43185
+export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://127.0.0.1:43185/v1/traces
+export OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=http://127.0.0.1:43185/v1/logs
+export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://127.0.0.1:43185/v1/metrics
+```
+
+These analytics/config overrides are diagnostic settings, not evidence for
+default-analytics onboarding performance. Set the engine explicitly as shown
+in each command; a debug URL alone does not select the CLI's engine.
 
 | Whole-process metric | Before | After |
 | --- | ---: | ---: |
@@ -191,7 +215,8 @@ Each batch has fresh source/target/registry/git keys but retains engine/image
 and immutable toolchain caches. Native is matching Cargo via `docker exec`.
 
 ```sh
-python3 hack/bench-rust-loop/run.py --dagger ./bin/dagger \
+DAGGER_ENGINE=container://dagger-engine.rust-nested-ab-after-21671ac5 \
+  DO_NOT_TRACK=1 python3 hack/bench-rust-loop/run.py --dagger ./bin/dagger \
   --image rust@sha256:39f68a3e8e3ff425f8945ffa91128e60ff930d53e17fbb5214e95824bdd46f1b \
   --samples 5 --debug-url http://172.17.0.33:6060 --pinned-source-sync \
   --project-toolchain hack/bench-rust-loop/fixtures/rust-toolchain-rustfmt.toml \
@@ -227,6 +252,13 @@ failure/repair/old-failure revisit/repair revisit. The dependency resolution and
 lockfile edit occur outside the check timer; this measures checking an actual
 upgraded library, not the `cargo update` network operation. No whole-project
 rebuild is substituted for the dependency scenario.
+
+All five application edits per batch rebuild only ripgrep; all five library
+edits rebuild grep-printer, grep and ripgrep, identically to native. Cached
+`check-log` output describes its producing execution, not proof of a new run;
+use the matching execution spans and new-input/failure assertions. Both sides
+omit Git metadata in this fixture, yielding the same missing-commit-hash
+limitation. This is not a semantics-preserving default for arbitrary build.rs.
 
 First checks with fresh Cargo caches are 6.758s native/6.981s Dagger before,
 7.443s/7.454s after. They are not cold onboarding: Dagger retains immutable
@@ -270,3 +302,72 @@ success, macOS/remote validation, artifact-export performance, or completeness
 of the official Rust module. Upstream moved to `f78bf2c58f` during this run;
 the measurements above deliberately retain their original base, rather than
 mixing revisions within a comparison. Post-rebase validation is separate.
+
+## Post-rebase validation on f78bf2c58f
+
+The entire 14-branch stack is now based on upstream
+`f78bf2c58feec99030c5933c8c64c96de0eb87b1`. The measured old stack is retained
+as `archive-rust-perf-before-f78bf2c58f` at
+`42c3aee38d8f82e7e6ad135cb2920ed37907d838`. `git range-diff` reports all 15
+commits unchanged. The rebuilt source tip is
+`c09d6699075668c1ce812ae5e41974c5015c6fad`.
+
+Main's intervening PR changes remote-module resolution/reporting and adds a
+persisted Git source field; it does not overlap the stack's files. No old/new
+samples are merged into one A/B result. Build command is the pinned dev deploy
+above with name/image `dagger-engine.rust-main-f78bf2c58` and output
+`/tmp/dagger-rust-main-f78-bin`. Engine image:
+`sha256:da54e8c62153ee7cfcb6b5374d3479c972414d5467abd6144f579b9f39eefadf`;
+new CLI SHA256:
+`8423acd3b75cbd1fa25dee252b3c5f5a484585a319146ac38a106e19b1c1811e`.
+Old binaries/engines and original experimental archives remain untouched.
+
+Post-rebase race tests pass: five repeats of the seven nested-client cases
+(package 1.959s); eight HTTPState tests (1.176s); and the private-field
+producer-session-close retention test (1.202s). Focused integration passes
+the 12 Dang groups plus main's three remote/local module-resolution cases
+(package 138.144s). The locked public-install case takes 78.62s across its
+two installs; this is neither a Rust onboarding benchmark nor a claimed win.
+Logs: `/tmp/dagger-rust-nested-main-f78-*-race.log` and
+`/tmp/dagger-rust-nested-main-f78-integration.log`.
+
+The same toolchain correctness suite passes again with the new CLI/engine:
+`/tmp/dagger-rust-toolchain-test-odpgwtns`. No benchmark overlaps a test/build.
+
+A separate five-sample ripgrep validation uses the same harness/pins/settings,
+the new CLI, `DAGGER_ENGINE=container://dagger-engine.rust-main-f78bf2c58`,
+its current debug URL, and `--dependency-first native`. The engine had already
+run integration tests, but had not materialized this Rust image; Cargo cache
+keys are fresh. Native's Rust Docker image is already installed. This is not
+an empty machine or an entire public Rust-module installation.
+
+| Scenario | Native median | Dagger median | Median paired overhead [min,max] |
+| --- | ---: | ---: | ---: |
+| Exact, n=5 | 126.933ms | 440.408ms | 303.233ms [285.347,346.572] |
+| Application edit, n=5 | 295.249ms | 855.880ms | 547.811ms [490.648,657.597] |
+| Workspace-library edit, n=5 | 458.240ms | 1011.349ms | 543.831ms [522.412,560.020] |
+| External upgrade, n=1 | 1653.216ms | 2155.252ms | 502.036ms |
+| Upgrade followup, n=1 | 125.176ms | 476.401ms | 351.225ms |
+
+First checks are **6.725s native versus 26.214s Dagger: +19.489s**. The cold
+overhead target is not met. First-trace envelopes identify Rust image resolution
+at about 1.32s, pulling 12.69s and unpacking 4.42s; toolchain setup is about
+801ms. The three image phases do not overlap and sum to 18.430s (18.455s
+start-to-finish including gaps). These are elapsed times, not CPU costs; do not
+add nested HTTP requests again.
+The completed first capture passes its structural gate (296 operations,
+281/281 spans), but replay drift is **-2.8%, about 720ms**. Treat the replay
+limitation explicitly; no first-use what-if saving is presented as measured.
+
+Rebuilt sets, locked inputs, unrelated dependency reuse, and failure/repair
+probes still agree. Six OTel captures and three native wcprof dumps accompany
+this validation; narrower native-query coverage remains as described above.
+Raw [validation rows](nested-client-main-f78-validation.csv), full run
+`/tmp/dagger-rust-loop-t1v_7wrx`, profiler artifacts
+`/tmp/dagger-rust-nested-main-f78-*`.
+
+Next module experiments should target prepared toolchain delivery and retaining
+the source-independent base Container in ordinary immutable object state.
+Include the first constructor in timing, retain the configuration-sensitive
+toolchain stage, and leave source reconciliation/Cargo together under their
+locked caches. Neither experiment is implemented or counted as a gain here.
