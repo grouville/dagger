@@ -483,3 +483,101 @@ identities, raw timing CSVs where safe, gate counts and explicit limitations.
 Distinguish implementation, experiment retained-but-not-adopted, and evidence-only
 changes. Keep historical rows intact when adding a new cohort or mapping after
 a rebase. Do not turn local-only diagnostics into claimed shipped improvements.
+
+## Rebase checkpoint: b8151c1f
+
+This historical checkpoint maps **22 branches / 25 commits** from
+`babfdaf6d896597d14d453d2da6911223927185e` on upstream `9b235855` to
+`434c983a5003b2d4ca852ced4b051169f4a28e24` on frozen upstream
+`b8151c1fad7d2180226939b3224d627aba322e2d`. The pre-rebase stack is retained
+at tag `archive/rust-stack-9b235855-babfdaf6d896`, pointing exactly to
+`babfdaf6d896597d14d453d2da6911223927185e`. Earlier mappings and measured
+identities above remain unchanged. This documentation supplement follows the
+checkpoint; it is not included in its 25-commit count.
+
+| Branch | Historical 9b235855 tip | Rebased b8151c1f tip |
+| --- | --- | --- |
+| `perf/rust-01-ordinary-check-benchmark` | `2456864793` | `4d14b42e75` |
+| `perf/rust-02-invalidation-investigation` | `91e80665ea` | `7d45c5af6e` |
+| `perf/rust-03-lazy-oauth-startup` | `889f6edb4e` | `c2ee6da158` |
+| `perf/rust-04-ripgrep-invalidation` | `012902ecfd` | `9d6e17e762` |
+| `perf/rust-05-disposable-cold-loop` | `1d210e8c9c` | `6882f096eb` |
+| `perf/rust-06-cold-readiness` | `d9cb6c2bf7` | `4e5a9a6b9d` |
+| `perf/rust-07-slim-toolchain-evaluation` | `f649e3b4c8` | `3f373596a8` |
+| `perf/rust-08-external-dependency-upgrade` | `85afe07032` | `fc7b0944d5` |
+| `perf/rust-09-source-sync-profiling` | `729429078f` | `818ca1f799` |
+| `perf/rust-10-cli-startup-width-tables` | `c4e398d787` | `aae98f7816` |
+| `perf/rust-11-pinned-source-sync-tool` | `334b646a81` | `9915d2bae3` |
+| `perf/rust-12-verified-http-input-reuse` | `dc2f9826aa` | `7ad595cb66` |
+| `perf/rust-13-project-toolchain-layer` | `0ab528840c` | `94423cb501` |
+| `perf/rust-14-nested-client-transport-lifecycle` | `2a7464a859` | `7c87a8c280` |
+| `perf/rust-15-stored-toolchain-evaluation` | `2f097d0e84` | `7c189d9e81` |
+| `perf/rust-16-filtered-engine-discovery` | `d3dd86713c` | `f1b5d7b245` |
+| `perf/rust-17-single-generator-snapshots` | `116ded2d7c` | `39b7c2e260` |
+| `perf/rust-18-generator-benchmark` | `4175bfb58a` | `58d8d070b1` |
+| `perf/rust-19-auto-apply-paths` | `36b6ea0359` | `4946f06db4` |
+| `perf/rust-20-cli-comparison-evidence` | `533dffbc52` | `9b21b6a16f` |
+| `perf/rust-21-stack-index` | `540a1b1a13` | `5d13b6b6bb` |
+| `perf/rust-22-dang-parse-once-evaluation` | `babfdaf6d8` | `434c983a50` |
+
+The three additional non-tip commits map as follows: initial fixture
+`28311bf0e4` → `4f47668f52`; nested-pool fix
+`2377809de9` → `278030d240`; original stack index
+`bfb0c200ef` → `3bfd476a17`. Branches 01, 14 and 21 each contain two
+commits at this checkpoint.
+
+The source audit verifies all 25 patch diffs and commit-message bytes match
+across the rebase, all 22 local branch tips match this mapping, and the final
+tree delta is exactly the upstream delta. All 25 old and 25 new commit objects
+have SSH signature headers; header presence is **not independent signature-trust
+validation**. Source equality is not a runtime performance result.
+
+Upstream changes only four files (118 insertions, one deletion), with no stack
+file overlap: the setup command's stdin/prompt handling, pretty frontend support,
+a focused setup-prompt TUI integration test and a changelog entry. These changes
+touch onboarding UX, but not Dang parsing, Cargo, module/egraph cache identity or
+the benchmark fixtures.
+
+Validation status when this checkpoint was recorded:
+
+- Focused CLI unit tests: **PASS**, package time 0.033s; this is not a benchmark.
+- New b8151c1f engine/CLI build: **PASS**, supported pinned dev deployment
+  completed in 102.323s. This is development build time, not Rust user latency.
+- New-source setup-prompt real-PTY and ordinary-init integration: **PASS**,
+  16 reported cases in a 48.268s supported `engine-dev test` workflow. No
+  complete wcprof attribution is claimed for this test run.
+- Rust runtime benchmarks: **not rerun on this base**. The parse-once n3/n30
+  cohorts retain their historical bfb0/9b235855 source and binary identities;
+  the source rebase does not relabel them as b8151c1f results.
+
+Original local audit: `/tmp/dagger-rust-rebase-b8151c1f-audit.wVRPC2FO/`,
+especially `mapping.json`, `cli-unit-tests.log`, `engine-build.json` and
+`integration-tests.json`. These are provenance locators, not portable
+dependencies or evidence that a later build completed.
+
+The clean detached build source is the exact `434c983a50` checkpoint above.
+New engine `dagger-engine.rust-main-b8151c1f` has container ID
+`28cb43b2b27525d2a5bd8cb2622e5b647cbd8ddf2b67f510d7eabebe93fbbec6` and
+actual/resolved-alias image ID
+`sha256:ba0686de0d8c5543b5ff093ba7a78fa2d900f23b775fcb4983337b7e5f0319de`.
+Its CLI SHA256 is
+`b7b2d8e4c0de5ab39327339f0899f76f8306498bdb8ef8635f1a6936b36cb778`.
+Deployment replaced only the explicitly owned, never-started placeholder;
+older engines and experimental worktrees remain intact.
+
+Focused reproduction on this source, using Go 1.26.8 and populated readonly
+dependencies:
+
+```sh
+go test -mod=readonly ./internal/cmd/dagger \
+  -run '^Test(InitNonInteractiveDoesNotPrompt|SetupCommandChoiceShowsExecutableCommand|InitShowsFinalProgress|ChangesetAutoApply.*|ChangesetPreviewDispositionsUnchanged)$' \
+  -count=1 -timeout=3m -v
+dagger --x-release 00cb7d3a0e8d1eb6ec672aa504db14e52a9d1e21 \
+  api call engine-dev test --pkg ./core/integration \
+  --run '^TestWorkspace$/^(TestSetupPromptReadsInputAfterTUI|TestWorkspaceInit)$' \
+  --parallel 1 --timeout 10m --test-verbose
+```
+
+The source rebase, build and focused revalidation introduce no new measured
+performance improvement. Ordinary Rust edit/full-export benchmarking on these
+new identities is still required; the full product goal remains unmet.
