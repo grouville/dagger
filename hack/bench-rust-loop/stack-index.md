@@ -442,6 +442,39 @@ the latter rejected a manual clone patch because the existing Go copy path can
 already use kernel `copy_file_range`. No runtime filesystem conclusion or speed
 claim follows from those source reviews.
 
+## 22 — Evaluate invocation-local Dang parse reuse
+
+`perf/rust-22-dang-parse-once-evaluation` follows branch 21 at
+`540a1b1a1305b728aba33e9f78635e2c86d034e1`. This is an **experimental patch and
+evidence bundle**, not an active dependency replacement or a shipped runtime
+change. The [evaluation and reproduction](../bench-dang-parse-once/README.md)
+retain the proposed additive Dang library API, Dagger SDK integration and their
+focused tests. Production integration requires a reviewed/released Dang library
+and a normal dependency update; the local replacement is only build scaffolding.
+
+The SDK inspects the directory parser's fresh, invocation-local file blocks to
+prepare self-types, removing its second source parse. It does not retain ASTs,
+reuse a client's interpreter environment, or change Dagger cache identity.
+Library/SDK focused tests and 36 reported integration cases pass. Standalone
+smoke results retain four successful-print UI expectation failures on both
+engines; subsequent log-ownership checks do not erase those original failures.
+
+The larger full-artifact generator comparison has 30 novel edits per scenario:
+paired median savings are 93.702 ms for application edits (29/30 wins) and
+93.491 ms for workspace-library edits (23/30 wins). All output/freshness/mode
+checks pass. Maintained wcprof accepts 246/248 captures; two candidate timed
+captures lack final markers and remain rejected. All timings and regressions
+remain included. Do not add this result to gains from other cohorts.
+
+The candidate still adds paired median 976.151/1208.128 ms over containerized
+native Cargo on application/library edits. This is not a native win, cold/check
+result, external dependency upgrade, or general Rust/module/platform validation.
+The measured source is `bfb0c200ef` on upstream `9b235855` plus the supplied
+prototype patches, with one identical CLI on both sides. Upstream has since
+advanced to `b8151c1f` (setup-prompt input); none of these measurements used that
+newer source. Exact identities, tails, rejected gates and portability limits are
+in the linked report. The full first-use and developer-loop goal remains unmet.
+
 ## Maintenance contract
 
 For each new branch, add its parent/tip and link a tracked report with context,
