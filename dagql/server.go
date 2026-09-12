@@ -990,10 +990,7 @@ func (s *Server) SchemaForView(view call.View) *ast.Schema {
 			}
 			schema.Directives[n] = d.DirectiveDefinition(view)
 		})
-		h := xxh3.New()
-		json.NewEncoder(h).Encode(schema)
 		s.schemas[view] = schema
-		s.schemaDigests[view] = digest.NewDigest(hashutil.XXH3, h)
 	})
 
 	return s.schemas[view]
@@ -1017,10 +1014,32 @@ func typeVisibleInView(t Type, view call.View) bool {
 
 // SchemaDigest returns the digest of the current schema.
 func (s *Server) SchemaDigest() digest.Digest {
-	s.Schema() // ensure it's built
-	s.schemaLock.Lock()
-	defer s.schemaLock.Unlock()
-	return s.schemaDigests[s.View]
+	view := s.View
+	for {
+		s.SchemaForView(view) // ensure it's built
+		s.schemaLock.Lock()
+		// An install may have invalidated the schema between Schema and this
+		// lock. Never hash an old snapshot or return an empty digest in that
+		// case; rebuild through the normal schema path.
+		schema, ok := s.schemas[view]
+		if !ok {
+			s.schemaLock.Unlock()
+			continue
+		}
+		if dgst, ok := s.schemaDigests[view]; ok {
+			s.schemaLock.Unlock()
+			return dgst
+		}
+		// Query validation needs the schema but not its digest. Hash only
+		// when a schema-scoped cache input requests it, preserving the same
+		// encoding and identity as the eager path.
+		h := xxh3.New()
+		json.NewEncoder(h).Encode(schema)
+		dgst := digest.NewDigest(hashutil.XXH3, h)
+		s.schemaDigests[view] = dgst
+		s.schemaLock.Unlock()
+		return dgst
+	}
 }
 
 // Complexity returns the complexity of the given field.
