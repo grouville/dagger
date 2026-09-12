@@ -1,5 +1,11 @@
 # Experiment checkpoint: repeated native Dang source discovery
 
+Follow-up: [EXPERIMENT.md](EXPERIMENT.md) contains the implementation patches,
+focused validation and three paired full-flow measurements. The inner Dang
+cost decreased, but ordinary unchanged and library-edit timings were effectively
+flat. This remains experimental evidence, not a broad native-parity win. The
+original diagnostic checkpoint below is preserved separately.
+
 This branch records a measured next optimization target, not a speedup or a
 shipping cache change. It is based on main6bf59d50654ce9244ebeee1cc090b7dce3fe3083.
 The diagnostic engine was built from reviewed stack

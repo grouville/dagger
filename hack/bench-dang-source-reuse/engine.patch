@@ -1,0 +1,248 @@
+diff --git a/core/sdk/dang/v2/helpers.go b/core/sdk/dang/v2/helpers.go
+index 7960dd91bb..3987ee24d6 100644
+--- a/core/sdk/dang/v2/helpers.go
++++ b/core/sdk/dang/v2/helpers.go
+@@ -7,7 +7,6 @@ import (
+ 	"fmt"
+ 	"log/slog"
+ 	"maps"
+-	"os"
+ 	"path/filepath"
+ 	"slices"
+ 
+@@ -27,7 +26,7 @@ import (
+ 	"go.opentelemetry.io/otel/trace"
+ )
+ 
+-type dangSourceRunner func(context.Context, string) (dang.ValueScope, error)
++type dangSourceRunner func(context.Context, string, dang.DirectoryOptions) (dang.ValueScope, error)
+ 
+ // dangModule identifies the module currently being evaluated. It lets the
+ // runtime map the module's own local type names (e.g. an interface "Overlay")
+@@ -48,8 +47,8 @@ func (r *runtime) eval(
+ 	fnCall *core.FunctionCall,
+ 	moduleContext dagql.ObjectResult[*core.Module],
+ ) ([]byte, error) {
+-	return evalDangSource(ctx, query, r.modSource, schemaFile, nestedClientMetadata, callerClientID, hostServiceProxyToCaller, fnCall, moduleContext, func(ctx context.Context, modSrcDir string) (dang.ValueScope, error) {
+-		return dang.RunDir(ctx, modSrcDir, false)
++	return evalDangSource(ctx, query, r.modSource, schemaFile, nestedClientMetadata, callerClientID, hostServiceProxyToCaller, fnCall, moduleContext, func(ctx context.Context, modSrcDir string, options dang.DirectoryOptions) (dang.ValueScope, error) {
++		return dang.RunDirWithOptions(ctx, modSrcDir, false, options)
+ 	}, func(ctx context.Context, env dang.ValueScope) ([]byte, error) {
+ 		if fnCall.ParentName == "" {
+ 			srv, err := core.CurrentDagqlServer(ctx)
+@@ -137,13 +136,16 @@ func evalDangSource(
+ 			// pass produces. Self-call fields annotate their return as
+ 			// Dagger.<T> — the module's own type as it lives in the runtime
+ 			// schema, carrying a GraphQL id + Node, not the bare local type — so
+-			// make every such name resolvable here by parsing the module source
+-			// for its declared types. At runtime the served schema already
+-			// includes the module's own types (Module.IncludeSelfInDeps), so
+-			// this is a no-op then.
+-			ensureModuleSelfTypes(intro.Schema, modSource.Self(), modSrcDir)
+-
+-			env, err = runSource(ctx, modSrcDir)
++			// make every such name resolvable before inference. Inspect the
++			// runner's freshly parsed forms rather than parsing the files a
++			// second time. Retain this preparation at runtime too: not every
++			// public local type (notably scalar aliases) is a module definition.
++			env, err = runSource(ctx, modSrcDir, dang.DirectoryOptions{
++				BeforeInference: func(_ context.Context, files []*dang.FileBlock) error {
++					ensureModuleSelfTypes(intro.Schema, modSource.Self(), files)
++					return nil
++				},
++			})
+ 			if err != nil {
+ 				return fmt.Errorf("run dir: %w", err)
+ 			}
+@@ -174,9 +176,9 @@ func evalDangSource(
+ // The synthesized types are only ever used for name resolution and typedef
+ // references (via `withObject(name:)` / `withInterface(name:)`, which core then
+ // namespaces consistently); they are never emitted as TypeDefs, so a minimal
+-// shape suffices. Once the served runtime schema already carries the types
+-// (Module.IncludeSelfInDeps), this is a no-op.
+-func ensureModuleSelfTypes(schema *introspection.Schema, src *core.ModuleSource, modSrcDir string) {
++// shape suffices. Existing runtime types are left unchanged; source-only names
++// such as local scalar aliases still need to be made resolvable.
++func ensureModuleSelfTypes(schema *introspection.Schema, src *core.ModuleSource, files []*dang.FileBlock) {
+ 	if schema == nil || src == nil {
+ 		return
+ 	}
+@@ -188,7 +190,7 @@ func ensureModuleSelfTypes(schema *introspection.Schema, src *core.ModuleSource,
+ 		return
+ 	}
+ 
+-	for _, localName := range moduleDeclaredTypeNames(modSrcDir, moduleName) {
++	for _, localName := range moduleDeclaredTypeNames(files, moduleName) {
+ 		schemaName := core.NamespaceObject(localName, moduleName, src.ModuleOriginalName)
+ 		if schema.Types.Get(schemaName) != nil {
+ 			continue
+@@ -212,15 +214,12 @@ func ensureModuleSelfTypes(schema *introspection.Schema, src *core.ModuleSource,
+ 	}
+ }
+ 
+-// moduleDeclaredTypeNames parses the module's .dang source files and returns the
+-// local names of every public top-level type declaration (object, interface,
+-// enum, scalar). Only top-level declarations become module types in the schema,
+-// so types nested inside a body are intentionally ignored. The main object type
+-// — whose local name matches the module name — is always included even if the
+-// source can't be parsed, so the common case keeps working. Parsing here is
+-// best-effort: it drives name resolution only, and any genuine syntax error
+-// surfaces later when the source is actually declared/run.
+-func moduleDeclaredTypeNames(modSrcDir, moduleName string) []string {
++// moduleDeclaredTypeNames inspects already-parsed source and returns the local
++// names of every public top-level type declaration (object, interface, enum,
++// scalar). Nested/private declarations are intentionally ignored. The main
++// object type is always included, preserving the existing naming convention.
++// The runner reports parse failures before calling this read-only projection.
++func moduleDeclaredTypeNames(files []*dang.FileBlock, moduleName string) []string {
+ 	seen := map[string]struct{}{}
+ 	var names []string
+ 	add := func(name string) {
+@@ -236,28 +235,10 @@ func moduleDeclaredTypeNames(modSrcDir, moduleName string) []string {
+ 
+ 	// The main object's local name matches the module name (capitalized camel
+ 	// case); NamespaceObject collapses it to the module's final name. Seed it
+-	// unconditionally so a self-call returning the main type resolves even if
+-	// the rest of the source fails to parse.
++	// unconditionally so a self-call returning the main type resolves.
+ 	add(strcase.ToCamel(moduleName))
+ 
+-	entries, err := os.ReadDir(modSrcDir)
+-	if err != nil {
+-		slog.Debug("ensureModuleSelfTypes: read module dir", "dir", modSrcDir, "error", err)
+-		return names
+-	}
+-	for _, entry := range entries {
+-		if entry.IsDir() || filepath.Ext(entry.Name()) != ".dang" {
+-			continue
+-		}
+-		root, err := dang.ParseFile(filepath.Join(modSrcDir, entry.Name()))
+-		if err != nil {
+-			slog.Debug("ensureModuleSelfTypes: parse module file", "file", entry.Name(), "error", err)
+-			continue
+-		}
+-		file, ok := root.(*dang.FileBlock)
+-		if !ok {
+-			continue
+-		}
++	for _, file := range files {
+ 		// Only top-level type declarations become module types in the schema;
+ 		// types declared inside a body are not hoisted, so iterate the file's
+ 		// own forms rather than walking the AST recursively.
+@@ -285,8 +266,8 @@ func moduleDeclaredTypeNames(modSrcDir, moduleName string) []string {
+ 	return names
+ }
+ 
+-func runDangDirForModuleTypes(ctx context.Context, dirPath string) (dang.ValueScope, error) {
+-	env, err := dang.DeclareDir(ctx, dirPath, false)
++func runDangDirForModuleTypes(ctx context.Context, dirPath string, options dang.DirectoryOptions) (dang.ValueScope, error) {
++	env, err := dang.DeclareDirWithOptions(ctx, dirPath, false, options)
+ 	if err != nil {
+ 		return nil, fmt.Errorf("declare Dang module types: %w", err)
+ 	}
+diff --git a/core/sdk/dang/v2/sdk.go b/core/sdk/dang/v2/sdk.go
+index db337e3964..048038966b 100644
+--- a/core/sdk/dang/v2/sdk.go
++++ b/core/sdk/dang/v2/sdk.go
+@@ -47,8 +47,8 @@ func (Impl) ModuleTypes(
+ 		return inst, err
+ 	}
+ 
+-	runner := dangSourceRunner(func(ctx context.Context, modSrcDir string) (dang.ValueScope, error) {
+-		return dang.RunDir(ctx, modSrcDir, false)
++	runner := dangSourceRunner(func(ctx context.Context, modSrcDir string, options dang.DirectoryOptions) (dang.ValueScope, error) {
++		return dang.RunDirWithOptions(ctx, modSrcDir, false, options)
+ 	})
+ 	// When self-calls are enabled the module's own types (and root fields like
+ 	// `tuiQa`) only exist in the *runtime* schema, after this ModuleTypes pass
+diff --git a/core/sdk/dang/v2/parsed_declarations_test.go b/core/sdk/dang/v2/parsed_declarations_test.go
+new file mode 100644
+index 0000000000..e82caf32ef
+--- /dev/null
++++ b/core/sdk/dang/v2/parsed_declarations_test.go
+@@ -0,0 +1,85 @@
++package dangv2
++
++import (
++	"context"
++	"os"
++	"path/filepath"
++	"testing"
++
++	"github.com/dagger/dagger/core"
++	"github.com/stretchr/testify/require"
++	"github.com/vito/dang/v2/pkg/dang"
++	"github.com/vito/dang/v2/pkg/introspection"
++)
++
++func TestParsedModuleDeclaredTypeNames(t *testing.T) {
++	public := dang.PublicVisibility
++	files := []*dang.FileBlock{{Forms: []dang.Node{
++		&dang.ObjectDecl{Name: &dang.Symbol{Name: "Test"}, Visibility: public},
++		&dang.ObjectDecl{Name: &dang.Symbol{Name: "Hidden"}, Visibility: dang.PrivateVisibility},
++		&dang.InterfaceDecl{Name: &dang.Symbol{Name: "Readable"}, Visibility: public},
++		&dang.EnumDecl{Name: &dang.Symbol{Name: "Choice"}, Visibility: public},
++		&dang.ScalarDecl{Name: &dang.Symbol{Name: "Timestamp"}, Visibility: public},
++		&dang.Block{Forms: []dang.Node{
++			&dang.ObjectDecl{Name: &dang.Symbol{Name: "Nested"}, Visibility: public},
++		}},
++	}}, {Forms: []dang.Node{
++		&dang.ObjectDecl{Name: &dang.Symbol{Name: "Widget"}, Visibility: public},
++		&dang.ScalarDecl{Name: &dang.Symbol{Name: "Timestamp"}, Visibility: public},
++		&dang.EnumDecl{Visibility: public},
++	}}}
++	require.Equal(t, []string{"Test", "Readable", "Choice", "Timestamp", "Widget"}, moduleDeclaredTypeNames(files, "test"))
++	require.Equal(t, []string{"MainThing"}, moduleDeclaredTypeNames(nil, "main-thing"))
++	// The projection must not inject declarations into or reorder parsed forms.
++	require.Len(t, files[0].Forms, 6)
++	require.Equal(t, "Widget", files[1].Forms[0].(*dang.ObjectDecl).Name.Name)
++}
++
++func TestParsedSelfTypeNamesPreserveExistingSchemaAndScalars(t *testing.T) {
++	src := &core.ModuleSource{ModuleName: "renamed", ModuleOriginalName: "test"}
++	widgetName := core.NamespaceObject("Widget", src.ModuleName, src.ModuleOriginalName)
++	widget := &introspection.Type{Kind: introspection.TypeKindObject, Name: widgetName}
++	schema := &introspection.Schema{Types: introspection.Types{widget}}
++	files := []*dang.FileBlock{{Forms: []dang.Node{
++		&dang.ObjectDecl{Name: &dang.Symbol{Name: "Widget"}, Visibility: dang.PublicVisibility},
++		&dang.ScalarDecl{Name: &dang.Symbol{Name: "Timestamp"}, Visibility: dang.PublicVisibility},
++	}}}
++	ensureModuleSelfTypes(schema, src, files)
++	require.Same(t, widget, schema.Types.Get(widgetName))
++	scalarName := core.NamespaceObject("Timestamp", src.ModuleName, src.ModuleOriginalName)
++	require.NotNil(t, schema.Types.Get(scalarName), "source-only scalar name must still be synthesized")
++	length := len(schema.Types)
++	ensureModuleSelfTypes(schema, src, files)
++	require.Len(t, schema.Types, length, "runtime preparation must leave existing types alone")
++}
++
++func TestParsedModuleDeclarationNamesMatchFileParser(t *testing.T) {
++	dir := t.TempDir()
++	file := filepath.Join(dir, "main.dang")
++	require.NoError(t, os.WriteFile(file, []byte(`
++scalar Timestamp
++type Test {
++  pub echo(value: Timestamp!): Timestamp! { value }
++}
++`), 0o600))
++	// The old discovery path parsed the file directly without the directory
++	// runner's filePath global. The new projection must find the same names.
++	parsed, err := dang.ParseFile(file)
++	require.NoError(t, err)
++	expected := moduleDeclaredTypeNames([]*dang.FileBlock{parsed.(*dang.FileBlock)}, "test")
++	require.Contains(t, expected, "Timestamp")
++	for _, run := range []func(context.Context, string, bool, dang.DirectoryOptions) (dang.ValueScope, error){
++		dang.DeclareDirWithOptions, dang.RunDirWithOptions,
++	} {
++		calls := 0
++		_, err := run(context.Background(), dir, false, dang.DirectoryOptions{
++			BeforeInference: func(_ context.Context, files []*dang.FileBlock) error {
++				calls++
++				require.Equal(t, expected, moduleDeclaredTypeNames(files, "test"))
++				return nil
++			},
++		})
++		require.NoError(t, err)
++		require.Equal(t, 1, calls)
++	}
++}

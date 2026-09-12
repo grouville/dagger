@@ -1,0 +1,246 @@
+--- a/pkg/dang/eval.go
++++ b/pkg/dang/eval.go
+@@ -2685,6 +2685,23 @@
+ 	return ctx, blocks, nil
+ }
+ 
++// DirectoryOptions configures preparation of a single directory evaluation.
++// Parsed forms belong to this invocation: inference and evaluation mutate them,
++// so they must not be retained, reused, or evaluated concurrently.
++type DirectoryOptions struct {
++	// BeforeInference runs once after all files parse successfully, in stable
++	// filename order, before imports and declarations are inferred. Embedders
++	// can inspect declarations to prepare their supplied import schemas without
++	// reparsing source. Import schemas must not already have been initialized
++	// in this context's schema-module cache; use a fresh import context when
++	// preparing new schemas. This option does not clear or bypass that cache.
++	// The callback runs inside the invocation's service
++	// lifetime. The forms are inspection-only: do not mutate or retain them.
++	// It is called with an empty slice for an empty directory and is not called
++	// if any file fails to parse. A callback error aborts before inference.
++	BeforeInference func(context.Context, []*FileBlock) error
++}
++
+ // DeclareDir declares all .dang files in a directory as a single module and
+ // returns an evaluation environment containing only declared API-shape values.
+ // It resolves imports and signatures, but it does not infer or evaluate
+@@ -2692,6 +2709,12 @@
+ // file's imports are file-local: a sibling file's `import X` does not make X
+ // visible here.
+ func DeclareDir(ctx context.Context, dirPath string, isDebug bool) (ValueScope, error) {
++	return DeclareDirWithOptions(ctx, dirPath, isDebug, DirectoryOptions{})
++}
++
++// DeclareDirWithOptions is DeclareDir with invocation-local preparation of the
++// parsed source before declaration inference.
++func DeclareDirWithOptions(ctx context.Context, dirPath string, isDebug bool, options DirectoryOptions) (ValueScope, error) {
+ 	// Ensure service registry exists for cleanup.
+ 	ctx, services := ensureServiceRegistry(ctx)
+ 	if services != nil {
+@@ -2702,6 +2725,11 @@
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	if options.BeforeInference != nil {
++		if err := options.BeforeInference(ctx, blocks); err != nil {
++			return nil, fmt.Errorf("prepare directory declarations: %w", err)
++		}
++	}
+ 	if len(blocks) == 0 {
+ 		return NewValueScope(NewPreludeTypeScope("")), nil
+ 	}
+@@ -2750,6 +2778,12 @@
+ // file's imports are file-local during type inference: a sibling file's
+ // `import X` does not make X visible here.
+ func RunDir(ctx context.Context, dirPath string, isDebug bool) (ValueScope, error) {
++	return RunDirWithOptions(ctx, dirPath, isDebug, DirectoryOptions{})
++}
++
++// RunDirWithOptions is RunDir with invocation-local preparation of the parsed
++// source before inference and evaluation.
++func RunDirWithOptions(ctx context.Context, dirPath string, isDebug bool, options DirectoryOptions) (ValueScope, error) {
+ 	// Ensure service registry exists for cleanup
+ 	ctx, services := ensureServiceRegistry(ctx)
+ 	if services != nil {
+@@ -2760,6 +2794,11 @@
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	if options.BeforeInference != nil {
++		if err := options.BeforeInference(ctx, blocks); err != nil {
++			return nil, fmt.Errorf("prepare directory declarations: %w", err)
++		}
++	}
+ 	if len(blocks) == 0 {
+ 		return nil, fmt.Errorf("no .dang files found in directory: %s", dirPath)
+ 	}
+--- /dev/null
++++ b/pkg/dang/directory_options_test.go
+@@ -0,0 +1,167 @@
++package dang
++
++import (
++	"context"
++	"os"
++	"os/exec"
++	"path/filepath"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++	"github.com/vito/dang/v2/pkg/introspection"
++)
++
++var directoryPreparationRunners = map[string]func(context.Context, string, bool, DirectoryOptions) (ValueScope, error){
++	"declare": DeclareDirWithOptions,
++	"run":     RunDirWithOptions,
++}
++
++func TestDirectoryPreparationUsesParsedSource(t *testing.T) {
++	for name, run := range directoryPreparationRunners {
++		t.Run(name, func(t *testing.T) {
++			dir := t.TempDir()
++			a := filepath.Join(dir, "a.dang")
++			z := filepath.Join(dir, "z.dang")
++			require.NoError(t, os.WriteFile(z, []byte("type Z {}"), 0o600))
++			require.NoError(t, os.WriteFile(a, []byte("type A {}"), 0o600))
++			calls := 0
++			env, err := run(context.Background(), dir, false, DirectoryOptions{
++				BeforeInference: func(ctx context.Context, files []*FileBlock) error {
++					calls++
++					require.NotNil(t, servicesFromContext(ctx))
++					require.Len(t, files, 2)
++					require.Equal(t, "A", files[0].Forms[0].(*ObjectDecl).Name.Name)
++					require.Equal(t, "Z", files[1].Forms[0].(*ObjectDecl).Name.Name)
++					require.Nil(t, files[0].Forms[0].GetInferredType())
++					// Test-only mutation of files, not ASTs: successful execution
++					// must use the parsed forms, not read/parse the directory again.
++					require.NoError(t, os.WriteFile(a, []byte("type BROKEN {"), 0o600))
++					return nil
++				},
++			})
++			require.NoError(t, err)
++			require.Equal(t, 1, calls)
++			_, found := requireEvalGet(t, env, "A")
++			require.True(t, found)
++		})
++	}
++}
++
++func TestDirectoryPreparationBeforeInference(t *testing.T) {
++	for name, run := range directoryPreparationRunners {
++		t.Run(name, func(t *testing.T) {
++			dir := t.TempDir()
++			require.NoError(t, os.WriteFile(filepath.Join(dir, "main.dang"), []byte(`
++type Test {
++  pub echo(value: Dagger.Prepared!): Dagger.Prepared! { value }
++}
++`), 0o600))
++			schema := schemaWithCoreShadowTypes()
++			ctx := ContextWithImportConfigs(context.Background(), ImportConfig{Name: "Dagger", Schema: schema, AutoImport: true})
++			_, err := run(ctx, dir, false, DirectoryOptions{})
++			require.Error(t, err, "signature must require the prepared schema type")
++			// ContextWithImportConfigs owns a name-keyed schema-module cache.
++			// A fresh invocation must not reuse the baseline's initialized
++			// type scope when preparing a different schema.
++			schema = schemaWithCoreShadowTypes()
++			ctx = ContextWithImportConfigs(context.Background(), ImportConfig{Name: "Dagger", Schema: schema, AutoImport: true})
++			calls := 0
++			_, err = run(ctx, dir, false, DirectoryOptions{BeforeInference: func(_ context.Context, _ []*FileBlock) error {
++				calls++
++				schema.Types = append(schema.Types, &introspection.Type{Kind: introspection.TypeKindScalar, Name: "Prepared"})
++				return nil
++			}})
++			require.NoError(t, err)
++			require.Equal(t, 1, calls)
++		})
++	}
++}
++
++func TestDirectoryPreparationErrorAndServiceOwnership(t *testing.T) {
++	for name, run := range directoryPreparationRunners {
++		for _, inherited := range []bool{false, true} {
++			t.Run(name+map[bool]string{true: "/inherited", false: "/owned"}[inherited], func(t *testing.T) {
++				dir := t.TempDir()
++				require.NoError(t, os.WriteFile(filepath.Join(dir, "main.dang"), []byte("type Test {}"), 0o600))
++				ctx := context.Background()
++				var registry *ServiceRegistry
++				if inherited {
++					registry = &ServiceRegistry{}
++					ctx = ContextWithServices(ctx, registry)
++				}
++				_, err := run(ctx, dir, false, DirectoryOptions{BeforeInference: func(ctx context.Context, _ []*FileBlock) error {
++					actual := servicesFromContext(ctx)
++					require.NotNil(t, actual)
++					if inherited {
++						require.Same(t, registry, actual)
++					}
++					registry = actual
++					// No real process is needed to check which invocation owns
++					// cleanup of the registry. StopAll must clear owned entries.
++					registry.register(&exec.Cmd{})
++					return context.Canceled
++				}})
++				require.ErrorIs(t, err, context.Canceled)
++				if inherited {
++					require.Len(t, registry.procs, 1)
++					registry.StopAll()
++				} else {
++					require.Empty(t, registry.procs)
++				}
++			})
++		}
++	}
++}
++
++func TestDirectoryPreparationParseErrorAndEmpty(t *testing.T) {
++	for name, run := range directoryPreparationRunners {
++		t.Run(name, func(t *testing.T) {
++			dir := t.TempDir()
++			calls := 0
++			options := DirectoryOptions{BeforeInference: func(_ context.Context, files []*FileBlock) error {
++				calls++
++				require.Empty(t, files)
++				return nil
++			}}
++			_, err := run(context.Background(), dir, false, options)
++			if name == "declare" {
++				require.NoError(t, err)
++			} else {
++				require.ErrorContains(t, err, "no .dang files")
++			}
++			require.Equal(t, 1, calls)
++			path := filepath.Join(dir, "bad.dang")
++			require.NoError(t, os.WriteFile(path, []byte("type Broken {"), 0o600))
++			_, baseline := run(context.Background(), dir, false, DirectoryOptions{})
++			_, err = run(context.Background(), dir, false, options)
++			require.Error(t, baseline)
++			require.EqualError(t, err, baseline.Error())
++			require.Equal(t, 1, calls, "parse errors must prevent preparation")
++		})
++	}
++}
++
++func TestDirectoryPreparationFreshInvocation(t *testing.T) {
++	for name, run := range directoryPreparationRunners {
++		t.Run(name, func(t *testing.T) {
++			dir := t.TempDir()
++			path := filepath.Join(dir, "main.dang")
++			for _, localName := range []string{"First", "Second"} {
++				require.NoError(t, os.WriteFile(path, []byte("import Dagger\ntype "+localName+" {}"), 0o600))
++				schema := schemaWithCoreShadowTypes()
++				ctx := ContextWithImportConfigs(context.Background(), ImportConfig{Name: "Dagger", Schema: schema})
++				_, err := run(ctx, dir, false, DirectoryOptions{BeforeInference: func(ctx context.Context, files []*FileBlock) error {
++					require.Len(t, files, 1)
++					imp := files[0].Forms[0].(*ImportDecl)
++					require.Nil(t, imp.client)
++					require.Nil(t, imp.schema)
++					require.Nil(t, imp.inferred)
++					require.Equal(t, localName, files[0].Forms[1].(*ObjectDecl).Name.Name)
++					require.Same(t, schema, importConfigsFromContext(ctx)[0].Schema)
++					return nil
++				}})
++				require.NoError(t, err)
++			}
++		})
++	}
++}
