@@ -1,0 +1,2006 @@
+{
+  "scope": "Three independent AB/BA/AB matched CLI pairs, same engine image; per-run warm repeats summarized first.",
+  "limits": [
+    "First check and external upgrade profiled; other timed scenarios unprofiled",
+    "Native uses docker exec in matched preinstalled image, not bare host",
+    "Engine/CLI/native image and local module preinstalled; no full-install claim",
+    "Host page/CDN caches not purged; native follows Dagger for initial check",
+    "Cargo diagnostic sessions occur after measured checks on both treatments",
+    "The later application diagnostic follows failure/revisit/cached-repair and rebuilds three crates; ordinary timed application edits rebuild only ripgrep",
+    "Three within-run samples are repeated observations, not nine independent pairs",
+    "No artifact/fmt/clippy/test-command/macOS/remote performance claim"
+  ],
+  "cohorts": 3,
+  "profiles": 36,
+  "cache_analyses": 18,
+  "warm_rebuild_audits": 36,
+  "samples": [
+    {
+      "index": 0,
+      "side": "A",
+      "root": "/tmp/dagger-rust-loop-0ci4v4v9",
+      "flows": {
+        "first-check": {
+          "profiled": true,
+          "samples": 1,
+          "dagger_ms": 13747.311285,
+          "native_ms": 7692.602614,
+          "overhead_ms": 6054.708670999999,
+          "ratio": 1.7870819506496867,
+          "measurements": [
+            {
+              "dagger_ms": 13747.311285,
+              "native_ms": 7692.602614,
+              "overhead_ms": 6054.708670999999
+            }
+          ]
+        },
+        "provision-plus-first-check": {
+          "profiled": true,
+          "samples": 1,
+          "dagger_ms": 13988.144442,
+          "native_ms": 7692.602614,
+          "overhead_ms": 6295.541828,
+          "ratio": 1.818389060750721,
+          "measurements": [
+            {
+              "dagger_ms": 13988.144442,
+              "native_ms": 7692.602614,
+              "overhead_ms": 6295.541828
+            }
+          ]
+        },
+        "exact": {
+          "profiled": false,
+          "samples": 3,
+          "dagger_ms": 493.778579,
+          "native_ms": 113.780798,
+          "overhead_ms": 378.296764,
+          "ratio": 4.131187267644229,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 470.049784,
+              "native_ms": 113.780798,
+              "overhead_ms": 356.268986,
+              "ratio": 4.131187267644229
+            },
+            {
+              "sample": 1,
+              "dagger_ms": 493.778579,
+              "native_ms": 113.354688,
+              "overhead_ms": 380.42389099999997,
+              "ratio": 4.356049032572875
+            },
+            {
+              "sample": 2,
+              "dagger_ms": 522.046609,
+              "native_ms": 143.749845,
+              "overhead_ms": 378.296764,
+              "ratio": 3.631632500195044
+            }
+          ]
+        },
+        "application": {
+          "profiled": false,
+          "samples": 3,
+          "dagger_ms": 880.343584,
+          "native_ms": 297.818449,
+          "overhead_ms": 583.148776,
+          "ratio": 2.962176862793646,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 1012.810167,
+              "native_ms": 340.370904,
+              "overhead_ms": 672.439263,
+              "ratio": 2.9756073597877215
+            },
+            {
+              "sample": 1,
+              "dagger_ms": 880.343584,
+              "native_ms": 297.194808,
+              "overhead_ms": 583.148776,
+              "ratio": 2.962176862793646
+            },
+            {
+              "sample": 2,
+              "dagger_ms": 871.780927,
+              "native_ms": 297.818449,
+              "overhead_ms": 573.962478,
+              "ratio": 2.927222708758382
+            }
+          ]
+        },
+        "workspace-library": {
+          "profiled": false,
+          "samples": 3,
+          "dagger_ms": 1058.084967,
+          "native_ms": 480.091483,
+          "overhead_ms": 569.688046,
+          "ratio": 2.166444794192304,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 1070.826324,
+              "native_ms": 458.064206,
+              "overhead_ms": 612.7621180000001,
+              "ratio": 2.337721022454219
+            },
+            {
+              "sample": 1,
+              "dagger_ms": 1058.084967,
+              "native_ms": 488.396921,
+              "overhead_ms": 569.688046,
+              "ratio": 2.166444794192304
+            },
+            {
+              "sample": 2,
+              "dagger_ms": 1018.951397,
+              "native_ms": 480.091483,
+              "overhead_ms": 538.8599140000001,
+              "ratio": 2.1224109010073815
+            }
+          ]
+        },
+        "dependency-upgrade": {
+          "profiled": true,
+          "samples": 1,
+          "dagger_ms": 2117.277867,
+          "native_ms": 1649.157034,
+          "overhead_ms": 468.1208329999997,
+          "ratio": 1.2838546138111429,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 2117.277867,
+              "native_ms": 1649.157034,
+              "overhead_ms": 468.1208329999997,
+              "ratio": 1.2838546138111429
+            }
+          ]
+        },
+        "dependency-followup": {
+          "profiled": false,
+          "samples": 1,
+          "dagger_ms": 462.797009,
+          "native_ms": 148.72773,
+          "overhead_ms": 314.069279,
+          "ratio": 3.1117062635192507,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 462.797009,
+              "native_ms": 148.72773,
+              "overhead_ms": 314.069279,
+              "ratio": 3.1117062635192507
+            }
+          ]
+        }
+      }
+    },
+    {
+      "index": 1,
+      "side": "B",
+      "root": "/tmp/dagger-rust-loop-cvl1ka84",
+      "flows": {
+        "first-check": {
+          "profiled": true,
+          "samples": 1,
+          "dagger_ms": 14890.243426,
+          "native_ms": 6702.111352,
+          "overhead_ms": 8188.132074000001,
+          "ratio": 2.2217242662726804,
+          "measurements": [
+            {
+              "dagger_ms": 14890.243426,
+              "native_ms": 6702.111352,
+              "overhead_ms": 8188.132074000001
+            }
+          ]
+        },
+        "provision-plus-first-check": {
+          "profiled": true,
+          "samples": 1,
+          "dagger_ms": 15157.236609,
+          "native_ms": 6702.111352,
+          "overhead_ms": 8455.125257,
+          "ratio": 2.261561441302654,
+          "measurements": [
+            {
+              "dagger_ms": 15157.236609,
+              "native_ms": 6702.111352,
+              "overhead_ms": 8455.125257
+            }
+          ]
+        },
+        "exact": {
+          "profiled": false,
+          "samples": 3,
+          "dagger_ms": 433.026835,
+          "native_ms": 124.534891,
+          "overhead_ms": 308.491944,
+          "ratio": 3.4771527201963024,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 447.203309,
+              "native_ms": 118.313523,
+              "overhead_ms": 328.88978599999996,
+              "ratio": 3.7798156766914968
+            },
+            {
+              "sample": 1,
+              "dagger_ms": 418.4489,
+              "native_ms": 166.70844,
+              "overhead_ms": 251.74045999999998,
+              "ratio": 2.51006427748949
+            },
+            {
+              "sample": 2,
+              "dagger_ms": 433.026835,
+              "native_ms": 124.534891,
+              "overhead_ms": 308.491944,
+              "ratio": 3.4771527201963024
+            }
+          ]
+        },
+        "application": {
+          "profiled": false,
+          "samples": 3,
+          "dagger_ms": 829.798206,
+          "native_ms": 323.594561,
+          "overhead_ms": 497.03146300000003,
+          "ratio": 2.53580826409502,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 832.553659,
+              "native_ms": 291.889245,
+              "overhead_ms": 540.6644140000001,
+              "ratio": 2.852293029844248
+            },
+            {
+              "sample": 1,
+              "dagger_ms": 829.798206,
+              "native_ms": 332.766743,
+              "overhead_ms": 497.03146300000003,
+              "ratio": 2.493633223437836
+            },
+            {
+              "sample": 2,
+              "dagger_ms": 820.573762,
+              "native_ms": 323.594561,
+              "overhead_ms": 496.979201,
+              "ratio": 2.53580826409502
+            }
+          ]
+        },
+        "workspace-library": {
+          "profiled": false,
+          "samples": 3,
+          "dagger_ms": 971.964929,
+          "native_ms": 452.42401,
+          "overhead_ms": 519.1494749999999,
+          "ratio": 2.1474843587545234,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 971.573485,
+              "native_ms": 452.42401,
+              "overhead_ms": 519.1494749999999,
+              "ratio": 2.1474843587545234
+            },
+            {
+              "sample": 1,
+              "dagger_ms": 987.443371,
+              "native_ms": 476.664319,
+              "overhead_ms": 510.779052,
+              "ratio": 2.0715697224234653
+            },
+            {
+              "sample": 2,
+              "dagger_ms": 971.964929,
+              "native_ms": 451.765942,
+              "overhead_ms": 520.198987,
+              "ratio": 2.1514789820079
+            }
+          ]
+        },
+        "dependency-upgrade": {
+          "profiled": true,
+          "samples": 1,
+          "dagger_ms": 2151.668535,
+          "native_ms": 1637.075279,
+          "overhead_ms": 514.5932559999999,
+          "ratio": 1.314336953591002,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 2151.668535,
+              "native_ms": 1637.075279,
+              "overhead_ms": 514.5932559999999,
+              "ratio": 1.314336953591002
+            }
+          ]
+        },
+        "dependency-followup": {
+          "profiled": false,
+          "samples": 1,
+          "dagger_ms": 416.740814,
+          "native_ms": 119.577421,
+          "overhead_ms": 297.163393,
+          "ratio": 3.485112912746295,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 416.740814,
+              "native_ms": 119.577421,
+              "overhead_ms": 297.163393,
+              "ratio": 3.485112912746295
+            }
+          ]
+        }
+      }
+    },
+    {
+      "index": 2,
+      "side": "B",
+      "root": "/tmp/dagger-rust-loop-b6787hyg",
+      "flows": {
+        "first-check": {
+          "profiled": true,
+          "samples": 1,
+          "dagger_ms": 13985.461312,
+          "native_ms": 6476.553427,
+          "overhead_ms": 7508.907885,
+          "ratio": 2.159398740338686,
+          "measurements": [
+            {
+              "dagger_ms": 13985.461312,
+              "native_ms": 6476.553427,
+              "overhead_ms": 7508.907885
+            }
+          ]
+        },
+        "provision-plus-first-check": {
+          "profiled": true,
+          "samples": 1,
+          "dagger_ms": 14199.347154,
+          "native_ms": 6476.553427,
+          "overhead_ms": 7722.793726999999,
+          "ratio": 2.1924233798187425,
+          "measurements": [
+            {
+              "dagger_ms": 14199.347154,
+              "native_ms": 6476.553427,
+              "overhead_ms": 7722.793726999999
+            }
+          ]
+        },
+        "exact": {
+          "profiled": false,
+          "samples": 3,
+          "dagger_ms": 443.432871,
+          "native_ms": 116.230494,
+          "overhead_ms": 328.11220099999997,
+          "ratio": 3.8133277962450935,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 446.003715,
+              "native_ms": 116.959186,
+              "overhead_ms": 329.044529,
+              "ratio": 3.8133277962450935
+            },
+            {
+              "sample": 1,
+              "dagger_ms": 419.07404,
+              "native_ms": 116.230494,
+              "overhead_ms": 302.84354600000006,
+              "ratio": 3.605542965342641
+            },
+            {
+              "sample": 2,
+              "dagger_ms": 443.432871,
+              "native_ms": 115.32067,
+              "overhead_ms": 328.11220099999997,
+              "ratio": 3.845215875003154
+            }
+          ]
+        },
+        "application": {
+          "profiled": false,
+          "samples": 3,
+          "dagger_ms": 816.664044,
+          "native_ms": 289.891519,
+          "overhead_ms": 522.635507,
+          "ratio": 2.791612599746321,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 816.664044,
+              "native_ms": 286.216343,
+              "overhead_ms": 530.447701,
+              "ratio": 2.8533103156866204
+            },
+            {
+              "sample": 1,
+              "dagger_ms": 821.035098,
+              "native_ms": 298.399591,
+              "overhead_ms": 522.635507,
+              "ratio": 2.7514618744903037
+            },
+            {
+              "sample": 2,
+              "dagger_ms": 809.264817,
+              "native_ms": 289.891519,
+              "overhead_ms": 519.373298,
+              "ratio": 2.791612599746321
+            }
+          ]
+        },
+        "workspace-library": {
+          "profiled": false,
+          "samples": 3,
+          "dagger_ms": 986.2062,
+          "native_ms": 456.571238,
+          "overhead_ms": 529.634962,
+          "ratio": 2.160026996707138,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 986.2062,
+              "native_ms": 456.571238,
+              "overhead_ms": 529.634962,
+              "ratio": 2.160026996707138
+            },
+            {
+              "sample": 1,
+              "dagger_ms": 1021.370195,
+              "native_ms": 459.636332,
+              "overhead_ms": 561.7338629999999,
+              "ratio": 2.2221267639042948
+            },
+            {
+              "sample": 2,
+              "dagger_ms": 952.647331,
+              "native_ms": 454.934554,
+              "overhead_ms": 497.712777,
+              "ratio": 2.0940315977845025
+            }
+          ]
+        },
+        "dependency-upgrade": {
+          "profiled": true,
+          "samples": 1,
+          "dagger_ms": 2115.571045,
+          "native_ms": 1605.456785,
+          "overhead_ms": 510.11426000000006,
+          "ratio": 1.3177377708114393,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 2115.571045,
+              "native_ms": 1605.456785,
+              "overhead_ms": 510.11426000000006,
+              "ratio": 1.3177377708114393
+            }
+          ]
+        },
+        "dependency-followup": {
+          "profiled": false,
+          "samples": 1,
+          "dagger_ms": 418.142379,
+          "native_ms": 116.514806,
+          "overhead_ms": 301.627573,
+          "ratio": 3.5887488754004364,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 418.142379,
+              "native_ms": 116.514806,
+              "overhead_ms": 301.627573,
+              "ratio": 3.5887488754004364
+            }
+          ]
+        }
+      }
+    },
+    {
+      "index": 3,
+      "side": "A",
+      "root": "/tmp/dagger-rust-loop-stbl7_z7",
+      "flows": {
+        "first-check": {
+          "profiled": true,
+          "samples": 1,
+          "dagger_ms": 14221.913207,
+          "native_ms": 6502.879329,
+          "overhead_ms": 7719.033877999999,
+          "ratio": 2.1870178558560176,
+          "measurements": [
+            {
+              "dagger_ms": 14221.913207,
+              "native_ms": 6502.879329,
+              "overhead_ms": 7719.033877999999
+            }
+          ]
+        },
+        "provision-plus-first-check": {
+          "profiled": true,
+          "samples": 1,
+          "dagger_ms": 14428.343026,
+          "native_ms": 6502.879329,
+          "overhead_ms": 7925.463697,
+          "ratio": 2.218762227626752,
+          "measurements": [
+            {
+              "dagger_ms": 14428.343026,
+              "native_ms": 6502.879329,
+              "overhead_ms": 7925.463697
+            }
+          ]
+        },
+        "exact": {
+          "profiled": false,
+          "samples": 3,
+          "dagger_ms": 483.577542,
+          "native_ms": 120.392099,
+          "overhead_ms": 363.18544299999996,
+          "ratio": 4.01668835427481,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 492.203501,
+              "native_ms": 114.057622,
+              "overhead_ms": 378.14587900000004,
+              "ratio": 4.315393328119711
+            },
+            {
+              "sample": 1,
+              "dagger_ms": 483.577542,
+              "native_ms": 120.392099,
+              "overhead_ms": 363.18544299999996,
+              "ratio": 4.01668835427481
+            },
+            {
+              "sample": 2,
+              "dagger_ms": 479.073111,
+              "native_ms": 154.885889,
+              "overhead_ms": 324.187222,
+              "ratio": 3.093071383668786
+            }
+          ]
+        },
+        "application": {
+          "profiled": false,
+          "samples": 3,
+          "dagger_ms": 904.918841,
+          "native_ms": 293.758397,
+          "overhead_ms": 589.1292020000001,
+          "ratio": 2.9414376652394263,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 855.178709,
+              "native_ms": 290.734942,
+              "overhead_ms": 564.443767,
+              "ratio": 2.9414376652394263
+            },
+            {
+              "sample": 1,
+              "dagger_ms": 904.918841,
+              "native_ms": 315.789639,
+              "overhead_ms": 589.1292020000001,
+              "ratio": 2.8655748297049097
+            },
+            {
+              "sample": 2,
+              "dagger_ms": 912.561335,
+              "native_ms": 293.758397,
+              "overhead_ms": 618.802938,
+              "ratio": 3.106502977683392
+            }
+          ]
+        },
+        "workspace-library": {
+          "profiled": false,
+          "samples": 3,
+          "dagger_ms": 1047.085508,
+          "native_ms": 464.98312,
+          "overhead_ms": 582.1023879999999,
+          "ratio": 2.2518785370101178,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 1037.956835,
+              "native_ms": 478.770614,
+              "overhead_ms": 559.1862209999999,
+              "ratio": 2.167962704160452
+            },
+            {
+              "sample": 1,
+              "dagger_ms": 1047.085508,
+              "native_ms": 464.98312,
+              "overhead_ms": 582.1023879999999,
+              "ratio": 2.2518785370101178
+            },
+            {
+              "sample": 2,
+              "dagger_ms": 1074.409644,
+              "native_ms": 451.442065,
+              "overhead_ms": 622.9675790000001,
+              "ratio": 2.3799502246207385
+            }
+          ]
+        },
+        "dependency-upgrade": {
+          "profiled": true,
+          "samples": 1,
+          "dagger_ms": 2205.190313,
+          "native_ms": 1647.79466,
+          "overhead_ms": 557.395653,
+          "ratio": 1.3382676655840116,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 2205.190313,
+              "native_ms": 1647.79466,
+              "overhead_ms": 557.395653,
+              "ratio": 1.3382676655840116
+            }
+          ]
+        },
+        "dependency-followup": {
+          "profiled": false,
+          "samples": 1,
+          "dagger_ms": 527.807164,
+          "native_ms": 118.38806,
+          "overhead_ms": 409.41910399999995,
+          "ratio": 4.458280370503579,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 527.807164,
+              "native_ms": 118.38806,
+              "overhead_ms": 409.41910399999995,
+              "ratio": 4.458280370503579
+            }
+          ]
+        }
+      }
+    },
+    {
+      "index": 4,
+      "side": "A",
+      "root": "/tmp/dagger-rust-loop-xo5jpevm",
+      "flows": {
+        "first-check": {
+          "profiled": true,
+          "samples": 1,
+          "dagger_ms": 13646.636495,
+          "native_ms": 6753.144484,
+          "overhead_ms": 6893.492011,
+          "ratio": 2.020782544684557,
+          "measurements": [
+            {
+              "dagger_ms": 13646.636495,
+              "native_ms": 6753.144484,
+              "overhead_ms": 6893.492011
+            }
+          ]
+        },
+        "provision-plus-first-check": {
+          "profiled": true,
+          "samples": 1,
+          "dagger_ms": 13859.960436,
+          "native_ms": 6753.144484,
+          "overhead_ms": 7106.815951999999,
+          "ratio": 2.0523713758587485,
+          "measurements": [
+            {
+              "dagger_ms": 13859.960436,
+              "native_ms": 6753.144484,
+              "overhead_ms": 7106.815951999999
+            }
+          ]
+        },
+        "exact": {
+          "profiled": false,
+          "samples": 3,
+          "dagger_ms": 462.562368,
+          "native_ms": 119.065338,
+          "overhead_ms": 343.577722,
+          "ratio": 3.8904694775443365,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 459.766069,
+              "native_ms": 116.188347,
+              "overhead_ms": 343.577722,
+              "ratio": 3.957075566278605
+            },
+            {
+              "sample": 1,
+              "dagger_ms": 472.627308,
+              "native_ms": 121.483361,
+              "overhead_ms": 351.143947,
+              "ratio": 3.8904694775443365
+            },
+            {
+              "sample": 2,
+              "dagger_ms": 462.562368,
+              "native_ms": 119.065338,
+              "overhead_ms": 343.49703,
+              "ratio": 3.8849456589960716
+            }
+          ]
+        },
+        "application": {
+          "profiled": false,
+          "samples": 3,
+          "dagger_ms": 855.610192,
+          "native_ms": 285.599803,
+          "overhead_ms": 563.6237120000001,
+          "ratio": 2.965797587454106,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 873.522769,
+              "native_ms": 309.899057,
+              "overhead_ms": 563.6237120000001,
+              "ratio": 2.818733227058513
+            },
+            {
+              "sample": 1,
+              "dagger_ms": 855.610192,
+              "native_ms": 285.599803,
+              "overhead_ms": 570.010389,
+              "ratio": 2.9958360720577946
+            },
+            {
+              "sample": 2,
+              "dagger_ms": 843.065618,
+              "native_ms": 284.262696,
+              "overhead_ms": 558.802922,
+              "ratio": 2.965797587454106
+            }
+          ]
+        },
+        "workspace-library": {
+          "profiled": false,
+          "samples": 3,
+          "dagger_ms": 1013.094727,
+          "native_ms": 470.575309,
+          "overhead_ms": 561.4026410000001,
+          "ratio": 2.169999800284016,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 985.941177,
+              "native_ms": 470.575309,
+              "overhead_ms": 515.3658680000001,
+              "ratio": 2.0951825523850425
+            },
+            {
+              "sample": 1,
+              "dagger_ms": 1041.23404,
+              "native_ms": 479.831399,
+              "overhead_ms": 561.4026410000001,
+              "ratio": 2.169999800284016
+            },
+            {
+              "sample": 2,
+              "dagger_ms": 1013.094727,
+              "native_ms": 447.38392,
+              "overhead_ms": 565.710807,
+              "ratio": 2.264486231422891
+            }
+          ]
+        },
+        "dependency-upgrade": {
+          "profiled": true,
+          "samples": 1,
+          "dagger_ms": 2118.852151,
+          "native_ms": 1605.858681,
+          "overhead_ms": 512.9934700000001,
+          "ratio": 1.3194511921064866,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 2118.852151,
+              "native_ms": 1605.858681,
+              "overhead_ms": 512.9934700000001,
+              "ratio": 1.3194511921064866
+            }
+          ]
+        },
+        "dependency-followup": {
+          "profiled": false,
+          "samples": 1,
+          "dagger_ms": 459.086269,
+          "native_ms": 114.702005,
+          "overhead_ms": 344.38426400000003,
+          "ratio": 4.002425842512518,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 459.086269,
+              "native_ms": 114.702005,
+              "overhead_ms": 344.38426400000003,
+              "ratio": 4.002425842512518
+            }
+          ]
+        }
+      }
+    },
+    {
+      "index": 5,
+      "side": "B",
+      "root": "/tmp/dagger-rust-loop-xgqdtwii",
+      "flows": {
+        "first-check": {
+          "profiled": true,
+          "samples": 1,
+          "dagger_ms": 14090.60399,
+          "native_ms": 7665.067715,
+          "overhead_ms": 6425.5362749999995,
+          "ratio": 1.8382882596621652,
+          "measurements": [
+            {
+              "dagger_ms": 14090.60399,
+              "native_ms": 7665.067715,
+              "overhead_ms": 6425.5362749999995
+            }
+          ]
+        },
+        "provision-plus-first-check": {
+          "profiled": true,
+          "samples": 1,
+          "dagger_ms": 14301.614216,
+          "native_ms": 7665.067715,
+          "overhead_ms": 6636.546501,
+          "ratio": 1.8658170739982822,
+          "measurements": [
+            {
+              "dagger_ms": 14301.614216,
+              "native_ms": 7665.067715,
+              "overhead_ms": 6636.546501
+            }
+          ]
+        },
+        "exact": {
+          "profiled": false,
+          "samples": 3,
+          "dagger_ms": 431.566952,
+          "native_ms": 120.741979,
+          "overhead_ms": 310.099538,
+          "ratio": 3.5529442653648657,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 434.276032,
+              "native_ms": 114.635363,
+              "overhead_ms": 319.640669,
+              "ratio": 3.7883251785053447
+            },
+            {
+              "sample": 1,
+              "dagger_ms": 428.284832,
+              "native_ms": 120.741979,
+              "overhead_ms": 307.542853,
+              "ratio": 3.54710793666882
+            },
+            {
+              "sample": 2,
+              "dagger_ms": 431.566952,
+              "native_ms": 121.467414,
+              "overhead_ms": 310.099538,
+              "ratio": 3.5529442653648657
+            }
+          ]
+        },
+        "application": {
+          "profiled": false,
+          "samples": 3,
+          "dagger_ms": 805.861686,
+          "native_ms": 287.489289,
+          "overhead_ms": 521.9356929999999,
+          "ratio": 2.837060666980188,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 815.624554,
+              "native_ms": 287.489289,
+              "overhead_ms": 528.135265,
+              "ratio": 2.837060666980188
+            },
+            {
+              "sample": 1,
+              "dagger_ms": 804.765971,
+              "native_ms": 289.020876,
+              "overhead_ms": 515.745095,
+              "ratio": 2.7844562030875584
+            },
+            {
+              "sample": 2,
+              "dagger_ms": 805.861686,
+              "native_ms": 283.925993,
+              "overhead_ms": 521.9356929999999,
+              "ratio": 2.838280769876536
+            }
+          ]
+        },
+        "workspace-library": {
+          "profiled": false,
+          "samples": 3,
+          "dagger_ms": 966.565845,
+          "native_ms": 454.837298,
+          "overhead_ms": 511.728547,
+          "ratio": 2.125080439203559,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 966.565845,
+              "native_ms": 454.837298,
+              "overhead_ms": 511.728547,
+              "ratio": 2.125080439203559
+            },
+            {
+              "sample": 1,
+              "dagger_ms": 964.913632,
+              "native_ms": 477.955258,
+              "overhead_ms": 486.958374,
+              "ratio": 2.018836733876877
+            },
+            {
+              "sample": 2,
+              "dagger_ms": 980.8412,
+              "native_ms": 446.956825,
+              "overhead_ms": 533.884375,
+              "ratio": 2.1944875771837693
+            }
+          ]
+        },
+        "dependency-upgrade": {
+          "profiled": true,
+          "samples": 1,
+          "dagger_ms": 2175.673481,
+          "native_ms": 1667.781014,
+          "overhead_ms": 507.8924669999999,
+          "ratio": 1.3045318676352313,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 2175.673481,
+              "native_ms": 1667.781014,
+              "overhead_ms": 507.8924669999999,
+              "ratio": 1.3045318676352313
+            }
+          ]
+        },
+        "dependency-followup": {
+          "profiled": false,
+          "samples": 1,
+          "dagger_ms": 414.020326,
+          "native_ms": 119.147932,
+          "overhead_ms": 294.872394,
+          "ratio": 3.4748427358353147,
+          "measurements": [
+            {
+              "sample": 0,
+              "dagger_ms": 414.020326,
+              "native_ms": 119.147932,
+              "overhead_ms": 294.872394,
+              "ratio": 3.4748427358353147
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "scenarios": {
+    "first-check": {
+      "profiled": true,
+      "pairs": [
+        {
+          "pair": 0,
+          "order": "AB",
+          "dagger_saved_ms": -1142.9321410000011,
+          "overhead_saved_ms": -2133.4234030000016
+        },
+        {
+          "pair": 1,
+          "order": "BA",
+          "dagger_saved_ms": 236.45189500000015,
+          "overhead_saved_ms": 210.12599299999965
+        },
+        {
+          "pair": 2,
+          "order": "AB",
+          "dagger_saved_ms": -443.96749499999896,
+          "overhead_saved_ms": 467.9557360000008
+        }
+      ],
+      "paired": {
+        "dagger_saved_ms": {
+          "n": 3,
+          "median": -443.96749499999896,
+          "minimum": -1142.9321410000011,
+          "maximum": 236.45189500000015,
+          "values": [
+            -1142.9321410000011,
+            236.45189500000015,
+            -443.96749499999896
+          ],
+          "favorable": 1
+        },
+        "overhead_saved_ms": {
+          "n": 3,
+          "median": 210.12599299999965,
+          "minimum": -2133.4234030000016,
+          "maximum": 467.9557360000008,
+          "values": [
+            -2133.4234030000016,
+            210.12599299999965,
+            467.9557360000008
+          ],
+          "favorable": 2
+        }
+      },
+      "marginal": {
+        "A": {
+          "dagger_ms": {
+            "n": 3,
+            "median": 13747.311285,
+            "minimum": 13646.636495,
+            "maximum": 14221.913207,
+            "values": [
+              13747.311285,
+              14221.913207,
+              13646.636495
+            ]
+          },
+          "native_ms": {
+            "n": 3,
+            "median": 6753.144484,
+            "minimum": 6502.879329,
+            "maximum": 7692.602614,
+            "values": [
+              7692.602614,
+              6502.879329,
+              6753.144484
+            ]
+          },
+          "overhead_ms": {
+            "n": 3,
+            "median": 6893.492011,
+            "minimum": 6054.708670999999,
+            "maximum": 7719.033877999999,
+            "values": [
+              6054.708670999999,
+              7719.033877999999,
+              6893.492011
+            ]
+          },
+          "ratio": {
+            "n": 3,
+            "median": 2.020782544684557,
+            "minimum": 1.7870819506496867,
+            "maximum": 2.1870178558560176,
+            "values": [
+              1.7870819506496867,
+              2.1870178558560176,
+              2.020782544684557
+            ]
+          }
+        },
+        "B": {
+          "dagger_ms": {
+            "n": 3,
+            "median": 14090.60399,
+            "minimum": 13985.461312,
+            "maximum": 14890.243426,
+            "values": [
+              14890.243426,
+              13985.461312,
+              14090.60399
+            ]
+          },
+          "native_ms": {
+            "n": 3,
+            "median": 6702.111352,
+            "minimum": 6476.553427,
+            "maximum": 7665.067715,
+            "values": [
+              6702.111352,
+              6476.553427,
+              7665.067715
+            ]
+          },
+          "overhead_ms": {
+            "n": 3,
+            "median": 7508.907885,
+            "minimum": 6425.5362749999995,
+            "maximum": 8188.132074000001,
+            "values": [
+              8188.132074000001,
+              7508.907885,
+              6425.5362749999995
+            ]
+          },
+          "ratio": {
+            "n": 3,
+            "median": 2.159398740338686,
+            "minimum": 1.8382882596621652,
+            "maximum": 2.2217242662726804,
+            "values": [
+              2.2217242662726804,
+              2.159398740338686,
+              1.8382882596621652
+            ]
+          }
+        }
+      }
+    },
+    "provision-plus-first-check": {
+      "profiled": true,
+      "pairs": [
+        {
+          "pair": 0,
+          "order": "AB",
+          "dagger_saved_ms": -1169.0921669999989,
+          "overhead_saved_ms": -2159.5834289999993
+        },
+        {
+          "pair": 1,
+          "order": "BA",
+          "dagger_saved_ms": 228.99587200000133,
+          "overhead_saved_ms": 202.66997000000083
+        },
+        {
+          "pair": 2,
+          "order": "AB",
+          "dagger_saved_ms": -441.65378000000055,
+          "overhead_saved_ms": 470.2694509999992
+        }
+      ],
+      "paired": {
+        "dagger_saved_ms": {
+          "n": 3,
+          "median": -441.65378000000055,
+          "minimum": -1169.0921669999989,
+          "maximum": 228.99587200000133,
+          "values": [
+            -1169.0921669999989,
+            228.99587200000133,
+            -441.65378000000055
+          ],
+          "favorable": 1
+        },
+        "overhead_saved_ms": {
+          "n": 3,
+          "median": 202.66997000000083,
+          "minimum": -2159.5834289999993,
+          "maximum": 470.2694509999992,
+          "values": [
+            -2159.5834289999993,
+            202.66997000000083,
+            470.2694509999992
+          ],
+          "favorable": 2
+        }
+      },
+      "marginal": {
+        "A": {
+          "dagger_ms": {
+            "n": 3,
+            "median": 13988.144442,
+            "minimum": 13859.960436,
+            "maximum": 14428.343026,
+            "values": [
+              13988.144442,
+              14428.343026,
+              13859.960436
+            ]
+          },
+          "native_ms": {
+            "n": 3,
+            "median": 6753.144484,
+            "minimum": 6502.879329,
+            "maximum": 7692.602614,
+            "values": [
+              7692.602614,
+              6502.879329,
+              6753.144484
+            ]
+          },
+          "overhead_ms": {
+            "n": 3,
+            "median": 7106.815951999999,
+            "minimum": 6295.541828,
+            "maximum": 7925.463697,
+            "values": [
+              6295.541828,
+              7925.463697,
+              7106.815951999999
+            ]
+          },
+          "ratio": {
+            "n": 3,
+            "median": 2.0523713758587485,
+            "minimum": 1.818389060750721,
+            "maximum": 2.218762227626752,
+            "values": [
+              1.818389060750721,
+              2.218762227626752,
+              2.0523713758587485
+            ]
+          }
+        },
+        "B": {
+          "dagger_ms": {
+            "n": 3,
+            "median": 14301.614216,
+            "minimum": 14199.347154,
+            "maximum": 15157.236609,
+            "values": [
+              15157.236609,
+              14199.347154,
+              14301.614216
+            ]
+          },
+          "native_ms": {
+            "n": 3,
+            "median": 6702.111352,
+            "minimum": 6476.553427,
+            "maximum": 7665.067715,
+            "values": [
+              6702.111352,
+              6476.553427,
+              7665.067715
+            ]
+          },
+          "overhead_ms": {
+            "n": 3,
+            "median": 7722.793726999999,
+            "minimum": 6636.546501,
+            "maximum": 8455.125257,
+            "values": [
+              8455.125257,
+              7722.793726999999,
+              6636.546501
+            ]
+          },
+          "ratio": {
+            "n": 3,
+            "median": 2.1924233798187425,
+            "minimum": 1.8658170739982822,
+            "maximum": 2.261561441302654,
+            "values": [
+              2.261561441302654,
+              2.1924233798187425,
+              1.8658170739982822
+            ]
+          }
+        }
+      }
+    },
+    "exact": {
+      "profiled": false,
+      "pairs": [
+        {
+          "pair": 0,
+          "order": "AB",
+          "dagger_saved_ms": 60.751743999999974,
+          "overhead_saved_ms": 69.80482
+        },
+        {
+          "pair": 1,
+          "order": "BA",
+          "dagger_saved_ms": 40.14467100000002,
+          "overhead_saved_ms": 35.07324199999999
+        },
+        {
+          "pair": 2,
+          "order": "AB",
+          "dagger_saved_ms": 30.995415999999977,
+          "overhead_saved_ms": 33.478184
+        }
+      ],
+      "paired": {
+        "dagger_saved_ms": {
+          "n": 3,
+          "median": 40.14467100000002,
+          "minimum": 30.995415999999977,
+          "maximum": 60.751743999999974,
+          "values": [
+            60.751743999999974,
+            40.14467100000002,
+            30.995415999999977
+          ],
+          "favorable": 3
+        },
+        "overhead_saved_ms": {
+          "n": 3,
+          "median": 35.07324199999999,
+          "minimum": 33.478184,
+          "maximum": 69.80482,
+          "values": [
+            69.80482,
+            35.07324199999999,
+            33.478184
+          ],
+          "favorable": 3
+        }
+      },
+      "marginal": {
+        "A": {
+          "dagger_ms": {
+            "n": 3,
+            "median": 483.577542,
+            "minimum": 462.562368,
+            "maximum": 493.778579,
+            "values": [
+              493.778579,
+              483.577542,
+              462.562368
+            ]
+          },
+          "native_ms": {
+            "n": 3,
+            "median": 119.065338,
+            "minimum": 113.780798,
+            "maximum": 120.392099,
+            "values": [
+              113.780798,
+              120.392099,
+              119.065338
+            ]
+          },
+          "overhead_ms": {
+            "n": 3,
+            "median": 363.18544299999996,
+            "minimum": 343.577722,
+            "maximum": 378.296764,
+            "values": [
+              378.296764,
+              363.18544299999996,
+              343.577722
+            ]
+          },
+          "ratio": {
+            "n": 3,
+            "median": 4.01668835427481,
+            "minimum": 3.8904694775443365,
+            "maximum": 4.131187267644229,
+            "values": [
+              4.131187267644229,
+              4.01668835427481,
+              3.8904694775443365
+            ]
+          }
+        },
+        "B": {
+          "dagger_ms": {
+            "n": 3,
+            "median": 433.026835,
+            "minimum": 431.566952,
+            "maximum": 443.432871,
+            "values": [
+              433.026835,
+              443.432871,
+              431.566952
+            ]
+          },
+          "native_ms": {
+            "n": 3,
+            "median": 120.741979,
+            "minimum": 116.230494,
+            "maximum": 124.534891,
+            "values": [
+              124.534891,
+              116.230494,
+              120.741979
+            ]
+          },
+          "overhead_ms": {
+            "n": 3,
+            "median": 310.099538,
+            "minimum": 308.491944,
+            "maximum": 328.11220099999997,
+            "values": [
+              308.491944,
+              328.11220099999997,
+              310.099538
+            ]
+          },
+          "ratio": {
+            "n": 3,
+            "median": 3.5529442653648657,
+            "minimum": 3.4771527201963024,
+            "maximum": 3.8133277962450935,
+            "values": [
+              3.4771527201963024,
+              3.8133277962450935,
+              3.5529442653648657
+            ]
+          }
+        }
+      }
+    },
+    "application": {
+      "profiled": false,
+      "pairs": [
+        {
+          "pair": 0,
+          "order": "AB",
+          "dagger_saved_ms": 50.545377999999914,
+          "overhead_saved_ms": 86.11731299999997
+        },
+        {
+          "pair": 1,
+          "order": "BA",
+          "dagger_saved_ms": 88.25479700000005,
+          "overhead_saved_ms": 66.49369500000012
+        },
+        {
+          "pair": 2,
+          "order": "AB",
+          "dagger_saved_ms": 49.74850600000002,
+          "overhead_saved_ms": 41.68801900000017
+        }
+      ],
+      "paired": {
+        "dagger_saved_ms": {
+          "n": 3,
+          "median": 50.545377999999914,
+          "minimum": 49.74850600000002,
+          "maximum": 88.25479700000005,
+          "values": [
+            50.545377999999914,
+            88.25479700000005,
+            49.74850600000002
+          ],
+          "favorable": 3
+        },
+        "overhead_saved_ms": {
+          "n": 3,
+          "median": 66.49369500000012,
+          "minimum": 41.68801900000017,
+          "maximum": 86.11731299999997,
+          "values": [
+            86.11731299999997,
+            66.49369500000012,
+            41.68801900000017
+          ],
+          "favorable": 3
+        }
+      },
+      "marginal": {
+        "A": {
+          "dagger_ms": {
+            "n": 3,
+            "median": 880.343584,
+            "minimum": 855.610192,
+            "maximum": 904.918841,
+            "values": [
+              880.343584,
+              904.918841,
+              855.610192
+            ]
+          },
+          "native_ms": {
+            "n": 3,
+            "median": 293.758397,
+            "minimum": 285.599803,
+            "maximum": 297.818449,
+            "values": [
+              297.818449,
+              293.758397,
+              285.599803
+            ]
+          },
+          "overhead_ms": {
+            "n": 3,
+            "median": 583.148776,
+            "minimum": 563.6237120000001,
+            "maximum": 589.1292020000001,
+            "values": [
+              583.148776,
+              589.1292020000001,
+              563.6237120000001
+            ]
+          },
+          "ratio": {
+            "n": 3,
+            "median": 2.962176862793646,
+            "minimum": 2.9414376652394263,
+            "maximum": 2.965797587454106,
+            "values": [
+              2.962176862793646,
+              2.9414376652394263,
+              2.965797587454106
+            ]
+          }
+        },
+        "B": {
+          "dagger_ms": {
+            "n": 3,
+            "median": 816.664044,
+            "minimum": 805.861686,
+            "maximum": 829.798206,
+            "values": [
+              829.798206,
+              816.664044,
+              805.861686
+            ]
+          },
+          "native_ms": {
+            "n": 3,
+            "median": 289.891519,
+            "minimum": 287.489289,
+            "maximum": 323.594561,
+            "values": [
+              323.594561,
+              289.891519,
+              287.489289
+            ]
+          },
+          "overhead_ms": {
+            "n": 3,
+            "median": 521.9356929999999,
+            "minimum": 497.03146300000003,
+            "maximum": 522.635507,
+            "values": [
+              497.03146300000003,
+              522.635507,
+              521.9356929999999
+            ]
+          },
+          "ratio": {
+            "n": 3,
+            "median": 2.791612599746321,
+            "minimum": 2.53580826409502,
+            "maximum": 2.837060666980188,
+            "values": [
+              2.53580826409502,
+              2.791612599746321,
+              2.837060666980188
+            ]
+          }
+        }
+      }
+    },
+    "workspace-library": {
+      "profiled": false,
+      "pairs": [
+        {
+          "pair": 0,
+          "order": "AB",
+          "dagger_saved_ms": 86.12003800000002,
+          "overhead_saved_ms": 50.53857100000005
+        },
+        {
+          "pair": 1,
+          "order": "BA",
+          "dagger_saved_ms": 60.879307999999924,
+          "overhead_saved_ms": 52.46742599999993
+        },
+        {
+          "pair": 2,
+          "order": "AB",
+          "dagger_saved_ms": 46.52888200000007,
+          "overhead_saved_ms": 49.67409400000014
+        }
+      ],
+      "paired": {
+        "dagger_saved_ms": {
+          "n": 3,
+          "median": 60.879307999999924,
+          "minimum": 46.52888200000007,
+          "maximum": 86.12003800000002,
+          "values": [
+            86.12003800000002,
+            60.879307999999924,
+            46.52888200000007
+          ],
+          "favorable": 3
+        },
+        "overhead_saved_ms": {
+          "n": 3,
+          "median": 50.53857100000005,
+          "minimum": 49.67409400000014,
+          "maximum": 52.46742599999993,
+          "values": [
+            50.53857100000005,
+            52.46742599999993,
+            49.67409400000014
+          ],
+          "favorable": 3
+        }
+      },
+      "marginal": {
+        "A": {
+          "dagger_ms": {
+            "n": 3,
+            "median": 1047.085508,
+            "minimum": 1013.094727,
+            "maximum": 1058.084967,
+            "values": [
+              1058.084967,
+              1047.085508,
+              1013.094727
+            ]
+          },
+          "native_ms": {
+            "n": 3,
+            "median": 470.575309,
+            "minimum": 464.98312,
+            "maximum": 480.091483,
+            "values": [
+              480.091483,
+              464.98312,
+              470.575309
+            ]
+          },
+          "overhead_ms": {
+            "n": 3,
+            "median": 569.688046,
+            "minimum": 561.4026410000001,
+            "maximum": 582.1023879999999,
+            "values": [
+              569.688046,
+              582.1023879999999,
+              561.4026410000001
+            ]
+          },
+          "ratio": {
+            "n": 3,
+            "median": 2.169999800284016,
+            "minimum": 2.166444794192304,
+            "maximum": 2.2518785370101178,
+            "values": [
+              2.166444794192304,
+              2.2518785370101178,
+              2.169999800284016
+            ]
+          }
+        },
+        "B": {
+          "dagger_ms": {
+            "n": 3,
+            "median": 971.964929,
+            "minimum": 966.565845,
+            "maximum": 986.2062,
+            "values": [
+              971.964929,
+              986.2062,
+              966.565845
+            ]
+          },
+          "native_ms": {
+            "n": 3,
+            "median": 454.837298,
+            "minimum": 452.42401,
+            "maximum": 456.571238,
+            "values": [
+              452.42401,
+              456.571238,
+              454.837298
+            ]
+          },
+          "overhead_ms": {
+            "n": 3,
+            "median": 519.1494749999999,
+            "minimum": 511.728547,
+            "maximum": 529.634962,
+            "values": [
+              519.1494749999999,
+              529.634962,
+              511.728547
+            ]
+          },
+          "ratio": {
+            "n": 3,
+            "median": 2.1474843587545234,
+            "minimum": 2.125080439203559,
+            "maximum": 2.160026996707138,
+            "values": [
+              2.1474843587545234,
+              2.160026996707138,
+              2.125080439203559
+            ]
+          }
+        }
+      }
+    },
+    "dependency-upgrade": {
+      "profiled": true,
+      "pairs": [
+        {
+          "pair": 0,
+          "order": "AB",
+          "dagger_saved_ms": -34.390668000000005,
+          "overhead_saved_ms": -46.47242300000016
+        },
+        {
+          "pair": 1,
+          "order": "BA",
+          "dagger_saved_ms": 89.61926799999992,
+          "overhead_saved_ms": 47.28139299999998
+        },
+        {
+          "pair": 2,
+          "order": "AB",
+          "dagger_saved_ms": -56.82132999999976,
+          "overhead_saved_ms": 5.101003000000219
+        }
+      ],
+      "paired": {
+        "dagger_saved_ms": {
+          "n": 3,
+          "median": -34.390668000000005,
+          "minimum": -56.82132999999976,
+          "maximum": 89.61926799999992,
+          "values": [
+            -34.390668000000005,
+            89.61926799999992,
+            -56.82132999999976
+          ],
+          "favorable": 1
+        },
+        "overhead_saved_ms": {
+          "n": 3,
+          "median": 5.101003000000219,
+          "minimum": -46.47242300000016,
+          "maximum": 47.28139299999998,
+          "values": [
+            -46.47242300000016,
+            47.28139299999998,
+            5.101003000000219
+          ],
+          "favorable": 2
+        }
+      },
+      "marginal": {
+        "A": {
+          "dagger_ms": {
+            "n": 3,
+            "median": 2118.852151,
+            "minimum": 2117.277867,
+            "maximum": 2205.190313,
+            "values": [
+              2117.277867,
+              2205.190313,
+              2118.852151
+            ]
+          },
+          "native_ms": {
+            "n": 3,
+            "median": 1647.79466,
+            "minimum": 1605.858681,
+            "maximum": 1649.157034,
+            "values": [
+              1649.157034,
+              1647.79466,
+              1605.858681
+            ]
+          },
+          "overhead_ms": {
+            "n": 3,
+            "median": 512.9934700000001,
+            "minimum": 468.1208329999997,
+            "maximum": 557.395653,
+            "values": [
+              468.1208329999997,
+              557.395653,
+              512.9934700000001
+            ]
+          },
+          "ratio": {
+            "n": 3,
+            "median": 1.3194511921064866,
+            "minimum": 1.2838546138111429,
+            "maximum": 1.3382676655840116,
+            "values": [
+              1.2838546138111429,
+              1.3382676655840116,
+              1.3194511921064866
+            ]
+          }
+        },
+        "B": {
+          "dagger_ms": {
+            "n": 3,
+            "median": 2151.668535,
+            "minimum": 2115.571045,
+            "maximum": 2175.673481,
+            "values": [
+              2151.668535,
+              2115.571045,
+              2175.673481
+            ]
+          },
+          "native_ms": {
+            "n": 3,
+            "median": 1637.075279,
+            "minimum": 1605.456785,
+            "maximum": 1667.781014,
+            "values": [
+              1637.075279,
+              1605.456785,
+              1667.781014
+            ]
+          },
+          "overhead_ms": {
+            "n": 3,
+            "median": 510.11426000000006,
+            "minimum": 507.8924669999999,
+            "maximum": 514.5932559999999,
+            "values": [
+              514.5932559999999,
+              510.11426000000006,
+              507.8924669999999
+            ]
+          },
+          "ratio": {
+            "n": 3,
+            "median": 1.314336953591002,
+            "minimum": 1.3045318676352313,
+            "maximum": 1.3177377708114393,
+            "values": [
+              1.314336953591002,
+              1.3177377708114393,
+              1.3045318676352313
+            ]
+          }
+        }
+      }
+    },
+    "dependency-followup": {
+      "profiled": false,
+      "pairs": [
+        {
+          "pair": 0,
+          "order": "AB",
+          "dagger_saved_ms": 46.056195,
+          "overhead_saved_ms": 16.90588600000001
+        },
+        {
+          "pair": 1,
+          "order": "BA",
+          "dagger_saved_ms": 109.66478499999994,
+          "overhead_saved_ms": 107.79153099999996
+        },
+        {
+          "pair": 2,
+          "order": "AB",
+          "dagger_saved_ms": 45.065943000000004,
+          "overhead_saved_ms": 49.511870000000044
+        }
+      ],
+      "paired": {
+        "dagger_saved_ms": {
+          "n": 3,
+          "median": 46.056195,
+          "minimum": 45.065943000000004,
+          "maximum": 109.66478499999994,
+          "values": [
+            46.056195,
+            109.66478499999994,
+            45.065943000000004
+          ],
+          "favorable": 3
+        },
+        "overhead_saved_ms": {
+          "n": 3,
+          "median": 49.511870000000044,
+          "minimum": 16.90588600000001,
+          "maximum": 107.79153099999996,
+          "values": [
+            16.90588600000001,
+            107.79153099999996,
+            49.511870000000044
+          ],
+          "favorable": 3
+        }
+      },
+      "marginal": {
+        "A": {
+          "dagger_ms": {
+            "n": 3,
+            "median": 462.797009,
+            "minimum": 459.086269,
+            "maximum": 527.807164,
+            "values": [
+              462.797009,
+              527.807164,
+              459.086269
+            ]
+          },
+          "native_ms": {
+            "n": 3,
+            "median": 118.38806,
+            "minimum": 114.702005,
+            "maximum": 148.72773,
+            "values": [
+              148.72773,
+              118.38806,
+              114.702005
+            ]
+          },
+          "overhead_ms": {
+            "n": 3,
+            "median": 344.38426400000003,
+            "minimum": 314.069279,
+            "maximum": 409.41910399999995,
+            "values": [
+              314.069279,
+              409.41910399999995,
+              344.38426400000003
+            ]
+          },
+          "ratio": {
+            "n": 3,
+            "median": 4.002425842512518,
+            "minimum": 3.1117062635192507,
+            "maximum": 4.458280370503579,
+            "values": [
+              3.1117062635192507,
+              4.458280370503579,
+              4.002425842512518
+            ]
+          }
+        },
+        "B": {
+          "dagger_ms": {
+            "n": 3,
+            "median": 416.740814,
+            "minimum": 414.020326,
+            "maximum": 418.142379,
+            "values": [
+              416.740814,
+              418.142379,
+              414.020326
+            ]
+          },
+          "native_ms": {
+            "n": 3,
+            "median": 119.147932,
+            "minimum": 116.514806,
+            "maximum": 119.577421,
+            "values": [
+              119.577421,
+              116.514806,
+              119.147932
+            ]
+          },
+          "overhead_ms": {
+            "n": 3,
+            "median": 297.163393,
+            "minimum": 294.872394,
+            "maximum": 301.627573,
+            "values": [
+              297.163393,
+              301.627573,
+              294.872394
+            ]
+          },
+          "ratio": {
+            "n": 3,
+            "median": 3.485112912746295,
+            "minimum": 3.4748427358353147,
+            "maximum": 3.5887488754004364,
+            "values": [
+              3.485112912746295,
+              3.5887488754004364,
+              3.4748427358353147
+            ]
+          }
+        }
+      }
+    }
+  }
+}

@@ -43,7 +43,7 @@ readiness improvement is present on BOTH sides; do not add its earlier savings.
 | Median CLI wall time, ms | 456.050 | 417.675 |
 | Observed min–max, ms | 433.644–641.883 | 405.343–440.440 |
 
-Twelve alternating pairs, one untimed warmup pair. Median **paired** saving
+Twelve alternating pairs, one separately recorded warmup pair. Median **paired** saving
 32.4538855ms [18.249495,206.875582], 12/12 favorable. Difference of column medians
 is not the paired statistic. No samples discarded. Small local sample, not
 evidence of stable population tails or a complete Rust dev-loop victory.
@@ -107,6 +107,9 @@ fully gated new cold score is claimed. Local-registry codec/stream results do
 not establish public-registry onboarding latency.
 
 ## Exact local reproduction and evidence
+
+See [FULLFLOW.md](FULLFLOW.md) for the subsequent real edit/dependency/cold
+matrix: application/library edit wins, mixed dependency results and cold losses.
 
 The local-build.sh, local-control-overlay.json and local-pilot.py record the
 measured environment's exact paths; adapt constants/output directories for
