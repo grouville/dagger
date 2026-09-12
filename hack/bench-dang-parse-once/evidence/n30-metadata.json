@@ -1,0 +1,126 @@
+{
+  "purpose": "matched standalone generator edit A/B; ordinary Cargo via docker exec reference",
+  "status": "complete-pending-offline-execution-audit",
+  "cold_claim": false,
+  "samples": 30,
+  "native_final_outputs": "persistent",
+  "native_wcprof": false,
+  "actual_exec_audit": "required offline from captured timed-command OTel; logs are not proof",
+  "archive_tool": {
+    "path": "/usr/bin/x86_64-linux-gnu-ar",
+    "sha256": "6452af2eea333b8c65e1adb92964fc8f97863ab003fa13f9d12bff5345cd7dbe",
+    "version": "GNU ar (GNU Binutils for Ubuntu) 2.42\nCopyright (C) 2024 Free Software Foundation, Inc.\nThis program is free software; you may redistribute it under the terms of\nthe GNU General Public License version 3 or (at your option) any later version.\nThis program has absolutely no warranty."
+  },
+  "archive_policy": "Raw hashes retained; differing fixture archives require exact bytes except verified compiler-member identifiers, audited outside timers",
+  "cli": "/tmp/dagger-rust-rebase-9b235855.V8FkCvad/bin/dagger",
+  "cli_sha256": "ff5acf117d2fdab17dbbd0581178843c01f0a6c962736322814b5d0b7a00c576",
+  "script_sha256": "b3d96491306750aa0e9a81c549ea4427846c0ff6ea0be964a05597d84903aa38",
+  "comparison_mode": "engine",
+  "clis": {
+    "before": {
+      "path": "/tmp/dagger-rust-rebase-9b235855.V8FkCvad/bin/dagger",
+      "sha256": "ff5acf117d2fdab17dbbd0581178843c01f0a6c962736322814b5d0b7a00c576"
+    },
+    "after": {
+      "path": "/tmp/dagger-rust-rebase-9b235855.V8FkCvad/bin/dagger",
+      "sha256": "ff5acf117d2fdab17dbbd0581178843c01f0a6c962736322814b5d0b7a00c576"
+    }
+  },
+  "comparison_engine_identity": {},
+  "module_source": "/tmp/dagger-rust-generator-pair-2gqxbin_/module",
+  "frozen_module": "/tmp/dagger-rust-generator-pair-iw520xrb/module",
+  "frozen_module_hashes": {
+    "main.dang": "48c95bb11c503e94cda52d61f1313f458f3813714d83acd703ed8996660f4164",
+    "dagger-module.toml": "80ceb12a068bb2c86041ba35bdcb24edada8ae228b77450de2ce917caa2ec8e5"
+  },
+  "moduleGitRoot": "/tmp/dagger-rust-generator-pair-iw520xrb/module",
+  "git_environment": {
+    "inherited_variables_removed": 3,
+    "global_config": "/dev/null",
+    "system_config_disabled": true,
+    "terminal_prompt": false,
+    "note": "All inherited GIT_* variables removed; values are not recorded."
+  },
+  "fixture_source": "/tmp/dagger-rust-pr-review/hack/bench-rust-generators/fixtures/workspace",
+  "initial_source_hashes": {
+    "Cargo.lock": "877ae1057160c18e7aa25c18c9f6cfc53f28d9d71fe6c40d8ec75c3b21879649",
+    "Cargo.toml": "42e8d74c814656f0869747212f47a4dd2635c718398c5246ce4d53ee298a9104",
+    "app/Cargo.toml": "4839764af1e0193c4046638f6247487f1f16b03801dab8c46244a45fa96720c0",
+    "app/src/main.rs": "33d959fa5f3f2401aeeec586eb89a005bf3892ea42e3554e24e3e1cc2687ea68",
+    "app/src/secondary.rs": "bade18f66f646a77d609f4cc6d7309f82204cc8e005218e7f41e0c5540ec23b0",
+    "library/Cargo.toml": "c3f6f25fb44857e93484f8509ba3b962610f53cedb2ee6444f6123714bc287f8",
+    "library/src/lib.rs": "236db9e066bcc8282c861096cb46cb8f3500e1381b5cdb9333c1bc7f1c0af498"
+  },
+  "nonce": "fa0bcb9a67c04061a72cf3f5dadc562e",
+  "workdirs": {
+    "before": "/tmp/dagger-rust-generator-pair-iw520xrb/before",
+    "after": "/tmp/dagger-rust-generator-pair-iw520xrb/after",
+    "native": "/tmp/dagger-rust-generator-pair-iw520xrb/native"
+  },
+  "engines": {
+    "before": "docker-image://localhost/dagger-engine.rust-main-9b235855?container=dagger-engine.rust-main-9b235855&volume=dagger-engine.rust-main-9b235855&cleanup=false",
+    "after": "docker-image://localhost/dagger-engine.dang-parse-once-9b235855?container=dagger-engine.dang-parse-once-9b235855&volume=dagger-engine.dang-parse-once-9b235855&cleanup=false"
+  },
+  "engine_image_ids": {
+    "before": "sha256:8683dc8fbb0f3585afe8e2adeb09738971a462b17f922ef4ac86d75fe64c9004",
+    "after": "sha256:5fecb56d6d22b672c00c03b3c14cca737477406f70339087d678bb2c48b6ab49"
+  },
+  "engine_readiness": "asymmetric-or-unknown",
+  "image": "rust@sha256:39f68a3e8e3ff425f8945ffa91128e60ff930d53e17fbb5214e95824bdd46f1b",
+  "cargo_flags": [
+    "--workspace",
+    "--locked",
+    "--message-format=json-render-diagnostics"
+  ],
+  "build_dir": "/build",
+  "target_dir": "/out",
+  "profile": "default dev; no profile/features/target/debug overrides",
+  "local_otel": "http://127.0.0.1:43188",
+  "do_not_track": 1,
+  "orders": [
+    [
+      "before",
+      "after",
+      "native"
+    ],
+    [
+      "before",
+      "native",
+      "after"
+    ],
+    [
+      "after",
+      "before",
+      "native"
+    ],
+    [
+      "after",
+      "native",
+      "before"
+    ],
+    [
+      "native",
+      "before",
+      "after"
+    ],
+    [
+      "native",
+      "after",
+      "before"
+    ]
+  ],
+  "setup_builds_per_side": 1,
+  "warmup_triples_per_scenario": 1,
+  "setup_note": "Existing engine readiness may differ; only unique Cargo keys and equivalent recorded warmups are controlled.",
+  "comparison_note": "Native keeps ordinary final outputs. Dagger additionally runs metadata, selects artifacts and merges/exports Changesets.",
+  "known_semantic_difference": "Baseline can produce modes777/666 versus native/candidate755/644; never normalized silently.",
+  "output_history": "Each side retains its own outputs; baseline permission divergence can persist into later samples and is not normalized.",
+  "native_container": {
+    "name": "dagger-rust-gen-native-fa0bcb9a67c04061a72cf3f5dadc562e",
+    "owner_label": "dagger.rust.generator-bench-owner",
+    "owner": "fa0bcb9a67c04061a72cf3f5dadc562e",
+    "id": "230b706c2d54494a165d619f884bc23a7399965ae4b183b415ff6ebf78096701",
+    "removed": true
+  },
+  "finished_unix_ns": 1789173469959269692
+}
