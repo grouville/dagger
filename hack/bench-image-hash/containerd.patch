@@ -1,0 +1,106 @@
+--- a/core/diff/apply/apply.go
++++ b/core/diff/apply/apply.go
+@@ -21,7 +21,9 @@
+ 	"crypto/rand"
+ 	"encoding/base64"
+ 	"fmt"
++	"hash"
+ 	"io"
++	"sync"
+ 	"time"
+ 
+ 	"github.com/containerd/containerd/v2/core/content"
+@@ -106,8 +108,15 @@
+ 	defer processor.Close()
+ 
+ 	digester := digest.Canonical.Digester()
++	var hashWriter io.Writer = digester.Hash()
++	var pipelined *pipelinedHash
++	if desc.Size >= 8*1024*1024 {
++		pipelined = newPipelinedHash(digester.Hash())
++		hashWriter = pipelined
++		defer pipelined.Finish() // also join on extraction/processor errors
++	}
+ 	rc := &readCounter{
+-		r: io.TeeReader(processor, digester.Hash()),
++		r: io.TeeReader(processor, hashWriter),
+ 	}
+ 
+ 	// The number of `mounts` that need to be parsed by the mount manager
+@@ -146,6 +155,11 @@
+ 		}
+ 	}
+ 
++	if pipelined != nil {
++		if err := pipelined.Finish(); err != nil {
++			return emptyDesc, err
++		}
++	}
+ 	return ocispec.Descriptor{
+ 		MediaType: ocispec.MediaTypeImageLayer,
+ 		Size:      rc.c,
+@@ -208,3 +222,64 @@
+ 		Closer: ra,
+ 	}
+ }
++
++// Experimental bounded, ordered hash writer. No digest can be consumed until
++// Finish returns. The consumer must call Finish even on extraction failure.
++// Exactly three reusable 256 KiB buffers bound queued and in-flight bytes.
++type pipelinedHash struct {
++	hash hash.Hash
++	free chan []byte
++	jobs chan []byte
++	done chan struct{}
++	buf  []byte
++	err  error
++	once sync.Once
++}
++
++func newPipelinedHash(h hash.Hash) *pipelinedHash {
++	p := &pipelinedHash{hash: h, free: make(chan []byte, 3), jobs: make(chan []byte, 3), done: make(chan struct{})}
++	for range 3 {
++		p.free <- make([]byte, 256*1024)
++	}
++	go func() {
++		defer close(p.done)
++		for b := range p.jobs {
++			if p.err == nil {
++				_, p.err = h.Write(b)
++			}
++			p.free <- b[:cap(b)]
++		}
++	}()
++	return p
++}
++
++func (p *pipelinedHash) Write(b []byte) (int, error) {
++	n := len(b)
++	for len(b) > 0 {
++		if p.buf == nil {
++			p.buf = (<-p.free)[:0]
++		}
++		old := len(p.buf)
++		add := min(len(b), cap(p.buf)-old)
++		p.buf = p.buf[:old+add]
++		copy(p.buf[old:], b[:add])
++		b = b[add:]
++		if len(p.buf) == cap(p.buf) {
++			p.jobs <- p.buf
++			p.buf = nil
++		}
++	}
++	return n, nil
++}
++
++func (p *pipelinedHash) Finish() error {
++	p.once.Do(func() {
++		if len(p.buf) > 0 {
++			p.jobs <- p.buf
++			p.buf = nil
++		}
++		close(p.jobs)
++		<-p.done
++	})
++	return p.err
++}

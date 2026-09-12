@@ -1,0 +1,95 @@
+package apply
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"errors"
+	"fmt"
+	"hash"
+	"testing"
+)
+
+func TestPipelinedHashOrderedAndJoined(t *testing.T) {
+	for _, size := range []int{0, 1, 8191, 8192, 256*1024 - 1, 256 * 1024, 256*1024 + 1, 4*1024*1024 + 37} {
+		for _, chunk := range []int{17, 8192, 32 * 1024, 2 * 1024 * 1024} {
+			t.Run(fmt.Sprintf("size%d/chunk%d", size, chunk), func(t *testing.T) {
+				data := make([]byte, size)
+				for i := range data {
+					data[i] = byte(i*73 + i/65537)
+				}
+				expected := sha256.Sum256(data)
+				h := sha256.New()
+				p := newPipelinedHash(h)
+				defer p.Finish()
+				for off := 0; off < size; off += chunk {
+					b := data[off:min(off+chunk, size)]
+					n, err := p.Write(b)
+					if err != nil || n != len(b) {
+						t.Fatalf("write %d, %v", n, err)
+					}
+				}
+				if err := p.Finish(); err != nil {
+					t.Fatal(err)
+				}
+				if !bytes.Equal(h.Sum(nil), expected[:]) {
+					t.Fatal("digest mismatch")
+				}
+				if len(p.free) != 3 || cap(p.free) != 3 {
+					t.Fatal("fixed buffer set not returned")
+				}
+				if err := p.Finish(); err != nil {
+					t.Fatal(err)
+				}
+				select {
+				case <-p.done:
+				default:
+					t.Fatal("worker not joined")
+				}
+			})
+		}
+	}
+}
+
+func TestPipelinedHashCopiesReusedInput(t *testing.T) {
+	h := sha256.New()
+	expected := sha256.New()
+	p := newPipelinedHash(h)
+	defer p.Finish()
+	buf := make([]byte, 8192)
+	for i := range 1025 {
+		for j := range buf {
+			buf[j] = byte(i*41 + j*71)
+		}
+		expected.Write(buf)
+		p.Write(buf)
+		clear(buf)
+	}
+	if err := p.Finish(); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(h.Sum(nil), expected.Sum(nil)) {
+		t.Fatal("caller buffer reused before bytes were copied")
+	}
+}
+
+type failingHash struct{ hash.Hash }
+
+var errHash = errors.New("intentional hash writer failure")
+
+func (failingHash) Write([]byte) (int, error) { return 0, errHash }
+
+func TestPipelinedHashErrorDrainsAndJoins(t *testing.T) {
+	p := newPipelinedHash(failingHash{sha256.New()})
+	defer p.Finish()
+	if _, err := p.Write(make([]byte, 4*1024*1024)); err != nil {
+		t.Fatal(err)
+	}
+	if !errors.Is(p.Finish(), errHash) {
+		t.Fatal("lost hash error")
+	}
+	select {
+	case <-p.done:
+	default:
+		t.Fatal("worker not joined")
+	}
+}
