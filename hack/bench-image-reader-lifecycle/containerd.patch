@@ -1,0 +1,94 @@
+--- a/core/diff/apply/apply.go
++++ b/core/diff/apply/apply.go
+@@ -22,6 +22,7 @@
+ 	"encoding/base64"
+ 	"fmt"
+ 	"io"
++	"sync"
+ 	"time"
+ 
+ 	"github.com/containerd/containerd/v2/core/content"
+@@ -167,34 +168,66 @@
+ }
+ 
+ type progressReader struct {
+-	rc *readCounter
+-	c  io.Closer
+-	p  func(int64)
++	r io.Reader
++	c io.Closer
++	p func(int64)
++
++	// External decompressors read their input in another goroutine. Closing
++	// their output does not necessarily join that read on an error path.
++	// Protect both the count and the final callback, but never hold mu over
++	// the borrowed reader's Read: its Close may not interrupt a blocked read.
++	mu        sync.Mutex
++	n         int64
++	closed    bool
++	closeOnce sync.Once
++	closeErr  error
+ }
+ 
+ func newProgressReader(ra content.ReaderAt, p func(int64)) io.ReadCloser {
+ 	return &progressReader{
+-		rc: &readCounter{
+-			r: content.NewReader(ra),
+-			c: 0,
+-		},
++		r: content.NewReader(ra),
+ 		c: ra,
+ 		p: p,
+ 	}
+ }
+ 
+-func (pr *progressReader) Read(p []byte) (n int, err error) {
++func (pr *progressReader) startRead() bool {
++	pr.mu.Lock()
++	defer pr.mu.Unlock()
++	if pr.closed {
++		return false
++	}
+ 	// Call the progress function with the current count, indicating
+ 	// the previously read content has been processed. Initial
+ 	// progress of 0 indicates start of processing.
+-	pr.p(pr.rc.c)
+-	n, err = pr.rc.Read(p)
++	pr.p(pr.n)
++	return true
++}
++
++func (pr *progressReader) Read(p []byte) (n int, err error) {
++	if !pr.startRead() {
++		return 0, io.ErrClosedPipe
++	}
++	n, err = pr.r.Read(p)
++	if n > 0 {
++		pr.mu.Lock()
++		pr.n += int64(n)
++		pr.mu.Unlock()
++	}
+ 	return
+ }
+ 
+ func (pr *progressReader) Close() error {
+-	pr.p(pr.rc.c)
+-	return pr.c.Close()
++	pr.closeOnce.Do(func() {
++		pr.mu.Lock()
++		pr.closed = true
++		pr.mu.Unlock()
++		pr.closeErr = pr.c.Close()
++		pr.mu.Lock()
++		defer pr.mu.Unlock()
++		pr.p(pr.n)
++	})
++	return pr.closeErr
+ }
+ 
+ type readCloser struct {
+@@ -208,3 +241,4 @@
+ 		Closer: ra,
+ 	}
+ }
++
