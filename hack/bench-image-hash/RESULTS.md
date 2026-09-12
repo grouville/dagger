@@ -175,7 +175,9 @@ performance-under-concurrency validation. The actual
 3061-entry Rust-layer inventory did not test xattrs/hardlink topology; synthetic
 real-applier tests now do. No macOS/remote-engine/artifact/fmt/clippy/test-suite
 or external-dependency-upgrade performance claims from this cold cohort.
-No maintainer approval or production-readiness claim; candidate not pushed.
+No maintainer approval or production-readiness claim; no upstream dependency
+release. The experiment's patch and evidence are published on the Dagger fork;
+that does not install or ship the temporary dependency replacement.
 
 Current cold B delivery still takes about 7.1 s: pull 3.83–3.90 s followed by
 unpack 3.15–3.28 s. On this route the 288.6 MB layer alone transfers in
