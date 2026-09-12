@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -23,7 +24,7 @@ func init() {
 	syscall.Umask(0)
 
 	rootCmd.PersistentFlags().StringVar(&addr, "addr", engine.DefaultEngineSockAddr, "The address serving the grpc api")
-	rootCmd.PersistentFlags().IntVar(&timeoutSeconds, "timeout", 5, "The timeout in seconds for connecting to the grpc api")
+	rootCmd.PersistentFlags().IntVar(&timeoutSeconds, "timeout", 5, "The timeout in seconds for the grpc socket to become ready and connect")
 }
 
 func main() {
@@ -86,7 +87,43 @@ func dialer(address string, timeout time.Duration) (net.Conn, error) {
 	if addrParts[0] != "unix" {
 		return nil, errors.Errorf("invalid address %s (expected unix://, got %s://)", address, addrParts[0])
 	}
-	return net.DialTimeout(addrParts[0], addrParts[1], timeout)
+	if timeout <= 0 {
+		// Retain DialTimeout's zero (no deadline) and negative (expired
+		// deadline) semantics rather than introducing an unbounded retry.
+		return net.DialTimeout(addrParts[0], addrParts[1], timeout)
+	}
+
+	// docker exec can start this helper before a newly launched engine has
+	// bound its Unix socket. Keep this stdio transport alive within the
+	// existing timeout instead of failing into the parent's reconnect backoff.
+	// Do not retry permission errors or change an established connection's
+	// deadline/half-close behavior.
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	dial := &net.Dialer{}
+	delay := 5 * time.Millisecond
+	var lastErr error
+	for {
+		conn, err := dial.DialContext(ctx, addrParts[0], addrParts[1])
+		if err == nil {
+			return conn, nil
+		}
+		if ctx.Err() != nil && lastErr != nil {
+			return nil, fmt.Errorf("connect to %s: %w (last dial error: %v)", address, ctx.Err(), lastErr)
+		}
+		if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.ECONNREFUSED) {
+			return nil, err
+		}
+		lastErr = err
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, fmt.Errorf("connect to %s: %w (last dial error: %v)", address, ctx.Err(), err)
+		case <-timer.C:
+		}
+		delay = min(2*delay, 50*time.Millisecond)
+	}
 }
 
 func copier(to halfWriteCloser, from halfReadCloser, debugDescription string) error {
