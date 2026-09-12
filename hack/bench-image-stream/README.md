@@ -7,6 +7,11 @@ containerd progress-reader fix and based on upstream main
 builds are unchanged: the proposed source changes are inert patch artifacts.
 No PR, public engine image, or maintainer approval is implied.
 
+New same-Zstd composition experiment: [ZSTD_RESULTS.md](ZSTD_RESULTS.md) and
+[ZSTD_VALIDATION.md](ZSTD_VALIDATION.md). It saves 0.934 s in the shared cold image
+path, but only 0.333 s at the paired full-CLI median; edit paths regress. It adds
+focused tests/evidence, not a production change or a promoted default.
+
 The corrected candidate saved a paired median **2.276721 seconds** for a
 profiled first check in three fresh-engine AB/BA/AB pairs against the previous
 bounded-hash candidate. All three cold pairs favored it, but the largest gain

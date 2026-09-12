@@ -1,0 +1,225 @@
+diff --git a/core/integration/engine_streamed_snapshot_test.go b/core/integration/engine_streamed_snapshot_test.go
+index 8de64a20b..8436dfed5 100644
+--- a/core/integration/engine_streamed_snapshot_test.go
++++ b/core/integration/engine_streamed_snapshot_test.go
+@@ -39,6 +39,14 @@ func (EngineSuite) TestVerifiedStreamLargePrivateSnapshotRace(ctx context.Contex
+ 	runVerifiedStreamPrivateSnapshot(ctx, t, false, "^TestStreamedSnapshotRealPrivateLarge$", true, 3)
+ }
+ 
++func (EngineSuite) TestVerifiedStreamZstdEarlyError(ctx context.Context, t *testctx.T) {
++	runVerifiedStreamPrivateSnapshot(ctx, t, false, "^TestStreamedFetchZstdEarlyError$", false, 1)
++}
++
++func (EngineSuite) TestVerifiedStreamZstdRace(ctx context.Context, t *testctx.T) {
++	runVerifiedStreamPrivateSnapshot(ctx, t, false, "^(TestStreamedSnapshotRealPrivateZstd|TestStreamedSnapshotRealPrivateZstdLarge|TestStreamedFetchZstdEarlyError)$", true, 3)
++}
++
+ func runVerifiedStreamPrivateSnapshot(ctx context.Context, t *testctx.T, builtin bool, pattern string, race bool, count int) {
+ 	c := connect(ctx, t)
+ 	workdir, err := os.Getwd()
+@@ -67,7 +75,7 @@ func runVerifiedStreamPrivateSnapshot(ctx context.Context, t *testctx.T, builtin
+ 			WithEnvVariable("CONTAINERD_DISABLE_PIGZ", "true")
+ 	}
+ 	timeout := "90s"
+-	if pattern == "^TestStreamedSnapshotRealPrivateLarge$" {
++	if strings.Contains(pattern, "Large") {
+ 		// Three larger race-instrumented payload-generation repetitions need
+ 		// a separate suite budget; all per-case/marker/cleanup gates stay fixed.
+ 		timeout = "3m"
+@@ -77,11 +85,20 @@ func runVerifiedStreamPrivateSnapshot(ctx context.Context, t *testctx.T, builtin
+ 		Stdout(ctx)
+ 	t.Log(outputText)
+ 	require.NoError(t, err)
+-	if strings.Contains(pattern, "TestStreamedFetch") {
++	if strings.Contains(pattern, "TestStreamedFetch.*") {
+ 		require.Contains(t, outputText, "--- PASS: TestStreamedFetchStandardGzipApplier")
+ 		require.Contains(t, outputText, "--- PASS: TestStreamedFetchOptionalReaderContract")
+ 	}
+-	require.Contains(t, outputText, "--- PASS: TestStreamedSnapshotRealPrivate")
++	if strings.Contains(pattern, "TestStreamedFetchZstdEarlyError") {
++		require.Contains(t, outputText, "--- PASS: TestStreamedFetchZstdEarlyError (")
++	}
++	if strings.Contains(pattern, "TestStreamedSnapshotRealPrivate") {
++		require.Contains(t, outputText, "--- PASS: TestStreamedSnapshotRealPrivate")
++	}
++	if strings.Contains(pattern, "TestStreamedSnapshotRealPrivateZstdLarge") {
++		require.Contains(t, outputText, "--- PASS: TestStreamedSnapshotRealPrivateZstd (")
++		require.Contains(t, outputText, "--- PASS: TestStreamedSnapshotRealPrivateZstdLarge (")
++	}
+ 	if pattern == "^TestStreamedSnapshotRealPrivateLarge$" {
+ 		require.Contains(t, outputText, "--- PASS: TestStreamedSnapshotRealPrivateLarge (")
+ 	}
+diff --git a/engine/server/resolver/streamed_snapshot_real_linux_test.go b/engine/server/resolver/streamed_snapshot_real_linux_test.go
+index 084e92d2a..45c3ba82d 100644
+--- a/engine/server/resolver/streamed_snapshot_real_linux_test.go
++++ b/engine/server/resolver/streamed_snapshot_real_linux_test.go
+@@ -29,6 +29,7 @@ import (
+ 	bksnapshots "github.com/dagger/dagger/engine/snapshots"
+ 	bkcontainerd "github.com/dagger/dagger/engine/snapshots/containerd"
+ 	"github.com/dagger/dagger/internal/buildkit/util/winlayers"
++	"github.com/klauspost/compress/zstd"
+ 	digest "github.com/opencontainers/go-digest"
+ 	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
+ 	"github.com/stretchr/testify/require"
+@@ -44,17 +45,29 @@ const streamRealPrefixSize = 1 << 20
+ // mountable, filesystem applier, content store or lease manager is used here.
+ // This is a correctness fixture, not a Container.from/Cargo timing benchmark.
+ func TestStreamedSnapshotRealPrivate(t *testing.T) {
+-	runStreamedSnapshotRealPrivate(t, 2<<20)
++	runStreamedSnapshotRealPrivate(t, 2<<20, false)
+ }
+ 
+ // Explicitly cross the experimental applier's 8 MiB compressed-descriptor
+ // threshold so real private-snapshot ownership/GC runs with its hash worker.
+ func TestStreamedSnapshotRealPrivateLarge(t *testing.T) {
+-	runStreamedSnapshotRealPrivate(t, 10<<20)
++	runStreamedSnapshotRealPrivate(t, 10<<20, false)
+ }
+ 
+-func runStreamedSnapshotRealPrivate(t *testing.T, payloadSize int) {
+-	for _, outcome := range []string{"success", "compressed-digest", "truncated", "diff-id", "source-label-error", "caller-cancel"} {
++func TestStreamedSnapshotRealPrivateZstd(t *testing.T) {
++	runStreamedSnapshotRealPrivate(t, 2<<20, true)
++}
++
++func TestStreamedSnapshotRealPrivateZstdLarge(t *testing.T) {
++	runStreamedSnapshotRealPrivate(t, 10<<20, true)
++}
++
++func runStreamedSnapshotRealPrivate(t *testing.T, payloadSize int, useZstd bool) {
++	outcomes := []string{"success", "compressed-digest", "truncated", "diff-id", "source-label-error", "caller-cancel"}
++	if useZstd {
++		outcomes = append(outcomes, "frame-checksum")
++	}
++	for _, outcome := range outcomes {
+ 		t.Run(outcome, func(t *testing.T) {
+ 			ctx, cancel := context.WithTimeout(namespaces.WithNamespace(t.Context(), "streamed-real"), 20*time.Second)
+ 			defer cancel()
+@@ -108,12 +121,25 @@ func runStreamedSnapshotRealPrivate(t *testing.T, payloadSize int) {
+ 			_, err = tw.Write(filler)
+ 			require.NoError(t, err)
+ 			require.NoError(t, tw.Close())
+-			zw := gzip.NewWriter(&compressed)
++			var zw io.WriteCloser
++			mediaType := ocispecs.MediaTypeImageLayerGzip
++			if useZstd {
++				zw, err = zstd.NewWriter(&compressed)
++				require.NoError(t, err)
++				mediaType = ocispecs.MediaTypeImageLayerZstd
++			} else {
++				zw = gzip.NewWriter(&compressed)
++			}
+ 			_, err = zw.Write(raw.Bytes())
+ 			require.NoError(t, err)
+ 			require.NoError(t, zw.Close())
++			if outcome == "frame-checksum" {
++				// Match the compressed descriptor to the bytes actually served:
++				// this exercises decoder verification, not a transport mismatch.
++				compressed.Bytes()[compressed.Len()-1] ^= 0x80
++			}
+ 			desc := streamTestDescriptor(compressed.Bytes())
+-			desc.MediaType = ocispecs.MediaTypeImageLayerGzip
++			desc.MediaType = mediaType
+ 			desc.Annotations["containerd.io/uncompressed"] = digest.FromBytes(raw.Bytes()).String()
+ 			if payloadSize >= 8<<20 {
+ 				require.GreaterOrEqual(t, desc.Size, int64(8<<20), "large fixture must enter the pipelined hashing path")
+@@ -292,6 +318,9 @@ func runStreamedSnapshotRealPrivate(t *testing.T, payloadSize int) {
+ 				if outcome == "diff-id" {
+ 					require.ErrorContains(t, got.err, "calculated diffID")
+ 				}
++				if outcome == "frame-checksum" {
++					require.ErrorIs(t, got.err, zstd.ErrCRCMismatch)
++				}
+ 				require.NoError(t, sn.Walk(checkCtx, func(_ context.Context, info ctdsnapshots.Info) error {
+ 					require.NotEqual(t, ctdsnapshots.KindCommitted, info.Kind, "failed verification must not commit real snapshot")
+ 					return nil
+diff --git a/engine/server/resolver/streamed_fetch_zstd_test.go b/engine/server/resolver/streamed_fetch_zstd_test.go
+new file mode 100644
+index 000000000..adb3e719b
+--- /dev/null
++++ b/engine/server/resolver/streamed_fetch_zstd_test.go
+@@ -0,0 +1,84 @@
++package resolver
++
++import (
++	"bytes"
++	"context"
++	"crypto/rand"
++	"io"
++	"testing"
++	"time"
++
++	"github.com/containerd/containerd/v2/core/content"
++	"github.com/containerd/containerd/v2/core/diff"
++	"github.com/containerd/containerd/v2/core/diff/apply"
++	"github.com/containerd/containerd/v2/core/mount"
++	localcontent "github.com/containerd/containerd/v2/plugins/content/local"
++	"github.com/containerd/errdefs"
++	"github.com/klauspost/compress/zstd"
++	digest "github.com/opencontainers/go-digest"
++	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
++	"github.com/stretchr/testify/require"
++)
++
++// The ordinary asynchronous Zstd decoder must be joined after a tar error,
++// even when its next input read cannot finish. Caller cancellation is only
++// fixture cleanup: it must not be what makes the production call return.
++// Run in the same source-built privileged integration runner as the real
++// snapshot fixtures; no decoder concurrency/implementation override.
++func TestStreamedFetchZstdEarlyError(t *testing.T) {
++	ctx, cancel := context.WithCancel(streamTestContext(t))
++	defer cancel()
++	store, err := localcontent.NewStore(t.TempDir())
++	require.NoError(t, err)
++	// A random first tar block has an invalid header/checksum; the suffix is
++	// incompressible so the source has a substantial blocked remainder.
++	raw := make([]byte, 3<<20)
++	_, err = rand.Read(raw)
++	require.NoError(t, err)
++	copy(raw[:16], []byte("invalid tar data"))
++	var compressed bytes.Buffer
++	zw, err := zstd.NewWriter(&compressed)
++	require.NoError(t, err)
++	_, err = zw.Write(raw)
++	require.NoError(t, err)
++	require.NoError(t, zw.Close())
++	payload := compressed.Bytes()
++	require.Greater(t, len(payload), 2*streamRealPrefixSize)
++	desc := streamTestDescriptor(payload)
++	desc.MediaType = ocispecs.MediaTypeImageLayerZstd
++	desc.Annotations["containerd.io/uncompressed"] = digest.FromBytes(raw).String()
++	prefixWritten, allowRemainder := make(chan struct{}), make(chan struct{})
++	fetcher := streamedFetchFunc(func(ctx context.Context, _ ocispecs.Descriptor) (io.ReadCloser, error) {
++		return &streamRealGatedBlob{Reader: bytes.NewReader(payload), data: payload, ctx: ctx, written: prefixWritten, allow: allowRemainder}, nil
++	})
++	mounts := []mount.Mount{{Type: "bind", Source: t.TempDir(), Options: []string{"rbind", "rw"}}}
++	done := make(chan error, 1)
++	go func() {
++		result, err := fetchLayerWhileApplying(ctx, store, store, fetcher, desc,
++			func(ctx context.Context, p content.Provider) (ocispecs.Descriptor, error) {
++				return apply.NewFileSystemApplier(p).Apply(ctx, desc, mounts, diff.WithSyncFs(false))
++			})
++		if result.Digest != "" {
++			done <- io.ErrNoProgress
++			return
++		}
++		done <- err
++	}()
++	select {
++	case err := <-done:
++		require.NoError(t, ctx.Err(), "caller must remain live")
++		require.ErrorContains(t, err, "invalid tar header")
++	case <-time.After(5 * time.Second):
++		// Join before local store/mount cleanup, retaining the failure rather
++		// than accepting the successful cancellation as the tested outcome.
++		cancel()
++		select {
++		case <-done:
++		case <-time.After(5 * time.Second):
++			t.Error("stream workers did not join even after fixture cancellation")
++		}
++		t.Fatal("early extraction error waited for blocked decoder input")
++	}
++	_, err = store.Info(ctx, desc.Digest)
++	require.True(t, errdefs.IsNotFound(err), "partial failed input must not be committed")
++}
