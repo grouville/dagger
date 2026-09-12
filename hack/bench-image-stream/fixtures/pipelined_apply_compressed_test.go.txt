@@ -1,0 +1,63 @@
+//go:build linux
+
+package snapshots
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+)
+
+// Exercise cleanup while a compressed stream and hash worker are both active.
+// These use the same progress-enabled public applier as the normal engine path.
+// Errors from external decompressors need not preserve the input error type;
+// they must fail without publishing a success descriptor or leaving hash work.
+func TestPipelinedApplyCompressedFailureAndCancellation(t *testing.T) {
+	raw := hashApplyTar(t, hashApplyPayload(9*1024*1024), false)
+	for _, codec := range []string{"gzip", "zstd"} {
+		t.Run(codec, func(t *testing.T) {
+			data, media := hashApplyEncode(t, raw, codec)
+			if len(data) < hashPipelineThreshold {
+				t.Fatal("compressed fixture must activate the pipeline")
+			}
+			for _, c := range []struct {
+				name             string
+				failAt, cancelAt int64
+			}{
+				{"read-error-full", 1024 * 1024, -1},
+				{"read-error-partial", 1024*1024 + 37, -1},
+				{"cancel-full", -1, 1024 * 1024},
+				{"cancel-partial", -1, 1024*1024 + 37},
+			} {
+				t.Run(c.name, func(t *testing.T) {
+					ctx, cancel := context.WithCancel(context.Background())
+					defer cancel()
+					provider := hashApplyProvider{failAt: c.failAt, cancelAt: c.cancelAt}
+					if c.cancelAt >= 0 {
+						provider.cancel = cancel
+					}
+					start := time.Now()
+					got, err, root := hashApply(t, ctx, data, media, provider)
+					elapsed := time.Since(start)
+					if err == nil || got.Digest != "" || got.Size != 0 || got.MediaType != "" {
+						t.Fatalf("error returned success descriptor: %+v %v", got, err)
+					}
+					if c.cancelAt >= 0 && ctx.Err() != context.Canceled {
+						t.Fatalf("fixture did not trigger cancellation: %v", ctx.Err())
+					}
+					info, statErr := os.Stat(filepath.Join(root, "payload"))
+					if statErr != nil || info.Size() == 0 {
+						t.Fatalf("fixture failed before extraction started: %v", statErr)
+					}
+					if elapsed > 3*time.Second {
+						t.Fatalf("error cleanup exceeded bound: %s", elapsed)
+					}
+					assertHashWorkersJoined(t)
+					t.Logf("failed after extracting %d bytes in %s: %v", info.Size(), elapsed, err)
+				})
+			}
+		})
+	}
+}

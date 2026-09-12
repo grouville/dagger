@@ -1,0 +1,949 @@
+{
+  "scope": "Profiled engine-cold first check, same public registry route; not full installation. Native reference includes docker exec in matched Rust image.",
+  "limits": [
+    "n=3 pairs on one host/route; range is not a tail-latency estimate",
+    "Docker, CLI, engine images, local module and native Rust image preinstalled",
+    "Host page/CDN caches not purged; native follows Dagger within first-use sample",
+    "No new artifact/fmt/clippy/test-command/external-dependency-upgrade/macOS/remote performance claim",
+    "Streaming unpack span includes download waits; phase medians are not additive"
+  ],
+  "samples": [
+    {
+      "index": 0,
+      "side": "A",
+      "cli_ms": 15964.61497,
+      "provision_cli_ms": 16178.845116,
+      "native_ms": 7146.366796,
+      "cargo_ms": 6093.303415,
+      "delivery_ms": 7024.908108,
+      "root_ms": 15925.167217,
+      "before_root_ms": 33.509395,
+      "after_root_ms": 5.941153,
+      "cli_over_native_ratio": 2.2339484420161297,
+      "download_bytes": 316873658,
+      "unpack_compressed_bytes": 316873658,
+      "read_before_last_download": false,
+      "largest_layer_overlap": {
+        "item": "sha256:167b9fde7ea2106ff0349f834ad13f3d5078836087edf8a9422da759c088f66c",
+        "first_read_ns": 1789220324858712682,
+        "download_end_ns": 1789220324163403373,
+        "read_before_own_download_end": false
+      },
+      "cold_replay_drift": "-5.3%",
+      "overhead_ms": 8818.248174,
+      "provision_overhead_ms": 9032.47832,
+      "exact_native_ms": 116.979546,
+      "exact_dagger_ms": 576.593617,
+      "exact_overhead_ms": 459.61407099999997,
+      "application_native_ms": 309.885794,
+      "application_dagger_ms": 874.889489,
+      "application_overhead_ms": 565.0036950000001,
+      "workspace-library_native_ms": 469.192637,
+      "workspace-library_dagger_ms": 1033.149033,
+      "workspace-library_overhead_ms": 563.9563959999999
+    },
+    {
+      "index": 1,
+      "side": "B",
+      "cli_ms": 15030.881933,
+      "provision_cli_ms": 15277.931868,
+      "native_ms": 7042.149334,
+      "cargo_ms": 6466.11671,
+      "delivery_ms": 4749.642298,
+      "root_ms": 14991.814768,
+      "before_root_ms": 32.498502,
+      "after_root_ms": 6.571888,
+      "cli_over_native_ratio": 2.1344168122692073,
+      "download_bytes": 316873658,
+      "unpack_compressed_bytes": 316873658,
+      "read_before_last_download": true,
+      "largest_layer_overlap": {
+        "item": "sha256:167b9fde7ea2106ff0349f834ad13f3d5078836087edf8a9422da759c088f66c",
+        "first_read_ns": 1789220370883287329,
+        "download_end_ns": 1789220374141163211,
+        "read_before_own_download_end": true
+      },
+      "cold_replay_drift": "-5.7%",
+      "overhead_ms": 7988.732599000001,
+      "provision_overhead_ms": 8235.782534,
+      "exact_native_ms": 121.549795,
+      "exact_dagger_ms": 509.74308,
+      "exact_overhead_ms": 388.193285,
+      "application_native_ms": 324.12568,
+      "application_dagger_ms": 873.555103,
+      "application_overhead_ms": 549.429423,
+      "workspace-library_native_ms": 491.458469,
+      "workspace-library_dagger_ms": 1032.671559,
+      "workspace-library_overhead_ms": 541.21309
+    },
+    {
+      "index": 2,
+      "side": "B",
+      "cli_ms": 14181.930669,
+      "provision_cli_ms": 14393.861837,
+      "native_ms": 6844.125076,
+      "cargo_ms": 6529.22654,
+      "delivery_ms": 4746.661148,
+      "root_ms": 14142.366109,
+      "before_root_ms": 32.763252,
+      "after_root_ms": 6.803935,
+      "cli_over_native_ratio": 2.072132012714257,
+      "download_bytes": 316873658,
+      "unpack_compressed_bytes": 316873658,
+      "read_before_last_download": true,
+      "largest_layer_overlap": {
+        "item": "sha256:167b9fde7ea2106ff0349f834ad13f3d5078836087edf8a9422da759c088f66c",
+        "first_read_ns": 1789220416775939023,
+        "download_end_ns": 1789220420064788903,
+        "read_before_own_download_end": true
+      },
+      "cold_replay_drift": "-5.8%",
+      "overhead_ms": 7337.805592999999,
+      "provision_overhead_ms": 7549.736761,
+      "exact_native_ms": 118.027368,
+      "exact_dagger_ms": 523.410299,
+      "exact_overhead_ms": 405.382931,
+      "application_native_ms": 292.076032,
+      "application_dagger_ms": 878.008497,
+      "application_overhead_ms": 585.9324650000001,
+      "workspace-library_native_ms": 457.77489,
+      "workspace-library_dagger_ms": 1018.132316,
+      "workspace-library_overhead_ms": 560.3574259999999
+    },
+    {
+      "index": 3,
+      "side": "A",
+      "cli_ms": 16458.652042,
+      "provision_cli_ms": 16670.877927,
+      "native_ms": 7033.796072,
+      "cargo_ms": 6285.15821,
+      "delivery_ms": 7348.714122,
+      "root_ms": 16419.383872,
+      "before_root_ms": 32.312347,
+      "after_root_ms": 6.958197,
+      "cli_over_native_ratio": 2.339938757610316,
+      "download_bytes": 316873658,
+      "unpack_compressed_bytes": 316873658,
+      "read_before_last_download": false,
+      "largest_layer_overlap": {
+        "item": "sha256:167b9fde7ea2106ff0349f834ad13f3d5078836087edf8a9422da759c088f66c",
+        "first_read_ns": 1789220466014854013,
+        "download_end_ns": 1789220465356115933,
+        "read_before_own_download_end": false
+      },
+      "cold_replay_drift": "-5.2%",
+      "overhead_ms": 9424.85597,
+      "provision_overhead_ms": 9637.081855,
+      "exact_native_ms": 149.253293,
+      "exact_dagger_ms": 545.105287,
+      "exact_overhead_ms": 395.851994,
+      "application_native_ms": 314.452068,
+      "application_dagger_ms": 881.823615,
+      "application_overhead_ms": 567.371547,
+      "workspace-library_native_ms": 536.074663,
+      "workspace-library_dagger_ms": 1067.216955,
+      "workspace-library_overhead_ms": 531.1422920000001
+    },
+    {
+      "index": 4,
+      "side": "A",
+      "cli_ms": 23624.466365,
+      "provision_cli_ms": 24451.987891,
+      "native_ms": 6939.666534,
+      "cargo_ms": 5894.562716,
+      "delivery_ms": 13716.185963,
+      "root_ms": 23580.411426,
+      "before_root_ms": 36.977838,
+      "after_root_ms": 7.079836,
+      "cli_over_native_ratio": 3.4042653561601237,
+      "download_bytes": 316873658,
+      "unpack_compressed_bytes": 316873658,
+      "read_before_last_download": false,
+      "largest_layer_overlap": {
+        "item": "sha256:167b9fde7ea2106ff0349f834ad13f3d5078836087edf8a9422da759c088f66c",
+        "first_read_ns": 1789220543714057414,
+        "download_end_ns": 1789220543092590797,
+        "read_before_own_download_end": false
+      },
+      "cold_replay_drift": "-3.5%",
+      "overhead_ms": 16684.799831,
+      "provision_overhead_ms": 17512.321357,
+      "exact_native_ms": 116.218253,
+      "exact_dagger_ms": 476.675072,
+      "exact_overhead_ms": 360.456819,
+      "application_native_ms": 295.075015,
+      "application_dagger_ms": 852.251242,
+      "application_overhead_ms": 557.176227,
+      "workspace-library_native_ms": 517.414831,
+      "workspace-library_dagger_ms": 1106.721819,
+      "workspace-library_overhead_ms": 589.306988
+    },
+    {
+      "index": 5,
+      "side": "B",
+      "cli_ms": 13817.440587,
+      "provision_cli_ms": 14022.320729,
+      "native_ms": 7266.325825,
+      "cargo_ms": 6323.122216,
+      "delivery_ms": 4712.107552,
+      "root_ms": 13780.860175,
+      "before_root_ms": 30.951503,
+      "after_root_ms": 5.632785,
+      "cli_over_native_ratio": 1.9015718424655144,
+      "download_bytes": 316873658,
+      "unpack_compressed_bytes": 316873658,
+      "read_before_last_download": true,
+      "largest_layer_overlap": {
+        "item": "sha256:167b9fde7ea2106ff0349f834ad13f3d5078836087edf8a9422da759c088f66c",
+        "first_read_ns": 1789220588277605968,
+        "download_end_ns": 1789220591509633393,
+        "read_before_own_download_end": true
+      },
+      "cold_replay_drift": "-6.2%",
+      "overhead_ms": 6551.114761999999,
+      "provision_overhead_ms": 6755.994903999999,
+      "exact_native_ms": 115.99227,
+      "exact_dagger_ms": 577.784014,
+      "exact_overhead_ms": 461.79174399999994,
+      "application_native_ms": 318.160445,
+      "application_dagger_ms": 919.777223,
+      "application_overhead_ms": 601.6167780000001,
+      "workspace-library_native_ms": 454.412218,
+      "workspace-library_dagger_ms": 1059.825351,
+      "workspace-library_overhead_ms": 605.413133
+    }
+  ],
+  "pairs": [
+    {
+      "pair": 0,
+      "order": "AB",
+      "saved_ms": {
+        "cli_ms": 933.733037,
+        "provision_cli_ms": 900.9132480000007,
+        "native_ms": 104.21746200000052,
+        "cargo_ms": -372.8132949999999,
+        "delivery_ms": 2275.26581,
+        "root_ms": 933.352449,
+        "before_root_ms": 1.0108929999999958,
+        "after_root_ms": -0.6307350000000005,
+        "overhead_ms": 829.5155749999994,
+        "provision_overhead_ms": 796.6957860000002,
+        "exact_native_ms": -4.570249000000004,
+        "exact_dagger_ms": 66.85053699999997,
+        "exact_overhead_ms": 71.42078599999996,
+        "application_native_ms": -14.239886000000013,
+        "application_dagger_ms": 1.334385999999995,
+        "application_overhead_ms": 15.574272000000065,
+        "workspace-library_native_ms": -22.26583199999999,
+        "workspace-library_dagger_ms": 0.47747400000002926,
+        "workspace-library_overhead_ms": 22.74330599999996
+      }
+    },
+    {
+      "pair": 1,
+      "order": "BA",
+      "saved_ms": {
+        "cli_ms": 2276.721373000002,
+        "provision_cli_ms": 2277.016090000001,
+        "native_ms": 189.67099599999983,
+        "cargo_ms": -244.06833000000006,
+        "delivery_ms": 2602.052974,
+        "root_ms": 2277.017762999998,
+        "before_root_ms": -0.4509049999999988,
+        "after_root_ms": 0.15426200000000012,
+        "overhead_ms": 2087.0503770000014,
+        "provision_overhead_ms": 2087.3450940000002,
+        "exact_native_ms": 31.225925000000018,
+        "exact_dagger_ms": 21.694987999999967,
+        "exact_overhead_ms": -9.530936999999994,
+        "application_native_ms": 22.376036,
+        "application_dagger_ms": 3.815117999999984,
+        "application_overhead_ms": -18.56091800000013,
+        "workspace-library_native_ms": 78.29977299999996,
+        "workspace-library_dagger_ms": 49.08463900000015,
+        "workspace-library_overhead_ms": -29.215133999999807
+      }
+    },
+    {
+      "pair": 2,
+      "order": "AB",
+      "saved_ms": {
+        "cli_ms": 9807.025778000001,
+        "provision_cli_ms": 10429.667162000002,
+        "native_ms": -326.65929099999994,
+        "cargo_ms": -428.5594999999994,
+        "delivery_ms": 9004.078410999999,
+        "root_ms": 9799.551250999999,
+        "before_root_ms": 6.0263349999999996,
+        "after_root_ms": 1.447051,
+        "overhead_ms": 10133.685069000001,
+        "provision_overhead_ms": 10756.326453000001,
+        "exact_native_ms": 0.22598299999999938,
+        "exact_dagger_ms": -101.10894199999996,
+        "exact_overhead_ms": -101.33492499999994,
+        "application_native_ms": -23.085429999999974,
+        "application_dagger_ms": -67.525981,
+        "application_overhead_ms": -44.44055100000003,
+        "workspace-library_native_ms": 63.00261300000005,
+        "workspace-library_dagger_ms": 46.89646800000014,
+        "workspace-library_overhead_ms": -16.10614499999997
+      }
+    }
+  ],
+  "paired_saved_ms": {
+    "cli_ms": {
+      "n": 3,
+      "median": 2276.721373000002,
+      "minimum": 933.733037,
+      "maximum": 9807.025778000001,
+      "values": [
+        933.733037,
+        2276.721373000002,
+        9807.025778000001
+      ],
+      "favorable": 3
+    },
+    "provision_cli_ms": {
+      "n": 3,
+      "median": 2277.016090000001,
+      "minimum": 900.9132480000007,
+      "maximum": 10429.667162000002,
+      "values": [
+        900.9132480000007,
+        2277.016090000001,
+        10429.667162000002
+      ],
+      "favorable": 3
+    },
+    "native_ms": {
+      "n": 3,
+      "median": 104.21746200000052,
+      "minimum": -326.65929099999994,
+      "maximum": 189.67099599999983,
+      "values": [
+        104.21746200000052,
+        189.67099599999983,
+        -326.65929099999994
+      ],
+      "favorable": 2
+    },
+    "cargo_ms": {
+      "n": 3,
+      "median": -372.8132949999999,
+      "minimum": -428.5594999999994,
+      "maximum": -244.06833000000006,
+      "values": [
+        -372.8132949999999,
+        -244.06833000000006,
+        -428.5594999999994
+      ],
+      "favorable": 0
+    },
+    "delivery_ms": {
+      "n": 3,
+      "median": 2602.052974,
+      "minimum": 2275.26581,
+      "maximum": 9004.078410999999,
+      "values": [
+        2275.26581,
+        2602.052974,
+        9004.078410999999
+      ],
+      "favorable": 3
+    },
+    "root_ms": {
+      "n": 3,
+      "median": 2277.017762999998,
+      "minimum": 933.352449,
+      "maximum": 9799.551250999999,
+      "values": [
+        933.352449,
+        2277.017762999998,
+        9799.551250999999
+      ],
+      "favorable": 3
+    },
+    "before_root_ms": {
+      "n": 3,
+      "median": 1.0108929999999958,
+      "minimum": -0.4509049999999988,
+      "maximum": 6.0263349999999996,
+      "values": [
+        1.0108929999999958,
+        -0.4509049999999988,
+        6.0263349999999996
+      ],
+      "favorable": 2
+    },
+    "after_root_ms": {
+      "n": 3,
+      "median": 0.15426200000000012,
+      "minimum": -0.6307350000000005,
+      "maximum": 1.447051,
+      "values": [
+        -0.6307350000000005,
+        0.15426200000000012,
+        1.447051
+      ],
+      "favorable": 2
+    },
+    "overhead_ms": {
+      "n": 3,
+      "median": 2087.0503770000014,
+      "minimum": 829.5155749999994,
+      "maximum": 10133.685069000001,
+      "values": [
+        829.5155749999994,
+        2087.0503770000014,
+        10133.685069000001
+      ],
+      "favorable": 3
+    },
+    "provision_overhead_ms": {
+      "n": 3,
+      "median": 2087.3450940000002,
+      "minimum": 796.6957860000002,
+      "maximum": 10756.326453000001,
+      "values": [
+        796.6957860000002,
+        2087.3450940000002,
+        10756.326453000001
+      ],
+      "favorable": 3
+    },
+    "exact_native_ms": {
+      "n": 3,
+      "median": 0.22598299999999938,
+      "minimum": -4.570249000000004,
+      "maximum": 31.225925000000018,
+      "values": [
+        -4.570249000000004,
+        31.225925000000018,
+        0.22598299999999938
+      ],
+      "favorable": 2
+    },
+    "exact_dagger_ms": {
+      "n": 3,
+      "median": 21.694987999999967,
+      "minimum": -101.10894199999996,
+      "maximum": 66.85053699999997,
+      "values": [
+        66.85053699999997,
+        21.694987999999967,
+        -101.10894199999996
+      ],
+      "favorable": 2
+    },
+    "exact_overhead_ms": {
+      "n": 3,
+      "median": -9.530936999999994,
+      "minimum": -101.33492499999994,
+      "maximum": 71.42078599999996,
+      "values": [
+        71.42078599999996,
+        -9.530936999999994,
+        -101.33492499999994
+      ],
+      "favorable": 1
+    },
+    "application_native_ms": {
+      "n": 3,
+      "median": -14.239886000000013,
+      "minimum": -23.085429999999974,
+      "maximum": 22.376036,
+      "values": [
+        -14.239886000000013,
+        22.376036,
+        -23.085429999999974
+      ],
+      "favorable": 1
+    },
+    "application_dagger_ms": {
+      "n": 3,
+      "median": 1.334385999999995,
+      "minimum": -67.525981,
+      "maximum": 3.815117999999984,
+      "values": [
+        1.334385999999995,
+        3.815117999999984,
+        -67.525981
+      ],
+      "favorable": 2
+    },
+    "application_overhead_ms": {
+      "n": 3,
+      "median": -18.56091800000013,
+      "minimum": -44.44055100000003,
+      "maximum": 15.574272000000065,
+      "values": [
+        15.574272000000065,
+        -18.56091800000013,
+        -44.44055100000003
+      ],
+      "favorable": 1
+    },
+    "workspace-library_native_ms": {
+      "n": 3,
+      "median": 63.00261300000005,
+      "minimum": -22.26583199999999,
+      "maximum": 78.29977299999996,
+      "values": [
+        -22.26583199999999,
+        78.29977299999996,
+        63.00261300000005
+      ],
+      "favorable": 2
+    },
+    "workspace-library_dagger_ms": {
+      "n": 3,
+      "median": 46.89646800000014,
+      "minimum": 0.47747400000002926,
+      "maximum": 49.08463900000015,
+      "values": [
+        0.47747400000002926,
+        49.08463900000015,
+        46.89646800000014
+      ],
+      "favorable": 3
+    },
+    "workspace-library_overhead_ms": {
+      "n": 3,
+      "median": -16.10614499999997,
+      "minimum": -29.215133999999807,
+      "maximum": 22.74330599999996,
+      "values": [
+        22.74330599999996,
+        -29.215133999999807,
+        -16.10614499999997
+      ],
+      "favorable": 1
+    }
+  },
+  "marginal_ms": {
+    "A": {
+      "cli_ms": {
+        "n": 3,
+        "median": 16458.652042,
+        "minimum": 15964.61497,
+        "maximum": 23624.466365,
+        "values": [
+          15964.61497,
+          16458.652042,
+          23624.466365
+        ]
+      },
+      "provision_cli_ms": {
+        "n": 3,
+        "median": 16670.877927,
+        "minimum": 16178.845116,
+        "maximum": 24451.987891,
+        "values": [
+          16178.845116,
+          16670.877927,
+          24451.987891
+        ]
+      },
+      "native_ms": {
+        "n": 3,
+        "median": 7033.796072,
+        "minimum": 6939.666534,
+        "maximum": 7146.366796,
+        "values": [
+          7146.366796,
+          7033.796072,
+          6939.666534
+        ]
+      },
+      "cargo_ms": {
+        "n": 3,
+        "median": 6093.303415,
+        "minimum": 5894.562716,
+        "maximum": 6285.15821,
+        "values": [
+          6093.303415,
+          6285.15821,
+          5894.562716
+        ]
+      },
+      "delivery_ms": {
+        "n": 3,
+        "median": 7348.714122,
+        "minimum": 7024.908108,
+        "maximum": 13716.185963,
+        "values": [
+          7024.908108,
+          7348.714122,
+          13716.185963
+        ]
+      },
+      "root_ms": {
+        "n": 3,
+        "median": 16419.383872,
+        "minimum": 15925.167217,
+        "maximum": 23580.411426,
+        "values": [
+          15925.167217,
+          16419.383872,
+          23580.411426
+        ]
+      },
+      "before_root_ms": {
+        "n": 3,
+        "median": 33.509395,
+        "minimum": 32.312347,
+        "maximum": 36.977838,
+        "values": [
+          33.509395,
+          32.312347,
+          36.977838
+        ]
+      },
+      "after_root_ms": {
+        "n": 3,
+        "median": 6.958197,
+        "minimum": 5.941153,
+        "maximum": 7.079836,
+        "values": [
+          5.941153,
+          6.958197,
+          7.079836
+        ]
+      },
+      "overhead_ms": {
+        "n": 3,
+        "median": 9424.85597,
+        "minimum": 8818.248174,
+        "maximum": 16684.799831,
+        "values": [
+          8818.248174,
+          9424.85597,
+          16684.799831
+        ]
+      },
+      "provision_overhead_ms": {
+        "n": 3,
+        "median": 9637.081855,
+        "minimum": 9032.47832,
+        "maximum": 17512.321357,
+        "values": [
+          9032.47832,
+          9637.081855,
+          17512.321357
+        ]
+      },
+      "exact_native_ms": {
+        "n": 3,
+        "median": 116.979546,
+        "minimum": 116.218253,
+        "maximum": 149.253293,
+        "values": [
+          116.979546,
+          149.253293,
+          116.218253
+        ]
+      },
+      "exact_dagger_ms": {
+        "n": 3,
+        "median": 545.105287,
+        "minimum": 476.675072,
+        "maximum": 576.593617,
+        "values": [
+          576.593617,
+          545.105287,
+          476.675072
+        ]
+      },
+      "exact_overhead_ms": {
+        "n": 3,
+        "median": 395.851994,
+        "minimum": 360.456819,
+        "maximum": 459.61407099999997,
+        "values": [
+          459.61407099999997,
+          395.851994,
+          360.456819
+        ]
+      },
+      "application_native_ms": {
+        "n": 3,
+        "median": 309.885794,
+        "minimum": 295.075015,
+        "maximum": 314.452068,
+        "values": [
+          309.885794,
+          314.452068,
+          295.075015
+        ]
+      },
+      "application_dagger_ms": {
+        "n": 3,
+        "median": 874.889489,
+        "minimum": 852.251242,
+        "maximum": 881.823615,
+        "values": [
+          874.889489,
+          881.823615,
+          852.251242
+        ]
+      },
+      "application_overhead_ms": {
+        "n": 3,
+        "median": 565.0036950000001,
+        "minimum": 557.176227,
+        "maximum": 567.371547,
+        "values": [
+          565.0036950000001,
+          567.371547,
+          557.176227
+        ]
+      },
+      "workspace-library_native_ms": {
+        "n": 3,
+        "median": 517.414831,
+        "minimum": 469.192637,
+        "maximum": 536.074663,
+        "values": [
+          469.192637,
+          536.074663,
+          517.414831
+        ]
+      },
+      "workspace-library_dagger_ms": {
+        "n": 3,
+        "median": 1067.216955,
+        "minimum": 1033.149033,
+        "maximum": 1106.721819,
+        "values": [
+          1033.149033,
+          1067.216955,
+          1106.721819
+        ]
+      },
+      "workspace-library_overhead_ms": {
+        "n": 3,
+        "median": 563.9563959999999,
+        "minimum": 531.1422920000001,
+        "maximum": 589.306988,
+        "values": [
+          563.9563959999999,
+          531.1422920000001,
+          589.306988
+        ]
+      }
+    },
+    "B": {
+      "cli_ms": {
+        "n": 3,
+        "median": 14181.930669,
+        "minimum": 13817.440587,
+        "maximum": 15030.881933,
+        "values": [
+          15030.881933,
+          14181.930669,
+          13817.440587
+        ]
+      },
+      "provision_cli_ms": {
+        "n": 3,
+        "median": 14393.861837,
+        "minimum": 14022.320729,
+        "maximum": 15277.931868,
+        "values": [
+          15277.931868,
+          14393.861837,
+          14022.320729
+        ]
+      },
+      "native_ms": {
+        "n": 3,
+        "median": 7042.149334,
+        "minimum": 6844.125076,
+        "maximum": 7266.325825,
+        "values": [
+          7042.149334,
+          6844.125076,
+          7266.325825
+        ]
+      },
+      "cargo_ms": {
+        "n": 3,
+        "median": 6466.11671,
+        "minimum": 6323.122216,
+        "maximum": 6529.22654,
+        "values": [
+          6466.11671,
+          6529.22654,
+          6323.122216
+        ]
+      },
+      "delivery_ms": {
+        "n": 3,
+        "median": 4746.661148,
+        "minimum": 4712.107552,
+        "maximum": 4749.642298,
+        "values": [
+          4749.642298,
+          4746.661148,
+          4712.107552
+        ]
+      },
+      "root_ms": {
+        "n": 3,
+        "median": 14142.366109,
+        "minimum": 13780.860175,
+        "maximum": 14991.814768,
+        "values": [
+          14991.814768,
+          14142.366109,
+          13780.860175
+        ]
+      },
+      "before_root_ms": {
+        "n": 3,
+        "median": 32.498502,
+        "minimum": 30.951503,
+        "maximum": 32.763252,
+        "values": [
+          32.498502,
+          32.763252,
+          30.951503
+        ]
+      },
+      "after_root_ms": {
+        "n": 3,
+        "median": 6.571888,
+        "minimum": 5.632785,
+        "maximum": 6.803935,
+        "values": [
+          6.571888,
+          6.803935,
+          5.632785
+        ]
+      },
+      "overhead_ms": {
+        "n": 3,
+        "median": 7337.805592999999,
+        "minimum": 6551.114761999999,
+        "maximum": 7988.732599000001,
+        "values": [
+          7988.732599000001,
+          7337.805592999999,
+          6551.114761999999
+        ]
+      },
+      "provision_overhead_ms": {
+        "n": 3,
+        "median": 7549.736761,
+        "minimum": 6755.994903999999,
+        "maximum": 8235.782534,
+        "values": [
+          8235.782534,
+          7549.736761,
+          6755.994903999999
+        ]
+      },
+      "exact_native_ms": {
+        "n": 3,
+        "median": 118.027368,
+        "minimum": 115.99227,
+        "maximum": 121.549795,
+        "values": [
+          121.549795,
+          118.027368,
+          115.99227
+        ]
+      },
+      "exact_dagger_ms": {
+        "n": 3,
+        "median": 523.410299,
+        "minimum": 509.74308,
+        "maximum": 577.784014,
+        "values": [
+          509.74308,
+          523.410299,
+          577.784014
+        ]
+      },
+      "exact_overhead_ms": {
+        "n": 3,
+        "median": 405.382931,
+        "minimum": 388.193285,
+        "maximum": 461.79174399999994,
+        "values": [
+          388.193285,
+          405.382931,
+          461.79174399999994
+        ]
+      },
+      "application_native_ms": {
+        "n": 3,
+        "median": 318.160445,
+        "minimum": 292.076032,
+        "maximum": 324.12568,
+        "values": [
+          324.12568,
+          292.076032,
+          318.160445
+        ]
+      },
+      "application_dagger_ms": {
+        "n": 3,
+        "median": 878.008497,
+        "minimum": 873.555103,
+        "maximum": 919.777223,
+        "values": [
+          873.555103,
+          878.008497,
+          919.777223
+        ]
+      },
+      "application_overhead_ms": {
+        "n": 3,
+        "median": 585.9324650000001,
+        "minimum": 549.429423,
+        "maximum": 601.6167780000001,
+        "values": [
+          549.429423,
+          585.9324650000001,
+          601.6167780000001
+        ]
+      },
+      "workspace-library_native_ms": {
+        "n": 3,
+        "median": 457.77489,
+        "minimum": 454.412218,
+        "maximum": 491.458469,
+        "values": [
+          491.458469,
+          457.77489,
+          454.412218
+        ]
+      },
+      "workspace-library_dagger_ms": {
+        "n": 3,
+        "median": 1032.671559,
+        "minimum": 1018.132316,
+        "maximum": 1059.825351,
+        "values": [
+          1032.671559,
+          1018.132316,
+          1059.825351
+        ]
+      },
+      "workspace-library_overhead_ms": {
+        "n": 3,
+        "median": 560.3574259999999,
+        "minimum": 541.21309,
+        "maximum": 605.413133,
+        "values": [
+          541.21309,
+          560.3574259999999,
+          605.413133
+        ]
+      }
+    }
+  },
+  "profile_gates": 30,
+  "cache_analyses": 18
+}

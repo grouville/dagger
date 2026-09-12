@@ -1,0 +1,306 @@
+//go:build linux
+
+package snapshots
+
+import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
+	"context"
+	"crypto/sha256"
+	"errors"
+	"fmt"
+	"io"
+	"math/rand"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/containerd/containerd/v2/core/content"
+	"github.com/containerd/containerd/v2/core/diff"
+	"github.com/containerd/containerd/v2/core/diff/apply"
+	"github.com/containerd/containerd/v2/core/mount"
+	"github.com/klauspost/compress/zstd"
+	digest "github.com/opencontainers/go-digest"
+	oci "github.com/opencontainers/image-spec/specs-go/v1"
+	"golang.org/x/sys/unix"
+)
+
+const hashPipelineThreshold = 8 * 1024 * 1024
+
+type hashApplyProvider struct {
+	data     []byte
+	failAt   int64
+	cancelAt int64
+	cancel   context.CancelFunc
+}
+
+type hashApplyReader struct {
+	*bytes.Reader
+	failAt, cancelAt int64
+	cancel           context.CancelFunc
+	once             sync.Once
+}
+
+var errHashApplyRead = errors.New("injected content read failure")
+
+func (p hashApplyProvider) ReaderAt(context.Context, oci.Descriptor) (content.ReaderAt, error) {
+	return &hashApplyReader{Reader: bytes.NewReader(p.data), failAt: p.failAt, cancelAt: p.cancelAt, cancel: p.cancel}, nil
+}
+func (r *hashApplyReader) Close() error { return nil }
+func (r *hashApplyReader) ReadAt(b []byte, off int64) (int, error) {
+	if r.failAt >= 0 && off >= r.failAt {
+		return 0, errHashApplyRead
+	}
+	injected := r.failAt >= 0 && int64(len(b)) > r.failAt-off
+	if injected {
+		b = b[:r.failAt-off]
+	}
+	n, err := r.Reader.ReadAt(b, off)
+	if r.cancel != nil && off+int64(n) >= r.cancelAt {
+		r.once.Do(r.cancel)
+	}
+	if injected {
+		return n, errHashApplyRead
+	}
+	return n, err
+}
+
+func hashApplyPayload(n int) []byte {
+	b := make([]byte, n)
+	_, _ = rand.New(rand.NewSource(712)).Read(b)
+	return b
+}
+
+func hashApplyTar(t *testing.T, payload []byte, metadata bool) []byte {
+	t.Helper()
+	var b bytes.Buffer
+	w := tar.NewWriter(&b)
+	h := &tar.Header{Name: "payload", Mode: 0o640, Uid: os.Getuid(), Gid: os.Getgid(), Size: int64(len(payload)), ModTime: time.Unix(123456789, 0)}
+	if metadata {
+		h.PAXRecords = map[string]string{"SCHILY.xattr.user.pipeline-test": "retained"}
+	}
+	if err := w.WriteHeader(h); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Write(payload); err != nil {
+		t.Fatal(err)
+	}
+	if metadata {
+		for _, h := range []*tar.Header{
+			{Name: "symbolic", Typeflag: tar.TypeSymlink, Linkname: "payload", Mode: 0o777, Uid: os.Getuid(), Gid: os.Getgid(), ModTime: time.Unix(123456789, 0)},
+			{Name: "hard", Typeflag: tar.TypeLink, Linkname: "payload", Mode: 0o640, Uid: os.Getuid(), Gid: os.Getgid(), ModTime: time.Unix(123456789, 0)},
+		} {
+			if err := w.WriteHeader(h); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return b.Bytes()
+}
+
+func hashApplyEncode(t *testing.T, raw []byte, codec string) ([]byte, string) {
+	t.Helper()
+	switch codec {
+	case "raw":
+		return raw, oci.MediaTypeImageLayer
+	case "gzip":
+		var b bytes.Buffer
+		w, err := gzip.NewWriterLevel(&b, gzip.BestSpeed)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = w.Write(raw); err != nil {
+			t.Fatal(err)
+		}
+		if err = w.Close(); err != nil {
+			t.Fatal(err)
+		}
+		return b.Bytes(), oci.MediaTypeImageLayerGzip
+	case "zstd":
+		w, err := zstd.NewWriter(nil, zstd.WithEncoderConcurrency(1), zstd.WithEncoderLevel(zstd.SpeedFastest))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer w.Close()
+		return w.EncodeAll(raw, nil), oci.MediaTypeImageLayerZstd
+	default:
+		t.Fatalf("unknown codec %s", codec)
+		return nil, ""
+	}
+}
+
+func hashApply(t *testing.T, ctx context.Context, data []byte, media string, p hashApplyProvider) (oci.Descriptor, error, string) {
+	t.Helper()
+	root := t.TempDir()
+	p.data = data
+	d := oci.Descriptor{MediaType: media, Digest: digest.FromBytes(data), Size: int64(len(data))}
+	got, err := apply.NewFileSystemApplier(p).Apply(ctx, d,
+		[]mount.Mount{{Type: "overlay", Options: []string{"upperdir=" + root}}},
+		diff.WithProgress(func(_ oci.Descriptor, n int64) {
+			if n < 0 || n > d.Size {
+				t.Errorf("invalid progress %d", n)
+			}
+		}))
+	return got, err, root
+}
+
+func assertHashApply(t *testing.T, got oci.Descriptor, err error, raw, payload []byte, root string, metadata bool) {
+	t.Helper()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Size != int64(len(raw)) || got.Digest != digest.FromBytes(raw) || got.MediaType != oci.MediaTypeImageLayer {
+		t.Fatalf("wrong result: %+v", got)
+	}
+	contents, err := os.ReadFile(filepath.Join(root, "payload"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sha256.Sum256(contents) != sha256.Sum256(payload) {
+		t.Fatal("payload changed")
+	}
+	info, err := os.Stat(filepath.Join(root, "payload"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0o640 || info.ModTime().Unix() != 123456789 {
+		t.Fatalf("file metadata changed: %v", info)
+	}
+	if metadata {
+		target, err := os.Readlink(filepath.Join(root, "symbolic"))
+		if err != nil || target != "payload" {
+			t.Fatalf("symlink %q %v", target, err)
+		}
+		alias, err := os.Stat(filepath.Join(root, "hard"))
+		if err != nil || !os.SameFile(info, alias) {
+			t.Fatalf("hardlink changed: %v", err)
+		}
+		b := make([]byte, 32)
+		n, err := unix.Getxattr(filepath.Join(root, "payload"), "user.pipeline-test", b)
+		if err != nil || string(b[:max(0, n)]) != "retained" {
+			t.Fatalf("xattr changed: %v", err)
+		}
+	}
+}
+
+func assertHashWorkersJoined(t *testing.T) {
+	t.Helper()
+	deadline := time.Now().Add(time.Second)
+	for {
+		buf := make([]byte, 512*1024)
+		n := runtime.Stack(buf, true)
+		if n == len(buf) {
+			t.Fatal("goroutine observation truncated")
+		}
+		if !strings.Contains(string(buf[:n]), "apply.newPipelinedHash.func") {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("hash worker remains after Apply returned")
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+func TestPipelinedApplyThresholdAndCodecs(t *testing.T) {
+	for _, delta := range []int{-512, 0, 512} {
+		t.Run(fmt.Sprintf("threshold%+d", delta), func(t *testing.T) {
+			payload := hashApplyPayload(hashPipelineThreshold - 1536 + delta)
+			raw := hashApplyTar(t, payload, false)
+			if len(raw) != hashPipelineThreshold+delta {
+				t.Fatalf("wrong threshold fixture: %d", len(raw))
+			}
+			got, err, root := hashApply(t, context.Background(), raw, oci.MediaTypeImageLayer, hashApplyProvider{failAt: -1, cancelAt: -1})
+			assertHashApply(t, got, err, raw, payload, root, false)
+			assertHashWorkersJoined(t)
+		})
+	}
+	payload := hashApplyPayload(9 * 1024 * 1024)
+	raw := append(hashApplyTar(t, payload, true), []byte("trailing tar data remains in diffID")...)
+	for _, codec := range []string{"raw", "gzip", "zstd"} {
+		t.Run(codec, func(t *testing.T) {
+			data, media := hashApplyEncode(t, raw, codec)
+			if len(data) < hashPipelineThreshold {
+				t.Fatal("fixture failed to activate pipelining")
+			}
+			got, err, root := hashApply(t, context.Background(), data, media, hashApplyProvider{failAt: -1, cancelAt: -1})
+			assertHashApply(t, got, err, raw, payload, root, true)
+			assertHashWorkersJoined(t)
+		})
+	}
+}
+
+func TestPipelinedApplyFailureAndCancellation(t *testing.T) {
+	raw := hashApplyTar(t, hashApplyPayload(9*1024*1024), false)
+	gz, media := hashApplyEncode(t, raw, "gzip")
+	badCRC := bytes.Clone(gz)
+	badCRC[len(badCRC)-8] ^= 1
+	badTar := append(bytes.Clone(raw[:len(raw)-1024]), bytes.Repeat([]byte{'X'}, 512)...)
+	cases := []struct {
+		name             string
+		data             []byte
+		media            string
+		failAt, cancelAt int64
+	}{
+		{"truncated-tar", raw[:len(raw)-4096], oci.MediaTypeImageLayer, -1, -1},
+		{"invalid-next-header", badTar, oci.MediaTypeImageLayer, -1, -1},
+		{"gzip-crc", badCRC, media, -1, -1},
+		{"read-error", raw, oci.MediaTypeImageLayer, 1024 * 1024, -1},
+		{"cancel-full", raw, oci.MediaTypeImageLayer, -1, 1024 * 1024},
+		{"cancel-partial", raw, oci.MediaTypeImageLayer, -1, 1024*1024 + 37},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if len(c.data) < hashPipelineThreshold {
+				t.Fatal("error fixture must activate pipeline")
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			p := hashApplyProvider{failAt: c.failAt, cancelAt: c.cancelAt}
+			if c.cancelAt >= 0 {
+				p.cancel = cancel
+			}
+			start := time.Now()
+			got, err, _ := hashApply(t, ctx, c.data, c.media, p)
+			if err == nil || got.Digest != "" || got.Size != 0 || got.MediaType != "" {
+				t.Fatalf("error returned success descriptor: %+v %v", got, err)
+			}
+			if c.cancelAt >= 0 && !errors.Is(err, context.Canceled) {
+				t.Fatalf("lost cancellation: %v", err)
+			}
+			if c.failAt >= 0 && !errors.Is(err, errHashApplyRead) {
+				t.Fatalf("lost read error: %v", err)
+			}
+			if time.Since(start) > 3*time.Second {
+				t.Fatal("error cleanup exceeded bound")
+			}
+			assertHashWorkersJoined(t)
+		})
+	}
+}
+
+func TestPipelinedApplyConcurrent(t *testing.T) {
+	payload := hashApplyPayload(9 * 1024 * 1024)
+	raw := hashApplyTar(t, payload, false)
+	var wg sync.WaitGroup
+	for range 4 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			got, err, root := hashApply(t, context.Background(), raw, oci.MediaTypeImageLayer, hashApplyProvider{failAt: -1, cancelAt: -1})
+			assertHashApply(t, got, err, raw, payload, root, false)
+		}()
+	}
+	wg.Wait()
+	assertHashWorkersJoined(t)
+}
+
+var _ io.ReaderAt = (*hashApplyReader)(nil)
