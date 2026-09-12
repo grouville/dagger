@@ -173,12 +173,14 @@ type Client struct {
 
 	telemetry *errgroup.Group
 
-	httpClient *httpClient
-	bkClient   *bkclient.Client
-	bkVersion  string
-	bkName     string
-	numCPU     int
-	sessionSrv *SessionAttachablesServer
+	httpClient            *httpClient
+	bkClient              *bkclient.Client
+	bkVersion             string
+	bkName                string
+	numCPU                int
+	sessionSrv            *SessionAttachablesServer
+	preparedHTTPDials     []*preparedHTTPDial
+	preparedTelemetryHTTP *httpClient
 
 	// A client for the dagger API that is directly hooked up to this engine client.
 	// Currently used for the dagger CLI so it can avoid making a subprocess of itself...
@@ -314,6 +316,29 @@ func Connect(ctx context.Context, params Params) (_ *Client, rerr error) {
 		}
 	}()
 
+	// The engine is ready and validated. Establish only the raw API transports
+	// while the attachables handshake runs; no API request may precede it.
+	defer func() {
+		if rerr != nil && len(c.preparedHTTPDials) != 0 {
+			c.closeRequests(errors.New("Connect failed"))
+			for _, dial := range c.preparedHTTPDials {
+				dial.close()
+			}
+		}
+	}()
+	var telemetryHTTP *httpClient
+	if c.EngineTrace != nil || c.EngineLogs != nil || c.EngineMetrics != nil {
+		foreground := prepareHTTPDial(connectCtx, c.DialContext)
+		defer foreground.closeUnused()
+		c.httpClient = c.newHTTPClientWithDial(foreground.dial)
+		telemetryDial := prepareHTTPDial(context.WithoutCancel(connectCtx), func(ctx context.Context, _, _ string) (net.Conn, error) {
+			return c.dialContextNoClientClose(ctx)
+		})
+		defer telemetryDial.closeUnused()
+		telemetryHTTP = c.newHTTPClientWithDial(telemetryDial.dial)
+		c.preparedTelemetryHTTP = telemetryHTTP
+		c.preparedHTTPDials = []*preparedHTTPDial{foreground, telemetryDial}
+	}
 	if err := c.startSession(connectCtx); err != nil {
 		return nil, fmt.Errorf("start session: %w", err)
 	}
@@ -324,7 +349,7 @@ func Connect(ctx context.Context, params Params) (_ *Client, rerr error) {
 		}
 	}()
 
-	if err := c.connectHTTP(connectCtx); err != nil {
+	if err := c.connectHTTPWithTelemetry(connectCtx, telemetryHTTP); err != nil {
 		return nil, err
 	}
 
@@ -531,6 +556,10 @@ func (c *Client) startEngine(ctx context.Context, params Params) (rerr error) {
 }
 
 func (c *Client) subscribeTelemetry(ctx context.Context) (rerr error) {
+	return c.subscribeTelemetryWithClient(ctx, c.newTelemetryHTTPClient())
+}
+
+func (c *Client) subscribeTelemetryWithClient(ctx context.Context, httpClient *httpClient) (rerr error) {
 	ctx, span := Tracer(ctx).Start(ctx, "subscribing to telemetry",
 		telemetry.Encapsulated())
 	defer telemetry.EndWithCause(span, &rerr)
@@ -540,7 +569,6 @@ func (c *Client) subscribeTelemetry(ctx context.Context) (rerr error) {
 	slog.Debug("subscribing to telemetry", "remote", c.RunnerHost)
 
 	c.telemetry = new(errgroup.Group)
-	httpClient := c.newTelemetryHTTPClient()
 	if c.EngineTrace != nil {
 		if err := c.exportTraces(ctx, httpClient); err != nil {
 			return fmt.Errorf("export traces: %w", err)
@@ -563,6 +591,10 @@ func (c *Client) subscribeTelemetry(ctx context.Context) (rerr error) {
 // connections, after startSession has initialized the client. Keep the two
 // transports separate: telemetry must still drain after foreground shutdown.
 func (c *Client) connectHTTP(ctx context.Context) error {
+	return c.connectHTTPWithTelemetry(ctx, nil)
+}
+
+func (c *Client) connectHTTPWithTelemetry(ctx context.Context, telemetryHTTP *httpClient) error {
 	if c.EngineTrace == nil && c.EngineLogs == nil && c.EngineMetrics == nil {
 		return nil
 	}
@@ -573,7 +605,10 @@ func (c *Client) connectHTTP(ctx context.Context) error {
 		ready <- c.init(initCtx)
 	}()
 
-	subscribeErr := c.subscribeTelemetry(ctx)
+	if telemetryHTTP == nil {
+		telemetryHTTP = c.newTelemetryHTTPClient()
+	}
+	subscribeErr := c.subscribeTelemetryWithClient(ctx, telemetryHTTP)
 	if subscribeErr != nil {
 		cancel()
 	}
@@ -671,7 +706,9 @@ func (c *Client) startSession(ctx context.Context) (rerr error) {
 		return nil
 	})
 
-	c.httpClient = c.newHTTPClient()
+	if c.httpClient == nil {
+		c.httpClient = c.newHTTPClient()
+	}
 	return nil
 }
 
@@ -867,6 +904,16 @@ func (c *Client) Close() (rerr error) {
 	}
 
 	c.closeRequests(errors.New("Client.Close"))
+	defer func() {
+		// Preserve telemetry's uncancelled dial context through its drain below.
+		// Let HTTP/2 close its transport, including its bounded TLS close path.
+		if c.preparedTelemetryHTTP != nil {
+			c.preparedTelemetryHTTP.Close()
+		}
+		for _, dial := range c.preparedHTTPDials {
+			dial.release()
+		}
+	}()
 
 	if c.internalCancel != nil {
 		c.internalCancel(errors.New("Client.Close"))
@@ -1523,12 +1570,16 @@ func (c *Client) AppendHTTPRequestHeaders(headers http.Header) http.Header {
 }
 
 func (c *Client) newHTTPClient() *httpClient {
+	return c.newHTTPClientWithDial(c.DialContext)
+}
+
+func (c *Client) newHTTPClientWithDial(dial func(context.Context, string, string) (net.Conn, error)) *httpClient {
 	return &httpClient{
 		inner: &http.Client{
 			Transport: &http2.Transport{
 				AllowHTTP: true,
 				DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
-					return c.DialContext(ctx, network, addr)
+					return dial(ctx, network, addr)
 				},
 			},
 		},

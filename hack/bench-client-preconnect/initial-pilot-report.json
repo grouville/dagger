@@ -1,0 +1,638 @@
+{
+  "status": "passed",
+  "scope": "Local Docker exact-hit CLI preconnection pilot, not cold/native/invalidation.",
+  "capture": {
+    "status": "passed",
+    "engine": "ff1caa52447eaf97c9b97b1d7b8765b3679bb956af1298821759dab0e29b6f1e sha256:3df4828f5969eef38ec13cf445e2eb1f161d0e7f2f16606a863fe30a27a44181 true",
+    "source_hashes": {
+      "/tmp/dagger-http-preconnect.CU7R4qkx/dagger-control": "41391ccfe05266f2f208542e2186b6526ecfca89eace5a12100b2d32ec8eaef9",
+      "/tmp/dagger-http-preconnect.CU7R4qkx/dagger-candidate": "4da4b5f28b4612d6cd7e910cac7a7612f0168ec9ce085625c445306b1bc803cd",
+      "/tmp/dagger-rust-current-main-engine.QepteZyL/engine-source/hack/bench-rust-loop/compare-cli.py": "e8947e70093f0f8764d827e26a4402cbe4f9a4f069cef13b6d036477de5d50b9",
+      "/tmp/dagger-rust-current-main-engine.QepteZyL/engine-source/hack/bench-rust-loop/module/main.dang": "f6e119c3b7be439df46a6ea9b74c368126751e0a141b2e5ebb699a4b0f0681f1",
+      "/tmp/dagger-http-preconnect.CU7R4qkx/pilot-r2.py": "aa2be0a51d0fc6629e34248eefb51fc54440891f1dc3487bdeac1ea246d8825c"
+    },
+    "started_ns": 1789253608743180534,
+    "runs": [
+      {
+        "name": "unprofiled",
+        "root": "/tmp/dagger-rust-cli-pair-09e31xh2",
+        "command": [
+          "/usr/bin/python3",
+          "/tmp/dagger-rust-current-main-engine.QepteZyL/engine-source/hack/bench-rust-loop/compare-cli.py",
+          "--before",
+          "/tmp/dagger-http-preconnect.CU7R4qkx/dagger-control",
+          "--after",
+          "/tmp/dagger-http-preconnect.CU7R4qkx/dagger-candidate",
+          "--workdir",
+          "/tmp/dagger-http-preconnect.CU7R4qkx/pilot-r2/project",
+          "--samples",
+          "12",
+          "--",
+          "check",
+          "rust:check"
+        ],
+        "profiled": false,
+        "exit_code": 0
+      },
+      {
+        "name": "profiled",
+        "root": "/tmp/dagger-rust-cli-pair-s6ojdbyy",
+        "command": [
+          "/usr/bin/python3",
+          "/tmp/dagger-rust-current-main-engine.QepteZyL/engine-source/hack/bench-rust-loop/compare-cli.py",
+          "--before",
+          "/tmp/dagger-http-preconnect.CU7R4qkx/dagger-control",
+          "--after",
+          "/tmp/dagger-http-preconnect.CU7R4qkx/dagger-candidate",
+          "--workdir",
+          "/tmp/dagger-http-preconnect.CU7R4qkx/pilot-r2/project",
+          "--samples",
+          "3",
+          "--",
+          "--profile",
+          "check",
+          "rust:check"
+        ],
+        "profiled": true,
+        "exit_code": 0
+      }
+    ],
+    "receiver_pid": 636026,
+    "receiver_exit_code": -15,
+    "telemetry_sha256": "1e60a3e027a3a5b27b6b6685373a8fd4caa2bd93b9472e3404541fe34977e59e",
+    "telemetry_bytes": 1818684,
+    "ended_ns": 1789253635174089890
+  },
+  "analyzer_sha256": "de3bde25361254d784a211a9fdfec5043459a7a211b9e2a012252ebfbd45a8ba",
+  "extractor_sha256": "9111c7d9fe6d13266e899bc1048bf7aee66208024c6980c7bd607bfe78123201",
+  "profiles": [
+    {
+      "label": "before-0",
+      "trace_id": "e46246cfa6b3204c729ee0f216fcf8be",
+      "process_ms": 504.973514,
+      "before_root_ms": 50.526755,
+      "root_ms": 445.420876,
+      "after_root_ms": 9.02729,
+      "wall_minus_monotonic_ms": 0.0014069999999719585,
+      "exit_code": 0,
+      "note": "Run the wcprof OTel structural gate on the extracted trace before interpreting rankings.",
+      "declared": 154,
+      "received": 154,
+      "actual_execs": 0,
+      "exec_outcomes": [
+        "hit",
+        "hit",
+        "hit"
+      ],
+      "image_spans": [],
+      "startup": [
+        {
+          "name": "connect",
+          "start_ns": 1789253630757203087,
+          "end_ns": 1789253630935298102,
+          "ms": 178.095015
+        },
+        {
+          "name": "connecting to engine",
+          "start_ns": 1789253630773106057,
+          "end_ns": 1789253630825059641,
+          "ms": 51.953584
+        },
+        {
+          "name": "starting session",
+          "start_ns": 1789253630825064757,
+          "end_ns": 1789253630876846792,
+          "ms": 51.782035
+        },
+        {
+          "name": "exec docker version",
+          "start_ns": 1789253630757330075,
+          "end_ns": 1789253630773050483,
+          "ms": 15.720408
+        },
+        {
+          "name": "consuming /v1/traces",
+          "start_ns": 1789253630877101183,
+          "end_ns": 1789253630934523668,
+          "ms": 57.422485
+        }
+      ],
+      "replay_drift": "-0.1%",
+      "pass_gate": true
+    },
+    {
+      "label": "after-0",
+      "trace_id": "2fc1a089d172a787bdc717994aa214a5",
+      "process_ms": 515.466408,
+      "before_root_ms": 50.910729,
+      "root_ms": 453.276181,
+      "after_root_ms": 11.281174,
+      "wall_minus_monotonic_ms": 0.0016759999999749198,
+      "exit_code": 0,
+      "note": "Run the wcprof OTel structural gate on the extracted trace before interpreting rankings.",
+      "declared": 154,
+      "received": 154,
+      "actual_execs": 0,
+      "exec_outcomes": [
+        "hit",
+        "hit",
+        "hit"
+      ],
+      "image_spans": [],
+      "startup": [
+        {
+          "name": "connect",
+          "start_ns": 1789253631262710822,
+          "end_ns": 1789253631399917752,
+          "ms": 137.20693
+        },
+        {
+          "name": "connecting to engine",
+          "start_ns": 1789253631278570140,
+          "end_ns": 1789253631322506793,
+          "ms": 43.936653
+        },
+        {
+          "name": "starting session",
+          "start_ns": 1789253631322712690,
+          "end_ns": 1789253631397961114,
+          "ms": 75.248424
+        },
+        {
+          "name": "exec docker version",
+          "start_ns": 1789253631262835901,
+          "end_ns": 1789253631278521621,
+          "ms": 15.68572
+        },
+        {
+          "name": "consuming /v1/traces",
+          "start_ns": 1789253631398077622,
+          "end_ns": 1789253631398954183,
+          "ms": 0.876561
+        }
+      ],
+      "replay_drift": "-0.1%",
+      "pass_gate": true
+    },
+    {
+      "label": "after-1",
+      "trace_id": "2c33acd343884473456c17cb66783d86",
+      "process_ms": 441.486586,
+      "before_root_ms": 50.216122,
+      "root_ms": 378.212316,
+      "after_root_ms": 13.058963,
+      "wall_minus_monotonic_ms": 0.0008149999999886859,
+      "exit_code": 0,
+      "note": "Run the wcprof OTel structural gate on the extracted trace before interpreting rankings.",
+      "declared": 154,
+      "received": 154,
+      "actual_execs": 0,
+      "exec_outcomes": [
+        "hit",
+        "hit",
+        "hit"
+      ],
+      "image_spans": [],
+      "startup": [
+        {
+          "name": "connect",
+          "start_ns": 1789253631777622979,
+          "end_ns": 1789253631887179339,
+          "ms": 109.55636
+        },
+        {
+          "name": "connecting to engine",
+          "start_ns": 1789253631793820313,
+          "end_ns": 1789253631832537926,
+          "ms": 38.717613
+        },
+        {
+          "name": "starting session",
+          "start_ns": 1789253631832718858,
+          "end_ns": 1789253631885468115,
+          "ms": 52.749257
+        },
+        {
+          "name": "exec docker version",
+          "start_ns": 1789253631777770899,
+          "end_ns": 1789253631793768549,
+          "ms": 15.99765
+        },
+        {
+          "name": "consuming /v1/traces",
+          "start_ns": 1789253631885526092,
+          "end_ns": 1789253631886351252,
+          "ms": 0.82516
+        }
+      ],
+      "replay_drift": "-0.1%",
+      "pass_gate": true
+    },
+    {
+      "label": "before-1",
+      "trace_id": "43a38763c437caa57cfa3f758fe356cf",
+      "process_ms": 488.859992,
+      "before_root_ms": 50.139485,
+      "root_ms": 429.26285,
+      "after_root_ms": 9.458971,
+      "wall_minus_monotonic_ms": 0.0013140000000362306,
+      "exit_code": 0,
+      "note": "Run the wcprof OTel structural gate on the extracted trace before interpreting rankings.",
+      "declared": 154,
+      "received": 154,
+      "actual_execs": 0,
+      "exec_outcomes": [
+        "hit",
+        "hit",
+        "hit"
+      ],
+      "image_spans": [],
+      "startup": [
+        {
+          "name": "connect",
+          "start_ns": 1789253632219184334,
+          "end_ns": 1789253632347085077,
+          "ms": 127.900743
+        },
+        {
+          "name": "connecting to engine",
+          "start_ns": 1789253632236819656,
+          "end_ns": 1789253632273768475,
+          "ms": 36.948819
+        },
+        {
+          "name": "starting session",
+          "start_ns": 1789253632273773788,
+          "end_ns": 1789253632309676299,
+          "ms": 35.902511
+        },
+        {
+          "name": "consuming /v1/traces",
+          "start_ns": 1789253632309751041,
+          "end_ns": 1789253632346250659,
+          "ms": 36.499618
+        },
+        {
+          "name": "exec docker version",
+          "start_ns": 1789253632219320371,
+          "end_ns": 1789253632236767193,
+          "ms": 17.446822
+        }
+      ],
+      "replay_drift": "-0.1%",
+      "pass_gate": true
+    },
+    {
+      "label": "before-2",
+      "trace_id": "f264c1a1befaff6b8dc5c10ee9d5ba22",
+      "process_ms": 530.594624,
+      "before_root_ms": 51.338496,
+      "root_ms": 470.376733,
+      "after_root_ms": 8.880448,
+      "wall_minus_monotonic_ms": 0.0010530000000699147,
+      "exit_code": 0,
+      "note": "Run the wcprof OTel structural gate on the extracted trace before interpreting rankings.",
+      "declared": 154,
+      "received": 154,
+      "actual_execs": 0,
+      "exec_outcomes": [
+        "hit",
+        "hit",
+        "hit"
+      ],
+      "image_spans": [],
+      "startup": [
+        {
+          "name": "connect",
+          "start_ns": 1789253632709420830,
+          "end_ns": 1789253632884959560,
+          "ms": 175.53873
+        },
+        {
+          "name": "connecting to engine",
+          "start_ns": 1789253632725463181,
+          "end_ns": 1789253632764543636,
+          "ms": 39.080455
+        },
+        {
+          "name": "starting session",
+          "start_ns": 1789253632764547766,
+          "end_ns": 1789253632817307852,
+          "ms": 52.760086
+        },
+        {
+          "name": "exec docker version",
+          "start_ns": 1789253632709559648,
+          "end_ns": 1789253632725408992,
+          "ms": 15.849344
+        },
+        {
+          "name": "consuming /v1/traces",
+          "start_ns": 1789253632817423940,
+          "end_ns": 1789253632881915198,
+          "ms": 64.491258
+        }
+      ],
+      "replay_drift": "-0.1%",
+      "pass_gate": true
+    },
+    {
+      "label": "after-2",
+      "trace_id": "fd86dbea89abbe30a7254df804f288a3",
+      "process_ms": 459.476769,
+      "before_root_ms": 51.180736,
+      "root_ms": 393.996221,
+      "after_root_ms": 14.300656,
+      "wall_minus_monotonic_ms": 0.0008440000000291548,
+      "exit_code": 0,
+      "note": "Run the wcprof OTel structural gate on the extracted trace before interpreting rankings.",
+      "declared": 154,
+      "received": 154,
+      "actual_execs": 0,
+      "exec_outcomes": [
+        "hit",
+        "hit",
+        "hit"
+      ],
+      "image_spans": [],
+      "startup": [
+        {
+          "name": "connect",
+          "start_ns": 1789253633239975321,
+          "end_ns": 1789253633343854512,
+          "ms": 103.879191
+        },
+        {
+          "name": "connecting to engine",
+          "start_ns": 1789253633255839573,
+          "end_ns": 1789253633300829832,
+          "ms": 44.990259
+        },
+        {
+          "name": "starting session",
+          "start_ns": 1789253633301035910,
+          "end_ns": 1789253633340119974,
+          "ms": 39.084064
+        },
+        {
+          "name": "exec docker version",
+          "start_ns": 1789253633240090640,
+          "end_ns": 1789253633255788392,
+          "ms": 15.697752
+        },
+        {
+          "name": "consuming /v1/traces",
+          "start_ns": 1789253633340180075,
+          "end_ns": 1789253633342623662,
+          "ms": 2.443587
+        }
+      ],
+      "replay_drift": "-0.1%",
+      "pass_gate": true
+    },
+    {
+      "label": "after-3",
+      "trace_id": "d92a2891906d57a010c30d53fa6f2368",
+      "process_ms": 626.045093,
+      "before_root_ms": 59.694214,
+      "root_ms": 555.467676,
+      "after_root_ms": 10.884083,
+      "wall_minus_monotonic_ms": 0.0008800000000519503,
+      "exit_code": 0,
+      "note": "Run the wcprof OTel structural gate on the extracted trace before interpreting rankings.",
+      "declared": 154,
+      "received": 154,
+      "actual_execs": 0,
+      "exec_outcomes": [
+        "hit",
+        "hit",
+        "hit"
+      ],
+      "image_spans": [],
+      "startup": [
+        {
+          "name": "connect",
+          "start_ns": 1789253633708144347,
+          "end_ns": 1789253633809274365,
+          "ms": 101.130018
+        },
+        {
+          "name": "connecting to engine",
+          "start_ns": 1789253633725380187,
+          "end_ns": 1789253633764351989,
+          "ms": 38.971802
+        },
+        {
+          "name": "starting session",
+          "start_ns": 1789253633764597874,
+          "end_ns": 1789253633805271279,
+          "ms": 40.673405
+        },
+        {
+          "name": "consuming /v1/traces",
+          "start_ns": 1789253633805345202,
+          "end_ns": 1789253633806315665,
+          "ms": 0.970463
+        },
+        {
+          "name": "exec docker version",
+          "start_ns": 1789253633708398651,
+          "end_ns": 1789253633725332132,
+          "ms": 16.933481
+        }
+      ],
+      "replay_drift": "-0.1%",
+      "pass_gate": true
+    },
+    {
+      "label": "before-3",
+      "trace_id": "da3273db3493ce37f8e3d4c4924e5928",
+      "process_ms": 599.265857,
+      "before_root_ms": 51.571615,
+      "root_ms": 537.263546,
+      "after_root_ms": 10.431565,
+      "wall_minus_monotonic_ms": 0.0008689999999660358,
+      "exit_code": 0,
+      "note": "Run the wcprof OTel structural gate on the extracted trace before interpreting rankings.",
+      "declared": 154,
+      "received": 154,
+      "actual_execs": 0,
+      "exec_outcomes": [
+        "hit",
+        "hit",
+        "hit"
+      ],
+      "image_spans": [],
+      "startup": [
+        {
+          "name": "connect",
+          "start_ns": 1789253634326192804,
+          "end_ns": 1789253634484008543,
+          "ms": 157.815739
+        },
+        {
+          "name": "connecting to engine",
+          "start_ns": 1789253634342205141,
+          "end_ns": 1789253634379548973,
+          "ms": 37.343832
+        },
+        {
+          "name": "starting session",
+          "start_ns": 1789253634379554251,
+          "end_ns": 1789253634414798737,
+          "ms": 35.244486
+        },
+        {
+          "name": "consuming /v1/traces",
+          "start_ns": 1789253634414874467,
+          "end_ns": 1789253634475302425,
+          "ms": 60.427958
+        },
+        {
+          "name": "exec docker version",
+          "start_ns": 1789253634326330709,
+          "end_ns": 1789253634342155089,
+          "ms": 15.82438
+        }
+      ],
+      "replay_drift": "-0.1%",
+      "pass_gate": true
+    }
+  ],
+  "pairs": [
+    {
+      "sample": 1,
+      "after": 1486.428575,
+      "before": 723.576103,
+      "saved_ms": -762.8524719999999
+    },
+    {
+      "sample": 2,
+      "before": 503.560874,
+      "after": 471.998967,
+      "saved_ms": 31.56190700000002
+    },
+    {
+      "sample": 3,
+      "after": 472.959505,
+      "before": 500.806142,
+      "saved_ms": 27.846637000000044
+    },
+    {
+      "sample": 4,
+      "before": 508.15061,
+      "after": 455.914389,
+      "saved_ms": 52.236220999999944
+    },
+    {
+      "sample": 5,
+      "after": 450.801805,
+      "before": 483.006472,
+      "saved_ms": 32.20466699999997
+    },
+    {
+      "sample": 6,
+      "before": 474.313816,
+      "after": 592.035376,
+      "saved_ms": -117.72156000000007
+    },
+    {
+      "sample": 7,
+      "after": 461.41236,
+      "before": 463.31557,
+      "saved_ms": 1.9032100000000014
+    },
+    {
+      "sample": 8,
+      "before": 442.699451,
+      "after": 421.27916,
+      "saved_ms": 21.42029100000002
+    },
+    {
+      "sample": 9,
+      "after": 416.997809,
+      "before": 510.507176,
+      "saved_ms": 93.509367
+    },
+    {
+      "sample": 10,
+      "before": 469.037159,
+      "after": 455.859903,
+      "saved_ms": 13.177256
+    },
+    {
+      "sample": 11,
+      "after": 441.804002,
+      "before": 475.414491,
+      "saved_ms": 33.61048899999997
+    },
+    {
+      "sample": 12,
+      "before": 470.759046,
+      "after": 428.305434,
+      "saved_ms": 42.45361200000002
+    }
+  ],
+  "paired_saving_ms": {
+    "n": 12,
+    "median": 29.70427200000003,
+    "minimum": -762.8524719999999,
+    "maximum": 93.509367,
+    "values": [
+      -762.8524719999999,
+      31.56190700000002,
+      27.846637000000044,
+      52.236220999999944,
+      32.20466699999997,
+      -117.72156000000007,
+      1.9032100000000014,
+      21.42029100000002,
+      93.509367,
+      13.177256,
+      33.61048899999997,
+      42.45361200000002
+    ]
+  },
+  "favorable_pairs": 10,
+  "before_ms": {
+    "n": 12,
+    "median": 479.2104815,
+    "minimum": 442.699451,
+    "maximum": 723.576103,
+    "values": [
+      723.576103,
+      503.560874,
+      500.806142,
+      508.15061,
+      483.006472,
+      474.313816,
+      463.31557,
+      442.699451,
+      510.507176,
+      469.037159,
+      475.414491,
+      470.759046
+    ]
+  },
+  "after_ms": {
+    "n": 12,
+    "median": 455.88714600000003,
+    "minimum": 416.997809,
+    "maximum": 1486.428575,
+    "values": [
+      1486.428575,
+      471.998967,
+      472.959505,
+      455.914389,
+      450.801805,
+      592.035376,
+      461.41236,
+      421.27916,
+      416.997809,
+      455.859903,
+      441.804002,
+      428.305434
+    ]
+  },
+  "all_gates_pass": true
+}
