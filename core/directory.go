@@ -3190,6 +3190,17 @@ func (dir *Directory) applyChangesToSnapshot(
 	diffPath string,
 	paths *ChangesetPaths,
 ) (bkcache.ImmutableRef, error) {
+	// Directory.diff is stat-sensitive and can contain unchanged files whose
+	// timestamps differ. Applying those files to an unrelated or sparse base
+	// would overwrite unmodified content, or falsely add unchanged siblings.
+	// ComputePaths already verified the semantic delta; copy exactly that
+	// content, using literal paths rather than glob include patterns.
+	only := make(map[string]struct{}, len(paths.Added)+len(paths.Modified))
+	for _, group := range [][]string{paths.Added, paths.Modified} {
+		for _, p := range group {
+			only[strings.TrimSuffix(p, "/")] = struct{}{}
+		}
+	}
 	query, err := CurrentQuery(ctx)
 	if err != nil {
 		return nil, err
@@ -3217,7 +3228,7 @@ func (dir *Directory) applyChangesToSnapshot(
 			return err
 		}
 
-		if diffSnapshot != nil {
+		if diffSnapshot != nil && len(only) > 0 {
 			err = MountRef(ctx, diffSnapshot, func(srcRoot string, srcMnt *mount.Mount) error {
 				return copier.Copy(ctx,
 					layercopy.Mount{Root: srcRoot, Mount: srcMnt},
@@ -3226,6 +3237,7 @@ func (dir *Directory) applyChangesToSnapshot(
 					layercopy.CopyOptions{
 						CopyDirContents: true,
 						ReplaceExisting: true,
+						Filter:          layercopy.Filter{Only: only},
 					},
 				)
 			}, mountRefAsReadOnly)
