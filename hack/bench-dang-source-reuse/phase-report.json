@@ -1,0 +1,3575 @@
+{
+  "scope": "Diagnostic module phase attribution only, not speed comparison",
+  "note": "Inclusive wall-time phase diagnostics, not CPU or additive savings; nested phases overlap.",
+  "source_hashes": {
+    "core/sdk/dang/shared/client.go": "ada8c73978d0c07f3b750fe3681f54852568eca45449c2ba2471014cbac8f958",
+    "core/sdk/dang/shared/profile.go": "dbb81baddb5e018b2d3ec782b5e21568e4286ebf6f734a81d5800fe8f44043c1",
+    "core/sdk/dang/v2/helpers.go": "1df44b88f93c69f8feb4557d396f13566f2adc330d836a90002b91a21632a1c9",
+    "core/sdk/dang/v2/sdk.go": "3fa93a42afb6729829b172abbd3f0aad1649b8cd89eee6ba3d06e95d414ec45c"
+  },
+  "engine_image": "sha256:45ba20522576cdce8feb36a7578fcc6118468634d6b70f5babcfdf51569b7cd8",
+  "validation_report_sha256": "b0f4c50927ebc50ff9e69502da76f0751f2a9ee7574f4d3b1d47b4667cd90abc",
+  "profiles": [
+    {
+      "label": "warmup-dagger",
+      "process_ms": 18284.11285,
+      "root_ms": 18239.585813,
+      "cargo_ms": 6316.245301,
+      "replay_drift": "-0.0%",
+      "phases": [
+        {
+          "name": "module-types",
+          "evaluation": "module-types",
+          "ms": 174.51851,
+          "span_id": "3c3ddccf79c37d79",
+          "parent_id": "66551de1ef242fef",
+          "ancestors": [
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "declaration-schema-select",
+          "evaluation": "module-types",
+          "ms": 17.130931,
+          "span_id": "457041eebf155e52",
+          "parent_id": "3c3ddccf79c37d79",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-listen",
+          "evaluation": "module-types",
+          "ms": 0.086456,
+          "span_id": "210ab3f13b231442",
+          "parent_id": "3c3ddccf79c37d79",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-open",
+          "evaluation": "module-types",
+          "ms": 0.407469,
+          "span_id": "6ca6d46b65efc65a",
+          "parent_id": "3c3ddccf79c37d79",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-decode",
+          "evaluation": "module-types",
+          "ms": 10.22959,
+          "span_id": "da618af7934bdeb9",
+          "parent_id": "3c3ddccf79c37d79",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-mount",
+          "evaluation": "module-types",
+          "ms": 139.739917,
+          "span_id": "00a6c3942d10f0cc",
+          "parent_id": "3c3ddccf79c37d79",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "discover-self-types",
+          "evaluation": "module-types",
+          "ms": 16.777103,
+          "span_id": "22c51c514bc4f50c",
+          "parent_id": "00a6c3942d10f0cc",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-eval",
+          "evaluation": "module-types",
+          "ms": 122.372789,
+          "span_id": "e37d96879a94f42a",
+          "parent_id": "00a6c3942d10f0cc",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "with-environment",
+          "evaluation": "module-types",
+          "ms": 6.593829,
+          "span_id": "8ab91b6e5077547d",
+          "parent_id": "3c3ddccf79c37d79",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-shutdown",
+          "evaluation": "module-types",
+          "ms": 0.056936,
+          "span_id": "7e28db2d4e58f731",
+          "parent_id": "3c3ddccf79c37d79",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "runtime-call",
+          "evaluation": "runtime-call",
+          "ms": 71.107554,
+          "span_id": "37946b3234fd1bd7",
+          "parent_id": "413868d5b2db4a66",
+          "ancestors": [
+            "rust:Query.rust",
+            "Query.rust",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "runtime-schema-select",
+          "evaluation": "runtime-call",
+          "ms": 15.00171,
+          "span_id": "3903d6b2d73fbf14",
+          "parent_id": "37946b3234fd1bd7",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Query.rust",
+            "Query.rust",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-listen",
+          "evaluation": "runtime-call",
+          "ms": 0.047241,
+          "span_id": "f15db725d76ad3a4",
+          "parent_id": "37946b3234fd1bd7",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Query.rust",
+            "Query.rust",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-open",
+          "evaluation": "runtime-call",
+          "ms": 0.400053,
+          "span_id": "db79c46a6037db28",
+          "parent_id": "37946b3234fd1bd7",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Query.rust",
+            "Query.rust",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-decode",
+          "evaluation": "runtime-call",
+          "ms": 17.206563,
+          "span_id": "2920c4698338081b",
+          "parent_id": "37946b3234fd1bd7",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Query.rust",
+            "Query.rust",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-mount",
+          "evaluation": "runtime-call",
+          "ms": 36.807072,
+          "span_id": "66493c0c8524b898",
+          "parent_id": "37946b3234fd1bd7",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Query.rust",
+            "Query.rust",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "discover-self-types",
+          "evaluation": "runtime-call",
+          "ms": 15.582484,
+          "span_id": "03748a9feec26ace",
+          "parent_id": "66493c0c8524b898",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.runtime-call",
+            "rust:Query.rust",
+            "Query.rust",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-eval",
+          "evaluation": "runtime-call",
+          "ms": 20.578623,
+          "span_id": "916f58d0a4e0fe2d",
+          "parent_id": "66493c0c8524b898",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.runtime-call",
+            "rust:Query.rust",
+            "Query.rust",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "with-environment",
+          "evaluation": "runtime-call",
+          "ms": 1.32088,
+          "span_id": "7b3b630f9b899b65",
+          "parent_id": "37946b3234fd1bd7",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Query.rust",
+            "Query.rust",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "function-eval",
+          "evaluation": "runtime-call",
+          "ms": 0.050607,
+          "span_id": "398862d3c616df51",
+          "parent_id": "7b3b630f9b899b65",
+          "ancestors": [
+            "dang.phase.with-environment",
+            "dang.phase.runtime-call",
+            "rust:Query.rust",
+            "Query.rust",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "telemetry-flush",
+          "evaluation": "runtime-call",
+          "ms": 1.217773,
+          "span_id": "f9ed6acd663e51f8",
+          "parent_id": "7b3b630f9b899b65",
+          "ancestors": [
+            "dang.phase.with-environment",
+            "dang.phase.runtime-call",
+            "rust:Query.rust",
+            "Query.rust",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-shutdown",
+          "evaluation": "runtime-call",
+          "ms": 0.046487,
+          "span_id": "1dc618422622605d",
+          "parent_id": "37946b3234fd1bd7",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Query.rust",
+            "Query.rust",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "runtime-call",
+          "evaluation": "runtime-call",
+          "ms": 17375.341726,
+          "span_id": "ecea6c9b2ea8edb2",
+          "parent_id": "1706e9a31b7d0e7e",
+          "ancestors": [
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "runtime-schema-select",
+          "evaluation": "runtime-call",
+          "ms": 0.069274,
+          "span_id": "729a5ab084bb8730",
+          "parent_id": "ecea6c9b2ea8edb2",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-listen",
+          "evaluation": "runtime-call",
+          "ms": 0.039461,
+          "span_id": "06b5501248f932e3",
+          "parent_id": "ecea6c9b2ea8edb2",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-open",
+          "evaluation": "runtime-call",
+          "ms": 0.438722,
+          "span_id": "c20b742937bf432b",
+          "parent_id": "ecea6c9b2ea8edb2",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-decode",
+          "evaluation": "runtime-call",
+          "ms": 9.173747,
+          "span_id": "98e569799bba2ec0",
+          "parent_id": "ecea6c9b2ea8edb2",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-mount",
+          "evaluation": "runtime-call",
+          "ms": 35.245323,
+          "span_id": "d6d800a668c4cdbb",
+          "parent_id": "ecea6c9b2ea8edb2",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "discover-self-types",
+          "evaluation": "runtime-call",
+          "ms": 16.49616,
+          "span_id": "ac1842f10d15eb9c",
+          "parent_id": "d6d800a668c4cdbb",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-eval",
+          "evaluation": "runtime-call",
+          "ms": 18.13997,
+          "span_id": "5be347b0e14e4cc6",
+          "parent_id": "d6d800a668c4cdbb",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "with-environment",
+          "evaluation": "runtime-call",
+          "ms": 17329.937374,
+          "span_id": "2e38572adb47388d",
+          "parent_id": "ecea6c9b2ea8edb2",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "function-eval",
+          "evaluation": "runtime-call",
+          "ms": 17327.736509,
+          "span_id": "717619ebbc366cc6",
+          "parent_id": "2e38572adb47388d",
+          "ancestors": [
+            "dang.phase.with-environment",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "telemetry-flush",
+          "evaluation": "runtime-call",
+          "ms": 2.156701,
+          "span_id": "e3c8635ee6f19435",
+          "parent_id": "2e38572adb47388d",
+          "ancestors": [
+            "dang.phase.with-environment",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-shutdown",
+          "evaluation": "runtime-call",
+          "ms": 0.132379,
+          "span_id": "14fd3206f48c28a3",
+          "parent_id": "ecea6c9b2ea8edb2",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        }
+      ],
+      "summary": {
+        "module-types/declaration-schema-select": {
+          "count": 1,
+          "total_ms": 17.130931,
+          "median_ms": 17.130931,
+          "maximum_ms": 17.130931
+        },
+        "module-types/discover-self-types": {
+          "count": 1,
+          "total_ms": 16.777103,
+          "median_ms": 16.777103,
+          "maximum_ms": 16.777103
+        },
+        "module-types/module-types": {
+          "count": 1,
+          "total_ms": 174.51851,
+          "median_ms": 174.51851,
+          "maximum_ms": 174.51851
+        },
+        "module-types/nested-listen": {
+          "count": 1,
+          "total_ms": 0.086456,
+          "median_ms": 0.086456,
+          "maximum_ms": 0.086456
+        },
+        "module-types/nested-shutdown": {
+          "count": 1,
+          "total_ms": 0.056936,
+          "median_ms": 0.056936,
+          "maximum_ms": 0.056936
+        },
+        "module-types/schema-decode": {
+          "count": 1,
+          "total_ms": 10.22959,
+          "median_ms": 10.22959,
+          "maximum_ms": 10.22959
+        },
+        "module-types/schema-open": {
+          "count": 1,
+          "total_ms": 0.407469,
+          "median_ms": 0.407469,
+          "maximum_ms": 0.407469
+        },
+        "module-types/source-eval": {
+          "count": 1,
+          "total_ms": 122.372789,
+          "median_ms": 122.372789,
+          "maximum_ms": 122.372789
+        },
+        "module-types/source-mount": {
+          "count": 1,
+          "total_ms": 139.739917,
+          "median_ms": 139.739917,
+          "maximum_ms": 139.739917
+        },
+        "module-types/with-environment": {
+          "count": 1,
+          "total_ms": 6.593829,
+          "median_ms": 6.593829,
+          "maximum_ms": 6.593829
+        },
+        "runtime-call/discover-self-types": {
+          "count": 2,
+          "total_ms": 32.078644,
+          "median_ms": 16.039322,
+          "maximum_ms": 16.49616
+        },
+        "runtime-call/function-eval": {
+          "count": 2,
+          "total_ms": 17327.787116,
+          "median_ms": 8663.893558,
+          "maximum_ms": 17327.736509
+        },
+        "runtime-call/nested-listen": {
+          "count": 2,
+          "total_ms": 0.086702,
+          "median_ms": 0.043351,
+          "maximum_ms": 0.047241
+        },
+        "runtime-call/nested-shutdown": {
+          "count": 2,
+          "total_ms": 0.178866,
+          "median_ms": 0.089433,
+          "maximum_ms": 0.132379
+        },
+        "runtime-call/runtime-call": {
+          "count": 2,
+          "total_ms": 17446.449279999997,
+          "median_ms": 8723.224639999999,
+          "maximum_ms": 17375.341726
+        },
+        "runtime-call/runtime-schema-select": {
+          "count": 2,
+          "total_ms": 15.070984,
+          "median_ms": 7.535492,
+          "maximum_ms": 15.00171
+        },
+        "runtime-call/schema-decode": {
+          "count": 2,
+          "total_ms": 26.38031,
+          "median_ms": 13.190155,
+          "maximum_ms": 17.206563
+        },
+        "runtime-call/schema-open": {
+          "count": 2,
+          "total_ms": 0.838775,
+          "median_ms": 0.4193875,
+          "maximum_ms": 0.438722
+        },
+        "runtime-call/source-eval": {
+          "count": 2,
+          "total_ms": 38.718593,
+          "median_ms": 19.3592965,
+          "maximum_ms": 20.578623
+        },
+        "runtime-call/source-mount": {
+          "count": 2,
+          "total_ms": 72.05239499999999,
+          "median_ms": 36.026197499999995,
+          "maximum_ms": 36.807072
+        },
+        "runtime-call/telemetry-flush": {
+          "count": 2,
+          "total_ms": 3.374474,
+          "median_ms": 1.687237,
+          "maximum_ms": 2.156701
+        },
+        "runtime-call/with-environment": {
+          "count": 2,
+          "total_ms": 17331.258254,
+          "median_ms": 8665.629127,
+          "maximum_ms": 17329.937374
+        }
+      }
+    },
+    {
+      "label": "profile-library-repair",
+      "process_ms": 1016.750611,
+      "root_ms": 983.552374,
+      "cargo_ms": 533.261541,
+      "replay_drift": "-0.0%",
+      "phases": [
+        {
+          "name": "module-types",
+          "evaluation": "module-types",
+          "ms": 44.74895,
+          "span_id": "f448754789a8108f",
+          "parent_id": "4ba052ab41ae394b",
+          "ancestors": [
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "declaration-schema-select",
+          "evaluation": "module-types",
+          "ms": 7.578082,
+          "span_id": "67f64bb74d7438a1",
+          "parent_id": "f448754789a8108f",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-listen",
+          "evaluation": "module-types",
+          "ms": 0.059448,
+          "span_id": "7d33e2d864297aa5",
+          "parent_id": "f448754789a8108f",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-open",
+          "evaluation": "module-types",
+          "ms": 0.563998,
+          "span_id": "9981a0c9665e3829",
+          "parent_id": "f448754789a8108f",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-decode",
+          "evaluation": "module-types",
+          "ms": 6.305197,
+          "span_id": "b18affc572e4cc41",
+          "parent_id": "f448754789a8108f",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-mount",
+          "evaluation": "module-types",
+          "ms": 28.40398,
+          "span_id": "78c3cebff3f93180",
+          "parent_id": "f448754789a8108f",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "discover-self-types",
+          "evaluation": "module-types",
+          "ms": 12.58802,
+          "span_id": "f53e54df4394c93a",
+          "parent_id": "78c3cebff3f93180",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-eval",
+          "evaluation": "module-types",
+          "ms": 15.216463,
+          "span_id": "1496927d55b901c4",
+          "parent_id": "78c3cebff3f93180",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "with-environment",
+          "evaluation": "module-types",
+          "ms": 1.587342,
+          "span_id": "3123aff2193011f9",
+          "parent_id": "f448754789a8108f",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-shutdown",
+          "evaluation": "module-types",
+          "ms": 0.04063,
+          "span_id": "ce13fcd5732929fe",
+          "parent_id": "f448754789a8108f",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "runtime-call",
+          "evaluation": "runtime-call",
+          "ms": 676.937387,
+          "span_id": "a5230a10ed57b28c",
+          "parent_id": "84b71531d243c153",
+          "ancestors": [
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "runtime-schema-select",
+          "evaluation": "runtime-call",
+          "ms": 7.996229,
+          "span_id": "ae39b2659b354127",
+          "parent_id": "a5230a10ed57b28c",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-listen",
+          "evaluation": "runtime-call",
+          "ms": 0.056121,
+          "span_id": "3abedb6b2ca2241a",
+          "parent_id": "a5230a10ed57b28c",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-open",
+          "evaluation": "runtime-call",
+          "ms": 0.571579,
+          "span_id": "b9e9a5fcd92b393a",
+          "parent_id": "a5230a10ed57b28c",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-decode",
+          "evaluation": "runtime-call",
+          "ms": 6.269432,
+          "span_id": "e1a659d1442550e8",
+          "parent_id": "a5230a10ed57b28c",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-mount",
+          "evaluation": "runtime-call",
+          "ms": 28.860983,
+          "span_id": "97dc1a66385a8056",
+          "parent_id": "a5230a10ed57b28c",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "discover-self-types",
+          "evaluation": "runtime-call",
+          "ms": 13.569594,
+          "span_id": "13c214d424199d1d",
+          "parent_id": "97dc1a66385a8056",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-eval",
+          "evaluation": "runtime-call",
+          "ms": 14.64852,
+          "span_id": "ee4c1b7a519bab2c",
+          "parent_id": "97dc1a66385a8056",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "with-environment",
+          "evaluation": "runtime-call",
+          "ms": 632.809401,
+          "span_id": "0f307690b14a27ad",
+          "parent_id": "a5230a10ed57b28c",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "function-eval",
+          "evaluation": "runtime-call",
+          "ms": 630.643991,
+          "span_id": "adf0f90772a575f0",
+          "parent_id": "0f307690b14a27ad",
+          "ancestors": [
+            "dang.phase.with-environment",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "telemetry-flush",
+          "evaluation": "runtime-call",
+          "ms": 2.114075,
+          "span_id": "94ca1b2a9b97c7d2",
+          "parent_id": "0f307690b14a27ad",
+          "ancestors": [
+            "dang.phase.with-environment",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-shutdown",
+          "evaluation": "runtime-call",
+          "ms": 0.132812,
+          "span_id": "d38c47254affdd22",
+          "parent_id": "a5230a10ed57b28c",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        }
+      ],
+      "summary": {
+        "module-types/declaration-schema-select": {
+          "count": 1,
+          "total_ms": 7.578082,
+          "median_ms": 7.578082,
+          "maximum_ms": 7.578082
+        },
+        "module-types/discover-self-types": {
+          "count": 1,
+          "total_ms": 12.58802,
+          "median_ms": 12.58802,
+          "maximum_ms": 12.58802
+        },
+        "module-types/module-types": {
+          "count": 1,
+          "total_ms": 44.74895,
+          "median_ms": 44.74895,
+          "maximum_ms": 44.74895
+        },
+        "module-types/nested-listen": {
+          "count": 1,
+          "total_ms": 0.059448,
+          "median_ms": 0.059448,
+          "maximum_ms": 0.059448
+        },
+        "module-types/nested-shutdown": {
+          "count": 1,
+          "total_ms": 0.04063,
+          "median_ms": 0.04063,
+          "maximum_ms": 0.04063
+        },
+        "module-types/schema-decode": {
+          "count": 1,
+          "total_ms": 6.305197,
+          "median_ms": 6.305197,
+          "maximum_ms": 6.305197
+        },
+        "module-types/schema-open": {
+          "count": 1,
+          "total_ms": 0.563998,
+          "median_ms": 0.563998,
+          "maximum_ms": 0.563998
+        },
+        "module-types/source-eval": {
+          "count": 1,
+          "total_ms": 15.216463,
+          "median_ms": 15.216463,
+          "maximum_ms": 15.216463
+        },
+        "module-types/source-mount": {
+          "count": 1,
+          "total_ms": 28.40398,
+          "median_ms": 28.40398,
+          "maximum_ms": 28.40398
+        },
+        "module-types/with-environment": {
+          "count": 1,
+          "total_ms": 1.587342,
+          "median_ms": 1.587342,
+          "maximum_ms": 1.587342
+        },
+        "runtime-call/discover-self-types": {
+          "count": 1,
+          "total_ms": 13.569594,
+          "median_ms": 13.569594,
+          "maximum_ms": 13.569594
+        },
+        "runtime-call/function-eval": {
+          "count": 1,
+          "total_ms": 630.643991,
+          "median_ms": 630.643991,
+          "maximum_ms": 630.643991
+        },
+        "runtime-call/nested-listen": {
+          "count": 1,
+          "total_ms": 0.056121,
+          "median_ms": 0.056121,
+          "maximum_ms": 0.056121
+        },
+        "runtime-call/nested-shutdown": {
+          "count": 1,
+          "total_ms": 0.132812,
+          "median_ms": 0.132812,
+          "maximum_ms": 0.132812
+        },
+        "runtime-call/runtime-call": {
+          "count": 1,
+          "total_ms": 676.937387,
+          "median_ms": 676.937387,
+          "maximum_ms": 676.937387
+        },
+        "runtime-call/runtime-schema-select": {
+          "count": 1,
+          "total_ms": 7.996229,
+          "median_ms": 7.996229,
+          "maximum_ms": 7.996229
+        },
+        "runtime-call/schema-decode": {
+          "count": 1,
+          "total_ms": 6.269432,
+          "median_ms": 6.269432,
+          "maximum_ms": 6.269432
+        },
+        "runtime-call/schema-open": {
+          "count": 1,
+          "total_ms": 0.571579,
+          "median_ms": 0.571579,
+          "maximum_ms": 0.571579
+        },
+        "runtime-call/source-eval": {
+          "count": 1,
+          "total_ms": 14.64852,
+          "median_ms": 14.64852,
+          "maximum_ms": 14.64852
+        },
+        "runtime-call/source-mount": {
+          "count": 1,
+          "total_ms": 28.860983,
+          "median_ms": 28.860983,
+          "maximum_ms": 28.860983
+        },
+        "runtime-call/telemetry-flush": {
+          "count": 1,
+          "total_ms": 2.114075,
+          "median_ms": 2.114075,
+          "maximum_ms": 2.114075
+        },
+        "runtime-call/with-environment": {
+          "count": 1,
+          "total_ms": 632.809401,
+          "median_ms": 632.809401,
+          "maximum_ms": 632.809401
+        }
+      }
+    },
+    {
+      "label": "profile-exact",
+      "process_ms": 458.400541,
+      "root_ms": 419.851608,
+      "cargo_ms": 0,
+      "replay_drift": "-0.0%",
+      "phases": [
+        {
+          "name": "module-types",
+          "evaluation": "module-types",
+          "ms": 67.428837,
+          "span_id": "97af87f37471ab28",
+          "parent_id": "7d976a9019a707ed",
+          "ancestors": [
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "declaration-schema-select",
+          "evaluation": "module-types",
+          "ms": 7.617774,
+          "span_id": "59b3db60ae7ed52e",
+          "parent_id": "97af87f37471ab28",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-listen",
+          "evaluation": "module-types",
+          "ms": 0.053859,
+          "span_id": "5aa2cb080e798306",
+          "parent_id": "97af87f37471ab28",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-open",
+          "evaluation": "module-types",
+          "ms": 0.592499,
+          "span_id": "55c02f0ba5929815",
+          "parent_id": "97af87f37471ab28",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-decode",
+          "evaluation": "module-types",
+          "ms": 6.605997,
+          "span_id": "f7f02e16e1cb10e2",
+          "parent_id": "97af87f37471ab28",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-mount",
+          "evaluation": "module-types",
+          "ms": 50.662269,
+          "span_id": "b67fc73271375f5d",
+          "parent_id": "97af87f37471ab28",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "discover-self-types",
+          "evaluation": "module-types",
+          "ms": 13.24107,
+          "span_id": "5a49f2dd6950cc5f",
+          "parent_id": "b67fc73271375f5d",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-eval",
+          "evaluation": "module-types",
+          "ms": 36.645578,
+          "span_id": "1901552aaf309cda",
+          "parent_id": "b67fc73271375f5d",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "with-environment",
+          "evaluation": "module-types",
+          "ms": 1.640664,
+          "span_id": "126c735de95ed0cd",
+          "parent_id": "97af87f37471ab28",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-shutdown",
+          "evaluation": "module-types",
+          "ms": 0.042997,
+          "span_id": "2524481d62e07d44",
+          "parent_id": "97af87f37471ab28",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "runtime-call",
+          "evaluation": "runtime-call",
+          "ms": 111.384587,
+          "span_id": "3e60ae342ee7874f",
+          "parent_id": "f0345c1f2c680907",
+          "ancestors": [
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "runtime-schema-select",
+          "evaluation": "runtime-call",
+          "ms": 8.376735,
+          "span_id": "7feba7d23b0ef503",
+          "parent_id": "3e60ae342ee7874f",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-listen",
+          "evaluation": "runtime-call",
+          "ms": 0.068194,
+          "span_id": "c3b4e1cc9529a432",
+          "parent_id": "3e60ae342ee7874f",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-open",
+          "evaluation": "runtime-call",
+          "ms": 0.565968,
+          "span_id": "934129a676be4792",
+          "parent_id": "3e60ae342ee7874f",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-decode",
+          "evaluation": "runtime-call",
+          "ms": 8.575484,
+          "span_id": "083f2b88a2b234ba",
+          "parent_id": "3e60ae342ee7874f",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-mount",
+          "evaluation": "runtime-call",
+          "ms": 28.53125,
+          "span_id": "83df179e980b588b",
+          "parent_id": "3e60ae342ee7874f",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "discover-self-types",
+          "evaluation": "runtime-call",
+          "ms": 12.982482,
+          "span_id": "99585a842cb280f5",
+          "parent_id": "83df179e980b588b",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-eval",
+          "evaluation": "runtime-call",
+          "ms": 14.825181,
+          "span_id": "f863ab485c66c2e6",
+          "parent_id": "83df179e980b588b",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "with-environment",
+          "evaluation": "runtime-call",
+          "ms": 64.859841,
+          "span_id": "4402e91a8d344757",
+          "parent_id": "3e60ae342ee7874f",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "function-eval",
+          "evaluation": "runtime-call",
+          "ms": 55.206757,
+          "span_id": "aed670a9d4d2cba5",
+          "parent_id": "4402e91a8d344757",
+          "ancestors": [
+            "dang.phase.with-environment",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "telemetry-flush",
+          "evaluation": "runtime-call",
+          "ms": 9.603681,
+          "span_id": "c37dbe2ce9f2e7ed",
+          "parent_id": "4402e91a8d344757",
+          "ancestors": [
+            "dang.phase.with-environment",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-shutdown",
+          "evaluation": "runtime-call",
+          "ms": 0.124716,
+          "span_id": "e35635ab1dfb3d42",
+          "parent_id": "3e60ae342ee7874f",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        }
+      ],
+      "summary": {
+        "module-types/declaration-schema-select": {
+          "count": 1,
+          "total_ms": 7.617774,
+          "median_ms": 7.617774,
+          "maximum_ms": 7.617774
+        },
+        "module-types/discover-self-types": {
+          "count": 1,
+          "total_ms": 13.24107,
+          "median_ms": 13.24107,
+          "maximum_ms": 13.24107
+        },
+        "module-types/module-types": {
+          "count": 1,
+          "total_ms": 67.428837,
+          "median_ms": 67.428837,
+          "maximum_ms": 67.428837
+        },
+        "module-types/nested-listen": {
+          "count": 1,
+          "total_ms": 0.053859,
+          "median_ms": 0.053859,
+          "maximum_ms": 0.053859
+        },
+        "module-types/nested-shutdown": {
+          "count": 1,
+          "total_ms": 0.042997,
+          "median_ms": 0.042997,
+          "maximum_ms": 0.042997
+        },
+        "module-types/schema-decode": {
+          "count": 1,
+          "total_ms": 6.605997,
+          "median_ms": 6.605997,
+          "maximum_ms": 6.605997
+        },
+        "module-types/schema-open": {
+          "count": 1,
+          "total_ms": 0.592499,
+          "median_ms": 0.592499,
+          "maximum_ms": 0.592499
+        },
+        "module-types/source-eval": {
+          "count": 1,
+          "total_ms": 36.645578,
+          "median_ms": 36.645578,
+          "maximum_ms": 36.645578
+        },
+        "module-types/source-mount": {
+          "count": 1,
+          "total_ms": 50.662269,
+          "median_ms": 50.662269,
+          "maximum_ms": 50.662269
+        },
+        "module-types/with-environment": {
+          "count": 1,
+          "total_ms": 1.640664,
+          "median_ms": 1.640664,
+          "maximum_ms": 1.640664
+        },
+        "runtime-call/discover-self-types": {
+          "count": 1,
+          "total_ms": 12.982482,
+          "median_ms": 12.982482,
+          "maximum_ms": 12.982482
+        },
+        "runtime-call/function-eval": {
+          "count": 1,
+          "total_ms": 55.206757,
+          "median_ms": 55.206757,
+          "maximum_ms": 55.206757
+        },
+        "runtime-call/nested-listen": {
+          "count": 1,
+          "total_ms": 0.068194,
+          "median_ms": 0.068194,
+          "maximum_ms": 0.068194
+        },
+        "runtime-call/nested-shutdown": {
+          "count": 1,
+          "total_ms": 0.124716,
+          "median_ms": 0.124716,
+          "maximum_ms": 0.124716
+        },
+        "runtime-call/runtime-call": {
+          "count": 1,
+          "total_ms": 111.384587,
+          "median_ms": 111.384587,
+          "maximum_ms": 111.384587
+        },
+        "runtime-call/runtime-schema-select": {
+          "count": 1,
+          "total_ms": 8.376735,
+          "median_ms": 8.376735,
+          "maximum_ms": 8.376735
+        },
+        "runtime-call/schema-decode": {
+          "count": 1,
+          "total_ms": 8.575484,
+          "median_ms": 8.575484,
+          "maximum_ms": 8.575484
+        },
+        "runtime-call/schema-open": {
+          "count": 1,
+          "total_ms": 0.565968,
+          "median_ms": 0.565968,
+          "maximum_ms": 0.565968
+        },
+        "runtime-call/source-eval": {
+          "count": 1,
+          "total_ms": 14.825181,
+          "median_ms": 14.825181,
+          "maximum_ms": 14.825181
+        },
+        "runtime-call/source-mount": {
+          "count": 1,
+          "total_ms": 28.53125,
+          "median_ms": 28.53125,
+          "maximum_ms": 28.53125
+        },
+        "runtime-call/telemetry-flush": {
+          "count": 1,
+          "total_ms": 9.603681,
+          "median_ms": 9.603681,
+          "maximum_ms": 9.603681
+        },
+        "runtime-call/with-environment": {
+          "count": 1,
+          "total_ms": 64.859841,
+          "median_ms": 64.859841,
+          "maximum_ms": 64.859841
+        }
+      }
+    },
+    {
+      "label": "profile-application",
+      "process_ms": 950.401595,
+      "root_ms": 916.993713,
+      "cargo_ms": 487.602678,
+      "replay_drift": "-0.0%",
+      "phases": [
+        {
+          "name": "module-types",
+          "evaluation": "module-types",
+          "ms": 45.118299,
+          "span_id": "c6de3d6a041c3bb3",
+          "parent_id": "e41a276908658920",
+          "ancestors": [
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "declaration-schema-select",
+          "evaluation": "module-types",
+          "ms": 7.620091,
+          "span_id": "9053b41fc91a5429",
+          "parent_id": "c6de3d6a041c3bb3",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-listen",
+          "evaluation": "module-types",
+          "ms": 0.057854,
+          "span_id": "e312b6ef2736322e",
+          "parent_id": "c6de3d6a041c3bb3",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-open",
+          "evaluation": "module-types",
+          "ms": 0.545774,
+          "span_id": "f7c2f97ce6d00dc9",
+          "parent_id": "c6de3d6a041c3bb3",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-decode",
+          "evaluation": "module-types",
+          "ms": 6.287706,
+          "span_id": "0e172c10e82ba1bd",
+          "parent_id": "c6de3d6a041c3bb3",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-mount",
+          "evaluation": "module-types",
+          "ms": 28.838215,
+          "span_id": "08ef36880ef93c9c",
+          "parent_id": "c6de3d6a041c3bb3",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "discover-self-types",
+          "evaluation": "module-types",
+          "ms": 12.717774,
+          "span_id": "6062c3a0521ba4cd",
+          "parent_id": "08ef36880ef93c9c",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-eval",
+          "evaluation": "module-types",
+          "ms": 15.48638,
+          "span_id": "2f613805ce688923",
+          "parent_id": "08ef36880ef93c9c",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "with-environment",
+          "evaluation": "module-types",
+          "ms": 1.53524,
+          "span_id": "5d2cb3a8cd730a3f",
+          "parent_id": "c6de3d6a041c3bb3",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-shutdown",
+          "evaluation": "module-types",
+          "ms": 0.042207,
+          "span_id": "61427641c3427d9b",
+          "parent_id": "c6de3d6a041c3bb3",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "runtime-call",
+          "evaluation": "runtime-call",
+          "ms": 642.233608,
+          "span_id": "184cb146cc55da6d",
+          "parent_id": "5dafe1ffdff4b9c5",
+          "ancestors": [
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "runtime-schema-select",
+          "evaluation": "runtime-call",
+          "ms": 7.819379,
+          "span_id": "c2b783f9cd68ca1d",
+          "parent_id": "184cb146cc55da6d",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-listen",
+          "evaluation": "runtime-call",
+          "ms": 0.066808,
+          "span_id": "37c71a0e54bf7662",
+          "parent_id": "184cb146cc55da6d",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-open",
+          "evaluation": "runtime-call",
+          "ms": 0.741244,
+          "span_id": "25dae61468f1f4d3",
+          "parent_id": "184cb146cc55da6d",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-decode",
+          "evaluation": "runtime-call",
+          "ms": 6.24474,
+          "span_id": "eab6c2720eac941b",
+          "parent_id": "184cb146cc55da6d",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-mount",
+          "evaluation": "runtime-call",
+          "ms": 28.047573,
+          "span_id": "db2426fef7ab5a0f",
+          "parent_id": "184cb146cc55da6d",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "discover-self-types",
+          "evaluation": "runtime-call",
+          "ms": 12.696207,
+          "span_id": "015d6645a52e75fa",
+          "parent_id": "db2426fef7ab5a0f",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-eval",
+          "evaluation": "runtime-call",
+          "ms": 14.718466,
+          "span_id": "03777c87b51faf2d",
+          "parent_id": "db2426fef7ab5a0f",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "with-environment",
+          "evaluation": "runtime-call",
+          "ms": 598.957446,
+          "span_id": "145097d1226c0d35",
+          "parent_id": "184cb146cc55da6d",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "function-eval",
+          "evaluation": "runtime-call",
+          "ms": 597.447686,
+          "span_id": "e920f664492931cb",
+          "parent_id": "145097d1226c0d35",
+          "ancestors": [
+            "dang.phase.with-environment",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "telemetry-flush",
+          "evaluation": "runtime-call",
+          "ms": 1.47756,
+          "span_id": "ae58f579435fba33",
+          "parent_id": "145097d1226c0d35",
+          "ancestors": [
+            "dang.phase.with-environment",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-shutdown",
+          "evaluation": "runtime-call",
+          "ms": 0.106447,
+          "span_id": "0898e9486d9e8edd",
+          "parent_id": "184cb146cc55da6d",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        }
+      ],
+      "summary": {
+        "module-types/declaration-schema-select": {
+          "count": 1,
+          "total_ms": 7.620091,
+          "median_ms": 7.620091,
+          "maximum_ms": 7.620091
+        },
+        "module-types/discover-self-types": {
+          "count": 1,
+          "total_ms": 12.717774,
+          "median_ms": 12.717774,
+          "maximum_ms": 12.717774
+        },
+        "module-types/module-types": {
+          "count": 1,
+          "total_ms": 45.118299,
+          "median_ms": 45.118299,
+          "maximum_ms": 45.118299
+        },
+        "module-types/nested-listen": {
+          "count": 1,
+          "total_ms": 0.057854,
+          "median_ms": 0.057854,
+          "maximum_ms": 0.057854
+        },
+        "module-types/nested-shutdown": {
+          "count": 1,
+          "total_ms": 0.042207,
+          "median_ms": 0.042207,
+          "maximum_ms": 0.042207
+        },
+        "module-types/schema-decode": {
+          "count": 1,
+          "total_ms": 6.287706,
+          "median_ms": 6.287706,
+          "maximum_ms": 6.287706
+        },
+        "module-types/schema-open": {
+          "count": 1,
+          "total_ms": 0.545774,
+          "median_ms": 0.545774,
+          "maximum_ms": 0.545774
+        },
+        "module-types/source-eval": {
+          "count": 1,
+          "total_ms": 15.48638,
+          "median_ms": 15.48638,
+          "maximum_ms": 15.48638
+        },
+        "module-types/source-mount": {
+          "count": 1,
+          "total_ms": 28.838215,
+          "median_ms": 28.838215,
+          "maximum_ms": 28.838215
+        },
+        "module-types/with-environment": {
+          "count": 1,
+          "total_ms": 1.53524,
+          "median_ms": 1.53524,
+          "maximum_ms": 1.53524
+        },
+        "runtime-call/discover-self-types": {
+          "count": 1,
+          "total_ms": 12.696207,
+          "median_ms": 12.696207,
+          "maximum_ms": 12.696207
+        },
+        "runtime-call/function-eval": {
+          "count": 1,
+          "total_ms": 597.447686,
+          "median_ms": 597.447686,
+          "maximum_ms": 597.447686
+        },
+        "runtime-call/nested-listen": {
+          "count": 1,
+          "total_ms": 0.066808,
+          "median_ms": 0.066808,
+          "maximum_ms": 0.066808
+        },
+        "runtime-call/nested-shutdown": {
+          "count": 1,
+          "total_ms": 0.106447,
+          "median_ms": 0.106447,
+          "maximum_ms": 0.106447
+        },
+        "runtime-call/runtime-call": {
+          "count": 1,
+          "total_ms": 642.233608,
+          "median_ms": 642.233608,
+          "maximum_ms": 642.233608
+        },
+        "runtime-call/runtime-schema-select": {
+          "count": 1,
+          "total_ms": 7.819379,
+          "median_ms": 7.819379,
+          "maximum_ms": 7.819379
+        },
+        "runtime-call/schema-decode": {
+          "count": 1,
+          "total_ms": 6.24474,
+          "median_ms": 6.24474,
+          "maximum_ms": 6.24474
+        },
+        "runtime-call/schema-open": {
+          "count": 1,
+          "total_ms": 0.741244,
+          "median_ms": 0.741244,
+          "maximum_ms": 0.741244
+        },
+        "runtime-call/source-eval": {
+          "count": 1,
+          "total_ms": 14.718466,
+          "median_ms": 14.718466,
+          "maximum_ms": 14.718466
+        },
+        "runtime-call/source-mount": {
+          "count": 1,
+          "total_ms": 28.047573,
+          "median_ms": 28.047573,
+          "maximum_ms": 28.047573
+        },
+        "runtime-call/telemetry-flush": {
+          "count": 1,
+          "total_ms": 1.47756,
+          "median_ms": 1.47756,
+          "maximum_ms": 1.47756
+        },
+        "runtime-call/with-environment": {
+          "count": 1,
+          "total_ms": 598.957446,
+          "median_ms": 598.957446,
+          "maximum_ms": 598.957446
+        }
+      }
+    },
+    {
+      "label": "profile-restart-exact",
+      "process_ms": 1874.826467,
+      "root_ms": 1833.45714,
+      "cargo_ms": 0,
+      "replay_drift": "-0.0%",
+      "phases": [
+        {
+          "name": "module-types",
+          "evaluation": "module-types",
+          "ms": 164.341421,
+          "span_id": "ac0bb7a773a0b278",
+          "parent_id": "678cace5bd4ffcca",
+          "ancestors": [
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "declaration-schema-select",
+          "evaluation": "module-types",
+          "ms": 17.195342,
+          "span_id": "c82d8b5f364a844b",
+          "parent_id": "ac0bb7a773a0b278",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-listen",
+          "evaluation": "module-types",
+          "ms": 0.055911,
+          "span_id": "58db2b6949549f87",
+          "parent_id": "ac0bb7a773a0b278",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-open",
+          "evaluation": "module-types",
+          "ms": 0.609943,
+          "span_id": "c92a49dfd2f92636",
+          "parent_id": "ac0bb7a773a0b278",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-decode",
+          "evaluation": "module-types",
+          "ms": 10.392798,
+          "span_id": "22cca05d1d73203f",
+          "parent_id": "ac0bb7a773a0b278",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-mount",
+          "evaluation": "module-types",
+          "ms": 133.207466,
+          "span_id": "64fd429ea50e9fb9",
+          "parent_id": "ac0bb7a773a0b278",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "discover-self-types",
+          "evaluation": "module-types",
+          "ms": 14.319099,
+          "span_id": "1169431e4f1df50d",
+          "parent_id": "64fd429ea50e9fb9",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-eval",
+          "evaluation": "module-types",
+          "ms": 118.17983,
+          "span_id": "8edb00678d37086c",
+          "parent_id": "64fd429ea50e9fb9",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "with-environment",
+          "evaluation": "module-types",
+          "ms": 2.547454,
+          "span_id": "1aaa16de1274dcb0",
+          "parent_id": "ac0bb7a773a0b278",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-shutdown",
+          "evaluation": "module-types",
+          "ms": 0.049479,
+          "span_id": "66668d6516d16d62",
+          "parent_id": "ac0bb7a773a0b278",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "runtime-call",
+          "evaluation": "runtime-call",
+          "ms": 172.394509,
+          "span_id": "0167c7d05600c256",
+          "parent_id": "ace49787cfbbda83",
+          "ancestors": [
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "runtime-schema-select",
+          "evaluation": "runtime-call",
+          "ms": 18.754241,
+          "span_id": "19f44804527d0ed7",
+          "parent_id": "0167c7d05600c256",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-listen",
+          "evaluation": "runtime-call",
+          "ms": 0.047255,
+          "span_id": "561714d1e001089c",
+          "parent_id": "0167c7d05600c256",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-open",
+          "evaluation": "runtime-call",
+          "ms": 0.603884,
+          "span_id": "6bac8f495d637128",
+          "parent_id": "0167c7d05600c256",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-decode",
+          "evaluation": "runtime-call",
+          "ms": 9.504087,
+          "span_id": "1de94b69617fd56e",
+          "parent_id": "0167c7d05600c256",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-mount",
+          "evaluation": "runtime-call",
+          "ms": 44.685446,
+          "span_id": "cc4e98e2e1ee0349",
+          "parent_id": "0167c7d05600c256",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "discover-self-types",
+          "evaluation": "runtime-call",
+          "ms": 26.409362,
+          "span_id": "d08344a3e06a03c2",
+          "parent_id": "cc4e98e2e1ee0349",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-eval",
+          "evaluation": "runtime-call",
+          "ms": 17.494373,
+          "span_id": "01af40d16596ebda",
+          "parent_id": "cc4e98e2e1ee0349",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "with-environment",
+          "evaluation": "runtime-call",
+          "ms": 98.393721,
+          "span_id": "3775a7a742e41e25",
+          "parent_id": "0167c7d05600c256",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "function-eval",
+          "evaluation": "runtime-call",
+          "ms": 89.021214,
+          "span_id": "b6c42a0b0d611177",
+          "parent_id": "3775a7a742e41e25",
+          "ancestors": [
+            "dang.phase.with-environment",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "telemetry-flush",
+          "evaluation": "runtime-call",
+          "ms": 9.33091,
+          "span_id": "58c0550360c425b3",
+          "parent_id": "3775a7a742e41e25",
+          "ancestors": [
+            "dang.phase.with-environment",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-shutdown",
+          "evaluation": "runtime-call",
+          "ms": 0.122231,
+          "span_id": "e8312bcb271967f6",
+          "parent_id": "0167c7d05600c256",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        }
+      ],
+      "summary": {
+        "module-types/declaration-schema-select": {
+          "count": 1,
+          "total_ms": 17.195342,
+          "median_ms": 17.195342,
+          "maximum_ms": 17.195342
+        },
+        "module-types/discover-self-types": {
+          "count": 1,
+          "total_ms": 14.319099,
+          "median_ms": 14.319099,
+          "maximum_ms": 14.319099
+        },
+        "module-types/module-types": {
+          "count": 1,
+          "total_ms": 164.341421,
+          "median_ms": 164.341421,
+          "maximum_ms": 164.341421
+        },
+        "module-types/nested-listen": {
+          "count": 1,
+          "total_ms": 0.055911,
+          "median_ms": 0.055911,
+          "maximum_ms": 0.055911
+        },
+        "module-types/nested-shutdown": {
+          "count": 1,
+          "total_ms": 0.049479,
+          "median_ms": 0.049479,
+          "maximum_ms": 0.049479
+        },
+        "module-types/schema-decode": {
+          "count": 1,
+          "total_ms": 10.392798,
+          "median_ms": 10.392798,
+          "maximum_ms": 10.392798
+        },
+        "module-types/schema-open": {
+          "count": 1,
+          "total_ms": 0.609943,
+          "median_ms": 0.609943,
+          "maximum_ms": 0.609943
+        },
+        "module-types/source-eval": {
+          "count": 1,
+          "total_ms": 118.17983,
+          "median_ms": 118.17983,
+          "maximum_ms": 118.17983
+        },
+        "module-types/source-mount": {
+          "count": 1,
+          "total_ms": 133.207466,
+          "median_ms": 133.207466,
+          "maximum_ms": 133.207466
+        },
+        "module-types/with-environment": {
+          "count": 1,
+          "total_ms": 2.547454,
+          "median_ms": 2.547454,
+          "maximum_ms": 2.547454
+        },
+        "runtime-call/discover-self-types": {
+          "count": 1,
+          "total_ms": 26.409362,
+          "median_ms": 26.409362,
+          "maximum_ms": 26.409362
+        },
+        "runtime-call/function-eval": {
+          "count": 1,
+          "total_ms": 89.021214,
+          "median_ms": 89.021214,
+          "maximum_ms": 89.021214
+        },
+        "runtime-call/nested-listen": {
+          "count": 1,
+          "total_ms": 0.047255,
+          "median_ms": 0.047255,
+          "maximum_ms": 0.047255
+        },
+        "runtime-call/nested-shutdown": {
+          "count": 1,
+          "total_ms": 0.122231,
+          "median_ms": 0.122231,
+          "maximum_ms": 0.122231
+        },
+        "runtime-call/runtime-call": {
+          "count": 1,
+          "total_ms": 172.394509,
+          "median_ms": 172.394509,
+          "maximum_ms": 172.394509
+        },
+        "runtime-call/runtime-schema-select": {
+          "count": 1,
+          "total_ms": 18.754241,
+          "median_ms": 18.754241,
+          "maximum_ms": 18.754241
+        },
+        "runtime-call/schema-decode": {
+          "count": 1,
+          "total_ms": 9.504087,
+          "median_ms": 9.504087,
+          "maximum_ms": 9.504087
+        },
+        "runtime-call/schema-open": {
+          "count": 1,
+          "total_ms": 0.603884,
+          "median_ms": 0.603884,
+          "maximum_ms": 0.603884
+        },
+        "runtime-call/source-eval": {
+          "count": 1,
+          "total_ms": 17.494373,
+          "median_ms": 17.494373,
+          "maximum_ms": 17.494373
+        },
+        "runtime-call/source-mount": {
+          "count": 1,
+          "total_ms": 44.685446,
+          "median_ms": 44.685446,
+          "maximum_ms": 44.685446
+        },
+        "runtime-call/telemetry-flush": {
+          "count": 1,
+          "total_ms": 9.33091,
+          "median_ms": 9.33091,
+          "maximum_ms": 9.33091
+        },
+        "runtime-call/with-environment": {
+          "count": 1,
+          "total_ms": 98.393721,
+          "median_ms": 98.393721,
+          "maximum_ms": 98.393721
+        }
+      }
+    },
+    {
+      "label": "dependency-upgrade-dagger",
+      "process_ms": 2202.259946,
+      "root_ms": 2163.650707,
+      "cargo_ms": 1698.481467,
+      "replay_drift": "-0.0%",
+      "phases": [
+        {
+          "name": "module-types",
+          "evaluation": "module-types",
+          "ms": 58.235768,
+          "span_id": "edadf5b581ccbdb7",
+          "parent_id": "0c73749346ca0025",
+          "ancestors": [
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "declaration-schema-select",
+          "evaluation": "module-types",
+          "ms": 16.779389,
+          "span_id": "0dbc4ec8502434e7",
+          "parent_id": "edadf5b581ccbdb7",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-listen",
+          "evaluation": "module-types",
+          "ms": 0.085344,
+          "span_id": "e1bc786738417a33",
+          "parent_id": "edadf5b581ccbdb7",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-open",
+          "evaluation": "module-types",
+          "ms": 0.902947,
+          "span_id": "9db409c8f041e393",
+          "parent_id": "edadf5b581ccbdb7",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-decode",
+          "evaluation": "module-types",
+          "ms": 9.439704,
+          "span_id": "bcef170c642c885e",
+          "parent_id": "edadf5b581ccbdb7",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-mount",
+          "evaluation": "module-types",
+          "ms": 29.198823,
+          "span_id": "5d71bd52e85e146a",
+          "parent_id": "edadf5b581ccbdb7",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "discover-self-types",
+          "evaluation": "module-types",
+          "ms": 14.020131,
+          "span_id": "5434aca4ff405eab",
+          "parent_id": "5d71bd52e85e146a",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-eval",
+          "evaluation": "module-types",
+          "ms": 14.498021,
+          "span_id": "df611d7176d8f844",
+          "parent_id": "5d71bd52e85e146a",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "with-environment",
+          "evaluation": "module-types",
+          "ms": 1.53083,
+          "span_id": "753619892c8733d2",
+          "parent_id": "edadf5b581ccbdb7",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-shutdown",
+          "evaluation": "module-types",
+          "ms": 0.043319,
+          "span_id": "ec0a0758bff279aa",
+          "parent_id": "edadf5b581ccbdb7",
+          "ancestors": [
+            "dang.phase.module-types",
+            "ModuleSource.asModule",
+            "ModuleSource.asModule",
+            "load module: rust",
+            "Workspace.checks",
+            "Workspace.checks",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "runtime-call",
+          "evaluation": "runtime-call",
+          "ms": 1838.515937,
+          "span_id": "ea7cde0f738b5d6d",
+          "parent_id": "faae382919a6bc1a",
+          "ancestors": [
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "runtime-schema-select",
+          "evaluation": "runtime-call",
+          "ms": 8.128494,
+          "span_id": "1ee6eecf0fcdc494",
+          "parent_id": "ea7cde0f738b5d6d",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-listen",
+          "evaluation": "runtime-call",
+          "ms": 0.059691,
+          "span_id": "1fc3cde5198f275b",
+          "parent_id": "ea7cde0f738b5d6d",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-open",
+          "evaluation": "runtime-call",
+          "ms": 0.563257,
+          "span_id": "3260442e09b37c7d",
+          "parent_id": "ea7cde0f738b5d6d",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "schema-decode",
+          "evaluation": "runtime-call",
+          "ms": 6.297286,
+          "span_id": "e954d6c76b091ddb",
+          "parent_id": "ea7cde0f738b5d6d",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-mount",
+          "evaluation": "runtime-call",
+          "ms": 27.433105,
+          "span_id": "468f7750909fb557",
+          "parent_id": "ea7cde0f738b5d6d",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "discover-self-types",
+          "evaluation": "runtime-call",
+          "ms": 12.660843,
+          "span_id": "6625cea4bb1bdf0d",
+          "parent_id": "468f7750909fb557",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "source-eval",
+          "evaluation": "runtime-call",
+          "ms": 14.141174,
+          "span_id": "c9d8e64fda0ae5d0",
+          "parent_id": "468f7750909fb557",
+          "ancestors": [
+            "dang.phase.source-mount",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "with-environment",
+          "evaluation": "runtime-call",
+          "ms": 1795.649204,
+          "span_id": "6dfbb799376d53ac",
+          "parent_id": "ea7cde0f738b5d6d",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "function-eval",
+          "evaluation": "runtime-call",
+          "ms": 1794.350177,
+          "span_id": "c3b1a9cc90d5c19a",
+          "parent_id": "6dfbb799376d53ac",
+          "ancestors": [
+            "dang.phase.with-environment",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "telemetry-flush",
+          "evaluation": "runtime-call",
+          "ms": 1.264831,
+          "span_id": "26e39dcd1f5804f6",
+          "parent_id": "6dfbb799376d53ac",
+          "ancestors": [
+            "dang.phase.with-environment",
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        },
+        {
+          "name": "nested-shutdown",
+          "evaluation": "runtime-call",
+          "ms": 0.081043,
+          "span_id": "7a1423876849f0f1",
+          "parent_id": "ea7cde0f738b5d6d",
+          "ancestors": [
+            "dang.phase.runtime-call",
+            "rust:Rust.check",
+            "Rust.check",
+            "rust:check",
+            "rust:check",
+            "CheckGroup.run",
+            "CheckGroup.run",
+            "POST /query",
+            "checks",
+            "dagger-candidate --profile check rust:check"
+          ]
+        }
+      ],
+      "summary": {
+        "module-types/declaration-schema-select": {
+          "count": 1,
+          "total_ms": 16.779389,
+          "median_ms": 16.779389,
+          "maximum_ms": 16.779389
+        },
+        "module-types/discover-self-types": {
+          "count": 1,
+          "total_ms": 14.020131,
+          "median_ms": 14.020131,
+          "maximum_ms": 14.020131
+        },
+        "module-types/module-types": {
+          "count": 1,
+          "total_ms": 58.235768,
+          "median_ms": 58.235768,
+          "maximum_ms": 58.235768
+        },
+        "module-types/nested-listen": {
+          "count": 1,
+          "total_ms": 0.085344,
+          "median_ms": 0.085344,
+          "maximum_ms": 0.085344
+        },
+        "module-types/nested-shutdown": {
+          "count": 1,
+          "total_ms": 0.043319,
+          "median_ms": 0.043319,
+          "maximum_ms": 0.043319
+        },
+        "module-types/schema-decode": {
+          "count": 1,
+          "total_ms": 9.439704,
+          "median_ms": 9.439704,
+          "maximum_ms": 9.439704
+        },
+        "module-types/schema-open": {
+          "count": 1,
+          "total_ms": 0.902947,
+          "median_ms": 0.902947,
+          "maximum_ms": 0.902947
+        },
+        "module-types/source-eval": {
+          "count": 1,
+          "total_ms": 14.498021,
+          "median_ms": 14.498021,
+          "maximum_ms": 14.498021
+        },
+        "module-types/source-mount": {
+          "count": 1,
+          "total_ms": 29.198823,
+          "median_ms": 29.198823,
+          "maximum_ms": 29.198823
+        },
+        "module-types/with-environment": {
+          "count": 1,
+          "total_ms": 1.53083,
+          "median_ms": 1.53083,
+          "maximum_ms": 1.53083
+        },
+        "runtime-call/discover-self-types": {
+          "count": 1,
+          "total_ms": 12.660843,
+          "median_ms": 12.660843,
+          "maximum_ms": 12.660843
+        },
+        "runtime-call/function-eval": {
+          "count": 1,
+          "total_ms": 1794.350177,
+          "median_ms": 1794.350177,
+          "maximum_ms": 1794.350177
+        },
+        "runtime-call/nested-listen": {
+          "count": 1,
+          "total_ms": 0.059691,
+          "median_ms": 0.059691,
+          "maximum_ms": 0.059691
+        },
+        "runtime-call/nested-shutdown": {
+          "count": 1,
+          "total_ms": 0.081043,
+          "median_ms": 0.081043,
+          "maximum_ms": 0.081043
+        },
+        "runtime-call/runtime-call": {
+          "count": 1,
+          "total_ms": 1838.515937,
+          "median_ms": 1838.515937,
+          "maximum_ms": 1838.515937
+        },
+        "runtime-call/runtime-schema-select": {
+          "count": 1,
+          "total_ms": 8.128494,
+          "median_ms": 8.128494,
+          "maximum_ms": 8.128494
+        },
+        "runtime-call/schema-decode": {
+          "count": 1,
+          "total_ms": 6.297286,
+          "median_ms": 6.297286,
+          "maximum_ms": 6.297286
+        },
+        "runtime-call/schema-open": {
+          "count": 1,
+          "total_ms": 0.563257,
+          "median_ms": 0.563257,
+          "maximum_ms": 0.563257
+        },
+        "runtime-call/source-eval": {
+          "count": 1,
+          "total_ms": 14.141174,
+          "median_ms": 14.141174,
+          "maximum_ms": 14.141174
+        },
+        "runtime-call/source-mount": {
+          "count": 1,
+          "total_ms": 27.433105,
+          "median_ms": 27.433105,
+          "maximum_ms": 27.433105
+        },
+        "runtime-call/telemetry-flush": {
+          "count": 1,
+          "total_ms": 1.264831,
+          "median_ms": 1.264831,
+          "maximum_ms": 1.264831
+        },
+        "runtime-call/with-environment": {
+          "count": 1,
+          "total_ms": 1795.649204,
+          "median_ms": 1795.649204,
+          "maximum_ms": 1795.649204
+        }
+      }
+    }
+  ]
+}

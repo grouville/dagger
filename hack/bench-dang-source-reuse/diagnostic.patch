@@ -1,0 +1,181 @@
+diff --git a/core/sdk/dang/shared/client.go b/core/sdk/dang/shared/client.go
+index ba020f8139..5edab07c26 100644
+--- a/core/sdk/dang/shared/client.go
++++ b/core/sdk/dang/shared/client.go
+@@ -33,19 +33,23 @@ func (s *nestedClientServer) withClient(
+ 	ctx context.Context,
+ 	fn func(context.Context, graphql.Client) ([]byte, error),
+ ) ([]byte, error) {
++	_, endListen := BeginProfilePhase(ctx, "nested-listen")
+ 	l, err := net.Listen("tcp", "127.0.0.1:0")
++	endListen()
+ 	if err != nil {
+ 		return nil, fmt.Errorf("listen: %w", err)
+ 	}
+ 	defer l.Close()
+ 	defer func() {
++		shutdownPhaseCtx, endShutdown := BeginProfilePhase(ctx, "nested-shutdown")
++		defer endShutdown()
+ 		// Concurrent requests can reuse an idle connection while their dial
+ 		// completes in the background. Close these unused connections (and
+ 		// cancel unused dials) before Shutdown, which otherwise gives a new
+ 		// connection five seconds to send its first request. This pool belongs
+ 		// only to this invocation; active requests still drain gracefully.
+ 		s.transport.CloseIdleConnections()
+-		shutdownCtx, shutdownCancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
++		shutdownCtx, shutdownCancel := context.WithTimeout(context.WithoutCancel(shutdownPhaseCtx), 10*time.Second)
+ 		defer shutdownCancel()
+ 		_ = s.server.Shutdown(shutdownCtx)
+ 	}()
+diff --git a/core/sdk/dang/v2/helpers.go b/core/sdk/dang/v2/helpers.go
+index 7960dd91bb..3988b4fde6 100644
+--- a/core/sdk/dang/v2/helpers.go
++++ b/core/sdk/dang/v2/helpers.go
+@@ -66,12 +66,17 @@ func (r *runtime) eval(
+ 		self := moduleContext.Self()
+ 		module := dangModule{name: self.Name(), originalName: self.OriginalName}
+ 
+-		result, err := callDangFunction(ctx, env, fnCall, module)
++		callCtx, endCall := dangshared.BeginProfilePhase(ctx, "function-eval")
++		result, err := callDangFunction(callCtx, env, fnCall, module)
++		endCall()
+ 		if err != nil {
+ 			return nil, err
+ 		}
+ 
+-		if flushErr := query.Server.FlushSessionTelemetry(ctx); flushErr != nil {
++		flushCtx, endFlush := dangshared.BeginProfilePhase(ctx, "telemetry-flush")
++		flushErr := query.Server.FlushSessionTelemetry(flushCtx)
++		endFlush()
++		if flushErr != nil {
+ 			slog.Debug("failed to flush telemetry after Dang eval", "error", flushErr)
+ 		}
+ 
+@@ -94,12 +99,17 @@ func evalDangSource(
+ ) ([]byte, error) {
+ 	return dangshared.WithNestedClientServer(ctx, query, nestedClientMetadata, callerClientID, hostServiceProxyToCaller, fnCall, moduleContext, func(ctx context.Context, gqlClient graphql.Client) ([]byte, error) {
+ 		var intro introspection.Response
+-		f, err := schemaFile.Self().Open(ctx, dagql.ObjectResult[*core.File]{Result: schemaFile})
++		openCtx, endOpen := dangshared.BeginProfilePhase(ctx, "schema-open")
++		f, err := schemaFile.Self().Open(openCtx, dagql.ObjectResult[*core.File]{Result: schemaFile})
++		endOpen()
+ 		if err != nil {
+ 			return nil, fmt.Errorf("open schema file: %w", err)
+ 		}
+ 		defer f.Close()
+-		if err := json.NewDecoder(f).Decode(&intro); err != nil {
++		_, endDecode := dangshared.BeginProfilePhase(ctx, "schema-decode")
++		decodeErr := json.NewDecoder(f).Decode(&intro)
++		endDecode()
++		if err := decodeErr; err != nil {
+ 			return nil, fmt.Errorf("decode schema: %w", err)
+ 		}
+ 
+@@ -128,7 +138,8 @@ func evalDangSource(
+ 
+ 		modCtx := modSource.Self().ContextDirectory
+ 		var env dang.ValueScope
+-		err = modCtx.Self().Mount(ctx, modCtx, func(path string) error {
++		mountCtx, endMount := dangshared.BeginProfilePhase(ctx, "source-mount")
++		err = modCtx.Self().Mount(mountCtx, modCtx, func(path string) error {
+ 			modSrcDir := filepath.Join(path, modSource.Self().SourceSubpath)
+ 
+ 			// During the typedef/declaration phase (ModuleTypes) the schema
+@@ -141,19 +152,26 @@ func evalDangSource(
+ 			// for its declared types. At runtime the served schema already
+ 			// includes the module's own types (Module.IncludeSelfInDeps), so
+ 			// this is a no-op then.
++			_, endTypes := dangshared.BeginProfilePhase(mountCtx, "discover-self-types")
+ 			ensureModuleSelfTypes(intro.Schema, modSource.Self(), modSrcDir)
++			endTypes()
+ 
+-			env, err = runSource(ctx, modSrcDir)
++			runCtx, endRun := dangshared.BeginProfilePhase(mountCtx, "source-eval")
++			env, err = runSource(runCtx, modSrcDir)
++			endRun()
+ 			if err != nil {
+ 				return fmt.Errorf("run dir: %w", err)
+ 			}
+ 			return nil
+ 		})
++		endMount()
+ 		if err != nil {
+ 			return nil, fmt.Errorf("mount source: %w", err)
+ 		}
+ 
+-		return withEnv(ctx, env)
++		envCtx, endEnv := dangshared.BeginProfilePhase(ctx, "with-environment")
++		defer endEnv()
++		return withEnv(envCtx, env)
+ 	})
+ }
+ 
+diff --git a/core/sdk/dang/v2/sdk.go b/core/sdk/dang/v2/sdk.go
+index db337e3964..0478230e32 100644
+--- a/core/sdk/dang/v2/sdk.go
++++ b/core/sdk/dang/v2/sdk.go
+@@ -27,12 +27,16 @@ func (Impl) ModuleTypes(
+ 	src dagql.ObjectResult[*core.ModuleSource],
+ 	scopedMod dagql.ObjectResult[*core.Module],
+ ) (inst dagql.ObjectResult[*core.Module], rerr error) {
++	ctx, endPhase := dangshared.BeginProfilePhase(ctx, "module-types")
++	defer endPhase()
+ 	dag, err := core.CurrentDagqlServer(ctx)
+ 	if err != nil {
+ 		return inst, fmt.Errorf("failed to get dag for dang module sdk module types: %w", err)
+ 	}
+ 
+-	schemaJSONFile, err := deps.SchemaIntrospectionJSONFileForModule(ctx)
++	schemaCtx, endSchema := dangshared.BeginProfilePhase(ctx, "declaration-schema-select")
++	schemaJSONFile, err := deps.SchemaIntrospectionJSONFileForModule(schemaCtx)
++	endSchema()
+ 	if err != nil {
+ 		return inst, fmt.Errorf("failed to get schema introspection json during dang module sdk module types: %w", err)
+ 	}
+@@ -102,6 +106,8 @@ func (r *runtime) Call(
+ 	fnCall *core.FunctionCall,
+ 	moduleContext dagql.ObjectResult[*core.Module],
+ ) (rerr error) {
++	ctx, endPhase := dangshared.BeginProfilePhase(ctx, "runtime-call")
++	defer endPhase()
+ 	defer func() {
+ 		if rerr != nil {
+ 			rerr = dangshared.ConvertError(rerr)
+@@ -117,7 +123,9 @@ func (r *runtime) Call(
+ 	if err != nil {
+ 		return fmt.Errorf("current query: %w", err)
+ 	}
+-	schemaJSONFile, err := r.deps.SchemaIntrospectionJSONFileForModule(ctx)
++	schemaCtx, endSchema := dangshared.BeginProfilePhase(ctx, "runtime-schema-select")
++	schemaJSONFile, err := r.deps.SchemaIntrospectionJSONFileForModule(schemaCtx)
++	endSchema()
+ 	if err != nil {
+ 		return fmt.Errorf("get schema introspection: %w", err)
+ 	}
+diff --git a/core/sdk/dang/shared/profile.go b/core/sdk/dang/shared/profile.go
+new file mode 100644
+index 0000000000..54573c6acd
+--- /dev/null
++++ b/core/sdk/dang/shared/profile.go
+@@ -0,0 +1,21 @@
++package dangshared
++
++import (
++	"context"
++
++	"github.com/dagger/dagger/core"
++	"github.com/dagger/dagger/dagql"
++	telemetry "github.com/dagger/otel-go"
++	"go.opentelemetry.io/otel/trace"
++)
++
++// BeginProfilePhase is temporary diagnostic instrumentation, not a cache or
++// lifecycle change. Preserve the user-facing span across invisible phases.
++func BeginProfilePhase(ctx context.Context, name string) (context.Context, func()) {
++	if !dagql.OTelProfActive(ctx) {
++		return ctx, func() {}
++	}
++	previous := trace.SpanContextFromContext(ctx)
++	ctx, span := core.Tracer(ctx).Start(ctx, "dang.phase."+name, telemetry.Passthrough())
++	return dagql.MarkProfilingSpan(ctx, previous), func() { span.End() }
++}
