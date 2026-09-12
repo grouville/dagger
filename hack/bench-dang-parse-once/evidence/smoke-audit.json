@@ -1,0 +1,512 @@
+{
+  "status": "telemetry-audit-failed",
+  "historical_functional_status_unchanged": "functional-failed",
+  "limitations": [
+    "No native-recorder data or benchmark claim.",
+    "wcprof gates do not prove all log records arrived; exact expected prints are separately checked.",
+    "No diagnostic-span presence requirement; this is the production parse-once prototype.",
+    "Frontend suppression is a separate source-supported interpretation, not fixed by this audit."
+  ],
+  "reports": [
+    {
+      "label": "control-speak",
+      "phase": "speak",
+      "trace_id": "8408299ff7c84a4eb82406b6915c9c3b",
+      "trace_sha256": "29ba1cf8dd32e179dd8c98b7b59d21507ce1562d89447a66665f2aeab9e0b8f4",
+      "gate_pass": true,
+      "analyzer_exit": 0,
+      "gate": "structural gate: PASS\n  ops=93 roots=1 open=0 wait-edges=18\n  cycles=0  self>makespan=0  interval>tracespan=0\n  wait-loss: unresolved-targets=0  malformed-timing=0\n  capture-loss: orphaned-parents=0 (dropped parent spans → false roots)\n  completeness: missing-spans=0 (declared=73 received=73 marker=true; hard-fail if missing>0, received>declared, or marker absent)\n  unschedulable-ops=0 (hard-fail if >0)  start-conflicts=0\n  dropped-links: total=0 (0 attrs) wait-bearing=0 wait-link-attrs=0\n",
+      "issues": [],
+      "checks": {
+        "exit": true,
+        "result_stdout": true,
+        "print_visible_stderr": false
+      },
+      "print_owners": [
+        {
+          "name": "Probe.speak",
+          "span_id": "12317c86ad4a7a75",
+          "start_ns": 1789172656383311362,
+          "end_ns": 1789172656400737140,
+          "status": "STATUS_CODE_OK",
+          "ancestry": [
+            {
+              "span_id": "12317c86ad4a7a75",
+              "name": "Probe.speak",
+              "start_ns": 1789172656383311362,
+              "end_ns": 1789172656400737140
+            },
+            {
+              "span_id": "beb1f4a963d48a6e",
+              "name": "POST /query",
+              "start_ns": 1789172656354043790,
+              "end_ns": 1789172656400756425
+            },
+            {
+              "span_id": "0b74238dbd3689f1",
+              "name": "probe speak --marker 120c00f78fb54399b115bd6890e783e5-speak",
+              "start_ns": 1789172655839306270,
+              "end_ns": 1789172656407534412
+            }
+          ],
+          "logs": [
+            {
+              "attrs": {
+                "stdio.stream": 1
+              },
+              "body": "DANG_PRINT:120c00f78fb54399b115bd6890e783e5-speak\n",
+              "kind": "log",
+              "scope": "dagger.io/core",
+              "spanId": "12317c86ad4a7a75",
+              "timeNs": 1789172656399789816,
+              "traceId": "8408299ff7c84a4eb82406b6915c9c3b"
+            }
+          ],
+          "cache_contract_v1_lookup_outcome": "executed"
+        }
+      ]
+    },
+    {
+      "label": "candidate-speak",
+      "phase": "speak",
+      "trace_id": "fef2d39bfe6cb096ff56ef52405ac41a",
+      "trace_sha256": "390580894399fbc03c04662286ea205cb4926fa350390e23bc9f98c1600494fd",
+      "gate_pass": true,
+      "analyzer_exit": 0,
+      "gate": "structural gate: PASS\n  ops=93 roots=1 open=0 wait-edges=18\n  cycles=0  self>makespan=0  interval>tracespan=0\n  wait-loss: unresolved-targets=0  malformed-timing=0\n  capture-loss: orphaned-parents=0 (dropped parent spans → false roots)\n  completeness: missing-spans=0 (declared=73 received=73 marker=true; hard-fail if missing>0, received>declared, or marker absent)\n  unschedulable-ops=0 (hard-fail if >0)  start-conflicts=0\n  dropped-links: total=0 (0 attrs) wait-bearing=0 wait-link-attrs=0\n",
+      "issues": [],
+      "checks": {
+        "exit": true,
+        "result_stdout": true,
+        "print_visible_stderr": false
+      },
+      "print_owners": [
+        {
+          "name": "Probe.speak",
+          "span_id": "5f2b6e3309b69cce",
+          "start_ns": 1789172657332389243,
+          "end_ns": 1789172657348534080,
+          "status": "STATUS_CODE_OK",
+          "ancestry": [
+            {
+              "span_id": "5f2b6e3309b69cce",
+              "name": "Probe.speak",
+              "start_ns": 1789172657332389243,
+              "end_ns": 1789172657348534080
+            },
+            {
+              "span_id": "4e32e54551dca2d0",
+              "name": "POST /query",
+              "start_ns": 1789172657304825905,
+              "end_ns": 1789172657348567246
+            },
+            {
+              "span_id": "f579e5a4943dcd90",
+              "name": "probe speak --marker 120c00f78fb54399b115bd6890e783e5-speak",
+              "start_ns": 1789172656783303971,
+              "end_ns": 1789172657355431384
+            }
+          ],
+          "logs": [
+            {
+              "attrs": {
+                "stdio.stream": 1
+              },
+              "body": "DANG_PRINT:120c00f78fb54399b115bd6890e783e5-speak\n",
+              "kind": "log",
+              "scope": "dagger.io/core",
+              "spanId": "5f2b6e3309b69cce",
+              "timeNs": 1789172657347570709,
+              "traceId": "fef2d39bfe6cb096ff56ef52405ac41a"
+            }
+          ],
+          "cache_contract_v1_lookup_outcome": "executed"
+        }
+      ]
+    },
+    {
+      "label": "candidate-sibling",
+      "phase": "sibling",
+      "trace_id": "9eba4845766ed9270c0eaeb0cb7648b3",
+      "trace_sha256": "e115d431b8a5842374aa8994548b5904155157c1f7694c02bc0cd8f6daba2f0a",
+      "gate_pass": false,
+      "analyzer_exit": 1,
+      "gate": "structural gate: FAIL\n  ops=86 roots=1 open=0 wait-edges=16\n  cycles=0  self>makespan=0  interval>tracespan=0\n  wait-loss: unresolved-targets=0  malformed-timing=0\n  capture-loss: orphaned-parents=0 (dropped parent spans → false roots)\n  completeness: missing-spans=0 (declared=0 received=66 marker=false; hard-fail if missing>0, received>declared, or marker absent)\n  unschedulable-ops=0 (hard-fail if >0)  start-conflicts=0\n  dropped-links: total=0 (0 attrs) wait-bearing=0 wait-link-attrs=0\n  ! incomplete-or-unverifiable trace: no engine span-count declaration (the engine's wcprof.session_complete carrier span is absent) — a dropped LEAF span leaves no edge to catch, so completeness cannot be confirmed and the trace is refused. An old/unstamped capture, or one whose teardown carrier itself dropped, fails by default; re-capture from an engine that stamps the count (design §6.1)\nwcprof OTel structural gate failed:\n  - incomplete-or-unverifiable trace: no engine span-count declaration (the engine's wcprof.session_complete carrier span is absent) — a dropped LEAF span leaves no edge to catch, so completeness cannot be confirmed and the trace is refused. An old/unstamped capture, or one whose teardown carrier itself dropped, fails by default; re-capture from an engine that stamps the count (design §6.1)\nstructural gate failed (see above)\n",
+      "issues": [],
+      "checks": {
+        "exit": true,
+        "result_stdout": true
+      },
+      "print_owners": []
+    },
+    {
+      "label": "control-sibling",
+      "phase": "sibling",
+      "trace_id": "f8143aba585ca6e276216729bf42ced1",
+      "trace_sha256": "277d915509598c5fc3b9a00cc1f44548a284be60a98449341af585e2f36e1834",
+      "gate_pass": true,
+      "analyzer_exit": 0,
+      "gate": "structural gate: PASS\n  ops=86 roots=1 open=0 wait-edges=16\n  cycles=0  self>makespan=0  interval>tracespan=0\n  wait-loss: unresolved-targets=0  malformed-timing=0\n  capture-loss: orphaned-parents=0 (dropped parent spans → false roots)\n  completeness: missing-spans=0 (declared=66 received=66 marker=true; hard-fail if missing>0, received>declared, or marker absent)\n  unschedulable-ops=0 (hard-fail if >0)  start-conflicts=0\n  dropped-links: total=0 (0 attrs) wait-bearing=0 wait-link-attrs=0\n",
+      "issues": [],
+      "checks": {
+        "exit": true,
+        "result_stdout": true
+      },
+      "print_owners": []
+    },
+    {
+      "label": "control-own-type",
+      "phase": "own-type",
+      "trace_id": "5887b68e867bbf1d05d4b1b415383182",
+      "trace_sha256": "392b97487773eedbcb92112956551937788d9ed6b16957fdfe7f108032946bab",
+      "gate_pass": true,
+      "analyzer_exit": 0,
+      "gate": "structural gate: PASS\n  ops=96 roots=1 open=0 wait-edges=18\n  cycles=0  self>makespan=0  interval>tracespan=0\n  wait-loss: unresolved-targets=0  malformed-timing=0\n  capture-loss: orphaned-parents=0 (dropped parent spans → false roots)\n  completeness: missing-spans=0 (declared=76 received=76 marker=true; hard-fail if missing>0, received>declared, or marker absent)\n  unschedulable-ops=0 (hard-fail if >0)  start-conflicts=0\n  dropped-links: total=0 (0 attrs) wait-bearing=0 wait-link-attrs=0\n",
+      "issues": [],
+      "checks": {
+        "exit": true,
+        "result_stdout": true
+      },
+      "print_owners": []
+    },
+    {
+      "label": "candidate-own-type",
+      "phase": "own-type",
+      "trace_id": "6e5b8fefdf1317f0e065dad75cd5ba22",
+      "trace_sha256": "7c12bf3c57e011a077878cd1ef0c121395aac2d64ff46239dcb0b79808540761",
+      "gate_pass": true,
+      "analyzer_exit": 0,
+      "gate": "structural gate: PASS\n  ops=96 roots=1 open=0 wait-edges=18\n  cycles=0  self>makespan=0  interval>tracespan=0\n  wait-loss: unresolved-targets=0  malformed-timing=0\n  capture-loss: orphaned-parents=0 (dropped parent spans → false roots)\n  completeness: missing-spans=0 (declared=76 received=76 marker=true; hard-fail if missing>0, received>declared, or marker absent)\n  unschedulable-ops=0 (hard-fail if >0)  start-conflicts=0\n  dropped-links: total=0 (0 attrs) wait-bearing=0 wait-link-attrs=0\n",
+      "issues": [],
+      "checks": {
+        "exit": true,
+        "result_stdout": true
+      },
+      "print_owners": []
+    },
+    {
+      "label": "candidate-runtime-failure",
+      "phase": "runtime-failure",
+      "trace_id": "db9053f09c6bd7165fc4f816e4ca55bd",
+      "trace_sha256": "e781e705dc38abf4c129bc9782ca3578416451bfee3d4ee0882a684fe103f67d",
+      "gate_pass": false,
+      "analyzer_exit": 1,
+      "gate": "structural gate: FAIL\n  ops=85 roots=1 open=0 wait-edges=16\n  cycles=0  self>makespan=0  interval>tracespan=0\n  wait-loss: unresolved-targets=0  malformed-timing=0\n  capture-loss: orphaned-parents=0 (dropped parent spans → false roots)\n  completeness: missing-spans=0 (declared=0 received=65 marker=false; hard-fail if missing>0, received>declared, or marker absent)\n  unschedulable-ops=0 (hard-fail if >0)  start-conflicts=0\n  dropped-links: total=0 (0 attrs) wait-bearing=0 wait-link-attrs=0\n  ! incomplete-or-unverifiable trace: no engine span-count declaration (the engine's wcprof.session_complete carrier span is absent) — a dropped LEAF span leaves no edge to catch, so completeness cannot be confirmed and the trace is refused. An old/unstamped capture, or one whose teardown carrier itself dropped, fails by default; re-capture from an engine that stamps the count (design §6.1)\nwcprof OTel structural gate failed:\n  - incomplete-or-unverifiable trace: no engine span-count declaration (the engine's wcprof.session_complete carrier span is absent) — a dropped LEAF span leaves no edge to catch, so completeness cannot be confirmed and the trace is refused. An old/unstamped capture, or one whose teardown carrier itself dropped, fails by default; re-capture from an engine that stamps the count (design §6.1)\nstructural gate failed (see above)\n",
+      "issues": [],
+      "checks": {
+        "exit": true,
+        "print_visible_stderr": true,
+        "error_visible": true
+      },
+      "print_owners": [
+        {
+          "name": "Probe.failure",
+          "span_id": "7d9753fe2d9135c7",
+          "start_ns": 1789172661950623692,
+          "end_ns": 1789172661972275256,
+          "status": "STATUS_CODE_ERROR",
+          "ancestry": [
+            {
+              "span_id": "7d9753fe2d9135c7",
+              "name": "Probe.failure",
+              "start_ns": 1789172661950623692,
+              "end_ns": 1789172661972275256
+            },
+            {
+              "span_id": "5d914e8b86cc22da",
+              "name": "POST /query",
+              "start_ns": 1789172661950267874,
+              "end_ns": 1789172661972322995
+            },
+            {
+              "span_id": "09e093d0ba2c9779",
+              "name": "probe failure --marker 120c00f78fb54399b115bd6890e783e5-runtime-failure",
+              "start_ns": 1789172661534229457,
+              "end_ns": 1789172661999250072
+            }
+          ],
+          "logs": [
+            {
+              "attrs": {
+                "stdio.stream": 1
+              },
+              "body": "DANG_BEFORE_FAILURE:120c00f78fb54399b115bd6890e783e5-runtime-failure\n",
+              "kind": "log",
+              "scope": "dagger.io/core",
+              "spanId": "7d9753fe2d9135c7",
+              "timeNs": 1789172661971979549,
+              "traceId": "db9053f09c6bd7165fc4f816e4ca55bd"
+            }
+          ],
+          "cache_contract_v1_lookup_outcome": "executed"
+        }
+      ]
+    },
+    {
+      "label": "control-runtime-failure",
+      "phase": "runtime-failure",
+      "trace_id": "c27f40b760960fdcad804b03c528c3fd",
+      "trace_sha256": "ab7a47d9c8cd75cb36b5c1e729b3e0b8d31dd744839e8ecda833ec0a59d0cc37",
+      "gate_pass": true,
+      "analyzer_exit": 0,
+      "gate": "structural gate: PASS\n  ops=85 roots=1 open=0 wait-edges=16\n  cycles=0  self>makespan=0  interval>tracespan=0\n  wait-loss: unresolved-targets=0  malformed-timing=0\n  capture-loss: orphaned-parents=0 (dropped parent spans → false roots)\n  completeness: missing-spans=0 (declared=65 received=65 marker=true; hard-fail if missing>0, received>declared, or marker absent)\n  unschedulable-ops=0 (hard-fail if >0)  start-conflicts=0\n  dropped-links: total=0 (0 attrs) wait-bearing=0 wait-link-attrs=0\n",
+      "issues": [],
+      "checks": {
+        "exit": true,
+        "print_visible_stderr": true,
+        "error_visible": true
+      },
+      "print_owners": [
+        {
+          "name": "Probe.failure",
+          "span_id": "6b8ca6225b95f1d0",
+          "start_ns": 1789172662899316036,
+          "end_ns": 1789172662930204692,
+          "status": "STATUS_CODE_ERROR",
+          "ancestry": [
+            {
+              "span_id": "6b8ca6225b95f1d0",
+              "name": "Probe.failure",
+              "start_ns": 1789172662899316036,
+              "end_ns": 1789172662930204692
+            },
+            {
+              "span_id": "069137a9ff408ea5",
+              "name": "POST /query",
+              "start_ns": 1789172662898935476,
+              "end_ns": 1789172662930264329
+            },
+            {
+              "span_id": "80d3c12d7a9963fc",
+              "name": "probe failure --marker 120c00f78fb54399b115bd6890e783e5-runtime-failure",
+              "start_ns": 1789172662381257605,
+              "end_ns": 1789172662935326948
+            }
+          ],
+          "logs": [
+            {
+              "attrs": {
+                "stdio.stream": 1
+              },
+              "body": "DANG_BEFORE_FAILURE:120c00f78fb54399b115bd6890e783e5-runtime-failure\n",
+              "kind": "log",
+              "scope": "dagger.io/core",
+              "spanId": "6b8ca6225b95f1d0",
+              "timeNs": 1789172662929782097,
+              "traceId": "c27f40b760960fdcad804b03c528c3fd"
+            }
+          ],
+          "cache_contract_v1_lookup_outcome": "executed"
+        }
+      ]
+    },
+    {
+      "label": "control-parse-invalid",
+      "phase": "parse-invalid",
+      "trace_id": "170d7b0cd6485b4f1de1ffe18f74dbb4",
+      "trace_sha256": "0bc2212bc7a7224ad8a0059e3b37a04edebb2788a3d6ca83190e8644e1c47328",
+      "gate_pass": true,
+      "analyzer_exit": 0,
+      "gate": "structural gate: PASS\n  ops=70 roots=1 open=0 wait-edges=12\n  cycles=0  self>makespan=0  interval>tracespan=0\n  wait-loss: unresolved-targets=0  malformed-timing=0\n  capture-loss: orphaned-parents=0 (dropped parent spans → false roots)\n  completeness: missing-spans=0 (declared=51 received=51 marker=true; hard-fail if missing>0, received>declared, or marker absent)\n  unschedulable-ops=0 (hard-fail if >0)  start-conflicts=0\n  dropped-links: total=0 (0 attrs) wait-bearing=0 wait-link-attrs=0\n",
+      "issues": [],
+      "checks": {
+        "exit": true,
+        "error_visible": true,
+        "no_body_evaluation": true
+      },
+      "print_owners": []
+    },
+    {
+      "label": "candidate-parse-invalid",
+      "phase": "parse-invalid",
+      "trace_id": "5ce979884827eeb263c4e4f00f67fd94",
+      "trace_sha256": "b46e0df7131c09a53d1f0ef50bd03489334cbbc86d34f214daceeda0c6235c06",
+      "gate_pass": true,
+      "analyzer_exit": 0,
+      "gate": "structural gate: PASS\n  ops=70 roots=1 open=0 wait-edges=12\n  cycles=0  self>makespan=0  interval>tracespan=0\n  wait-loss: unresolved-targets=0  malformed-timing=0\n  capture-loss: orphaned-parents=0 (dropped parent spans → false roots)\n  completeness: missing-spans=0 (declared=51 received=51 marker=true; hard-fail if missing>0, received>declared, or marker absent)\n  unschedulable-ops=0 (hard-fail if >0)  start-conflicts=0\n  dropped-links: total=0 (0 attrs) wait-bearing=0 wait-link-attrs=0\n",
+      "issues": [],
+      "checks": {
+        "exit": true,
+        "error_visible": true,
+        "no_body_evaluation": true
+      },
+      "print_owners": []
+    },
+    {
+      "label": "candidate-repaired",
+      "phase": "repaired",
+      "trace_id": "b31b1b60ebe03f96d6fde32fd702a17d",
+      "trace_sha256": "56471032b004b06f0c830e38ec2eb8f49b0fec2fda305bfd89a60f0932697246",
+      "gate_pass": true,
+      "analyzer_exit": 0,
+      "gate": "structural gate: PASS\n  ops=87 roots=1 open=0 wait-edges=16\n  cycles=0  self>makespan=0  interval>tracespan=0\n  wait-loss: unresolved-targets=0  malformed-timing=0\n  capture-loss: orphaned-parents=0 (dropped parent spans → false roots)\n  completeness: missing-spans=0 (declared=67 received=67 marker=true; hard-fail if missing>0, received>declared, or marker absent)\n  unschedulable-ops=0 (hard-fail if >0)  start-conflicts=0\n  dropped-links: total=0 (0 attrs) wait-bearing=0 wait-link-attrs=0\n",
+      "issues": [],
+      "checks": {
+        "exit": true,
+        "result_stdout": true,
+        "print_visible_stderr": false
+      },
+      "print_owners": [
+        {
+          "name": "Probe.speak",
+          "span_id": "c837f2c99a67a744",
+          "start_ns": 1789172665940119644,
+          "end_ns": 1789172665963299069,
+          "status": "STATUS_CODE_OK",
+          "ancestry": [
+            {
+              "span_id": "c837f2c99a67a744",
+              "name": "Probe.speak",
+              "start_ns": 1789172665940119644,
+              "end_ns": 1789172665963299069
+            },
+            {
+              "span_id": "9e26cdb5ad4aeeb2",
+              "name": "POST /query",
+              "start_ns": 1789172665939772412,
+              "end_ns": 1789172665963321506
+            },
+            {
+              "span_id": "0f385da60166925f",
+              "name": "probe speak --marker 120c00f78fb54399b115bd6890e783e5-repaired",
+              "start_ns": 1789172665404433056,
+              "end_ns": 1789172665968890284
+            }
+          ],
+          "logs": [
+            {
+              "attrs": {
+                "stdio.stream": 1
+              },
+              "body": "DANG_PRINT:120c00f78fb54399b115bd6890e783e5-repaired\n",
+              "kind": "log",
+              "scope": "dagger.io/core",
+              "spanId": "c837f2c99a67a744",
+              "timeNs": 1789172665962273309,
+              "traceId": "b31b1b60ebe03f96d6fde32fd702a17d"
+            }
+          ],
+          "cache_contract_v1_lookup_outcome": "executed"
+        }
+      ]
+    },
+    {
+      "label": "control-repaired",
+      "phase": "repaired",
+      "trace_id": "d3ccb5f1cd10914e8b8e9c6df8abffc8",
+      "trace_sha256": "7d2a7d36b93f76357a4ea21303c0e5549c21f8a5c03750c6c86d1a6c9337952f",
+      "gate_pass": true,
+      "analyzer_exit": 0,
+      "gate": "structural gate: PASS\n  ops=87 roots=1 open=0 wait-edges=16\n  cycles=0  self>makespan=0  interval>tracespan=0\n  wait-loss: unresolved-targets=0  malformed-timing=0\n  capture-loss: orphaned-parents=0 (dropped parent spans → false roots)\n  completeness: missing-spans=0 (declared=67 received=67 marker=true; hard-fail if missing>0, received>declared, or marker absent)\n  unschedulable-ops=0 (hard-fail if >0)  start-conflicts=0\n  dropped-links: total=0 (0 attrs) wait-bearing=0 wait-link-attrs=0\n",
+      "issues": [],
+      "checks": {
+        "exit": true,
+        "result_stdout": true,
+        "print_visible_stderr": false
+      },
+      "print_owners": [
+        {
+          "name": "Probe.speak",
+          "span_id": "95c5a7d4ccc8efea",
+          "start_ns": 1789172667053249507,
+          "end_ns": 1789172667078421926,
+          "status": "STATUS_CODE_OK",
+          "ancestry": [
+            {
+              "span_id": "95c5a7d4ccc8efea",
+              "name": "Probe.speak",
+              "start_ns": 1789172667053249507,
+              "end_ns": 1789172667078421926
+            },
+            {
+              "span_id": "5802690c7b944f07",
+              "name": "POST /query",
+              "start_ns": 1789172667052934050,
+              "end_ns": 1789172667078440355
+            },
+            {
+              "span_id": "e3876b45c257c0bd",
+              "name": "probe speak --marker 120c00f78fb54399b115bd6890e783e5-repaired",
+              "start_ns": 1789172666522946131,
+              "end_ns": 1789172667086089840
+            }
+          ],
+          "logs": [
+            {
+              "attrs": {
+                "stdio.stream": 1
+              },
+              "body": "DANG_PRINT:120c00f78fb54399b115bd6890e783e5-repaired\n",
+              "kind": "log",
+              "scope": "dagger.io/core",
+              "spanId": "95c5a7d4ccc8efea",
+              "timeNs": 1789172667077703161,
+              "traceId": "d3ccb5f1cd10914e8b8e9c6df8abffc8"
+            }
+          ],
+          "cache_contract_v1_lookup_outcome": "executed"
+        }
+      ]
+    },
+    {
+      "label": "control-sibling-edit",
+      "phase": "sibling-edit",
+      "trace_id": "69d101a0387261f663c3c30f31495230",
+      "trace_sha256": "32fe9b642ce26f1aeb72a31bb44f4e64059dd25cfa97538cb3994c7292da152f",
+      "gate_pass": true,
+      "analyzer_exit": 0,
+      "gate": "structural gate: PASS\n  ops=90 roots=1 open=0 wait-edges=17\n  cycles=0  self>makespan=0  interval>tracespan=0\n  wait-loss: unresolved-targets=0  malformed-timing=0\n  capture-loss: orphaned-parents=0 (dropped parent spans → false roots)\n  completeness: missing-spans=0 (declared=70 received=70 marker=true; hard-fail if missing>0, received>declared, or marker absent)\n  unschedulable-ops=0 (hard-fail if >0)  start-conflicts=0\n  dropped-links: total=0 (0 attrs) wait-bearing=0 wait-link-attrs=0\n",
+      "issues": [],
+      "checks": {
+        "exit": true,
+        "result_stdout": true
+      },
+      "print_owners": []
+    },
+    {
+      "label": "candidate-sibling-edit",
+      "phase": "sibling-edit",
+      "trace_id": "d7c11e123756b676097fef5ff0543333",
+      "trace_sha256": "f49000ba93644b67c3fa3491df742878d726a665ff35085017bc7d5d6aeb6c4d",
+      "gate_pass": true,
+      "analyzer_exit": 0,
+      "gate": "structural gate: PASS\n  ops=90 roots=1 open=0 wait-edges=17\n  cycles=0  self>makespan=0  interval>tracespan=0\n  wait-loss: unresolved-targets=0  malformed-timing=0\n  capture-loss: orphaned-parents=0 (dropped parent spans → false roots)\n  completeness: missing-spans=0 (declared=70 received=70 marker=true; hard-fail if missing>0, received>declared, or marker absent)\n  unschedulable-ops=0 (hard-fail if >0)  start-conflicts=0\n  dropped-links: total=0 (0 attrs) wait-bearing=0 wait-link-attrs=0\n",
+      "issues": [],
+      "checks": {
+        "exit": true,
+        "result_stdout": true
+      },
+      "print_owners": []
+    },
+    {
+      "label": "candidate-sibling-repeat",
+      "phase": "sibling-repeat",
+      "trace_id": "0d9f0cf47614954b8cc189f1033fa18d",
+      "trace_sha256": "9786218c0bf2700e26b35af31be95264308633b246738ba6a326174cd5cc6756",
+      "gate_pass": true,
+      "analyzer_exit": 0,
+      "gate": "structural gate: PASS\n  ops=83 roots=1 open=0 wait-edges=15\n  cycles=0  self>makespan=0  interval>tracespan=0\n  wait-loss: unresolved-targets=0  malformed-timing=0\n  capture-loss: orphaned-parents=0 (dropped parent spans → false roots)\n  completeness: missing-spans=0 (declared=63 received=63 marker=true; hard-fail if missing>0, received>declared, or marker absent)\n  unschedulable-ops=0 (hard-fail if >0)  start-conflicts=0\n  dropped-links: total=0 (0 attrs) wait-bearing=0 wait-link-attrs=0\n",
+      "issues": [],
+      "checks": {
+        "exit": true,
+        "result_stdout": true
+      },
+      "print_owners": []
+    },
+    {
+      "label": "control-sibling-repeat",
+      "phase": "sibling-repeat",
+      "trace_id": "6b1ca91d4407ce904dda682db2f5a4b2",
+      "trace_sha256": "4857ece1fa11b8a29cf0ad93aca5282dfa1c358e021ddcc752b925565f6c0591",
+      "gate_pass": true,
+      "analyzer_exit": 0,
+      "gate": "structural gate: PASS\n  ops=83 roots=1 open=0 wait-edges=15\n  cycles=0  self>makespan=0  interval>tracespan=0\n  wait-loss: unresolved-targets=0  malformed-timing=0\n  capture-loss: orphaned-parents=0 (dropped parent spans → false roots)\n  completeness: missing-spans=0 (declared=63 received=63 marker=true; hard-fail if missing>0, received>declared, or marker absent)\n  unschedulable-ops=0 (hard-fail if >0)  start-conflicts=0\n  dropped-links: total=0 (0 attrs) wait-bearing=0 wait-link-attrs=0\n",
+      "issues": [],
+      "checks": {
+        "exit": true,
+        "result_stdout": true
+      },
+      "print_owners": []
+    }
+  ]
+}

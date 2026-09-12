@@ -1,0 +1,238 @@
+diff --git a/pkg/dang/eval.go b/pkg/dang/eval.go
+index e1eaaaa..4e6ca42 100644
+--- a/pkg/dang/eval.go
++++ b/pkg/dang/eval.go
+@@ -2685,6 +2685,18 @@ func parseDirBlocks(ctx context.Context, dirPath string) (context.Context, []*Fi
+ 	return ctx, blocks, nil
+ }
+ 
++// DirectoryPreparation runs once after a directory's source files have been
++// parsed successfully, in deterministic file order, and before imports,
++// declarations, or bodies are inferred. It can prepare the caller's import
++// schema using the freshly parsed declarations without parsing the files again.
++//
++// The files are invocation-local and must only be inspected during this call:
++// do not modify or retain them. Inference subsequently mutates these same ASTs.
++// The callback is also called for an empty directory, but never on a parse or
++// project-config error. An error prevents inference and is returned unchanged.
++// Service cleanup remains owned by the directory evaluation entrypoint.
++type DirectoryPreparation func(context.Context, []*FileBlock) error
++
+ // DeclareDir declares all .dang files in a directory as a single module and
+ // returns an evaluation environment containing only declared API-shape values.
+ // It resolves imports and signatures, but it does not infer or evaluate
+@@ -2692,6 +2704,13 @@ func parseDirBlocks(ctx context.Context, dirPath string) (context.Context, []*Fi
+ // file's imports are file-local: a sibling file's `import X` does not make X
+ // visible here.
+ func DeclareDir(ctx context.Context, dirPath string, isDebug bool) (ValueScope, error) {
++	return DeclareDirWithPreparation(ctx, dirPath, isDebug, nil)
++}
++
++// DeclareDirWithPreparation is DeclareDir with an invocation-local preparation
++// step after parsing and before declaration. It does not parse a second copy of
++// the source or retain parsed files for later invocations.
++func DeclareDirWithPreparation(ctx context.Context, dirPath string, isDebug bool, prepare DirectoryPreparation) (ValueScope, error) {
+ 	// Ensure service registry exists for cleanup.
+ 	ctx, services := ensureServiceRegistry(ctx)
+ 	if services != nil {
+@@ -2702,6 +2721,11 @@ func DeclareDir(ctx context.Context, dirPath string, isDebug bool) (ValueScope,
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	if prepare != nil {
++		if err := prepare(ctx, blocks); err != nil {
++			return nil, err
++		}
++	}
+ 	if len(blocks) == 0 {
+ 		return NewValueScope(NewPreludeTypeScope("")), nil
+ 	}
+@@ -2750,6 +2774,13 @@ func declareDirectoryFiles(ctx context.Context, files []*FileBlock, dirScope Typ
+ // file's imports are file-local during type inference: a sibling file's
+ // `import X` does not make X visible here.
+ func RunDir(ctx context.Context, dirPath string, isDebug bool) (ValueScope, error) {
++	return RunDirWithPreparation(ctx, dirPath, isDebug, nil)
++}
++
++// RunDirWithPreparation is RunDir with an invocation-local preparation step
++// after parsing and before inference. Existing file-local imports, evaluation,
++// and service cleanup are otherwise unchanged.
++func RunDirWithPreparation(ctx context.Context, dirPath string, isDebug bool, prepare DirectoryPreparation) (ValueScope, error) {
+ 	// Ensure service registry exists for cleanup
+ 	ctx, services := ensureServiceRegistry(ctx)
+ 	if services != nil {
+@@ -2760,6 +2791,11 @@ func RunDir(ctx context.Context, dirPath string, isDebug bool) (ValueScope, erro
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	if prepare != nil {
++		if err := prepare(ctx, blocks); err != nil {
++			return nil, err
++		}
++	}
+ 	if len(blocks) == 0 {
+ 		return nil, fmt.Errorf("no .dang files found in directory: %s", dirPath)
+ 	}
+diff --git a/pkg/dang/directory_preparation_test.go b/pkg/dang/directory_preparation_test.go
+new file mode 100644
+index 0000000..f361437
+--- /dev/null
++++ b/pkg/dang/directory_preparation_test.go
+@@ -0,0 +1,156 @@
++package dang
++
++import (
++	"context"
++	"errors"
++	"os"
++	"path/filepath"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++type preparationRunner struct {
++	name string
++	base func(context.Context, string, bool) (ValueScope, error)
++	run  func(context.Context, string, bool, DirectoryPreparation) (ValueScope, error)
++}
++
++func preparationRunners() []preparationRunner {
++	return []preparationRunner{
++		{"declare", DeclareDir, DeclareDirWithPreparation},
++		{"run", RunDir, RunDirWithPreparation},
++	}
++}
++
++func preparationContext(dir string) context.Context {
++	// Do not discover unrelated configuration above the owned test directory.
++	return ContextWithProjectConfig(context.Background(), filepath.Join(dir, "dang.toml"), &ProjectConfig{})
++}
++
++func TestDirectoryPreparationUsesParsedFiles(t *testing.T) {
++	for _, runner := range preparationRunners() {
++		t.Run(runner.name, func(t *testing.T) {
++			dir := t.TempDir()
++			a := filepath.Join(dir, "a.dang")
++			b := filepath.Join(dir, "b.dang")
++			require.NoError(t, os.WriteFile(b, []byte("type Second {}\n"), 0600))
++			require.NoError(t, os.WriteFile(a, []byte("type First {}\n"), 0600))
++			calls := 0
++			env, err := runner.run(preparationContext(dir), dir, false, func(ctx context.Context, files []*FileBlock) error {
++				calls++
++				require.NotNil(t, servicesFromContext(ctx), "entrypoint owns service scope before preparation")
++				require.Len(t, files, 2)
++				require.Equal(t, "First", files[0].Forms[0].(*ObjectDecl).Name.Name)
++				require.Equal(t, "Second", files[1].Forms[0].(*ObjectDecl).Name.Name)
++				require.Nil(t, files[0].TypeScope, "preparation precedes inference")
++				// A second parse would now fail. Neither the callback nor a
++				// persistent cache supplies replacement ASTs to the evaluator.
++				require.NoError(t, os.WriteFile(a, []byte("type Broken {"), 0600))
++				require.NoError(t, os.Remove(b))
++				return nil
++			})
++			require.NoError(t, err)
++			require.Equal(t, 1, calls)
++			for _, name := range []string{"First", "Second"} {
++				_, found, err := env.Lookup(context.Background(), name)
++				require.NoError(t, err)
++				require.True(t, found, name)
++			}
++			// A new invocation must observe the invalidated source.
++			_, err = runner.base(preparationContext(dir), dir, false)
++			require.Error(t, err)
++			require.Contains(t, err.Error(), "a.dang")
++		})
++	}
++}
++
++func TestDirectoryPreparationErrors(t *testing.T) {
++	for _, runner := range preparationRunners() {
++		t.Run(runner.name, func(t *testing.T) {
++			dir := t.TempDir()
++			file := filepath.Join(dir, "main.dang")
++			require.NoError(t, os.WriteFile(file, []byte("type Broken {"), 0600))
++			_, baseline := runner.base(preparationContext(dir), dir, false)
++			require.Error(t, baseline)
++			calls := 0
++			_, err := runner.run(preparationContext(dir), dir, false, func(context.Context, []*FileBlock) error {
++				calls++
++				return nil
++			})
++			require.EqualError(t, err, baseline.Error())
++			require.Zero(t, calls, "invalid source never reaches preparation")
++
++			require.NoError(t, os.WriteFile(file, []byte("type Valid {}\n"), 0600))
++			sentinel := errors.New("preparation failed")
++			_, err = runner.run(preparationContext(dir), dir, false, func(context.Context, []*FileBlock) error {
++				return sentinel
++			})
++			require.Same(t, sentinel, err)
++			ctx, cancel := context.WithCancel(preparationContext(dir))
++			defer cancel()
++			_, err = runner.run(ctx, dir, false, func(ctx context.Context, _ []*FileBlock) error {
++				cancel()
++				return ctx.Err()
++			})
++			require.ErrorIs(t, err, context.Canceled)
++		})
++	}
++}
++
++func TestDirectoryPreparationEmptyAndProjectError(t *testing.T) {
++	for _, runner := range preparationRunners() {
++		t.Run(runner.name, func(t *testing.T) {
++			dir := t.TempDir()
++			_, baseline := runner.base(preparationContext(dir), dir, false)
++			calls := 0
++			_, err := runner.run(preparationContext(dir), dir, false, func(_ context.Context, files []*FileBlock) error {
++				calls++
++				require.Empty(t, files)
++				return nil
++			})
++			require.Equal(t, 1, calls)
++			if baseline == nil {
++				require.NoError(t, err)
++			} else {
++				require.EqualError(t, err, baseline.Error())
++			}
++			require.NoError(t, os.WriteFile(filepath.Join(dir, "dang.toml"), []byte("[invalid"), 0600))
++			calls = 0
++			_, err = runner.run(context.Background(), dir, false, func(context.Context, []*FileBlock) error {
++				calls++
++				return nil
++			})
++			require.Error(t, err)
++			require.Zero(t, calls)
++		})
++	}
++}
++
++func TestDirectoryPreparationPreservesFileLocalImports(t *testing.T) {
++	for _, runner := range preparationRunners() {
++		t.Run(runner.name, func(t *testing.T) {
++			dir := t.TempDir()
++			fileA := "import Other\ntype First { pub use(x: Other.Item!): String! { \"first\" } }\n"
++			fileB := "type Second { pub use(x: Other.Item!): String! { \"second\" } }\n"
++			require.NoError(t, os.WriteFile(filepath.Join(dir, "a.dang"), []byte(fileA), 0600))
++			require.NoError(t, os.WriteFile(filepath.Join(dir, "b.dang"), []byte(fileB), 0600))
++			newContext := func() context.Context {
++				schema, err := SchemaFromSDL("type Query { ping: String! }\ntype Item { value: String! }", "other.graphql")
++				require.NoError(t, err)
++				return ContextWithImportConfigs(preparationContext(dir), ImportConfig{Name: "Other", Schema: schema})
++			}
++			_, baseline := runner.base(newContext(), dir, false)
++			require.Error(t, baseline, "a sibling's import must not become visible")
++			calls := 0
++			prepare := func(context.Context, []*FileBlock) error { calls++; return nil }
++			_, err := runner.run(newContext(), dir, false, prepare)
++			require.EqualError(t, err, baseline.Error())
++			require.Equal(t, 1, calls)
++			require.NoError(t, os.WriteFile(filepath.Join(dir, "b.dang"), []byte("import Other\n"+fileB), 0600))
++			_, err = runner.run(newContext(), dir, false, prepare)
++			require.NoError(t, err)
++			require.Equal(t, 2, calls)
++		})
++	}
++}
+

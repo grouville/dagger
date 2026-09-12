@@ -1,0 +1,98 @@
+{
+  "argv": [
+    "python3",
+    "/tmp/dagger-rust-pr-review/hack/bench-rust-generators/compare-generators.py",
+    "--execute",
+    "--dagger",
+    "/tmp/dagger-rust-rebase-9b235855.V8FkCvad/bin/dagger",
+    "--module",
+    "/tmp/dagger-rust-generator-pair-2gqxbin_/module",
+    "--fixture",
+    "/tmp/dagger-rust-pr-review/hack/bench-rust-generators/fixtures/workspace",
+    "--samples",
+    "30",
+    "--before-engine",
+    "docker-image://localhost/dagger-engine.rust-main-9b235855?container=dagger-engine.rust-main-9b235855&volume=dagger-engine.rust-main-9b235855&cleanup=false",
+    "--before-image-id",
+    "sha256:8683dc8fbb0f3585afe8e2adeb09738971a462b17f922ef4ac86d75fe64c9004",
+    "--after-engine",
+    "docker-image://localhost/dagger-engine.dang-parse-once-9b235855?container=dagger-engine.dang-parse-once-9b235855&volume=dagger-engine.dang-parse-once-9b235855&cleanup=false",
+    "--after-image-id",
+    "sha256:5fecb56d6d22b672c00c03b3c14cca737477406f70339087d678bb2c48b6ab49"
+  ],
+  "pins": {
+    "/tmp/dagger-rust-rebase-9b235855.V8FkCvad/bin/dagger": "ff5acf117d2fdab17dbbd0581178843c01f0a6c962736322814b5d0b7a00c576",
+    "/tmp/dagger-rust-pr-review/hack/bench-rust-generators/compare-generators.py": "b3d96491306750aa0e9a81c549ea4427846c0ff6ea0be964a05597d84903aa38",
+    "/tmp/dagger-rust-generator-pair-2gqxbin_/module/main.dang": "48c95bb11c503e94cda52d61f1313f458f3813714d83acd703ed8996660f4164",
+    "/tmp/dagger-rust-generator-pair-2gqxbin_/module/dagger-module.toml": "80ceb12a068bb2c86041ba35bdcb24edada8ae228b77450de2ce917caa2ec8e5"
+  },
+  "initial_fixture": {
+    "Cargo.lock": "877ae1057160c18e7aa25c18c9f6cfc53f28d9d71fe6c40d8ec75c3b21879649",
+    "Cargo.toml": "42e8d74c814656f0869747212f47a4dd2635c718398c5246ce4d53ee298a9104",
+    "app/Cargo.toml": "4839764af1e0193c4046638f6247487f1f16b03801dab8c46244a45fa96720c0",
+    "app/src/main.rs": "33d959fa5f3f2401aeeec586eb89a005bf3892ea42e3554e24e3e1cc2687ea68",
+    "app/src/secondary.rs": "bade18f66f646a77d609f4cc6d7309f82204cc8e005218e7f41e0c5540ec23b0",
+    "library/Cargo.toml": "c3f6f25fb44857e93484f8509ba3b962610f53cedb2ee6444f6123714bc287f8",
+    "library/src/lib.rs": "236db9e066bcc8282c861096cb46cb8f3500e1381b5cdb9333c1bc7f1c0af498"
+  },
+  "identity_before": {
+    "before": {
+      "container": {
+        "Id": "3c9df20b781ee4b1cf5b360b20b55030d04731b85bf575042f6a1538535affb8",
+        "Name": "/dagger-engine.rust-main-9b235855",
+        "Image": "sha256:8683dc8fbb0f3585afe8e2adeb09738971a462b17f922ef4ac86d75fe64c9004",
+        "Running": true,
+        "StartedAt": "2026-09-11T23:53:29.837106778Z",
+        "Pid": 1215641,
+        "RestartCount": 0
+      },
+      "resolved_image": "sha256:8683dc8fbb0f3585afe8e2adeb09738971a462b17f922ef4ac86d75fe64c9004"
+    },
+    "after": {
+      "container": {
+        "Id": "574e1c06f06dd997b611f61efe26c6a733af520197d7cb24c0c7de878a6f8baa",
+        "Name": "/dagger-engine.dang-parse-once-9b235855",
+        "Image": "sha256:5fecb56d6d22b672c00c03b3c14cca737477406f70339087d678bb2c48b6ab49",
+        "Running": true,
+        "StartedAt": "2026-09-12T00:08:26.092473329Z",
+        "Pid": 1281865,
+        "RestartCount": 0
+      },
+      "resolved_image": "sha256:5fecb56d6d22b672c00c03b3c14cca737477406f70339087d678bb2c48b6ab49"
+    }
+  },
+  "samples": 30,
+  "source_commit": "bfb0c200efd6395656bc831da0b810d5027f289b",
+  "candidate": "Same base plus reviewed invocation-local parse-once API; prototype-only library replacement",
+  "limitations": "Instrumented Linux/amd64 warm invalidation, same CLI, separate prepared engines; native Cargo via Docker exec; full artifact export; no cold/default-cloud claim",
+  "status": "complete-pending-offline-execution-audit",
+  "exit_code": 0,
+  "pilot": "/tmp/dagger-rust-generator-pair-iw520xrb",
+  "elapsed_ms": 363908.289417,
+  "identity_after": {
+    "before": {
+      "container": {
+        "Id": "3c9df20b781ee4b1cf5b360b20b55030d04731b85bf575042f6a1538535affb8",
+        "Name": "/dagger-engine.rust-main-9b235855",
+        "Image": "sha256:8683dc8fbb0f3585afe8e2adeb09738971a462b17f922ef4ac86d75fe64c9004",
+        "Running": true,
+        "StartedAt": "2026-09-11T23:53:29.837106778Z",
+        "Pid": 1215641,
+        "RestartCount": 0
+      },
+      "resolved_image": "sha256:8683dc8fbb0f3585afe8e2adeb09738971a462b17f922ef4ac86d75fe64c9004"
+    },
+    "after": {
+      "container": {
+        "Id": "574e1c06f06dd997b611f61efe26c6a733af520197d7cb24c0c7de878a6f8baa",
+        "Name": "/dagger-engine.dang-parse-once-9b235855",
+        "Image": "sha256:5fecb56d6d22b672c00c03b3c14cca737477406f70339087d678bb2c48b6ab49",
+        "Running": true,
+        "StartedAt": "2026-09-12T00:08:26.092473329Z",
+        "Pid": 1281865,
+        "RestartCount": 0
+      },
+      "resolved_image": "sha256:5fecb56d6d22b672c00c03b3c14cca737477406f70339087d678bb2c48b6ab49"
+    }
+  }
+}

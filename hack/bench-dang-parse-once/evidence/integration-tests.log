@@ -1,0 +1,18 @@
+[dagger x-release] running dagger from 00cb7d3a0e8d1eb6ec672aa504db14e52a9d1e21
+[dagger] 30.0s elapsed · 6 steps running
+[dagger] 1m0s elapsed · 23 steps running
+== TRACE ==  ✔ PASSED
+engine-dev test --pkg ./core/integration --run ^(TestDang|TestModule|TestWorkspaceModules|TestGenerators)$/^(TestSelfCallReturningOwnType|TestDirectives|TestWorkspaceArg|TestPrivateArg|TestVersionedSyntax|TestSelfCalls|TestWorkspaceManagedModuleBehavior|TestSingleGeneratorVerifiesSkippedModules|TestGenerateValidationRejectsBadSignature)$ --skip ^TestModule$/^TestSelfCalls$/^go$ --parallel 1 --timeout 10m --test-verbose  1m20s
+
+== SKIPPED MODULES ==
+✘ bad 0.0s ERROR
+  ! loading module "/work/.dagger/modules/bad": mount source: run dir: declare Dang module types: failed to parse file /tmp/dagger-mount18685199/.dagger/modules/bad/main.dang: /tmp/dagger-mount18685199/.dagger/modules/bad/main.dang:3:10 (44): no match found, expected: "!=", "#", "%", "(", "*", "+", "+=", "-", ".", "/", ":", "::", ";", "<", "<=", "=", "==", ">", ">=", "??", "\n", "and", "or", "rescue", "{", "}", [ \t\r\n] or [ \t]
+✘ badgenerate-return 0.0s ERROR
+  ! loading module "/work/modules/badgenerate-return": object "BadgenerateReturn" function "gen" is marked @generate but returns Directory!; @generate functions must return the core Changeset! type
+
+== TESTS ==
+  ✔ github.com/dagger/dagger/core/integration  36 passed
+
+  ✔ 36 passed
+
+Setup tracing at https://dagger.cloud/traces/setup. To hide set DAGGER_NO_NAG=1

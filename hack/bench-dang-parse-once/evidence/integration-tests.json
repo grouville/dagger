@@ -1,0 +1,27 @@
+{
+  "argv": [
+    "/tmp/dagger-rust-rebase-9b235855.V8FkCvad/bin/dagger",
+    "--x-release",
+    "00cb7d3a0e8d1eb6ec672aa504db14e52a9d1e21",
+    "api",
+    "call",
+    "engine-dev",
+    "test",
+    "--pkg",
+    "./core/integration",
+    "--run",
+    "^(TestDang|TestModule|TestWorkspaceModules|TestGenerators)$/^(TestSelfCallReturningOwnType|TestDirectives|TestWorkspaceArg|TestPrivateArg|TestVersionedSyntax|TestSelfCalls|TestWorkspaceManagedModuleBehavior|TestSingleGeneratorVerifiesSkippedModules|TestGenerateValidationRejectsBadSignature)$",
+    "--skip",
+    "^TestModule$/^TestSelfCalls$/^go$",
+    "--parallel",
+    "1",
+    "--timeout",
+    "10m",
+    "--test-verbose"
+  ],
+  "source": "/tmp/dagger-dang-parse-once-bfb0-test.AzU3qOnB/worktree",
+  "exit_code": 0,
+  "elapsed_ms": 80822.483228,
+  "purpose": "Focused parse-once engine integration; not Rust latency or certified profile evidence",
+  "source_matches_reviewed_candidate": true
+}
