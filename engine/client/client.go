@@ -324,8 +324,8 @@ func Connect(ctx context.Context, params Params) (_ *Client, rerr error) {
 		}
 	}()
 
-	if err := c.subscribeTelemetry(connectCtx); err != nil {
-		return nil, fmt.Errorf("subscribe to telemetry: %w", err)
+	if err := c.connectHTTP(connectCtx); err != nil {
+		return nil, err
 	}
 
 	if err := c.daggerConnect(ctx); err != nil {
@@ -555,6 +555,41 @@ func (c *Client) subscribeTelemetry(ctx context.Context) (rerr error) {
 		if err := c.exportMetrics(ctx, httpClient); err != nil {
 			return fmt.Errorf("export metrics: %w", err)
 		}
+	}
+	return nil
+}
+
+// connectHTTP overlaps readiness of the independent foreground and telemetry
+// connections, after startSession has initialized the client. Keep the two
+// transports separate: telemetry must still drain after foreground shutdown.
+func (c *Client) connectHTTP(ctx context.Context) error {
+	if c.EngineTrace == nil && c.EngineLogs == nil && c.EngineMetrics == nil {
+		return nil
+	}
+	initCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	ready := make(chan error, 1)
+	go func() {
+		ready <- c.init(initCtx)
+	}()
+
+	subscribeErr := c.subscribeTelemetry(ctx)
+	if subscribeErr != nil {
+		cancel()
+	}
+	// Join the new request on success, error and caller cancellation. Cancelling
+	// it must not cancel the long-lived telemetry streams on the other transport.
+	initErr := <-ready
+	var err error
+	if subscribeErr != nil {
+		err = fmt.Errorf("subscribe to telemetry: %w", subscribeErr)
+	} else if initErr != nil {
+		err = fmt.Errorf("initialize foreground connection: %w", initErr)
+	}
+	if err != nil {
+		// A subscription may already be live. Use normal session shutdown to
+		// finish its stream and release the foreground connection we now own.
+		return errors.Join(err, c.Close())
 	}
 	return nil
 }
@@ -1052,6 +1087,9 @@ func (c *Client) init(ctx context.Context) error {
 		return fmt.Errorf("do init: %w", err)
 	}
 
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return errors.Join(fmt.Errorf("unexpected init status: %s", resp.Status), resp.Body.Close())
+	}
 	return resp.Body.Close()
 }
 
