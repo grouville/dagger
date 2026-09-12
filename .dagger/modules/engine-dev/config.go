@@ -80,24 +80,20 @@ func generateEntrypoint() (*dagger.File, error) {
 	return entrypoint, nil
 }
 
-func generateConfig(logLevel string) (*dagger.File, error) {
+// marshalEngineConfig leaves registry routing to explicit engine configuration.
+// Integration tests configure their Docker Hub mirror separately; Container is
+// also the release-image builder, so its defaults affect ordinary users.
+func marshalEngineConfig(logLevel string) ([]byte, error) {
 	cfg := struct {
-		LogLevel   string `json:"logLevel,omitempty"`
-		Registries map[string]struct {
-			Mirrors []string `json:"mirrors"`
-		} `json:"registries"`
+		LogLevel string `json:"logLevel,omitempty"`
 	}{
 		LogLevel: logLevel,
-		Registries: map[string]struct {
-			Mirrors []string `json:"mirrors"`
-		}{
-			"docker.io": {
-				Mirrors: []string{"mirror.gcr.io"},
-			},
-		},
 	}
+	return json.MarshalIndent(cfg, "", "  ")
+}
 
-	res, err := json.MarshalIndent(cfg, "", "  ")
+func generateConfig(logLevel string) (*dagger.File, error) {
+	res, err := marshalEngineConfig(logLevel)
 	if err != nil {
 		return nil, err
 	}
