@@ -12,6 +12,10 @@ since `ff626243`, with no overlapping stack files. Rebasing and validating that
 new base is still pending at this snapshot; none of the measurements below used
 that new revision.
 
+A later [9b235855 source checkpoint](#rebase-checkpoint-9b235855) maps all 21
+branches, including this index, after rebase. It does not relabel the historical
+measurements below as new-runtime results.
+
 The goal remains an official, broadly useful Rust module with ordinary standalone
 checks and generation/builds: faster reusable results than native Cargo, ideally
 only tens of milliseconds of Dagger overhead on real invalidation, and roughly
@@ -91,6 +95,128 @@ mapping, not silent relabeling of measured binaries.
 | `perf/rust-18-generator-benchmark` | `4387a28398` | Generator fixture, guards and full evidence |
 | `perf/rust-19-auto-apply-paths` | `32fcabf43c` | Skip unused explicit-apply preview |
 | `perf/rust-20-cli-comparison-evidence` | `f1d6824edb` | Same-engine CLI harness and retained regressions |
+
+## Rebase checkpoint: 9b235855
+
+This source checkpoint includes **21 branches / 23 commits**, including the
+index introduced by `26040b59aa`. The frozen upstream target is
+`9b235855b35bf4508b1a5ddf64a5f36b6033a188`; the rebased stack checkpoint is
+`bfb0c200efd6395656bc831da0b810d5027f289b`. These are explicit snapshots, not
+a promise that upstream or branch tips have stopped advancing.
+
+The prior complete stack is retained at tag
+`archive/rust-stack-ff626243-26040b59`, pointing to
+`26040b59aa4a6ea32b6d91a725164feb7b735f55`. The older fd9 archive tag and the
+historical table above remain unchanged. The archive was published separately;
+remote stack-ref publication is a distinct step from the local mapping below.
+Old measured commits remain addressable and the archive must not be rewritten.
+
+| Branch | Historical ff626 tip | Rebased 9b235855 tip |
+| --- | --- | --- |
+| `perf/rust-01-ordinary-check-benchmark` | `79ea16d2aa` | `2456864793` |
+| `perf/rust-02-invalidation-investigation` | `0f5fc785eb` | `91e80665ea` |
+| `perf/rust-03-lazy-oauth-startup` | `ae5c07fa0b` | `889f6edb4e` |
+| `perf/rust-04-ripgrep-invalidation` | `e817ace7cf` | `012902ecfd` |
+| `perf/rust-05-disposable-cold-loop` | `efb909b84a` | `1d210e8c9c` |
+| `perf/rust-06-cold-readiness` | `58d3084c5e` | `d9cb6c2bf7` |
+| `perf/rust-07-slim-toolchain-evaluation` | `86a3da4c65` | `f649e3b4c8` |
+| `perf/rust-08-external-dependency-upgrade` | `6878684266` | `85afe07032` |
+| `perf/rust-09-source-sync-profiling` | `83edeb3e5c` | `729429078f` |
+| `perf/rust-10-cli-startup-width-tables` | `8f6771ecc8` | `c4e398d787` |
+| `perf/rust-11-pinned-source-sync-tool` | `e6f7200e14` | `334b646a81` |
+| `perf/rust-12-verified-http-input-reuse` | `daa185773d` | `dc2f9826aa` |
+| `perf/rust-13-project-toolchain-layer` | `7179fef23f` | `0ab528840c` |
+| `perf/rust-14-nested-client-transport-lifecycle` | `d3e1c431f7` | `2a7464a859` |
+| `perf/rust-15-stored-toolchain-evaluation` | `80833e16f7` | `2f097d0e84` |
+| `perf/rust-16-filtered-engine-discovery` | `d31dd491ba` | `d3dd86713c` |
+| `perf/rust-17-single-generator-snapshots` | `132fe82493` | `116ded2d7c` |
+| `perf/rust-18-generator-benchmark` | `4387a28398` | `4175bfb58a` |
+| `perf/rust-19-auto-apply-paths` | `32fcabf43c` | `36b6ea0359` |
+| `perf/rust-20-cli-comparison-evidence` | `f1d6824edb` | `533dffbc52` |
+| `perf/rust-21-stack-index` | `26040b59aa` | `bfb0c200ef` |
+
+The additional non-tip commits map as follows: initial fixture
+`c6b5d2c6d3` → `28311bf0e4`; nested-pool fix
+`1f096f5ba1` → `2377809de9`. Branches 01 and 14 still contain two commits each.
+The table anchors branch tips before any subsequent documentation supplement.
+
+### Upstream changes and relevance
+
+From ff626 to this target, four upstream commits (two changes plus their merges)
+touch five files, with 119 insertions and two deletions. There is **no file
+overlap** with this 23-commit stack:
+
+- `30918c5d7c` / merge `9b8500afe8` (PR #14128) updates the
+  [Go SDK library pin](../../core/sdk/go_sdk.go) from the v0.21.9 commit to the
+  v1.0.0-beta.12 commit. Go module generation passes this through `--lib-version`,
+  so its normal codegen/download/build work can change. The external Go SDK's
+  own source delta is not audited by comparing this repository alone.
+- `26a952eafb` / merge `9b235855b3` (PR #14129) changes the
+  [migration planner](../../core/schema/workspace_migrate_modules.go) to reuse
+  installed named SDK providers and pins for unversioned runtimes before registry
+  resolution. It preserves explicit-version and scope-ownership conflict errors.
+  Added [planner cases](../../core/schema/workspace_migrate_modules_test.go),
+  [CLI migration coverage](../../core/integration/workspace_migration_sdk_test.go)
+  and a [changelog entry](../../.changes/unreleased/Fixed-20260911-224150.yaml)
+  cover native/legacy configs and preview/apply/repeat behavior.
+
+There are no upstream Dang/parser, egraph/cache, client/session lifecycle,
+telemetry, dependency-manifest, benchmark or dev-build recipe edits in this delta.
+That supports a small revalidation scope; it is not proof of unchanged runtime
+performance or a reason to time an old engine as the new source.
+
+### Source validation and runtime status
+
+Independent read-only comparison confirms all 23 patch diffs and commit-message
+bytes match, all 21 local branch tips match the mapping, and the final tree delta
+is exactly the upstream delta. All 23 rebased commit objects contain SSH signature
+headers; header presence is not a separate signature-trust verification. The
+three original untracked archive files remain byte-identical. Recorded detached
+experimental worktree HEADs are unchanged; their uncommitted source contents
+are outside this mapping audit. A new detached engine-source worktree is separate.
+
+Portable source checks, before adding later changes:
+
+```sh
+git range-diff ff626243..26040b59aa 9b235855..bfb0c200ef
+git rev-list --count 9b235855..bfb0c200ef
+git diff --stat 26040b59aa bfb0c200ef
+git rev-parse 'refs/tags/archive/rust-stack-ff626243-26040b59^{commit}'
+```
+
+Focused migration planner unit tests pass (0.031s package time); the supported
+dev deployment also completed from clean `bfb0c200ef` source. The new engine image
+is `sha256:8683dc8fbb0f3585afe8e2adeb09738971a462b17f922ef4ac86d75fe64c9004`,
+container `3c9df20b781ee4b1cf5b360b20b55030d04731b85bf575042f6a1538535affb8`.
+Its exported CLI SHA256 is
+`ff5acf117d2fdab17dbbd0581178843c01f0a6c962736322814b5d0b7a00c576`.
+The dev CLI reports `unknown` commit; revision provenance comes from the verified
+clean source input, not embedded VCS metadata. The owned never-started deployment
+placeholder was replaced; older engines and their caches were preserved.
+
+The focused integration selection below completed successfully with 20 reported
+passing cases (2m20s workflow). Its progress summary reported 41.2% dropped
+telemetry: this is a test result, **not** a certified wcprof performance capture.
+The separate ordinary Rust correctness/performance cohort is still pending on
+this rebuilt base. Validation commands/selectors are:
+
+- Planner unit selector `^TestModuleMigration(UsesInstalledSDK|Graph|ConflictsPreserveFiles)$`
+  in `./core/schema`.
+- Integration selectors `^TestGo$/^(TestUseDaggerTypesDirect|TestUtilsPkg|TestWithOtherModuleTypes)$`,
+  `^TestWorkspaceMigration$/^TestWorkspaceMigrateInstalledSDK$`, and
+  `^TestModule$/^TestBuiltinDangDependencyModules$/^go_child$` in `./core/integration`,
+  using the supported `api call engine-dev test` workflow and rebuilt source.
+  The completed command combined the three suite/function selectors and skipped
+  the other four child-module cases; it used `--parallel 1 --timeout 10m
+  --test-verbose`. No broad package sweep was run.
+- A separate ordinary Rust edit/failure-repair/generate correctness pilot, with
+  normal cache identity, final artifacts and complete-profile gates retained.
+  This remains a required next check, not a result supplied by this document.
+
+No new timing win is established by this rebase. Existing n=30 measurements and
+the local Dang phase pilot remain attached to their original source, binaries,
+instrumentation and cache histories. Append actual new validation results rather
+than changing those historical identities.
 
 ## Decisions, reproduction and observed impact
 
