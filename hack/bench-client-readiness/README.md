@@ -50,8 +50,9 @@ reference; this experiment has no new paired-native claim.
 The initial warmup pair is excluded on both sides: control 23.906346 s primed
 the engine/project, candidate 447.584 ms reused it. It is **not** a cold comparison
 or an onboarding win. Only subsequent exact-cache pairs establish this result.
-Application/library edits, actual external-dependency upgrades, artifacts,
-remote engines and macOS still need matched validation before promotion.
+The follow-up below validates application/library edits and an actual external
+upgrade. Artifacts, remote engines and macOS remain unmeasured; cold behavior
+does not yet support an overall promotion claim.
 
 Three separate profiled pairs plus a diagnostic warmup produced eight complete
 wcprof captures. Every capture has 169 operations, no open/dropped operations,
@@ -124,5 +125,105 @@ Final analysis: `analysis-r3/report.json`; first analysis failed due to a duplic
 label keyword, second passed structural/exec gates but its cache-outcome selector
 was empty. The final pass uses Dagger's actual cache-outcome attribute and requires
 all three hits. Both earlier analysis directories are retained; no timing sample
-or completeness requirement was removed. Next gate is genuine invalidation,
-not another exact-hit-only victory claim.
+or completeness requirement was removed.
+
+## Full-flow follow-up: warm gains, cold losses retained
+
+Six fresh engine/Cargo/CLI states form three independent AB/BA/AB pairs. Both
+sides use the same corrected experimental engine image above; only the matched
+CLI differs. Each run includes three distinct application edits, three library
+edits and one real bstr 1.12.0 → 1.13.0 upgrade. Native/Dagger upgrade order is
+native/dagger/native across pairs and matched within each pair. No A→B→A
+dependency cycling, listener or reused successful candidate edit is measured.
+
+Milliseconds; warm rows summarize each run's three repeats before comparing
+the three independent pairs. Upgrade/follow-up and first-use have one observation
+per run. Marginal medians need not subtract to the median of paired differences.
+
+| Scenario | Control median | Candidate median | Paired CLI saving (range) | Favorable pairs |
+|---|---:|---:|---:|---:|
+| First check, profiled | 13,746.678 | 15,669.866 | −1,202.881 (−3,045.505…−308.713) | 0/3 |
+| Provision + first check, profiled | 13,965.786 | 15,916.767 | −1,232.494 (−3,056.393…−306.133) | 0/3 |
+| Exact cached check | 524.998 | 446.459 | +78.539 (+67.674…+101.765) | 3/3 |
+| Application edit | 894.276 | 832.093 | +52.638 (+43.852…+90.522) | 3/3 |
+| Workspace-library edit | 1,051.883 | 982.306 | +63.191 (+58.784…+81.107) | 3/3 |
+| Actual external upgrade, profiled | 2,229.327 | 2,162.757 | +66.570 (+31.458…+203.436) | 3/3 |
+| Exact check after upgrade | 477.617 | 442.319 | +35.297 (−5.199…+39.448) | 2/3 |
+
+Candidate medians against native: exact 446.459 vs 119.377 ms; application
+832.093 vs 293.823; library 982.306 vs 460.130; upgrade 2,162.757 vs 1,649.798;
+follow-up 442.319 vs 119.517. Median paired native overheads are respectively
+330.587, 521.563, 522.511, 519.536 and 323.970 ms. The native-normalized upgrade
+gain is only 9.735 ms, favorable in 2/3 pairs, unlike its larger raw CLI gain.
+Provision + first-check candidate median paired native overhead is 9,304.534 ms.
+**Every candidate flow still loses to native. The product goal remains unmet.**
+Do not pool these three pairs with the earlier twelve-pair exact pilot or add
+their gains to results from other engine/workload cohorts.
+
+Cold regression inspection uses actual span envelopes, not simulated savings.
+Pair 0's +1,202.9 ms process loss includes +1,001.3 ms connecting; its first
+Control/Info takes 1,075.5 ms before the changed HTTP-readiness path is reached.
+Pair 1's +308.7 ms loss includes +499.0 ms image delivery while connection time
+is 5.0 ms lower. Pair 2's +3,045.5 ms loss includes +3,177.9 ms image delivery;
+its large-layer stream grows from 3,383.9 to 6,475.4 ms, while connection time
+differs by 0.2 ms. This localizes the observed costs; it does not prove an
+environment-only cause or establish that the patch is harmless on cold flows.
+No cold win or neutral result is claimed.
+
+### Validation and interpretation
+
+All six workflows exited successfully. All 36 wcprof captures have complete
+declared/received spans and satisfy the structural/execution/byte gates;
+18 cache snapshots were analyzed. Every one of 36 ordinary warm-edit rebuild
+audits matches native: application edits rebuild only ripgrep; library edits
+rebuild grep-printer, grep and ripgrep. All six actual upgrades select bstr
+1.13.0, rebuild the same packages as native and exclude old bstr and unrelated
+memchr. Restart exact checks execute no Cargo and transfer no image layers.
+
+Cold captures have replay drift −4.8%…−7.3%, despite structural completeness.
+Their counterfactual savings are not trusted. All other captures have drift
+−0.0%…−0.1%. Use process clocks and actual enclosing spans for the cold losses.
+The published [flow-report.json](flow-report.json) preserves every timing,
+paired statistic, gate and drift; raw telemetry and private wcprof are retained
+locally, not published.
+
+The first offline analysis correctly rejected an expectation about the later
+application *diagnostic*. That diagnostic follows library failure → repair →
+failure revisit → cached successful repair → cached exact → application edit.
+The successful immutable cache hit does not rewind Cargo's mutable target/source
+cache left by the failed run, so this diagnostic rebuilds the three library
+dependents too. It is not the ordinary timed application-edit scenario.
+The second analysis explicitly checks that recovery package set; all ordinary
+application samples retain the strict single-ripgrep gate. No runtime sample,
+workload or timing was removed; both analyses are retained. This is Dagger cache
+semantics, not a proposal to restore cache mounts on result hits.
+
+### Scope and reproduction
+
+Exact/edit/follow-up headline timers are unprofiled; first-check and upgrade
+timers include profiling. Separate post-timer Cargo-diagnostic CLI invocations
+occur on both treatments. Native is docker exec in the matched preinstalled
+Rust image, not a bare-host Cargo comparison. CLI, engine image, local module,
+Docker and native Rust image already exist. Host page/CDN caches are not purged;
+native follows Dagger for initial check. This is not installation from nothing,
+nor fmt/clippy/tests/build/export/macOS/remote evidence. Three repeats in each
+run are not nine independent pairs; ranges are not population-tail estimates.
+
+```sh
+# Host-specific single-use controller: clone to fresh owned paths before rerun.
+python3 /tmp/dagger-readiness-flow-pairs.lYuSmqQj/run.py --execute
+python3 /tmp/dagger-readiness-flow-pairs.lYuSmqQj/analyze.py \
+  /tmp/dagger-rust-cli-flow-ab-iarsbz2s
+python3 /tmp/dagger-readiness-flow-pairs.lYuSmqQj/summarize.py
+```
+
+Controller e39d7e05f3946e2860a4613731580acb0e64061d1de10a780784508c3f2b20f3
+uses unchanged adapter 629c75d15da8d187960ea19e2d79f31e3238079b14a17f4a889e3ce7a3e17c54.
+Final analyzer 812011e1d5f6d895e242553dc8ad1eeec3834798d641e55afa22e011831e7194;
+summary script 8c1986dfaa834273096b1733e6546e79f289d7302a58ece311c4db6aed00977a.
+Raw telemetry: 42,689,273 bytes, SHA256
+a609a2b2b0fb6982f21fec0682163c596d05751df09902c91983768c82776875.
+Final analysis is `analysis-r2/report.json`; retained initial rejection is
+`analysis/report.json`. Controller-owned receiver, six containers and state
+volumes were cleaned up; retained baseline engines and frozen source untouched.
+Current main was reverified as 6bf59d50654ce9244ebeee1cc090b7dce3fe3083.
