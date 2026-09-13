@@ -1,0 +1,181 @@
+{
+  "status": "built-and-query-passed",
+  "parent": "503d3410ef3df63fa6bc7a55c5c2453c4951c2c2",
+  "upstream_main": "7c35e6274737acff0f6bd76614abb5e04efa7d12",
+  "original_failed_build_sha256": "48cd811d1b7d671ef0eb8fa1c04215f6ef010638f9ad40667f1b39c8bb266fa4",
+  "stages": {
+    "gated-before": "54f861602d92856f9ff6b99b6a13948e02f3494833351edb7f0b866e313f2f9d",
+    "gated-after": "2d8abf4e1e38fa83f4303f640286e1d30ce876a4f1e97f10e7cd871d1329e938"
+  },
+  "builds": [
+    {
+      "side": "A",
+      "source": "/tmp/dagger-current-stream.17mx1Ldk/engine-control",
+      "status": "built-and-query-passed",
+      "commands": [
+        {
+          "label": "placeholder-create",
+          "argv": [
+            "docker",
+            "create",
+            "--name",
+            "dagger-current-stream-17mx1ldk-a",
+            "--label",
+            "dagger.rust.bench-owner=dagger-current-stream.17mx1Ldk",
+            "sha256:ba0686de0d8c5543b5ff093ba7a78fa2d900f23b775fcb4983337b7e5f0319de"
+          ],
+          "exit_code": 0,
+          "log": null
+        },
+        {
+          "label": "engine-build",
+          "argv": [
+            "/usr/local/bin/dagger",
+            "--x-release",
+            "00cb7d3a0e8d1eb6ec672aa504db14e52a9d1e21",
+            "api",
+            "call",
+            "dev",
+            "--docker=unix:///var/run/docker.sock",
+            "deploy",
+            "--name=dagger-current-stream-17mx1ldk-a",
+            "--image=localhost/dagger-current-stream-17mx1ldk-a",
+            "--platform=linux/amd64",
+            "--debug-endpoint=false",
+            "--output",
+            "/tmp/dagger-current-stream.17mx1Ldk/engine-builds/A/bin"
+          ],
+          "exit_code": 0,
+          "log": null
+        },
+        {
+          "label": "smoke",
+          "argv": [
+            "/tmp/dagger-cli-runewidth.lhU4UO4i/dagger-candidate",
+            "api",
+            "query",
+            "--no-load-module"
+          ],
+          "exit_code": 0,
+          "log": null
+        }
+      ],
+      "engine": {
+        "Id": "6e46d6e050577f38fd06d7f31c505a0fb811c1e0047b62914d117dc7ed4c504a",
+        "Image": "sha256:61caf070e71090c43167e1e2dbb4477efbf47ee170f8da523df2632fc4e65dfc"
+      }
+    },
+    {
+      "side": "B",
+      "source": "/tmp/dagger-stream-close-order.6U5EYNjb/engine-source",
+      "status": "built-and-query-passed",
+      "commands": [
+        {
+          "label": "snapshot-race",
+          "argv": [
+            "/tmp/dagger-cli-runewidth.lhU4UO4i/dagger-candidate",
+            "api",
+            "call",
+            "engine-dev",
+            "test",
+            "--pkg=./engine/snapshots",
+            "--run=^(TestPipelinedApply|TestImportImage(Pipeline|Reuse|LayerReuse)|TestStreamedImport)",
+            "--parallel=1",
+            "--timeout=90s",
+            "--count=3",
+            "--test-verbose=true",
+            "--race=true"
+          ],
+          "exit_code": 0,
+          "log": null
+        },
+        {
+          "label": "gzip-private-race",
+          "argv": [
+            "/tmp/dagger-cli-runewidth.lhU4UO4i/dagger-candidate",
+            "api",
+            "call",
+            "engine-dev",
+            "test",
+            "--pkg=./core/integration",
+            "--run=^TestEngine$/^TestVerifiedStream(LargePrivateSnapshotRace|RealPrivateSnapshotRace)$",
+            "--parallel=1",
+            "--timeout=5m",
+            "--count=1",
+            "--test-verbose=true"
+          ],
+          "exit_code": 0,
+          "log": null
+        },
+        {
+          "label": "zstd-private-race",
+          "argv": [
+            "/tmp/dagger-cli-runewidth.lhU4UO4i/dagger-candidate",
+            "api",
+            "call",
+            "engine-dev",
+            "test",
+            "--pkg=./core/integration",
+            "--run=^TestEngine$/^TestVerifiedStreamZstdRace$",
+            "--parallel=1",
+            "--timeout=5m",
+            "--count=1",
+            "--test-verbose=true"
+          ],
+          "exit_code": 0,
+          "log": null
+        },
+        {
+          "label": "placeholder-create",
+          "argv": [
+            "docker",
+            "create",
+            "--name",
+            "dagger-stream-close-order-6u5eynjb",
+            "--label",
+            "dagger.rust.bench-owner=dagger-stream-close-order.6U5EYNjb",
+            "sha256:ba0686de0d8c5543b5ff093ba7a78fa2d900f23b775fcb4983337b7e5f0319de"
+          ],
+          "exit_code": 0,
+          "log": null
+        },
+        {
+          "label": "engine-build",
+          "argv": [
+            "/usr/local/bin/dagger",
+            "--x-release",
+            "00cb7d3a0e8d1eb6ec672aa504db14e52a9d1e21",
+            "api",
+            "call",
+            "dev",
+            "--docker=unix:///var/run/docker.sock",
+            "deploy",
+            "--name=dagger-stream-close-order-6u5eynjb",
+            "--image=localhost/dagger-stream-close-order-6u5eynjb",
+            "--platform=linux/amd64",
+            "--debug-endpoint=false",
+            "--output",
+            "/tmp/dagger-stream-close-order.6U5EYNjb/engine-builds/B/bin"
+          ],
+          "exit_code": 0,
+          "log": null
+        },
+        {
+          "label": "smoke",
+          "argv": [
+            "/tmp/dagger-cli-runewidth.lhU4UO4i/dagger-candidate",
+            "api",
+            "query",
+            "--no-load-module"
+          ],
+          "exit_code": 0,
+          "log": null
+        }
+      ],
+      "engine": {
+        "Id": "8ad9acfed0967173292b23ca0fa5dc1070980b3773950ddb74db8746bfbb8ab5",
+        "Image": "sha256:1fb3565bb5bac059d2a89e52e231203befe215ba4396ea40c93393b19f77aeb0"
+      }
+    }
+  ]
+}

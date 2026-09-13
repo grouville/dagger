@@ -1,0 +1,36 @@
+diff --git a/core/diff/apply/apply.go b/core/diff/apply/apply.go
+index 1c4c46429..089aac067 100644
+--- a/core/diff/apply/apply.go
++++ b/core/diff/apply/apply.go
+@@ -91,21 +91,28 @@ func (s *fsApplier) Apply(ctx context.Context, desc ocispec.Descriptor, mounts [
+ 	} else {
+ 		r = newReadCloser(ra)
+ 	}
+-	defer r.Close()
+ 
+ 	var processors []diff.StreamProcessor
+ 	processor := diff.NewProcessorChain(desc.MediaType, r)
++	defer func() {
++		// Async processors may wait for an input read during Close. Interrupt
++		// the owned input first, before joining the last initialized processor.
++		// Successful draining and digest verification still happen below.
++		r.Close()
++		processor.Close()
++	}()
+ 	processors = append(processors, processor)
+ 	for {
+-		if processor, err = diff.GetProcessor(ctx, processor, config.ProcessorPayloads); err != nil {
++		next, err := diff.GetProcessor(ctx, processor, config.ProcessorPayloads)
++		if err != nil {
+ 			return emptyDesc, fmt.Errorf("failed to get stream processor for %s: %w", desc.MediaType, err)
+ 		}
++		processor = next
+ 		processors = append(processors, processor)
+ 		if processor.MediaType() == ocispec.MediaTypeImageLayer {
+ 			break
+ 		}
+ 	}
+-	defer processor.Close()
+ 
+ 	digester := digest.Canonical.Digester()
+ 	var hashWriter io.Writer = digester.Hash()

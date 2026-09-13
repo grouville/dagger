@@ -1,0 +1,4054 @@
+diff --git a/core/container_image.go b/core/container_image.go
+index 7d4264a9a..4a805bfc1 100644
+--- a/core/container_image.go
++++ b/core/container_image.go
+@@ -146,6 +146,10 @@ func (lazy *ContainerFromImageRefLazy) Evaluate(ctx context.Context, container *
+ 		defer detach()
+ 
+ 		pulled, err := rslvr.Pull(ctx, lazy.CanonicalRef, serverresolver.PullOpts{
++			DeferLayerDownload: true,
++			// Experimental implementation-only switch; ordinary CLI/workload and
++			// image identity remain unchanged in the candidate engine.
++			StreamFinalLayer:  true,
+ 			Platform:          lazy.Platform.Spec(),
+ 			ResolveMode:       lazy.ResolveMode,
+ 			Network:           network,
+@@ -163,8 +167,10 @@ func (lazy *ContainerFromImageRefLazy) Evaluate(ctx context.Context, container *
+ 			Layers:       pulled.Layers,
+ 			Nonlayers:    pulled.Nonlayers,
+ 		}, bkcache.ImportImageOpts{
+-			ImageRef:   pulled.Ref,
+-			RecordType: bkclient.UsageRecordTypeRegular,
++			ImageRef:                pulled.Ref,
++			RecordType:              bkclient.UsageRecordTypeRegular,
++			FetchLayer:              pulled.FetchLayer,
++			FetchLayerWhileApplying: pulled.FetchLayerWhileApplying,
+ 		})
+ 		if err != nil {
+ 			return fmt.Errorf("import image %q: %w", lazy.CanonicalRef, err)
+diff --git a/core/integration/engine_streamed_snapshot_test.go b/core/integration/engine_streamed_snapshot_test.go
+new file mode 100644
+index 000000000..2a48a68d6
+--- /dev/null
++++ b/core/integration/engine_streamed_snapshot_test.go
+@@ -0,0 +1,105 @@
++package core
++
++import (
++	"context"
++	"os"
++	"os/exec"
++	"path/filepath"
++	"strconv"
++	"strings"
++
++	"dagger.io/dagger"
++	"github.com/dagger/testctx"
++	"github.com/stretchr/testify/require"
++)
++
++// Runs only focused filesystem/snapshot correctness tests in the supported
++// source-built dev-engine image. The outer test runner stays unprivileged.
++// This does not benchmark Cargo or change engine-dev's global exec privileges.
++func (EngineSuite) TestVerifiedStreamRealPrivateSnapshot(ctx context.Context, t *testctx.T) {
++	runVerifiedStreamPrivateSnapshot(ctx, t, false, "^(TestStreamedFetch.*|TestStreamedSnapshotRealPrivate)$", false, 1)
++}
++
++// Diagnostic only: containerd chooses its external gzip tool once per process.
++// Both variants must satisfy the same real-snapshot assertions; failures stay
++// failures rather than becoming an expected-error success gate.
++func (EngineSuite) TestVerifiedStreamDecoderBoundary(ctx context.Context, t *testctx.T) {
++	for _, decoder := range []string{"default", "builtin-control"} {
++		t.Run(decoder, func(ctx context.Context, t *testctx.T) {
++			runVerifiedStreamPrivateSnapshot(ctx, t, decoder == "builtin-control", "^TestStreamedSnapshotRealPrivate$", false, 1)
++		})
++	}
++}
++
++func (EngineSuite) TestVerifiedStreamRealPrivateSnapshotRace(ctx context.Context, t *testctx.T) {
++	runVerifiedStreamPrivateSnapshot(ctx, t, false, "^(TestStreamedFetch.*|TestStreamedSnapshotRealPrivate|TestDeferredPull.*)$", true, 3)
++}
++
++func (EngineSuite) TestVerifiedStreamLargePrivateSnapshotRace(ctx context.Context, t *testctx.T) {
++	runVerifiedStreamPrivateSnapshot(ctx, t, false, "^TestStreamedSnapshotRealPrivateLarge$", true, 3)
++}
++
++func (EngineSuite) TestVerifiedStreamZstdEarlyError(ctx context.Context, t *testctx.T) {
++	runVerifiedStreamPrivateSnapshot(ctx, t, false, "^TestStreamedFetchZstdEarlyError$", true, 10)
++}
++
++func (EngineSuite) TestVerifiedStreamZstdRace(ctx context.Context, t *testctx.T) {
++	runVerifiedStreamPrivateSnapshot(ctx, t, false, "^(TestStreamedSnapshotRealPrivateZstd|TestStreamedSnapshotRealPrivateZstdLarge|TestStreamedFetchZstdEarlyError)$", true, 3)
++}
++
++func runVerifiedStreamPrivateSnapshot(ctx context.Context, t *testctx.T, builtin bool, pattern string, race bool, count int) {
++	c := connect(ctx, t)
++	workdir, err := os.Getwd()
++	require.NoError(t, err)
++	repoRoot := filepath.Clean(filepath.Join(workdir, "..", ".."))
++	_, err = os.Stat(filepath.Join(repoRoot, "go.mod"))
++	require.NoError(t, err)
++	testBinary := filepath.Join(t.TempDir(), "streamed-resolver.test")
++	buildArgs := []string{"test", "-c", "-o", testBinary}
++	cgoEnabled := "CGO_ENABLED=0"
++	if race {
++		buildArgs = append(buildArgs, "-race")
++		cgoEnabled = "CGO_ENABLED=1"
++	}
++	buildArgs = append(buildArgs, "./engine/server/resolver")
++	cmd := exec.CommandContext(ctx, "go", buildArgs...)
++	cmd.Dir = repoRoot
++	cmd.Env = append(os.Environ(), cgoEnabled, "GOTOOLCHAIN=local", "GOWORK=off", "GOENV=off", "GOFLAGS=-mod=readonly", "GOPROXY=off", "GOSUMDB=off")
++	output, err := cmd.CombinedOutput()
++	require.NoError(t, err, "compile exact source resolver test binary: %s", output)
++	runner := devEngineContainer(c).
++		WithFile("/streamed-resolver.test", c.Host().File(testBinary), dagger.ContainerWithFileOpts{Permissions: 0755}).
++		WithEnvVariable("XDG_RUNTIME_DIR", "/tmp")
++	if builtin {
++		runner = runner.WithEnvVariable("CONTAINERD_DISABLE_IGZIP", "true").
++			WithEnvVariable("CONTAINERD_DISABLE_PIGZ", "true")
++	}
++	timeout := "90s"
++	if strings.Contains(pattern, "Large") {
++		// Three larger race-instrumented payload-generation repetitions need
++		// a separate suite budget; all per-case/marker/cleanup gates stay fixed.
++		timeout = "3m"
++	}
++	outputText, err := runner.
++		WithExec([]string{"/streamed-resolver.test", "-test.v", "-test.count=" + strconv.Itoa(count), "-test.timeout=" + timeout, "-test.run=" + pattern}, dagger.ContainerWithExecOpts{InsecureRootCapabilities: true}).
++		Stdout(ctx)
++	t.Log(outputText)
++	require.NoError(t, err)
++	if strings.Contains(pattern, "TestStreamedFetch.*") {
++		require.Contains(t, outputText, "--- PASS: TestStreamedFetchStandardGzipApplier")
++		require.Contains(t, outputText, "--- PASS: TestStreamedFetchOptionalReaderContract")
++	}
++	if strings.Contains(pattern, "TestStreamedFetchZstdEarlyError") {
++		require.Contains(t, outputText, "--- PASS: TestStreamedFetchZstdEarlyError (")
++	}
++	if strings.Contains(pattern, "TestStreamedSnapshotRealPrivate") {
++		require.Contains(t, outputText, "--- PASS: TestStreamedSnapshotRealPrivate")
++	}
++	if strings.Contains(pattern, "TestStreamedSnapshotRealPrivateZstdLarge") {
++		require.Contains(t, outputText, "--- PASS: TestStreamedSnapshotRealPrivateZstd (")
++		require.Contains(t, outputText, "--- PASS: TestStreamedSnapshotRealPrivateZstdLarge (")
++	}
++	if pattern == "^TestStreamedSnapshotRealPrivateLarge$" {
++		require.Contains(t, outputText, "--- PASS: TestStreamedSnapshotRealPrivateLarge (")
++	}
++}
+diff --git a/engine/server/resolver/deferred_pull_test.go b/engine/server/resolver/deferred_pull_test.go
+new file mode 100644
+index 000000000..79aee57e3
+--- /dev/null
++++ b/engine/server/resolver/deferred_pull_test.go
+@@ -0,0 +1,237 @@
++package resolver
++
++import (
++	"context"
++	"encoding/json"
++	"fmt"
++	"net"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"sync"
++	"testing"
++	"time"
++
++	"github.com/containerd/containerd/v2/core/content"
++	"github.com/containerd/containerd/v2/core/leases"
++	"github.com/containerd/containerd/v2/core/remotes/docker"
++	localcontent "github.com/containerd/containerd/v2/plugins/content/local"
++	cerrdefs "github.com/containerd/errdefs"
++	digest "github.com/opencontainers/go-digest"
++	"github.com/opencontainers/image-spec/specs-go"
++	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
++	"github.com/stretchr/testify/require"
++)
++
++// Writer contexts are observed, not simulated as real containerd content-GC.
++// HTTP transfer, digest/size verification, local store commits and labels are real.
++type deferredPullTestStore struct {
++	content.Store
++	mu           sync.Mutex
++	writerLeases map[digest.Digest]string
++}
++
++func (s *deferredPullTestStore) Writer(ctx context.Context, opts ...content.WriterOpt) (content.Writer, error) {
++	var writerOpts content.WriterOpts
++	for _, opt := range opts {
++		if err := opt(&writerOpts); err != nil {
++			return nil, err
++		}
++	}
++	leaseID, _ := leases.FromContext(ctx)
++	s.mu.Lock()
++	s.writerLeases[writerOpts.Desc.Digest] = leaseID
++	s.mu.Unlock()
++	return s.Store.Writer(ctx, opts...)
++}
++
++type deferredPullTestFixture struct {
++	rslvr          *Resolver
++	store          *deferredPullTestStore
++	lm             *testLeaseManager
++	ref            string
++	layer          ocispecs.Descriptor
++	registryHost   string
++	mu             sync.Mutex
++	layerGETs      int
++	requestStarted chan struct{}
++}
++
++func newDeferredPullTestFixture(t *testing.T, bodyMode string) *deferredPullTestFixture {
++	t.Helper()
++	layerBytes := []byte("complete layer bytes used only for transfer verification")
++	layer := testDescriptor(ocispecs.MediaTypeImageLayer, layerBytes)
++	configBytes, err := json.Marshal(ocispecs.Image{Platform: ocispecs.Platform{OS: "linux", Architecture: "amd64"}, RootFS: ocispecs.RootFS{Type: "layers", DiffIDs: []digest.Digest{layer.Digest}}})
++	require.NoError(t, err)
++	config := testDescriptor(ocispecs.MediaTypeImageConfig, configBytes)
++	manifestBytes, err := json.Marshal(ocispecs.Manifest{Versioned: specs.Versioned{SchemaVersion: 2}, MediaType: ocispecs.MediaTypeImageManifest, Config: config, Layers: []ocispecs.Descriptor{layer}})
++	require.NoError(t, err)
++	manifest := testDescriptor(ocispecs.MediaTypeImageManifest, manifestBytes)
++	f := &deferredPullTestFixture{lm: newTestLeaseManager(), layer: layer, requestStarted: make(chan struct{}, 1)}
++	registry := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++		switch {
++		case r.URL.Path == "/v2/":
++			w.WriteHeader(http.StatusOK)
++		case strings.HasPrefix(r.URL.Path, "/v2/pipeline/test/manifests/"):
++			serveTestRegistryDescriptor(w, r, manifest, manifestBytes)
++		case r.URL.Path == "/v2/pipeline/test/blobs/"+config.Digest.String():
++			serveTestRegistryDescriptor(w, r, config, configBytes)
++		case r.URL.Path == "/v2/pipeline/test/blobs/"+layer.Digest.String():
++			if bodyMode == "blocked" && r.Method == http.MethodGet {
++				f.requestStarted <- struct{}{}
++				<-r.Context().Done()
++				return
++			}
++			if r.Method == http.MethodGet {
++				f.mu.Lock()
++				f.layerGETs++
++				f.mu.Unlock()
++			}
++			payload := append([]byte(nil), layerBytes...)
++			if bodyMode == "corrupt" {
++				payload[0] ^= 1
++			}
++			if bodyMode == "truncated" {
++				payload = payload[:len(payload)-5]
++			}
++			serveTestRegistryDescriptor(w, r, layer, payload)
++		default:
++			http.NotFound(w, r)
++		}
++	}))
++	t.Cleanup(registry.Close)
++	f.registryHost = strings.TrimPrefix(registry.URL, "http://")
++	store, err := localcontent.NewLabeledStore(t.TempDir(), newTestContentLabelStore())
++	require.NoError(t, err)
++	f.store = &deferredPullTestStore{Store: store, writerLeases: map[digest.Digest]string{}}
++	f.rslvr = New(Opts{Hosts: func(domain string) ([]docker.RegistryHost, error) {
++		if domain != f.registryHost {
++			return nil, fmt.Errorf("unexpected registry: %s", domain)
++		}
++		return []docker.RegistryHost{{Scheme: "http", Host: domain, Path: "/v2", Capabilities: docker.HostCapabilityPull | docker.HostCapabilityResolve}}, nil
++	}, ContentStore: f.store, LeaseManager: f.lm})
++	t.Cleanup(func() { require.NoError(t, f.rslvr.Close()) })
++	f.ref = fmt.Sprintf("%s/pipeline/test:latest@%s", f.registryHost, manifest.Digest)
++	return f
++}
++
++func TestDeferredPullMetadataThenVerifiedLayer(t *testing.T) {
++	f := newDeferredPullTestFixture(t, "valid")
++	ctx := t.Context()
++	pulled, err := f.rslvr.Pull(ctx, f.ref, PullOpts{DeferLayerDownload: true, Platform: ocispecs.Platform{OS: "linux", Architecture: "amd64"}})
++	require.NoError(t, err)
++	t.Cleanup(func() { require.NoError(t, pulled.Release(context.Background())) })
++	require.NotNil(t, pulled.FetchLayer)
++	f.mu.Lock()
++	before := f.layerGETs
++	f.mu.Unlock()
++	require.Zero(t, before, "Pull must return without downloading layer content")
++	_, err = f.store.Info(ctx, f.layer.Digest)
++	require.True(t, cerrdefs.IsNotFound(err))
++	_, err = f.store.Info(ctx, pulled.ConfigDesc.Digest)
++	require.NoError(t, err)
++	_, err = f.store.Info(ctx, pulled.ManifestDesc.Digest)
++	require.NoError(t, err)
++	active, err := f.lm.List(ctx)
++	require.NoError(t, err)
++	f.store.mu.Lock()
++	pullLeaseID := f.store.writerLeases[pulled.ConfigDesc.Digest]
++	f.store.mu.Unlock()
++	require.NotEmpty(t, pullLeaseID)
++	var pullLeaseFound bool
++	for _, lease := range active {
++		if lease.ID == pullLeaseID {
++			pullLeaseFound = true
++		}
++	}
++	require.True(t, pullLeaseFound)
++	// A distinct caller lease proves the callback explicitly reinstalls its
++	// pull-content lease rather than capturing a canceled dispatch context.
++	require.NoError(t, pulled.FetchLayer(leases.WithLease(ctx, "caller-operation-lease"), pulled.Layers[0]))
++	info, err := f.store.Info(ctx, f.layer.Digest)
++	require.NoError(t, err)
++	sourceHost, _, err := net.SplitHostPort(f.registryHost)
++	require.NoError(t, err)
++	require.Equal(t, "pipeline/test", info.Labels["containerd.io/distribution.source."+sourceHost])
++	f.store.mu.Lock()
++	actualLease := f.store.writerLeases[f.layer.Digest]
++	f.store.mu.Unlock()
++	require.Equal(t, pullLeaseID, actualLease)
++	require.NoError(t, pulled.Release(context.Background()))
++	active, err = f.lm.List(ctx)
++	require.NoError(t, err)
++	for _, lease := range active {
++		require.NotEqual(t, pullLeaseID, lease.ID, "pull release must remove its own lease; independent metadata leases can remain")
++	}
++	// A complete content closure remains the pre-existing local fast path.
++	local, err := f.rslvr.Pull(ctx, f.ref, PullOpts{DeferLayerDownload: true, Platform: ocispecs.Platform{OS: "linux", Architecture: "amd64"}})
++	require.NoError(t, err)
++	defer local.Release(context.Background())
++	require.Nil(t, local.FetchLayer)
++}
++
++func TestDeferredPullRejectsInvalidLayerTransfers(t *testing.T) {
++	for _, mode := range []string{"corrupt", "truncated"} {
++		t.Run(mode, func(t *testing.T) {
++			f := newDeferredPullTestFixture(t, mode)
++			pulled, err := f.rslvr.Pull(t.Context(), f.ref, PullOpts{DeferLayerDownload: true, Platform: ocispecs.Platform{OS: "linux", Architecture: "amd64"}})
++			require.NoError(t, err)
++			defer pulled.Release(context.Background())
++			require.Error(t, pulled.FetchLayer(t.Context(), pulled.Layers[0]))
++			_, err = f.store.Info(t.Context(), f.layer.Digest)
++			require.True(t, cerrdefs.IsNotFound(err), "invalid content must not commit")
++		})
++	}
++}
++
++func TestDeferredPullLayerLimitedStaysEager(t *testing.T) {
++	f := newDeferredPullTestFixture(t, "valid")
++	limit := 1
++	pulled, err := f.rslvr.Pull(t.Context(), f.ref, PullOpts{DeferLayerDownload: true, LayerLimit: &limit, Platform: ocispecs.Platform{OS: "linux", Architecture: "amd64"}})
++	require.NoError(t, err)
++	defer pulled.Release(context.Background())
++	require.Nil(t, pulled.FetchLayer)
++	_, err = f.store.Info(t.Context(), f.layer.Digest)
++	require.NoError(t, err)
++}
++
++func TestDeferredPullForceKeepsDeferredContract(t *testing.T) {
++	f := newDeferredPullTestFixture(t, "valid")
++	for range 2 {
++		pulled, err := f.rslvr.Pull(t.Context(), f.ref, PullOpts{DeferLayerDownload: true, ResolveMode: ResolveModeForcePull, Platform: ocispecs.Platform{OS: "linux", Architecture: "amd64"}})
++		require.NoError(t, err)
++		require.NotNil(t, pulled.FetchLayer)
++		require.NoError(t, pulled.FetchLayer(t.Context(), pulled.Layers[0]))
++		require.NoError(t, pulled.Release(context.Background()))
++	}
++	f.mu.Lock()
++	defer f.mu.Unlock()
++	require.Equal(t, 1, f.layerGETs, "force metadata refresh must not duplicate a complete verified blob")
++}
++
++func TestDeferredPullLayerCancellation(t *testing.T) {
++	f := newDeferredPullTestFixture(t, "blocked")
++	ctx, timeout := context.WithTimeout(t.Context(), 10*time.Second)
++	defer timeout()
++	pulled, err := f.rslvr.Pull(ctx, f.ref, PullOpts{DeferLayerDownload: true, Platform: ocispecs.Platform{OS: "linux", Architecture: "amd64"}})
++	require.NoError(t, err)
++	defer pulled.Release(context.Background())
++	fetchCtx, cancel := context.WithCancel(ctx)
++	defer cancel()
++	done := make(chan error, 1)
++	go func() { done <- pulled.FetchLayer(fetchCtx, pulled.Layers[0]) }()
++	select {
++	case <-f.requestStarted:
++	case <-ctx.Done():
++		t.Fatal("HTTP layer request did not start")
++	}
++	cancel()
++	select {
++	case err := <-done:
++		require.Error(t, err)
++	case <-ctx.Done():
++		t.Fatal("canceled fetch did not exit")
++	}
++	_, err = f.store.Info(ctx, f.layer.Digest)
++	require.True(t, cerrdefs.IsNotFound(err))
++}
+diff --git a/engine/server/resolver/resolver.go b/engine/server/resolver/resolver.go
+index 5529a8138..1f1786052 100644
+--- a/engine/server/resolver/resolver.go
++++ b/engine/server/resolver/resolver.go
+@@ -83,6 +83,13 @@ type ResolveImageDigestOpts struct {
+ }
+ 
+ type PullOpts struct {
++	// DeferLayerDownload leaves layer fetching to PulledImage.FetchLayer.
++	// The caller must complete those fetches before releasing the pulled image.
++	// Layer-limited pulls retain the existing eager behavior.
++	DeferLayerDownload bool
++	// StreamFinalLayer enables the experimental private-apply callback. The
++	// importing snapshot manager decides whether the final layer is eligible.
++	StreamFinalLayer  bool
+ 	Platform          ocispecs.Platform
+ 	ResolveMode       ResolveMode
+ 	LayerLimit        *int
+@@ -132,6 +139,12 @@ type PulledImage struct {
+ 	Layers       []ocispecs.Descriptor
+ 	Nonlayers    []ocispecs.Descriptor
+ 
++	// FetchLayer is non-nil only when layer downloads were deferred. It commits
++	// and verifies a complete layer blob, then records its distribution source.
++	// It is transient session state, valid only until Release.
++	FetchLayer              func(context.Context, ocispecs.Descriptor) error
++	FetchLayerWhileApplying func(context.Context, ocispecs.Descriptor, func(context.Context, content.Provider) (ocispecs.Descriptor, error)) (ocispecs.Descriptor, error)
++
+ 	release func(context.Context) error
+ }
+ 
+@@ -296,7 +309,12 @@ func (r *Resolver) ResolveImageDigest(
+ }
+ 
+ func (r *Resolver) Pull(ctx context.Context, ref string, opts PullOpts) (_ *PulledImage, rerr error) {
+-	span, ctx := tracing.StartSpan(ctx, "pulling "+bkcache.DisplayRef(ref), telemetry.Encapsulated(), telemetry.Encapsulate())
++	deferLayerDownload := opts.DeferLayerDownload && opts.LayerLimit == nil
++	spanName := "pulling " + bkcache.DisplayRef(ref)
++	if deferLayerDownload {
++		spanName = "preparing pull " + bkcache.DisplayRef(ref)
++	}
++	span, ctx := tracing.StartSpan(ctx, spanName, telemetry.Encapsulated(), telemetry.Encapsulate())
+ 	defer func() {
+ 		tracing.FinishWithError(span, rerr)
+ 	}()
+@@ -377,9 +395,16 @@ func (r *Resolver) Pull(ctx context.Context, ref string, opts PullOpts) (_ *Pull
+ 		return nil, err
+ 	}
+ 	childrenHandler := images.ChildrenHandler(r.contentStore)
++	fetchContent := remotes.FetchHandler(progressIngester{r.contentStore}, fetcher)
++	fetchPullContent := images.HandlerFunc(func(ctx context.Context, desc ocispecs.Descriptor) ([]ocispecs.Descriptor, error) {
++		if deferLayerDownload && images.IsLayerType(desc.MediaType) {
++			return nil, images.ErrSkipDesc
++		}
++		return fetchContent(ctx, desc)
++	})
+ 	handler := images.Handlers(
+ 		recordNonLayers,
+-		remotes.FetchHandler(progressIngester{r.contentStore}, fetcher),
++		fetchPullContent,
+ 		childrenHandler,
+ 		dslHandler,
+ 	)
+@@ -423,13 +448,49 @@ func (r *Resolver) Pull(ctx context.Context, ref string, opts PullOpts) (_ *Pull
+ 		return strings.Compare(a.Digest.String(), b.Digest.String())
+ 	})
+ 
++	var fetchLayer func(context.Context, ocispecs.Descriptor) error
++	var fetchWhileApplying func(context.Context, ocispecs.Descriptor, func(context.Context, content.Provider) (ocispecs.Descriptor, error)) (ocispecs.Descriptor, error)
++	if deferLayerDownload {
++		fetchAndLabel := images.Handlers(fetchContent, dslHandler)
++		pullLeaseID, ok := leases.FromContext(leaseCtx)
++		if !ok || pullLeaseID == "" {
++			return nil, fmt.Errorf("deferred image pull has no content lease")
++		}
++		fetchLayer = func(ctx context.Context, desc ocispecs.Descriptor) (rerr error) {
++			// Keep the existing pull lease alive through the caller's ordered
++			// import, while preserving its cancellation and telemetry context.
++			ctx = leases.WithLease(ctx, pullLeaseID)
++			span, ctx := tracing.StartSpan(ctx, "downloading image layer "+desc.Digest.String(), telemetry.Encapsulated(), telemetry.Encapsulate())
++			defer func() { tracing.FinishWithError(span, rerr) }()
++			_, rerr = fetchAndLabel.Handle(ctx, desc)
++			return rerr
++		}
++		if opts.StreamFinalLayer {
++			fetchWhileApplying = func(ctx context.Context, desc ocispecs.Descriptor, apply func(context.Context, content.Provider) (ocispecs.Descriptor, error)) (applied ocispecs.Descriptor, rerr error) {
++				// Both content acquisition and callback lifetime are scoped to the
++				// current authenticated pull. No provider or live session is saved.
++				ctx = leases.WithLease(ctx, pullLeaseID)
++				span, ctx := tracing.StartSpan(ctx, "streaming image layer into private snapshot "+desc.Digest.String(), telemetry.Encapsulated(), telemetry.Encapsulate())
++				defer func() { tracing.FinishWithError(span, rerr) }()
++				applied, rerr = fetchLayerWhileApplying(ctx, progressIngester{r.contentStore}, r.contentStore, fetcher, desc, apply)
++				if rerr != nil {
++					return ocispecs.Descriptor{}, rerr
++				}
++				_, rerr = dslHandler.Handle(ctx, desc)
++				return applied, rerr
++			}
++		}
++	}
++
+ 	return &PulledImage{
+-		Ref:          resolvedRef,
+-		ManifestDesc: manifestDesc,
+-		ConfigDesc:   hydratePulledDescriptor(configDesc),
+-		Layers:       layers,
+-		Nonlayers:    nonlayers,
+-		release:      release,
++		Ref:                     resolvedRef,
++		ManifestDesc:            manifestDesc,
++		ConfigDesc:              hydratePulledDescriptor(configDesc),
++		Layers:                  layers,
++		Nonlayers:               nonlayers,
++		FetchLayer:              fetchLayer,
++		FetchLayerWhileApplying: fetchWhileApplying,
++		release:                 release,
+ 	}, nil
+ }
+ 
+diff --git a/engine/server/resolver/streamed_fetch.go b/engine/server/resolver/streamed_fetch.go
+new file mode 100644
+index 000000000..8faa2a915
+--- /dev/null
++++ b/engine/server/resolver/streamed_fetch.go
+@@ -0,0 +1,257 @@
++package resolver
++
++import (
++	"context"
++	"errors"
++	"fmt"
++	"io"
++	"sync"
++
++	"github.com/containerd/containerd/v2/core/content"
++	"github.com/containerd/containerd/v2/core/remotes"
++	"github.com/containerd/errdefs"
++	digest "github.com/opencontainers/go-digest"
++	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
++)
++
++// This is an experimental seam wired into final-layer import. The callback may only apply into an
++// exclusively owned, uncommitted snapshot. It must not execute, publish, or
++// retain any reader or snapshot. The caller must not commit that snapshot until
++// this function AND distribution-source labeling have succeeded.
++//
++// The complete blob still goes through containerd's ordinary verified content
++// writer. The extra pipe is bounded by the producer/consumer buffers and writes
++// no second compressed file. Existing blobs and resumed ingests use the ordinary
++// complete-blob reader. Fetch and application are joined on every return path.
++//
++// The private handle exposes containerd's optional Reader() streaming contract,
++// which the current filesystem applier requests through content.NewReader.
++// ReadAt is explicitly unsupported: this is not a random-access content store.
++func fetchLayerWhileApplying(
++	ctx context.Context,
++	ingester content.Ingester,
++	verified content.Provider,
++	fetcher remotes.Fetcher,
++	desc ocispecs.Descriptor,
++	apply func(context.Context, content.Provider) (ocispecs.Descriptor, error),
++) (ocispecs.Descriptor, error) {
++	if desc.Size <= 0 || desc.Digest.Validate() != nil || apply == nil {
++		return ocispecs.Descriptor{}, fmt.Errorf("streamed layer: invalid descriptor or apply callback")
++	}
++	expectedDiff := digest.Digest(desc.Annotations["containerd.io/uncompressed"])
++	if err := expectedDiff.Validate(); err != nil {
++		return ocispecs.Descriptor{}, fmt.Errorf("streamed layer: invalid expected diffID: %w", err)
++	}
++	ctx, cancel := context.WithCancelCause(ctx)
++	defer cancel(nil)
++	pr, pw := io.Pipe()
++	defer pr.Close()
++	defer pw.Close()
++	stop := context.AfterFunc(ctx, func() {
++		cause := context.Cause(ctx)
++		_ = pr.CloseWithError(cause)
++		_ = pw.CloseWithError(cause)
++	})
++	defer stop()
++
++	type result struct {
++		desc ocispecs.Descriptor
++		err  error
++	}
++	done := make(chan result, 1)
++	runApply := func(provider content.Provider) result {
++		applied, err := apply(ctx, provider)
++		if err == nil && applied.Digest != expectedDiff {
++			err = fmt.Errorf("streamed layer: calculated diffID %s does not match %s", applied.Digest, expectedDiff)
++		}
++		if err != nil {
++			cancel(err)
++		}
++		return result{applied, err}
++	}
++	tap := &streamTapIngester{Ingester: ingester, desc: desc, pw: pw}
++	tap.start = func() {
++		go func() {
++			res := runApply(&privateSequentialProvider{desc: desc, reader: &privateStreamReader{reader: pr, size: desc.Size}})
++			// A decompressor may accept the tar end before reading all compressed
++			// bytes. Close the consumer but let the normal writer verify all bytes.
++			if res.err == nil {
++				_ = pr.CloseWithError(errPrivateConsumerFinished)
++			} else {
++				_ = pr.CloseWithError(res.err)
++			}
++			done <- res
++		}()
++	}
++
++	_, fetchErr := remotes.FetchHandler(tap, fetcher)(ctx, desc)
++	if fetchErr != nil {
++		cancel(fetchErr)
++	}
++	_ = pw.CloseWithError(fetchErr)
++	if !tap.started {
++		if fetchErr != nil {
++			return ocispecs.Descriptor{}, fetchErr
++		}
++		res := runApply(verified)
++		if err := errors.Join(res.err, context.Cause(ctx)); err != nil {
++			return ocispecs.Descriptor{}, err
++		}
++		return res.desc, nil
++	}
++	res := <-done
++	if err := errors.Join(fetchErr, res.err, context.Cause(ctx)); err != nil {
++		return ocispecs.Descriptor{}, err
++	}
++	return res.desc, nil
++}
++
++var errPrivateConsumerFinished = errors.New("private layer consumer finished")
++
++type streamTapIngester struct {
++	content.Ingester
++	desc    ocispecs.Descriptor
++	pw      *io.PipeWriter
++	start   func()
++	started bool // Writer is called only by the single synchronous FetchHandler.
++}
++
++func (s *streamTapIngester) Writer(ctx context.Context, opts ...content.WriterOpt) (content.Writer, error) {
++	w, err := s.Ingester.Writer(ctx, opts...)
++	if err != nil {
++		return nil, err
++	}
++	status, err := w.Status()
++	if err != nil {
++		_ = w.Close()
++		return nil, err
++	}
++	// Keep containerd's normal resume implementation, including range/seek
++	// behavior. A private consumer cannot start in the middle of a gzip stream.
++	if status.Offset != 0 {
++		return w, nil
++	}
++	if s.started {
++		_ = w.Close()
++		return nil, fmt.Errorf("streamed layer: second writer refused")
++	}
++	s.started = true
++	s.start()
++	return &streamTapWriter{Writer: w, pw: s.pw}, nil
++}
++
++type streamTapWriter struct {
++	content.Writer
++	pw *io.PipeWriter
++}
++
++func (w *streamTapWriter) Write(p []byte) (int, error) {
++	n, err := w.Writer.Write(p)
++	if errors.Is(err, content.ErrReset) {
++		// Replaying an ingest into an already-mutated private snapshot is not
++		// safe. Do not expose ErrReset to content.Copy's transparent replay.
++		return n, fmt.Errorf("streamed layer: writer reset requires a fresh private snapshot")
++	}
++	if n > 0 && err == nil {
++		_, pipeErr := w.pw.Write(p[:n])
++		if pipeErr != nil && !errors.Is(pipeErr, errPrivateConsumerFinished) {
++			return n, pipeErr
++		}
++	}
++	return n, err
++}
++
++func (w *streamTapWriter) Commit(ctx context.Context, size int64, expected digest.Digest, opts ...content.Opt) error {
++	err := w.Writer.Commit(ctx, size, expected, opts...)
++	if errors.Is(err, content.ErrReset) {
++		return fmt.Errorf("streamed layer: commit reset requires a fresh private snapshot")
++	}
++	return err
++}
++
++func (w *streamTapWriter) Truncate(int64) error {
++	return fmt.Errorf("streamed layer: truncate requires a fresh private snapshot")
++}
++
++type privateSequentialProvider struct {
++	desc   ocispecs.Descriptor
++	reader *privateStreamReader
++	mu     sync.Mutex
++	opened bool
++}
++
++func (p *privateSequentialProvider) ReaderAt(_ context.Context, desc ocispecs.Descriptor) (content.ReaderAt, error) {
++	p.mu.Lock()
++	defer p.mu.Unlock()
++	if desc.Digest != p.desc.Digest {
++		return nil, fmt.Errorf("private stream descriptor mismatch: %w", errdefs.ErrNotFound)
++	}
++	if p.opened {
++		return nil, fmt.Errorf("private stream permits one sequential reader")
++	}
++	p.opened = true
++	return p.reader, nil
++}
++
++type privateStreamReader struct {
++	reader io.ReadCloser
++	mu     sync.Mutex
++	opened bool
++	size   int64
++
++	readMu    sync.Mutex
++	closed    bool
++	closeOnce sync.Once
++	closeErr  error
++}
++
++func (r *privateStreamReader) Size() int64 { return r.size }
++
++func (r *privateStreamReader) Close() error {
++	r.closeOnce.Do(func() {
++		// This reader owns the private pipe. Interrupt it before joining an
++		// active read, including when extraction fails while input is blocked.
++		// Closing private consumption is not a successful verification result:
++		// the fetcher must still verify all bytes, or fail on apply cancellation.
++		if pipe, ok := r.reader.(interface{ CloseWithError(error) error }); ok {
++			r.closeErr = pipe.CloseWithError(errPrivateConsumerFinished)
++		} else {
++			r.closeErr = r.reader.Close()
++		}
++		r.readMu.Lock()
++		r.closed = true
++		r.readMu.Unlock()
++	})
++	return r.closeErr
++}
++
++func (r *privateStreamReader) Read(p []byte) (int, error) {
++	r.readMu.Lock()
++	defer r.readMu.Unlock()
++	if r.closed {
++		return 0, io.ErrClosedPipe
++	}
++	return r.reader.Read(p)
++}
++
++// Reader is the optional streaming fast path consumed by content.NewReader.
++// Preserve the exact descriptor-size bound of its SectionReader fallback.
++func (r *privateStreamReader) Reader() io.Reader {
++	r.mu.Lock()
++	defer r.mu.Unlock()
++	if r.opened {
++		return privateStreamReadError{fmt.Errorf("private stream permits one Reader() consumer: %w", errdefs.ErrNotImplemented)}
++	}
++	r.opened = true
++	return io.LimitReader(r, r.size)
++}
++
++func (*privateStreamReader) ReadAt([]byte, int64) (int, error) {
++	return 0, fmt.Errorf("private sequential stream does not support ReadAt; consumer must use content.NewReader: %w", errdefs.ErrNotImplemented)
++}
++
++type privateStreamReadError struct{ err error }
++
++func (r privateStreamReadError) Read([]byte) (int, error) {
++	return 0, r.err
++}
+diff --git a/engine/server/resolver/streamed_fetch_controls_test.go b/engine/server/resolver/streamed_fetch_controls_test.go
+new file mode 100644
+index 000000000..b1a3fa445
+--- /dev/null
++++ b/engine/server/resolver/streamed_fetch_controls_test.go
+@@ -0,0 +1,166 @@
++package resolver
++
++import (
++	"bytes"
++	"context"
++	"errors"
++	"io"
++	"sync/atomic"
++	"testing"
++
++	"github.com/containerd/containerd/v2/core/content"
++	localcontent "github.com/containerd/containerd/v2/plugins/content/local"
++	"github.com/containerd/errdefs"
++	digest "github.com/opencontainers/go-digest"
++	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
++	"github.com/stretchr/testify/require"
++)
++
++type streamResetIngester struct {
++	content.Ingester
++	commit bool
++	writes atomic.Int64
++}
++
++func (s *streamResetIngester) Writer(ctx context.Context, opts ...content.WriterOpt) (content.Writer, error) {
++	w, err := s.Ingester.Writer(ctx, opts...)
++	if err != nil {
++		return nil, err
++	}
++	return &streamResetWriter{Writer: w, owner: s}, nil
++}
++
++type streamResetWriter struct {
++	content.Writer
++	owner *streamResetIngester
++}
++
++func (w *streamResetWriter) Write(p []byte) (int, error) {
++	w.owner.writes.Add(1)
++	if !w.owner.commit {
++		return 0, content.ErrReset
++	}
++	return w.Writer.Write(p)
++}
++
++func (w *streamResetWriter) Commit(context.Context, int64, digest.Digest, ...content.Opt) error {
++	return content.ErrReset
++}
++
++func TestStreamedFetchResetDoesNotReplayPrivateSnapshot(t *testing.T) {
++	for _, phase := range []string{"write", "commit"} {
++		t.Run(phase, func(t *testing.T) {
++			ctx := streamTestContext(t)
++			store, err := localcontent.NewStore(t.TempDir())
++			require.NoError(t, err)
++			data := bytes.Repeat([]byte("no-private-replay"), 1024)
++			desc := streamTestDescriptor(data)
++			ingester := &streamResetIngester{Ingester: store, commit: phase == "commit"}
++			var applies atomic.Int64
++			result, err := fetchLayerWhileApplying(ctx, ingester, store, streamTestFetcher(data), desc,
++				func(ctx context.Context, p content.Provider) (ocispecs.Descriptor, error) {
++					applies.Add(1)
++					return streamTestConsume(desc)(ctx, p)
++				})
++			require.ErrorContains(t, err, "reset requires a fresh private snapshot")
++			require.False(t, errors.Is(err, content.ErrReset), "must not trigger containerd's transparent replay")
++			require.Empty(t, result.Digest)
++			require.EqualValues(t, 1, applies.Load())
++			require.EqualValues(t, 1, ingester.writes.Load())
++			_, err = store.Info(ctx, desc.Digest)
++			require.True(t, errdefs.IsNotFound(err))
++		})
++	}
++}
++
++func TestStreamedFetchUnsupportedReaderFailsAndJoins(t *testing.T) {
++	for _, mode := range []string{"seek", "repeated-reader"} {
++		t.Run(mode, func(t *testing.T) {
++			ctx := streamTestContext(t)
++			store, err := localcontent.NewStore(t.TempDir())
++			require.NoError(t, err)
++			data := bytes.Repeat([]byte("one-sequential-consumer"), 1024)
++			desc := streamTestDescriptor(data)
++			var joined atomic.Bool
++			result, err := fetchLayerWhileApplying(ctx, store, store, streamTestFetcher(data), desc,
++				func(ctx context.Context, p content.Provider) (ocispecs.Descriptor, error) {
++					defer joined.Store(true)
++					r, err := p.ReaderAt(ctx, desc)
++					if err != nil {
++						return ocispecs.Descriptor{}, err
++					}
++					defer r.Close()
++					if mode == "seek" {
++						_, err = r.ReadAt(make([]byte, 1), 1)
++					} else {
++						_, err = p.ReaderAt(ctx, desc)
++					}
++					return ocispecs.Descriptor{}, err
++				})
++			require.ErrorContains(t, err, "sequential")
++			require.Empty(t, result.Digest)
++			require.True(t, joined.Load())
++		})
++	}
++}
++
++type streamCancelledReader struct {
++	ctx     context.Context
++	entered chan struct{}
++	closed  *atomic.Bool
++}
++
++func (r *streamCancelledReader) Read([]byte) (int, error) {
++	close(r.entered)
++	<-r.ctx.Done()
++	return 0, context.Cause(r.ctx)
++}
++
++func (r *streamCancelledReader) Close() error { r.closed.Store(true); return nil }
++
++func TestStreamedFetchCallerCancellationJoinsBlockedReader(t *testing.T) {
++	deadline := streamTestContext(t)
++	ctx, cancel := context.WithCancelCause(deadline)
++	defer cancel(nil)
++	store, err := localcontent.NewStore(t.TempDir())
++	require.NoError(t, err)
++	entered := make(chan struct{})
++	var fetchClosed, applyJoined atomic.Bool
++	desc := streamTestDescriptor([]byte("caller-cancel"))
++	fetcher := streamedFetchFunc(func(ctx context.Context, _ ocispecs.Descriptor) (io.ReadCloser, error) {
++		return &streamCancelledReader{ctx: ctx, entered: entered, closed: &fetchClosed}, nil
++	})
++	done := make(chan error, 1)
++	go func() {
++		_, err := fetchLayerWhileApplying(ctx, store, store, fetcher, desc,
++			func(ctx context.Context, p content.Provider) (ocispecs.Descriptor, error) {
++				defer applyJoined.Store(true)
++				return streamTestConsume(desc)(ctx, p)
++			})
++		done <- err
++	}()
++	streamTestAwait(t, deadline, entered)
++	sentinel := errors.New("caller cancelled blocked streamed download")
++	cancel(sentinel)
++	select {
++	case err := <-done:
++		require.ErrorIs(t, err, sentinel)
++	case <-deadline.Done():
++		t.Fatal("stream workers did not join after caller cancellation")
++	}
++	require.True(t, fetchClosed.Load())
++	require.True(t, applyJoined.Load())
++}
++
++func TestStreamedFetchExistingWrongDiffReturnsNoDescriptor(t *testing.T) {
++	ctx := streamTestContext(t)
++	store, err := localcontent.NewStore(t.TempDir())
++	require.NoError(t, err)
++	data := []byte("verified-existing-blob")
++	desc := streamTestDescriptor(data)
++	require.NoError(t, content.WriteBlob(ctx, store, desc.Digest.String(), bytes.NewReader(data), desc))
++	desc.Annotations["containerd.io/uncompressed"] = digest.FromString("wrong expected diff").String()
++	result, err := fetchLayerWhileApplying(ctx, store, store, streamTestFetcher(data), desc, streamTestConsume(desc))
++	require.ErrorContains(t, err, "calculated diffID")
++	require.Empty(t, result.Digest, "failed eager fallback fence must not return an applied descriptor")
++}
+diff --git a/engine/server/resolver/streamed_fetch_optional_test.go b/engine/server/resolver/streamed_fetch_optional_test.go
+new file mode 100644
+index 000000000..1f53e3199
+--- /dev/null
++++ b/engine/server/resolver/streamed_fetch_optional_test.go
+@@ -0,0 +1,63 @@
++package resolver
++
++import (
++	"bytes"
++	"context"
++	"io"
++	"sync/atomic"
++	"testing"
++
++	"github.com/containerd/containerd/v2/core/content"
++	"github.com/containerd/errdefs"
++	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
++	"github.com/stretchr/testify/require"
++)
++
++func TestStreamedFetchOptionalReaderContract(t *testing.T) {
++	payload := []byte("one supported bounded streaming reader")
++	reader := &privateStreamReader{reader: io.NopCloser(bytes.NewReader(append(bytes.Clone(payload), []byte("trailing unread bytes")...))), size: int64(len(payload))}
++	_, err := reader.ReadAt(make([]byte, 1), 0)
++	require.True(t, errdefs.IsNotImplemented(err), "even sequential ReadAt is explicitly unsupported")
++	actual, err := io.ReadAll(content.NewReader(reader))
++	require.NoError(t, err, "content.NewReader must select optional Reader(), not its ReadAt fallback")
++	require.Equal(t, payload, actual, "optional Reader must preserve descriptor-size bound")
++	_, err = io.ReadAll(content.NewReader(reader))
++	require.True(t, errdefs.IsNotImplemented(err), "repeat Reader() must not silently share/reset the pipe")
++}
++
++type streamOptionalTrackingProvider struct {
++	content.Provider
++	readerCalls *atomic.Int64
++	readAtCalls *atomic.Int64
++}
++
++func (p streamOptionalTrackingProvider) ReaderAt(ctx context.Context, desc ocispecs.Descriptor) (content.ReaderAt, error) {
++	r, err := p.Provider.ReaderAt(ctx, desc)
++	if err != nil {
++		return nil, err
++	}
++	return streamOptionalTrackingReader{reader: r, readerCalls: p.readerCalls, readAtCalls: p.readAtCalls}, nil
++}
++
++type streamOptionalTrackingReader struct {
++	reader      content.ReaderAt
++	readerCalls *atomic.Int64
++	readAtCalls *atomic.Int64
++}
++
++func (r streamOptionalTrackingReader) Reader() io.Reader {
++	r.readerCalls.Add(1)
++	optional, ok := r.reader.(interface{ Reader() io.Reader })
++	if !ok {
++		return privateStreamReadError{errdefs.ErrNotImplemented}
++	}
++	return optional.Reader()
++}
++
++func (r streamOptionalTrackingReader) ReadAt(p []byte, off int64) (int, error) {
++	r.readAtCalls.Add(1)
++	return r.reader.ReadAt(p, off)
++}
++
++func (r streamOptionalTrackingReader) Size() int64  { return r.reader.Size() }
++func (r streamOptionalTrackingReader) Close() error { return r.reader.Close() }
+diff --git a/engine/server/resolver/streamed_fetch_owned_pipe_test.go b/engine/server/resolver/streamed_fetch_owned_pipe_test.go
+new file mode 100644
+index 000000000..55468bbbd
+--- /dev/null
++++ b/engine/server/resolver/streamed_fetch_owned_pipe_test.go
+@@ -0,0 +1,91 @@
++package resolver
++
++import (
++	"errors"
++	"io"
++	"sync"
++	"sync/atomic"
++	"testing"
++	"time"
++
++	"github.com/containerd/containerd/v2/core/content"
++)
++
++type trackedPrivatePipe struct {
++	*io.PipeReader
++	entered chan struct{}
++	once    sync.Once
++	active  atomic.Bool
++	reads   atomic.Int64
++}
++
++func (p *trackedPrivatePipe) Read(b []byte) (int, error) {
++	p.active.Store(true)
++	defer p.active.Store(false)
++	p.reads.Add(1)
++	p.once.Do(func() { close(p.entered) })
++	return p.PipeReader.Read(b)
++}
++
++func TestStreamedFetchOwnedPipeCloseStopsReads(t *testing.T) {
++	input, writer := io.Pipe()
++	defer input.Close()
++	defer writer.Close()
++	tracked := &trackedPrivatePipe{PipeReader: input, entered: make(chan struct{})}
++	reader := &privateStreamReader{reader: tracked, size: 1024}
++	stream := content.NewReader(reader)
++	readDone := make(chan error, 1)
++	go func() { _, err := stream.Read(make([]byte, 1)); readDone <- err }()
++	<-tracked.entered
++	closeDone := make(chan error, 1)
++	go func() { closeDone <- reader.Close() }()
++	select {
++	case err := <-closeDone:
++		if err != nil {
++			t.Fatal(err)
++		}
++	case <-time.After(time.Second):
++		t.Fatal("Close did not interrupt the owned input read")
++	}
++	if tracked.active.Load() {
++		t.Error("owned source Read still active after Close returned")
++	}
++	select {
++	case err := <-readDone:
++		if !errors.Is(err, io.ErrClosedPipe) {
++			t.Fatalf("interrupted owned read returned %v", err)
++		}
++	case <-time.After(time.Second):
++		t.Fatal("owned input read leaked after Close")
++	}
++	before := tracked.reads.Load()
++	if _, err := stream.Read(make([]byte, 1)); !errors.Is(err, io.ErrClosedPipe) {
++		t.Fatalf("read after Close returned %v", err)
++	}
++	if tracked.reads.Load() != before {
++		t.Fatal("read after Close reached the owned input")
++	}
++	if err := reader.Close(); err != nil {
++		t.Fatal(err)
++	}
++}
++
++func TestStreamedFetchOwnedPipeCloseReleasesWriter(t *testing.T) {
++	input, writer := io.Pipe()
++	defer input.Close()
++	defer writer.Close()
++	reader := &privateStreamReader{reader: input, size: 1024}
++	writeDone := make(chan error, 1)
++	go func() { _, err := writer.Write([]byte("unconsumed bytes")); writeDone <- err }()
++	if err := reader.Close(); err != nil {
++		t.Fatal(err)
++	}
++	select {
++	case err := <-writeDone:
++		if !errors.Is(err, errPrivateConsumerFinished) {
++			t.Fatalf("writer must distinguish private consumption from verification: %v", err)
++		}
++	case <-time.After(time.Second):
++		t.Fatal("owned writer remained blocked after Close")
++	}
++}
+diff --git a/engine/server/resolver/streamed_fetch_test.go b/engine/server/resolver/streamed_fetch_test.go
+new file mode 100644
+index 000000000..aa4f76941
+--- /dev/null
++++ b/engine/server/resolver/streamed_fetch_test.go
+@@ -0,0 +1,274 @@
++package resolver
++
++import (
++	"archive/tar"
++	"bytes"
++	"compress/gzip"
++	"context"
++	"errors"
++	"io"
++	"os"
++	"path/filepath"
++	"sync/atomic"
++	"testing"
++	"time"
++
++	"github.com/containerd/containerd/v2/core/content"
++	"github.com/containerd/containerd/v2/core/diff"
++	"github.com/containerd/containerd/v2/core/diff/apply"
++	"github.com/containerd/containerd/v2/core/mount"
++	"github.com/containerd/containerd/v2/core/remotes"
++	localcontent "github.com/containerd/containerd/v2/plugins/content/local"
++	"github.com/containerd/errdefs"
++	digest "github.com/opencontainers/go-digest"
++	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
++	"github.com/stretchr/testify/require"
++)
++
++type streamedFetchFunc func(context.Context, ocispecs.Descriptor) (io.ReadCloser, error)
++
++func (f streamedFetchFunc) Fetch(ctx context.Context, d ocispecs.Descriptor) (io.ReadCloser, error) {
++	return f(ctx, d)
++}
++
++type streamCommitGate struct {
++	content.Ingester
++	entered chan struct{}
++	allow   chan struct{}
++}
++
++func (g *streamCommitGate) Writer(ctx context.Context, opts ...content.WriterOpt) (content.Writer, error) {
++	w, err := g.Ingester.Writer(ctx, opts...)
++	if err != nil {
++		return nil, err
++	}
++	return &streamCommitGateWriter{Writer: w, gate: g}, nil
++}
++
++type streamCommitGateWriter struct {
++	content.Writer
++	gate *streamCommitGate
++}
++
++func (w *streamCommitGateWriter) Commit(ctx context.Context, size int64, expected digest.Digest, opts ...content.Opt) error {
++	close(w.gate.entered)
++	select {
++	case <-w.gate.allow:
++		return w.Writer.Commit(ctx, size, expected, opts...)
++	case <-ctx.Done():
++		return context.Cause(ctx)
++	}
++}
++
++func streamTestDescriptor(data []byte) ocispecs.Descriptor {
++	return ocispecs.Descriptor{MediaType: ocispecs.MediaTypeImageLayer, Digest: digest.FromBytes(data), Size: int64(len(data)),
++		Annotations: map[string]string{"containerd.io/uncompressed": digest.FromBytes(data).String()}}
++}
++
++func streamTestFetcher(data []byte) remotes.Fetcher {
++	return streamedFetchFunc(func(context.Context, ocispecs.Descriptor) (io.ReadCloser, error) {
++		return io.NopCloser(bytes.NewReader(data)), nil
++	})
++}
++
++func streamTestConsume(desc ocispecs.Descriptor) func(context.Context, content.Provider) (ocispecs.Descriptor, error) {
++	return func(ctx context.Context, provider content.Provider) (ocispecs.Descriptor, error) {
++		r, err := provider.ReaderAt(ctx, desc)
++		if err != nil {
++			return ocispecs.Descriptor{}, err
++		}
++		defer r.Close()
++		h := digest.Canonical.Digester()
++		n, err := io.Copy(h.Hash(), content.NewReader(r))
++		return ocispecs.Descriptor{Digest: h.Digest(), Size: n, MediaType: ocispecs.MediaTypeImageLayer}, err
++	}
++}
++
++func streamTestContext(t *testing.T) context.Context {
++	t.Helper()
++	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
++	t.Cleanup(cancel)
++	return ctx
++}
++
++func streamTestAwait(t *testing.T, ctx context.Context, ch <-chan struct{}) {
++	t.Helper()
++	select {
++	case <-ch:
++	case <-ctx.Done():
++		t.Fatal(context.Cause(ctx))
++	}
++}
++
++func TestStreamedFetchWaitsForExternalCommit(t *testing.T) {
++	ctx := streamTestContext(t)
++	store, err := localcontent.NewStore(t.TempDir())
++	require.NoError(t, err)
++	data := bytes.Repeat([]byte("verified-stream"), 16384)
++	desc := streamTestDescriptor(data)
++	gate := &streamCommitGate{Ingester: store, entered: make(chan struct{}), allow: make(chan struct{})}
++	applied := make(chan struct{})
++	done := make(chan error, 1)
++	go func() {
++		_, err := fetchLayerWhileApplying(ctx, gate, store, streamTestFetcher(data), desc,
++			func(ctx context.Context, p content.Provider) (ocispecs.Descriptor, error) {
++				result, err := streamTestConsume(desc)(ctx, p)
++				close(applied)
++				return result, err
++			})
++		done <- err
++	}()
++	streamTestAwait(t, ctx, applied)
++	streamTestAwait(t, ctx, gate.entered)
++	_, err = store.Info(ctx, desc.Digest)
++	require.True(t, errdefs.IsNotFound(err), "consumer completed before external content commit")
++	select {
++	case err := <-done:
++		t.Fatalf("publication fence returned before content commit: %v", err)
++	default:
++	}
++	close(gate.allow)
++	require.NoError(t, <-done)
++	_, err = store.Info(ctx, desc.Digest)
++	require.NoError(t, err)
++}
++
++func TestStreamedFetchRejectsIntegrityFailures(t *testing.T) {
++	for _, mode := range []string{"compressed-digest", "truncated", "diff-id"} {
++		t.Run(mode, func(t *testing.T) {
++			ctx := streamTestContext(t)
++			store, err := localcontent.NewStore(t.TempDir())
++			require.NoError(t, err)
++			data := bytes.Repeat([]byte("no-unverified-publication"), 1024)
++			desc := streamTestDescriptor(data)
++			payload := bytes.Clone(data)
++			switch mode {
++			case "compressed-digest":
++				desc.Digest = digest.FromString("not the delivered blob")
++			case "truncated":
++				payload = payload[:len(payload)-1]
++			case "diff-id":
++				desc.Annotations["containerd.io/uncompressed"] = digest.FromString("not the applied tar").String()
++			}
++			result, err := fetchLayerWhileApplying(ctx, store, store, streamTestFetcher(payload), desc, streamTestConsume(desc))
++			require.Error(t, err)
++			require.Empty(t, result.Digest, "failed fence must not return a publishable applied descriptor")
++			if mode == "diff-id" {
++				require.ErrorContains(t, err, "calculated diffID")
++			} else {
++				_, err = store.Info(ctx, desc.Digest)
++				require.True(t, errdefs.IsNotFound(err))
++			}
++		})
++	}
++}
++
++func TestStreamedFetchApplyErrorCancelsAndJoinsFetch(t *testing.T) {
++	ctx := streamTestContext(t)
++	store, err := localcontent.NewStore(t.TempDir())
++	require.NoError(t, err)
++	sentinel := errors.New("deliberate private apply failure")
++	var fetchJoined atomic.Bool
++	fetcher := streamedFetchFunc(func(ctx context.Context, _ ocispecs.Descriptor) (io.ReadCloser, error) {
++		defer fetchJoined.Store(true)
++		<-ctx.Done()
++		return nil, context.Cause(ctx)
++	})
++	desc := streamTestDescriptor([]byte("cancel-me"))
++	result, err := fetchLayerWhileApplying(ctx, store, store, fetcher, desc,
++		func(context.Context, content.Provider) (ocispecs.Descriptor, error) {
++			return ocispecs.Descriptor{}, sentinel
++		})
++	require.ErrorIs(t, err, sentinel)
++	require.True(t, fetchJoined.Load())
++	require.Empty(t, result.Digest)
++}
++
++func TestStreamedFetchFetchErrorCancelsAndJoinsApply(t *testing.T) {
++	ctx := streamTestContext(t)
++	store, err := localcontent.NewStore(t.TempDir())
++	require.NoError(t, err)
++	sentinel := errors.New("deliberate fetch failure")
++	var applyJoined atomic.Bool
++	fetcher := streamedFetchFunc(func(context.Context, ocispecs.Descriptor) (io.ReadCloser, error) {
++		return nil, sentinel
++	})
++	desc := streamTestDescriptor([]byte("cancel-me"))
++	_, err = fetchLayerWhileApplying(ctx, store, store, fetcher, desc,
++		func(ctx context.Context, _ content.Provider) (ocispecs.Descriptor, error) {
++			defer applyJoined.Store(true)
++			<-ctx.Done()
++			return ocispecs.Descriptor{}, context.Cause(ctx)
++		})
++	require.ErrorIs(t, err, sentinel)
++	require.True(t, applyJoined.Load())
++}
++
++func TestStreamedFetchExistingAndResumedStayEager(t *testing.T) {
++	for _, mode := range []string{"existing", "resumed"} {
++		t.Run(mode, func(t *testing.T) {
++			ctx := streamTestContext(t)
++			store, err := localcontent.NewStore(t.TempDir())
++			require.NoError(t, err)
++			data := bytes.Repeat([]byte("ordinary-complete-reader"), 1024)
++			desc := streamTestDescriptor(data)
++			if mode == "existing" {
++				require.NoError(t, content.WriteBlob(ctx, store, remotes.MakeRefKey(ctx, desc), bytes.NewReader(data), desc))
++			} else {
++				w, err := store.Writer(ctx, content.WithRef(remotes.MakeRefKey(ctx, desc)), content.WithDescriptor(desc))
++				require.NoError(t, err)
++				_, err = w.Write(data[:len(data)/2])
++				require.NoError(t, err)
++				require.NoError(t, w.Close())
++			}
++			_, err = fetchLayerWhileApplying(ctx, store, store, streamTestFetcher(data), desc,
++				func(ctx context.Context, p content.Provider) (ocispecs.Descriptor, error) {
++					_, err := store.Info(ctx, desc.Digest)
++					if err != nil {
++						return ocispecs.Descriptor{}, err
++					}
++					return streamTestConsume(desc)(ctx, p)
++				})
++			require.NoError(t, err)
++		})
++	}
++}
++
++func TestStreamedFetchStandardGzipApplier(t *testing.T) {
++	ctx := streamTestContext(t)
++	store, err := localcontent.NewStore(t.TempDir())
++	require.NoError(t, err)
++	var raw, compressed bytes.Buffer
++	tw := tar.NewWriter(&raw)
++	text := []byte("the toolchain is complete only after the fence\n")
++	require.NoError(t, tw.WriteHeader(&tar.Header{Name: "toolchain-marker", Mode: 0644, Size: int64(len(text))}))
++	_, err = tw.Write(text)
++	require.NoError(t, err)
++	require.NoError(t, tw.Close())
++	gw := gzip.NewWriter(&compressed)
++	_, err = gw.Write(raw.Bytes())
++	require.NoError(t, err)
++	require.NoError(t, gw.Close())
++	desc := streamTestDescriptor(compressed.Bytes())
++	desc.MediaType = ocispecs.MediaTypeImageLayerGzip
++	desc.Annotations["containerd.io/uncompressed"] = digest.FromBytes(raw.Bytes()).String()
++	root := t.TempDir()
++	// Exercise the actual filesystem applier through an owned bind mount in
++	// the supported privileged integration runner. This does not rely on the
++	// overlay shortcut being enabled outside a user namespace. The separate
++	// real-snapshot fixture covers snapshot-manager ownership and GC.
++	mounts := []mount.Mount{{Type: "bind", Source: root, Options: []string{"rbind", "rw"}}}
++	var readerCalls, readAtCalls atomic.Int64
++	result, err := fetchLayerWhileApplying(ctx, store, store, streamTestFetcher(compressed.Bytes()), desc,
++		func(ctx context.Context, p content.Provider) (ocispecs.Descriptor, error) {
++			p = streamOptionalTrackingProvider{Provider: p, readerCalls: &readerCalls, readAtCalls: &readAtCalls}
++			return apply.NewFileSystemApplier(p).Apply(ctx, desc, mounts, diff.WithSyncFs(false))
++		})
++	require.NoError(t, err)
++	require.Equal(t, digest.FromBytes(raw.Bytes()), result.Digest)
++	actual, err := os.ReadFile(filepath.Join(root, "toolchain-marker"))
++	require.NoError(t, err)
++	require.Equal(t, text, actual)
++	require.EqualValues(t, 1, readerCalls.Load(), "actual stock applier must call optional Reader()")
++	require.Zero(t, readAtCalls.Load(), "actual stock applier must not rely on ReadAt support")
++}
+diff --git a/engine/server/resolver/streamed_fetch_zstd_test.go b/engine/server/resolver/streamed_fetch_zstd_test.go
+new file mode 100644
+index 000000000..ec82decf2
+--- /dev/null
++++ b/engine/server/resolver/streamed_fetch_zstd_test.go
+@@ -0,0 +1,223 @@
++package resolver
++
++import (
++	"bytes"
++	"context"
++	"crypto/rand"
++	"io"
++	"runtime"
++	"sync"
++	"testing"
++	"time"
++
++	"github.com/containerd/containerd/v2/core/content"
++	"github.com/containerd/containerd/v2/core/diff"
++	"github.com/containerd/containerd/v2/core/diff/apply"
++	"github.com/containerd/containerd/v2/core/mount"
++	localcontent "github.com/containerd/containerd/v2/plugins/content/local"
++	"github.com/containerd/errdefs"
++	"github.com/klauspost/compress/zstd"
++	digest "github.com/opencontainers/go-digest"
++	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
++	"github.com/stretchr/testify/require"
++)
++
++// The ordinary asynchronous Zstd decoder must be joined after a tar error,
++// even when its next input read cannot finish. Caller cancellation is only
++// fixture cleanup: it must not be what makes the production call return.
++// Run in the same source-built privileged integration runner as the real
++// snapshot fixtures; no decoder concurrency/implementation override.
++func TestStreamedFetchZstdEarlyError(t *testing.T) {
++	require.Greater(t, runtime.GOMAXPROCS(0), 1, "fixture requires the default asynchronous Zstd decoder; do not override its concurrency")
++	// Keep the caller independent of the 5s join assertion. The shared helper's
++	// own 5s timeout can unblock the implementation and race this failure gate.
++	ctx, cancel := context.WithCancel(t.Context())
++	defer cancel()
++	store, err := localcontent.NewStore(t.TempDir())
++	require.NoError(t, err)
++	// Make the checksum field invalid deterministically; random bytes keep the
++	// remaining input incompressible, with a substantial blocked remainder.
++	raw := make([]byte, 3<<20)
++	_, err = rand.Read(raw)
++	require.NoError(t, err)
++	copy(raw[:16], []byte("invalid tar data"))
++	copy(raw[148:156], []byte("invalid!"))
++	var compressed bytes.Buffer
++	zw, err := zstd.NewWriter(&compressed)
++	require.NoError(t, err)
++	_, err = zw.Write(raw)
++	require.NoError(t, err)
++	require.NoError(t, zw.Close())
++	payload := compressed.Bytes()
++	// One maximum-size Zstd block plus its framing fits in this prefix. The
++	// default async decoder can produce the invalid tar header and enter its
++	// next input read without requiring extraction to consume its output first.
++	const prefixSize = 128*1024 + 128
++	require.Greater(t, len(payload), 2*prefixSize)
++	desc := streamTestDescriptor(payload)
++	desc.MediaType = ocispecs.MediaTypeImageLayerZstd
++	desc.Annotations["containerd.io/uncompressed"] = digest.FromBytes(raw).String()
++	prefixWritten, allowRemainder := make(chan struct{}), make(chan struct{})
++	readBeyondPrefix, mountActivated := make(chan struct{}), make(chan struct{})
++	gates := map[string]<-chan struct{}{
++		"prefix written":             prefixWritten,
++		"read beyond prefix entered": readBeyondPrefix,
++		"mount activated":            mountActivated,
++	}
++	fetcher := streamedFetchFunc(func(ctx context.Context, _ ocispecs.Descriptor) (io.ReadCloser, error) {
++		return &streamZstdEarlyErrorBlob{Reader: bytes.NewReader(payload), data: payload, prefix: prefixSize, ctx: ctx, written: prefixWritten, allow: allowRemainder}, nil
++	})
++	mounts := []mount.Mount{{Type: "bind", Source: t.TempDir(), Options: []string{"rbind", "rw"}}}
++	manager := &streamZstdReadGateMountManager{system: mounts, requested: readBeyondPrefix, activated: mountActivated}
++	done := make(chan error, 1)
++	go func() {
++		result, err := fetchLayerWhileApplying(ctx, store, store, fetcher, desc,
++			func(ctx context.Context, p content.Provider) (ocispecs.Descriptor, error) {
++				p = &streamZstdReadGateProvider{Provider: p, prefix: prefixSize, requested: readBeyondPrefix}
++				// Two input mounts select the ordinary mount-manager path. Its
++				// output is the real single bind mount used for extraction.
++				return apply.NewFileSystemApplierWithMountManager(p, manager).Apply(ctx, desc, []mount.Mount{mounts[0], mounts[0]}, diff.WithSyncFs(false))
++			})
++		if result.Digest != "" {
++			done <- io.ErrNoProgress
++			return
++		}
++		done <- err
++	}()
++	select {
++	case err := <-done:
++		require.NoError(t, ctx.Err(), "caller must remain live")
++		require.ErrorContains(t, err, "invalid tar header")
++		for name, gate := range gates {
++			select {
++			case <-gate:
++			default:
++				t.Fatalf("missing scheduling gate: %s", name)
++			}
++		}
++	case <-time.After(5 * time.Second):
++		var missing []string
++		for name, gate := range gates {
++			select {
++			case <-gate:
++			default:
++				missing = append(missing, name)
++			}
++		}
++		t.Logf("missing scheduling gates before fixture cancellation: %v", missing)
++		stack := make([]byte, 1<<20)
++		t.Logf("blocked stream cleanup before fixture cancellation:\n%s", stack[:runtime.Stack(stack, true)])
++		// Join before local store/mount cleanup, retaining the failure rather
++		// than accepting the successful cancellation as the tested outcome.
++		cancel()
++		select {
++		case <-done:
++		case <-time.After(5 * time.Second):
++			t.Error("stream workers did not join even after fixture cancellation")
++		}
++		if len(missing) > 0 {
++			t.Fatalf("fixture did not reach the blocked decoder schedule: %v", missing)
++		}
++		t.Fatal("early extraction error waited for blocked decoder input")
++	}
++	_, err = store.Info(ctx, desc.Digest)
++	require.True(t, errdefs.IsNotFound(err), "partial failed input must not be committed")
++}
++
++// This fixture owns a smaller exact prefix than the shared real-snapshot
++// fixture. WriterTo prevents content.Copy's buffer from moving the gate.
++type streamZstdEarlyErrorBlob struct {
++	*bytes.Reader
++	data    []byte
++	prefix  int
++	ctx     context.Context
++	written chan struct{}
++	allow   <-chan struct{}
++}
++
++func (*streamZstdEarlyErrorBlob) Close() error { return nil }
++
++func (r *streamZstdEarlyErrorBlob) WriteTo(w io.Writer) (int64, error) {
++	n, err := w.Write(r.data[:r.prefix])
++	if err != nil {
++		return int64(n), err
++	}
++	if n != r.prefix {
++		return int64(n), io.ErrShortWrite
++	}
++	close(r.written)
++	select {
++	case <-r.allow:
++	case <-r.ctx.Done():
++		return int64(n), context.Cause(r.ctx)
++	}
++	m, err := w.Write(r.data[r.prefix:])
++	return int64(n + m), err
++}
++
++type streamZstdReadGateProvider struct {
++	content.Provider
++	prefix    int64
++	requested chan struct{}
++}
++
++func (p *streamZstdReadGateProvider) ReaderAt(ctx context.Context, desc ocispecs.Descriptor) (content.ReaderAt, error) {
++	ra, err := p.Provider.ReaderAt(ctx, desc)
++	if err != nil {
++		return nil, err
++	}
++	return &streamZstdReadGateReaderAt{ReaderAt: ra, prefix: p.prefix, requested: p.requested}, nil
++}
++
++type streamZstdReadGateReaderAt struct {
++	content.ReaderAt
++	prefix    int64
++	requested chan struct{}
++}
++
++func (r *streamZstdReadGateReaderAt) Reader() io.Reader {
++	return &streamZstdReadGateReader{Reader: content.NewReader(r.ReaderAt), prefix: r.prefix, requested: r.requested}
++}
++
++type streamZstdReadGateReader struct {
++	io.Reader
++	prefix    int64
++	read      int64
++	requested chan struct{}
++	once      sync.Once
++}
++
++func (r *streamZstdReadGateReader) Read(p []byte) (int, error) {
++	if len(p) > 0 && r.read >= r.prefix {
++		// This read is unconditional after the signal. Decoder cancellation
++		// cannot skip it: only closing the owned input or releasing the source
++		// can interrupt it. Do not add a context check after signaling.
++		r.once.Do(func() { close(r.requested) })
++	}
++	n, err := r.Reader.Read(p)
++	r.read += int64(n)
++	return n, err
++}
++
++// Delay real filesystem extraction until the standard decoder has consumed
++// every supplied compressed byte and entered its next (blocked) input read.
++// The unused manager methods remain embedded; only Activate/Deactivate are
++// part of fsApplier's lifecycle here.
++type streamZstdReadGateMountManager struct {
++	mount.Manager
++	system    []mount.Mount
++	requested <-chan struct{}
++	activated chan struct{}
++}
++
++func (m *streamZstdReadGateMountManager) Activate(ctx context.Context, id string, _ []mount.Mount, _ ...mount.ActivateOpt) (mount.ActivationInfo, error) {
++	select {
++	case <-m.requested:
++		close(m.activated)
++		return mount.ActivationInfo{Name: id, System: m.system}, nil
++	case <-ctx.Done():
++		return mount.ActivationInfo{}, context.Cause(ctx)
++	}
++}
++
++func (*streamZstdReadGateMountManager) Deactivate(context.Context, string) error { return nil }
+diff --git a/engine/server/resolver/streamed_snapshot_real_linux_test.go b/engine/server/resolver/streamed_snapshot_real_linux_test.go
+new file mode 100644
+index 000000000..45c3ba82d
+--- /dev/null
++++ b/engine/server/resolver/streamed_snapshot_real_linux_test.go
+@@ -0,0 +1,377 @@
++package resolver
++
++import (
++	"archive/tar"
++	"bytes"
++	"compress/gzip"
++	"context"
++	"crypto/rand"
++	"errors"
++	"fmt"
++	"io"
++	"os"
++	"path/filepath"
++	"testing"
++	"time"
++
++	"github.com/containerd/containerd/v2/core/content"
++	"github.com/containerd/containerd/v2/core/diff"
++	"github.com/containerd/containerd/v2/core/diff/apply"
++	"github.com/containerd/containerd/v2/core/leases"
++	"github.com/containerd/containerd/v2/core/metadata"
++	"github.com/containerd/containerd/v2/core/mount"
++	"github.com/containerd/containerd/v2/core/remotes"
++	ctdsnapshots "github.com/containerd/containerd/v2/core/snapshots"
++	"github.com/containerd/containerd/v2/pkg/namespaces"
++	localcontent "github.com/containerd/containerd/v2/plugins/content/local"
++	"github.com/containerd/containerd/v2/plugins/snapshots/native"
++	"github.com/containerd/errdefs"
++	bksnapshots "github.com/dagger/dagger/engine/snapshots"
++	bkcontainerd "github.com/dagger/dagger/engine/snapshots/containerd"
++	"github.com/dagger/dagger/internal/buildkit/util/winlayers"
++	"github.com/klauspost/compress/zstd"
++	digest "github.com/opencontainers/go-digest"
++	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
++	"github.com/stretchr/testify/require"
++	bolt "go.etcd.io/bbolt"
++)
++
++// The shipped igzip 2.32.1 starts with a 1 MiB fread before inflation. Keep
++// enough input available for that ordinary decoder to produce output, while
++// retaining at least as much compressed data behind the remainder gate.
++const streamRealPrefixSize = 1 << 20
++
++// Selected only by the privileged EngineSuite wrapper. No fake snapshotter,
++// mountable, filesystem applier, content store or lease manager is used here.
++// This is a correctness fixture, not a Container.from/Cargo timing benchmark.
++func TestStreamedSnapshotRealPrivate(t *testing.T) {
++	runStreamedSnapshotRealPrivate(t, 2<<20, false)
++}
++
++// Explicitly cross the experimental applier's 8 MiB compressed-descriptor
++// threshold so real private-snapshot ownership/GC runs with its hash worker.
++func TestStreamedSnapshotRealPrivateLarge(t *testing.T) {
++	runStreamedSnapshotRealPrivate(t, 10<<20, false)
++}
++
++func TestStreamedSnapshotRealPrivateZstd(t *testing.T) {
++	runStreamedSnapshotRealPrivate(t, 2<<20, true)
++}
++
++func TestStreamedSnapshotRealPrivateZstdLarge(t *testing.T) {
++	runStreamedSnapshotRealPrivate(t, 10<<20, true)
++}
++
++func runStreamedSnapshotRealPrivate(t *testing.T, payloadSize int, useZstd bool) {
++	outcomes := []string{"success", "compressed-digest", "truncated", "diff-id", "source-label-error", "caller-cancel"}
++	if useZstd {
++		outcomes = append(outcomes, "frame-checksum")
++	}
++	for _, outcome := range outcomes {
++		t.Run(outcome, func(t *testing.T) {
++			ctx, cancel := context.WithTimeout(namespaces.WithNamespace(t.Context(), "streamed-real"), 20*time.Second)
++			defer cancel()
++			ctx, cancelCause := context.WithCancelCause(ctx)
++			defer cancelCause(nil)
++			root := t.TempDir()
++			store, err := localcontent.NewStore(filepath.Join(root, "content"))
++			require.NoError(t, err)
++			nativeSN, err := native.NewSnapshotter(filepath.Join(root, "snapshots"))
++			require.NoError(t, err)
++			t.Cleanup(func() { require.NoError(t, nativeSN.Close()) })
++			boltDB, err := bolt.Open(filepath.Join(root, "metadata.db"), 0600, nil)
++			require.NoError(t, err)
++			t.Cleanup(func() { require.NoError(t, boltDB.Close()) })
++			mdb := metadata.NewDB(boltDB, store, map[string]ctdsnapshots.Snapshotter{"native": nativeSN})
++			require.NoError(t, mdb.Init(ctx))
++			// Match the real engine's namespace-owning adapters. Mount release
++			// deliberately runs without a request context; raw metadata managers
++			// would reject that cleanup rather than exercise engine behavior.
++			lm := bksnapshots.NewLeaseManager(metadata.NewLeaseManager(mdb), "streamed-real")
++			cs := bkcontainerd.NewContentStore(mdb.ContentStore(), "streamed-real")
++			sn := mdb.Snapshotter("native")
++			newApplier := func(p content.Provider) diff.Applier {
++				return winlayers.NewFileSystemApplierWithWindows(p, apply.NewFileSystemApplier(p))
++			}
++			cm, err := bksnapshots.NewSnapshotManager(bksnapshots.SnapshotManagerOpt{
++				Snapshotter:  bkcontainerd.NewSnapshotter("native", sn, "streamed-real"),
++				ContentStore: cs, LeaseManager: lm, Applier: newApplier(cs), StreamingApplier: newApplier,
++				MountPoolRoot: filepath.Join(root, "mountpool"),
++			})
++			require.NoError(t, err)
++			t.Cleanup(func() { require.NoError(t, cm.Close()) })
++			operationCtx, releaseOperation, err := bksnapshots.WithLazyLease(ctx, lm)
++			require.NoError(t, err)
++			defer releaseOperation(context.WithoutCancel(ctx))
++			pull, err := lm.Create(ctx, leases.WithRandomID())
++			require.NoError(t, err)
++			defer func() { _ = lm.Delete(context.WithoutCancel(ctx), pull) }()
++			var raw, compressed bytes.Buffer
++			marker := []byte("real private streamed filesystem output\n")
++			tw := tar.NewWriter(&raw)
++			require.NoError(t, tw.WriteHeader(&tar.Header{Name: "stream-marker", Mode: 0644, Size: int64(len(marker))}))
++			_, err = tw.Write(marker)
++			require.NoError(t, err)
++			// An incompressible suffix makes the prefix gate a genuine partial
++			// transfer, after the marker file but before the layer is complete.
++			filler := make([]byte, payloadSize)
++			_, err = rand.Read(filler)
++			require.NoError(t, err)
++			require.NoError(t, tw.WriteHeader(&tar.Header{Name: "payload", Mode: 0644, Size: int64(len(filler))}))
++			_, err = tw.Write(filler)
++			require.NoError(t, err)
++			require.NoError(t, tw.Close())
++			var zw io.WriteCloser
++			mediaType := ocispecs.MediaTypeImageLayerGzip
++			if useZstd {
++				zw, err = zstd.NewWriter(&compressed)
++				require.NoError(t, err)
++				mediaType = ocispecs.MediaTypeImageLayerZstd
++			} else {
++				zw = gzip.NewWriter(&compressed)
++			}
++			_, err = zw.Write(raw.Bytes())
++			require.NoError(t, err)
++			require.NoError(t, zw.Close())
++			if outcome == "frame-checksum" {
++				// Match the compressed descriptor to the bytes actually served:
++				// this exercises decoder verification, not a transport mismatch.
++				compressed.Bytes()[compressed.Len()-1] ^= 0x80
++			}
++			desc := streamTestDescriptor(compressed.Bytes())
++			desc.MediaType = mediaType
++			desc.Annotations["containerd.io/uncompressed"] = digest.FromBytes(raw.Bytes()).String()
++			if payloadSize >= 8<<20 {
++				require.GreaterOrEqual(t, desc.Size, int64(8<<20), "large fixture must enter the pipelined hashing path")
++				t.Logf("hash-worker boundary: compressed-size=%d threshold=%d", desc.Size, 8<<20)
++			}
++			if outcome == "compressed-digest" {
++				desc.Digest = digest.FromString("wrong compressed layer")
++			}
++			if outcome == "diff-id" {
++				desc.Annotations["containerd.io/uncompressed"] = digest.FromString("wrong diffID").String()
++			}
++			gate := &streamCommitGate{Ingester: cs, entered: make(chan struct{}), allow: make(chan struct{})}
++			gated := outcome == "success" || outcome == "caller-cancel"
++			payload := compressed.Bytes()
++			if outcome == "truncated" {
++				payload = payload[:len(payload)-1]
++			}
++			fetcher := streamTestFetcher(payload)
++			prefixWritten, allowRemainder := make(chan struct{}), make(chan struct{})
++			if gated {
++				require.GreaterOrEqual(t, len(payload)-streamRealPrefixSize, streamRealPrefixSize,
++					"early materialization must leave at least another prefix-sized compressed remainder blocked")
++				t.Logf("partial transfer: prefix=%d remainder=%d compressed-total=%d", streamRealPrefixSize, len(payload)-streamRealPrefixSize, len(payload))
++				fetcher = streamedFetchFunc(func(ctx context.Context, _ ocispecs.Descriptor) (io.ReadCloser, error) {
++					return &streamRealGatedBlob{Reader: bytes.NewReader(payload), data: payload, ctx: ctx, written: prefixWritten, allow: allowRemainder}, nil
++				})
++			}
++			var ingester content.Ingester = cs
++			if gated {
++				ingester = gate
++			}
++			applied := make(chan struct{})
++			type result struct {
++				ref bksnapshots.ImmutableRef
++				err error
++			}
++			done := make(chan result, 1)
++			joined := make(chan struct{})
++			sentinel := errors.New("injected private import failure")
++			go func() {
++				defer close(joined)
++				ref, err := cm.ImportImage(operationCtx, &bksnapshots.ImportedImage{Layers: []ocispecs.Descriptor{desc}}, bksnapshots.ImportImageOpts{
++					FetchLayer: func(context.Context, ocispecs.Descriptor) error {
++						return errors.New("streamed miss must not use eager fetch")
++					},
++					FetchLayerWhileApplying: func(importCtx context.Context, d ocispecs.Descriptor, applyPrivate func(context.Context, content.Provider) (ocispecs.Descriptor, error)) (ocispecs.Descriptor, error) {
++						actual, err := fetchLayerWhileApplying(leases.WithLease(importCtx, pull.ID), ingester, cs, fetcher, d,
++							func(ctx context.Context, p content.Provider) (ocispecs.Descriptor, error) {
++								actual, err := applyPrivate(ctx, p)
++								if err == nil {
++									close(applied)
++								}
++								return actual, err
++							})
++						if err == nil && outcome == "source-label-error" {
++							return ocispecs.Descriptor{}, sentinel
++						}
++						return actual, err
++					},
++				})
++				done <- result{ref, err}
++			}()
++			t.Cleanup(func() {
++				cancelCause(nil)
++				select {
++				case <-joined:
++				case <-time.After(5 * time.Second):
++					t.Error("real import worker did not join before fixture cleanup")
++				}
++			})
++			var privateID string
++			if gated {
++				streamTestAwait(t, ctx, prefixWritten)
++				_, err := cs.Info(ctx, desc.Digest)
++				require.True(t, errdefs.IsNotFound(err), "partial-stream application must not publish committed content")
++				status, err := cs.Status(ctx, remotes.MakeRefKey(ctx, desc))
++				require.NoError(t, err)
++				require.EqualValues(t, streamRealPrefixSize, status.Offset, "only the prefix may have entered the real writer")
++				require.NoError(t, sn.Walk(ctx, func(_ context.Context, info ctdsnapshots.Info) error {
++					require.Equal(t, ctdsnapshots.KindActive, info.Kind, "no committed snapshot before content verification")
++					privateID = info.Name
++					return nil
++				}))
++				require.NotEmpty(t, privateID)
++				mounts, err := sn.Mounts(ctx, privateID)
++				require.NoError(t, err)
++				require.NoError(t, mount.WithTempMount(ctx, mounts, func(root string) error {
++					// Consuming the compressed prefix only proves handoff to the
++					// decompressor, which may use an asynchronous external process.
++					// Wait for actual mounted file content while the remaining
++					// compressed bytes stay blocked. Timeout does not open the gate.
++					waitCtx, stop := context.WithTimeout(ctx, 5*time.Second)
++					defer stop()
++					ticker := time.NewTicker(10 * time.Millisecond)
++					defer ticker.Stop()
++					var lastErr error
++					for {
++						data, err := os.ReadFile(filepath.Join(root, "stream-marker"))
++						if err == nil && bytes.Equal(data, marker) {
++							return nil
++						}
++						if err != nil && !os.IsNotExist(err) {
++							return err
++						}
++						lastErr = err
++						if err == nil {
++							lastErr = fmt.Errorf("incomplete marker: read %d bytes, want %d", len(data), len(marker))
++						}
++						select {
++						case got := <-done:
++							return fmt.Errorf("import completed before the gated mounted marker (ref=%t, error=%v)", got.ref != nil, got.err)
++						case <-waitCtx.Done():
++							return fmt.Errorf("mounted marker unavailable while remainder is blocked: %w", errors.Join(context.Cause(waitCtx), lastErr))
++						case <-ticker.C:
++						}
++					}
++				}))
++				_, err = mdb.GarbageCollect(ctx)
++				require.NoError(t, err)
++				_, err = sn.Stat(ctx, privateID)
++				require.NoError(t, err, "GC must retain genuinely applied private snapshot")
++				select {
++				case got := <-done:
++					t.Fatalf("import returned before content commit: %+v", got)
++				default:
++				}
++				if outcome == "caller-cancel" {
++					cancelCause(sentinel)
++				} else {
++					select {
++					case <-applied:
++						t.Fatal("applier finished before the rest of the compressed layer arrived")
++					default:
++					}
++					close(allowRemainder)
++					streamTestAwait(t, ctx, applied)
++					streamTestAwait(t, ctx, gate.entered)
++					_, err = cs.Info(ctx, desc.Digest)
++					require.True(t, errdefs.IsNotFound(err), "complete real application still must wait for external blob commit")
++					close(gate.allow)
++				}
++			}
++			var got result
++			select {
++			case got = <-done:
++			case <-time.After(5 * time.Second):
++				t.Fatal("real streamed workers failed to join")
++			}
++			checkCtx := context.WithoutCancel(ctx)
++			var resultID string
++			if outcome == "success" {
++				require.NoError(t, got.err)
++				require.NotNil(t, got.ref)
++				resultID = got.ref.SnapshotID()
++				require.NoError(t, cm.AttachLease(checkCtx, "streamed-real-owner", resultID))
++				mountable, err := got.ref.Mount(checkCtx, true)
++				require.NoError(t, err)
++				mounts, release, err := mountable.Mount()
++				require.NoError(t, err)
++				require.NoError(t, mount.WithTempMount(checkCtx, mounts, func(root string) error {
++					data, err := os.ReadFile(filepath.Join(root, "stream-marker"))
++					if err != nil {
++						return err
++					}
++					require.Equal(t, marker, data)
++					return nil
++				}))
++				require.NoError(t, release())
++				require.NoError(t, got.ref.Release(checkCtx))
++			} else {
++				require.Error(t, got.err)
++				require.Nil(t, got.ref)
++				if outcome == "caller-cancel" || outcome == "source-label-error" {
++					require.ErrorIs(t, got.err, sentinel)
++				}
++				if outcome == "diff-id" {
++					require.ErrorContains(t, got.err, "calculated diffID")
++				}
++				if outcome == "frame-checksum" {
++					require.ErrorIs(t, got.err, zstd.ErrCRCMismatch)
++				}
++				require.NoError(t, sn.Walk(checkCtx, func(_ context.Context, info ctdsnapshots.Info) error {
++					require.NotEqual(t, ctdsnapshots.KindCommitted, info.Kind, "failed verification must not commit real snapshot")
++					return nil
++				}))
++			}
++			require.NoError(t, releaseOperation(checkCtx))
++			require.NoError(t, lm.Delete(checkCtx, pull))
++			_, err = mdb.GarbageCollect(checkCtx)
++			require.NoError(t, err)
++			if outcome == "success" {
++				_, err = sn.Stat(checkCtx, resultID)
++				require.NoError(t, err, "normal result owner must retain real snapshot")
++				_, err = cs.Info(checkCtx, desc.Digest)
++				require.NoError(t, err)
++				require.NoError(t, cm.RemoveLease(checkCtx, "streamed-real-owner"))
++				_, err = mdb.GarbageCollect(checkCtx)
++				require.NoError(t, err)
++			}
++			var remaining int
++			require.NoError(t, sn.Walk(checkCtx, func(context.Context, ctdsnapshots.Info) error { remaining++; return nil }))
++			require.Zero(t, remaining, "normal GC must reclaim real snapshot state after all owners release")
++			_, err = cs.Info(checkCtx, desc.Digest)
++			require.True(t, errdefs.IsNotFound(err))
++		})
++	}
++}
++
++// WriterTo is intentionally supported by containerd.content.Copy: it lets this
++// fixture stop after a known compressed prefix without its normal 1 MiB buffer
++// moving the synchronization point. Every byte still enters the real writer.
++type streamRealGatedBlob struct {
++	*bytes.Reader
++	data    []byte
++	ctx     context.Context
++	written chan struct{}
++	allow   chan struct{}
++}
++
++func (r *streamRealGatedBlob) Close() error { return nil }
++
++func (r *streamRealGatedBlob) WriteTo(w io.Writer) (int64, error) {
++	n, err := w.Write(r.data[:streamRealPrefixSize])
++	if err != nil {
++		return int64(n), err
++	}
++	close(r.written)
++	select {
++	case <-r.allow:
++	case <-r.ctx.Done():
++		return int64(n), context.Cause(r.ctx)
++	}
++	m, err := w.Write(r.data[streamRealPrefixSize:])
++	return int64(n + m), err
++}
+diff --git a/engine/server/server.go b/engine/server/server.go
+index 85b45e114..1cd2b9c93 100644
+--- a/engine/server/server.go
++++ b/engine/server/server.go
+@@ -18,6 +18,7 @@ import (
+ 	"time"
+ 
+ 	"github.com/containerd/containerd/v2/core/content"
++	"github.com/containerd/containerd/v2/core/diff"
+ 	"github.com/containerd/containerd/v2/core/diff/apply"
+ 	ctdmetadata "github.com/containerd/containerd/v2/core/metadata"
+ 	"github.com/containerd/containerd/v2/core/remotes/docker"
+@@ -593,10 +594,13 @@ func (srv *Server) initLocalCacheStateOnce(ctx context.Context, cfg config.Confi
+ 
+ 	workerGCPolicies := getDagqlGCPolicy(cfg, ociCfg.GCConfig, srv.rootDir)
+ 	srv.workerCache, err = bkcache.NewSnapshotManager(bkcache.SnapshotManagerOpt{
+-		Snapshotter:   workerSnapshotter,
+-		ContentStore:  srv.contentStore,
+-		LeaseManager:  srv.leaseManager,
+-		Applier:       winlayers.NewFileSystemApplierWithWindows(srv.contentStore, apply.NewFileSystemApplier(srv.contentStore)),
++		Snapshotter:  workerSnapshotter,
++		ContentStore: srv.contentStore,
++		LeaseManager: srv.leaseManager,
++		Applier:      winlayers.NewFileSystemApplierWithWindows(srv.contentStore, apply.NewFileSystemApplier(srv.contentStore)),
++		StreamingApplier: func(provider content.Provider) diff.Applier {
++			return winlayers.NewFileSystemApplierWithWindows(provider, apply.NewFileSystemApplier(provider))
++		},
+ 		Differ:        winlayers.NewWalkingDiffWithWindows(srv.contentStore, walking.NewWalkingDiff(srv.contentStore)),
+ 		MountPoolRoot: srv.buildkitMountPoolDir,
+ 	})
+diff --git a/engine/snapshots/manager.go b/engine/snapshots/manager.go
+index cd0911f35..9ef590155 100644
+--- a/engine/snapshots/manager.go
++++ b/engine/snapshots/manager.go
+@@ -27,12 +27,15 @@ var (
+ )
+ 
+ type SnapshotManagerOpt struct {
+-	Snapshotter   Snapshotter
+-	ContentStore  content.Store
+-	LeaseManager  leases.Manager
+-	Applier       diff.Applier
+-	Differ        diff.Comparer
+-	MountPoolRoot string
++	Snapshotter  Snapshotter
++	ContentStore content.Store
++	LeaseManager leases.Manager
++	Applier      diff.Applier
++	// StreamingApplier constructs the same applier over a private sequential
++	// provider. Nil keeps image imports on complete verified blobs only.
++	StreamingApplier func(content.Provider) diff.Applier
++	Differ           diff.Comparer
++	MountPoolRoot    string
+ }
+ 
+ type ImportedImage struct {
+@@ -46,6 +49,18 @@ type ImportedImage struct {
+ type ImportImageOpts struct {
+ 	ImageRef   string
+ 	RecordType client.UsageRecordType
++
++	// FetchLayer, when set, commits each complete verified layer to the content
++	// store. Fetches run concurrently; layers are applied in manifest order.
++	// ImportImage joins all fetches before returning, including on failure.
++	FetchLayer func(context.Context, ocispecs.Descriptor) error
++
++	// FetchLayerWhileApplying is transient session state. Its callback may only
++	// mutate the supplied private, uncommitted snapshot; success must mean full
++	// compressed verification/commit, calculated diffID verification, and source
++	// labeling all completed. ImportImage never retains this callback.
++	FetchLayerWhileApplying func(context.Context, ocispecs.Descriptor, func(context.Context, content.Provider) (ocispecs.Descriptor, error)) (ocispecs.Descriptor, error)
++	streamLayerDigest       digest.Digest
+ }
+ 
+ type Accessor interface {
+@@ -81,15 +96,16 @@ type SnapshotRecordMetadata struct {
+ }
+ 
+ type snapshotManager struct {
+-	records       map[string]*cacheRecord
+-	mu            sync.Mutex
+-	scratchMu     sync.Mutex
+-	Snapshotter   MergeSnapshotter
+-	ContentStore  content.Store
+-	LeaseManager  leases.Manager
+-	Applier       diff.Applier
+-	Differ        diff.Comparer
+-	metadataStore *metadataStore
++	records          map[string]*cacheRecord
++	mu               sync.Mutex
++	scratchMu        sync.Mutex
++	Snapshotter      MergeSnapshotter
++	ContentStore     content.Store
++	LeaseManager     leases.Manager
++	Applier          diff.Applier
++	StreamingApplier func(content.Provider) diff.Applier
++	Differ           diff.Comparer
++	metadataStore    *metadataStore
+ 
+ 	snapshotContentDigests map[string]map[digest.Digest]struct{}
+ 	importedLayerByBlob    map[ImportedLayerBlobKey]string
+@@ -107,6 +123,7 @@ func NewSnapshotManager(opt SnapshotManagerOpt) (SnapshotManager, error) {
+ 		ContentStore:           opt.ContentStore,
+ 		LeaseManager:           opt.LeaseManager,
+ 		Applier:                opt.Applier,
++		StreamingApplier:       opt.StreamingApplier,
+ 		Differ:                 opt.Differ,
+ 		metadataStore:          newMetadataStore(),
+ 		records:                make(map[string]*cacheRecord),
+diff --git a/engine/snapshots/pipelined_apply_compressed_test.go b/engine/snapshots/pipelined_apply_compressed_test.go
+new file mode 100644
+index 000000000..913186495
+--- /dev/null
++++ b/engine/snapshots/pipelined_apply_compressed_test.go
+@@ -0,0 +1,63 @@
++//go:build linux
++
++package snapshots
++
++import (
++	"context"
++	"os"
++	"path/filepath"
++	"testing"
++	"time"
++)
++
++// Exercise cleanup while a compressed stream and hash worker are both active.
++// These use the same progress-enabled public applier as the normal engine path.
++// Errors from external decompressors need not preserve the input error type;
++// they must fail without publishing a success descriptor or leaving hash work.
++func TestPipelinedApplyCompressedFailureAndCancellation(t *testing.T) {
++	raw := hashApplyTar(t, hashApplyPayload(9*1024*1024), false)
++	for _, codec := range []string{"gzip", "zstd"} {
++		t.Run(codec, func(t *testing.T) {
++			data, media := hashApplyEncode(t, raw, codec)
++			if len(data) < hashPipelineThreshold {
++				t.Fatal("compressed fixture must activate the pipeline")
++			}
++			for _, c := range []struct {
++				name             string
++				failAt, cancelAt int64
++			}{
++				{"read-error-full", 1024 * 1024, -1},
++				{"read-error-partial", 1024*1024 + 37, -1},
++				{"cancel-full", -1, 1024 * 1024},
++				{"cancel-partial", -1, 1024*1024 + 37},
++			} {
++				t.Run(c.name, func(t *testing.T) {
++					ctx, cancel := context.WithCancel(context.Background())
++					defer cancel()
++					provider := hashApplyProvider{failAt: c.failAt, cancelAt: c.cancelAt}
++					if c.cancelAt >= 0 {
++						provider.cancel = cancel
++					}
++					start := time.Now()
++					got, err, root := hashApply(t, ctx, data, media, provider)
++					elapsed := time.Since(start)
++					if err == nil || got.Digest != "" || got.Size != 0 || got.MediaType != "" {
++						t.Fatalf("error returned success descriptor: %+v %v", got, err)
++					}
++					if c.cancelAt >= 0 && ctx.Err() != context.Canceled {
++						t.Fatalf("fixture did not trigger cancellation: %v", ctx.Err())
++					}
++					info, statErr := os.Stat(filepath.Join(root, "payload"))
++					if statErr != nil || info.Size() == 0 {
++						t.Fatalf("fixture failed before extraction started: %v", statErr)
++					}
++					if elapsed > 3*time.Second {
++						t.Fatalf("error cleanup exceeded bound: %s", elapsed)
++					}
++					assertHashWorkersJoined(t)
++					t.Logf("failed after extracting %d bytes in %s: %v", info.Size(), elapsed, err)
++				})
++			}
++		})
++	}
++}
+diff --git a/engine/snapshots/pipelined_apply_test.go b/engine/snapshots/pipelined_apply_test.go
+new file mode 100644
+index 000000000..15cd55ffa
+--- /dev/null
++++ b/engine/snapshots/pipelined_apply_test.go
+@@ -0,0 +1,306 @@
++//go:build linux
++
++package snapshots
++
++import (
++	"archive/tar"
++	"bytes"
++	"compress/gzip"
++	"context"
++	"crypto/sha256"
++	"errors"
++	"fmt"
++	"io"
++	"math/rand"
++	"os"
++	"path/filepath"
++	"runtime"
++	"strings"
++	"sync"
++	"testing"
++	"time"
++
++	"github.com/containerd/containerd/v2/core/content"
++	"github.com/containerd/containerd/v2/core/diff"
++	"github.com/containerd/containerd/v2/core/diff/apply"
++	"github.com/containerd/containerd/v2/core/mount"
++	"github.com/klauspost/compress/zstd"
++	digest "github.com/opencontainers/go-digest"
++	oci "github.com/opencontainers/image-spec/specs-go/v1"
++	"golang.org/x/sys/unix"
++)
++
++const hashPipelineThreshold = 8 * 1024 * 1024
++
++type hashApplyProvider struct {
++	data     []byte
++	failAt   int64
++	cancelAt int64
++	cancel   context.CancelFunc
++}
++
++type hashApplyReader struct {
++	*bytes.Reader
++	failAt, cancelAt int64
++	cancel           context.CancelFunc
++	once             sync.Once
++}
++
++var errHashApplyRead = errors.New("injected content read failure")
++
++func (p hashApplyProvider) ReaderAt(context.Context, oci.Descriptor) (content.ReaderAt, error) {
++	return &hashApplyReader{Reader: bytes.NewReader(p.data), failAt: p.failAt, cancelAt: p.cancelAt, cancel: p.cancel}, nil
++}
++func (r *hashApplyReader) Close() error { return nil }
++func (r *hashApplyReader) ReadAt(b []byte, off int64) (int, error) {
++	if r.failAt >= 0 && off >= r.failAt {
++		return 0, errHashApplyRead
++	}
++	injected := r.failAt >= 0 && int64(len(b)) > r.failAt-off
++	if injected {
++		b = b[:r.failAt-off]
++	}
++	n, err := r.Reader.ReadAt(b, off)
++	if r.cancel != nil && off+int64(n) >= r.cancelAt {
++		r.once.Do(r.cancel)
++	}
++	if injected {
++		return n, errHashApplyRead
++	}
++	return n, err
++}
++
++func hashApplyPayload(n int) []byte {
++	b := make([]byte, n)
++	_, _ = rand.New(rand.NewSource(712)).Read(b)
++	return b
++}
++
++func hashApplyTar(t *testing.T, payload []byte, metadata bool) []byte {
++	t.Helper()
++	var b bytes.Buffer
++	w := tar.NewWriter(&b)
++	h := &tar.Header{Name: "payload", Mode: 0o640, Uid: os.Getuid(), Gid: os.Getgid(), Size: int64(len(payload)), ModTime: time.Unix(123456789, 0)}
++	if metadata {
++		h.PAXRecords = map[string]string{"SCHILY.xattr.user.pipeline-test": "retained"}
++	}
++	if err := w.WriteHeader(h); err != nil {
++		t.Fatal(err)
++	}
++	if _, err := w.Write(payload); err != nil {
++		t.Fatal(err)
++	}
++	if metadata {
++		for _, h := range []*tar.Header{
++			{Name: "symbolic", Typeflag: tar.TypeSymlink, Linkname: "payload", Mode: 0o777, Uid: os.Getuid(), Gid: os.Getgid(), ModTime: time.Unix(123456789, 0)},
++			{Name: "hard", Typeflag: tar.TypeLink, Linkname: "payload", Mode: 0o640, Uid: os.Getuid(), Gid: os.Getgid(), ModTime: time.Unix(123456789, 0)},
++		} {
++			if err := w.WriteHeader(h); err != nil {
++				t.Fatal(err)
++			}
++		}
++	}
++	if err := w.Close(); err != nil {
++		t.Fatal(err)
++	}
++	return b.Bytes()
++}
++
++func hashApplyEncode(t *testing.T, raw []byte, codec string) ([]byte, string) {
++	t.Helper()
++	switch codec {
++	case "raw":
++		return raw, oci.MediaTypeImageLayer
++	case "gzip":
++		var b bytes.Buffer
++		w, err := gzip.NewWriterLevel(&b, gzip.BestSpeed)
++		if err != nil {
++			t.Fatal(err)
++		}
++		if _, err = w.Write(raw); err != nil {
++			t.Fatal(err)
++		}
++		if err = w.Close(); err != nil {
++			t.Fatal(err)
++		}
++		return b.Bytes(), oci.MediaTypeImageLayerGzip
++	case "zstd":
++		w, err := zstd.NewWriter(nil, zstd.WithEncoderConcurrency(1), zstd.WithEncoderLevel(zstd.SpeedFastest))
++		if err != nil {
++			t.Fatal(err)
++		}
++		defer w.Close()
++		return w.EncodeAll(raw, nil), oci.MediaTypeImageLayerZstd
++	default:
++		t.Fatalf("unknown codec %s", codec)
++		return nil, ""
++	}
++}
++
++func hashApply(t *testing.T, ctx context.Context, data []byte, media string, p hashApplyProvider) (oci.Descriptor, error, string) {
++	t.Helper()
++	root := t.TempDir()
++	p.data = data
++	d := oci.Descriptor{MediaType: media, Digest: digest.FromBytes(data), Size: int64(len(data))}
++	got, err := apply.NewFileSystemApplier(p).Apply(ctx, d,
++		[]mount.Mount{{Type: "overlay", Options: []string{"upperdir=" + root}}},
++		diff.WithProgress(func(_ oci.Descriptor, n int64) {
++			if n < 0 || n > d.Size {
++				t.Errorf("invalid progress %d", n)
++			}
++		}))
++	return got, err, root
++}
++
++func assertHashApply(t *testing.T, got oci.Descriptor, err error, raw, payload []byte, root string, metadata bool) {
++	t.Helper()
++	if err != nil {
++		t.Fatal(err)
++	}
++	if got.Size != int64(len(raw)) || got.Digest != digest.FromBytes(raw) || got.MediaType != oci.MediaTypeImageLayer {
++		t.Fatalf("wrong result: %+v", got)
++	}
++	contents, err := os.ReadFile(filepath.Join(root, "payload"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	if sha256.Sum256(contents) != sha256.Sum256(payload) {
++		t.Fatal("payload changed")
++	}
++	info, err := os.Stat(filepath.Join(root, "payload"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	if info.Mode().Perm() != 0o640 || info.ModTime().Unix() != 123456789 {
++		t.Fatalf("file metadata changed: %v", info)
++	}
++	if metadata {
++		target, err := os.Readlink(filepath.Join(root, "symbolic"))
++		if err != nil || target != "payload" {
++			t.Fatalf("symlink %q %v", target, err)
++		}
++		alias, err := os.Stat(filepath.Join(root, "hard"))
++		if err != nil || !os.SameFile(info, alias) {
++			t.Fatalf("hardlink changed: %v", err)
++		}
++		b := make([]byte, 32)
++		n, err := unix.Getxattr(filepath.Join(root, "payload"), "user.pipeline-test", b)
++		if err != nil || string(b[:max(0, n)]) != "retained" {
++			t.Fatalf("xattr changed: %v", err)
++		}
++	}
++}
++
++func assertHashWorkersJoined(t *testing.T) {
++	t.Helper()
++	deadline := time.Now().Add(time.Second)
++	for {
++		buf := make([]byte, 512*1024)
++		n := runtime.Stack(buf, true)
++		if n == len(buf) {
++			t.Fatal("goroutine observation truncated")
++		}
++		if !strings.Contains(string(buf[:n]), "apply.newPipelinedHash.func") {
++			return
++		}
++		if time.Now().After(deadline) {
++			t.Fatal("hash worker remains after Apply returned")
++		}
++		time.Sleep(time.Millisecond)
++	}
++}
++
++func TestPipelinedApplyThresholdAndCodecs(t *testing.T) {
++	for _, delta := range []int{-512, 0, 512} {
++		t.Run(fmt.Sprintf("threshold%+d", delta), func(t *testing.T) {
++			payload := hashApplyPayload(hashPipelineThreshold - 1536 + delta)
++			raw := hashApplyTar(t, payload, false)
++			if len(raw) != hashPipelineThreshold+delta {
++				t.Fatalf("wrong threshold fixture: %d", len(raw))
++			}
++			got, err, root := hashApply(t, context.Background(), raw, oci.MediaTypeImageLayer, hashApplyProvider{failAt: -1, cancelAt: -1})
++			assertHashApply(t, got, err, raw, payload, root, false)
++			assertHashWorkersJoined(t)
++		})
++	}
++	payload := hashApplyPayload(9 * 1024 * 1024)
++	raw := append(hashApplyTar(t, payload, true), []byte("trailing tar data remains in diffID")...)
++	for _, codec := range []string{"raw", "gzip", "zstd"} {
++		t.Run(codec, func(t *testing.T) {
++			data, media := hashApplyEncode(t, raw, codec)
++			if len(data) < hashPipelineThreshold {
++				t.Fatal("fixture failed to activate pipelining")
++			}
++			got, err, root := hashApply(t, context.Background(), data, media, hashApplyProvider{failAt: -1, cancelAt: -1})
++			assertHashApply(t, got, err, raw, payload, root, true)
++			assertHashWorkersJoined(t)
++		})
++	}
++}
++
++func TestPipelinedApplyFailureAndCancellation(t *testing.T) {
++	raw := hashApplyTar(t, hashApplyPayload(9*1024*1024), false)
++	gz, media := hashApplyEncode(t, raw, "gzip")
++	badCRC := bytes.Clone(gz)
++	badCRC[len(badCRC)-8] ^= 1
++	badTar := append(bytes.Clone(raw[:len(raw)-1024]), bytes.Repeat([]byte{'X'}, 512)...)
++	cases := []struct {
++		name             string
++		data             []byte
++		media            string
++		failAt, cancelAt int64
++	}{
++		{"truncated-tar", raw[:len(raw)-4096], oci.MediaTypeImageLayer, -1, -1},
++		{"invalid-next-header", badTar, oci.MediaTypeImageLayer, -1, -1},
++		{"gzip-crc", badCRC, media, -1, -1},
++		{"read-error", raw, oci.MediaTypeImageLayer, 1024 * 1024, -1},
++		{"cancel-full", raw, oci.MediaTypeImageLayer, -1, 1024 * 1024},
++		{"cancel-partial", raw, oci.MediaTypeImageLayer, -1, 1024*1024 + 37},
++	}
++	for _, c := range cases {
++		t.Run(c.name, func(t *testing.T) {
++			if len(c.data) < hashPipelineThreshold {
++				t.Fatal("error fixture must activate pipeline")
++			}
++			ctx, cancel := context.WithCancel(context.Background())
++			defer cancel()
++			p := hashApplyProvider{failAt: c.failAt, cancelAt: c.cancelAt}
++			if c.cancelAt >= 0 {
++				p.cancel = cancel
++			}
++			start := time.Now()
++			got, err, _ := hashApply(t, ctx, c.data, c.media, p)
++			if err == nil || got.Digest != "" || got.Size != 0 || got.MediaType != "" {
++				t.Fatalf("error returned success descriptor: %+v %v", got, err)
++			}
++			if c.cancelAt >= 0 && !errors.Is(err, context.Canceled) {
++				t.Fatalf("lost cancellation: %v", err)
++			}
++			if c.failAt >= 0 && !errors.Is(err, errHashApplyRead) {
++				t.Fatalf("lost read error: %v", err)
++			}
++			if time.Since(start) > 3*time.Second {
++				t.Fatal("error cleanup exceeded bound")
++			}
++			assertHashWorkersJoined(t)
++		})
++	}
++}
++
++func TestPipelinedApplyConcurrent(t *testing.T) {
++	payload := hashApplyPayload(9 * 1024 * 1024)
++	raw := hashApplyTar(t, payload, false)
++	var wg sync.WaitGroup
++	for range 4 {
++		wg.Add(1)
++		go func() {
++			defer wg.Done()
++			got, err, root := hashApply(t, context.Background(), raw, oci.MediaTypeImageLayer, hashApplyProvider{failAt: -1, cancelAt: -1})
++			assertHashApply(t, got, err, raw, payload, root, false)
++		}()
++	}
++	wg.Wait()
++	assertHashWorkersJoined(t)
++}
++
++var _ io.ReaderAt = (*hashApplyReader)(nil)
+diff --git a/engine/snapshots/pull.go b/engine/snapshots/pull.go
+index 6af325e7f..f43a6255d 100644
+--- a/engine/snapshots/pull.go
++++ b/engine/snapshots/pull.go
+@@ -4,6 +4,7 @@ import (
+ 	"context"
+ 	"fmt"
+ 
++	"github.com/containerd/containerd/v2/core/content"
+ 	"github.com/containerd/containerd/v2/core/diff"
+ 	"github.com/containerd/containerd/v2/core/leases"
+ 	cerrdefs "github.com/containerd/errdefs"
+@@ -19,11 +20,15 @@ func importedLayerDiffLockKey(parentSnapshotID string, diffID digest.Digest) str
+ 	return parentSnapshotID + "\x00" + diffID.String()
+ }
+ 
+-func (cm *snapshotManager) ImportImage(
++func (cm *snapshotManager) importImage(
+ 	ctx context.Context,
+ 	img *ImportedImage,
+ 	opts ImportImageOpts,
+-) (current ImmutableRef, rerr error) {
++	waitForLayer func(context.Context, ocispecs.Descriptor) error,
++) (_ ImmutableRef, rerr error) {
++	// Keep cleanup ownership separate from the named return value: returning
++	// nil on a later-layer failure must still release the completed parent.
++	var current ImmutableRef
+ 	if img == nil {
+ 		return nil, errors.New("import image: nil image")
+ 	}
+@@ -49,7 +54,16 @@ func (cm *snapshotManager) ImportImage(
+ 	}()
+ 
+ 	for _, layer := range img.Layers {
+-		next, err := cm.importImageLayer(ctx, layer, current, opts)
++		if waitForLayer != nil {
++			if err := waitForLayer(ctx, layer); err != nil {
++				return nil, err
++			}
++		}
++		layerOpts := opts
++		if layer.Digest != opts.streamLayerDigest {
++			layerOpts.FetchLayerWhileApplying = nil
++		}
++		next, err := cm.importImageLayer(ctx, layer, current, layerOpts)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+@@ -158,6 +172,12 @@ func (cm *snapshotManager) importImageLayer(
+ 		cm.mu.Unlock()
+ 		if ok {
+ 			ref, err := cm.GetBySnapshotID(ctx, existingSnapshotID, NoUpdateLastUsed)
++			if err == nil {
++				err = cm.pinImportedImageSnapshot(ctx, existingSnapshotID)
++				if err != nil {
++					_ = ref.Release(context.WithoutCancel(ctx))
++				}
++			}
+ 			if err == nil {
+ 				imported, ok := ref.(*immutableRef)
+ 				if !ok {
+@@ -192,6 +212,12 @@ func (cm *snapshotManager) importImageLayer(
+ 	cm.mu.Unlock()
+ 	if ok {
+ 		ref, err := cm.GetBySnapshotID(ctx, existingSnapshotID, NoUpdateLastUsed)
++		if err == nil {
++			err = cm.pinImportedImageSnapshot(ctx, existingSnapshotID)
++			if err != nil {
++				_ = ref.Release(context.WithoutCancel(ctx))
++			}
++		}
+ 		if err == nil {
+ 			imported, ok := ref.(*immutableRef)
+ 			if !ok {
+@@ -253,7 +279,32 @@ func (cm *snapshotManager) importImageLayer(
+ 			unpack.Update(read)
+ 		}))
+ 	}
+-	if _, err := cm.Applier.Apply(ctx, desc, mounts, applyOpts...); err != nil {
++	applyLayer := func() error {
++		if opts.FetchLayerWhileApplying == nil {
++			_, err := cm.Applier.Apply(ctx, desc, mounts, applyOpts...)
++			return err
++		}
++		applied, err := opts.FetchLayerWhileApplying(ctx, desc, func(applyCtx context.Context, provider content.Provider) (ocispecs.Descriptor, error) {
++			return cm.StreamingApplier(provider).Apply(applyCtx, desc, mounts, applyOpts...)
++		})
++		if err != nil {
++			return err
++		}
++		if applied.Digest != diffID {
++			return fmt.Errorf("streamed layer %s: calculated diffID %s does not match %s", desc.Digest, applied.Digest, diffID)
++		}
++		// A provider for private ingest data is not evidence of committed content.
++		// Keep the ordinary store's existence/size check before snapshot commit.
++		info, err := cm.ContentStore.Info(ctx, desc.Digest)
++		if err != nil {
++			return fmt.Errorf("streamed layer content not committed: %w", err)
++		}
++		if info.Size != desc.Size {
++			return fmt.Errorf("streamed layer content size %d does not match %d", info.Size, desc.Size)
++		}
++		return nil
++	}
++	if err := applyLayer(); err != nil {
+ 		_ = unmount()
+ 		return nil, err
+ 	}
+diff --git a/engine/snapshots/pull_pipeline.go b/engine/snapshots/pull_pipeline.go
+new file mode 100644
+index 000000000..1878e4533
+--- /dev/null
++++ b/engine/snapshots/pull_pipeline.go
+@@ -0,0 +1,102 @@
++package snapshots
++
++import (
++	"context"
++	"errors"
++
++	"github.com/containerd/containerd/v2/core/content"
++	digest "github.com/opencontainers/go-digest"
++	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
++	"golang.org/x/sync/errgroup"
++)
++
++// ImportImage overlaps complete, verified layer downloads with ordered layer
++// application. No fetch or snapshot work is left running after it returns.
++func (cm *snapshotManager) ImportImage(
++	ctx context.Context,
++	img *ImportedImage,
++	opts ImportImageOpts,
++) (ImmutableRef, error) {
++	if img == nil || opts.FetchLayer == nil || len(img.Layers) == 0 {
++		opts.FetchLayerWhileApplying = nil
++		return cm.importImage(ctx, img, opts, nil)
++	}
++
++	pipelineCtx, cancel := context.WithCancelCause(ctx)
++	defer cancel(nil)
++	group, fetchCtx := errgroup.WithContext(pipelineCtx)
++
++	fetchLayer := opts.FetchLayer
++	opts.FetchLayer = nil
++	// Bounded experiment: only the final layer is streamed, and only when it
++	// has a unique digest. Earlier layers retain the tested fetch pipeline.
++	// Waiting for its parent before starting this download can lose transfer
++	// concurrency. A full-flow comparison must measure that regression too.
++	last := img.Layers[len(img.Layers)-1]
++	streamFinal := opts.FetchLayerWhileApplying != nil && cm.StreamingApplier != nil
++	for _, layer := range img.Layers[:len(img.Layers)-1] {
++		if layer.Digest == last.Digest {
++			streamFinal = false
++		}
++	}
++	streamUsed := false
++	if streamFinal {
++		streamFetch := opts.FetchLayerWhileApplying
++		opts.streamLayerDigest = last.Digest
++		opts.FetchLayerWhileApplying = func(ctx context.Context, desc ocispecs.Descriptor, apply func(context.Context, content.Provider) (ocispecs.Descriptor, error)) (ocispecs.Descriptor, error) {
++			streamUsed = true // importImage invokes this synchronously in manifest order.
++			return streamFetch(ctx, desc, apply)
++		}
++	} else {
++		opts.FetchLayerWhileApplying = nil
++	}
++	ready := make(map[digest.Digest]chan struct{}, len(img.Layers))
++	for _, layer := range img.Layers {
++		if streamFinal && layer.Digest == last.Digest {
++			continue
++		}
++		if _, exists := ready[layer.Digest]; exists {
++			continue
++		}
++		done := make(chan struct{})
++		ready[layer.Digest] = done
++		group.Go(func() error {
++			if err := fetchLayer(fetchCtx, layer); err != nil {
++				return err
++			}
++			// FetchLayer only succeeds after the content store has verified and
++			// committed the complete blob and the source label is recorded.
++			close(done)
++			return nil
++		})
++	}
++	waitForLayer := func(ctx context.Context, layer ocispecs.Descriptor) error {
++		if streamFinal && layer.Digest == last.Digest {
++			return nil
++		}
++		select {
++		case <-ctx.Done():
++			return context.Cause(ctx)
++		case <-ready[layer.Digest]:
++			return nil
++		}
++	}
++
++	current, importErr := cm.importImage(fetchCtx, img, opts, waitForLayer)
++	if importErr == nil && streamFinal && !streamUsed {
++		// A reused final snapshot does not call the applier. Still acquire the
++		// manifest's complete verified blob under this pull's ordinary lease.
++		importErr = fetchLayer(fetchCtx, last)
++	}
++	if importErr != nil {
++		cancel(importErr)
++	}
++	fetchErr := group.Wait()
++	if importErr != nil || fetchErr != nil {
++		if current != nil {
++			_ = current.Release(context.WithoutCancel(ctx))
++		}
++		return nil, errors.Join(importErr, fetchErr)
++	}
++	return current, nil
++}
+diff --git a/engine/snapshots/pull_pipeline_test.go b/engine/snapshots/pull_pipeline_test.go
+new file mode 100644
+index 000000000..4b0749eb7
+--- /dev/null
++++ b/engine/snapshots/pull_pipeline_test.go
+@@ -0,0 +1,393 @@
++package snapshots
++
++import (
++	"bytes"
++	"context"
++	"errors"
++	"fmt"
++	"maps"
++	"sync"
++	"testing"
++	"time"
++
++	"github.com/containerd/containerd/v2/core/content"
++	"github.com/containerd/containerd/v2/core/diff"
++	"github.com/containerd/containerd/v2/core/mount"
++	ctdsnapshots "github.com/containerd/containerd/v2/core/snapshots"
++	localcontent "github.com/containerd/containerd/v2/plugins/content/local"
++	digest "github.com/opencontainers/go-digest"
++	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
++	"github.com/stretchr/testify/require"
++)
++
++// These tests drive the real ImportImage scheduler, manager, metadata and local
++// content store. Snapshot mounting, application and lease GC are test doubles;
++// successful completion here does not establish real tar unpack or containerd GC.
++type pipelineTestSnapshotter struct {
++	*applySnapshotDiffTestSnapshotter
++	onCommit func(string)
++	muMount  sync.Mutex
++	mounts   int
++}
++
++func (sn *pipelineTestSnapshotter) Prepare(ctx context.Context, key, parent string, opts ...ctdsnapshots.Opt) error {
++	if parent != "" {
++		if _, err := sn.Stat(ctx, parent); err != nil {
++			return fmt.Errorf("missing parent at prepare: %w", err)
++		}
++	}
++	return sn.applySnapshotDiffTestSnapshotter.Prepare(ctx, key, parent, opts...)
++}
++
++func (sn *pipelineTestSnapshotter) Commit(ctx context.Context, name, key string, opts ...ctdsnapshots.Opt) error {
++	if err := sn.applySnapshotDiffTestSnapshotter.Commit(ctx, name, key, opts...); err != nil {
++		return err
++	}
++	if sn.onCommit != nil {
++		sn.onCommit(name)
++	}
++	return nil
++}
++
++func (sn *pipelineTestSnapshotter) Mounts(context.Context, string) (MountableRef, error) {
++	return pipelineTestMount{sn}, nil
++}
++
++type pipelineTestMount struct{ sn *pipelineTestSnapshotter }
++
++func (m pipelineTestMount) Mount() ([]mount.Mount, func() error, error) {
++	m.sn.muMount.Lock()
++	m.sn.mounts++
++	m.sn.muMount.Unlock()
++	return nil, func() error { m.sn.muMount.Lock(); defer m.sn.muMount.Unlock(); m.sn.mounts--; return nil }, nil
++}
++
++type pipelineTestApplier func(context.Context, ocispecs.Descriptor) error
++
++func (fn pipelineTestApplier) Apply(ctx context.Context, desc ocispecs.Descriptor, _ []mount.Mount, _ ...diff.ApplyOpt) (ocispecs.Descriptor, error) {
++	if err := fn(ctx, desc); err != nil {
++		return ocispecs.Descriptor{}, err
++	}
++	return ocispecs.Descriptor{Digest: digest.Digest(desc.Annotations["containerd.io/uncompressed"])}, nil
++}
++
++func newPipelineTestManager(t *testing.T) (*snapshotManager, *pipelineTestSnapshotter, context.Context) {
++	t.Helper()
++	cm := newApplySnapshotDiffTestManager(t)
++	sn := &pipelineTestSnapshotter{applySnapshotDiffTestSnapshotter: cm.Snapshotter.(*applySnapshotDiffTestSnapshotter)}
++	cm.Snapshotter = sn
++	store, err := localcontent.NewLabeledStore(t.TempDir(), &pipelineTestLabels{labels: map[digest.Digest]map[string]string{}})
++	require.NoError(t, err)
++	cm.ContentStore = store
++	cm.Applier = pipelineTestApplier(func(context.Context, ocispecs.Descriptor) error { return nil })
++	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
++	t.Cleanup(cancel)
++	ctx, release, err := WithLazyLease(ctx, cm.LeaseManager)
++	require.NoError(t, err)
++	t.Cleanup(func() {
++		require.NoError(t, release(context.Background()))
++		sn.muMount.Lock()
++		defer sn.muMount.Unlock()
++		require.Zero(t, sn.mounts)
++	})
++	return cm, sn, ctx
++}
++
++func pipelineTestLayer(name string) (ocispecs.Descriptor, []byte) {
++	data := []byte("complete test layer " + name)
++	return ocispecs.Descriptor{MediaType: ocispecs.MediaTypeImageLayer, Digest: digest.FromBytes(data), Size: int64(len(data)), Annotations: map[string]string{"containerd.io/uncompressed": digest.FromBytes(data).String()}}, data
++}
++
++type pipelineTestLabels struct {
++	mu     sync.Mutex
++	labels map[digest.Digest]map[string]string
++}
++
++func (s *pipelineTestLabels) Get(d digest.Digest) (map[string]string, error) {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	return maps.Clone(s.labels[d]), nil
++}
++func (s *pipelineTestLabels) Set(d digest.Digest, labels map[string]string) error {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	s.labels[d] = maps.Clone(labels)
++	return nil
++}
++func (s *pipelineTestLabels) Update(d digest.Digest, labels map[string]string) (map[string]string, error) {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	if s.labels[d] == nil {
++		s.labels[d] = map[string]string{}
++	}
++	for k, v := range labels {
++		if v == "" {
++			delete(s.labels[d], k)
++		} else {
++			s.labels[d][k] = v
++		}
++	}
++	return maps.Clone(s.labels[d]), nil
++}
++
++func pipelineTestWrite(ctx context.Context, cm *snapshotManager, desc ocispecs.Descriptor, data []byte) error {
++	return content.WriteBlob(ctx, cm.ContentStore, desc.Digest.String(), bytes.NewReader(data), desc)
++}
++
++func pipelineTestWait(ctx context.Context, ch <-chan struct{}) error {
++	select {
++	case <-ch:
++		return nil
++	case <-ctx.Done():
++		return context.Cause(ctx)
++	}
++}
++
++type pipelineTestResult struct {
++	ref ImmutableRef
++	err error
++}
++
++func pipelineTestStart(cm *snapshotManager, ctx context.Context, img *ImportedImage, fetch func(context.Context, ocispecs.Descriptor) error) <-chan pipelineTestResult {
++	done := make(chan pipelineTestResult, 1)
++	go func() {
++		ref, err := cm.ImportImage(ctx, img, ImportImageOpts{FetchLayer: fetch})
++		done <- pipelineTestResult{ref, err}
++	}()
++	return done
++}
++
++func pipelineTestFinish(t *testing.T, ctx context.Context, done <-chan pipelineTestResult) pipelineTestResult {
++	t.Helper()
++	select {
++	case got := <-done:
++		if got.ref != nil {
++			t.Cleanup(func() { require.NoError(t, got.ref.Release(context.Background())) })
++		}
++		return got
++	case <-ctx.Done():
++		t.Fatal("pipeline did not join before deadline:", context.Cause(ctx))
++		return pipelineTestResult{}
++	}
++}
++
++func TestImportImagePipelineOverlapsAndOrdersApply(t *testing.T) {
++	cm, sn, ctx := newPipelineTestManager(t)
++	first, firstData := pipelineTestLayer("base")
++	second, secondData := pipelineTestLayer("later")
++	firstApply := make(chan struct{})
++	allowFirstApply := make(chan struct{})
++	laterFetch := make(chan struct{})
++	allowLaterFetch := make(chan struct{})
++	var mu sync.Mutex
++	var events []string
++	cm.Applier = pipelineTestApplier(func(ctx context.Context, desc ocispecs.Descriptor) error {
++		mu.Lock()
++		events = append(events, "apply:"+desc.Digest.String())
++		mu.Unlock()
++		if desc.Digest == first.Digest {
++			close(firstApply)
++			return pipelineTestWait(ctx, allowFirstApply)
++		}
++		return nil
++	})
++	sn.onCommit = func(string) { mu.Lock(); events = append(events, "commit"); mu.Unlock() }
++	done := pipelineTestStart(cm, ctx, &ImportedImage{Layers: []ocispecs.Descriptor{first, second}}, func(ctx context.Context, desc ocispecs.Descriptor) error {
++		if desc.Digest == second.Digest {
++			close(laterFetch)
++			if err := pipelineTestWait(ctx, allowLaterFetch); err != nil {
++				return err
++			}
++			return pipelineTestWrite(ctx, cm, desc, secondData)
++		}
++		return pipelineTestWrite(ctx, cm, desc, firstData)
++	})
++	require.NoError(t, pipelineTestWait(ctx, laterFetch))
++	require.NoError(t, pipelineTestWait(ctx, firstApply), "base apply must start while the later fetch remains blocked")
++	close(allowLaterFetch)
++	close(allowFirstApply)
++	got := pipelineTestFinish(t, ctx, done)
++	require.NoError(t, got.err)
++	require.NotNil(t, got.ref)
++	mu.Lock()
++	defer mu.Unlock()
++	require.Equal(t, []string{"apply:" + first.Digest.String(), "commit", "apply:" + second.Digest.String(), "commit"}, events)
++}
++
++func TestImportImagePipelineDeduplicatesFetchNotApplication(t *testing.T) {
++	cm, _, ctx := newPipelineTestManager(t)
++	layer, data := pipelineTestLayer("repeated")
++	var mu sync.Mutex
++	fetches, applies := 0, 0
++	cm.Applier = pipelineTestApplier(func(context.Context, ocispecs.Descriptor) error { applies++; return nil })
++	done := pipelineTestStart(cm, ctx, &ImportedImage{Layers: []ocispecs.Descriptor{layer, layer}}, func(ctx context.Context, desc ocispecs.Descriptor) error {
++		mu.Lock()
++		fetches++
++		mu.Unlock()
++		return pipelineTestWrite(ctx, cm, desc, data)
++	})
++	got := pipelineTestFinish(t, ctx, done)
++	require.NoError(t, got.err)
++	require.Equal(t, 1, fetches)
++	require.Equal(t, 2, applies, "same bytes on a different parent are a different layer application")
++}
++
++func TestImportImagePipelineFetchFailure(t *testing.T) {
++	for _, phase := range []string{"before-apply", "after-base-commit"} {
++		t.Run(phase, func(t *testing.T) {
++			cm, sn, ctx := newPipelineTestManager(t)
++			first, data := pipelineTestLayer("base")
++			second, _ := pipelineTestLayer("failed-fetch")
++			committed := make(chan struct{})
++			sn.onCommit = func(string) { close(committed) }
++			fetchErr := errors.New("specific fetch failure")
++			done := pipelineTestStart(cm, ctx, &ImportedImage{Layers: []ocispecs.Descriptor{first, second}}, func(ctx context.Context, desc ocispecs.Descriptor) error {
++				if desc.Digest == first.Digest {
++					if phase == "before-apply" {
++						<-ctx.Done()
++						return context.Cause(ctx)
++					}
++					return pipelineTestWrite(ctx, cm, desc, data)
++				}
++				if phase == "after-base-commit" {
++					if err := pipelineTestWait(ctx, committed); err != nil {
++						return err
++					}
++				}
++				return fetchErr
++			})
++			got := pipelineTestFinish(t, ctx, done)
++			require.Nil(t, got.ref)
++			require.ErrorIs(t, got.err, fetchErr)
++			sn.mu.Lock()
++			defer sn.mu.Unlock()
++			if phase == "before-apply" {
++				require.Empty(t, sn.commitLeaseID)
++			} else {
++				require.Len(t, sn.commitLeaseID, 1)
++			}
++		})
++	}
++}
++
++func TestImportImagePipelineApplyFailureCancelsAndJoinsFetch(t *testing.T) {
++	cm, sn, ctx := newPipelineTestManager(t)
++	first, data := pipelineTestLayer("base")
++	second, _ := pipelineTestLayer("blocked")
++	started, sawCancel, permitExit := make(chan struct{}), make(chan struct{}), make(chan struct{})
++	var permitExitOnce sync.Once
++	allowExit := func() { permitExitOnce.Do(func() { close(permitExit) }) }
++	defer allowExit()
++	applyErr := errors.New("specific apply failure")
++	cm.Applier = pipelineTestApplier(func(ctx context.Context, _ ocispecs.Descriptor) error {
++		if err := pipelineTestWait(ctx, started); err != nil {
++			return err
++		}
++		return applyErr
++	})
++	done := pipelineTestStart(cm, ctx, &ImportedImage{Layers: []ocispecs.Descriptor{first, second}}, func(ctx context.Context, desc ocispecs.Descriptor) error {
++		if desc.Digest == first.Digest {
++			return pipelineTestWrite(ctx, cm, desc, data)
++		}
++		close(started)
++		<-ctx.Done()
++		close(sawCancel)
++		<-permitExit
++		return context.Cause(ctx)
++	})
++	require.NoError(t, pipelineTestWait(ctx, sawCancel))
++	select {
++	case got := <-done:
++		t.Fatalf("returned without joining fetch worker: %v", got.err)
++	default:
++	}
++	allowExit()
++	got := pipelineTestFinish(t, ctx, done)
++	require.Nil(t, got.ref)
++	require.ErrorIs(t, got.err, applyErr)
++	sn.mu.Lock()
++	defer sn.mu.Unlock()
++	require.Empty(t, sn.commitLeaseID)
++}
++
++func TestImportImagePipelineParentCancellation(t *testing.T) {
++	cm, _, ctx := newPipelineTestManager(t)
++	pipelineCtx, cancel := context.WithCancelCause(ctx)
++	first, _ := pipelineTestLayer("base")
++	second, _ := pipelineTestLayer("later")
++	started := make(chan struct{}, 2)
++	exited := make(chan struct{}, 2)
++	done := pipelineTestStart(cm, pipelineCtx, &ImportedImage{Layers: []ocispecs.Descriptor{first, second}}, func(ctx context.Context, _ ocispecs.Descriptor) error {
++		started <- struct{}{}
++		<-ctx.Done()
++		exited <- struct{}{}
++		return context.Cause(ctx)
++	})
++	require.NoError(t, pipelineTestWait(ctx, started))
++	require.NoError(t, pipelineTestWait(ctx, started))
++	cause := errors.New("caller abandoned import")
++	cancel(cause)
++	got := pipelineTestFinish(t, ctx, done)
++	require.Nil(t, got.ref)
++	require.ErrorIs(t, got.err, cause)
++	require.Len(t, exited, 2)
++}
++
++func TestImportImagePipelineEmptyLocalAndSingle(t *testing.T) {
++	for _, kind := range []string{"nil", "empty", "local", "single"} {
++		t.Run(kind, func(t *testing.T) {
++			cm, _, ctx := newPipelineTestManager(t)
++			layer, data := pipelineTestLayer(kind)
++			img := &ImportedImage{}
++			var fetch func(context.Context, ocispecs.Descriptor) error
++			if kind == "nil" {
++				img = nil
++			}
++			if kind == "single" || kind == "local" {
++				img.Layers = []ocispecs.Descriptor{layer}
++			}
++			if kind == "local" {
++				require.NoError(t, pipelineTestWrite(ctx, cm, layer, data))
++			} else {
++				fetch = func(ctx context.Context, desc ocispecs.Descriptor) error {
++					if kind != "single" {
++						return errors.New("unexpected fetch for empty image")
++					}
++					return pipelineTestWrite(ctx, cm, desc, data)
++				}
++			}
++			got := pipelineTestFinish(t, ctx, pipelineTestStart(cm, ctx, img, fetch))
++			if kind == "nil" {
++				require.Error(t, got.err)
++				require.Nil(t, got.ref)
++			} else {
++				require.NoError(t, got.err)
++				require.NotNil(t, got.ref)
++			}
++		})
++	}
++}
++
++func TestImportImageLayerReuseMissingContentFallsBack(t *testing.T) {
++	for _, lookup := range []string{"blob", "diff"} {
++		t.Run(lookup, func(t *testing.T) {
++			cm, sn, ctx := newPipelineTestManager(t)
++			const oldID = "stale-content-parent"
++			sn.snapshots[oldID] = ctdsnapshots.Info{Name: oldID, Kind: ctdsnapshots.KindCommitted}
++			layer, data := pipelineTestLayer("replacement")
++			cm.snapshotContentDigests[oldID] = map[digest.Digest]struct{}{digest.FromString("missing-old-content"): {}}
++			if lookup == "blob" {
++				cm.importedLayerByBlob[ImportedLayerBlobKey{BlobDigest: layer.Digest}] = oldID
++			} else {
++				cm.importedLayerByDiff[ImportedLayerDiffKey{DiffID: layer.Digest}] = oldID
++			}
++			require.NoError(t, pipelineTestWrite(ctx, cm, layer, data))
++			ref, err := cm.importImageLayer(ctx, layer, nil, ImportImageOpts{})
++			require.NoError(t, err)
++			defer ref.Release(context.Background())
++			require.NotEqual(t, oldID, ref.SnapshotID(), "a missing content closure must not escape as a valid reuse hit")
++			require.Equal(t, ref.SnapshotID(), cm.importedLayerByBlob[ImportedLayerBlobKey{BlobDigest: layer.Digest}])
++			require.Equal(t, ref.SnapshotID(), cm.importedLayerByDiff[ImportedLayerDiffKey{DiffID: layer.Digest}])
++		})
++	}
++}
+diff --git a/engine/snapshots/pull_reuse_gc_test.go b/engine/snapshots/pull_reuse_gc_test.go
+new file mode 100644
+index 000000000..ebf11163e
+--- /dev/null
++++ b/engine/snapshots/pull_reuse_gc_test.go
+@@ -0,0 +1,159 @@
++package snapshots
++
++import (
++	"context"
++	"errors"
++	"path/filepath"
++	"sync"
++	"testing"
++	"time"
++
++	"github.com/containerd/containerd/v2/core/leases"
++	"github.com/containerd/containerd/v2/core/metadata"
++	ctdsnapshots "github.com/containerd/containerd/v2/core/snapshots"
++	"github.com/containerd/containerd/v2/pkg/namespaces"
++	localcontent "github.com/containerd/containerd/v2/plugins/content/local"
++	"github.com/containerd/containerd/v2/plugins/snapshots/native"
++	cerrdefs "github.com/containerd/errdefs"
++	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
++	"github.com/stretchr/testify/require"
++	bolt "go.etcd.io/bbolt"
++)
++
++// Real metadata DB, native snapshots, content store, lease manager and GC.
++// This targets the reuse-to-next-fetch retention gap without mounting/unpacking
++// an image: the next fetch intentionally fails after the GC assertions.
++type imageGCTestSnapshotter struct{ ctdsnapshots.Snapshotter }
++
++func (sn imageGCTestSnapshotter) Name() string { return "native" }
++func (sn imageGCTestSnapshotter) Merge(context.Context, string, []Diff, ...ctdsnapshots.Opt) error {
++	return errors.New("GC reuse test must not merge")
++}
++func (sn imageGCTestSnapshotter) Prepare(ctx context.Context, key, parent string, opts ...ctdsnapshots.Opt) error {
++	_, err := sn.Snapshotter.Prepare(ctx, key, parent, opts...)
++	return err
++}
++func (sn imageGCTestSnapshotter) Mounts(context.Context, string) (MountableRef, error) {
++	return nil, errors.New("GC reuse test must not mount")
++}
++func (sn imageGCTestSnapshotter) View(context.Context, string, string, ...ctdsnapshots.Opt) (MountableRef, error) {
++	return nil, errors.New("GC reuse test must not view")
++}
++
++type imageGCTestLeaseManager struct {
++	leases.Manager
++	target   leases.Resource
++	oldLease string
++	pinned   chan struct{}
++	once     sync.Once
++}
++
++func (lm *imageGCTestLeaseManager) AddResource(ctx context.Context, l leases.Lease, r leases.Resource) error {
++	err := lm.Manager.AddResource(ctx, l, r)
++	if err == nil && l.ID != lm.oldLease && r == lm.target {
++		lm.once.Do(func() { close(lm.pinned) })
++	}
++	return err
++}
++
++func TestImportImageReuseSurvivesRealContainerdGC(t *testing.T) {
++	for _, lookup := range []string{"blob", "diff"} {
++		for _, mode := range []string{"lazy", "flat-materialized"} {
++			t.Run(lookup+"/"+mode, func(t *testing.T) {
++				ctx, cancel := context.WithTimeout(namespaces.WithNamespace(t.Context(), "image-pipeline-gc"), 10*time.Second)
++				defer cancel()
++				store, err := localcontent.NewStore(filepath.Join(t.TempDir(), "content"))
++				require.NoError(t, err)
++				nativeSN, err := native.NewSnapshotter(filepath.Join(t.TempDir(), "native"))
++				require.NoError(t, err)
++				t.Cleanup(func() { require.NoError(t, nativeSN.Close()) })
++				boltDB, err := bolt.Open(filepath.Join(t.TempDir(), "metadata.db"), 0600, nil)
++				require.NoError(t, err)
++				t.Cleanup(func() { require.NoError(t, boltDB.Close()) })
++				mdb := metadata.NewDB(boltDB, store, map[string]ctdsnapshots.Snapshotter{"native": nativeSN})
++				require.NoError(t, mdb.Init(ctx))
++				realLM := metadata.NewLeaseManager(mdb)
++				old, oldCtx, err := NewLease(ctx, realLM)
++				require.NoError(t, err)
++				cm := newApplySnapshotDiffTestManager(t)
++				cm.Snapshotter = imageGCTestSnapshotter{mdb.Snapshotter("native")}
++				cm.ContentStore = mdb.ContentStore()
++				first, data := pipelineTestLayer("reused-base")
++				ancestor, ancestorData := pipelineTestLayer("reused-ancestor")
++				second, _ := pipelineTestLayer("blocked-next")
++				const snapshotID = "reusable-base"
++				const ancestorID = "reusable-ancestor"
++				require.NoError(t, cm.Snapshotter.Prepare(oldCtx, "active-ancestor", ""))
++				require.NoError(t, cm.Snapshotter.Commit(oldCtx, ancestorID, "active-ancestor"))
++				require.NoError(t, pipelineTestWrite(oldCtx, cm, ancestor, ancestorData))
++				require.NoError(t, cm.Snapshotter.Prepare(oldCtx, "active-base", ancestorID))
++				require.NoError(t, cm.Snapshotter.Commit(oldCtx, snapshotID, "active-base"))
++				require.NoError(t, pipelineTestWrite(oldCtx, cm, first, data))
++				rows := PersistentMetadataRows{SnapshotContent: []SnapshotContentRow{{SnapshotID: snapshotID, Digest: first.Digest}, {SnapshotID: ancestorID, Digest: ancestor.Digest}}}
++				if lookup == "blob" {
++					rows.ImportedByBlob = []ImportedLayerBlobRow{{BlobDigest: ancestor.Digest, SnapshotID: ancestorID}, {ParentSnapshotID: ancestorID, BlobDigest: first.Digest, SnapshotID: snapshotID}}
++				} else {
++					rows.ImportedByDiff = []ImportedLayerDiffRow{{DiffID: ancestor.Digest, SnapshotID: ancestorID}, {ParentSnapshotID: ancestorID, DiffID: first.Digest, SnapshotID: snapshotID}}
++				}
++				require.NoError(t, cm.LoadPersistentMetadata(rows))
++				lm := &imageGCTestLeaseManager{Manager: realLM, target: leases.Resource{Type: "content", ID: first.Digest.String()}, oldLease: old.l.ID, pinned: make(chan struct{})}
++				cm.LeaseManager = lm
++				operationCtx, release, err := WithLazyLease(ctx, lm, func(l *leases.Lease) error {
++					if mode == "flat-materialized" {
++						if l.Labels == nil {
++							l.Labels = map[string]string{}
++						}
++						l.Labels["containerd.io/gc.flat"] = time.Now().UTC().Format(time.RFC3339Nano)
++					}
++					return nil
++				})
++				require.NoError(t, err)
++				defer release(context.WithoutCancel(ctx))
++				if mode == "flat-materialized" {
++					operationCtx, err = EnsureLease(operationCtx)
++					require.NoError(t, err)
++				}
++				laterStarted, finishLater := make(chan struct{}), make(chan struct{})
++				laterErr := errors.New("expected later fetch failure after real GC")
++				done := pipelineTestStart(cm, operationCtx, &ImportedImage{Layers: []ocispecs.Descriptor{ancestor, first, second}}, func(ctx context.Context, desc ocispecs.Descriptor) error {
++					if desc.Digest != second.Digest {
++						return nil
++					}
++					close(laterStarted)
++					if err := pipelineTestWait(ctx, finishLater); err != nil {
++						return err
++					}
++					return laterErr
++				})
++				require.NoError(t, pipelineTestWait(ctx, laterStarted))
++				require.NoError(t, pipelineTestWait(ctx, lm.pinned))
++				require.NoError(t, realLM.Delete(ctx, old.l))
++				_, err = mdb.GarbageCollect(ctx)
++				require.NoError(t, err)
++				_, err = cm.Snapshotter.Stat(ctx, snapshotID)
++				require.NoError(t, err, "GC reclaimed the reused parent during a later fetch")
++				_, err = cm.ContentStore.Info(ctx, first.Digest)
++				require.NoError(t, err, "GC reclaimed the reused content closure")
++				_, err = cm.Snapshotter.Stat(ctx, ancestorID)
++				require.NoError(t, err, "GC reclaimed the reused snapshot ancestor")
++				_, err = cm.ContentStore.Info(ctx, ancestor.Digest)
++				require.NoError(t, err, "GC reclaimed the reused ancestor content")
++				close(finishLater)
++				got := pipelineTestFinish(t, ctx, done)
++				require.Nil(t, got.ref)
++				require.ErrorIs(t, got.err, laterErr)
++				require.NoError(t, release(ctx))
++				_, err = mdb.GarbageCollect(ctx)
++				require.NoError(t, err)
++				_, err = cm.Snapshotter.Stat(ctx, snapshotID)
++				require.True(t, cerrdefs.IsNotFound(err), "temporary operation lease must not become permanent ownership")
++				_, err = cm.ContentStore.Info(ctx, first.Digest)
++				require.True(t, cerrdefs.IsNotFound(err))
++				_, err = cm.Snapshotter.Stat(ctx, ancestorID)
++				require.True(t, cerrdefs.IsNotFound(err))
++				_, err = cm.ContentStore.Info(ctx, ancestor.Digest)
++				require.True(t, cerrdefs.IsNotFound(err))
++			})
++		}
++	}
++}
+diff --git a/engine/snapshots/pull_reuse_lease.go b/engine/snapshots/pull_reuse_lease.go
+new file mode 100644
+index 000000000..f836d449c
+--- /dev/null
++++ b/engine/snapshots/pull_reuse_lease.go
+@@ -0,0 +1,69 @@
++package snapshots
++
++import (
++	"context"
++	"fmt"
++
++	"github.com/containerd/containerd/v2/core/leases"
++	cerrdefs "github.com/containerd/errdefs"
++	digest "github.com/opencontainers/go-digest"
++)
++
++// pinImportedImageSnapshot retains a reused layer across waits for subsequent
++// downloads. ImmutableRef is a non-owning handle: reading one does not acquire
++// a containerd lease. Only add resources to the operation's existing lease;
++// result-owner lease labels and bookkeeping belong to later publication.
++func (cm *snapshotManager) pinImportedImageSnapshot(ctx context.Context, snapshotID string) error {
++	ctx, err := EnsureLease(ctx)
++	if err != nil {
++		return fmt.Errorf("ensure lease for reused image layer: %w", err)
++	}
++	leaseID, ok := leases.FromContext(ctx)
++	if !ok || leaseID == "" {
++		// Match other snapshot-manager create/content-link boundaries: callers
++		// outside an operation lease scope remain responsible for retention.
++		return nil
++	}
++	lease := leases.Lease{ID: leaseID}
++	for snapshotID != "" {
++		if err := cm.LeaseManager.AddResource(ctx, lease, leases.Resource{
++			ID: snapshotID, Type: "snapshots/" + cm.Snapshotter.Name(),
++		}); err != nil && !cerrdefs.IsAlreadyExists(err) {
++			return fmt.Errorf("pin reused image snapshot %s: %w", snapshotID, err)
++		}
++		// AddResource does not validate existence. Recheck after pinning so a
++		// snapshot removed since the index lookup takes the stale-hit fallback.
++		info, err := cm.Snapshotter.Stat(ctx, snapshotID)
++		if err != nil {
++			if cerrdefs.IsNotFound(err) {
++				return fmt.Errorf("reused image snapshot %s: %w", snapshotID, errNotFound)
++			}
++			return fmt.Errorf("stat reused image snapshot %s: %w", snapshotID, err)
++		}
++		cm.mu.Lock()
++		digests := make([]digest.Digest, 0, len(cm.snapshotContentDigests[snapshotID]))
++		for dgst := range cm.snapshotContentDigests[snapshotID] {
++			digests = append(digests, dgst)
++		}
++		cm.mu.Unlock()
++		for _, dgst := range digests {
++			if err := cm.LeaseManager.AddResource(ctx, lease, leases.Resource{
++				ID: dgst.String(), Type: "content",
++			}); err != nil && !cerrdefs.IsAlreadyExists(err) {
++				return fmt.Errorf("pin reused image content %s: %w", dgst, err)
++			}
++			// Content can have been collected before its lease edge was added,
++			// just like snapshots. A stale edge is not a retained closure.
++			if _, err := cm.ContentStore.Info(ctx, dgst); err != nil {
++				if cerrdefs.IsNotFound(err) {
++					return fmt.Errorf("reused image content %s: %w", dgst, errNotFound)
++				}
++				return fmt.Errorf("stat reused image content %s: %w", dgst, err)
++			}
++		}
++		// Also pin ancestors explicitly: inherited operation leases may be
++		// flat, and snapshot-content relationships live in Dagger metadata.
++		snapshotID = info.Parent
++	}
++	return nil
++}
+diff --git a/engine/snapshots/pull_reuse_lease_test.go b/engine/snapshots/pull_reuse_lease_test.go
+new file mode 100644
+index 000000000..cc3502e3f
+--- /dev/null
++++ b/engine/snapshots/pull_reuse_lease_test.go
+@@ -0,0 +1,211 @@
++package snapshots
++
++import (
++	"context"
++	"errors"
++	"testing"
++	"time"
++
++	"github.com/containerd/containerd/v2/core/leases"
++	localcontent "github.com/containerd/containerd/v2/plugins/content/local"
++	digest "github.com/opencontainers/go-digest"
++	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
++	"github.com/stretchr/testify/require"
++)
++
++// Source-only regression test for the image pipeline review. Copy into
++// engine/snapshots before running the focused package test. It intentionally
++// asserts the missing retention contract and has not been compiled or run.
++func TestImportImageLayerReusePinsOperationLease(t *testing.T) {
++	for _, lookup := range []string{"blob", "diff"} {
++		t.Run(lookup, func(t *testing.T) {
++			cm := newApplySnapshotDiffTestManager(t)
++			seedImageReuseTestContent(t, cm, "compressed-layer")
++			const snapshotID = "reusable-image-parent"
++			oldHandle := addApplySnapshotDiffTestImmutable(t, cm, snapshotID)
++			t.Cleanup(func() { require.NoError(t, oldHandle.Release(context.Background())) })
++			blob := digest.FromString("compressed-layer")
++			diffID := digest.FromString("uncompressed-layer")
++			desc := ocispecs.Descriptor{
++				Digest:      blob,
++				MediaType:   ocispecs.MediaTypeImageLayerGzip,
++				Annotations: map[string]string{"containerd.io/uncompressed": diffID.String()},
++			}
++			if lookup == "blob" {
++				cm.importedLayerByBlob[ImportedLayerBlobKey{BlobDigest: blob}] = snapshotID
++			} else {
++				cm.importedLayerByDiff[ImportedLayerDiffKey{DiffID: diffID}] = snapshotID
++			}
++			cm.snapshotContentDigests[snapshotID] = map[digest.Digest]struct{}{blob: {}}
++			const oldOwner = "dagql/result/prunable-parent/rootfs"
++			require.NoError(t, cm.AttachLease(t.Context(), oldOwner, snapshotID))
++
++			ctx, release, err := WithLazyLease(t.Context(), cm.LeaseManager, MakeTemporary)
++			require.NoError(t, err)
++			t.Cleanup(func() { require.NoError(t, release(context.Background())) })
++			ref, err := cm.importImageLayer(ctx, desc, nil, ImportImageOpts{})
++			require.NoError(t, err)
++			t.Cleanup(func() { require.NoError(t, ref.Release(context.Background())) })
++			require.Equal(t, snapshotID, ref.SnapshotID())
++
++			// At this boundary the pipeline may wait for an arbitrarily slow
++			// next download. Releasing another result's owner must be safe.
++			require.NoError(t, cm.RemoveLease(t.Context(), oldOwner))
++			leaseCtx, err := EnsureLease(ctx)
++			require.NoError(t, err)
++			leaseID, ok := leases.FromContext(leaseCtx)
++			require.True(t, ok)
++			resources, err := cm.LeaseManager.ListResources(leaseCtx, leases.Lease{ID: leaseID})
++			require.NoError(t, err)
++			require.Contains(t, resources, leases.Resource{Type: "snapshots/test", ID: snapshotID},
++				"a reused parent must be pinned before the pipeline waits for its next layer")
++		})
++	}
++}
++
++// Exercise the exact ordered-import wait seam used by ImportImage. The first
++// layer is reused, the later fetch readiness is blocked by a channel, and the
++// former owner's lease is removed before a deterministic fake lease-GC pass.
++// This tests retention; it is not a real containerd GC or transfer test.
++func TestImportImageReuseSurvivesLaterFetchWait(t *testing.T) {
++	for _, lookup := range []string{"blob", "diff"} {
++		for _, leaseMode := range []string{"lazy", "materialized"} {
++			t.Run(lookup+"/"+leaseMode, func(t *testing.T) {
++				cm := newApplySnapshotDiffTestManager(t)
++				seedImageReuseTestContent(t, cm, "existing-base-blob")
++				const snapshotID = "parent-waiting-for-later-download"
++				oldHandle := addApplySnapshotDiffTestImmutable(t, cm, snapshotID)
++				t.Cleanup(func() { require.NoError(t, oldHandle.Release(context.Background())) })
++				blob := digest.FromString("existing-base-blob")
++				diffID := digest.FromString("existing-base-diff")
++				first := ocispecs.Descriptor{
++					Digest:      blob,
++					MediaType:   ocispecs.MediaTypeImageLayerGzip,
++					Annotations: map[string]string{"containerd.io/uncompressed": diffID.String()},
++				}
++				second := ocispecs.Descriptor{Digest: digest.FromString("blocked-later-download")}
++				if lookup == "blob" {
++					cm.importedLayerByBlob[ImportedLayerBlobKey{BlobDigest: blob}] = snapshotID
++				} else {
++					cm.importedLayerByDiff[ImportedLayerDiffKey{DiffID: diffID}] = snapshotID
++				}
++				cm.snapshotContentDigests[snapshotID] = map[digest.Digest]struct{}{blob: {}}
++				const oldOwner = "dagql/result/old-image/rootfs"
++				require.NoError(t, cm.AttachLease(t.Context(), oldOwner, snapshotID))
++
++				ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
++				defer cancel()
++				ctx, release, err := WithLazyLease(ctx, cm.LeaseManager, func(l *leases.Lease) error {
++					if l.Labels == nil {
++						l.Labels = map[string]string{}
++					}
++					l.Labels["test.operation-label"] = "must-survive"
++					return nil
++				})
++				require.NoError(t, err)
++				t.Cleanup(func() { require.NoError(t, release(context.Background())) })
++				if leaseMode == "materialized" {
++					ctx, err = EnsureLease(ctx)
++					require.NoError(t, err)
++				}
++
++				waitingForLaterFetch := make(chan struct{})
++				finishLaterFetch := make(chan struct{})
++				fetchErr := errors.New("later fetch failed after parent retention check")
++				type result struct {
++					ref ImmutableRef
++					err error
++				}
++				done := make(chan result, 1)
++				go func() {
++					ref, err := cm.importImage(ctx, &ImportedImage{Layers: []ocispecs.Descriptor{first, second}}, ImportImageOpts{},
++						func(waitCtx context.Context, desc ocispecs.Descriptor) error {
++							if desc.Digest != second.Digest {
++								return nil
++							}
++							close(waitingForLaterFetch)
++							select {
++							case <-finishLaterFetch:
++								return fetchErr
++							case <-waitCtx.Done():
++								return context.Cause(waitCtx)
++							}
++						})
++					done <- result{ref, err}
++				}()
++				select {
++				case <-waitingForLaterFetch:
++				case result := <-done:
++					t.Fatalf("import ended before the gated fetch: %v", result.err)
++				case <-ctx.Done():
++					t.Fatal(context.Cause(ctx))
++				}
++				require.NoError(t, cm.RemoveLease(ctx, oldOwner))
++				collectUnleasedImageTestSnapshots(cm)
++				_, retainedErr := cm.Snapshotter.Stat(ctx, snapshotID)
++				close(finishLaterFetch)
++				var got result
++				select {
++				case got = <-done:
++				case <-ctx.Done():
++					t.Fatal(context.Cause(ctx))
++				}
++				require.NoError(t, retainedErr, "old-owner pruning reclaimed a parent while its next fetch was blocked")
++				require.Nil(t, got.ref)
++				require.ErrorIs(t, got.err, fetchErr)
++
++				leaseCtx, err := EnsureLease(ctx)
++				require.NoError(t, err)
++				leaseID, ok := leases.FromContext(leaseCtx)
++				require.True(t, ok)
++				resources, err := cm.LeaseManager.ListResources(ctx, leases.Lease{ID: leaseID})
++				require.NoError(t, err)
++				require.Contains(t, resources, leases.Resource{ID: blob.String(), Type: "content"})
++				lm := cm.LeaseManager.(*applySnapshotDiffTestLeaseManager)
++				lm.mu.Lock()
++				labels := lm.leases[leaseID].Labels
++				lm.mu.Unlock()
++				require.Equal(t, map[string]string{"test.operation-label": "must-survive", "containerd.io/gc.expire": labels["containerd.io/gc.expire"]}, labels)
++				require.NotEmpty(t, labels["containerd.io/gc.expire"])
++				cm.mu.Lock()
++				_, ownerTracked := cm.snapshotOwnerLeases[snapshotID][leaseID]
++				cm.mu.Unlock()
++				require.False(t, ownerTracked, "operation retention must not enter result-owner bookkeeping")
++			})
++		}
++	}
++}
++
++func collectUnleasedImageTestSnapshots(cm *snapshotManager) {
++	lm := cm.LeaseManager.(*applySnapshotDiffTestLeaseManager)
++	sn := cm.Snapshotter.(*applySnapshotDiffTestSnapshotter)
++	lm.mu.Lock()
++	sn.mu.Lock()
++	defer lm.mu.Unlock()
++	defer sn.mu.Unlock()
++	retained := map[string]bool{}
++	for _, resources := range lm.resources {
++		for _, resource := range resources {
++			if resource.Type != "snapshots/"+sn.Name() {
++				continue
++			}
++			for id := resource.ID; id != "" && !retained[id]; id = sn.snapshots[id].Parent {
++				retained[id] = true
++			}
++		}
++	}
++	for id := range sn.snapshots {
++		if !retained[id] {
++			delete(sn.snapshots, id)
++		}
++	}
++}
++
++func seedImageReuseTestContent(t *testing.T, cm *snapshotManager, payload string) {
++	t.Helper()
++	store, err := localcontent.NewStore(t.TempDir())
++	require.NoError(t, err)
++	cm.ContentStore = store
++	desc := ocispecs.Descriptor{Digest: digest.FromString(payload), Size: int64(len(payload))}
++	require.NoError(t, pipelineTestWrite(t.Context(), cm, desc, []byte(payload)))
++}
+diff --git a/engine/snapshots/streamed_import_controls_test.go b/engine/snapshots/streamed_import_controls_test.go
+new file mode 100644
+index 000000000..0da3007b4
+--- /dev/null
++++ b/engine/snapshots/streamed_import_controls_test.go
+@@ -0,0 +1,114 @@
++package snapshots
++
++import (
++	"context"
++	"errors"
++	"sync/atomic"
++	"testing"
++
++	"github.com/containerd/containerd/v2/core/content"
++	"github.com/containerd/containerd/v2/core/diff"
++	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
++	"github.com/stretchr/testify/require"
++)
++
++func TestStreamedImportFinalStartsAfterParentCommit(t *testing.T) {
++	cm, sn, ctx := newPipelineTestManager(t)
++	parent, parentData := pipelineTestLayer("ordered-parent")
++	last, lastData := pipelineTestLayer("ordered-final")
++	cm.StreamingApplier = func(content.Provider) diff.Applier { return cm.Applier }
++	var commits, streams atomic.Int64
++	sn.onCommit = func(string) { commits.Add(1) }
++	ref, err := cm.ImportImage(ctx, &ImportedImage{Layers: []ocispecs.Descriptor{parent, last}}, ImportImageOpts{
++		FetchLayer: func(ctx context.Context, d ocispecs.Descriptor) error {
++			if d.Digest != parent.Digest {
++				return errors.New("final layer fetched outside private stream")
++			}
++			return pipelineTestWrite(ctx, cm, parent, parentData)
++		},
++		FetchLayerWhileApplying: func(ctx context.Context, d ocispecs.Descriptor, apply func(context.Context, content.Provider) (ocispecs.Descriptor, error)) (ocispecs.Descriptor, error) {
++			streams.Add(1)
++			if commits.Load() != 1 || d.Digest != last.Digest {
++				return ocispecs.Descriptor{}, errors.New("final stream started before its parent committed")
++			}
++			applied, err := apply(ctx, cm.ContentStore)
++			if err != nil {
++				return ocispecs.Descriptor{}, err
++			}
++			return applied, pipelineTestWrite(ctx, cm, last, lastData)
++		},
++	})
++	require.NoError(t, err)
++	require.NoError(t, ref.Release(ctx))
++	require.EqualValues(t, 1, streams.Load())
++	require.EqualValues(t, 2, commits.Load())
++}
++
++func TestStreamedImportIneligibleFinalUsesCompletePipeline(t *testing.T) {
++	for _, mode := range []string{"duplicate-final", "no-streaming-applier"} {
++		t.Run(mode, func(t *testing.T) {
++			cm, _, ctx := newPipelineTestManager(t)
++			layer, data := pipelineTestLayer(mode)
++			layers := []ocispecs.Descriptor{layer}
++			if mode == "duplicate-final" {
++				layers = append(layers, layer)
++				cm.StreamingApplier = func(content.Provider) diff.Applier { return cm.Applier }
++			}
++			var fetches, streams atomic.Int64
++			ref, err := cm.ImportImage(ctx, &ImportedImage{Layers: layers}, ImportImageOpts{
++				FetchLayer: func(ctx context.Context, d ocispecs.Descriptor) error {
++					fetches.Add(1)
++					return pipelineTestWrite(ctx, cm, d, data)
++				},
++				FetchLayerWhileApplying: func(context.Context, ocispecs.Descriptor, func(context.Context, content.Provider) (ocispecs.Descriptor, error)) (ocispecs.Descriptor, error) {
++					streams.Add(1)
++					return ocispecs.Descriptor{}, errors.New("ineligible final must use complete-blob pipeline")
++				},
++			})
++			require.NoError(t, err)
++			require.NoError(t, ref.Release(ctx))
++			require.EqualValues(t, 1, fetches.Load())
++			require.Zero(t, streams.Load())
++		})
++	}
++}
++
++func TestStreamedImportConcurrentDuplicatePulls(t *testing.T) {
++	cm, _, ctx := newPipelineTestManager(t)
++	layer, data := pipelineTestLayer("concurrent-duplicate")
++	cm.StreamingApplier = func(content.Provider) diff.Applier { return cm.Applier }
++	var streams, eager atomic.Int64
++	opts := ImportImageOpts{
++		FetchLayer: func(ctx context.Context, desc ocispecs.Descriptor) error {
++			eager.Add(1)
++			return pipelineTestWrite(ctx, cm, desc, data)
++		},
++		FetchLayerWhileApplying: func(ctx context.Context, desc ocispecs.Descriptor, apply func(context.Context, content.Provider) (ocispecs.Descriptor, error)) (ocispecs.Descriptor, error) {
++			streams.Add(1)
++			applied, err := apply(ctx, cm.ContentStore)
++			if err != nil {
++				return ocispecs.Descriptor{}, err
++			}
++			return applied, pipelineTestWrite(ctx, cm, desc, data)
++		},
++	}
++	start := make(chan struct{})
++	done := make(chan pipelineTestResult, 2)
++	for range 2 {
++		go func() {
++			if err := pipelineTestWait(ctx, start); err != nil {
++				done <- pipelineTestResult{err: err}
++				return
++			}
++			ref, err := cm.ImportImage(ctx, &ImportedImage{Layers: []ocispecs.Descriptor{layer}}, opts)
++			done <- pipelineTestResult{ref, err}
++		}()
++	}
++	close(start)
++	first, second := pipelineTestFinish(t, ctx, done), pipelineTestFinish(t, ctx, done)
++	require.NoError(t, first.err)
++	require.NoError(t, second.err)
++	require.Equal(t, first.ref.SnapshotID(), second.ref.SnapshotID())
++	require.EqualValues(t, 1, streams.Load(), "only the locked importer may mutate a private snapshot")
++	require.EqualValues(t, 1, eager.Load(), "reused final must still acquire a verified blob")
++}
+diff --git a/engine/snapshots/streamed_import_gc_test.go b/engine/snapshots/streamed_import_gc_test.go
+new file mode 100644
+index 000000000..cf7770eb0
+--- /dev/null
++++ b/engine/snapshots/streamed_import_gc_test.go
+@@ -0,0 +1,228 @@
++package snapshots
++
++import (
++	"context"
++	"errors"
++	"path/filepath"
++	"testing"
++	"time"
++
++	"github.com/containerd/containerd/v2/core/content"
++	"github.com/containerd/containerd/v2/core/diff"
++	"github.com/containerd/containerd/v2/core/metadata"
++	"github.com/containerd/containerd/v2/core/mount"
++	ctdsnapshots "github.com/containerd/containerd/v2/core/snapshots"
++	"github.com/containerd/containerd/v2/pkg/namespaces"
++	localcontent "github.com/containerd/containerd/v2/plugins/content/local"
++	"github.com/containerd/containerd/v2/plugins/snapshots/native"
++	"github.com/containerd/errdefs"
++	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
++	"github.com/stretchr/testify/require"
++	bolt "go.etcd.io/bbolt"
++)
++
++// Real metadata DB, native snapshots, content and leases. Only the mount and
++// applier are test doubles: this validates ownership/GC at the private-stream
++// callback boundary, not real mounted streaming or engine restart behavior.
++type streamGCTestSnapshotter struct{ imageGCTestSnapshotter }
++
++func (sn streamGCTestSnapshotter) Mounts(ctx context.Context, key string) (MountableRef, error) {
++	_, err := sn.Stat(ctx, key)
++	return streamGCTestMount{}, err
++}
++
++type streamGCTestMount struct{}
++
++func (streamGCTestMount) Mount() ([]mount.Mount, func() error, error) {
++	return nil, func() error { return nil }, nil
++}
++
++func TestStreamedImportPrivateStateRealContainerdGC(t *testing.T) {
++	for _, phase := range []string{"ingest-blocked", "verified-blob-blocked"} {
++		for _, outcome := range []string{"callback-error", "caller-cancel", "success-owner-rehydrate"} {
++			t.Run(phase+"/"+outcome, func(t *testing.T) {
++				ctx, cancel := context.WithTimeout(namespaces.WithNamespace(t.Context(), "verified-stream-gc"), 10*time.Second)
++				defer cancel()
++				store, err := localcontent.NewStore(filepath.Join(t.TempDir(), "content"))
++				require.NoError(t, err)
++				nativeSN, err := native.NewSnapshotter(filepath.Join(t.TempDir(), "native"))
++				require.NoError(t, err)
++				t.Cleanup(func() { require.NoError(t, nativeSN.Close()) })
++				boltDB, err := bolt.Open(filepath.Join(t.TempDir(), "metadata.db"), 0600, nil)
++				require.NoError(t, err)
++				t.Cleanup(func() { require.NoError(t, boltDB.Close()) })
++				mdb := metadata.NewDB(boltDB, store, map[string]ctdsnapshots.Snapshotter{"native": nativeSN})
++				require.NoError(t, mdb.Init(ctx))
++				lm := metadata.NewLeaseManager(mdb)
++				sn := streamGCTestSnapshotter{imageGCTestSnapshotter{mdb.Snapshotter("native")}}
++				cm := newApplySnapshotDiffTestManager(t)
++				cm.Snapshotter, cm.ContentStore, cm.LeaseManager = sn, mdb.ContentStore(), lm
++				cm.Applier = pipelineTestApplier(func(context.Context, ocispecs.Descriptor) error { return nil })
++				cm.StreamingApplier = func(content.Provider) diff.Applier { return cm.Applier }
++				parent, parentData := pipelineTestLayer("gc-parent")
++				last, lastData := pipelineTestLayer("gc-private-last")
++				old, oldCtx, err := NewLease(ctx, lm)
++				require.NoError(t, err)
++				const parentID = "verified-stream-gc-parent"
++				require.NoError(t, sn.Prepare(oldCtx, "active-parent", ""))
++				require.NoError(t, sn.Commit(oldCtx, parentID, "active-parent"))
++				require.NoError(t, pipelineTestWrite(oldCtx, cm, parent, parentData))
++				require.NoError(t, cm.LoadPersistentMetadata(PersistentMetadataRows{
++					SnapshotContent: []SnapshotContentRow{{SnapshotID: parentID, Digest: parent.Digest}},
++					ImportedByBlob:  []ImportedLayerBlobRow{{BlobDigest: parent.Digest, SnapshotID: parentID}},
++				}))
++				operationCtx, releaseOperation, err := WithLazyLease(ctx, lm)
++				require.NoError(t, err)
++				defer releaseOperation(context.WithoutCancel(ctx))
++				operationCtx, cancelOperation := context.WithCancelCause(operationCtx)
++				defer cancelOperation(nil)
++				pull, pullCtx, err := NewLease(ctx, lm)
++				require.NoError(t, err)
++				defer func() { _ = lm.Delete(context.WithoutCancel(ctx), pull.l) }()
++				entered, proceed := make(chan struct{}), make(chan struct{})
++				done := make(chan pipelineTestResult, 1)
++				sentinel := errors.New("private callback failure after real GC")
++				go func() {
++					ref, err := cm.ImportImage(operationCtx, &ImportedImage{Layers: []ocispecs.Descriptor{parent, last}}, ImportImageOpts{
++						FetchLayer: func(_ context.Context, d ocispecs.Descriptor) error {
++							if d.Digest != parent.Digest {
++								return errors.New("final layer must not be fetched eagerly")
++							}
++							return nil
++						},
++						FetchLayerWhileApplying: func(applyCtx context.Context, desc ocispecs.Descriptor, apply func(context.Context, content.Provider) (ocispecs.Descriptor, error)) (ocispecs.Descriptor, error) {
++							applied, err := apply(applyCtx, cm.ContentStore)
++							if err != nil {
++								return ocispecs.Descriptor{}, err
++							}
++							// The resolver's ordinary pull lease protects an incomplete
++							// ingest too, not only the blob after its commit.
++							var writer content.Writer
++							if phase == "ingest-blocked" {
++								writer, err = cm.ContentStore.Writer(pullCtx, content.WithRef("stream-gc-ingest"), content.WithDescriptor(desc))
++								if err != nil {
++									return ocispecs.Descriptor{}, err
++								}
++								defer writer.Close()
++								if _, err := writer.Write(lastData[:len(lastData)/2]); err != nil {
++									return ocispecs.Descriptor{}, err
++								}
++							} else {
++								if err := pipelineTestWrite(pullCtx, cm, desc, lastData); err != nil {
++									return ocispecs.Descriptor{}, err
++								}
++							}
++							close(entered)
++							if err := pipelineTestWait(applyCtx, proceed); err != nil {
++								return ocispecs.Descriptor{}, err
++							}
++							if outcome == "callback-error" {
++								return ocispecs.Descriptor{}, sentinel
++							}
++							if writer != nil {
++								if _, err := writer.Write(lastData[len(lastData)/2:]); err != nil {
++									return ocispecs.Descriptor{}, err
++								}
++								if err := writer.Commit(pullCtx, desc.Size, desc.Digest); err != nil {
++									return ocispecs.Descriptor{}, err
++								}
++							}
++							return applied, nil
++						},
++					})
++					done <- pipelineTestResult{ref, err}
++				}()
++				require.NoError(t, pipelineTestWait(ctx, entered))
++				var privateID string
++				require.NoError(t, sn.Walk(ctx, func(_ context.Context, info ctdsnapshots.Info) error {
++					if info.Kind == ctdsnapshots.KindActive {
++						privateID = info.Name
++					}
++					return nil
++				}))
++				require.NotEmpty(t, privateID)
++				require.NoError(t, lm.Delete(ctx, old.l))
++				_, err = mdb.GarbageCollect(ctx)
++				require.NoError(t, err)
++				info, err := sn.Stat(ctx, privateID)
++				require.NoError(t, err, "operation lease must retain the active private snapshot")
++				require.Equal(t, ctdsnapshots.KindActive, info.Kind)
++				require.Equal(t, parentID, info.Parent)
++				_, err = sn.Stat(ctx, parentID)
++				require.NoError(t, err, "operation lease must retain the reused parent")
++				for _, d := range []ocispecs.Descriptor{parent, last} {
++					_, err = cm.ContentStore.Info(ctx, d.Digest)
++					if phase == "ingest-blocked" && d.Digest == last.Digest {
++						require.True(t, errdefs.IsNotFound(err), "incomplete ingest must not appear as committed content")
++						status, err := cm.ContentStore.Status(ctx, "stream-gc-ingest")
++						require.NoError(t, err, "pull lease must retain incomplete ingest across GC")
++						require.EqualValues(t, len(lastData)/2, status.Offset)
++					} else {
++						require.NoError(t, err, "operation/pull leases must retain content")
++					}
++				}
++				cm.mu.Lock()
++				privateIndexed := cm.importedLayerByBlob[ImportedLayerBlobKey{ParentSnapshotID: parentID, BlobDigest: last.Digest}]
++				cm.mu.Unlock()
++				require.Empty(t, privateIndexed, "private snapshot cannot enter reuse index before callback succeeds")
++				if outcome == "caller-cancel" {
++					cancelOperation(sentinel)
++				} else {
++					close(proceed)
++				}
++				got := pipelineTestFinish(t, ctx, done)
++				var resultID string
++				if outcome == "success-owner-rehydrate" {
++					require.NoError(t, got.err)
++					require.NotNil(t, got.ref)
++					resultID = got.ref.SnapshotID()
++					require.NoError(t, cm.AttachLease(ctx, "verified-stream-owner", resultID))
++				} else {
++					require.ErrorIs(t, got.err, sentinel)
++					require.Nil(t, got.ref)
++					cm.mu.Lock()
++					_, privateRecordExists := cm.records[privateID]
++					cm.mu.Unlock()
++					require.False(t, privateRecordExists, "failure must release Dagger mutable metadata")
++				}
++				require.NoError(t, releaseOperation(ctx))
++				require.NoError(t, lm.Delete(ctx, pull.l))
++				_, err = mdb.GarbageCollect(ctx)
++				require.NoError(t, err)
++				_, err = sn.Stat(ctx, privateID)
++				require.True(t, errdefs.IsNotFound(err), "released private state must be reclaimed by normal GC")
++				if phase == "ingest-blocked" {
++					_, err = cm.ContentStore.Status(ctx, "stream-gc-ingest")
++					require.True(t, errdefs.IsNotFound(err), "failed ingest must be reclaimed after pull lease release")
++				}
++				if outcome == "success-owner-rehydrate" {
++					// Rehydrate a fresh manager from persisted rows, not a process or
++					// engine restart. The existing owner lease must retain the closure.
++					fresh := newApplySnapshotDiffTestManager(t)
++					fresh.Snapshotter, fresh.ContentStore, fresh.LeaseManager = sn, mdb.ContentStore(), lm
++					require.NoError(t, fresh.LoadPersistentMetadata(cm.PersistentMetadataRows()))
++					ref, err := fresh.GetBySnapshotID(ctx, resultID)
++					require.NoError(t, err)
++					require.NoError(t, ref.Release(ctx))
++					_, err = sn.Stat(ctx, parentID)
++					require.NoError(t, err)
++					for _, d := range []ocispecs.Descriptor{parent, last} {
++						_, err = cm.ContentStore.Info(ctx, d.Digest)
++						require.NoError(t, err, "owner lease must retain imported content after operation exit")
++					}
++					require.NoError(t, cm.RemoveLease(ctx, "verified-stream-owner"))
++					_, err = mdb.GarbageCollect(ctx)
++					require.NoError(t, err)
++					_, err = sn.Stat(ctx, resultID)
++					require.True(t, errdefs.IsNotFound(err))
++				}
++				_, err = sn.Stat(ctx, parentID)
++				require.True(t, errdefs.IsNotFound(err))
++				for _, d := range []ocispecs.Descriptor{parent, last} {
++					_, err = cm.ContentStore.Info(ctx, d.Digest)
++					require.True(t, errdefs.IsNotFound(err), "temporary leases must not become permanent ownership")
++				}
++			})
++		}
++	}
++}
+diff --git a/engine/snapshots/streamed_import_test.go b/engine/snapshots/streamed_import_test.go
+new file mode 100644
+index 000000000..eb083add5
+--- /dev/null
++++ b/engine/snapshots/streamed_import_test.go
+@@ -0,0 +1,138 @@
++package snapshots
++
++import (
++	"context"
++	"errors"
++	"sync/atomic"
++	"testing"
++
++	"github.com/containerd/containerd/v2/core/content"
++	"github.com/containerd/containerd/v2/core/diff"
++	digest "github.com/opencontainers/go-digest"
++	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
++	"github.com/stretchr/testify/require"
++)
++
++// These tests use the actual snapshot-manager commit/index/publication order
++// with the existing fake mount/snapshotter. They are NOT real containerd GC or
++// mounted snapshot evidence; the resolver suite separately uses a real writer.
++func TestStreamedImportNoSnapshotCommitBeforeVerification(t *testing.T) {
++	cm, sn, ctx := newPipelineTestManager(t)
++	desc, data := pipelineTestLayer("streamed-private")
++	cm.StreamingApplier = func(content.Provider) diff.Applier { return cm.Applier }
++	entered := make(chan struct{})
++	allow := make(chan struct{})
++	var commits atomic.Int64
++	sn.onCommit = func(string) { commits.Add(1) }
++	done := make(chan pipelineTestResult, 1)
++	go func() {
++		ref, err := cm.ImportImage(ctx, &ImportedImage{Layers: []ocispecs.Descriptor{desc}}, ImportImageOpts{
++			FetchLayer: func(context.Context, ocispecs.Descriptor) error {
++				return errors.New("eager fetch must not run for streamed miss")
++			},
++			FetchLayerWhileApplying: func(ctx context.Context, desc ocispecs.Descriptor, apply func(context.Context, content.Provider) (ocispecs.Descriptor, error)) (ocispecs.Descriptor, error) {
++				applied, err := apply(ctx, cm.ContentStore)
++				if err != nil {
++					return ocispecs.Descriptor{}, err
++				}
++				close(entered)
++				if err := pipelineTestWait(ctx, allow); err != nil {
++					return ocispecs.Descriptor{}, err
++				}
++				return applied, pipelineTestWrite(ctx, cm, desc, data)
++			},
++		})
++		done <- pipelineTestResult{ref, err}
++	}()
++	require.NoError(t, pipelineTestWait(ctx, entered))
++	require.Zero(t, commits.Load())
++	cm.mu.Lock()
++	blobEntries, diffEntries := len(cm.importedLayerByBlob), len(cm.importedLayerByDiff)
++	allPrivate := true
++	for _, record := range cm.records {
++		allPrivate = allPrivate && record.mutable && record.locked
++	}
++	cm.mu.Unlock()
++	require.Zero(t, blobEntries)
++	require.Zero(t, diffEntries)
++	require.True(t, allPrivate)
++	select {
++	case result := <-done:
++		t.Fatalf("private snapshot returned before verification: %+v", result)
++	default:
++	}
++	close(allow)
++	result := pipelineTestFinish(t, ctx, done)
++	require.NoError(t, result.err)
++	require.NotNil(t, result.ref)
++	require.EqualValues(t, 1, commits.Load())
++	require.NoError(t, result.ref.Release(context.Background()))
++}
++
++func TestStreamedImportRejectsBeforeCommitAndCleansPrivateState(t *testing.T) {
++	for _, mode := range []string{"missing-content", "wrong-diff", "callback-error"} {
++		t.Run(mode, func(t *testing.T) {
++			cm, sn, ctx := newPipelineTestManager(t)
++			desc, data := pipelineTestLayer(mode)
++			cm.StreamingApplier = func(content.Provider) diff.Applier { return cm.Applier }
++			var commits atomic.Int64
++			sn.onCommit = func(string) { commits.Add(1) }
++			ref, err := cm.ImportImage(ctx, &ImportedImage{Layers: []ocispecs.Descriptor{desc}}, ImportImageOpts{
++				FetchLayer: func(context.Context, ocispecs.Descriptor) error { return errors.New("unexpected eager fetch") },
++				FetchLayerWhileApplying: func(ctx context.Context, desc ocispecs.Descriptor, apply func(context.Context, content.Provider) (ocispecs.Descriptor, error)) (ocispecs.Descriptor, error) {
++					applied, err := apply(ctx, cm.ContentStore)
++					if err != nil {
++						return ocispecs.Descriptor{}, err
++					}
++					if mode != "missing-content" {
++						if err := pipelineTestWrite(ctx, cm, desc, data); err != nil {
++							return ocispecs.Descriptor{}, err
++						}
++					}
++					if mode == "wrong-diff" {
++						applied.Digest = digest.FromString("wrong diff")
++					}
++					if mode == "callback-error" {
++						return applied, errors.New("source label failed")
++					}
++					return applied, nil
++				},
++			})
++			require.Error(t, err)
++			require.Nil(t, ref)
++			require.Zero(t, commits.Load())
++			cm.mu.Lock()
++			blobEntries, diffEntries, records := len(cm.importedLayerByBlob), len(cm.importedLayerByDiff), len(cm.records)
++			cm.mu.Unlock()
++			require.Zero(t, blobEntries)
++			require.Zero(t, diffEntries)
++			require.Zero(t, records, "private mutable ref must be released on fence failure")
++		})
++	}
++}
++
++func TestStreamedImportReusedFinalSnapshotStillFetchesVerifiedBlob(t *testing.T) {
++	cm, _, ctx := newPipelineTestManager(t)
++	desc, data := pipelineTestLayer("reused-final")
++	require.NoError(t, pipelineTestWrite(ctx, cm, desc, data))
++	first, err := cm.ImportImage(ctx, &ImportedImage{Layers: []ocispecs.Descriptor{desc}}, ImportImageOpts{})
++	require.NoError(t, err)
++	defer first.Release(context.Background())
++	cm.StreamingApplier = func(content.Provider) diff.Applier { return cm.Applier }
++	var fetches, streams atomic.Int64
++	second, err := cm.ImportImage(ctx, &ImportedImage{Layers: []ocispecs.Descriptor{desc}}, ImportImageOpts{
++		FetchLayer: func(ctx context.Context, desc ocispecs.Descriptor) error {
++			fetches.Add(1)
++			return pipelineTestWrite(ctx, cm, desc, data)
++		},
++		FetchLayerWhileApplying: func(context.Context, ocispecs.Descriptor, func(context.Context, content.Provider) (ocispecs.Descriptor, error)) (ocispecs.Descriptor, error) {
++			streams.Add(1)
++			return ocispecs.Descriptor{}, errors.New("reused snapshot must not stream")
++		},
++	})
++	require.NoError(t, err)
++	defer second.Release(context.Background())
++	require.Equal(t, first.SnapshotID(), second.SnapshotID())
++	require.EqualValues(t, 1, fetches.Load())
++	require.Zero(t, streams.Load())
++}

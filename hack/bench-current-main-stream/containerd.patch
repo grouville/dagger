@@ -1,0 +1,423 @@
+diff --git a/core/diff/apply/apply.go b/core/diff/apply/apply.go
+index 67dccf922..089aac067 100644
+--- a/core/diff/apply/apply.go
++++ b/core/diff/apply/apply.go
+@@ -21,7 +21,9 @@ import (
+ 	"crypto/rand"
+ 	"encoding/base64"
+ 	"fmt"
++	"hash"
+ 	"io"
++	"sync"
+ 	"time"
+ 
+ 	"github.com/containerd/containerd/v2/core/content"
+@@ -89,25 +91,39 @@ func (s *fsApplier) Apply(ctx context.Context, desc ocispec.Descriptor, mounts [
+ 	} else {
+ 		r = newReadCloser(ra)
+ 	}
+-	defer r.Close()
+ 
+ 	var processors []diff.StreamProcessor
+ 	processor := diff.NewProcessorChain(desc.MediaType, r)
++	defer func() {
++		// Async processors may wait for an input read during Close. Interrupt
++		// the owned input first, before joining the last initialized processor.
++		// Successful draining and digest verification still happen below.
++		r.Close()
++		processor.Close()
++	}()
+ 	processors = append(processors, processor)
+ 	for {
+-		if processor, err = diff.GetProcessor(ctx, processor, config.ProcessorPayloads); err != nil {
++		next, err := diff.GetProcessor(ctx, processor, config.ProcessorPayloads)
++		if err != nil {
+ 			return emptyDesc, fmt.Errorf("failed to get stream processor for %s: %w", desc.MediaType, err)
+ 		}
++		processor = next
+ 		processors = append(processors, processor)
+ 		if processor.MediaType() == ocispec.MediaTypeImageLayer {
+ 			break
+ 		}
+ 	}
+-	defer processor.Close()
+ 
+ 	digester := digest.Canonical.Digester()
++	var hashWriter io.Writer = digester.Hash()
++	var pipelined *pipelinedHash
++	if desc.Size >= 8*1024*1024 {
++		pipelined = newPipelinedHash(digester.Hash())
++		hashWriter = pipelined
++		defer pipelined.Finish() // also join on extraction/processor errors
++	}
+ 	rc := &readCounter{
+-		r: io.TeeReader(processor, digester.Hash()),
++		r: io.TeeReader(processor, hashWriter),
+ 	}
+ 
+ 	// The number of `mounts` that need to be parsed by the mount manager
+@@ -146,6 +162,11 @@ func (s *fsApplier) Apply(ctx context.Context, desc ocispec.Descriptor, mounts [
+ 		}
+ 	}
+ 
++	if pipelined != nil {
++		if err := pipelined.Finish(); err != nil {
++			return emptyDesc, err
++		}
++	}
+ 	return ocispec.Descriptor{
+ 		MediaType: ocispec.MediaTypeImageLayer,
+ 		Size:      rc.c,
+@@ -167,34 +188,66 @@ func (rc *readCounter) Read(p []byte) (n int, err error) {
+ }
+ 
+ type progressReader struct {
+-	rc *readCounter
+-	c  io.Closer
+-	p  func(int64)
++	r io.Reader
++	c io.Closer
++	p func(int64)
++
++	// External decompressors read their input in another goroutine. Closing
++	// their output does not necessarily join that read on an error path.
++	// Protect both the count and the final callback, but never hold mu over
++	// the borrowed reader's Read: its Close may not interrupt a blocked read.
++	mu        sync.Mutex
++	n         int64
++	closed    bool
++	closeOnce sync.Once
++	closeErr  error
+ }
+ 
+ func newProgressReader(ra content.ReaderAt, p func(int64)) io.ReadCloser {
+ 	return &progressReader{
+-		rc: &readCounter{
+-			r: content.NewReader(ra),
+-			c: 0,
+-		},
++		r: content.NewReader(ra),
+ 		c: ra,
+ 		p: p,
+ 	}
+ }
+ 
+-func (pr *progressReader) Read(p []byte) (n int, err error) {
++func (pr *progressReader) startRead() bool {
++	pr.mu.Lock()
++	defer pr.mu.Unlock()
++	if pr.closed {
++		return false
++	}
+ 	// Call the progress function with the current count, indicating
+ 	// the previously read content has been processed. Initial
+ 	// progress of 0 indicates start of processing.
+-	pr.p(pr.rc.c)
+-	n, err = pr.rc.Read(p)
++	pr.p(pr.n)
++	return true
++}
++
++func (pr *progressReader) Read(p []byte) (n int, err error) {
++	if !pr.startRead() {
++		return 0, io.ErrClosedPipe
++	}
++	n, err = pr.r.Read(p)
++	if n > 0 {
++		pr.mu.Lock()
++		pr.n += int64(n)
++		pr.mu.Unlock()
++	}
+ 	return
+ }
+ 
+ func (pr *progressReader) Close() error {
+-	pr.p(pr.rc.c)
+-	return pr.c.Close()
++	pr.closeOnce.Do(func() {
++		pr.mu.Lock()
++		pr.closed = true
++		pr.mu.Unlock()
++		pr.closeErr = pr.c.Close()
++		pr.mu.Lock()
++		defer pr.mu.Unlock()
++		pr.p(pr.n)
++	})
++	return pr.closeErr
+ }
+ 
+ type readCloser struct {
+@@ -208,3 +261,64 @@ func newReadCloser(ra content.ReaderAt) io.ReadCloser {
+ 		Closer: ra,
+ 	}
+ }
++
++// Experimental bounded, ordered hash writer. No digest can be consumed until
++// Finish returns. The consumer must call Finish even on extraction failure.
++// Exactly three reusable 256 KiB buffers bound queued and in-flight bytes.
++type pipelinedHash struct {
++	hash hash.Hash
++	free chan []byte
++	jobs chan []byte
++	done chan struct{}
++	buf  []byte
++	err  error
++	once sync.Once
++}
++
++func newPipelinedHash(h hash.Hash) *pipelinedHash {
++	p := &pipelinedHash{hash: h, free: make(chan []byte, 3), jobs: make(chan []byte, 3), done: make(chan struct{})}
++	for range 3 {
++		p.free <- make([]byte, 256*1024)
++	}
++	go func() {
++		defer close(p.done)
++		for b := range p.jobs {
++			if p.err == nil {
++				_, p.err = h.Write(b)
++			}
++			p.free <- b[:cap(b)]
++		}
++	}()
++	return p
++}
++
++func (p *pipelinedHash) Write(b []byte) (int, error) {
++	n := len(b)
++	for len(b) > 0 {
++		if p.buf == nil {
++			p.buf = (<-p.free)[:0]
++		}
++		old := len(p.buf)
++		add := min(len(b), cap(p.buf)-old)
++		p.buf = p.buf[:old+add]
++		copy(p.buf[old:], b[:add])
++		b = b[add:]
++		if len(p.buf) == cap(p.buf) {
++			p.jobs <- p.buf
++			p.buf = nil
++		}
++	}
++	return n, nil
++}
++
++func (p *pipelinedHash) Finish() error {
++	p.once.Do(func() {
++		if len(p.buf) > 0 {
++			p.jobs <- p.buf
++			p.buf = nil
++		}
++		close(p.jobs)
++		<-p.done
++	})
++	return p.err
++}
+diff --git a/core/diff/apply/progress_reader_test.go b/core/diff/apply/progress_reader_test.go
+new file mode 100644
+index 000000000..722d58295
+--- /dev/null
++++ b/core/diff/apply/progress_reader_test.go
+@@ -0,0 +1,203 @@
++package apply
++
++import (
++	"bytes"
++	"errors"
++	"io"
++	"sync"
++	"sync/atomic"
++	"testing"
++	"time"
++)
++
++type progressTestReader struct {
++	*bytes.Reader
++	closes atomic.Int64
++	read   func([]byte) (int, error)
++	close  func() error
++}
++
++func (r *progressTestReader) Close() error {
++	r.closes.Add(1)
++	if r.close != nil {
++		return r.close()
++	}
++	return nil
++}
++
++// content.NewReader's optional streaming interface avoids unrelated section
++// reader buffering in these reader-lifecycle tests.
++type progressTestSource struct{ source *progressTestReader }
++
++func (r progressTestSource) Reader() io.Reader { return r.source }
++func (r progressTestSource) ReadAt(p []byte, off int64) (int, error) {
++	return r.source.Reader.ReadAt(p, off)
++}
++func (r progressTestSource) Size() int64  { return r.source.Size() }
++func (r progressTestSource) Close() error { return r.source.Close() }
++func (r *progressTestReader) Read(p []byte) (int, error) {
++	if r.read != nil {
++		return r.read(p)
++	}
++	return r.Reader.Read(p)
++}
++
++func TestProgressReaderCloseIsTerminal(t *testing.T) {
++	source := &progressTestReader{Reader: bytes.NewReader([]byte("payload"))}
++	var progress []int64
++	r := newProgressReader(progressTestSource{source}, func(n int64) { progress = append(progress, n) })
++	if _, err := io.Copy(io.Discard, r); err != nil {
++		t.Fatal(err)
++	}
++	if err := r.Close(); err != nil {
++		t.Fatal(err)
++	}
++	if len(progress) == 0 || progress[0] != 0 || progress[len(progress)-1] != 7 {
++		t.Fatalf("expected initial and converged final progress: %v", progress)
++	}
++	nBefore := len(progress)
++	if _, err := r.Read(make([]byte, 1)); !errors.Is(err, io.ErrClosedPipe) {
++		t.Errorf("read after close = %v, want io.ErrClosedPipe", err)
++	}
++	if err := r.Close(); err != nil {
++		t.Fatal(err)
++	}
++	if len(progress) != nBefore || source.closes.Load() != 1 {
++		t.Fatalf("close must be terminal/idempotent: events %d -> %d, source closes %d", nBefore, len(progress), source.closes.Load())
++	}
++}
++
++func TestProgressReaderConcurrentClose(t *testing.T) {
++	for range 20 {
++		source := &progressTestReader{Reader: bytes.NewReader(bytes.Repeat([]byte("x"), 1<<18))}
++		var mu sync.Mutex
++		var progress []int64
++		r := newProgressReader(progressTestSource{source}, func(n int64) {
++			mu.Lock()
++			progress = append(progress, n)
++			mu.Unlock()
++		})
++		started := make(chan struct{})
++		done := make(chan struct{})
++		go func() {
++			defer close(done)
++			b := make([]byte, 7)
++			_, _ = r.Read(b)
++			close(started)
++			for {
++				if _, err := r.Read(b); err != nil {
++					return
++				}
++			}
++		}()
++		<-started
++		if err := r.Close(); err != nil {
++			t.Fatal(err)
++		}
++		mu.Lock()
++		atClose := len(progress)
++		mu.Unlock()
++		<-done
++		mu.Lock()
++		after := len(progress)
++		mu.Unlock()
++		if after != atClose {
++			t.Fatalf("progress emitted after Close returned: %d -> %d", atClose, after)
++		}
++	}
++}
++
++func TestProgressReaderCloseDoesNotJoinBorrowedRead(t *testing.T) {
++	entered, release := make(chan struct{}), make(chan struct{})
++	var releaseOnce sync.Once
++	unblock := func() { releaseOnce.Do(func() { close(release) }) }
++	defer unblock()
++	source := &progressTestReader{Reader: bytes.NewReader([]byte("x"))}
++	source.read = func(p []byte) (int, error) {
++		close(entered)
++		<-release
++		p[0] = 'x'
++		return 1, io.EOF
++	}
++	r := newProgressReader(progressTestSource{source}, func(int64) {})
++	readDone := make(chan struct{})
++	go func() {
++		defer close(readDone)
++		_, _ = r.Read(make([]byte, 1))
++	}()
++	<-entered
++	closeDone := make(chan struct{})
++	go func() { _ = r.Close(); close(closeDone) }()
++	select {
++	case <-closeDone:
++	case <-time.After(time.Second):
++		unblock()
++		<-closeDone
++		<-readDone
++		t.Fatal("Close must not assume arbitrary borrowed input is interruptible")
++	}
++	unblock()
++	<-readDone
++}
++
++func TestProgressReaderConcurrentClosePreservesError(t *testing.T) {
++	entered, release := make(chan struct{}), make(chan struct{})
++	var unblockOnce sync.Once
++	unblock := func() { unblockOnce.Do(func() { close(release) }) }
++	defer unblock()
++	sentinel := errors.New("source close failed")
++	source := &progressTestReader{Reader: bytes.NewReader([]byte("payload"))}
++	source.close = func() error { close(entered); <-release; return sentinel }
++	var callbacks atomic.Int64
++	r := newProgressReader(progressTestSource{source}, func(int64) { callbacks.Add(1) })
++	closed := make(chan error, 2)
++	go func() { closed <- r.Close() }()
++	<-entered
++	started := make(chan struct{})
++	go func() { close(started); closed <- r.Close() }()
++	<-started
++	if callbacks.Load() != 0 {
++		t.Error("terminal progress preceded source close completion")
++	}
++	unblock()
++	for range 2 {
++		if err := <-closed; !errors.Is(err, sentinel) {
++			t.Errorf("Close lost source error: %v", err)
++		}
++	}
++	if source.closes.Load() != 1 || callbacks.Load() != 1 {
++		t.Fatalf("source close/terminal callback must occur once: %d/%d", source.closes.Load(), callbacks.Load())
++	}
++	if _, err := r.Read(make([]byte, 1)); !errors.Is(err, io.ErrClosedPipe) || callbacks.Load() != 1 {
++		t.Fatalf("read after Close: err=%v callbacks=%d", err, callbacks.Load())
++	}
++}
++
++func TestProgressReaderCallbackPanicDoesNotLockCleanup(t *testing.T) {
++	source := &progressTestReader{Reader: bytes.NewReader([]byte("payload"))}
++	first := true
++	r := newProgressReader(progressTestSource{source}, func(int64) {
++		if first {
++			first = false
++			panic("progress callback panic")
++		}
++	})
++	func() {
++		defer func() {
++			if got := recover(); got != "progress callback panic" {
++				t.Errorf("unexpected recovered callback result: %v", got)
++			}
++		}()
++		_, _ = r.Read(make([]byte, 1))
++	}()
++	done := make(chan error, 1)
++	go func() { done <- r.Close() }()
++	select {
++	case err := <-done:
++		if err != nil {
++			t.Fatal(err)
++		}
++	case <-time.After(time.Second):
++		t.Fatal("callback panic left the progress mutex locked during cleanup")
++	}
++}
