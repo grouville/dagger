@@ -191,7 +191,10 @@ func (c *Client) Dialer() session.Dialer {
 
 func (c *Client) Wait(ctx context.Context) error {
 	for {
-		_, err := c.ControlClient().Info(ctx, &controlapi.InfoRequest{})
+		// Let transport readiness wake this probe instead of turning a transient
+		// connection failure into an additional one-second polling delay. Keep
+		// the retry below for Unavailable responses from a connected server.
+		_, err := c.ControlClient().Info(ctx, &controlapi.InfoRequest{}, grpc.WaitForReady(true))
 		if err == nil {
 			return nil
 		}
@@ -202,6 +205,14 @@ func (c *Client) Wait(ctx context.Context) error {
 			// only buildkit v0.11+ supports the info api, but an unimplemented
 			// response error is still a response so we can ignore it
 			return nil
+		case codes.Canceled, codes.DeadlineExceeded:
+			// A readiness probe can now wait inside gRPC as well as in the
+			// retry below. Preserve the caller's cause in either case, without
+			// replacing cancellation statuses returned by a live server.
+			if ctx.Err() != nil {
+				return context.Cause(ctx)
+			}
+			return err
 		default:
 			return err
 		}

@@ -1,0 +1,472 @@
+{
+  "scope": "Readiness and image phases for same-engine CLI pairs; not additive CPU.",
+  "mechanism_gate_pass": true,
+  "samples": [
+    {
+      "index": 0,
+      "side": "A",
+      "process_ms": 24362.656952,
+      "cargo_ms": 5955.59403,
+      "rust_delivery_envelope_ms": 12575.406614,
+      "replay_drift": "-3.0%",
+      "creating_client_ms": 2037.650153,
+      "info_calls": [
+        {
+          "start_ns": 1789271411891952168,
+          "end_ns": 1789271411925954814,
+          "ms": 34.002646,
+          "status": "STATUS_CODE_ERROR",
+          "description": "connection error: desc = \"error reading server preface: command [docker exec -i rust-loop-dagger-rust-loop-4cz4rx13-engine buildctl dial-stdio] has exited with exit status 1, make sure the URL is valid, and Docker 18.09 or later is installed on the remote host: stderr=Error: dial unix /run/dagger/engine.sock: connect: no such file or directory\\nUsage:\\n  dial-stdio [flags]\\n\\nFlags:\\n      --addr string   The address serving the grpc api (default \\\"unix:///run/dagger/engine.sock\\\")\\n  -h, --help          help for dial-stdio\\n      --timeout int   The timeout in seconds for connecting to the grpc api (default 5)\\n\\n\"",
+          "attrs": {
+            "rpc.grpc.status_code": 14,
+            "rpc.method": "Info",
+            "rpc.service": "moby.buildkit.v1.Control",
+            "rpc.system": "grpc"
+          }
+        },
+        {
+          "start_ns": 1789271412926449706,
+          "end_ns": 1789271412926505817,
+          "ms": 0.056111,
+          "status": "STATUS_CODE_ERROR",
+          "description": "connection error: desc = \"error reading server preface: command [docker exec -i rust-loop-dagger-rust-loop-4cz4rx13-engine buildctl dial-stdio] has exited with exit status 1, make sure the URL is valid, and Docker 18.09 or later is installed on the remote host: stderr=Error: dial unix /run/dagger/engine.sock: connect: no such file or directory\\nUsage:\\n  dial-stdio [flags]\\n\\nFlags:\\n      --addr string   The address serving the grpc api (default \\\"unix:///run/dagger/engine.sock\\\")\\n  -h, --help          help for dial-stdio\\n      --timeout int   The timeout in seconds for connecting to the grpc api (default 5)\\n\\n\"",
+          "attrs": {
+            "rpc.grpc.status_code": 14,
+            "rpc.method": "Info",
+            "rpc.service": "moby.buildkit.v1.Control",
+            "rpc.system": "grpc"
+          }
+        },
+        {
+          "start_ns": 1789271413927336640,
+          "end_ns": 1789271413928619195,
+          "ms": 1.282555,
+          "status": null,
+          "description": null,
+          "attrs": {
+            "rpc.grpc.status_code": 0,
+            "rpc.method": "Info",
+            "rpc.service": "moby.buildkit.v1.Control",
+            "rpc.system": "grpc",
+            "server.address": "dummy-1"
+          }
+        },
+        {
+          "start_ns": 1789271413928647427,
+          "end_ns": 1789271413929282406,
+          "ms": 0.634979,
+          "status": null,
+          "description": null,
+          "attrs": {
+            "rpc.grpc.status_code": 0,
+            "rpc.method": "Info",
+            "rpc.service": "moby.buildkit.v1.Control",
+            "rpc.system": "grpc",
+            "server.address": "dummy-1"
+          }
+        }
+      ],
+      "info_error_count": 2,
+      "info_total_ms": 35.976290999999996,
+      "info_gaps_ms": [
+        1000.494892,
+        1000.830823,
+        0.028232
+      ],
+      "info_gap_ms": 2001.353947,
+      "connect_ms": 2823.096204,
+      "largest_layer_overlap": {
+        "item": "sha256:167b9fde7ea2106ff0349f834ad13f3d5078836087edf8a9422da759c088f66c",
+        "first_read_ns": 1789271419555276537,
+        "download_end_ns": 1789271428718969312,
+        "read_before_own_download_end": true
+      },
+      "dpkg_ms": 192.953997,
+      "rustup_ms": 822.446858
+    },
+    {
+      "index": 1,
+      "side": "B",
+      "process_ms": 18764.358536,
+      "cargo_ms": 6588.894604,
+      "rust_delivery_envelope_ms": 7333.014656,
+      "replay_drift": "-3.5%",
+      "creating_client_ms": 1074.19712,
+      "info_calls": [
+        {
+          "start_ns": 1789271488215947455,
+          "end_ns": 1789271489289372588,
+          "ms": 1073.425133,
+          "status": null,
+          "description": null,
+          "attrs": {
+            "rpc.grpc.status_code": 0,
+            "rpc.method": "Info",
+            "rpc.service": "moby.buildkit.v1.Control",
+            "rpc.system": "grpc",
+            "server.address": "dummy-1"
+          }
+        },
+        {
+          "start_ns": 1789271489289416163,
+          "end_ns": 1789271489289833252,
+          "ms": 0.417089,
+          "status": null,
+          "description": null,
+          "attrs": {
+            "rpc.grpc.status_code": 0,
+            "rpc.method": "Info",
+            "rpc.service": "moby.buildkit.v1.Control",
+            "rpc.system": "grpc",
+            "server.address": "dummy-1"
+          }
+        }
+      ],
+      "info_error_count": 0,
+      "info_total_ms": 1073.842222,
+      "info_gaps_ms": [
+        0.043575
+      ],
+      "info_gap_ms": 0.043575,
+      "connect_ms": 1870.114276,
+      "largest_layer_overlap": {
+        "item": "sha256:167b9fde7ea2106ff0349f834ad13f3d5078836087edf8a9422da759c088f66c",
+        "first_read_ns": 1789271494113260435,
+        "download_end_ns": 1789271498759358903,
+        "read_before_own_download_end": true
+      },
+      "dpkg_ms": 191.579989,
+      "rustup_ms": 869.114574
+    },
+    {
+      "index": 2,
+      "side": "B",
+      "process_ms": 50027.650294,
+      "cargo_ms": 37065.171802,
+      "rust_delivery_envelope_ms": 8060.617071,
+      "replay_drift": "-1.3%",
+      "creating_client_ms": 1078.895905,
+      "info_calls": [
+        {
+          "start_ns": 1789271556491734023,
+          "end_ns": 1789271557568742983,
+          "ms": 1077.00896,
+          "status": null,
+          "description": null,
+          "attrs": {
+            "rpc.grpc.status_code": 0,
+            "rpc.method": "Info",
+            "rpc.service": "moby.buildkit.v1.Control",
+            "rpc.system": "grpc",
+            "server.address": "dummy-1"
+          }
+        },
+        {
+          "start_ns": 1789271557568777558,
+          "end_ns": 1789271557570307988,
+          "ms": 1.53043,
+          "status": null,
+          "description": null,
+          "attrs": {
+            "rpc.grpc.status_code": 0,
+            "rpc.method": "Info",
+            "rpc.service": "moby.buildkit.v1.Control",
+            "rpc.system": "grpc",
+            "server.address": "dummy-1"
+          }
+        }
+      ],
+      "info_error_count": 0,
+      "info_total_ms": 1078.53939,
+      "info_gaps_ms": [
+        0.034575
+      ],
+      "info_gap_ms": 0.034575,
+      "connect_ms": 1872.378473,
+      "largest_layer_overlap": {
+        "item": "sha256:167b9fde7ea2106ff0349f834ad13f3d5078836087edf8a9422da759c088f66c",
+        "first_read_ns": 1789271562551758801,
+        "download_end_ns": 1789271567851427508,
+        "read_before_own_download_end": true
+      },
+      "dpkg_ms": 191.404554,
+      "rustup_ms": 836.753293
+    },
+    {
+      "index": 3,
+      "side": "A",
+      "process_ms": 23237.101566,
+      "cargo_ms": 6388.808779,
+      "rust_delivery_envelope_ms": 11212.584965,
+      "replay_drift": "-2.9%",
+      "creating_client_ms": 2039.606336,
+      "info_calls": [
+        {
+          "start_ns": 1789271657263851712,
+          "end_ns": 1789271657298937393,
+          "ms": 35.085681,
+          "status": "STATUS_CODE_ERROR",
+          "description": "connection error: desc = \"error reading server preface: command [docker exec -i rust-loop-dagger-rust-loop-0ie7x0p2-engine buildctl dial-stdio] has exited with exit status 1, make sure the URL is valid, and Docker 18.09 or later is installed on the remote host: stderr=Error: dial unix /run/dagger/engine.sock: connect: no such file or directory\\nUsage:\\n  dial-stdio [flags]\\n\\nFlags:\\n      --addr string   The address serving the grpc api (default \\\"unix:///run/dagger/engine.sock\\\")\\n  -h, --help          help for dial-stdio\\n      --timeout int   The timeout in seconds for connecting to the grpc api (default 5)\\n\\n\"",
+          "attrs": {
+            "rpc.grpc.status_code": 14,
+            "rpc.method": "Info",
+            "rpc.service": "moby.buildkit.v1.Control",
+            "rpc.system": "grpc"
+          }
+        },
+        {
+          "start_ns": 1789271658299430539,
+          "end_ns": 1789271658299493873,
+          "ms": 0.063334,
+          "status": "STATUS_CODE_ERROR",
+          "description": "connection error: desc = \"error reading server preface: command [docker exec -i rust-loop-dagger-rust-loop-0ie7x0p2-engine buildctl dial-stdio] has exited with exit status 1, make sure the URL is valid, and Docker 18.09 or later is installed on the remote host: stderr=Error: dial unix /run/dagger/engine.sock: connect: no such file or directory\\nUsage:\\n  dial-stdio [flags]\\n\\nFlags:\\n      --addr string   The address serving the grpc api (default \\\"unix:///run/dagger/engine.sock\\\")\\n  -h, --help          help for dial-stdio\\n      --timeout int   The timeout in seconds for connecting to the grpc api (default 5)\\n\\n\"",
+          "attrs": {
+            "rpc.grpc.status_code": 14,
+            "rpc.method": "Info",
+            "rpc.service": "moby.buildkit.v1.Control",
+            "rpc.system": "grpc"
+          }
+        },
+        {
+          "start_ns": 1789271659300493388,
+          "end_ns": 1789271659302335530,
+          "ms": 1.842142,
+          "status": null,
+          "description": null,
+          "attrs": {
+            "rpc.grpc.status_code": 0,
+            "rpc.method": "Info",
+            "rpc.service": "moby.buildkit.v1.Control",
+            "rpc.system": "grpc",
+            "server.address": "dummy-1"
+          }
+        },
+        {
+          "start_ns": 1789271659302365637,
+          "end_ns": 1789271659303179494,
+          "ms": 0.813857,
+          "status": null,
+          "description": null,
+          "attrs": {
+            "rpc.grpc.status_code": 0,
+            "rpc.method": "Info",
+            "rpc.service": "moby.buildkit.v1.Control",
+            "rpc.system": "grpc",
+            "server.address": "dummy-1"
+          }
+        }
+      ],
+      "info_error_count": 2,
+      "info_total_ms": 37.805014,
+      "info_gaps_ms": [
+        1000.493146,
+        1000.999515,
+        0.030107
+      ],
+      "info_gap_ms": 2001.522768,
+      "connect_ms": 2846.828626,
+      "largest_layer_overlap": {
+        "item": "sha256:167b9fde7ea2106ff0349f834ad13f3d5078836087edf8a9422da759c088f66c",
+        "first_read_ns": 1789271664253651182,
+        "download_end_ns": 1789271672691739172,
+        "read_before_own_download_end": true
+      },
+      "dpkg_ms": 193.776599,
+      "rustup_ms": 673.693628
+    },
+    {
+      "index": 4,
+      "side": "A",
+      "process_ms": 20061.058153,
+      "cargo_ms": 6155.9842,
+      "rust_delivery_envelope_ms": 8132.779559,
+      "replay_drift": "-3.7%",
+      "creating_client_ms": 2047.335567,
+      "info_calls": [
+        {
+          "start_ns": 1789271732194716601,
+          "end_ns": 1789271732238524505,
+          "ms": 43.807904,
+          "status": "STATUS_CODE_ERROR",
+          "description": "connection error: desc = \"error reading server preface: command [docker exec -i rust-loop-dagger-rust-loop-s1nprd8o-engine buildctl dial-stdio] has exited with exit status 1, make sure the URL is valid, and Docker 18.09 or later is installed on the remote host: stderr=Error: dial unix /run/dagger/engine.sock: connect: no such file or directory\\nUsage:\\n  dial-stdio [flags]\\n\\nFlags:\\n      --addr string   The address serving the grpc api (default \\\"unix:///run/dagger/engine.sock\\\")\\n  -h, --help          help for dial-stdio\\n      --timeout int   The timeout in seconds for connecting to the grpc api (default 5)\\n\\n\"",
+          "attrs": {
+            "rpc.grpc.status_code": 14,
+            "rpc.method": "Info",
+            "rpc.service": "moby.buildkit.v1.Control",
+            "rpc.system": "grpc"
+          }
+        },
+        {
+          "start_ns": 1789271733238848251,
+          "end_ns": 1789271733238908536,
+          "ms": 0.060285,
+          "status": "STATUS_CODE_ERROR",
+          "description": "connection error: desc = \"error reading server preface: command [docker exec -i rust-loop-dagger-rust-loop-s1nprd8o-engine buildctl dial-stdio] has exited with exit status 1, make sure the URL is valid, and Docker 18.09 or later is installed on the remote host: stderr=Error: dial unix /run/dagger/engine.sock: connect: no such file or directory\\nUsage:\\n  dial-stdio [flags]\\n\\nFlags:\\n      --addr string   The address serving the grpc api (default \\\"unix:///run/dagger/engine.sock\\\")\\n  -h, --help          help for dial-stdio\\n      --timeout int   The timeout in seconds for connecting to the grpc api (default 5)\\n\\n\"",
+          "attrs": {
+            "rpc.grpc.status_code": 14,
+            "rpc.method": "Info",
+            "rpc.service": "moby.buildkit.v1.Control",
+            "rpc.system": "grpc"
+          }
+        },
+        {
+          "start_ns": 1789271734240036937,
+          "end_ns": 1789271734241266637,
+          "ms": 1.2297,
+          "status": null,
+          "description": null,
+          "attrs": {
+            "rpc.grpc.status_code": 0,
+            "rpc.method": "Info",
+            "rpc.service": "moby.buildkit.v1.Control",
+            "rpc.system": "grpc",
+            "server.address": "dummy-1"
+          }
+        },
+        {
+          "start_ns": 1789271734241295320,
+          "end_ns": 1789271734241743403,
+          "ms": 0.448083,
+          "status": null,
+          "description": null,
+          "attrs": {
+            "rpc.grpc.status_code": 0,
+            "rpc.method": "Info",
+            "rpc.service": "moby.buildkit.v1.Control",
+            "rpc.system": "grpc",
+            "server.address": "dummy-1"
+          }
+        }
+      ],
+      "info_error_count": 2,
+      "info_total_ms": 45.545972,
+      "info_gaps_ms": [
+        1000.323746,
+        1001.128401,
+        0.028683
+      ],
+      "info_gap_ms": 2001.48083,
+      "connect_ms": 2821.926112,
+      "largest_layer_overlap": {
+        "item": "sha256:167b9fde7ea2106ff0349f834ad13f3d5078836087edf8a9422da759c088f66c",
+        "first_read_ns": 1789271739656494997,
+        "download_end_ns": 1789271744645255076,
+        "read_before_own_download_end": true
+      },
+      "dpkg_ms": 196.851977,
+      "rustup_ms": 690.495499
+    },
+    {
+      "index": 5,
+      "side": "B",
+      "process_ms": 20096.95757,
+      "cargo_ms": 6441.064454,
+      "rust_delivery_envelope_ms": 8677.577429,
+      "replay_drift": "-3.6%",
+      "creating_client_ms": 1076.430464,
+      "info_calls": [
+        {
+          "start_ns": 1789271824002150375,
+          "end_ns": 1789271825077770447,
+          "ms": 1075.620072,
+          "status": null,
+          "description": null,
+          "attrs": {
+            "rpc.grpc.status_code": 0,
+            "rpc.method": "Info",
+            "rpc.service": "moby.buildkit.v1.Control",
+            "rpc.system": "grpc",
+            "server.address": "dummy-1"
+          }
+        },
+        {
+          "start_ns": 1789271825077798657,
+          "end_ns": 1789271825078278418,
+          "ms": 0.479761,
+          "status": null,
+          "description": null,
+          "attrs": {
+            "rpc.grpc.status_code": 0,
+            "rpc.method": "Info",
+            "rpc.service": "moby.buildkit.v1.Control",
+            "rpc.system": "grpc",
+            "server.address": "dummy-1"
+          }
+        }
+      ],
+      "info_error_count": 0,
+      "info_total_ms": 1076.099833,
+      "info_gaps_ms": [
+        0.02821
+      ],
+      "info_gap_ms": 0.02821,
+      "connect_ms": 1865.929598,
+      "largest_layer_overlap": {
+        "item": "sha256:167b9fde7ea2106ff0349f834ad13f3d5078836087edf8a9422da759c088f66c",
+        "first_read_ns": 1789271830504959564,
+        "download_end_ns": 1789271836064011685,
+        "read_before_own_download_end": true
+      },
+      "dpkg_ms": 194.612196,
+      "rustup_ms": 861.844524
+    }
+  ],
+  "pairs_saved_ms": [
+    {
+      "pair": 0,
+      "process_ms": 5598.298416000001,
+      "cargo_ms": -633.3005739999999,
+      "rust_delivery_envelope_ms": 5242.391957999999,
+      "connect_ms": 952.9819279999999,
+      "creating_client_ms": 963.453033,
+      "info_total_ms": -1037.865931,
+      "info_gap_ms": 2001.3103720000001,
+      "dpkg_ms": 1.374007999999975,
+      "rustup_ms": -46.66771599999993
+    },
+    {
+      "pair": 1,
+      "process_ms": -26790.548727999998,
+      "cargo_ms": -30676.363022999998,
+      "rust_delivery_envelope_ms": 3151.9678940000003,
+      "connect_ms": 974.450153,
+      "creating_client_ms": 960.710431,
+      "info_total_ms": -1040.7343759999999,
+      "info_gap_ms": 2001.4881930000001,
+      "dpkg_ms": 2.372045000000014,
+      "rustup_ms": -163.059665
+    },
+    {
+      "pair": 2,
+      "process_ms": -35.8994169999969,
+      "cargo_ms": -285.0802540000004,
+      "rust_delivery_envelope_ms": -544.7978700000012,
+      "connect_ms": 955.9965140000002,
+      "creating_client_ms": 970.905103,
+      "info_total_ms": -1030.553861,
+      "info_gap_ms": 2001.45262,
+      "dpkg_ms": 2.2397809999999936,
+      "rustup_ms": -171.34902499999998
+    }
+  ],
+  "paired_median_saved_ms": {
+    "process_ms": -35.8994169999969,
+    "cargo_ms": -633.3005739999999,
+    "rust_delivery_envelope_ms": 3151.9678940000003,
+    "connect_ms": 955.9965140000002,
+    "creating_client_ms": 963.453033,
+    "info_total_ms": -1037.865931,
+    "info_gap_ms": 2001.45262,
+    "dpkg_ms": 2.2397809999999936,
+    "rustup_ms": -163.059665
+  },
+  "limits": [
+    "Same verified-stream engine image and full official gzip Rust content in both treatments",
+    "Cold profiling and registry variability retained; not a full-install measurement",
+    "First command includes ordinary CLI engine provisioning; debug helper copied only after that timer closes",
+    "No controlled artificial readiness delay; fast-start samples remain in results",
+    "Two Info calls remain in candidate: readiness and existing version validation",
+    "Configured gRPC backoff can remain inside Info; not all startup latency removed",
+    "Do not sum phase medians or attribute image/network variation to this CLI change"
+  ]
+}
