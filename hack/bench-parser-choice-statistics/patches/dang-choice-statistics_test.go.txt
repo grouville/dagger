@@ -1,0 +1,178 @@
+package dang
+
+import (
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+
+	"github.com/google/go-cmp/cmp"
+)
+
+// Parsed binary operators contain references to the static package-level
+// arithmetic functions. reflect.DeepEqual reports non-nil functions unequal
+// even when parsing the same input twice without changing any options. Compare
+// just that concrete function type by code identity; keep every AST field,
+// including source locations and unexported parse state, in the comparison.
+func equalChoiceStatisticsAST(a, b any) bool {
+	return cmp.Equal(a, b,
+		cmp.Exporter(func(reflect.Type) bool { return true }),
+		cmp.Comparer(func(x, y BinaryOperatorEvaluator) bool {
+			return reflect.ValueOf(x).Pointer() == reflect.ValueOf(y).Pointer()
+		}),
+	)
+}
+
+func TestChoiceStatisticsASTComparator(t *testing.T) {
+	a, err := Parse("same", []byte("pub x = 1 + 2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := Parse("same", []byte("pub x = 1 + 2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reflect.DeepEqual(a, b) || !equalChoiceStatisticsAST(a, b) {
+		t.Fatal("expected static operator function to explain raw DeepEqual mismatch")
+	}
+	c, err := Parse("same", []byte("pub x = 1 - 2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if equalChoiceStatisticsAST(a, c) {
+		t.Fatal("changed operator was missed")
+	}
+	if equalChoiceStatisticsAST(additionEval, subtractionEval) {
+		t.Fatal("changed function was missed")
+	}
+}
+
+func TestChoiceStatisticsDefaultAndUndo(t *testing.T) {
+	p := newParser("example", []byte("pub answer = 1 + 2"))
+	initial := p.Stats
+	if initial == nil || initial.ChoiceAltCnt != nil {
+		t.Fatal("default must retain expression counters without allocating choice counters")
+	}
+	var first, second Stats
+	undo := Statistics(&first, "first-no-match")(p)
+	if p.Stats != &first || first.ChoiceAltCnt == nil {
+		t.Fatal("explicit statistics not enabled")
+	}
+	redo := undo(p)
+	if p.Stats != initial || p.ChoiceAltCnt != nil || p.choiceNoMatch != "" {
+		t.Fatal("undo did not restore disabled statistics exactly")
+	}
+	redo(p)
+	if p.Stats != &first || p.choiceNoMatch != "first-no-match" {
+		t.Fatal("redo did not restore statistics")
+	}
+	restoreFirst := Statistics(&second, "second-no-match")(p)
+	if p.Stats != &second || p.choiceNoMatch != "second-no-match" {
+		t.Fatal("switch failed")
+	}
+	restoreFirst(p)
+	if p.Stats != &first || p.choiceNoMatch != "first-no-match" {
+		t.Fatal("switch undo failed")
+	}
+	if _, err := p.parse(g); err != nil || first.ExprCnt == 0 || len(first.ChoiceAltCnt) == 0 {
+		t.Fatalf("explicit counters missing: %v", err)
+	}
+	plain := newParser("example", []byte("pub answer = 1 + 2"))
+	if _, err := plain.parse(g); err != nil || plain.ExprCnt != first.ExprCnt || plain.ChoiceAltCnt != nil {
+		t.Fatalf("plain parse or expression count changed: %v", err)
+	}
+	prior := first.ExprCnt
+	if _, err := Parse("example", []byte("pub answer = 1 + 2"), Statistics(&first, "first-no-match")); err != nil {
+		t.Fatal(err)
+	}
+	if first.ExprCnt != 2*prior {
+		t.Fatal("caller-owned statistics no longer accumulate")
+	}
+}
+
+func TestChoiceStatisticsCorpusParity(t *testing.T) {
+	count := 0
+	err := filepath.WalkDir("../..", func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() || filepath.Ext(path) != ".dang" {
+			return nil
+		}
+		source, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		count++
+		// Compare all parsed fields including source locations. No inference,
+		// cache or service state is shared between these two parser instances.
+		plain, plainErr := Parse(path, source)
+		var stats Stats
+		counted, countedErr := Parse(path, source, Statistics(&stats, "no match"))
+		if fmt.Sprint(plainErr) != fmt.Sprint(countedErr) {
+			return fmt.Errorf("%s: error changed: %v != %v", path, plainErr, countedErr)
+		}
+		if !equalChoiceStatisticsAST(plain, counted) {
+			return fmt.Errorf("%s: parsed trees differ with statistics enabled", path)
+		}
+		if stats.ExprCnt == 0 {
+			return fmt.Errorf("%s: missing expression count", path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count < 100 {
+		t.Fatalf("unexpectedly small corpus: %d files", count)
+	}
+	t.Logf("AST/error/source-location parity across %d unchanged .dang files", count)
+}
+
+func TestChoiceStatisticsOptionsParity(t *testing.T) {
+	for _, memoize := range []bool{false, true} {
+		for _, input := range []string{"pub x = 1 + 2 * 3", "pub broken = [", "pub x = \"\xff\"", "pub x = foo.{ _.bar }.baz"} {
+			for _, maxExpr := range []uint64{0, 1, 30} {
+				options := []Option{Memoize(memoize), MaxExpressions(maxExpr)}
+				plain, plainErr := Parse("options.dang", []byte(input), options...)
+				var stats Stats
+				counted, countedErr := Parse("options.dang", []byte(input), append(options, Statistics(&stats, "no match"))...)
+				if fmt.Sprint(plainErr) != fmt.Sprint(countedErr) || !equalChoiceStatisticsAST(plain, counted) {
+					t.Fatalf("memo=%t max=%d input=%q: AST/error changed: %v != %v", memoize, maxExpr, input, plainErr, countedErr)
+				}
+				if maxExpr == 1 && (plainErr == nil || !strings.Contains(plainErr.Error(), "max number of expressions")) {
+					t.Fatalf("expression limit was bypassed: %v", plainErr)
+				}
+			}
+		}
+	}
+}
+
+func BenchmarkRustModuleParseChoiceStatistics(b *testing.B) {
+	path := os.Getenv("DAGGER_RUST_PARSE_FIXTURE")
+	if path == "" {
+		b.Skip("set DAGGER_RUST_PARSE_FIXTURE to the pinned Rust module fixture")
+	}
+	source, err := os.ReadFile(path)
+	if err != nil {
+		b.Fatal(err)
+	}
+	for _, counted := range []bool{true, false} {
+		b.Run(fmt.Sprintf("counted=%t", counted), func(b *testing.B) {
+			b.ReportAllocs()
+			b.SetBytes(int64(len(source)))
+			for b.Loop() {
+				var options []Option
+				if counted {
+					options = []Option{Statistics(&Stats{}, "")}
+				}
+				if _, err := Parse("main.dang", source, options...); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}

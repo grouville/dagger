@@ -1,0 +1,146 @@
+{
+  "scope": "Three AB/BA/AB process pairs on the identical pinned Rust module parser input.\n\nMicrobenchmark only. No engine/session/Cargo timing or E2E speedup claim.\nBoth test binaries default to no explicit statistics option; baseline retains\nthe old implicit counting behavior, candidate only counts on request.\n",
+  "records": [
+    {
+      "index": 0,
+      "side": "A",
+      "n": 82,
+      "ns_per_op": 13262969,
+      "bytes_per_op": 4303288,
+      "allocs_per_op": 89392,
+      "start_ns": 1789257075346252744,
+      "end_ns": 1789257076442179785,
+      "argv": [
+        "/tmp/dagger-parser-stats.I2WPGLrS/dang-control.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkRustModuleParseChoiceStatistics$/^counted=false$",
+        "-test.benchtime=1s",
+        "-test.count=1",
+        "-test.benchmem"
+      ],
+      "binary_sha256": "4645441628f0b283dd1c114dee6e7bc66263debc5ed9d8a9ba7be9e4140f8ea1"
+    },
+    {
+      "index": 1,
+      "side": "B",
+      "n": 100,
+      "ns_per_op": 10280481,
+      "bytes_per_op": 3858680,
+      "allocs_per_op": 59376,
+      "start_ns": 1789257076505889154,
+      "end_ns": 1789257077540751356,
+      "argv": [
+        "/tmp/dagger-parser-stats.I2WPGLrS/dang-candidate.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkRustModuleParseChoiceStatistics$/^counted=false$",
+        "-test.benchtime=1s",
+        "-test.count=1",
+        "-test.benchmem"
+      ],
+      "binary_sha256": "dd944790fd436bcc13a6c11ad4d83b26c289b7d21bd1cbf48b28ddd2ee1e45e5"
+    },
+    {
+      "index": 2,
+      "side": "B",
+      "n": 100,
+      "ns_per_op": 10405841,
+      "bytes_per_op": 3858595,
+      "allocs_per_op": 59376,
+      "start_ns": 1789257077604203615,
+      "end_ns": 1789257078651554234,
+      "argv": [
+        "/tmp/dagger-parser-stats.I2WPGLrS/dang-candidate.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkRustModuleParseChoiceStatistics$/^counted=false$",
+        "-test.benchtime=1s",
+        "-test.count=1",
+        "-test.benchmem"
+      ],
+      "binary_sha256": "dd944790fd436bcc13a6c11ad4d83b26c289b7d21bd1cbf48b28ddd2ee1e45e5"
+    },
+    {
+      "index": 3,
+      "side": "A",
+      "n": 81,
+      "ns_per_op": 13293257,
+      "bytes_per_op": 4303352,
+      "allocs_per_op": 89393,
+      "start_ns": 1789257078714941000,
+      "end_ns": 1789257079799253909,
+      "argv": [
+        "/tmp/dagger-parser-stats.I2WPGLrS/dang-control.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkRustModuleParseChoiceStatistics$/^counted=false$",
+        "-test.benchtime=1s",
+        "-test.count=1",
+        "-test.benchmem"
+      ],
+      "binary_sha256": "4645441628f0b283dd1c114dee6e7bc66263debc5ed9d8a9ba7be9e4140f8ea1"
+    },
+    {
+      "index": 4,
+      "side": "A",
+      "n": 79,
+      "ns_per_op": 13909611,
+      "bytes_per_op": 4303215,
+      "allocs_per_op": 89392,
+      "start_ns": 1789257079862359941,
+      "end_ns": 1789257080968013442,
+      "argv": [
+        "/tmp/dagger-parser-stats.I2WPGLrS/dang-control.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkRustModuleParseChoiceStatistics$/^counted=false$",
+        "-test.benchtime=1s",
+        "-test.count=1",
+        "-test.benchmem"
+      ],
+      "binary_sha256": "4645441628f0b283dd1c114dee6e7bc66263debc5ed9d8a9ba7be9e4140f8ea1"
+    },
+    {
+      "index": 5,
+      "side": "B",
+      "n": 100,
+      "ns_per_op": 11401738,
+      "bytes_per_op": 3858749,
+      "allocs_per_op": 59377,
+      "start_ns": 1789257081034049963,
+      "end_ns": 1789257082180908359,
+      "argv": [
+        "/tmp/dagger-parser-stats.I2WPGLrS/dang-candidate.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkRustModuleParseChoiceStatistics$/^counted=false$",
+        "-test.benchtime=1s",
+        "-test.count=1",
+        "-test.benchmem"
+      ],
+      "binary_sha256": "dd944790fd436bcc13a6c11ad4d83b26c289b7d21bd1cbf48b28ddd2ee1e45e5"
+    }
+  ],
+  "pairs": [
+    {
+      "pair": 0,
+      "saved_ns": 2982488,
+      "saved_bytes": 444608,
+      "saved_allocations": 30016
+    },
+    {
+      "pair": 1,
+      "saved_ns": 2887416,
+      "saved_bytes": 444757,
+      "saved_allocations": 30017
+    },
+    {
+      "pair": 2,
+      "saved_ns": 2507873,
+      "saved_bytes": 444466,
+      "saved_allocations": 30015
+    }
+  ],
+  "saved_ns_median": 2887416,
+  "saved_ns_range": [
+    2507873,
+    2982488
+  ],
+  "favorable_pairs": 3,
+  "input_sha256": "f6e119c3b7be439df46a6ea9b74c368126751e0a141b2e5ebb699a4b0f0681f1"
+}

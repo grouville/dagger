@@ -1,0 +1,228 @@
+--- a/builder/static_code.go
++++ b/builder/static_code.go
+@@ -77,6 +77,8 @@
+ // Statistics adds a user provided Stats struct to the parser to allow
+ // the user to process the results after the parsing has finished.
+ // Also the key for the "no match" counter is set.
++// Choice counts are collected only when this option is used. Expression
++// counting for MaxExpressions remains enabled regardless of this option.
+ //
+ // Example usage:
+ //
+@@ -93,14 +95,22 @@
+ //	fmt.Println(string(b))
+ func Statistics(stats *Stats, choiceNoMatch string) Option {
+ 	return func(p *parser) Option {
++		if stats.ChoiceAltCnt == nil {
++			stats.ChoiceAltCnt = make(map[string]map[string]int)
++		}
++		return setStatistics(stats, choiceNoMatch)(p)
++	}
++}
++
++// Restore the exact previous statistics state, including disabled choice
++// counts. An undo must not initialize the previous parser-private map.
++func setStatistics(stats *Stats, choiceNoMatch string) Option {
++	return func(p *parser) Option {
+ 		oldStats := p.Stats
+ 		p.Stats = stats
+ 		oldChoiceNoMatch := p.choiceNoMatch
+ 		p.choiceNoMatch = choiceNoMatch
+-		if p.Stats.ChoiceAltCnt == nil {
+-			p.Stats.ChoiceAltCnt = make(map[string]map[string]int)
+-		}
+-		return Statistics(oldStats, oldChoiceNoMatch)
++		return setStatistics(oldStats, oldChoiceNoMatch)
+ 	}
+ }
+ 
+@@ -442,9 +452,7 @@
+ 
+ // newParser creates a parser with the specified input source and options.
+ func newParser(filename string, b []byte, opts ...Option) *parser {
+-	stats := Stats{
+-		ChoiceAltCnt: make(map[string]map[string]int),
+-	}
++	stats := Stats{}
+ 
+ 	p := &parser{
+ 		filename: filename,
+@@ -1314,6 +1322,9 @@
+ // ==template== {{ if not .Optimize }}
+ 
+ func (p *parser) incChoiceAltCnt(ch *choiceExpr, altI int) {
++	if p.ChoiceAltCnt == nil {
++		return
++	}
+ 	choiceIdent := fmt.Sprintf("%s %d:%d", p.rstack[len(p.rstack)-1].name, ch.pos.line, ch.pos.col)
+ 	m := p.ChoiceAltCnt[choiceIdent]
+ 	if m == nil {
+--- a/builder/generated_static_code.go
++++ b/builder/generated_static_code.go
+@@ -59,6 +59,8 @@
+ // Statistics adds a user provided Stats struct to the parser to allow
+ // the user to process the results after the parsing has finished.
+ // Also the key for the "no match" counter is set.
++// Choice counts are collected only when this option is used. Expression
++// counting for MaxExpressions remains enabled regardless of this option.
+ //
+ // Example usage:
+ //
+@@ -75,14 +77,22 @@
+ //	fmt.Println(string(b))
+ func Statistics(stats *Stats, choiceNoMatch string) Option {
+ 	return func(p *parser) Option {
++		if stats.ChoiceAltCnt == nil {
++			stats.ChoiceAltCnt = make(map[string]map[string]int)
++		}
++		return setStatistics(stats, choiceNoMatch)(p)
++	}
++}
++
++// Restore the exact previous statistics state, including disabled choice
++// counts. An undo must not initialize the previous parser-private map.
++func setStatistics(stats *Stats, choiceNoMatch string) Option {
++	return func(p *parser) Option {
+ 		oldStats := p.Stats
+ 		p.Stats = stats
+ 		oldChoiceNoMatch := p.choiceNoMatch
+ 		p.choiceNoMatch = choiceNoMatch
+-		if p.Stats.ChoiceAltCnt == nil {
+-			p.Stats.ChoiceAltCnt = make(map[string]map[string]int)
+-		}
+-		return Statistics(oldStats, oldChoiceNoMatch)
++		return setStatistics(oldStats, oldChoiceNoMatch)
+ 	}
+ }
+ 
+@@ -424,9 +434,7 @@
+ 
+ // newParser creates a parser with the specified input source and options.
+ func newParser(filename string, b []byte, opts ...Option) *parser {
+-	stats := Stats{
+-		ChoiceAltCnt: make(map[string]map[string]int),
+-	}
++	stats := Stats{}
+ 
+ 	p := &parser{
+ 		filename: filename,
+@@ -1296,6 +1304,9 @@
+ // ==template== {{ if not .Optimize }}
+ 
+ func (p *parser) incChoiceAltCnt(ch *choiceExpr, altI int) {
++	if p.ChoiceAltCnt == nil {
++		return
++	}
+ 	choiceIdent := fmt.Sprintf("%s %d:%d", p.rstack[len(p.rstack)-1].name, ch.pos.line, ch.pos.col)
+ 	m := p.ChoiceAltCnt[choiceIdent]
+ 	if m == nil {
+--- /dev/null
++++ b/examples/json/choice_statistics_test.go
+@@ -0,0 +1,107 @@
++package json
++
++import (
++	"fmt"
++	"reflect"
++	"strings"
++	"testing"
++)
++
++func TestChoiceStatisticsDefault(t *testing.T) {
++	p := newParser("default", []byte(`{"value": [1, true, null]}`))
++	if p.Stats == nil || p.ChoiceAltCnt != nil {
++		t.Fatal("default statistics must retain expression counting without choice counters")
++	}
++	if _, err := p.parse(g); err != nil {
++		t.Fatal(err)
++	}
++	if p.ExprCnt == 0 || p.ChoiceAltCnt != nil {
++		t.Fatal("parsing must count expressions without implicitly enabling choice statistics")
++	}
++}
++
++func TestChoiceStatisticsRestore(t *testing.T) {
++	p := newParser("restore", []byte(`{"value": 12}`))
++	initial := p.Stats
++	var first, second Stats
++	undo := Statistics(&first, "first-no-match")(p)
++	if p.Stats != &first || p.ChoiceAltCnt == nil || p.choiceNoMatch != "first-no-match" {
++		t.Fatal("explicit statistics not enabled")
++	}
++	redo := undo(p)
++	if p.Stats != initial || p.ChoiceAltCnt != nil || p.choiceNoMatch != "" {
++		t.Fatal("undo must restore the exact disabled state, without initializing its map")
++	}
++	undoAgain := redo(p)
++	if p.Stats != &first || p.choiceNoMatch != "first-no-match" {
++		t.Fatal("redo did not restore caller-owned statistics")
++	}
++	restoreFirst := Statistics(&second, "second-no-match")(p)
++	if p.Stats != &second || p.choiceNoMatch != "second-no-match" {
++		t.Fatal("switch to second statistics failed")
++	}
++	restoreFirst(p)
++	if p.Stats != &first || p.choiceNoMatch != "first-no-match" {
++		t.Fatal("switch undo did not preserve statistics identity and label")
++	}
++	undoAgain(p)
++	if p.Stats != initial || p.ChoiceAltCnt != nil || p.choiceNoMatch != "" {
++		t.Fatal("redo's undo did not restore the original disabled state")
++	}
++}
++
++func TestChoiceStatisticsAccumulate(t *testing.T) {
++	input := []byte(`{"string": "string", "number": 123}`)
++	stats := Stats{ChoiceAltCnt: map[string]map[string]int{"sentinel": {"kept": 17}}}
++	if _, err := Parse("accumulate", input, Statistics(&stats, "custom-no-match")); err != nil {
++		t.Fatal(err)
++	}
++	firstExpressions := stats.ExprCnt
++	first := make(map[string]map[string]int)
++	foundCustom := false
++	for rule, counts := range stats.ChoiceAltCnt {
++		first[rule] = make(map[string]int)
++		for alternative, count := range counts {
++			first[rule][alternative] = count
++			foundCustom = foundCustom || alternative == "custom-no-match"
++		}
++	}
++	if firstExpressions == 0 || !foundCustom {
++		t.Fatal("missing expression count or custom no-match label")
++	}
++	if _, err := Parse("accumulate", input, Statistics(&stats, "custom-no-match")); err != nil {
++		t.Fatal(err)
++	}
++	if stats.ExprCnt != 2*firstExpressions || len(stats.ChoiceAltCnt) != len(first) {
++		t.Fatal("statistics did not accumulate in the existing map")
++	}
++	for rule, counts := range first {
++		for alternative, count := range counts {
++			want := count * 2
++			if rule == "sentinel" {
++				want = count
++			}
++			if got := stats.ChoiceAltCnt[rule][alternative]; got != want {
++				t.Fatalf("%s/%s: got %d, want %d", rule, alternative, got, want)
++			}
++		}
++	}
++}
++
++func TestChoiceStatisticsParseParity(t *testing.T) {
++	for _, memoize := range []bool{false, true} {
++		for _, input := range []string{`{"value": [1, true, null]}`, `{"broken": [}`, "\"\xff\""} {
++			for _, maxExpr := range []uint64{0, 1, 30} {
++				var stats Stats
++				plain, plainErr := Parse("parity", []byte(input), Memoize(memoize), MaxExpressions(maxExpr))
++				counted, countedErr := Parse("parity", []byte(input), Memoize(memoize), MaxExpressions(maxExpr), Statistics(&stats, "no match"))
++				if !reflect.DeepEqual(plain, counted) || fmt.Sprint(plainErr) != fmt.Sprint(countedErr) {
++					t.Fatalf("memo=%t max=%d input=%q: output or error changed: %v != %v", memoize, maxExpr, input, plainErr, countedErr)
++				}
++				if maxExpr == 1 && (plainErr == nil || !strings.Contains(plainErr.Error(), "max number of expressions")) {
++					t.Fatal("expression limit no longer enforced without choice statistics")
++				}
++			}
++		}
++	}
++}

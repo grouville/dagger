@@ -1,0 +1,192 @@
+{
+  "status": "built-and-query-passed",
+  "scope": "Build two current-main engine variants sequentially using supported dev flows.\n\nExperimental local Dang replacement on both sides. The sole production\ndifference is generated choice-statistics bookkeeping, not image/CLI/cache logic.\n",
+  "parent": "503d3410ef3df63fa6bc7a55c5c2453c4951c2c2",
+  "upstream_main": "7c35e6274737acff0f6bd76614abb5e04efa7d12",
+  "differences": [
+    "internal/bench-parser-stats/dang/pkg/dang/dang.peg.go"
+  ],
+  "script_sha256": "42eb7209b04f5adbe017ec590de816af0ab2825246394c6c983744cf29f9eb09",
+  "validation_hashes": {
+    "dang-race-tests.log": "98e62e0757a5d940873f9e7500d404347ec532bb8c9cc5c0bd8af58f384838dc",
+    "pigeon-tests.log": "4fc8a6387e52d00e1d05ce38be6489e9718f164860cd6df804dc5cae79eedd02",
+    "parse-results.json": "d5243dc9e0722116394700d25ca0a216a494fe35904fa75a96f9a1a86ac4e54a"
+  },
+  "builds": [
+    {
+      "side": "A",
+      "source": "/tmp/dagger-parser-stats.I2WPGLrS/engine-control",
+      "status": "built-and-query-passed",
+      "commands": [
+        {
+          "label": "placeholder-create",
+          "argv": [
+            "docker",
+            "create",
+            "--name",
+            "dagger-parser-stats-i2wpglrs-a",
+            "--label",
+            "dagger.rust.bench-owner=dagger-parser-stats.I2WPGLrS",
+            "sha256:ba0686de0d8c5543b5ff093ba7a78fa2d900f23b775fcb4983337b7e5f0319de"
+          ],
+          "start_ns": 1789257270159874832,
+          "exit_code": 0,
+          "end_ns": 1789257270220000398
+        },
+        {
+          "label": "engine-build",
+          "argv": [
+            "/usr/local/bin/dagger",
+            "--x-release",
+            "00cb7d3a0e8d1eb6ec672aa504db14e52a9d1e21",
+            "api",
+            "call",
+            "dev",
+            "--docker=unix:///var/run/docker.sock",
+            "deploy",
+            "--name=dagger-parser-stats-i2wpglrs-a",
+            "--image=localhost/dagger-parser-stats-i2wpglrs-a",
+            "--platform=linux/amd64",
+            "--debug-endpoint=false",
+            "--output",
+            "/tmp/dagger-parser-stats.I2WPGLrS/engine-builds/A/bin"
+          ],
+          "start_ns": 1789257270867338826,
+          "exit_code": 0,
+          "end_ns": 1789257380863406401
+        },
+        {
+          "label": "smoke",
+          "argv": [
+            "/tmp/dagger-http-preconnect-main.tRLouH4d/dagger-candidate",
+            "api",
+            "query",
+            "--no-load-module"
+          ],
+          "start_ns": 1789257381702967875,
+          "exit_code": 0,
+          "end_ns": 1789257382253535622
+        }
+      ],
+      "engine_after_smoke": {
+        "Id": "77eab14898a08ff125679132565be2e2a9c5b8f486cbbd0ee06611ba353d191a",
+        "Image": "sha256:04a845135543b07994fcbffee08f9ce062ed392069dd9cb8ec496aaa84279a62",
+        "State": {
+          "Status": "running",
+          "Running": true,
+          "Paused": false,
+          "Restarting": false,
+          "OOMKilled": false,
+          "Dead": false,
+          "Pid": 817975,
+          "ExitCode": 0,
+          "Error": "",
+          "StartedAt": "2026-09-12T23:56:16.835945592Z",
+          "FinishedAt": "0001-01-01T00:00:00Z"
+        },
+        "RestartCount": 0
+      }
+    },
+    {
+      "side": "B",
+      "source": "/tmp/dagger-parser-stats.I2WPGLrS/engine-source",
+      "status": "built-and-query-passed",
+      "commands": [
+        {
+          "label": "dang-integration",
+          "argv": [
+            "/tmp/dagger-http-preconnect-main.tRLouH4d/dagger-candidate",
+            "api",
+            "call",
+            "engine-dev",
+            "test",
+            "--pkg=./core/integration",
+            "--run=^TestDang$/^Test(SelfCallReturningOwnType|Enums|Interfaces|Scalars|VersionedSyntax|CoreTypeShadowing|Directives|Mismatch)$",
+            "--parallel=1",
+            "--timeout=5m",
+            "--count=1",
+            "--test-verbose=true"
+          ],
+          "start_ns": 1789257383272706807,
+          "exit_code": 0,
+          "end_ns": 1789257598773479472
+        },
+        {
+          "label": "placeholder-create",
+          "argv": [
+            "docker",
+            "create",
+            "--name",
+            "dagger-parser-stats-i2wpglrs-b",
+            "--label",
+            "dagger.rust.bench-owner=dagger-parser-stats.I2WPGLrS",
+            "sha256:ba0686de0d8c5543b5ff093ba7a78fa2d900f23b775fcb4983337b7e5f0319de"
+          ],
+          "start_ns": 1789257598952807224,
+          "exit_code": 0,
+          "end_ns": 1789257599098754881
+        },
+        {
+          "label": "engine-build",
+          "argv": [
+            "/usr/local/bin/dagger",
+            "--x-release",
+            "00cb7d3a0e8d1eb6ec672aa504db14e52a9d1e21",
+            "api",
+            "call",
+            "dev",
+            "--docker=unix:///var/run/docker.sock",
+            "deploy",
+            "--name=dagger-parser-stats-i2wpglrs-b",
+            "--image=localhost/dagger-parser-stats-i2wpglrs-b",
+            "--platform=linux/amd64",
+            "--debug-endpoint=false",
+            "--output",
+            "/tmp/dagger-parser-stats.I2WPGLrS/engine-builds/B/bin"
+          ],
+          "start_ns": 1789257599283013108,
+          "exit_code": 0,
+          "end_ns": 1789257664390109378
+        },
+        {
+          "label": "smoke",
+          "argv": [
+            "/tmp/dagger-http-preconnect-main.tRLouH4d/dagger-candidate",
+            "api",
+            "query",
+            "--no-load-module"
+          ],
+          "start_ns": 1789257664686612975,
+          "exit_code": 0,
+          "end_ns": 1789257665199879669
+        }
+      ],
+      "engine_after_smoke": {
+        "Id": "d0d56f72a602d87b26fc32578569ece53b4536601423e3e5833edd284e6be097",
+        "Image": "sha256:c057d7eed790760d88e4cffb0f540adb9e230823b81759c0e86eeaae49d141a0",
+        "State": {
+          "Status": "running",
+          "Running": true,
+          "Paused": false,
+          "Restarting": false,
+          "OOMKilled": false,
+          "Dead": false,
+          "Pid": 849499,
+          "ExitCode": 0,
+          "Error": "",
+          "StartedAt": "2026-09-13T00:01:00.442813719Z",
+          "FinishedAt": "0001-01-01T00:00:00Z"
+        },
+        "RestartCount": 0
+      }
+    }
+  ],
+  "parser_hashes": {
+    "A": {
+      "internal/bench-parser-stats/dang/pkg/dang/dang.peg.go": "412c376c5f258957e9b1faab9fcf1761487aaed3cc8ab4bb4cac23aecee5c01f"
+    },
+    "B": {
+      "internal/bench-parser-stats/dang/pkg/dang/dang.peg.go": "32b04bbfe570812df10d13527c36b1224dbb5d491d3aaff36b75e10963377365"
+    }
+  }
+}

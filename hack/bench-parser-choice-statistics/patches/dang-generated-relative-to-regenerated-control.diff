@@ -1,0 +1,59 @@
+--- /tmp/dagger-parser-stats.I2WPGLrS/control.dang.peg.go	2026-09-12 16:43:24.832844563 -0700
++++ /tmp/dagger-parser-stats.I2WPGLrS/dang/pkg/dang/dang.peg.go	2026-09-12 16:44:56.342403923 -0700
+@@ -11915,6 +11915,8 @@
+ // Statistics adds a user provided Stats struct to the parser to allow
+ // the user to process the results after the parsing has finished.
+ // Also the key for the "no match" counter is set.
++// Choice counts are collected only when this option is used. Expression
++// counting for MaxExpressions remains enabled regardless of this option.
+ //
+ // Example usage:
+ //
+@@ -11931,14 +11933,22 @@
+ //	fmt.Println(string(b))
+ func Statistics(stats *Stats, choiceNoMatch string) Option {
+ 	return func(p *parser) Option {
++		if stats.ChoiceAltCnt == nil {
++			stats.ChoiceAltCnt = make(map[string]map[string]int)
++		}
++		return setStatistics(stats, choiceNoMatch)(p)
++	}
++}
++
++// Restore the exact previous statistics state, including disabled choice
++// counts. An undo must not initialize the previous parser-private map.
++func setStatistics(stats *Stats, choiceNoMatch string) Option {
++	return func(p *parser) Option {
+ 		oldStats := p.Stats
+ 		p.Stats = stats
+ 		oldChoiceNoMatch := p.choiceNoMatch
+ 		p.choiceNoMatch = choiceNoMatch
+-		if p.Stats.ChoiceAltCnt == nil {
+-			p.Stats.ChoiceAltCnt = make(map[string]map[string]int)
+-		}
+-		return Statistics(oldStats, oldChoiceNoMatch)
++		return setStatistics(oldStats, oldChoiceNoMatch)
+ 	}
+ }
+ 
+@@ -12249,9 +12259,7 @@
+ 
+ // newParser creates a parser with the specified input source and options.
+ func newParser(filename string, b []byte, opts ...Option) *parser {
+-	stats := Stats{
+-		ChoiceAltCnt: make(map[string]map[string]int),
+-	}
++	stats := Stats{}
+ 
+ 	p := &parser{
+ 		filename: filename,
+@@ -12995,6 +13003,9 @@
+ }
+ 
+ func (p *parser) incChoiceAltCnt(ch *choiceExpr, altI int) {
++	if p.ChoiceAltCnt == nil {
++		return
++	}
+ 	choiceIdent := fmt.Sprintf("%s %d:%d", p.rstack[len(p.rstack)-1].name, ch.pos.line, ch.pos.col)
+ 	m := p.ChoiceAltCnt[choiceIdent]
+ 	if m == nil {
