@@ -22,6 +22,9 @@ const (
 	LockOperationGitLatest = "git-latest"
 	LockOperationGitSHA    = "git-sha"
 	LockOperationVanityURL = "vanity-url"
+	// Unlike the legacy redirect-only operation, this can record a successful
+	// lookup with no redirect. A self-value preserves the original source text.
+	LockOperationVanityURLResolution = "vanity-url-resolution"
 
 	LatestReleaseVersion  = "v1.0.0-beta.11"
 	VersionQueriesVersion = "v1.0.0-beta.12"
