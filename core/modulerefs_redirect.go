@@ -81,6 +81,20 @@ func ResolveDaggerGetRedirect(ctx context.Context, refString string) (string, er
 		); ok {
 			return sourceURLWithVersion(resolvedURL, version), nil
 		}
+		// Keep legacy entries authoritative: an older engine can ignore a new
+		// identity entry and subsequently discover a redirect of its own.
+		if resolvedURL, ok := lock.GetLookup(
+			workspace.CoreLockNamespace,
+			workspace.LockOperationVanityURLResolution,
+			lockInputs,
+		); ok {
+			if resolvedURL == sourceURL {
+				// A schemeless source still needs transport selection; #ref:subpath
+				// and @version are also distinct selectors, not interchangeable.
+				return refString, nil
+			}
+			return sourceURLWithVersion(resolvedURL, version), nil
+		}
 		if !lockOverridden && queryErr == nil {
 			_, lockWritable, err := query.CurrentWorkspaceLock(ctx, true)
 			if err != nil {
@@ -108,24 +122,29 @@ func ResolveDaggerGetRedirect(ctx context.Context, refString string) (string, er
 		// session ID must be part of the key to keep results session-private.
 		"module-dagger-get-redirect:"+clientMetadata.SessionID+":"+sourceURL,
 		func(ctx context.Context) (any, error) {
-			return daggerGetProbe(ctx, sourceURL), nil
+			return daggerGetProbeResolution(ctx, sourceURL), nil
 		},
 	)
-	var resolvedRef string
+	resolution := daggerGetResolution{ref: sourceURL}
 	if err != nil {
 		slog.Debug("dagger-get redirect cache error; probing directly", "ref", refString, "error", err)
-		resolvedRef = daggerGetProbe(ctx, sourceURL)
-	} else if resolved, ok := res.Value().(string); ok && resolved != "" {
-		resolvedRef = resolved
-	} else {
-		resolvedRef = sourceURL
+		resolution = daggerGetProbeResolution(ctx, sourceURL)
+	} else if resolved, ok := res.Value().(daggerGetResolution); ok && resolved.ref != "" {
+		resolution = resolved
 	}
 
-	if resolvedRef == sourceURL {
+	if resolution.ref == sourceURL {
+		if resolution.noRedirect && setLookup != nil && canRecordVanityIdentity(sourceURL) {
+			// An HTTP 200 records only URL routing, not Git visibility or caller
+			// authorization. Errors and ignored redirects remain session-local.
+			if err := setLookup(workspace.CoreLockNamespace, workspace.LockOperationVanityURLResolution, lockInputs, sourceURL); err != nil {
+				return "", fmt.Errorf("set vanity-url-resolution lock entry: %w", err)
+			}
+		}
 		return refString, nil
 	}
 	if setLookup == nil {
-		return sourceURLWithVersion(resolvedRef, version), nil
+		return sourceURLWithVersion(resolution.ref, version), nil
 	}
 	// Store the destination before applying the caller's version. A version in
 	// the redirect is its default and must survive later lookups and refreshes.
@@ -133,11 +152,19 @@ func ResolveDaggerGetRedirect(ctx context.Context, refString string) (string, er
 		workspace.CoreLockNamespace,
 		workspace.LockOperationVanityURL,
 		lockInputs,
-		resolvedRef,
+		resolution.ref,
 	); err != nil {
 		return "", fmt.Errorf("set vanity-url lock entry: %w", err)
 	}
-	return sourceURLWithVersion(resolvedRef, version), nil
+	return sourceURLWithVersion(resolution.ref, version), nil
+}
+
+func canRecordVanityIdentity(sourceURL string) bool {
+	u, err := url.Parse(sourceURL)
+	// A routing observation must not newly copy inline credentials or query
+	// tokens into an automatically exported, normally committed lockfile.
+	// Keep the full session-local key; stripping secrets could merge inputs.
+	return err == nil && u.User == nil && u.RawQuery == ""
 }
 
 func splitSourceURLVersion(refString string) (string, string, error) {
@@ -213,6 +240,19 @@ func daggerGetEligible(refString string) bool {
 // daggerGetProbe performs the actual single-hop redirect probe and returns the
 // resolved ref, or the original ref on any non-redirect outcome.
 func daggerGetProbe(ctx context.Context, refString string) string {
+	return daggerGetProbeResolution(ctx, refString).ref
+}
+
+type daggerGetResolution struct {
+	ref string
+	// noRedirect means an HTTP 200 was observed, not merely that we fell back
+	// to the original ref after an error or ignored redirect. This observation
+	// may be pinned until explicit update; it says nothing about Git access.
+	noRedirect bool
+}
+
+func daggerGetProbeResolution(ctx context.Context, refString string) daggerGetResolution {
+	fallback := daggerGetResolution{ref: refString}
 	// Module refs spell versions with "@" (and historically "#"); normalize so
 	// url.Parse doesn't treat a version as a URL fragment.
 	normalized := strings.Replace(refString, "#", "@", 1)
@@ -222,7 +262,7 @@ func daggerGetProbe(ctx context.Context, refString string) string {
 
 	u, err := url.Parse(normalized)
 	if err != nil {
-		return refString
+		return fallback
 	}
 
 	// Strip a path-level "@version"; userinfo "@" stays in u.User, not u.Path.
@@ -238,29 +278,29 @@ func daggerGetProbe(ctx context.Context, refString string) string {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, probe.String(), nil)
 	if err != nil {
-		return refString
+		return fallback
 	}
 	resp, err := daggerGetClient.Do(req)
 	if err != nil {
 		slog.Debug("dagger-get probe failed; using original ref", "url", probe.String(), "error", err)
-		return refString
+		return fallback
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode < http.StatusMultipleChoices || resp.StatusCode >= http.StatusBadRequest {
-		// Not a 3xx: no redirect configured for this ref.
-		return refString
+		fallback.noRedirect = resp.StatusCode == http.StatusOK
+		return fallback
 	}
 
 	loc := resp.Header.Get("Location")
 	if loc == "" {
-		return refString
+		return fallback
 	}
 	locURL, err := url.Parse(loc)
 	if err != nil || locURL.Scheme != "https" || locURL.Host == "" {
 		slog.Debug("dagger-get redirect ignored: Location is not an absolute https URL",
 			"ref", refString, "location", loc)
-		return refString
+		return fallback
 	}
 
 	// Hosts also emit incidental 3xx responses that are not dagger-get
@@ -272,7 +312,7 @@ func daggerGetProbe(ctx context.Context, refString string) string {
 	if locURL.Query().Get(daggerGetQueryParam) != "1" {
 		slog.Debug("dagger-get redirect ignored: Location does not echo the dagger-get marker",
 			"ref", refString, "location", loc)
-		return refString
+		return fallback
 	}
 
 	// Canonicalization redirects (e.g. GitHub 301s "repo.git" -> "repo",
@@ -284,7 +324,7 @@ func daggerGetProbe(ctx context.Context, refString string) string {
 	if canonicalRepoKey(u) == canonicalRepoKey(locURL) {
 		slog.Debug("dagger-get redirect ignored: same-repo canonicalization",
 			"ref", refString, "location", loc)
-		return refString
+		return fallback
 	}
 
 	// Drop only the dagger-get param the server may have echoed back.
@@ -294,7 +334,7 @@ func daggerGetProbe(ctx context.Context, refString string) string {
 
 	resolved := sourceURLWithVersion(locURL.String(), version)
 	slog.Debug("dagger-get redirect resolved", "from", refString, "to", resolved)
-	return resolved
+	return daggerGetResolution{ref: resolved}
 }
 
 // canonicalRepoKey reduces a URL to a host+path key that is stable across the
