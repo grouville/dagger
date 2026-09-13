@@ -9,6 +9,11 @@ Stack parent: `perf/rust-24-module-url-lock`, commit
 `5b8b036f8d7ae37b653078e81ca9b4edcf586be3`. Upstream main was reverified as
 `7c35e6274737acff0f6bd76614abb5e04efa7d12` before publication on 2026-09-13.
 
+Latest follow-up: [storage counters and inode-matched kernel phases](STORAGE-WRITEBACK.md).
+It adds a third six-run flow cohort and attributes a normal content sync mostly
+to file-data writeout/wait. The earlier multi-second tail remains unexplained;
+this is still not a speedup or active engine fix.
+
 ## What we learned
 
 Standard OCI zstd compression is not a consistent whole-command win in these
@@ -61,7 +66,7 @@ have one. No run or outlier was discarded.
 These are separate cohorts, not an instrumentation A/B test; differences between
 their medians are not an instrumentation speedup/regression measurement.
 
-Current diagnostic zstd flows, milliseconds:
+Original commit-instrumented cohort zstd flows, milliseconds:
 
 | Flow | Native median | Dagger median | Median paired native overhead |
 | --- | ---: | ---: | ---: |
@@ -195,8 +200,8 @@ hashes were verified before/after capture. Only the two instrumented files diffe
 
 ## Next work
 
-Measure filesystem/writeback behavior at the confirmed sync boundary before
-choosing a fix. A writeback-ahead experiment must retain final durability and
+The follow-up measures normal file writeout/wait at the confirmed sync boundary.
+A writeback-ahead experiment must retain final durability and
 measure whole transfer/apply/commit latency, not merely move time out of preSync.
 
 Separately, test ordinary prepared/flattened toolchain OCI packaging: bundle the
