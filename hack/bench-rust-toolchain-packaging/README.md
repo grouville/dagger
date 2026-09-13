@@ -7,6 +7,10 @@ image was created. This records a standard image-packaging experiment and all
 results, not a claim that the official Rust module is finished or faster than
 Cargo. Every representative flow median still loses native.
 
+Follow-up [stream-cost diagnostic](STREAM-COST.md) attributes the remaining
+image phase using wcprof plus CPU/runtime traces. It is not a new speedup or
+replacement for this ordinary first-CLI scorecard.
+
 ## Hypothesis and implementation tested
 
 Avoid runtime package installation and extra layer application by preparing the
