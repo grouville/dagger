@@ -98,10 +98,17 @@ type containerBackend interface {
 	ContainerRemove(ctx context.Context, name string) error
 	ContainerStart(ctx context.Context, name string) error
 	ContainerExists(ctx context.Context, name string) (bool, error)
-	ContainerLs(ctx context.Context) ([]string, error)
+	ContainerLs(ctx context.Context, opts listOpts) ([]string, error)
 }
 
 var errContainerAlreadyExists = errors.New("container already exists")
+
+// listOpts are prefilter hints. Backends may return a superset, so callers
+// must still validate names before using them for selection or cleanup.
+type listOpts struct {
+	namePrefix string
+	names      []string
+}
 
 type runOpts struct {
 	image string
@@ -385,7 +392,10 @@ func CleanupOldEngines(ctx context.Context, preserveVersions []string) error {
 }
 
 func (d *imageDriver) collectLeftoverEngines(ctx context.Context, additionalNames ...string) ([]string, error) {
-	engines, err := d.backend.ContainerLs(ctx)
+	engines, err := d.backend.ContainerLs(ctx, listOpts{
+		namePrefix: containerNamePrefix,
+		names:      additionalNames,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list containers %s: %w", engines, err)
 	}

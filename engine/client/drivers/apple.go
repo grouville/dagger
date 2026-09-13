@@ -168,7 +168,7 @@ func (apple) ContainerIsRunning(ctx context.Context, name string) (bool, error) 
 	return false, nil
 }
 
-func (apple) ContainerLs(ctx context.Context) ([]string, error) {
+func (apple) ContainerLs(ctx context.Context, _ listOpts) ([]string, error) {
 	cmd := exec.CommandContext(ctx, "container", "ls", "-a", "--format", "json")
 	stdout, _, err := traceexec.ExecOutput(ctx, cmd)
 	if err != nil {

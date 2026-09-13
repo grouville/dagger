@@ -1,0 +1,343 @@
+{
+  "scope": "Read-only 20 alternating CLI inventory pairs, existing host inventory, no container mutation; not Rust end-to-end latency",
+  "commands": {
+    "A": [
+      "docker",
+      "ps",
+      "-a",
+      "--format",
+      "{{.Names}}"
+    ],
+    "B": [
+      "docker",
+      "ps",
+      "-a",
+      "--format",
+      "{{.Names}}",
+      "--filter",
+      "name=^/?(dagger\\-engine\\-.*|dagger\\-stream\\-close\\-order\\-6u5eynjb)$"
+    ]
+  },
+  "summary": {
+    "A_median_ms": 135.860833,
+    "B_median_ms": 84.9231785,
+    "saved_median_ms": 51.134449999999994,
+    "saved_range_ms": [
+      45.04776699999999,
+      74.417277
+    ],
+    "favorable": 20
+  },
+  "initial": {
+    "elapsed_ms": 137.388833,
+    "returned_count": 58,
+    "inventory_sha256": "8811d6051dd2cab2e1f11027eb89e1058d772c7bf68194bf134363b17a49ea9c"
+  },
+  "final": {
+    "elapsed_ms": 147.145018,
+    "returned_count": 58,
+    "inventory_sha256": "8811d6051dd2cab2e1f11027eb89e1058d772c7bf68194bf134363b17a49ea9c"
+  },
+  "samples": [
+    {
+      "pair": 0,
+      "order": "AB",
+      "saved_ms": 45.65612100000001,
+      "A": {
+        "elapsed_ms": 136.004038,
+        "returned_count": 58,
+        "inventory_sha256": "8811d6051dd2cab2e1f11027eb89e1058d772c7bf68194bf134363b17a49ea9c"
+      },
+      "B": {
+        "elapsed_ms": 90.347917,
+        "returned_count": 6,
+        "inventory_sha256": "0b4e3ee70efb6151b3bb91030591a49bab9af312d9ec87443f326d99a4172cfb"
+      }
+    },
+    {
+      "pair": 1,
+      "order": "BA",
+      "saved_ms": 52.08289099999999,
+      "A": {
+        "elapsed_ms": 138.304164,
+        "returned_count": 58,
+        "inventory_sha256": "8811d6051dd2cab2e1f11027eb89e1058d772c7bf68194bf134363b17a49ea9c"
+      },
+      "B": {
+        "elapsed_ms": 86.221273,
+        "returned_count": 6,
+        "inventory_sha256": "0b4e3ee70efb6151b3bb91030591a49bab9af312d9ec87443f326d99a4172cfb"
+      }
+    },
+    {
+      "pair": 2,
+      "order": "AB",
+      "saved_ms": 55.82092900000001,
+      "A": {
+        "elapsed_ms": 137.677881,
+        "returned_count": 58,
+        "inventory_sha256": "8811d6051dd2cab2e1f11027eb89e1058d772c7bf68194bf134363b17a49ea9c"
+      },
+      "B": {
+        "elapsed_ms": 81.856952,
+        "returned_count": 6,
+        "inventory_sha256": "0b4e3ee70efb6151b3bb91030591a49bab9af312d9ec87443f326d99a4172cfb"
+      }
+    },
+    {
+      "pair": 3,
+      "order": "BA",
+      "saved_ms": 45.80786699999999,
+      "A": {
+        "elapsed_ms": 130.511993,
+        "returned_count": 58,
+        "inventory_sha256": "8811d6051dd2cab2e1f11027eb89e1058d772c7bf68194bf134363b17a49ea9c"
+      },
+      "B": {
+        "elapsed_ms": 84.704126,
+        "returned_count": 6,
+        "inventory_sha256": "0b4e3ee70efb6151b3bb91030591a49bab9af312d9ec87443f326d99a4172cfb"
+      }
+    },
+    {
+      "pair": 4,
+      "order": "AB",
+      "saved_ms": 74.417277,
+      "A": {
+        "elapsed_ms": 159.369922,
+        "returned_count": 58,
+        "inventory_sha256": "8811d6051dd2cab2e1f11027eb89e1058d772c7bf68194bf134363b17a49ea9c"
+      },
+      "B": {
+        "elapsed_ms": 84.952645,
+        "returned_count": 6,
+        "inventory_sha256": "0b4e3ee70efb6151b3bb91030591a49bab9af312d9ec87443f326d99a4172cfb"
+      }
+    },
+    {
+      "pair": 5,
+      "order": "BA",
+      "saved_ms": 49.32762299999999,
+      "A": {
+        "elapsed_ms": 135.717628,
+        "returned_count": 58,
+        "inventory_sha256": "8811d6051dd2cab2e1f11027eb89e1058d772c7bf68194bf134363b17a49ea9c"
+      },
+      "B": {
+        "elapsed_ms": 86.390005,
+        "returned_count": 6,
+        "inventory_sha256": "0b4e3ee70efb6151b3bb91030591a49bab9af312d9ec87443f326d99a4172cfb"
+      }
+    },
+    {
+      "pair": 6,
+      "order": "AB",
+      "saved_ms": 48.744589000000005,
+      "A": {
+        "elapsed_ms": 132.498975,
+        "returned_count": 58,
+        "inventory_sha256": "8811d6051dd2cab2e1f11027eb89e1058d772c7bf68194bf134363b17a49ea9c"
+      },
+      "B": {
+        "elapsed_ms": 83.754386,
+        "returned_count": 6,
+        "inventory_sha256": "0b4e3ee70efb6151b3bb91030591a49bab9af312d9ec87443f326d99a4172cfb"
+      }
+    },
+    {
+      "pair": 7,
+      "order": "BA",
+      "saved_ms": 45.04776699999999,
+      "A": {
+        "elapsed_ms": 131.944806,
+        "returned_count": 58,
+        "inventory_sha256": "8811d6051dd2cab2e1f11027eb89e1058d772c7bf68194bf134363b17a49ea9c"
+      },
+      "B": {
+        "elapsed_ms": 86.897039,
+        "returned_count": 6,
+        "inventory_sha256": "0b4e3ee70efb6151b3bb91030591a49bab9af312d9ec87443f326d99a4172cfb"
+      }
+    },
+    {
+      "pair": 8,
+      "order": "AB",
+      "saved_ms": 53.759249,
+      "A": {
+        "elapsed_ms": 139.334014,
+        "returned_count": 58,
+        "inventory_sha256": "8811d6051dd2cab2e1f11027eb89e1058d772c7bf68194bf134363b17a49ea9c"
+      },
+      "B": {
+        "elapsed_ms": 85.574765,
+        "returned_count": 6,
+        "inventory_sha256": "0b4e3ee70efb6151b3bb91030591a49bab9af312d9ec87443f326d99a4172cfb"
+      }
+    },
+    {
+      "pair": 9,
+      "order": "BA",
+      "saved_ms": 48.39825800000001,
+      "A": {
+        "elapsed_ms": 134.147622,
+        "returned_count": 58,
+        "inventory_sha256": "8811d6051dd2cab2e1f11027eb89e1058d772c7bf68194bf134363b17a49ea9c"
+      },
+      "B": {
+        "elapsed_ms": 85.749364,
+        "returned_count": 6,
+        "inventory_sha256": "0b4e3ee70efb6151b3bb91030591a49bab9af312d9ec87443f326d99a4172cfb"
+      }
+    },
+    {
+      "pair": 10,
+      "order": "AB",
+      "saved_ms": 53.65498400000001,
+      "A": {
+        "elapsed_ms": 139.021375,
+        "returned_count": 58,
+        "inventory_sha256": "8811d6051dd2cab2e1f11027eb89e1058d772c7bf68194bf134363b17a49ea9c"
+      },
+      "B": {
+        "elapsed_ms": 85.366391,
+        "returned_count": 6,
+        "inventory_sha256": "0b4e3ee70efb6151b3bb91030591a49bab9af312d9ec87443f326d99a4172cfb"
+      }
+    },
+    {
+      "pair": 11,
+      "order": "BA",
+      "saved_ms": 51.737177999999986,
+      "A": {
+        "elapsed_ms": 136.878718,
+        "returned_count": 58,
+        "inventory_sha256": "8811d6051dd2cab2e1f11027eb89e1058d772c7bf68194bf134363b17a49ea9c"
+      },
+      "B": {
+        "elapsed_ms": 85.14154,
+        "returned_count": 6,
+        "inventory_sha256": "0b4e3ee70efb6151b3bb91030591a49bab9af312d9ec87443f326d99a4172cfb"
+      }
+    },
+    {
+      "pair": 12,
+      "order": "AB",
+      "saved_ms": 47.56311699999999,
+      "A": {
+        "elapsed_ms": 132.17485,
+        "returned_count": 58,
+        "inventory_sha256": "8811d6051dd2cab2e1f11027eb89e1058d772c7bf68194bf134363b17a49ea9c"
+      },
+      "B": {
+        "elapsed_ms": 84.611733,
+        "returned_count": 6,
+        "inventory_sha256": "0b4e3ee70efb6151b3bb91030591a49bab9af312d9ec87443f326d99a4172cfb"
+      }
+    },
+    {
+      "pair": 13,
+      "order": "BA",
+      "saved_ms": 46.09397900000002,
+      "A": {
+        "elapsed_ms": 133.866169,
+        "returned_count": 58,
+        "inventory_sha256": "8811d6051dd2cab2e1f11027eb89e1058d772c7bf68194bf134363b17a49ea9c"
+      },
+      "B": {
+        "elapsed_ms": 87.77219,
+        "returned_count": 6,
+        "inventory_sha256": "0b4e3ee70efb6151b3bb91030591a49bab9af312d9ec87443f326d99a4172cfb"
+      }
+    },
+    {
+      "pair": 14,
+      "order": "AB",
+      "saved_ms": 55.009393,
+      "A": {
+        "elapsed_ms": 134.265937,
+        "returned_count": 58,
+        "inventory_sha256": "8811d6051dd2cab2e1f11027eb89e1058d772c7bf68194bf134363b17a49ea9c"
+      },
+      "B": {
+        "elapsed_ms": 79.256544,
+        "returned_count": 6,
+        "inventory_sha256": "0b4e3ee70efb6151b3bb91030591a49bab9af312d9ec87443f326d99a4172cfb"
+      }
+    },
+    {
+      "pair": 15,
+      "order": "BA",
+      "saved_ms": 53.14433699999999,
+      "A": {
+        "elapsed_ms": 137.440241,
+        "returned_count": 58,
+        "inventory_sha256": "8811d6051dd2cab2e1f11027eb89e1058d772c7bf68194bf134363b17a49ea9c"
+      },
+      "B": {
+        "elapsed_ms": 84.295904,
+        "returned_count": 6,
+        "inventory_sha256": "0b4e3ee70efb6151b3bb91030591a49bab9af312d9ec87443f326d99a4172cfb"
+      }
+    },
+    {
+      "pair": 16,
+      "order": "AB",
+      "saved_ms": 54.699004000000016,
+      "A": {
+        "elapsed_ms": 139.14679,
+        "returned_count": 58,
+        "inventory_sha256": "8811d6051dd2cab2e1f11027eb89e1058d772c7bf68194bf134363b17a49ea9c"
+      },
+      "B": {
+        "elapsed_ms": 84.447786,
+        "returned_count": 6,
+        "inventory_sha256": "0b4e3ee70efb6151b3bb91030591a49bab9af312d9ec87443f326d99a4172cfb"
+      }
+    },
+    {
+      "pair": 17,
+      "order": "BA",
+      "saved_ms": 49.935067000000004,
+      "A": {
+        "elapsed_ms": 134.828779,
+        "returned_count": 58,
+        "inventory_sha256": "8811d6051dd2cab2e1f11027eb89e1058d772c7bf68194bf134363b17a49ea9c"
+      },
+      "B": {
+        "elapsed_ms": 84.893712,
+        "returned_count": 6,
+        "inventory_sha256": "0b4e3ee70efb6151b3bb91030591a49bab9af312d9ec87443f326d99a4172cfb"
+      }
+    },
+    {
+      "pair": 18,
+      "order": "AB",
+      "saved_ms": 50.531722,
+      "A": {
+        "elapsed_ms": 133.972082,
+        "returned_count": 58,
+        "inventory_sha256": "8811d6051dd2cab2e1f11027eb89e1058d772c7bf68194bf134363b17a49ea9c"
+      },
+      "B": {
+        "elapsed_ms": 83.44036,
+        "returned_count": 6,
+        "inventory_sha256": "0b4e3ee70efb6151b3bb91030591a49bab9af312d9ec87443f326d99a4172cfb"
+      }
+    },
+    {
+      "pair": 19,
+      "order": "BA",
+      "saved_ms": 68.64254699999998,
+      "A": {
+        "elapsed_ms": 153.212474,
+        "returned_count": 58,
+        "inventory_sha256": "8811d6051dd2cab2e1f11027eb89e1058d772c7bf68194bf134363b17a49ea9c"
+      },
+      "B": {
+        "elapsed_ms": 84.569927,
+        "returned_count": 6,
+        "inventory_sha256": "0b4e3ee70efb6151b3bb91030591a49bab9af312d9ec87443f326d99a4172cfb"
+      }
+    }
+  ]
+}

@@ -200,7 +200,7 @@ func TestBackendContainerLs(t *testing.T) {
 				require.NoError(t, tc.backend.ImageRemove(ctx, testImage))
 			})
 
-			initialList, err := tc.backend.ContainerLs(ctx)
+			initialList, err := tc.backend.ContainerLs(ctx, listOpts{})
 			require.NoError(t, err)
 			initialCount := len(initialList)
 
@@ -220,7 +220,7 @@ func TestBackendContainerLs(t *testing.T) {
 				}
 			})
 
-			finalList, err := tc.backend.ContainerLs(ctx)
+			finalList, err := tc.backend.ContainerLs(ctx, listOpts{})
 			require.NoError(t, err)
 			require.Equal(t, initialCount+len(containers), len(finalList))
 

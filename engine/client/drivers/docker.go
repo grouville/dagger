@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	"github.com/dagger/dagger/engine/client/imageload"
@@ -135,8 +136,25 @@ func (d docker) ContainerExists(ctx context.Context, name string) (bool, error) 
 	return false, err
 }
 
-func (d docker) ContainerLs(ctx context.Context) ([]string, error) {
-	cmd := exec.CommandContext(ctx, d.cmd, "ps", "-a", "--format", "{{.Names}}")
+func (d docker) ContainerLs(ctx context.Context, opts listOpts) ([]string, error) {
+	args := []string{"ps", "-a", "--format", "{{.Names}}"}
+	// Docker can filter names before building each container's summary.
+	// Keep other backends' commands unchanged until their filter semantics
+	// are verified. Prefix and exact names are alternatives, not intersections.
+	if d.cmd == "docker" {
+		var patterns []string
+		if opts.namePrefix != "" {
+			patterns = append(patterns, regexp.QuoteMeta(opts.namePrefix)+".*")
+		}
+		for _, name := range opts.names {
+			patterns = append(patterns, regexp.QuoteMeta(name))
+		}
+		if len(patterns) > 0 {
+			// Internal Docker names may carry a leading slash.
+			args = append(args, "--filter", "name=^/?("+strings.Join(patterns, "|")+")$")
+		}
+	}
+	cmd := exec.CommandContext(ctx, d.cmd, args...)
 	stdout, _, err := traceexec.ExecOutput(ctx, cmd)
 	if err != nil {
 		return nil, err

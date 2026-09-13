@@ -1,0 +1,387 @@
+{
+  "status": "passed",
+  "order": "ABBAAB",
+  "comparison": true,
+  "scope": "Three matched control-vs-inventory-prefilter CLI pairs AB/BA/AB on the identical validated stream engine and official gzip Rust image, default registry configuration. CLI itself provisions each new engine using image+docker with cleanup disabled solely to preserve existing unrelated engines. Preinstalled engine image; full first CLI includes provisioning. Post-timer profile/cache retrieval uses a local helper copied only after the first CLI exits. Fresh independent Cargo/engine states; three repeated source edits and one actual bstr upgrade each. First-check/dependency timings profiled; other warm timings omit --profile but export local OTLP. Not full installation.",
+  "cli_paths": {
+    "A": "/tmp/dagger-cli-readiness-current.AS6z1ng4/dagger-candidate",
+    "B": "/tmp/dagger-container-inventory.NMh2Z3QV/dagger-candidate"
+  },
+  "cli_sha256": {
+    "A": "d4eb2c81edc8c04a9512d276dce1346f73e45dbc608e9812662623b90e694f86",
+    "B": "6a5b01851eda5ebb122e29c8ac43eba35d0097b2b1cedb2d183a1ffc71c37cad"
+  },
+  "cli_source": "/tmp/dagger-cli-readiness-publish.EF1gh3BO/repo",
+  "cli_source_commit": "06a8b73a19b67da188da3f833ed78b650881c20f",
+  "candidate_cli_source": "/tmp/dagger-container-inventory.NMh2Z3QV/source",
+  "candidate_cli_base": "06a8b73a19b67da188da3f833ed78b650881c20f",
+  "cli_upstream_main": "7c35e6274737acff0f6bd76614abb5e04efa7d12",
+  "note": "Both CLIs based on main7c35 reverified before capture. Both include the same validated readiness behavior. B adds Docker server-side name prefiltering before container summary generation, retaining Go-side selection and cleanup checks. Other backend commands and all session/cache ownership remain unchanged. Current host inventory has many retained containers; this is not a universal fixed saving. Same validated stream engine image on both sides. Default registry route, no custom config or prewarming. Docker/CLI/engine images/module/native image preinstalled; host page/CDN caches not purged.",
+  "independent_pairs": 3,
+  "repeated_samples_per_flow": 3,
+  "engine_provisioning": "ordinary-image-driver-inside-cli",
+  "engine_reference": "localhost/dagger-stream-close-order-6u5eynjb:latest",
+  "diagnostic_helper": "post-first-CLI copy, loopback-only debug retrieval",
+  "dependency_upgrade": "bstr 1.12.0 -> 1.13.0 once per fresh run",
+  "preinstalled": [
+    "Docker",
+    "CLI",
+    "engine image",
+    "local module",
+    "native Rust image"
+  ],
+  "image_ids": {
+    "A": "sha256:1fb3565bb5bac059d2a89e52e231203befe215ba4396ea40c93393b19f77aeb0",
+    "B": "sha256:1fb3565bb5bac059d2a89e52e231203befe215ba4396ea40c93393b19f77aeb0"
+  },
+  "native_image_id": "sha256:39f68a3e8e3ff425f8945ffa91128e60ff930d53e17fbb5214e95824bdd46f1b",
+  "candidate_build": "/tmp/dagger-stream-close-order.6U5EYNjb/engine-builds/builds.json",
+  "candidate_build_sha256": "0475e9f6ac649a827b154491d0b45ce3ff58e38eb287cbcb71fc8ebf09f2ea23",
+  "telemetry": "/tmp/dagger-container-inventory.NMh2Z3QV/flow-telemetry.jsonl",
+  "wrapper_sha256": "9b42be7531fa0a718fe98cf22374679a240cf85c204d317899f00ba5b13e15aa",
+  "source_hashes": {
+    "/tmp/dagger-cli-readiness-current.AS6z1ng4/dagger-candidate": "d4eb2c81edc8c04a9512d276dce1346f73e45dbc608e9812662623b90e694f86",
+    "/tmp/dagger-container-inventory.NMh2Z3QV/dagger-candidate": "6a5b01851eda5ebb122e29c8ac43eba35d0097b2b1cedb2d183a1ffc71c37cad",
+    "/tmp/dagger-container-inventory.NMh2Z3QV/build-inputs.sha256": "e617c45618290bbe31555c4f6e5e0ceae86b3756451d9b51d03d55f99e1c80f8",
+    "/tmp/dagger-cli-readiness-current.AS6z1ng4/build-inputs.sha256": "28a1d8f7293394b73ab13776dbbb14bb5bfbe4f0a9f9585f3f9606c1d8c9f6a3",
+    "/tmp/dagger-container-inventory.NMh2Z3QV/after-contract-unit.log": "87d72c8e48675f8d9cdd2158ff1310801b17b4f55f4f0437d9c61c507b2db32f",
+    "/tmp/dagger-container-inventory.NMh2Z3QV/docker-contract.log": "16e7561df603de231f3eed186c4bb115aeb258475646dc1dda31e99e1106c721",
+    "/tmp/dagger-container-inventory.NMh2Z3QV/test-docker-contract.sh": "924879ca0bc49351aac67698c145a92a4ed1039c88f58e9ac5522971a1e51795",
+    "/tmp/dagger-container-inventory.NMh2Z3QV/build.sh": "feac745dbc568d6d99d9bada5be11319380a14f1684e79eb531af12bfc609b5c",
+    "/tmp/dagger-rust-current-main-engine.QepteZyL/engine-source/hack/bench-rust-loop/fixtures/ripgrep-bstr-1.12.0.patch": "855d4dfc3bdc090564ac451c41d8d98e44af110f43b78d4ba8b3d00215d642d8",
+    "/tmp/dagger-rust-current-main-engine.QepteZyL/engine-source/hack/bench-rust-loop/profile-command.py": "9111c7d9fe6d13266e899bc1048bf7aee66208024c6980c7bd607bfe78123201",
+    "/tmp/dagger-cli-readiness-auto.C70FUvMf/run-cli-provision-check.py": "e68d915da2e6c3df3bbf8acd02fb1ca9f24e5de1b2b64b1f103597acfb9b5144",
+    "/tmp/dagger-cli-readiness-auto.C70FUvMf/debug-get": "d50874b7f7c0235bececcb4dbad34655dcadf06452cc3f767d11a9b6160cc5d8",
+    "/tmp/dagger-cli-readiness-auto.C70FUvMf/debug-get.go": "dd4752ab73cd53327655b8a86e430c8615e4745be5af7bc35f6ca63b58114be5",
+    "/tmp/dagger-rust-perf-sprint.1qnbuQ9j/otlpdump": "f2aef556572da41578a0336248b4c6d1972b9d050df2622e57303555752f9b38",
+    "/tmp/dagger-rust-current-main-engine.QepteZyL/engine-source/hack/bench-rust-loop/module/main.dang": "f6e119c3b7be439df46a6ea9b74c368126751e0a141b2e5ebb699a4b0f0681f1",
+    "/tmp/dagger-rust-current-main-engine.QepteZyL/engine-source/hack/bench-rust-loop/module/dagger-module.toml": "80ceb12a068bb2c86041ba35bdcb24edada8ae228b77450de2ce917caa2ec8e5",
+    "/tmp/dagger-rust-current-main-engine.QepteZyL/engine-source/hack/bench-rust-loop/fixtures/rust-toolchain-rustfmt.toml": "173153c62c4ba6dc43f73eba9149e76deef633614b7b5a81568ee97aac12f32e",
+    "/tmp/dagger-rust-wcprof-otel": "de3bde25361254d784a211a9fdfec5043459a7a211b9e2a012252ebfbd45a8ba",
+    "/tmp/dagger-container-inventory.NMh2Z3QV/run-fullflow.py": "9b42be7531fa0a718fe98cf22374679a240cf85c204d317899f00ba5b13e15aa",
+    "/tmp/dagger-container-inventory.NMh2Z3QV/analyze-fullflow.py": "754d32c7dad20ff207fa5bc791d9674fa4f00ed9aec7735521b28860cab51a20",
+    "/tmp/dagger-container-inventory.NMh2Z3QV/summarize-fullflow.py": "e3a018c2472d7c9fd2e9d298d6d8ed71ace60eebc924f0d843eb1ce7946e3c49",
+    "/tmp/dagger-container-inventory.NMh2Z3QV/phase-summary.py": "c3d85e4285dbbef278b5ff848ea58bcc82ec7241bc0c933a46184d44e38e1200",
+    "/tmp/dagger-container-inventory.NMh2Z3QV/audit-ordinary.py": "94a98f0ac81c11c66ed052acf11a7afe20040029153c01394840536d30628410",
+    "/tmp/dagger-container-inventory.NMh2Z3QV/driver-summary.py": "f56ea1a5fe467b1f2ffa5fa934f5777128af960246da8fca40c56d0af173ee5c",
+    "/tmp/dagger-container-inventory.NMh2Z3QV/source/go.mod": "ce54b3d37381867b98c589363e2266203132918f5aa72dda1aa8512e35fa036d",
+    "/tmp/dagger-container-inventory.NMh2Z3QV/source/go.sum": "17bcf1167c6912e0278971fb7766b8a90c2a50cef0b684ed897d23a953b16692",
+    "/tmp/dagger-container-inventory.NMh2Z3QV/source/engine/client/drivers/container.go": "e83ec0e5bd892248f44732ba1ba15b4a417415977d19b7ae239393a12384bad0",
+    "/tmp/dagger-container-inventory.NMh2Z3QV/source/engine/client/drivers/docker.go": "45767ed99343eb18487f80efe7cbc586f968452d7334f8dc4fcb8ec7a69c98ee",
+    "/tmp/dagger-container-inventory.NMh2Z3QV/source/engine/client/drivers/apple.go": "7c7d7ef3f69e4ecc18f598cd4905f7175aa462a7a52f34bbcc958908a94fce7a",
+    "/tmp/dagger-container-inventory.NMh2Z3QV/source/engine/client/drivers/container_create_test.go": "4ef56217e91dde07793e6086ec24bd2854ab39eeeec323f12bade1ee6f1904c3",
+    "/tmp/dagger-container-inventory.NMh2Z3QV/source/engine/client/drivers/container_test.go": "077f2ce251143a18e0122aa55ef24d2b13e9ea3f9d7af6ce8532c7daa6f4164d",
+    "/tmp/dagger-container-inventory.NMh2Z3QV/source/engine/client/drivers/container_inventory_test.go": "ef3d77c7e9c4b57621e97592e4a8d70158234ff5b5b9e683b23e9f5d4622588c",
+    "/tmp/dagger-container-inventory.NMh2Z3QV/source/engine/client/drivers/container_inventory_docker_test.go": "8aba9ed07bd5eb53c7a51bcac033b8096c9cf554d712a37f45bb56b1bd679763",
+    "/tmp/dagger-cli-readiness-publish.EF1gh3BO/repo/go.mod": "ce54b3d37381867b98c589363e2266203132918f5aa72dda1aa8512e35fa036d",
+    "/tmp/dagger-cli-readiness-publish.EF1gh3BO/repo/go.sum": "17bcf1167c6912e0278971fb7766b8a90c2a50cef0b684ed897d23a953b16692",
+    "/tmp/dagger-cli-readiness-publish.EF1gh3BO/repo/internal/buildkit/client/client.go": "59896369b78645184ac89f0a2279f915925a010210568e829fcf3fe7701c7669",
+    "/tmp/dagger-cli-readiness-publish.EF1gh3BO/repo/internal/buildkit/client/wait_test.go": "563d5afe7743d66f8f052fba0d66ba0b0e48bcdb4161a79e433a2e35ca3f87f7",
+    "/tmp/dagger-cli-readiness-publish.EF1gh3BO/repo/internal/buildkit/client/wait_behavior_test.go": "ac0289c8053b8ce73b4013c007446f74ecfd3726a65996d10f7885c1d6d7c622"
+  },
+  "host_inventory": {
+    "count": 58,
+    "sha256": "ca7cc3fceefcc9e14c81016c706e12611e9fed0c4b6cf35ee3dcd7a6ec0ffa21"
+  },
+  "runs": [
+    {
+      "index": 0,
+      "side": "A",
+      "argv": [
+        "/usr/bin/python3",
+        "/tmp/dagger-cli-readiness-auto.C70FUvMf/run-cli-provision-check.py",
+        "--dagger",
+        "/tmp/dagger-cli-readiness-current.AS6z1ng4/dagger-candidate",
+        "--module-dir",
+        "/tmp/dagger-rust-current-main-engine.QepteZyL/engine-source/hack/bench-rust-loop/module",
+        "--image",
+        "rust@sha256:39f68a3e8e3ff425f8945ffa91128e60ff930d53e17fbb5214e95824bdd46f1b",
+        "--samples",
+        "3",
+        "--fresh-engine",
+        "localhost/dagger-stream-close-order-6u5eynjb:latest",
+        "--ripgrep",
+        "/tmp/dagger-rust-ripgrep-reference",
+        "--profile-first",
+        "--pinned-source-sync",
+        "--prepare-project-toolchain",
+        "--project-toolchain",
+        "/tmp/dagger-rust-current-main-engine.QepteZyL/engine-source/hack/bench-rust-loop/fixtures/rust-toolchain-rustfmt.toml",
+        "--dependency-upgrade",
+        "--profile-dependency-upgrade",
+        "--dependency-first",
+        "native"
+      ],
+      "start_unix_ns": 1789274578763985791,
+      "host_inventory_before": {
+        "count": 58,
+        "sha256": "ca7cc3fceefcc9e14c81016c706e12611e9fed0c4b6cf35ee3dcd7a6ec0ffa21"
+      },
+      "end_unix_ns": 1789274647361131731,
+      "exit_code": 0,
+      "log": "/tmp/dagger-rust-cli-autoprovision-ab-krjzd4do/0-A.log",
+      "root": "/tmp/dagger-rust-loop-w2p9xp93",
+      "first_use": {
+        "provision_in_first_cli": true,
+        "dagger_first_check_ms": 18943.617174,
+        "dagger_provision_plus_first_check_ms": 18943.617174,
+        "native_first_check_ms": 6768.125913,
+        "native_existing_cache_check_ms": 120.777761
+      },
+      "host_inventory_after": {
+        "count": 58,
+        "sha256": "ca7cc3fceefcc9e14c81016c706e12611e9fed0c4b6cf35ee3dcd7a6ec0ffa21"
+      }
+    },
+    {
+      "index": 1,
+      "side": "B",
+      "argv": [
+        "/usr/bin/python3",
+        "/tmp/dagger-cli-readiness-auto.C70FUvMf/run-cli-provision-check.py",
+        "--dagger",
+        "/tmp/dagger-container-inventory.NMh2Z3QV/dagger-candidate",
+        "--module-dir",
+        "/tmp/dagger-rust-current-main-engine.QepteZyL/engine-source/hack/bench-rust-loop/module",
+        "--image",
+        "rust@sha256:39f68a3e8e3ff425f8945ffa91128e60ff930d53e17fbb5214e95824bdd46f1b",
+        "--samples",
+        "3",
+        "--fresh-engine",
+        "localhost/dagger-stream-close-order-6u5eynjb:latest",
+        "--ripgrep",
+        "/tmp/dagger-rust-ripgrep-reference",
+        "--profile-first",
+        "--pinned-source-sync",
+        "--prepare-project-toolchain",
+        "--project-toolchain",
+        "/tmp/dagger-rust-current-main-engine.QepteZyL/engine-source/hack/bench-rust-loop/fixtures/rust-toolchain-rustfmt.toml",
+        "--dependency-upgrade",
+        "--profile-dependency-upgrade",
+        "--dependency-first",
+        "native"
+      ],
+      "start_unix_ns": 1789274648002143004,
+      "host_inventory_before": {
+        "count": 58,
+        "sha256": "ca7cc3fceefcc9e14c81016c706e12611e9fed0c4b6cf35ee3dcd7a6ec0ffa21"
+      },
+      "end_unix_ns": 1789274717112182991,
+      "exit_code": 0,
+      "log": "/tmp/dagger-rust-cli-autoprovision-ab-krjzd4do/1-B.log",
+      "root": "/tmp/dagger-rust-loop-65symijy",
+      "first_use": {
+        "provision_in_first_cli": true,
+        "dagger_first_check_ms": 21157.711426,
+        "dagger_provision_plus_first_check_ms": 21157.711426,
+        "native_first_check_ms": 7151.084752,
+        "native_existing_cache_check_ms": 116.595112
+      },
+      "host_inventory_after": {
+        "count": 58,
+        "sha256": "ca7cc3fceefcc9e14c81016c706e12611e9fed0c4b6cf35ee3dcd7a6ec0ffa21"
+      }
+    },
+    {
+      "index": 2,
+      "side": "B",
+      "argv": [
+        "/usr/bin/python3",
+        "/tmp/dagger-cli-readiness-auto.C70FUvMf/run-cli-provision-check.py",
+        "--dagger",
+        "/tmp/dagger-container-inventory.NMh2Z3QV/dagger-candidate",
+        "--module-dir",
+        "/tmp/dagger-rust-current-main-engine.QepteZyL/engine-source/hack/bench-rust-loop/module",
+        "--image",
+        "rust@sha256:39f68a3e8e3ff425f8945ffa91128e60ff930d53e17fbb5214e95824bdd46f1b",
+        "--samples",
+        "3",
+        "--fresh-engine",
+        "localhost/dagger-stream-close-order-6u5eynjb:latest",
+        "--ripgrep",
+        "/tmp/dagger-rust-ripgrep-reference",
+        "--profile-first",
+        "--pinned-source-sync",
+        "--prepare-project-toolchain",
+        "--project-toolchain",
+        "/tmp/dagger-rust-current-main-engine.QepteZyL/engine-source/hack/bench-rust-loop/fixtures/rust-toolchain-rustfmt.toml",
+        "--dependency-upgrade",
+        "--profile-dependency-upgrade",
+        "--dependency-first",
+        "dagger"
+      ],
+      "start_unix_ns": 1789274717800437216,
+      "host_inventory_before": {
+        "count": 58,
+        "sha256": "ca7cc3fceefcc9e14c81016c706e12611e9fed0c4b6cf35ee3dcd7a6ec0ffa21"
+      },
+      "end_unix_ns": 1789274786181567120,
+      "exit_code": 0,
+      "log": "/tmp/dagger-rust-cli-autoprovision-ab-krjzd4do/2-B.log",
+      "root": "/tmp/dagger-rust-loop-y70vjfxm",
+      "first_use": {
+        "provision_in_first_cli": true,
+        "dagger_first_check_ms": 20235.821146,
+        "dagger_provision_plus_first_check_ms": 20235.821146,
+        "native_first_check_ms": 6887.759753,
+        "native_existing_cache_check_ms": 117.163445
+      },
+      "host_inventory_after": {
+        "count": 58,
+        "sha256": "ca7cc3fceefcc9e14c81016c706e12611e9fed0c4b6cf35ee3dcd7a6ec0ffa21"
+      }
+    },
+    {
+      "index": 3,
+      "side": "A",
+      "argv": [
+        "/usr/bin/python3",
+        "/tmp/dagger-cli-readiness-auto.C70FUvMf/run-cli-provision-check.py",
+        "--dagger",
+        "/tmp/dagger-cli-readiness-current.AS6z1ng4/dagger-candidate",
+        "--module-dir",
+        "/tmp/dagger-rust-current-main-engine.QepteZyL/engine-source/hack/bench-rust-loop/module",
+        "--image",
+        "rust@sha256:39f68a3e8e3ff425f8945ffa91128e60ff930d53e17fbb5214e95824bdd46f1b",
+        "--samples",
+        "3",
+        "--fresh-engine",
+        "localhost/dagger-stream-close-order-6u5eynjb:latest",
+        "--ripgrep",
+        "/tmp/dagger-rust-ripgrep-reference",
+        "--profile-first",
+        "--pinned-source-sync",
+        "--prepare-project-toolchain",
+        "--project-toolchain",
+        "/tmp/dagger-rust-current-main-engine.QepteZyL/engine-source/hack/bench-rust-loop/fixtures/rust-toolchain-rustfmt.toml",
+        "--dependency-upgrade",
+        "--profile-dependency-upgrade",
+        "--dependency-first",
+        "dagger"
+      ],
+      "start_unix_ns": 1789274786819770839,
+      "host_inventory_before": {
+        "count": 58,
+        "sha256": "ca7cc3fceefcc9e14c81016c706e12611e9fed0c4b6cf35ee3dcd7a6ec0ffa21"
+      },
+      "end_unix_ns": 1789274861360657671,
+      "exit_code": 0,
+      "log": "/tmp/dagger-rust-cli-autoprovision-ab-krjzd4do/3-A.log",
+      "root": "/tmp/dagger-rust-loop-a00sjyzt",
+      "first_use": {
+        "provision_in_first_cli": true,
+        "dagger_first_check_ms": 23343.752271,
+        "dagger_provision_plus_first_check_ms": 23343.752271,
+        "native_first_check_ms": 7409.621478,
+        "native_existing_cache_check_ms": 152.149985
+      },
+      "host_inventory_after": {
+        "count": 58,
+        "sha256": "ca7cc3fceefcc9e14c81016c706e12611e9fed0c4b6cf35ee3dcd7a6ec0ffa21"
+      }
+    },
+    {
+      "index": 4,
+      "side": "A",
+      "argv": [
+        "/usr/bin/python3",
+        "/tmp/dagger-cli-readiness-auto.C70FUvMf/run-cli-provision-check.py",
+        "--dagger",
+        "/tmp/dagger-cli-readiness-current.AS6z1ng4/dagger-candidate",
+        "--module-dir",
+        "/tmp/dagger-rust-current-main-engine.QepteZyL/engine-source/hack/bench-rust-loop/module",
+        "--image",
+        "rust@sha256:39f68a3e8e3ff425f8945ffa91128e60ff930d53e17fbb5214e95824bdd46f1b",
+        "--samples",
+        "3",
+        "--fresh-engine",
+        "localhost/dagger-stream-close-order-6u5eynjb:latest",
+        "--ripgrep",
+        "/tmp/dagger-rust-ripgrep-reference",
+        "--profile-first",
+        "--pinned-source-sync",
+        "--prepare-project-toolchain",
+        "--project-toolchain",
+        "/tmp/dagger-rust-current-main-engine.QepteZyL/engine-source/hack/bench-rust-loop/fixtures/rust-toolchain-rustfmt.toml",
+        "--dependency-upgrade",
+        "--profile-dependency-upgrade",
+        "--dependency-first",
+        "native"
+      ],
+      "start_unix_ns": 1789274862008267336,
+      "host_inventory_before": {
+        "count": 58,
+        "sha256": "ca7cc3fceefcc9e14c81016c706e12611e9fed0c4b6cf35ee3dcd7a6ec0ffa21"
+      },
+      "end_unix_ns": 1789274932857566807,
+      "exit_code": 0,
+      "log": "/tmp/dagger-rust-cli-autoprovision-ab-krjzd4do/4-A.log",
+      "root": "/tmp/dagger-rust-loop-_az190hm",
+      "first_use": {
+        "provision_in_first_cli": true,
+        "dagger_first_check_ms": 21298.381189,
+        "dagger_provision_plus_first_check_ms": 21298.381189,
+        "native_first_check_ms": 6914.702043,
+        "native_existing_cache_check_ms": 117.88534
+      },
+      "host_inventory_after": {
+        "count": 58,
+        "sha256": "ca7cc3fceefcc9e14c81016c706e12611e9fed0c4b6cf35ee3dcd7a6ec0ffa21"
+      }
+    },
+    {
+      "index": 5,
+      "side": "B",
+      "argv": [
+        "/usr/bin/python3",
+        "/tmp/dagger-cli-readiness-auto.C70FUvMf/run-cli-provision-check.py",
+        "--dagger",
+        "/tmp/dagger-container-inventory.NMh2Z3QV/dagger-candidate",
+        "--module-dir",
+        "/tmp/dagger-rust-current-main-engine.QepteZyL/engine-source/hack/bench-rust-loop/module",
+        "--image",
+        "rust@sha256:39f68a3e8e3ff425f8945ffa91128e60ff930d53e17fbb5214e95824bdd46f1b",
+        "--samples",
+        "3",
+        "--fresh-engine",
+        "localhost/dagger-stream-close-order-6u5eynjb:latest",
+        "--ripgrep",
+        "/tmp/dagger-rust-ripgrep-reference",
+        "--profile-first",
+        "--pinned-source-sync",
+        "--prepare-project-toolchain",
+        "--project-toolchain",
+        "/tmp/dagger-rust-current-main-engine.QepteZyL/engine-source/hack/bench-rust-loop/fixtures/rust-toolchain-rustfmt.toml",
+        "--dependency-upgrade",
+        "--profile-dependency-upgrade",
+        "--dependency-first",
+        "native"
+      ],
+      "start_unix_ns": 1789274933496776137,
+      "host_inventory_before": {
+        "count": 58,
+        "sha256": "ca7cc3fceefcc9e14c81016c706e12611e9fed0c4b6cf35ee3dcd7a6ec0ffa21"
+      },
+      "end_unix_ns": 1789275003125117366,
+      "exit_code": 0,
+      "log": "/tmp/dagger-rust-cli-autoprovision-ab-krjzd4do/5-B.log",
+      "root": "/tmp/dagger-rust-loop-kysfzlor",
+      "first_use": {
+        "provision_in_first_cli": true,
+        "dagger_first_check_ms": 21842.449996,
+        "dagger_provision_plus_first_check_ms": 21842.449996,
+        "native_first_check_ms": 6700.153605,
+        "native_existing_cache_check_ms": 118.852056
+      },
+      "host_inventory_after": {
+        "count": 58,
+        "sha256": "ca7cc3fceefcc9e14c81016c706e12611e9fed0c4b6cf35ee3dcd7a6ec0ffa21"
+      }
+    }
+  ],
+  "receiver_pid": 1852307,
+  "receiver_exit_code": -15,
+  "end_unix_ns": 1789275003642528553,
+  "telemetry_bytes": 43404506,
+  "telemetry_sha256": "8d9ccd79bd7a4b572bd31be858607d35020567df29e94da08e498c4479d45db1"
+}

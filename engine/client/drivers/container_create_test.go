@@ -86,6 +86,6 @@ func (b *captureContainerBackend) ContainerExists(context.Context, string) (bool
 	return false, nil
 }
 
-func (b *captureContainerBackend) ContainerLs(context.Context) ([]string, error) {
+func (b *captureContainerBackend) ContainerLs(context.Context, listOpts) ([]string, error) {
 	return nil, nil
 }
