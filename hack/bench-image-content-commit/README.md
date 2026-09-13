@@ -9,7 +9,12 @@ Stack parent: `perf/rust-24-module-url-lock`, commit
 `5b8b036f8d7ae37b653078e81ca9b4edcf586be3`. Upstream main was reverified as
 `7c35e6274737acff0f6bd76614abb5e04efa7d12` before publication on 2026-09-13.
 
-Latest follow-up: [storage counters and inode-matched kernel phases](STORAGE-WRITEBACK.md).
+Latest follow-up: [writeback-ahead: smaller sync, mixed full-flow results](WRITEBACK-AHEAD.md).
+It retains all 72 flow and 12 sync observations, including regressions and the
+control-side stall. This remains data-only; no writeback implementation is wired
+into this branch or claimed as a shipped performance fix.
+
+Previous follow-up: [storage counters and inode-matched kernel phases](STORAGE-WRITEBACK.md).
 It adds a third six-run flow cohort and attributes a normal content sync mostly
 to file-data writeout/wait. The earlier multi-second tail remains unexplained;
 this is still not a speedup or active engine fix.
