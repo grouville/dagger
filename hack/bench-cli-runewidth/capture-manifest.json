@@ -1,0 +1,200 @@
+{
+  "status": "passed",
+  "scope": "Runewidth upgrade: paired standalone CLI and novel-edit pilot.\n\nSame retained engine, original f6e module, separate Cargo caches for each side.\nBoth fixtures are primed with control, identical source/flags/cache histories.\nNo listener or existing cache reset. All check runs export local OTLP; separate\nprofiled companion cohorts. Not cold/onboarding/native or artifact performance.\n",
+  "source_hashes": {
+    "/tmp/dagger-http-preconnect-main.tRLouH4d/dagger-candidate": "23cb7f91c8c346741d349af1b98ba7fd553b160d3f09c56b508bae2fb0e30270",
+    "/tmp/dagger-cli-runewidth.lhU4UO4i/dagger-candidate": "ff1ef25902a037b41e8b16372fcdb806c0cffdd1568a0b9ed75b4e1ef1631f51",
+    "/tmp/dagger-rust-perf-sprint.1qnbuQ9j/otlpdump": "f2aef556572da41578a0336248b4c6d1972b9d050df2622e57303555752f9b38",
+    "/tmp/dagger-rust-single-source.FwiNYoEd/control/main.dang": "f6e119c3b7be439df46a6ea9b74c368126751e0a141b2e5ebb699a4b0f0681f1",
+    "/tmp/dagger-rust-single-source.FwiNYoEd/control/dagger-module.toml": "80ceb12a068bb2c86041ba35bdcb24edada8ae228b77450de2ce917caa2ec8e5",
+    "/tmp/dagger-cli-runewidth.lhU4UO4i/pilot.py": "20d9336b7d9b049529c2ee357f865642b94dc8297385181f9858361ede7b0fa5",
+    "/tmp/dagger-cli-runewidth.lhU4UO4i/compare-cli-edits.py": "b1d78f3a5da26ed50778c4ee35478963bc6217219a17fa7f74a54a049abe50d1",
+    "/tmp/dagger-parser-stats.I2WPGLrS/engine-source/hack/bench-rust-loop/run.py": "af7f1af3a4972f4a5d91e522034510072df913481837db295ca2dbe38cd22323",
+    "/tmp/dagger-parser-stats.I2WPGLrS/engine-source/hack/bench-rust-loop/compare-cli.py": "e8947e70093f0f8764d827e26a4402cbe4f9a4f069cef13b6d036477de5d50b9",
+    "/tmp/dagger-parser-stats.I2WPGLrS/engine-source/hack/bench-rust-loop/fixtures/rust-toolchain-rustfmt.toml": "173153c62c4ba6dc43f73eba9149e76deef633614b7b5a81568ee97aac12f32e",
+    "/tmp/dagger-cli-runewidth.lhU4UO4i/source/go.mod": "ce54b3d37381867b98c589363e2266203132918f5aa72dda1aa8512e35fa036d",
+    "/tmp/dagger-cli-runewidth.lhU4UO4i/source/go.sum": "17bcf1167c6912e0278971fb7766b8a90c2a50cef0b684ed897d23a953b16692"
+  },
+  "engine": "d0d56f72a602d87b26fc32578569ece53b4536601423e3e5833edd284e6be097 sha256:c057d7eed790760d88e4cffb0f540adb9e230823b81759c0e86eeaae49d141a0 true",
+  "started_ns": 1789262195631480554,
+  "runs": [
+    {
+      "name": "version",
+      "argv": [
+        "/usr/bin/python3",
+        "/tmp/dagger-parser-stats.I2WPGLrS/engine-source/hack/bench-rust-loop/compare-cli.py",
+        "--before",
+        "/tmp/dagger-http-preconnect-main.tRLouH4d/dagger-candidate",
+        "--after",
+        "/tmp/dagger-cli-runewidth.lhU4UO4i/dagger-candidate",
+        "--workdir",
+        "/tmp/dagger-cli-runewidth.lhU4UO4i",
+        "--samples",
+        "20",
+        "--",
+        "version"
+      ],
+      "roots": [
+        "/tmp/dagger-rust-cli-pair-37kqz0ot"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "prime-before",
+      "argv": [
+        "/usr/bin/python3",
+        "/tmp/dagger-parser-stats.I2WPGLrS/engine-source/hack/bench-rust-loop/run.py",
+        "--dagger",
+        "/tmp/dagger-http-preconnect-main.tRLouH4d/dagger-candidate",
+        "--module-dir",
+        "/tmp/dagger-rust-single-source.FwiNYoEd/control",
+        "--image",
+        "rust@sha256:39f68a3e8e3ff425f8945ffa91128e60ff930d53e17fbb5214e95824bdd46f1b",
+        "--samples",
+        "1",
+        "--ripgrep",
+        "/tmp/dagger-rust-ripgrep-reference",
+        "--debug-url",
+        "http://172.17.0.18:6060",
+        "--pinned-source-sync",
+        "--prepare-project-toolchain",
+        "--project-toolchain",
+        "/tmp/dagger-parser-stats.I2WPGLrS/engine-source/hack/bench-rust-loop/fixtures/rust-toolchain-rustfmt.toml"
+      ],
+      "roots": [
+        "/tmp/dagger-rust-loop-ntr4mg11"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "prime-after",
+      "argv": [
+        "/usr/bin/python3",
+        "/tmp/dagger-parser-stats.I2WPGLrS/engine-source/hack/bench-rust-loop/run.py",
+        "--dagger",
+        "/tmp/dagger-http-preconnect-main.tRLouH4d/dagger-candidate",
+        "--module-dir",
+        "/tmp/dagger-rust-single-source.FwiNYoEd/control",
+        "--image",
+        "rust@sha256:39f68a3e8e3ff425f8945ffa91128e60ff930d53e17fbb5214e95824bdd46f1b",
+        "--samples",
+        "1",
+        "--ripgrep",
+        "/tmp/dagger-rust-ripgrep-reference",
+        "--debug-url",
+        "http://172.17.0.18:6060",
+        "--pinned-source-sync",
+        "--prepare-project-toolchain",
+        "--project-toolchain",
+        "/tmp/dagger-parser-stats.I2WPGLrS/engine-source/hack/bench-rust-loop/fixtures/rust-toolchain-rustfmt.toml"
+      ],
+      "roots": [
+        "/tmp/dagger-rust-loop-ov8rr3ci"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "exact",
+      "argv": [
+        "/usr/bin/python3",
+        "/tmp/dagger-parser-stats.I2WPGLrS/engine-source/hack/bench-rust-loop/compare-cli.py",
+        "--before",
+        "/tmp/dagger-http-preconnect-main.tRLouH4d/dagger-candidate",
+        "--after",
+        "/tmp/dagger-cli-runewidth.lhU4UO4i/dagger-candidate",
+        "--before-workdir",
+        "/tmp/dagger-rust-loop-ntr4mg11/dagger",
+        "--after-workdir",
+        "/tmp/dagger-rust-loop-ov8rr3ci/dagger",
+        "--samples",
+        "12",
+        "--",
+        "check",
+        "rust:check"
+      ],
+      "roots": [
+        "/tmp/dagger-rust-cli-pair-6ztsqph1"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "exact-profiled",
+      "argv": [
+        "/usr/bin/python3",
+        "/tmp/dagger-parser-stats.I2WPGLrS/engine-source/hack/bench-rust-loop/compare-cli.py",
+        "--before",
+        "/tmp/dagger-http-preconnect-main.tRLouH4d/dagger-candidate",
+        "--after",
+        "/tmp/dagger-cli-runewidth.lhU4UO4i/dagger-candidate",
+        "--before-workdir",
+        "/tmp/dagger-rust-loop-ntr4mg11/dagger",
+        "--after-workdir",
+        "/tmp/dagger-rust-loop-ov8rr3ci/dagger",
+        "--samples",
+        "3",
+        "--",
+        "--profile",
+        "check",
+        "rust:check"
+      ],
+      "roots": [
+        "/tmp/dagger-rust-cli-pair-ymdaxr58"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "edits",
+      "argv": [
+        "/usr/bin/python3",
+        "/tmp/dagger-cli-runewidth.lhU4UO4i/compare-cli-edits.py",
+        "--dagger",
+        "/tmp/dagger-http-preconnect-main.tRLouH4d/dagger-candidate",
+        "--after-dagger",
+        "/tmp/dagger-cli-runewidth.lhU4UO4i/dagger-candidate",
+        "--before-workdir",
+        "/tmp/dagger-rust-loop-ntr4mg11/dagger",
+        "--after-workdir",
+        "/tmp/dagger-rust-loop-ov8rr3ci/dagger",
+        "--samples",
+        "10",
+        "--execute"
+      ],
+      "roots": [
+        "/tmp/dagger-rust-module-edits-umhr63dj"
+      ],
+      "exit_code": 0
+    },
+    {
+      "name": "edits-profiled",
+      "argv": [
+        "/usr/bin/python3",
+        "/tmp/dagger-cli-runewidth.lhU4UO4i/compare-cli-edits.py",
+        "--dagger",
+        "/tmp/dagger-http-preconnect-main.tRLouH4d/dagger-candidate",
+        "--after-dagger",
+        "/tmp/dagger-cli-runewidth.lhU4UO4i/dagger-candidate",
+        "--before-workdir",
+        "/tmp/dagger-rust-loop-ntr4mg11/dagger",
+        "--after-workdir",
+        "/tmp/dagger-rust-loop-ov8rr3ci/dagger",
+        "--samples",
+        "3",
+        "--execute",
+        "--profile"
+      ],
+      "roots": [
+        "/tmp/dagger-rust-module-edits-utlb0mds"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "primers": {
+    "before": "/tmp/dagger-rust-loop-ntr4mg11",
+    "after": "/tmp/dagger-rust-loop-ov8rr3ci"
+  },
+  "receiver_pid": 1183587,
+  "receiver_exit_code": -15,
+  "telemetry_bytes": 42414681,
+  "telemetry_sha256": "2f78fff1bbeef198c4edf737bcac1c38da1677c48a56eac7098c02aa29b380c8",
+  "finished_ns": 1789262343754500690
+}
