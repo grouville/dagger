@@ -193,7 +193,10 @@ type daggerClient struct {
 	secretToken    string
 	clientMetadata *engine.ClientMetadata
 
-	// closed after the shutdown endpoint is called
+	// Nested clients close after their shutdown endpoint flushes telemetry.
+	// The main client closes after background session teardown flushes every
+	// provider and the final session-complete carrier, without waiting for
+	// unrelated resource cleanup.
 	shutdownCh        chan struct{}
 	closeShutdownOnce sync.Once
 
@@ -640,8 +643,9 @@ func (srv *Server) removeDaggerSession(ctx context.Context, sess *daggerSession)
 	}
 	sess.clientMu.RUnlock()
 
+	var telemetryGroup errgroup.Group
 	for _, client := range clients {
-		releaseGroup.Go(func() error {
+		telemetryGroup.Go(func() error {
 			var errs error
 
 			// Flush all telemetry.
@@ -653,6 +657,16 @@ func (srv *Server) removeDaggerSession(ctx context.Context, sess *daggerSession)
 			errs = errors.Join(errs, client.closeKeepAliveTelemetryDB())
 
 			return errs
+		})
+	}
+	errs = errors.Join(errs, telemetryGroup.Wait())
+	// Main-client subscribers must see the final session carrier and all nested
+	// provider flushes before EOF. /shutdown only starts session closing; its
+	// response precedes this background teardown. Do not tie this signal to
+	// container release, analytics, or cache cleanup, which can take much longer.
+	for _, client := range clients {
+		client.closeShutdownOnce.Do(func() {
+			close(client.shutdownCh)
 		})
 	}
 	errs = errors.Join(errs, releaseGroup.Wait())
@@ -2133,9 +2147,15 @@ func (srv *Server) serveShutdown(w http.ResponseWriter, r *http.Request, client 
 		shutdownErr = errors.Join(shutdownErr, fmt.Errorf("flush telemetry: %w", flushErr))
 	}
 
-	client.closeShutdownOnce.Do(func() {
-		close(client.shutdownCh)
-	})
+	if client.clientID != sess.mainClientCallerID {
+		// Nested clients must finish draining independently of their parent:
+		// that parent's active query may be waiting for this client's Close.
+		// Main-client telemetry closes in removeDaggerSession, after the final
+		// session-complete carrier and all provider shutdowns have been flushed.
+		client.closeShutdownOnce.Do(func() {
+			close(client.shutdownCh)
+		})
+	}
 
 	return shutdownErr
 }

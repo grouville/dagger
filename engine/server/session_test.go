@@ -411,6 +411,7 @@ func newTeardownTestSession(srv *Server, sessionID, mainClientID string, activeC
 	client := &daggerClient{
 		clientID:    mainClientID,
 		activeCount: activeCount,
+		shutdownCh:  make(chan struct{}),
 	}
 	sess := &daggerSession{
 		sessionID:          sessionID,
