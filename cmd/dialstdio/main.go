@@ -86,7 +86,23 @@ func dialer(address string, timeout time.Duration) (net.Conn, error) {
 	if addrParts[0] != "unix" {
 		return nil, errors.Errorf("invalid address %s (expected unix://, got %s://)", address, addrParts[0])
 	}
-	return net.DialTimeout(addrParts[0], addrParts[1], timeout)
+	if timeout <= 0 {
+		return net.DialTimeout(addrParts[0], addrParts[1], timeout)
+	}
+
+	// The exec can start before the engine has bound its socket. Wait within
+	// the connection budget instead of making the client reconnect its stdio
+	// transport. Keep one deadline so retries do not extend that budget.
+	d := net.Dialer{Deadline: time.Now().Add(timeout)}
+	delay := 5 * time.Millisecond
+	for {
+		conn, err := d.Dial(addrParts[0], addrParts[1])
+		if err == nil || (!errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.ECONNREFUSED)) {
+			return conn, err
+		}
+		time.Sleep(min(delay, time.Until(d.Deadline)))
+		delay = min(2*delay, 50*time.Millisecond)
+	}
 }
 
 func copier(to halfWriteCloser, from halfReadCloser, debugDescription string) error {

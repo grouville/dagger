@@ -1,0 +1,64 @@
+{
+  "status": "passed",
+  "scope": "Check real Docker exec timeout/closure on the uniquely owned built engine.\n\nNo delayed engine startup, socket injection, image mutation or performance\nclaim. A local Docker client exit need not kill its container-side exec; require\nthat remaining helper to respect the existing finite connection timeout.\n",
+  "build_sha256": "4036040ebb38da27739225fdf2ab13183065ac4868e198dd7aaf4b8c0a00db54",
+  "script_sha256": "98530cb41f449f18afff85e185b5d4e32e0f184b899b69effd391e9a56f94c02",
+  "engine": {
+    "Id": "657d148b90b1ba19074110b89d4513c49c64ebad55b5091c3b51cdda7bff26ec",
+    "Image": "sha256:5d660298fd273eec4facabca4b1ecaf56cac7bc2342aaf3eec6a6d26ff1bb8da",
+    "RestartCount": 0
+  },
+  "cases": [
+    {
+      "close_local_client": false,
+      "timeout_seconds": 1,
+      "address": "unix:///tmp/ds-3d85fb08624a.sock",
+      "started_ns": 1789278119116877507,
+      "argv": [
+        "docker",
+        "exec",
+        "-i",
+        "dagger-unix-readiness-ufjy9dsi",
+        "sh",
+        "-c",
+        "printf \"%s\\n\" \"$$\"\nexec buildctl --addr \"$1\" --timeout \"$2\" dial-stdio",
+        "sh",
+        "unix:///tmp/ds-3d85fb08624a.sock",
+        "1"
+      ],
+      "container_child_pid": 7058,
+      "elapsed_ms": 1007.8691740054637,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "Error: dial unix /tmp/ds-3d85fb08624a.sock: i/o timeout\nUsage:\n  dial-stdio [flags]\n\nFlags:\n      --addr string   The address serving the grpc api (default \"unix:///run/dagger/engine.sock\")\n  -h, --help          help for dial-stdio\n      --timeout int   The timeout in seconds for connecting to the grpc api (default 5)\n\n",
+      "passed": true
+    },
+    {
+      "close_local_client": true,
+      "timeout_seconds": 5,
+      "address": "unix:///tmp/ds-598dd380aa16.sock",
+      "started_ns": 1789278120274429979,
+      "argv": [
+        "docker",
+        "exec",
+        "-i",
+        "dagger-unix-readiness-ufjy9dsi",
+        "sh",
+        "-c",
+        "printf \"%s\\n\" \"$$\"\nexec buildctl --addr \"$1\" --timeout \"$2\" dial-stdio",
+        "sh",
+        "unix:///tmp/ds-598dd380aa16.sock",
+        "5"
+      ],
+      "container_child_pid": 7086,
+      "local_close_ms": 3.180362982675433,
+      "container_child_survived_local_close": true,
+      "container_exit_observed_ms": 5183.965936943423,
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "passed": true
+    }
+  ],
+  "ended_ns": 1789278125516876210
+}
