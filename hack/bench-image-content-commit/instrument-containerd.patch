@@ -1,0 +1,135 @@
+--- a/core/metadata/content.go
++++ b/core/metadata/content.go
+@@ -37,6 +37,7 @@
+ 	"github.com/containerd/containerd/v2/pkg/filters"
+ 	"github.com/containerd/containerd/v2/pkg/labels"
+ 	"github.com/containerd/containerd/v2/pkg/namespaces"
++	"github.com/containerd/containerd/v2/pkg/tracing"
+ )
+ 
+ type contentStore struct {
+@@ -579,11 +580,21 @@
+ 	return nil
+ }
+ 
+-func (nw *namespacedWriter) Commit(ctx context.Context, size int64, expected digest.Digest, opts ...content.Opt) error {
++func (nw *namespacedWriter) Commit(ctx context.Context, size int64, expected digest.Digest, opts ...content.Opt) (rerr error) {
+ 	ctx = namespaces.WithNamespace(ctx, nw.namespace)
++	ctx, span := tracing.StartSpan(ctx, "metadata.content.Commit",
++		tracing.WithAttribute("content.digest", expected.String()),
++		tracing.WithAttribute("content.size", size),
++	)
++	defer func() {
++		span.SetStatus(rerr)
++		span.End()
++	}()
+ 
++	_, lockSpan := tracing.StartSpan(ctx, "metadata.content.Commit.contentLock")
+ 	nw.l.RLock()
+ 	defer nw.l.RUnlock()
++	lockSpan.End()
+ 
+ 	var innerErr error
+ 	var actualDgst digest.Digest
+@@ -596,12 +607,25 @@
+ 	//
+ 	// REF:
+ 	// [1]: https://github.com/containerd/containerd/blob/c4c3c6ea568ce0cfbcf754863abadeea37d77c8f/plugins/content/local/writer.go#L95
+-	if err := nw.Sync(); err != nil {
++	_, syncSpan := tracing.StartSpan(ctx, "metadata.content.Commit.preSync")
++	syncErr := nw.Sync()
++	syncSpan.SetStatus(syncErr)
++	syncSpan.End()
++	if syncErr != nil {
+ 		nw.Close()
+-		return fmt.Errorf("failed to perform sync: %w", err)
++		return fmt.Errorf("failed to perform sync: %w", syncErr)
+ 	}
+ 
+-	if err := update(ctx, nw.db, func(tx *bolt.Tx) error {
++	// The interval before callback entry includes transaction acquisition and
++	// setup; the interval after it includes transaction completion and mutation
++	// callbacks. Keep update's existing transaction and locking semantics.
++	updateCtx, updateSpan := tracing.StartSpan(ctx, "metadata.content.Commit.transaction")
++	updateErr := update(updateCtx, nw.db, func(tx *bolt.Tx) (rerr error) {
++		ctx, workSpan := tracing.StartSpan(updateCtx, "metadata.content.Commit.transactionWork")
++		defer func() {
++			workSpan.SetStatus(rerr)
++			workSpan.End()
++		}()
+ 		dgst, size, err := nw.commit(ctx, tx, size, expected, opts...)
+ 		if err != nil {
+ 			if !errdefs.IsAlreadyExists(err) {
+@@ -621,8 +645,11 @@
+ 			return err
+ 		}
+ 		return addContentLease(ctx, tx, dgst)
+-	}); err != nil {
+-		return err
++	})
++	updateSpan.SetStatus(updateErr)
++	updateSpan.End()
++	if updateErr != nil {
++		return updateErr
+ 	}
+ 	if innerErr != nil {
+ 		return innerErr
+--- a/plugins/content/local/writer.go
++++ b/plugins/content/local/writer.go
+@@ -32,6 +32,7 @@
+ 
+ 	"github.com/containerd/containerd/v2/core/content"
+ 	"github.com/containerd/containerd/v2/internal/fsverity"
++	"github.com/containerd/containerd/v2/pkg/tracing"
+ )
+ 
+ // writer represents a write transaction against the blob store.
+@@ -76,7 +77,16 @@
+ 	return n, err
+ }
+ 
+-func (w *writer) Commit(ctx context.Context, size int64, expected digest.Digest, opts ...content.Opt) error {
++func (w *writer) Commit(ctx context.Context, size int64, expected digest.Digest, opts ...content.Opt) (rerr error) {
++	ctx, span := tracing.StartSpan(ctx, "content.local.Commit",
++		tracing.WithAttribute("content.digest", expected.String()),
++		tracing.WithAttribute("content.size", size),
++	)
++	defer func() {
++		span.SetStatus(rerr)
++		span.End()
++	}()
++
+ 	// Ensure even on error the writer is fully closed
+ 	defer w.s.unlock(w.ref)
+ 
+@@ -94,9 +104,13 @@
+ 		return fmt.Errorf("cannot commit on closed writer: %w", errdefs.ErrFailedPrecondition)
+ 	}
+ 
+-	if err := fp.Sync(); err != nil {
++	_, syncSpan := tracing.StartSpan(ctx, "content.local.Commit.fileSync")
++	syncErr := fp.Sync()
++	syncSpan.SetStatus(syncErr)
++	syncSpan.End()
++	if syncErr != nil {
+ 		fp.Close()
+-		return fmt.Errorf("sync failed: %w", err)
++		return fmt.Errorf("sync failed: %w", syncErr)
+ 	}
+ 
+ 	fi, err := fp.Stat()
+@@ -139,8 +153,12 @@
+ 		return err
+ 	}
+ 
+-	if err := syncDir(filepath.Dir(target)); err != nil {
+-		return err
++	_, dirSyncSpan := tracing.StartSpan(ctx, "content.local.Commit.directorySync")
++	dirSyncErr := syncDir(filepath.Dir(target))
++	dirSyncSpan.SetStatus(dirSyncErr)
++	dirSyncSpan.End()
++	if dirSyncErr != nil {
++		return dirSyncErr
+ 	}
+ 	// Enable content blob integrity verification if supported
+ 
