@@ -1,0 +1,596 @@
+{
+  "scope": "Check complete wcprof profiles and actual setup reuse, not performance.",
+  "script_sha256": "d10983a08bbd7d784c977e822f314a86edcbccb0a4665b251cd85409539d3c83",
+  "extractor_sha256": "9111c7d9fe6d13266e899bc1048bf7aee66208024c6980c7bd607bfe78123201",
+  "wcprof_sha256": "de3bde25361254d784a211a9fdfec5043459a7a211b9e2a012252ebfbd45a8ba",
+  "raw_sha256": "65c99be6ac5a641eb1225c82163bcc66616f1c192be98bb9cf56a0d4fd5bfe79",
+  "profiles": [
+    {
+      "label": "initial-fmt",
+      "process_exit": 0,
+      "declared": 265,
+      "received": 265,
+      "structural_pass": true,
+      "replay_drift": "-3.2%",
+      "execs": [
+        {
+          "argv": [
+            "sh",
+            "-c",
+            "test \"$(dpkg --print-architecture)\" = amd64 && dpkg -i /tmp/rust-sync-libpopt.deb /tmp/rust-sync-rsync.deb"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        },
+        {
+          "argv": [
+            "rustup",
+            "toolchain",
+            "install",
+            "--no-self-update"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        },
+        {
+          "argv": [
+            "sh",
+            "-c",
+            "rsync -rclp --delete /input/ /src/ && cargo check --workspace --locked"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        }
+      ],
+      "host_directory_calls": [
+        "85ea08908dcd759b",
+        "8734b7e27c36aa52",
+        "6edf546848b8fb57",
+        "f374f86fb356d5d9"
+      ],
+      "cargo": [
+        {
+          "argv": [
+            "sh",
+            "-c",
+            "rsync -rclp --delete /input/ /src/ && cargo check --workspace --locked"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        }
+      ],
+      "rustup": [
+        {
+          "argv": [
+            "rustup",
+            "toolchain",
+            "install",
+            "--no-self-update"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        }
+      ],
+      "source_edit_reuses_toolchain": true,
+      "config_change_runs_setup": true,
+      "exact_repair_reuses_action": true,
+      "all_local_gates": true
+    },
+    {
+      "label": "add-clippy",
+      "process_exit": 0,
+      "declared": 194,
+      "received": 194,
+      "structural_pass": true,
+      "replay_drift": "-0.0%",
+      "execs": [
+        {
+          "argv": [
+            "rustup",
+            "toolchain",
+            "install",
+            "--no-self-update"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        },
+        {
+          "argv": [
+            "sh",
+            "-c",
+            "rsync -rclp --delete /input/ /src/ && cargo check --workspace --locked"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        }
+      ],
+      "host_directory_calls": [
+        "1087dbf6cd047b5c",
+        "aa2253df7893a9dc",
+        "4a124c836de036eb",
+        "2a7c7fa72555a657"
+      ],
+      "cargo": [
+        {
+          "argv": [
+            "sh",
+            "-c",
+            "rsync -rclp --delete /input/ /src/ && cargo check --workspace --locked"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        }
+      ],
+      "rustup": [
+        {
+          "argv": [
+            "rustup",
+            "toolchain",
+            "install",
+            "--no-self-update"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        }
+      ],
+      "source_edit_reuses_toolchain": true,
+      "config_change_runs_setup": true,
+      "exact_repair_reuses_action": true,
+      "all_local_gates": true
+    },
+    {
+      "label": "source-failure",
+      "process_exit": 101,
+      "declared": 181,
+      "received": 181,
+      "structural_pass": true,
+      "replay_drift": "-0.1%",
+      "execs": [
+        {
+          "argv": [
+            "sh",
+            "-c",
+            "rsync -rclp --delete /input/ /src/ && cargo check --workspace --locked"
+          ],
+          "exit_codes": [
+            101
+          ],
+          "within_process": true
+        }
+      ],
+      "host_directory_calls": [
+        "ed635381ec60d264",
+        "47595e4e26336e40",
+        "bde962a9e069a965",
+        "245d243a58e70d61"
+      ],
+      "cargo": [
+        {
+          "argv": [
+            "sh",
+            "-c",
+            "rsync -rclp --delete /input/ /src/ && cargo check --workspace --locked"
+          ],
+          "exit_codes": [
+            101
+          ],
+          "within_process": true
+        }
+      ],
+      "rustup": [],
+      "source_edit_reuses_toolchain": true,
+      "config_change_runs_setup": true,
+      "exact_repair_reuses_action": true,
+      "all_local_gates": true
+    },
+    {
+      "label": "source-repair",
+      "process_exit": 0,
+      "declared": 179,
+      "received": 179,
+      "structural_pass": true,
+      "replay_drift": "-0.1%",
+      "execs": [
+        {
+          "argv": [
+            "sh",
+            "-c",
+            "rsync -rclp --delete /input/ /src/ && cargo check --workspace --locked"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        }
+      ],
+      "host_directory_calls": [
+        "bd2c97dce45a944b",
+        "d10da09a4371f418",
+        "1209d6654612240e",
+        "67d11371e38eea6d"
+      ],
+      "cargo": [
+        {
+          "argv": [
+            "sh",
+            "-c",
+            "rsync -rclp --delete /input/ /src/ && cargo check --workspace --locked"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        }
+      ],
+      "rustup": [],
+      "source_edit_reuses_toolchain": true,
+      "config_change_runs_setup": true,
+      "exact_repair_reuses_action": true,
+      "all_local_gates": true
+    },
+    {
+      "label": "invalid-config",
+      "process_exit": 1,
+      "declared": 193,
+      "received": 193,
+      "structural_pass": true,
+      "replay_drift": "-0.1%",
+      "execs": [
+        {
+          "argv": [
+            "rustup",
+            "toolchain",
+            "install",
+            "--no-self-update"
+          ],
+          "exit_codes": [
+            1
+          ],
+          "within_process": true
+        }
+      ],
+      "host_directory_calls": [
+        "d89de8542a57f6f0",
+        "9151e088754843e6",
+        "4234ada68fd8391e",
+        "1ddb2deec4e89d93"
+      ],
+      "cargo": [],
+      "rustup": [
+        {
+          "argv": [
+            "rustup",
+            "toolchain",
+            "install",
+            "--no-self-update"
+          ],
+          "exit_codes": [
+            1
+          ],
+          "within_process": true
+        }
+      ],
+      "source_edit_reuses_toolchain": true,
+      "config_change_runs_setup": true,
+      "exact_repair_reuses_action": true,
+      "all_local_gates": true
+    },
+    {
+      "label": "revisit-fmt-config",
+      "process_exit": 0,
+      "declared": 179,
+      "received": 179,
+      "structural_pass": true,
+      "replay_drift": "-0.0%",
+      "execs": [
+        {
+          "argv": [
+            "sh",
+            "-c",
+            "rsync -rclp --delete /input/ /src/ && cargo check --workspace --locked"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        }
+      ],
+      "host_directory_calls": [
+        "6a3bdefc51e4a6af",
+        "1b9277b003d5ed3a",
+        "4b587e72ff6b789a",
+        "b1d8c84b7906d677"
+      ],
+      "cargo": [
+        {
+          "argv": [
+            "sh",
+            "-c",
+            "rsync -rclp --delete /input/ /src/ && cargo check --workspace --locked"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        }
+      ],
+      "rustup": [],
+      "source_edit_reuses_toolchain": true,
+      "config_change_runs_setup": true,
+      "exact_repair_reuses_action": true,
+      "all_local_gates": true
+    },
+    {
+      "label": "delete-config",
+      "process_exit": 0,
+      "declared": 171,
+      "received": 171,
+      "structural_pass": true,
+      "replay_drift": "-0.1%",
+      "execs": [
+        {
+          "argv": [
+            "sh",
+            "-c",
+            "rsync -rclp --delete /input/ /src/ && cargo check --workspace --locked"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        }
+      ],
+      "host_directory_calls": [
+        "de2a55b0287d320f",
+        "14b3aadf9bb4e1e6",
+        "2cd954cbf3222497",
+        "1a992820e925e9d9"
+      ],
+      "cargo": [
+        {
+          "argv": [
+            "sh",
+            "-c",
+            "rsync -rclp --delete /input/ /src/ && cargo check --workspace --locked"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        }
+      ],
+      "rustup": [],
+      "source_edit_reuses_toolchain": true,
+      "config_change_runs_setup": true,
+      "exact_repair_reuses_action": true,
+      "all_local_gates": true
+    },
+    {
+      "label": "legacy-file",
+      "process_exit": 0,
+      "declared": 194,
+      "received": 194,
+      "structural_pass": true,
+      "replay_drift": "-0.0%",
+      "execs": [
+        {
+          "argv": [
+            "rustup",
+            "toolchain",
+            "install",
+            "--no-self-update"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        },
+        {
+          "argv": [
+            "sh",
+            "-c",
+            "rsync -rclp --delete /input/ /src/ && cargo check --workspace --locked"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        }
+      ],
+      "host_directory_calls": [
+        "230c1f30297d849c",
+        "d0379a817e8c31ca",
+        "b554c6c2b426a824",
+        "cf9229909afd4352"
+      ],
+      "cargo": [
+        {
+          "argv": [
+            "sh",
+            "-c",
+            "rsync -rclp --delete /input/ /src/ && cargo check --workspace --locked"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        }
+      ],
+      "rustup": [
+        {
+          "argv": [
+            "rustup",
+            "toolchain",
+            "install",
+            "--no-self-update"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        }
+      ],
+      "source_edit_reuses_toolchain": true,
+      "config_change_runs_setup": true,
+      "exact_repair_reuses_action": true,
+      "all_local_gates": true
+    },
+    {
+      "label": "legacy-precedence",
+      "process_exit": 0,
+      "declared": 196,
+      "received": 196,
+      "structural_pass": true,
+      "replay_drift": "-0.1%",
+      "execs": [
+        {
+          "argv": [
+            "rustup",
+            "toolchain",
+            "install",
+            "--no-self-update"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        },
+        {
+          "argv": [
+            "sh",
+            "-c",
+            "rsync -rclp --delete /input/ /src/ && cargo check --workspace --locked"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        }
+      ],
+      "host_directory_calls": [
+        "2f0080e411d576bd",
+        "a043c38efbe609ff",
+        "ea5fd2ce8646c35c",
+        "6b1eb4bc0ef68a39"
+      ],
+      "cargo": [
+        {
+          "argv": [
+            "sh",
+            "-c",
+            "rsync -rclp --delete /input/ /src/ && cargo check --workspace --locked"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        }
+      ],
+      "rustup": [
+        {
+          "argv": [
+            "rustup",
+            "toolchain",
+            "install",
+            "--no-self-update"
+          ],
+          "exit_codes": [
+            0
+          ],
+          "within_process": true
+        }
+      ],
+      "source_edit_reuses_toolchain": true,
+      "config_change_runs_setup": true,
+      "exact_repair_reuses_action": true,
+      "all_local_gates": true
+    },
+    {
+      "label": "remove-legacy-exposes-invalid-toml",
+      "process_exit": 1,
+      "declared": 162,
+      "received": 162,
+      "structural_pass": true,
+      "replay_drift": "-0.0%",
+      "execs": [
+        {
+          "argv": [
+            "rustup",
+            "toolchain",
+            "install",
+            "--no-self-update"
+          ],
+          "exit_codes": [
+            1
+          ],
+          "within_process": true
+        }
+      ],
+      "host_directory_calls": [
+        "3e1035e56339b871",
+        "e483016b6c467505",
+        "beb786e1f0da3d2b",
+        "4fc02fafaa959403"
+      ],
+      "cargo": [],
+      "rustup": [
+        {
+          "argv": [
+            "rustup",
+            "toolchain",
+            "install",
+            "--no-self-update"
+          ],
+          "exit_codes": [
+            1
+          ],
+          "within_process": true
+        }
+      ],
+      "source_edit_reuses_toolchain": true,
+      "config_change_runs_setup": true,
+      "exact_repair_reuses_action": true,
+      "all_local_gates": true
+    },
+    {
+      "label": "final-repair",
+      "process_exit": 0,
+      "declared": 148,
+      "received": 148,
+      "structural_pass": true,
+      "replay_drift": "-0.1%",
+      "execs": [],
+      "host_directory_calls": [
+        "8989c12e86e56bd7",
+        "f27001dd52e729b6",
+        "eeab3f74af5a4c2a",
+        "d12b753b3c254dd4"
+      ],
+      "cargo": [],
+      "rustup": [],
+      "source_edit_reuses_toolchain": true,
+      "config_change_runs_setup": true,
+      "exact_repair_reuses_action": true,
+      "all_local_gates": true
+    }
+  ],
+  "passed": true
+}
