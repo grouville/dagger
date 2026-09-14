@@ -78,8 +78,8 @@ type Rust {
   # The root toolchain files and requested component set key this immutable
   # setup independently of application source. Build/check do not install
   # Clippy or rustfmt unless the project itself requests those components.
-  let projectToolchain(ws: Workspace!, components: [String!]! = []): Container! {
-    let config = ws.directory("/", include: ["rust-toolchain", "rust-toolchain.toml"])
+  let projectToolchain(source: Directory!, components: [String!]! = []): Container! {
+    let config = source.filter(include: ["rust-toolchain", "rust-toolchain.toml"])
     let configured = toolchain
       .withWorkdir("/src")
       .withMountedDirectory("/src", config)
@@ -116,15 +116,15 @@ type Rust {
     ws.directory("/", exclude: [".git", "target", "dagger.toml", "dagger.lock"])
   }
 
-  let action(ws: Workspace!, command: [String!]!, components: [String!]! = []): Container! {
+  let action(source: Directory!, command: [String!]!, components: [String!]! = []): Container! {
     let script = if (tracePhases) {
       "set -eu; start=$(date +%s%N); rsync -rclp --delete /input/ /src/; synced=$(date +%s%N); mkdir -p /out /meta; \"$@\"; finished=$(date +%s%N); printf 'RUST_BENCH_PHASE_NS sync=%s cargo=%s\\n' \"$((synced-start))\" \"$((finished-synced))\" >&2"
     } else {
       "set -eu; rsync -rclp --delete /input/ /src/; mkdir -p /out /meta; exec \"$@\""
     }
-    projectToolchain(ws, components)
+    projectToolchain(source, components)
       .withWorkdir("/src")
-      .withMountedDirectory("/input", source(ws))
+      .withMountedDirectory("/input", source)
       .withMountedCache("/src", cacheVolume(cacheKey + "-source"), sharing: CacheSharingMode.LOCKED)
       .withMountedCache("/usr/local/cargo/registry", cacheVolume(cacheKey + "-registry"))
       .withMountedCache("/usr/local/cargo/git", cacheVolume(cacheKey + "-git"))
@@ -136,8 +136,8 @@ type Rust {
       .withExec(["sh", "-c", script, "rust-action"] + command)
   }
 
-  let checkResult(ws: Workspace!): Container! {
-    action(ws, ["cargo", "check"] + cargoFlags)
+  let checkResult(source: Directory!): Container! {
+    action(source, ["cargo", "check"] + cargoFlags)
   }
 
   let buildResult(ws: Workspace!): Container! {
@@ -146,7 +146,7 @@ type Rust {
     } else {
       "set -eu; cargo build --message-format=json-render-diagnostics \"$@\" > /meta/build.jsonl; cargo metadata --no-deps --format-version=1 > /meta/workspace.json; cp -p Cargo.lock /meta/Cargo.lock"
     }
-    action(ws, ["sh", "-c", script, "rust-build"] + cargoFlags)
+    action(source(ws), ["sh", "-c", script, "rust-build"] + cargoFlags)
   }
 
   # Cargo may mix arbitrary proc-macro stdout with JSON. Recover only while
@@ -210,28 +210,42 @@ type Rust {
     }
   }
 
-  pub check(ws: Workspace!): Void @check {
-    checkResult(ws).sync
+  # Resolve the project's content before function cache lookup. Workspace is
+  # session-bound; a Directory lets identical sources reuse the whole result.
+  pub check(
+    source: Directory! @defaultPath(path: "/")
+      @ignorePatterns(patterns: [".git", "target", "dagger.toml", "dagger.lock"]),
+  ): Void @check {
+    checkResult(source).sync
     null
   }
 
   """Clippy with the project's own lint policy; warnings are not promoted implicitly."""
-  pub clippy(ws: Workspace!): Void @check {
-    action(ws, ["cargo", "clippy"] + cargoFlags, ["clippy"]).sync
+  pub clippy(
+    source: Directory! @defaultPath(path: "/")
+      @ignorePatterns(patterns: [".git", "target", "dagger.toml", "dagger.lock"]),
+  ): Void @check {
+    action(source, ["cargo", "clippy"] + cargoFlags, ["clippy"]).sync
     null
   }
 
   """Run the workspace tests using the same source and incremental cache boundary."""
-  pub test(ws: Workspace!): Void @check {
-    action(ws, ["cargo", "test"] + cargoFlags).sync
+  pub test(
+    source: Directory! @defaultPath(path: "/")
+      @ignorePatterns(patterns: [".git", "target", "dagger.toml", "dagger.lock"]),
+  ): Void @check {
+    action(source, ["cargo", "test"] + cargoFlags).sync
     null
   }
 
   """Check formatting without locking Cargo's mutable source or build caches."""
-  pub fmt(ws: Workspace!): Void @check {
-    projectToolchain(ws, ["rustfmt"])
+  pub fmt(
+    source: Directory! @defaultPath(path: "/")
+      @ignorePatterns(patterns: [".git", "target", "dagger.toml", "dagger.lock"]),
+  ): Void @check {
+    projectToolchain(source, ["rustfmt"])
       .withWorkdir("/src")
-      .withMountedDirectory("/src", source(ws))
+      .withMountedDirectory("/src", source)
       .withExec(["cargo", "fmt", "--all", "--", "--check"])
       .sync
     null
@@ -244,7 +258,7 @@ type Rust {
   }
 
   pub checkLog(ws: Workspace!): String! {
-    checkResult(ws).stderr
+    checkResult(source(ws)).stderr
   }
 
   """Build workspace binaries/libraries and return only current final artifacts."""
@@ -312,6 +326,6 @@ type Rust {
   }
 
   pub toolchainFiles(ws: Workspace!): Directory! {
-    projectToolchain(ws).directory("/usr/local/rustup/toolchains")
+    projectToolchain(source(ws)).directory("/usr/local/rustup/toolchains")
   }
 }

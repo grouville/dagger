@@ -51,9 +51,16 @@ No listener, watch process or separate build language is required.
   metadata-preservation and GC-reserve patches. This module branch does not
   silently include those engine changes. On an unpatched engine, unchanged
   parent-directory modes / empty directories can still expose the known merge
-  bug; do not present that configuration as fully validated generation.
+  bug; do not present that configuration as fully validated generation. Exact
+  common source/binary hashes are in the benchmark's
+  [engine provenance](../../hack/bench-rust-contextual-checks/engine-provenance.json).
 - First use is still slow. No faster-than-Cargo, complete-installation or
   all-workflow performance claim is established.
 
-See the branch's performance report for exact comparison scope and retained
-regressions. The intended final product supports more than this prototype.
+The check entrypoints use contextual Directory inputs so unchanged content can
+reuse whole function results across ordinary CLI sessions. The generator keeps
+its Workspace input to observe current host artifacts independently.
+
+See [the performance report](../../hack/bench-rust-contextual-checks/RESULTS.md)
+for exact comparison scope and retained regressions. The intended final product
+supports more than this prototype.
