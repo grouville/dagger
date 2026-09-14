@@ -1,0 +1,165 @@
+--- a/builder/static_code.go
++++ b/builder/static_code.go
+@@ -77,6 +77,8 @@
+ // Statistics adds a user provided Stats struct to the parser to allow
+ // the user to process the results after the parsing has finished.
+ // Also the key for the "no match" counter is set.
++// Choice counters are collected only when Statistics is enabled. Expression
++// counting and MaxExpressions enforcement are independent of this option.
+ //
+ // Example usage:
+ //
+@@ -92,15 +94,21 @@
+ //	}
+ //	fmt.Println(string(b))
+ func Statistics(stats *Stats, choiceNoMatch string) Option {
++	return statistics(stats, choiceNoMatch, true)
++}
++
++func statistics(stats *Stats, choiceNoMatch string, enabled bool) Option {
+ 	return func(p *parser) Option {
+ 		oldStats := p.Stats
+ 		p.Stats = stats
+ 		oldChoiceNoMatch := p.choiceNoMatch
+ 		p.choiceNoMatch = choiceNoMatch
++		oldEnabled := p.collectChoiceStats
++		p.collectChoiceStats = enabled
+ 		if p.Stats.ChoiceAltCnt == nil {
+ 			p.Stats.ChoiceAltCnt = make(map[string]map[string]int)
+ 		}
+-		return Statistics(oldStats, oldChoiceNoMatch)
++		return statistics(oldStats, oldChoiceNoMatch, oldEnabled)
+ 	}
+ }
+ 
+@@ -564,6 +572,7 @@
+ 	*Stats
+ 
+ 	choiceNoMatch string
++	collectChoiceStats bool
+ 	// recovery expression stack, keeps track of the currently available recovery expression, these are traversed in reverse
+ 	recoveryStack []map[string]any
+ }
+@@ -1314,6 +1323,9 @@
+ // ==template== {{ if not .Optimize }}
+ 
+ func (p *parser) incChoiceAltCnt(ch *choiceExpr, altI int) {
++	if !p.collectChoiceStats {
++		return
++	}
+ 	choiceIdent := fmt.Sprintf("%s %d:%d", p.rstack[len(p.rstack)-1].name, ch.pos.line, ch.pos.col)
+ 	m := p.ChoiceAltCnt[choiceIdent]
+ 	if m == nil {
+--- a/builder/generated_static_code.go
++++ b/builder/generated_static_code.go
+@@ -59,6 +59,8 @@
+ // Statistics adds a user provided Stats struct to the parser to allow
+ // the user to process the results after the parsing has finished.
+ // Also the key for the "no match" counter is set.
++// Choice counters are collected only when Statistics is enabled. Expression
++// counting and MaxExpressions enforcement are independent of this option.
+ //
+ // Example usage:
+ //
+@@ -74,15 +76,21 @@
+ //	}
+ //	fmt.Println(string(b))
+ func Statistics(stats *Stats, choiceNoMatch string) Option {
++	return statistics(stats, choiceNoMatch, true)
++}
++
++func statistics(stats *Stats, choiceNoMatch string, enabled bool) Option {
+ 	return func(p *parser) Option {
+ 		oldStats := p.Stats
+ 		p.Stats = stats
+ 		oldChoiceNoMatch := p.choiceNoMatch
+ 		p.choiceNoMatch = choiceNoMatch
++		oldEnabled := p.collectChoiceStats
++		p.collectChoiceStats = enabled
+ 		if p.Stats.ChoiceAltCnt == nil {
+ 			p.Stats.ChoiceAltCnt = make(map[string]map[string]int)
+ 		}
+-		return Statistics(oldStats, oldChoiceNoMatch)
++		return statistics(oldStats, oldChoiceNoMatch, oldEnabled)
+ 	}
+ }
+ 
+@@ -546,6 +554,7 @@
+ 	*Stats
+ 
+ 	choiceNoMatch string
++	collectChoiceStats bool
+ 	// recovery expression stack, keeps track of the currently available recovery expression, these are traversed in reverse
+ 	recoveryStack []map[string]any
+ }
+@@ -1296,6 +1305,9 @@
+ // ==template== {{ if not .Optimize }}
+ 
+ func (p *parser) incChoiceAltCnt(ch *choiceExpr, altI int) {
++	if !p.collectChoiceStats {
++		return
++	}
+ 	choiceIdent := fmt.Sprintf("%s %d:%d", p.rstack[len(p.rstack)-1].name, ch.pos.line, ch.pos.col)
+ 	m := p.ChoiceAltCnt[choiceIdent]
+ 	if m == nil {
+--- /dev/null
++++ b/examples/json/choice_stats_options_test.go
+@@ -0,0 +1,58 @@
++package json
++
++import "testing"
++
++func TestChoiceStatsOptInAndUndo(t *testing.T) {
++	p := newParser("stats", []byte(`{"value": 123}`))
++	if _, err := p.parse(g); err != nil {
++		t.Fatal(err)
++	}
++	if p.ExprCnt == 0 {
++		t.Fatal("default expression counting must remain active")
++	}
++	if len(p.ChoiceAltCnt) != 0 {
++		t.Fatal("choice counters must be opt-in")
++	}
++
++	p = newParser("options", nil)
++	base := p.Stats
++	a, b := &Stats{ExprCnt: 7}, &Stats{ExprCnt: 11}
++	undoA := Statistics(a, "a-none")(p)
++	undoB := Statistics(b, "b-none")(p)
++	undoB(p)
++	if p.Stats != a || p.choiceNoMatch != "a-none" || p.ExprCnt != 7 {
++		t.Fatal("undo B must restore A")
++	}
++	redoA := undoA(p)
++	if p.Stats != base || p.choiceNoMatch != "" || p.ExprCnt != 0 {
++		t.Fatal("undo A must restore default")
++	}
++	p.rstack = []*rule{{name: "options"}}
++	choice := &choiceExpr{pos: position{line: 2, col: 3}}
++	p.incChoiceAltCnt(choice, choiceNoMatch)
++	if len(base.ChoiceAltCnt) != 0 {
++		t.Fatal("undo must restore disabled choice collection")
++	}
++	undoAgain := redoA(p)
++	p.incChoiceAltCnt(choice, choiceNoMatch)
++	if a.ChoiceAltCnt["options 2:3"]["a-none"] != 1 {
++		t.Fatal("redo must restore enabled choice collection")
++	}
++	undoAgain(p)
++	p.incChoiceAltCnt(choice, choiceNoMatch)
++	if len(base.ChoiceAltCnt) != 0 {
++		t.Fatal("second undo must restore disabled choice collection")
++	}
++}
++
++func TestChoiceStatsKeepExpressionLimit(t *testing.T) {
++	_, err := Parse("limit", []byte(`{"value": 123}`), MaxExpressions(1))
++	if err == nil {
++		t.Fatal("default expression limit must still be enforced")
++	}
++	stats := &Stats{ExprCnt: 50}
++	_, err = Parse("limit", []byte(`{}`), Statistics(stats, "none"), MaxExpressions(1))
++	if err == nil || stats.ExprCnt != 51 {
++		t.Fatal("requested/preseeded counter must still enforce the limit")
++	}
++}
