@@ -145,6 +145,14 @@ or fmt/clippy/test/build/artifact-export performance claim. Host page/CDN caches
 are not purged. Both arms inherit unpublished stream/readiness experiments plus
 perf23/perf24; not clean main versus a publicly activated production stack.
 
+Additional lifecycle qualification: the retained controller sets
+`cleanup=false` and `DAGGER_LEAVE_OLD_ENGINE=1` to preserve unrelated engines.
+It measures standalone commands/new sessions, but excludes automatic old-engine
+removals and still enumerates retained engines. This is not a measured
+default-cleanup, one-engine installation. See the
+[runtime-discovery follow-up](../bench-runtime-discovery/README.md); no numeric
+rows are changed or extrapolated to a clean runtime.
+
 Shared-base-present comparison remains required: flattening loses original
 base-layer reuse. A benefit with empty engines is not a universal packaging
 recommendation. Official image/version/platform ownership and release integration

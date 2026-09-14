@@ -1,0 +1,384 @@
+diff --git a/engine/client/drivers/apple.go b/engine/client/drivers/apple.go
+index fc8096c22..549391e90 100644
+--- a/engine/client/drivers/apple.go
++++ b/engine/client/drivers/apple.go
+@@ -168,7 +168,7 @@ func (apple) ContainerIsRunning(ctx context.Context, name string) (bool, error)
+ 	return false, nil
+ }
+ 
+-func (apple) ContainerLs(ctx context.Context) ([]string, error) {
++func (apple) ContainerLs(ctx context.Context) ([]listedContainer, error) {
+ 	cmd := exec.CommandContext(ctx, "container", "ls", "-a", "--format", "json")
+ 	stdout, _, err := traceexec.ExecOutput(ctx, cmd)
+ 	if err != nil {
+@@ -185,9 +185,10 @@ func (apple) ContainerLs(ctx context.Context) ([]string, error) {
+ 		return nil, err
+ 	}
+ 
+-	var ids []string
++	var ids []listedContainer
+ 	for _, res := range result {
+-		ids = append(ids, res.Configuration.ID)
++		// Preserve Apple's separate pre-start running-state safeguard.
++		ids = append(ids, listedContainer{name: res.Configuration.ID})
+ 	}
+ 	return ids, nil
+ }
+diff --git a/engine/client/drivers/container.go b/engine/client/drivers/container.go
+index e3b303599..e8541f81d 100644
+--- a/engine/client/drivers/container.go
++++ b/engine/client/drivers/container.go
+@@ -98,11 +98,18 @@ type containerBackend interface {
+ 	ContainerRemove(ctx context.Context, name string) error
+ 	ContainerStart(ctx context.Context, name string) error
+ 	ContainerExists(ctx context.Context, name string) (bool, error)
+-	ContainerLs(ctx context.Context) ([]string, error)
++	ContainerLs(ctx context.Context) ([]listedContainer, error)
+ }
+ 
+ var errContainerAlreadyExists = errors.New("container already exists")
+ 
++type listedContainer struct {
++	name string
++	// running is true only when the backend positively reports that state.
++	// Unknown and unsupported states preserve the normal start attempt.
++	running bool
++}
++
+ type runOpts struct {
+ 	image string
+ 
+@@ -257,14 +264,20 @@ func (d *imageDriver) create(ctx context.Context, opts containerCreateOpts, dopt
+ 			return nil, err
+ 		}
+ 		slog.Warn("failed to list containers", "error", err)
+-		leftoverEngines = []string{}
++		leftoverEngines = nil
+ 	}
+ 
+ 	for i, leftoverEngine := range leftoverEngines {
+-		// if we already have a container with that name, attempt to start it
+-		if leftoverEngine == containerName {
+-			if err := d.backend.ContainerStart(ctx, leftoverEngine); err != nil {
+-				return nil, fmt.Errorf("failed to start container: %w", err)
++		if leftoverEngine.name == containerName {
++			if err := ctx.Err(); err != nil {
++				return nil, err
++			}
++			// Reuse the running state from this invocation's inventory. Keep
++			// starting stopped/unknown targets; no state survives this call.
++			if !leftoverEngine.running {
++				if err := d.backend.ContainerStart(ctx, containerName); err != nil {
++					return nil, fmt.Errorf("failed to start container: %w", err)
++				}
+ 			}
+ 			d.garbageCollectEngines(ctx, opts.cleanup, nil, slices.Delete(leftoverEngines, i, i+1))
+ 			return &url.URL{Host: containerName}, nil
+@@ -339,11 +352,12 @@ func (d *imageDriver) create(ctx context.Context, opts containerCreateOpts, dopt
+ 	return &url.URL{Host: containerName}, nil
+ }
+ 
+-func (d *imageDriver) garbageCollectEngines(ctx context.Context, cleanup bool, preserveNames, engines []string) {
++func (d *imageDriver) garbageCollectEngines(ctx context.Context, cleanup bool, preserveNames []string, engines []listedContainer) {
+ 	if !cleanup {
+ 		return
+ 	}
+-	for _, engineName := range engines {
++	for _, listed := range engines {
++		engineName := listed.name
+ 		if engineName == "" || slices.Contains(preserveNames, engineName) {
+ 			continue
+ 		}
+@@ -384,16 +398,16 @@ func CleanupOldEngines(ctx context.Context, preserveVersions []string) error {
+ 	return nil
+ }
+ 
+-func (d *imageDriver) collectLeftoverEngines(ctx context.Context, additionalNames ...string) ([]string, error) {
++func (d *imageDriver) collectLeftoverEngines(ctx context.Context, additionalNames ...string) ([]listedContainer, error) {
+ 	engines, err := d.backend.ContainerLs(ctx)
+ 	if err != nil {
+-		return nil, fmt.Errorf("failed to list containers %s: %w", engines, err)
++		return nil, fmt.Errorf("failed to list containers %v: %w", engines, err)
+ 	}
+ 
+-	var filteredEngines []string
+-	for _, name := range engines {
+-		if strings.HasPrefix(name, containerNamePrefix) || slices.Contains(additionalNames, name) {
+-			filteredEngines = append(filteredEngines, name)
++	var filteredEngines []listedContainer
++	for _, listed := range engines {
++		if strings.HasPrefix(listed.name, containerNamePrefix) || slices.Contains(additionalNames, listed.name) {
++			filteredEngines = append(filteredEngines, listed)
+ 		}
+ 	}
+ 	return filteredEngines, nil
+diff --git a/engine/client/drivers/container_create_test.go b/engine/client/drivers/container_create_test.go
+index 7353ebbae..a28446728 100644
+--- a/engine/client/drivers/container_create_test.go
++++ b/engine/client/drivers/container_create_test.go
+@@ -86,6 +86,6 @@ func (b *captureContainerBackend) ContainerExists(context.Context, string) (bool
+ 	return false, nil
+ }
+ 
+-func (b *captureContainerBackend) ContainerLs(context.Context) ([]string, error) {
++func (b *captureContainerBackend) ContainerLs(context.Context) ([]listedContainer, error) {
+ 	return nil, nil
+ }
+diff --git a/engine/client/drivers/container_state_test.go b/engine/client/drivers/container_state_test.go
+new file mode 100644
+index 000000000..3662dec75
+--- /dev/null
++++ b/engine/client/drivers/container_state_test.go
+@@ -0,0 +1,200 @@
++package drivers
++
++import (
++	"context"
++	"errors"
++	"fmt"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++type stateContainerBackend struct {
++	captureContainerBackend
++	listed   []listedContainer
++	starts   []string
++	removed  []string
++	startErr error
++}
++
++// stoppedDuringListBackend models a stop after the daemon took its list
++// snapshot but before the response reaches the caller. No timing sleeps or
++// real runtime resources are needed to reproduce that ordering.
++type stoppedDuringListBackend struct {
++	stateContainerBackend
++	running bool
++}
++
++func (b *stoppedDuringListBackend) ContainerLs(context.Context) ([]listedContainer, error) {
++	snapshot := []listedContainer{{name: "engine", running: b.running}}
++	b.running = false
++	return snapshot, nil
++}
++
++func (b *stoppedDuringListBackend) ContainerStart(ctx context.Context, name string) error {
++	if err := b.stateContainerBackend.ContainerStart(ctx, name); err != nil {
++		return err
++	}
++	b.running = true
++	return nil
++}
++
++func TestImageDriverCreateRecoversStopDuringListing(t *testing.T) {
++	t.Parallel()
++	backend := &stoppedDuringListBackend{running: true}
++	driver := &imageDriver{backend: backend}
++	_, err := driver.create(t.Context(), containerCreateOpts{containerName: "engine"}, &DriverOpts{})
++	require.NoError(t, err)
++	require.True(t, backend.running, "the existing unconditional start recovers this stop-before-start ordering")
++}
++
++func (b *stateContainerBackend) ContainerLs(context.Context) ([]listedContainer, error) {
++	return b.listed, nil
++}
++
++func (b *stateContainerBackend) ContainerStart(_ context.Context, name string) error {
++	b.starts = append(b.starts, name)
++	return b.startErr
++}
++
++func (b *stateContainerBackend) ContainerRemove(_ context.Context, name string) error {
++	b.removed = append(b.removed, name)
++	return nil
++}
++
++func TestImageDriverCreateUsesListedRunningState(t *testing.T) {
++	t.Parallel()
++	for _, custom := range []bool{false, true} {
++		for _, cleanup := range []bool{false, true} {
++			for _, running := range []bool{false, true} {
++				t.Run(fmt.Sprintf("custom=%v/cleanup=%v/running=%v", custom, cleanup, running), func(t *testing.T) {
++					t.Parallel()
++					targetName := "dagger-engine-v1.0.0"
++					opts := containerCreateOpts{imageRef: "registry.example.com/engine:v1.0.0", cleanup: cleanup}
++					if custom {
++						targetName = "explicit-engine"
++						opts.containerName = targetName
++					}
++					backend := &stateContainerBackend{listed: []listedContainer{
++						{name: targetName, running: running},
++						{name: "unrelated-container", running: true},
++						{name: "dagger-engine-old-running", running: true},
++						{name: "dagger-engine-old-stopped"},
++					}}
++					driver := &imageDriver{backend: backend}
++					target, err := driver.create(t.Context(), opts, &DriverOpts{})
++					require.NoError(t, err)
++					require.Equal(t, targetName, target.Host)
++					require.Empty(t, backend.runName, "must not recreate an existing container")
++					if running {
++						require.Empty(t, backend.starts)
++					} else {
++						require.Equal(t, []string{targetName}, backend.starts)
++					}
++					if cleanup {
++						require.Equal(t, []string{"dagger-engine-old-running", "dagger-engine-old-stopped"}, backend.removed)
++					} else {
++						require.Empty(t, backend.removed)
++					}
++				})
++			}
++		}
++	}
++}
++
++func TestImageDriverCreateKeepsStartErrors(t *testing.T) {
++	t.Parallel()
++	wantErr := errors.New("start failed")
++	backend := &stateContainerBackend{
++		listed:   []listedContainer{{name: "engine"}, {name: "dagger-engine-old"}},
++		startErr: wantErr,
++	}
++	driver := &imageDriver{backend: backend}
++	target, err := driver.create(t.Context(), containerCreateOpts{containerName: "engine", cleanup: true}, &DriverOpts{})
++	require.Nil(t, target)
++	require.ErrorIs(t, err, wantErr)
++	require.Equal(t, []string{"engine"}, backend.starts)
++	require.Empty(t, backend.removed, "failed start must not reach cleanup")
++}
++
++func TestImageDriverCreateRunningStillHonorsCancellation(t *testing.T) {
++	t.Parallel()
++	ctx, cancel := context.WithCancel(t.Context())
++	cancel()
++	backend := &stateContainerBackend{listed: []listedContainer{{name: "engine", running: true}}}
++	driver := &imageDriver{backend: backend}
++	target, err := driver.create(ctx, containerCreateOpts{containerName: "engine"}, &DriverOpts{})
++	require.Nil(t, target)
++	require.ErrorIs(t, err, context.Canceled)
++	require.Empty(t, backend.starts)
++	require.Empty(t, backend.runName)
++}
++
++func TestImageDriverCreateDoesNotRetainState(t *testing.T) {
++	t.Parallel()
++	backend := &stateContainerBackend{listed: []listedContainer{{name: "engine", running: true}}}
++	driver := &imageDriver{backend: backend}
++	opts := containerCreateOpts{containerName: "engine"}
++	_, err := driver.create(t.Context(), opts, &DriverOpts{})
++	require.NoError(t, err)
++	require.Empty(t, backend.starts)
++	backend.listed[0].running = false
++	_, err = driver.create(t.Context(), opts, &DriverOpts{})
++	require.NoError(t, err)
++	require.Equal(t, []string{"engine"}, backend.starts)
++}
++
++func TestGarbageCollectEnginesKeepsPreservedNames(t *testing.T) {
++	t.Parallel()
++	backend := &stateContainerBackend{}
++	driver := &imageDriver{backend: backend}
++	driver.garbageCollectEngines(t.Context(), true, []string{"keep"}, []listedContainer{
++		{name: ""}, {name: "keep", running: true}, {name: "remove", running: true},
++	})
++	require.Equal(t, []string{"remove"}, backend.removed)
++}
++
++func TestDockerListIncludesRunningState(t *testing.T) {
++	dir := runtimeTestPath(t)
++	writeRuntimeCommand(t, dir, "docker", `
++test "$#" = 4 || exit 2
++test "$1" = ps && test "$2" = -a && test "$3" = --format || exit 3
++test "$4" = '{{.Names}}	{{.State}}' || exit 4
++printf 'running-engine\trunning\nexited-engine\texited\npaused-engine\tpaused\nrestarting-engine\trestarting\nunknown-engine\tfuture-state\nmissing-state\n'
++`)
++	got, err := (docker{cmd: "docker"}).ContainerLs(t.Context())
++	require.NoError(t, err)
++	require.Equal(t, []listedContainer{
++		{name: "running-engine", running: true}, {name: "exited-engine"},
++		{name: "paused-engine"}, {name: "restarting-engine"},
++		{name: "unknown-engine"}, {name: "missing-state"},
++	}, got)
++}
++
++func TestDockerCompatibleListsKeepUnknownState(t *testing.T) {
++	for _, command := range []string{"podman", "nerdctl", "finch"} {
++		t.Run(command, func(t *testing.T) {
++			dir := runtimeTestPath(t)
++			writeRuntimeCommand(t, dir, command, `
++test "$#" = 4 || exit 2
++test "$1" = ps && test "$2" = -a && test "$3" = --format || exit 3
++test "$4" = '{{.Names}}' || exit 4
++printf 'one\ntwo\n'
++`)
++			got, err := (docker{cmd: command}).ContainerLs(t.Context())
++			require.NoError(t, err)
++			require.Equal(t, []listedContainer{{name: "one"}, {name: "two"}}, got)
++		})
++	}
++}
++
++func TestAppleListPreservesPreStartSafeguard(t *testing.T) {
++	dir := runtimeTestPath(t)
++	writeRuntimeCommand(t, dir, "container", `
++test "$*" = 'ls -a --format json' || exit 2
++printf '[{"status":"running","configuration":{"id":"one"}}]\n'
++`)
++	got, err := (apple{}).ContainerLs(t.Context())
++	require.NoError(t, err)
++	require.Equal(t, []listedContainer{{name: "one"}}, got, "Apple still uses its separate pre-start check")
++}
+diff --git a/engine/client/drivers/container_test.go b/engine/client/drivers/container_test.go
+index a8bc22692..64c6b0ab9 100644
+--- a/engine/client/drivers/container_test.go
++++ b/engine/client/drivers/container_test.go
+@@ -227,7 +227,7 @@ func TestBackendContainerLs(t *testing.T) {
+ 			for _, containerName := range containers {
+ 				found := false
+ 				for _, listedContainer := range finalList {
+-					if strings.Contains(listedContainer, containerName) {
++					if strings.Contains(listedContainer.name, containerName) {
+ 						found = true
+ 						break
+ 					}
+diff --git a/engine/client/drivers/docker.go b/engine/client/drivers/docker.go
+index 6e2b2eec3..711de722e 100644
+--- a/engine/client/drivers/docker.go
++++ b/engine/client/drivers/docker.go
+@@ -135,8 +135,14 @@ func (d docker) ContainerExists(ctx context.Context, name string) (bool, error)
+ 	return false, err
+ }
+ 
+-func (d docker) ContainerLs(ctx context.Context) ([]string, error) {
+-	cmd := exec.CommandContext(ctx, d.cmd, "ps", "-a", "--format", "{{.Names}}")
++func (d docker) ContainerLs(ctx context.Context) ([]listedContainer, error) {
++	format := "{{.Names}}"
++	// Docker exposes its current state in the same list response. Preserve
++	// other compatible CLIs' format and start behavior until verified there.
++	if d.cmd == "docker" {
++		format += "\t{{.State}}"
++	}
++	cmd := exec.CommandContext(ctx, d.cmd, "ps", "-a", "--format", format)
+ 	stdout, _, err := traceexec.ExecOutput(ctx, cmd)
+ 	if err != nil {
+ 		return nil, err
+@@ -144,7 +150,16 @@ func (d docker) ContainerLs(ctx context.Context) ([]string, error) {
+ 	if stdout == "" {
+ 		return nil, err
+ 	}
+-	return strings.Split(stdout, "\n"), nil
++	var containers []listedContainer
++	for _, line := range strings.Split(stdout, "\n") {
++		listed := listedContainer{name: line}
++		if d.cmd == "docker" {
++			name, state, _ := strings.Cut(line, "\t")
++			listed = listedContainer{name: name, running: state == "running"}
++		}
++		containers = append(containers, listed)
++	}
++	return containers, nil
+ }
+ 
+ func isContainerAlreadyInUseOutput(output string) bool {

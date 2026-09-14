@@ -5,6 +5,15 @@ Correctness gates pass, but the median paired cold-command saving is only
 45.144431 ms; native-relative overhead worsens by 35.627685 ms. Every flow median
 still loses native Cargo. This does not meet the Rust developer-loop goal.
 
+Measurement qualification added 2026-09-14: the harness sets `cleanup=false`
+and `DAGGER_LEAVE_OLD_ENGINE=1` to protect retained user/build engines. Commands
+are standalone processes with new sessions, but automatic old-engine removals
+are excluded and retained engines are still enumerated. These are **not full
+default-cleanup UX measurements**, nor a measured one-engine installation.
+See the [runtime-discovery follow-up](../bench-runtime-discovery/README.md).
+Numeric observations are unchanged; do not subtract discovery time to invent
+clean-runtime results. A default-cleanup comparison needs an isolated runtime.
+
 This is a new, independent engine A/B cohort. The [README matrix](README.md)
 is the earlier perf26 packaging comparison; [STREAM-COST](STREAM-COST.md) is
 the subsequent attribution diagnostic. Do not add their reported differences
