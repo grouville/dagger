@@ -11,6 +11,12 @@ Follow-up [stream-cost diagnostic](STREAM-COST.md) attributes the remaining
 image phase using wcprof plus CPU/runtime traces. It is not a new speedup or
 replacement for this ordinary first-CLI scorecard.
 
+Latest [bounded-relay engine experiment](RELAY.md): correctness passes, but the
+paired cold CLI saving is only 45.144431 ms and native-relative overhead does
+not improve. The matrix below remains the **historical perf26 packaging cohort**;
+the relay report has its own complete A/B results, including the slow cold run.
+Do not combine savings across these different comparisons.
+
 ## Hypothesis and implementation tested
 
 Avoid runtime package installation and extra layer application by preparing the
