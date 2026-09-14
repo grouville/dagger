@@ -17,6 +17,10 @@ not improve. The matrix below remains the **historical perf26 packaging cohort**
 the relay report has its own complete A/B results, including the slow cold run.
 Do not combine savings across these different comparisons.
 
+The [kernel sync diagnostic](FSYNC.md) now maps a normal 143ms ingest sync to
+writeback/journal waits, with complete wcprof and kernel coverage. It is an
+attribution result, not a new speedup; the earlier 8s stall did not recur.
+
 ## Hypothesis and implementation tested
 
 Avoid runtime package installation and extra layer application by preparing the
