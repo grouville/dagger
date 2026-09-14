@@ -1,9 +1,40 @@
 # Collect parser choice statistics only when requested
 
-2026-09-14. **Validated library candidate; no Dagger CLI speedup measured yet.**
+2026-09-14. **Library revalidation of an earlier candidate, not a new discovery.**
+No Dagger CLI measurement has been made for this particular implementation.
 This branch contains an external-generator patch and measurements, not a Dagger
 dependency bump or deployed engine change. The Rust goal remains unmet and the
 [ordinary-flow scorecard](../bench-rust-toolchain-packaging/RELAY.md) is unchanged.
+
+## Earlier experiment and disposition
+
+The same opt-in choice-counting optimization was already published on
+[`experiment/parser-choice-statistics`](https://github.com/grouville/dagger/blob/dba69fe62c23080ec606f434c80852421bea9447/hack/bench-parser-choice-statistics/README.md),
+including a supported engine comparison and portable reproduction material.
+That checkpoint was rediscovered after this branch's first commit. This branch
+revalidates the mechanism on different Rust module fixtures; it must not be
+counted as an additional optimization or added to the earlier results.
+
+The earlier implementation uses a nil choice map to represent disabled
+collection. This variant preserves the initial empty map and adds an explicit
+enabled bit. Both restore collection state through undo/redo and retain
+expression limits. There is no measured advantage of this variant over that
+earlier implementation; the new library A/B compares with unmodified Pigeon,
+not with the earlier candidate.
+
+The earlier three engine pairs showed mixed CLI results: unchanged checks
+saved a paired median 13.5ms, application edits regressed 4.0ms, workspace edits
+saved 30.5ms, and external-library upgrades regressed 10.5ms. They establish
+neither a general dev-loop win nor a causal cold-start win. Those are historical
+measurements on upstream 7c35e627 with a different experimental stack, CLI and
+module, not measurements of this branch based on c305ed37. Earlier cold wcprof
+replay drift of -4.6% to -5.0% also fails our present absolute 2% replay gate;
+do not use it for precise cold what-if estimates.
+
+Keep both implementations as review evidence. Do not build another expensive
+engine A/B solely to rediscover this mechanism: first establish why the variant
+or current-main integration warrants it. The remaining cold image-delivery and
+ordinary CLI costs are the next priority; no dependency adoption is implied.
 
 ## Context and change
 
@@ -116,7 +147,8 @@ Parity receipt SHA256: ada892b4cdff9d7dde180f0a8ec810f66b72614bd532cd84597ff0b41
 
 This is not a turnkey public Rust demo: fixtures and full local harness are not
 all published. The intended upstream path is Pigeon -> regenerate/release Dang
--> Dagger dependency update. Before recommending that route, build a supported
-current-main engine with the exact candidate and measure ordinary standalone
-check/generate flows with complete wcprof and correct cache invalidation.
+-> Dagger dependency update. Any adoption decision still needs a supported
+current-main engine with the selected implementation and ordinary standalone
+check/generate measurements with complete wcprof and correct cache invalidation.
+The earlier engine experiment above is relevant prior evidence, not that gate.
 No cold-install, artifact, macOS, remote-engine or new whole-CLI claim yet.
