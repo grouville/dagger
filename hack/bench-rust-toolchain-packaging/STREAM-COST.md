@@ -79,6 +79,11 @@ all entries/identities still compare exactly by unique label.
 
 ## Reproduction, identities and next experiment
 
+Subsequent results: [the bounded relay full-flow experiment](RELAY.md) remains
+mixed; [the SHA backend calibration](../bench-image-sha/README.md) finds no useful
+throughput gain from the alternative backend. These are separate follow-ups,
+not savings to add to this diagnostic's overlapping waits or CPU percentages.
+
 Local owner: `/tmp/dagger-rust-stream-cost.UrkVsQY0`. Reviewed `capture.py --plan`
 validates frozen inputs without Docker; `--execute` requires fresh owned state,
 uploads the parity-verified complete OCI image to a new private local registry,
