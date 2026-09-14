@@ -16,7 +16,8 @@ locked = true
 cacheKey = "my-project-rust"
 ```
 
-With a compatible development engine and a Cargo.lock already present:
+From the Cargo workspace/repository root, with a compatible development engine
+and a Cargo.lock already present:
 
 ```sh
 dagger check rust:check
@@ -36,6 +37,10 @@ are locked mutable cache volumes; final artifacts are immutable Dagger results.
 No listener, watch process or separate build language is required.
 
 ## Current limitations
+
+- Invoke this prototype from the workspace root. It reads workspace-root input,
+  while ordinary generators rebase returned Changesets under the invocation
+  directory. Nested-directory invocation is not supported or validated here.
 
 - The toolchain image and pinned source-sync packages support only the recorded
   Linux/amd64 Debian image. Artifacts are Linux/GNU outputs, not native macOS
@@ -58,9 +63,15 @@ No listener, watch process or separate build language is required.
   all-workflow performance claim is established.
 
 The check entrypoints use contextual Directory inputs so unchanged content can
-reuse whole function results across ordinary CLI sessions. The generator keeps
-its Workspace input to observe current host artifacts independently.
+reuse whole function results across ordinary CLI sessions. The generator also uses contextual inputs: source content plus current managed
+output state. A checked Changeset can be reused by a following generate command,
+while output edits/deletions still invalidate it. Applying a Changeset changes
+that output-state input; the first post-apply check can therefore miss.
 
 See [the performance report](../../hack/bench-rust-contextual-checks/RESULTS.md)
 for exact comparison scope and retained regressions. The intended final product
 supports more than this prototype.
+
+See [generator comparison results](../../hack/bench-rust-contextual-generator/RESULTS.md)
+for the additional build/export gains and cached-check regression. This is not
+a general cached-check, cold-start, or native-Cargo performance win.

@@ -140,13 +140,13 @@ type Rust {
     action(source, ["cargo", "check"] + cargoFlags)
   }
 
-  let buildResult(ws: Workspace!): Container! {
+  let buildResult(source: Directory!): Container! {
     let script = if (locked) {
       "set -eu; cargo build --message-format=json-render-diagnostics \"$@\" > /meta/build.jsonl; cargo metadata --no-deps --format-version=1 --locked > /meta/workspace.json"
     } else {
       "set -eu; cargo build --message-format=json-render-diagnostics \"$@\" > /meta/build.jsonl; cargo metadata --no-deps --format-version=1 > /meta/workspace.json; cp -p Cargo.lock /meta/Cargo.lock"
     }
-    action(source(ws), ["sh", "-c", script, "rust-build"] + cargoFlags)
+    action(source, ["sh", "-c", script, "rust-build"] + cargoFlags)
   }
 
   # Cargo may mix arbitrary proc-macro stdout with JSON. Recover only while
@@ -155,8 +155,8 @@ type Rust {
     (JSON.decode(line) :: CargoEnvelope!) rescue null
   }
 
-  let selectedArtifacts(ws: Workspace!): Directory! {
-    let result = buildResult(ws)
+  let selectedArtifacts(source: Directory!): Directory! {
+    let result = buildResult(source)
     let metadata: CargoWorkspace! = JSON.decode(result.file("/meta/workspace.json").contents)
     let lines = result.file("/meta/build.jsonl").contents.split("\n")
     let paths: [String!]! = []
@@ -253,7 +253,7 @@ type Rust {
 
   """Evaluate the same build action as generate, without exporting host artifacts."""
   pub compile(ws: Workspace!): Void {
-    buildResult(ws).sync
+    buildResult(source(ws)).sync
     null
   }
 
@@ -263,7 +263,7 @@ type Rust {
 
   """Build workspace binaries/libraries and return only current final artifacts."""
   pub artifacts(ws: Workspace!): Directory! {
-    selectedArtifacts(ws)
+    selectedArtifacts(source(ws))
   }
 
   """
@@ -271,7 +271,12 @@ type Rust {
   When unlocked, also return Cargo's generated or updated Cargo.lock, as a native
   build would. Other target contents and project sources remain unchanged.
   """
-  pub build(ws: Workspace!): Changeset! @generate {
+  pub build(
+    source: Directory! @defaultPath(path: "/")
+      @ignorePatterns(patterns: [".git", "target", "dagger.toml", "dagger.lock"]),
+    outputState: Directory! @defaultPath(path: "/")
+      @ignorePatterns(patterns: ["**", "!Cargo.lock", "!target", "target/**", "!target/dagger", "!target/dagger/**"]),
+  ): Changeset! @generate {
     let observedPaths = if (locked) {
       ["target/dagger", "target/dagger/**"]
     } else {
@@ -279,8 +284,8 @@ type Rust {
     }
     # A missing managed child does not import its existing parent. Bring in
     # that parent's metadata without reading unrelated Cargo target contents.
-    let parents = ws.directory("/", include: ["target"], exclude: ["target/*"])
-    let observed = ws.directory("/", include: observedPaths)
+    let parents = outputState.filter(include: ["target"], exclude: ["target/*"])
+    let observed = outputState.filter(include: observedPaths)
     let current = directory.withDirectory("/", parents).withDirectory("/", observed)
     if (!locked and current.exists("Cargo.lock", doNotFollowSymlinks: true)) {
       assert("Unlocked generation requires Cargo.lock to be a regular file, not a symlink or directory") {
@@ -301,7 +306,7 @@ type Rust {
     # Only the module-owned child is replaced, including obsolete outputs.
     let artifacts = current
       .withoutDirectory("target/dagger")
-      .withDirectory("target/dagger", selectedArtifacts(ws))
+      .withDirectory("target/dagger", selectedArtifacts(source))
     let desired = if (locked) {
       artifacts
     } else {
@@ -310,19 +315,19 @@ type Rust {
       # reconciliation would delete it, changing dependency selection on an
       # unrelated source edit. Applying this normal Changeset makes the lock
       # an explicit input to subsequent checks/builds.
-      artifacts.withFile("Cargo.lock", buildResult(ws).file("/meta/Cargo.lock"))
+      artifacts.withFile("Cargo.lock", buildResult(source).file("/meta/Cargo.lock"))
     }
     desired.changes(current)
   }
 
   """Cargo diagnostics from the same immutable build action (not an execution proof)."""
   pub buildLog(ws: Workspace!): String! {
-    buildResult(ws).stderr
+    buildResult(source(ws)).stderr
   }
 
   """Cargo artifact/freshness messages from the same immutable build action."""
   pub buildMessages(ws: Workspace!): File! {
-    buildResult(ws).file("/meta/build.jsonl")
+    buildResult(source(ws)).file("/meta/build.jsonl")
   }
 
   pub toolchainFiles(ws: Workspace!): Directory! {
