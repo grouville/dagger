@@ -138,7 +138,7 @@ func (d *imageDriver) Provision(ctx context.Context, target *url.URL, opts *Driv
 	}
 
 	port, _ := strconv.Atoi(target.Query().Get("port"))
-	target, err := d.create(ctx, containerCreateOpts{
+	createOpts := containerCreateOpts{
 		imageRef:      target.Host + target.Path,
 		containerName: target.Query().Get("container"),
 		volumeName:    target.Query().Get("volume"),
@@ -147,14 +147,22 @@ func (d *imageDriver) Provision(ctx context.Context, target *url.URL, opts *Driv
 		env:           target.Query()["env"],
 		cpus:          target.Query().Get("cpus"),
 		memory:        target.Query().Get("memory"),
-	}, opts)
+	}
+	containerName, err := createOpts.resolveContainerName()
+	if err != nil {
+		return nil, err
+	}
+	socketDir, _ := engineSocketDir(containerName)
+	createOpts.socketDir = socketDir
+	target, err = d.create(ctx, createOpts, opts)
 	if err != nil {
 		return nil, err
 	}
 	return containerConnector{
-		backend: d.backend,
-		host:    target.Host,
-		values:  target.Query(),
+		backend:   d.backend,
+		host:      target.Host,
+		values:    target.Query(),
+		socketDir: socketDir,
 	}, nil
 }
 
@@ -166,6 +174,9 @@ type containerConnector struct {
 	host    string
 	values  url.Values
 	backend containerBackend
+
+	// socketDir, when set, holds the engine's unix socket on this host.
+	socketDir string
 }
 
 // imageDriver connects to a container directly
@@ -190,6 +201,9 @@ func (d *containerDriver) ImageLoader(ctx context.Context) imageload.Backend {
 }
 
 func (d containerConnector) Connect(ctx context.Context) (net.Conn, error) {
+	if conn, ok := dialEngineSocket(ctx, d.socketDir); ok {
+		return conn, nil
+	}
 	args := []string{}
 	if context := d.values.Get("context"); context != "" {
 		args = append(args, "--context="+context)
@@ -229,6 +243,22 @@ type containerCreateOpts struct {
 
 	cpus   string
 	memory string
+
+	// socketDir, when set, is bind-mounted over the engine's socket
+	// directory so the client can dial it directly.
+	socketDir string
+}
+
+// resolveContainerName is the name create will run the container under.
+func (opts containerCreateOpts) resolveContainerName() (string, error) {
+	if opts.containerName != "" {
+		return opts.containerName, nil
+	}
+	id, err := resolveImageID(opts.imageRef)
+	if err != nil {
+		return "", err
+	}
+	return containerNamePrefix + id, nil
 }
 
 // Pull the image and run it with a unique name tied to the pinned
@@ -241,14 +271,9 @@ func (d *imageDriver) create(ctx context.Context, opts containerCreateOpts, dopt
 	defer telemetry.EndWithCause(span, &rerr)
 	slog := slog.SpanLogger(ctx, InstrumentationLibrary)
 
-	containerName := opts.containerName
-	if containerName == "" {
-		id, err := resolveImageID(opts.imageRef)
-		if err != nil {
-			return nil, err
-		}
-		// run the container using that id in the name
-		containerName = containerNamePrefix + id
+	containerName, err := opts.resolveContainerName()
+	if err != nil {
+		return nil, err
 	}
 
 	leftoverEngines, err := d.collectLeftoverEngines(ctx, containerName)
@@ -320,6 +345,10 @@ func (d *imageDriver) create(ctx context.Context, opts containerCreateOpts, dopt
 	if opts.port != 0 {
 		runOptions.ports = append(runOptions.ports, fmt.Sprintf("%d:%d", opts.port, opts.port))
 		runOptions.args = append(runOptions.args, "--addr", fmt.Sprintf("tcp://0.0.0.0:%d", opts.port))
+	}
+	if opts.socketDir != "" {
+		runOptions.volumes = append(runOptions.volumes, opts.socketDir+":"+engineSocketDirInContainer)
+		runOptions.args = append(runOptions.args, engineSocketArgs()...)
 	}
 
 	if err := d.backend.ContainerRun(ctx, containerName, runOptions); err != nil {
