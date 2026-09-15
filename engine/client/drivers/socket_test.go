@@ -137,3 +137,36 @@ func TestImageDriverSkipsDiscoveryWhenEngineSocketAnswers(t *testing.T) {
 	require.Equal(t, 0, backend.starts)
 	require.Equal(t, dir, connector.(containerConnector).socketDir)
 }
+
+func TestEngineSocketDirRefusesUnsafeDirectories(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("engine sockets are only shared on linux")
+	}
+	runtimeDir, err := os.MkdirTemp("", "dagger-rt")
+	require.NoError(t, err)
+	t.Cleanup(func() { os.RemoveAll(runtimeDir) })
+	t.Setenv("XDG_RUNTIME_DIR", runtimeDir)
+	t.Setenv("DOCKER_HOST", "")
+	xdg.Reload()
+
+	dir, ok := engineSocketDir("dagger-engine-ok")
+	require.True(t, ok)
+	require.True(t, privateDir(dir))
+
+	// A directory others can enter is not used, even if it is ours.
+	require.NoError(t, os.Chmod(dir, 0o755))
+	_, ok = engineSocketDir("dagger-engine-ok")
+	require.False(t, ok)
+
+	// A symlink in place of the directory is not followed.
+	link := filepath.Join(runtimeDir, "dagger", "dagger-engine-link")
+	require.NoError(t, os.Symlink(dir, link))
+	_, ok = engineSocketDir("dagger-engine-link")
+	require.False(t, ok)
+
+	// A remote daemon cannot share a socket with this host.
+	t.Setenv("DOCKER_HOST", "tcp://build-host:2376")
+	_, ok = engineSocketDir("dagger-engine-remote")
+	require.False(t, ok)
+
+}
