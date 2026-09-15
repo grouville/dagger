@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/dagger/dagger/engine/filesync"
+	"github.com/dagger/dagger/engine/filetree"
 	bkcache "github.com/dagger/dagger/engine/snapshots"
 	bkclient "github.com/dagger/dagger/internal/buildkit/client"
 	"github.com/dagger/dagger/internal/buildkit/identity"
@@ -207,7 +208,7 @@ func (m *ClientFilesyncMirror) Snapshot(
 	callerConn *grpc.ClientConn,
 	clientPath string,
 	opts filesync.SnapshotOpts,
-) (bkcache.ImmutableRef, digest.Digest, error) {
+) (*filetree.Object, digest.Digest, error) {
 	sharedState, release, err := m.acquire(ctx, query)
 	if err != nil {
 		return nil, "", err

@@ -25,7 +25,6 @@ import (
 	"github.com/dagger/dagger/dagql"
 	"github.com/dagger/dagger/engine"
 	"github.com/dagger/dagger/engine/filesync"
-	bkcache "github.com/dagger/dagger/engine/snapshots"
 )
 
 type hostSchema struct{}
@@ -335,19 +334,21 @@ func (s *hostSchema) directory(ctx context.Context, host dagql.ObjectResult[*cor
 		}()
 	}
 
-	ref, contentDgst, err := mirror.Snapshot(ctx, query, callerConn, absRootCopyPath, snapshotOpts)
+	tree, contentDgst, err := mirror.Snapshot(ctx, query, callerConn, absRootCopyPath, snapshotOpts)
 	if err != nil {
 		return inst, fmt.Errorf("failed to get snapshot: %w", err)
 	}
-	dagql.TraceEGraphDebug(ctx, "host_directory_snapshot", "phase", "runtime", "path", args.Path, "abs_root_copy_path", absRootCopyPath, "relative_path_from_root", relPathFromRoot, "no_cache", args.NoCache, "cache_buster", snapshotOpts.CacheBuster != "", "content_digest", contentDgst, "snapshot_ref_id", ref.SnapshotID(), "include_patterns", includePatterns, "exclude_patterns", excludePatterns, "follow_paths", followPaths, "gitignore", args.Gitignore)
+	dagql.TraceEGraphDebug(ctx, "host_directory_snapshot", "phase", "runtime", "path", args.Path, "abs_root_copy_path", absRootCopyPath, "relative_path_from_root", relPathFromRoot, "no_cache", args.NoCache, "cache_buster", snapshotOpts.CacheBuster != "", "content_digest", contentDgst, "filetree_root", tree.Digest, "include_patterns", includePatterns, "exclude_patterns", excludePatterns, "follow_paths", followPaths, "gitignore", args.Gitignore)
 
-	dir := &core.Directory{
-		Platform: query.Platform(),
-		Dir:      new(core.LazyAccessor[string, *core.Directory]),
-		Snapshot: new(core.LazyAccessor[bkcache.ImmutableRef, *core.Directory]),
+	// Source identity selects an optional previous materialization, not content
+	// equivalence or ownership. A mismatched/missing hint cannot change the tree.
+	hintOpts := snapshotOpts
+	hintOpts.CacheBuster = ""
+	hint, err := json.Marshal([]any{mirror.StableClientID, mirror.EphemeralID, mirror.Drive, absRootCopyPath, hintOpts})
+	if err != nil {
+		return inst, err
 	}
-	dir.Dir.SetValue("/")
-	dir.Snapshot.SetValue(ref)
+	dir := core.NewFileTreeDirectory(query.Platform(), *tree, contentDgst, digest.FromBytes(hint).String())
 
 	inst, err = dagql.NewObjectResultForCurrentCall(ctx, srv, dir)
 	if err != nil {

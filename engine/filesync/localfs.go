@@ -165,6 +165,21 @@ func (local *localFS) Sync( //nolint:gocyclo
 	cacheManager bkcache.Accessor,
 	forParents bool,
 ) (_ bkcache.ImmutableRef, _ digest.Digest, rerr error) {
+	return local.sync(ctx, remote, cacheManager, forParents, nil)
+}
+
+// publish runs while conflict-tracked mirror entries are still held. A CAS
+// publisher uses the same filtered entries and semantic checksum as the legacy
+// snapshot publisher, without another filesystem walk or an eager tree copy.
+type syncPublisher func(context.Context, []CachedChange, map[string]struct{}, digest.Digest) error
+
+func (local *localFS) sync( //nolint:gocyclo
+	ctx context.Context,
+	remote ReadFS,
+	cacheManager bkcache.Accessor,
+	forParents bool,
+	publish syncPublisher,
+) (_ bkcache.ImmutableRef, _ digest.Digest, rerr error) {
 	var newCopyRef bkcache.MutableRef       // the mutable ref we will copy into with the frozen files+dirs if needed
 	var cacheCtx bkcontenthash.CacheContext // track file+dir hashes
 
@@ -584,7 +599,11 @@ func (local *localFS) Sync( //nolint:gocyclo
 		return nil, "", nil
 	}
 
-	ctx, copySpan := Tracer(ctx).Start(ctx, "copy")
+	phase := "copy"
+	if publish != nil {
+		phase = "publish content tree"
+	}
+	ctx, copySpan := Tracer(ctx).Start(ctx, phase)
 	defer telemetry.EndWithCause(copySpan, &rerr)
 
 	// If we didn't find any files/dir in the given relative path, we can early return an error.
@@ -595,6 +614,12 @@ func (local *localFS) Sync( //nolint:gocyclo
 	dgst, err := cacheCtx.Checksum(ctx, newCopyRef, "/", bkcontenthash.ChecksumOpts{})
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to checksum: %w", err)
+	}
+	if publish != nil {
+		if err := publish(ctx, cachedResults, only, dgst); err != nil {
+			return nil, "", err
+		}
+		return nil, dgst, nil
 	}
 
 	// If we have already created a cache ref with the same content hash, use that instead of copying

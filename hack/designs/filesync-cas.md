@@ -1,7 +1,8 @@
 # Content-addressed filesync trees
 
 Status: experimental implementation on `perf/filesync-cas`, based on
-`82cc7d32d7a499a95c5b600d5bb6851d57613d96`. Not enabled in filesync yet.
+`82cc7d32d7a499a95c5b600d5bb6851d57613d96`. Enabled for Host.directory
+imports on this branch; not a production-ready or measured performance fix.
 
 ## Problem
 
@@ -34,6 +35,13 @@ The storage digest includes materialization metadata. It does **not** replace
 Dagger's existing content-equivalence digest, contextual-input validation,
 session compatibility checks, or egraph identity.
 
+The importer consumes the conflict-held, filtered change set without another
+mirror walk. Engine-owned inode hints avoid re-reading unchanged payloads;
+missing objects are re-ingested. Existing content-hash lookup can select an
+older equivalent root, including its hardlink topology. That selected CAS
+root, not just its old view, becomes authoritative. Missing optional hints
+are misses; malformed metadata and storage errors remain errors.
+
 ## Ownership
 
 Write blobs and nodes under an operation lease. Publish a result only after
@@ -62,6 +70,17 @@ to an overlay upperdir with deletions through the merged mount: type changes
 can leave whiteouts that the direct copier misinterprets. The materializer
 needs real-overlay tests as well as portable filesystem tests.
 
+The implementation uses an exclusively owned merged mount, confined os.Root
+operations and existing snapshot/mount/xattr helpers. Parent reuse is enabled
+only for overlayfs: native's parent copying changes directory timestamps, so
+native reconstructs the tree instead. Complete-root indexing currently reads
+all directory metadata; it is not a Merkle-pruned walk.
+
+Directory checkpoints retain the root but not the derived snapshot. A real
+DagQL/containerd test collects the view and reconstructs bytes and hardlinks
+after manager/cache restart without any host or mirror. This is not yet a
+full engine-process restart test.
+
 ## Review sequence
 
 1. Deterministic tree format, validation and identity tests.
@@ -87,3 +106,11 @@ performance claims or production-ready fixes.
 The hypothesis is to remove much of the 782–821 ms full-tree materialization
 cost. No CAS speedup has been measured. The remaining source scan and CLI,
 module and Cargo costs still require separate work.
+
+Current focused coverage includes independent legacy checksum parity,
+filters/re-inclusion, missing blobs, hardlinks, overlapping imports, native
+and overlay views, ownership/GC/restart, and public Host/File integration.
+Before promotion: bound/compact long overlay chains; validate full engine
+restart and cross-platform/remote-client flows; profile cold ingestion as
+well as edits; run ordinary Rust check/generate comparisons. Per-blob content
+commits and full metadata indexing can offset the saved copying cost.

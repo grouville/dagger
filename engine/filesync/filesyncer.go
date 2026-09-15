@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/dagger/dagger/engine/filetree"
 	bkcache "github.com/dagger/dagger/engine/snapshots"
 	remotefilesync "github.com/dagger/dagger/internal/buildkit/session/filesync"
 	"github.com/dagger/dagger/internal/buildkit/util/bklog"
@@ -45,7 +46,7 @@ func (ls *FileSyncer) Snapshot(
 	callerConn *grpc.ClientConn,
 	clientPath string,
 	opts SnapshotOpts,
-) (bkcache.ImmutableRef, digest.Digest, error) {
+) (*filetree.Object, digest.Digest, error) {
 	if sharedState == nil {
 		return nil, "", fmt.Errorf("filesync mirror shared state is nil")
 	}
@@ -68,7 +69,7 @@ func (ls *FileSyncer) snapshot(
 	callerConn *grpc.ClientConn,
 	clientPath string,
 	opts SnapshotOpts,
-) (_ bkcache.ImmutableRef, _ digest.Digest, rerr error) {
+) (_ *filetree.Object, _ digest.Digest, rerr error) {
 	// Encapsulated like the resolver's "pulling" span: hidden unless it
 	// fails, surfacing as a labeled progress row only when bytes actually
 	// move (an unchanged directory syncs nothing).
@@ -114,7 +115,7 @@ func (ls *FileSyncer) sync(
 	drive string,
 	clientPath string,
 	opts SnapshotOpts,
-) (_ bkcache.ImmutableRef, _ digest.Digest, rerr error) {
+) (_ *filetree.Object, _ digest.Digest, rerr error) {
 	if err := ls.syncParentDirs(ctx, sharedState, callerConn, clientPath, drive, opts); err != nil {
 		return nil, "", fmt.Errorf("failed to sync parent dirs: %w", err)
 	}
@@ -129,7 +130,7 @@ func (ls *FileSyncer) sync(
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create local fs: %w", err)
 	}
-	return local.Sync(ctx, remote, ls.cacheManager, false)
+	return local.SyncTree(ctx, remote, ls.cacheManager)
 }
 
 func (ls *FileSyncer) syncParentDirs(
