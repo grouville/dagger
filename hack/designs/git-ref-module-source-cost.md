@@ -212,3 +212,72 @@ unmodified `v1.0.0-beta.11` engine.
 the host adds a telemetry warning.
 `TestGit/TestGitSchemeless/private_no_auth_fails` needs a host whose git
 credential helper holds no GitHub credentials.
+
+## 9. Follow-up: a pinned ref should need no network
+
+Measured on a cached `dagger check` whose module comes from a locked
+`https://` ref, each command still paid two requests before the lock was
+read, and a scheme-less ref paid a third:
+
+| Request | Cost | Gate today |
+|---|---|---|
+| dagger-get redirect probe (section 7) | 0.07 s | any https or scheme-less ref |
+| visibility request (section 5) | 0.10 s | https ref, no explicit credentials |
+| `ls-remote` transport probe (section 4) | 0.40 s | scheme-less ref |
+
+### 9.1 Redirect probe: the pin is the answer
+
+`git-latest` and `git-sha` entries prove the workspace already resolved a
+ref to a repository. A pin stays authoritative until `dagger update`, so
+a ref whose repository (or a parent path of it) is pinned is not probed.
+Unpinned remotes probe as before; recorded `vanity-url` entries still
+refresh on update. This is `Lock.PinsGitRemote` and `lockPinsSourceURL`
+in `core/modulerefs_redirect.go`. The alternative, recording every HTTP
+200 as its own lock entry, adds a line to every workspace lock for every
+remote module and a new lock operation; the pin already carries the fact.
+
+Consequence: a forge URL that later starts redirecting keeps being used
+under its pinned URL (forges redirect git fetches too) until the ref in
+`dagger.toml` changes. That is the same guarantee every other pin gives.
+
+### 9.2 Visibility request: decided at construction, needed at fetch
+
+The `git` resolver asks whether the repository is public in order to
+decide, before any operation, whether to attach the caller's implicit
+credentials. The answer is consumed only when a network operation runs
+(`RemoteGitRepository.setup`). For a ref the lock pins and the mirror
+already holds, no operation ever runs, yet the request is made.
+
+Two shapes were considered:
+
+- Lazy credentials: keep the object credential-free and resolve them in
+  `setup`. Today the credentialed object has a different dagql identity
+  (the token is a call argument) and `GitRef`/`GitCommit` digests mix the
+  credential presence, so a lazy path needs its own identity story. Note
+  the local mirror is already shared by every client of the engine
+  regardless of credentials, so the identity split does not currently
+  protect the fetched content, only the dagql results.
+- Skip the request when the lock pins the remote and the mirror holds
+  every pinned commit for it (`git rev-parse --verify` on the mirror, the
+  same check `mount` does). No network can be needed for a lock-answered
+  ref, so no credentials can be needed. An unpinned ref on such a remote
+  (a version bumped in `dagger.toml` before `dagger update`) would then
+  fetch unauthenticated; private repositories need the credential lookup
+  to move to the fetch path for that case to keep working.
+
+The second shape is the smaller change, but it is only correct together
+with a fetch-time credential fallback, which is the first shape's core.
+So the order is: credentials at fetch time first, then the gate.
+
+### 9.3 Transport probe: identity is the repository, not the transport
+
+Section 4 keeps the probe because the lock must not choose a transport for
+another contributor. The probe exists only because the resolved URL is
+the object's identity. If scheme-less refs were identified by the
+normalized repository (`NormalizeGitRemote`, which the lock already uses
+as its key) and the transport were chosen at fetch time from the same
+candidate list, a locked and mirrored scheme-less ref would need no
+`ls-remote`, and a contributor who can only reach SSH would still fall
+through the candidates on a real fetch. `TestSchemelessRemoteIgnoresLockedTransport`
+keeps guarding the fallback. Until then, an explicit `https://` ref
+avoids the probe, which module authors should prefer in `dagger.toml`.
