@@ -77,6 +77,17 @@ func UpdateWorkspaceLock(ctx context.Context, query *Query, lock *workspace.Lock
 		if isLatestLockEntry(entry) || containsLockEntry(refreshedEntries, entry) {
 			continue
 		}
+		if entry.Namespace == workspace.CoreLockNamespace && entry.Operation == workspace.LockOperationVanityURLResolution {
+			// Entries sorts the legacy operation before this one. If an older
+			// engine wrote an authoritative redirect, reuse its refreshed result
+			// rather than probing twice or failing on a shadowed lookup.
+			if value, ok := lock.GetLookup(entry.Namespace, workspace.LockOperationVanityURL, entry.Inputs); ok {
+				if err := lock.SetLookup(entry.Namespace, entry.Operation, entry.Inputs, value); err != nil {
+					return fmt.Errorf("rewrite shadowed vanity-url-resolution entry: %w", err)
+				}
+				continue
+			}
+		}
 		result, err := updateWorkspaceLockEntry(ctx, query, entry)
 		if err != nil {
 			if ignoreUnsupportedLockEntry(ctx, entry, err) {
@@ -217,6 +228,8 @@ func updateWorkspaceLockEntry(ctx context.Context, query *Query, entry workspace
 		return updateGitSHALockEntry(ctx, entry)
 	case workspace.LockOperationVanityURL:
 		return updateVanityURLLockEntry(ctx, entry)
+	case workspace.LockOperationVanityURLResolution:
+		return updateVanityURLResolutionLockEntry(ctx, entry)
 	default:
 		return "", fmt.Errorf(
 			"%w %q %q",
@@ -228,6 +241,31 @@ func updateWorkspaceLockEntry(ctx context.Context, query *Query, entry workspace
 }
 
 func updateVanityURLLockEntry(ctx context.Context, entry workspace.LookupEntry) (string, error) {
+	sourceURL, err := vanityURLLockSource(entry)
+	if err != nil {
+		return "", err
+	}
+	resolved := daggerGetProbe(ctx, sourceURL)
+	if resolved == sourceURL {
+		return "", fmt.Errorf("refresh vanity-url %q: no valid redirect received", sourceURL)
+	}
+	return resolved, nil
+}
+
+func updateVanityURLResolutionLockEntry(ctx context.Context, entry workspace.LookupEntry) (string, error) {
+	sourceURL, err := vanityURLLockSource(entry)
+	if err != nil {
+		return "", err
+	}
+	resolved := daggerGetProbeResolution(ctx, sourceURL)
+	if resolved.ref != sourceURL || (resolved.noRedirect && entry.Value == sourceURL) {
+		return resolved.ref, nil
+	}
+	// Do not undo a previously pinned redirect on an absent/failed response.
+	return "", fmt.Errorf("refresh vanity-url-resolution %q: no valid redirect received", sourceURL)
+}
+
+func vanityURLLockSource(entry workspace.LookupEntry) (string, error) {
 	required, options, err := workspace.ParseLookupInputs(entry.Inputs)
 	if err != nil {
 		return "", fmt.Errorf("invalid %s inputs %v: %w", entry.Operation, entry.Inputs, err)
@@ -239,11 +277,7 @@ func updateVanityURLLockEntry(ctx context.Context, entry workspace.LookupEntry) 
 	if !ok || sourceURL == "" {
 		return "", fmt.Errorf("invalid %s source URL %v", entry.Operation, required[0])
 	}
-	resolved := daggerGetProbe(ctx, sourceURL)
-	if resolved == sourceURL {
-		return "", fmt.Errorf("refresh vanity-url %q: no valid redirect received", sourceURL)
-	}
-	return resolved, nil
+	return sourceURL, nil
 }
 
 type ociLockInputs struct {
