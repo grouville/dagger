@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/core/leases"
@@ -30,7 +31,8 @@ import (
 
 type treeTestContent struct {
 	content.Store
-	files atomic.Int64
+	files       atomic.Int64
+	treeWriters atomic.Int64
 }
 
 func (s *treeTestContent) Writer(ctx context.Context, opts ...content.WriterOpt) (content.Writer, error) {
@@ -43,7 +45,11 @@ func (s *treeTestContent) Writer(ctx context.Context, opts ...content.WriterOpt)
 	if parsed.Desc.Digest == "" {
 		s.files.Add(1) // PutTree supplies its known digest; PutFile streams bytes.
 	}
-	return s.Store.Writer(ctx, opts...)
+	w, err := s.Store.Writer(ctx, opts...)
+	if err == nil && parsed.Desc.Digest != "" {
+		s.treeWriters.Add(1)
+	}
+	return w, err
 }
 
 type treeSyncFixture struct {
@@ -197,6 +203,41 @@ func TestSyncTreeWarmAndMissingBlobHint(t *testing.T) {
 	view, _ = f.syncParity(t, l, source, false)
 	require.Equal(t, writes+1, f.blobs.files.Load())
 	assertTreeFiles(t, f.ctx, view, map[string]string{"file": "retained payload"})
+}
+
+func TestSyncTreeEditReusesUnchangedDirectoryNodes(t *testing.T) {
+	f := newTreeSyncFixture(t)
+	source := writeTree(t, map[string]string{"keep/file": "unchanged", "edit/file": "before"})
+	// Populating a new mirror changes directory timestamps after Mkdir applied
+	// these client timestamps. Cold and warm tree nodes must use the same view
+	// of that metadata, or the first edit rewrites untouched directory nodes.
+	for _, name := range []string{"keep", "edit"} {
+		require.NoError(t, os.Chtimes(filepath.Join(source, name), time.Unix(1000, 0), time.Unix(1000, 0)))
+	}
+	l := f.local(t, "", "", nil, nil)
+	syncTree := func() filetree.Tree {
+		t.Helper()
+		root, _, err := l.SyncTree(f.ctx, treeRemote(t, source, nil, nil, false), f.cm)
+		require.NoError(t, err)
+		tree, err := filetree.NewStore(f.blobs).ReadTree(f.ctx, *root)
+		require.NoError(t, err)
+		return tree
+	}
+	before := syncTree()
+	writers := f.blobs.treeWriters.Load()
+	files := f.blobs.files.Load()
+	require.EqualValues(t, 3, writers)
+	require.NoError(t, os.WriteFile(filepath.Join(source, "edit/file"), []byte("after!"), 0o644))
+	require.NoError(t, os.Chtimes(filepath.Join(source, "edit/file"), time.Unix(2000, 0), time.Unix(2000, 0)))
+	after := syncTree()
+	// Entries are canonical/sorted: edit then keep. Only the edited file's
+	// directory and the root should need new objects, not its untouched sibling.
+	require.Equal(t, before.Entries[1].Object, after.Entries[1].Object, "untouched subtree changed identity")
+	require.EqualValues(t, 2, f.blobs.treeWriters.Load()-writers, "only the ancestor spine needs new nodes")
+	require.EqualValues(t, 1, f.blobs.files.Load()-files, "only the edited payload needs ingestion")
+	writers = f.blobs.treeWriters.Load()
+	require.Equal(t, after, syncTree())
+	require.Equal(t, writers, f.blobs.treeWriters.Load(), "an unchanged ingest needs no tree writers")
 }
 
 func TestSyncTreeOverlappingImportCachedPaths(t *testing.T) {

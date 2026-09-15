@@ -148,7 +148,18 @@ func (local *localFS) ingestTree(ctx context.Context, in *filetree.Ingest, chang
 	for name, stat := range stats {
 		names = append(names, name)
 		if os.FileMode(stat.Mode).IsDir() {
-			trees[name] = &filetree.Tree{Version: filetree.TreeVersion, Metadata: treeMetadata(stat)}
+			// Mkdir applies client metadata before populating its children, which
+			// changes the mirror directory's mtime. Unchanged sync entries use
+			// that later mirror stat. Match the legacy copier's post-sync view on
+			// both paths, or the first edit rewrites untouched directory nodes.
+			current, err := fsutil.Stat(local.toFullPath(path.Join(base, name)))
+			if err != nil {
+				return filetree.Object{}, err
+			}
+			if !os.FileMode(current.Mode).IsDir() {
+				return filetree.Object{}, fmt.Errorf("filesync entry %q is no longer a directory", name)
+			}
+			trees[name] = &filetree.Tree{Version: filetree.TreeVersion, Metadata: treeMetadata(current)}
 		}
 	}
 	slices.Sort(names)
