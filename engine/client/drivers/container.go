@@ -24,10 +24,11 @@ import (
 )
 
 func init() {
-	register("docker-image", dockerImageDriver)         // legacy
-	register("docker-container", dockerContainerDriver) // legacy
+	register("docker-image", dockerAPIImageDriver, dockerImageDriver)             // legacy
+	register("docker-container", dockerAPIContainerDriver, dockerContainerDriver) // legacy
 
 	register("image",
+		dockerAPIImageDriver,
 		dockerImageDriver,
 		appleImageDriver,
 		podmanImageDriver,
@@ -35,6 +36,7 @@ func init() {
 		nerdctlImageDriver,
 	)
 	register("container",
+		dockerAPIContainerDriver,
 		dockerContainerDriver,
 		appleContainerDriver,
 		podmanContainerDriver,
@@ -42,8 +44,8 @@ func init() {
 		nerdctlContainerDriver,
 	)
 
-	register("image+docker", dockerImageDriver)
-	register("container+docker", dockerContainerDriver)
+	register("image+docker", dockerAPIImageDriver, dockerImageDriver)
+	register("container+docker", dockerAPIContainerDriver, dockerContainerDriver)
 
 	register("image+apple", appleImageDriver)
 	register("container+apple", appleContainerDriver)
@@ -59,8 +61,13 @@ func init() {
 }
 
 var (
-	dockerImageDriver     = &imageDriver{docker{cmd: "docker"}}
-	dockerContainerDriver = &containerDriver{docker{cmd: "docker"}}
+	// The API-backed drivers come first for the docker schemes: they answer
+	// when the daemon does, and otherwise leave the choice (and the error
+	// message) to the CLI-backed ones.
+	dockerAPIImageDriver     = &imageDriver{newDockerAPI()}
+	dockerAPIContainerDriver = &containerDriver{newDockerAPI()}
+	dockerImageDriver        = &imageDriver{docker{cmd: "docker"}}
+	dockerContainerDriver    = &containerDriver{docker{cmd: "docker"}}
 
 	appleImageDriver     = &imageDriver{apple{}}
 	appleContainerDriver = &containerDriver{apple{}}
@@ -251,6 +258,24 @@ func (d *imageDriver) create(ctx context.Context, opts containerCreateOpts, dopt
 		containerName = containerNamePrefix + id
 	}
 
+	// The common case is an engine that already exists: ask for it by name
+	// rather than listing every container on the host. Starting a running
+	// container is a no-op. Older engines are only cleaned up when a new one
+	// is created below, which is when they become leftovers.
+	exists, err := d.backend.ContainerExists(ctx, containerName)
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return nil, err
+		}
+		slog.Warn("failed to inspect container", "name", containerName, "error", err)
+	}
+	if exists {
+		if err := d.backend.ContainerStart(ctx, containerName); err != nil {
+			return nil, fmt.Errorf("failed to start container: %w", err)
+		}
+		return &url.URL{Host: containerName}, nil
+	}
+
 	leftoverEngines, err := d.collectLeftoverEngines(ctx, containerName)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
@@ -260,19 +285,8 @@ func (d *imageDriver) create(ctx context.Context, opts containerCreateOpts, dopt
 		leftoverEngines = []string{}
 	}
 
-	for i, leftoverEngine := range leftoverEngines {
-		// if we already have a container with that name, attempt to start it
-		if leftoverEngine == containerName {
-			if err := d.backend.ContainerStart(ctx, leftoverEngine); err != nil {
-				return nil, fmt.Errorf("failed to start container: %w", err)
-			}
-			d.garbageCollectEngines(ctx, opts.cleanup, nil, slices.Delete(leftoverEngines, i, i+1))
-			return &url.URL{Host: containerName}, nil
-		}
-	}
-
 	// ensure the image is pulled
-	exists, err := d.backend.ImageExists(ctx, opts.imageRef)
+	exists, err = d.backend.ImageExists(ctx, opts.imageRef)
 	if err != nil {
 		return nil, fmt.Errorf("failed to inspect image: %w", err)
 	}

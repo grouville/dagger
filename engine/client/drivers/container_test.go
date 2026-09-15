@@ -24,6 +24,10 @@ var backends = []struct {
 		backend: docker{cmd: "docker"},
 	},
 	{
+		name:    "docker-api",
+		backend: newDockerAPI(),
+	},
+	{
 		name:    "podman",
 		backend: docker{cmd: "podman"},
 	},
