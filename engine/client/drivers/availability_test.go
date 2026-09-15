@@ -13,7 +13,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// withoutDockerDaemon keeps the API-backed docker drivers from finding a real
+// daemon: they get a socket nobody listens on, so selection is decided by
+// the CLI fakes on PATH.
+func withoutDockerDaemon(t *testing.T) {
+	t.Helper()
+	t.Setenv("DOCKER_HOST", "unix://"+filepath.Join(t.TempDir(), "none.sock"))
+	dockerAPIImageDriver.backend.(*dockerAPI).reset()
+	dockerAPIContainerDriver.backend.(*dockerAPI).reset()
+}
+
 func TestGetDriverMissingRuntimes(t *testing.T) {
+	withoutDockerDaemon(t)
 	t.Setenv("PATH", t.TempDir())
 
 	for _, scheme := range []string{"image", "image+podman", "container+podman"} {
@@ -109,6 +120,7 @@ func TestContainerRuntimeCanceled(t *testing.T) {
 }
 
 func runtimeTestPath(t *testing.T) string {
+	withoutDockerDaemon(t)
 	t.Helper()
 	if runtime.GOOS == "windows" {
 		t.Skip("fake runtime commands use /bin/sh")
