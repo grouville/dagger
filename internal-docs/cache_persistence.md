@@ -450,6 +450,42 @@ the snapshot manager at startup.
 
 ## Snapshot Owner Leases On Import
 
+### Content-root ownership
+
+Results may also expose `PersistedContentRefLinks()` and encode the same links
+in `PersistedObjectEncoding.ContentLinks`. Schema 18 stores them in
+`result_content_links`, separately from snapshot refs and child-result edges.
+These are storage roots, not egraph equivalences or a per-file result graph.
+
+Each result/role/digest owns a non-flat containerd lease. The content store's
+standard child-reference labels retain the transitive closure. Replacements
+attach the new root before removing the old owner. Checkpointing excludes
+unfinished handoffs (and their parents), and rejects an encoder whose content
+roots differ from the captured retained roots.
+
+CAS-producing lazy work uses a result-named operation lease without a separate
+expiration. If its body succeeds but permanent ownership fails, the result
+keeps this temporary lease through bookkeeping retries. Successful handoff or
+result collection releases it; startup reconciliation removes orphaned
+operation leases. Other operations retain their existing lease behavior.
+
+Import restores direct content-root leases even when the payload has not been
+decoded. Decoding preserves both snapshot and content cleanup. As with
+snapshot leases, desired owners are restored before stale owners are removed.
+
+Disk accounting expands content roots into physical blob identities. Shared
+blobs are charged once, and pruning only credits their last result owner.
+Missing closures or ownership changes during measurement abort disk pruning
+instead of using an incomplete estimate. This accounts for sharing between
+content roots; existing image/snapshot accounting still bundles its associated
+content and is not yet unified with this accounting.
+
+The schema change follows the normal incompatible-cache reset path; it is not
+an in-place migration. Content-root ownership is experimental and is not yet
+enabled by production filesync imports.
+
+### Snapshot lease restoration
+
 Import does more than just rebuild tables in memory.
 
 After reading the mirrored rows, startup also:

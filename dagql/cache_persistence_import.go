@@ -54,6 +54,13 @@ func (c *Cache) importPersistedState(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("list mirror result_snapshot_links: %w", err)
 	}
+	resultContentRows, err := c.pdb.ListMirrorResultContentLinks(ctx)
+	if err != nil {
+		return fmt.Errorf("list mirror result_content_links: %w", err)
+	}
+	if len(resultContentRows) > 0 && c.snapshotManager == nil {
+		return fmt.Errorf("import content owners: cache storage is unavailable")
+	}
 	snapshotContentRows, err := c.pdb.ListMirrorSnapshotContentLinks(ctx)
 	if err != nil {
 		return fmt.Errorf("list mirror snapshot_content_links: %w", err)
@@ -68,6 +75,12 @@ func (c *Cache) importPersistedState(ctx context.Context) error {
 	}
 
 	if len(resultRows) == 0 && len(eqClassRows) == 0 && len(termRows) == 0 {
+		// An empty clean checkpoint can follow a failed lazy handoff. Its
+		// result-scoped operation leases have no restored owner and must not
+		// survive indefinitely merely because there are no rows to import.
+		if c.snapshotManager != nil {
+			return c.snapshotManager.DeleteStaleDaggerOwnerLeases(ctx, nil)
+		}
 		return nil
 	}
 
@@ -352,8 +365,20 @@ func (c *Cache) importPersistedState(ctx context.Context) error {
 			c.traceImportResultSnapshotLinkLoaded(ctx, importRunID, resultID, row.RefKey, row.Role)
 		}
 
+		for _, row := range resultContentRows {
+			res := c.resultsByID[sharedResultID(row.ResultID)]
+			if res == nil {
+				return fmt.Errorf("import result_content_link: missing result %d", row.ResultID)
+			}
+			res.contentOwnerLinks = append(res.contentOwnerLinks, PersistedContentRefLink{Digest: digest.Digest(row.Digest), Role: row.Role})
+		}
 		for _, res := range c.resultsByID {
-			res.onRelease = joinOnRelease(c.resultSnapshotLeaseCleanup(res), res.onRelease)
+			links, err := normalizeContentLinks(res.contentOwnerLinks)
+			if err != nil {
+				return fmt.Errorf("import result %d content links: %w", res.id, err)
+			}
+			res.contentOwnerLinks = links
+			res.onRelease = joinOnRelease(c.resultOwnerLeaseCleanup(res), res.onRelease)
 		}
 
 		for _, res := range c.resultsByID {
@@ -431,9 +456,9 @@ func (c *Cache) importPersistedState(ctx context.Context) error {
 			}
 			res.payloadMu.Unlock()
 			if onReleaser, ok := UnwrapAs[OnReleaser](decoded); ok {
-				res.onRelease = joinOnRelease(c.resultSnapshotLeaseCleanup(res), onReleaser.OnRelease)
+				res.onRelease = joinOnRelease(c.resultOwnerLeaseCleanup(res), onReleaser.OnRelease)
 			}
-			if err := c.syncResultSnapshotLeases(ctx, res); err != nil {
+			if err := c.syncResultOwnerLeases(ctx, res); err != nil {
 				return err
 			}
 			c.tracePersistedPayloadImportedEager(ctx, importRunID, resultID, "", "materialized")
@@ -504,6 +529,9 @@ func (c *Cache) importPersistedState(ctx context.Context) error {
 				); err != nil {
 					return fmt.Errorf("attach imported result %d owner lease %q: %w", res.id, key.Role, err)
 				}
+			}
+			if err := c.syncResultContentLeases(ctx, res); err != nil {
+				return fmt.Errorf("attach imported result %d content owners: %w", res.id, err)
 			}
 		}
 		if err := c.snapshotManager.DeleteStaleDaggerOwnerLeases(ctx, desiredLeaseIDs); err != nil {
@@ -688,10 +716,10 @@ func (c *Cache) ensurePersistedHitValueLoaded(ctx context.Context, resolver Type
 		}
 		res.payloadMu.Unlock()
 		if onReleaser, ok := UnwrapAs[OnReleaser](decoded); ok {
-			res.onRelease = joinOnRelease(c.resultSnapshotLeaseCleanup(res), onReleaser.OnRelease)
+			res.onRelease = joinOnRelease(c.resultOwnerLeaseCleanup(res), onReleaser.OnRelease)
 		}
 		resolver = decodeResolver
-		if err := c.syncResultSnapshotLeases(ctx, res); err != nil {
+		if err := c.syncResultOwnerLeases(ctx, res); err != nil {
 			err = fmt.Errorf("sync persisted hit owner leases: %w", err)
 			finishPersistDecode(err)
 			return nil, err

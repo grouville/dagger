@@ -41,6 +41,7 @@ type PersistedObjectCache interface {
 type PersistedObjectEncoding struct {
 	JSON          json.RawMessage
 	SnapshotLinks []PersistedSnapshotRefLink
+	ContentLinks  []PersistedContentRefLink
 }
 
 // PersistedObject is implemented by object self payloads that can be encoded
@@ -72,6 +73,7 @@ var DefaultPersistedSelfCodec PersistedSelfCodec = defaultPersistedSelfCodec{}
 type PersistedResultEncoding struct {
 	Envelope      PersistedResultEnvelope
 	SnapshotLinks []PersistedSnapshotRefLink
+	ContentLinks  []PersistedContentRefLink
 }
 
 func (defaultPersistedSelfCodec) EncodeResult(ctx context.Context, cache PersistedObjectCache, res AnyResult) (PersistedResultEncoding, error) {
@@ -129,6 +131,7 @@ func encodePersistedResultEnvelope(ctx context.Context, cache PersistedObjectCac
 				ObjectJSON:            objectEncoding.JSON,
 			},
 			SnapshotLinks: objectEncoding.SnapshotLinks,
+			ContentLinks:  objectEncoding.ContentLinks,
 		}, nil
 	}
 	if encoder, ok := res.Unwrap().(PersistedObject); ok {
@@ -146,6 +149,7 @@ func encodePersistedResultEnvelope(ctx context.Context, cache PersistedObjectCac
 				ObjectJSON:            objectEncoding.JSON,
 			},
 			SnapshotLinks: objectEncoding.SnapshotLinks,
+			ContentLinks:  objectEncoding.ContentLinks,
 		}, nil
 	}
 

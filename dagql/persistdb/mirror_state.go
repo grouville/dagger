@@ -97,6 +97,7 @@ func (q *Queries) ClearMirrorState(ctx context.Context) error {
 		clearMirrorImportedLayerBlobIndex,
 		clearMirrorSnapshotContentLinks,
 		clearMirrorResultSnapshotLinks,
+		clearMirrorResultContentLinks,
 		clearMirrorPersistedEdges,
 		clearMirrorResultDeps,
 		clearMirrorResultOutputEqClasses,

@@ -271,8 +271,13 @@ func (c *Cache) Prune(ctx context.Context, policies []CachePrunePolicy) (CachePr
 	compactedNeeded := false
 	for policyIdx, policy := range policies {
 		activeRoots := c.snapshotSessionResultIDs()
-		c.measureAllResultSizes(ctx)
-		snapshot := c.snapshotPruneState(activeRoots, pruneSnapshotDisk, 0)
+		if err := c.measureAllResultSizes(ctx); err != nil {
+			return report, fmt.Errorf("measure cache usage before prune: %w", err)
+		}
+		snapshot, err := c.snapshotPruneStateCancelable(activeRoots, pruneSnapshotDisk, 0, nil)
+		if err != nil {
+			return report, fmt.Errorf("snapshot cache usage before prune: %w", err)
+		}
 
 		targetBytes, _ := pruneTargetBytes(policy, snapshot.usedBytes)
 		if targetBytes <= 0 {
@@ -493,6 +498,7 @@ func (c *Cache) snapshotPruneStateCancelable(
 }
 
 func (c *Cache) snapshotPruneDiskUsageIdentitiesLocked(snapshot *pruneSnapshot, checker *pruneCancellationChecker) error {
+	measuredContent := make(map[string]struct{})
 	for resID, res := range c.resultsByID {
 		if checker != nil {
 			if err := checker.check(); err != nil {
@@ -501,6 +507,9 @@ func (c *Cache) snapshotPruneDiskUsageIdentitiesLocked(snapshot *pruneSnapshot, 
 		}
 		if res == nil {
 			continue
+		}
+		if len(res.loadPayloadState().contentOwnerLinks) > 0 && len(res.contentUsageIdentities) == 0 {
+			return fmt.Errorf("unmeasured content ownership for result %d; retry accounting", resID)
 		}
 		for _, usageIdentity := range cacheUsageIdentities(res) {
 			if checker != nil {
@@ -512,11 +521,23 @@ func (c *Cache) snapshotPruneDiskUsageIdentitiesLocked(snapshot *pruneSnapshot, 
 			if identityState.ownerID == 0 || resID < identityState.ownerID {
 				identityState.ownerID = resID
 			}
-			if sizeBytes, ok := res.cacheUsageSizeByIdentity[usageIdentity]; ok && sizeBytes > identityState.sizeBytes {
-				identityState.sizeBytes = sizeBytes
+			if sizeBytes, ok := res.cacheUsageSizeByIdentity[usageIdentity]; ok {
+				if sizeBytes > identityState.sizeBytes {
+					identityState.sizeBytes = sizeBytes
+				}
+				if isContentUsageIdentity(usageIdentity) {
+					measuredContent[usageIdentity] = struct{}{}
+				}
 			}
 			identityState.aliveMembers++
 			snapshot.usageIdentities[usageIdentity] = identityState
+		}
+	}
+	for identity := range snapshot.usageIdentities {
+		if isContentUsageIdentity(identity) {
+			if _, ok := measuredContent[identity]; !ok {
+				return fmt.Errorf("content accounting owner changed for %s; retry accounting", identity)
+			}
 		}
 	}
 	return nil

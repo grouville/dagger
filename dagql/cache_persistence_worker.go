@@ -98,6 +98,7 @@ func (c *Cache) snapshotPersistState(ctx context.Context) (persistStateSnapshot,
 			sessionResourceHandle: res.sessionResourceHandle,
 			persistedEnvelope:     payload.persistedEnvelope,
 			snapshotOwnerLinks:    payload.snapshotOwnerLinks,
+			contentOwnerLinks:     payload.contentOwnerLinks,
 			row: persistdb.MirrorResult{
 				ID:                 int64(resultID),
 				ExpiresAtUnix:      res.expiresAtUnix,
@@ -265,6 +266,18 @@ func (c *Cache) snapshotPersistState(ctx context.Context) (persistStateSnapshot,
 		}
 		resultSnapshot.row.SelfPayload = payload
 		resultSnapshot.resultSnapshotLinks = resultSnapshotLinkRows(resultSnapshot.resultID, encoding.SnapshotLinks)
+		contentLinks, err := normalizeContentLinks(encoding.ContentLinks)
+		if err != nil {
+			return persistStateSnapshot{}, fmt.Errorf("persist result %d content links: %w", resultSnapshot.resultID, err)
+		}
+		if !slices.Equal(contentLinks, resultSnapshot.contentOwnerLinks) {
+			return persistStateSnapshot{}, fmt.Errorf("persist result %d: encoded content links differ from retained ownership", resultSnapshot.resultID)
+		}
+		for _, link := range contentLinks {
+			resultSnapshot.resultContentLinks = append(resultSnapshot.resultContentLinks, persistdb.MirrorResultContentLink{
+				ResultID: int64(resultSnapshot.resultID), Digest: link.Digest.String(), Role: link.Role,
+			})
+		}
 	}
 	return snapshot, nil
 }
@@ -288,7 +301,7 @@ func (c *Cache) snapshotPersistedRootClosureLocked() (map[sharedResultID]struct{
 		if res == nil {
 			continue
 		}
-		if res.attachmentState() != resultAttachmentClean {
+		if res.attachmentState() != resultAttachmentClean || res.loadPayloadState().contentOwnerDirty {
 			markInvalid(resultID)
 		}
 		for depID := range res.deps {
@@ -412,6 +425,12 @@ func (c *Cache) applyPersistStateSnapshot(ctx context.Context, snapshot persistS
 				return fmt.Errorf("insert result_snapshot_link (%d,%s,%s): %w", row.ResultID, row.RefKey, row.Role, err)
 			}
 		}
+		for _, row := range result.resultContentLinks {
+			if err := q.InsertMirrorResultContentLink(ctx, row); err != nil {
+				_ = tx.Rollback()
+				return fmt.Errorf("insert result_content_link (%d,%s,%s): %w", row.ResultID, row.Digest, row.Role, err)
+			}
+		}
 	}
 	for _, row := range snapshot.snapshotContentLinks {
 		if err := q.InsertMirrorSnapshotContentLink(ctx, row); err != nil {
@@ -472,6 +491,7 @@ func (c *Cache) persistResultEnvelope(ctx context.Context, snapshot *persistResu
 		return PersistedResultEncoding{
 			Envelope:      *snapshot.persistedEnvelope,
 			SnapshotLinks: snapshot.snapshotOwnerLinks,
+			ContentLinks:  snapshot.contentOwnerLinks,
 		}, nil
 	}
 	if snapshot == nil || !snapshot.hasValue {

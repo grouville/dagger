@@ -136,7 +136,8 @@ type persistedEdge struct {
 // persisted as result refs. Older snapshots may hold untracked scalar handle
 // strings whose referents were never retained (and whose IDs may have been
 // reused), so they are wiped rather than imported.
-const cachePersistenceSchemaVersion = "17"
+// 18: persist direct content roots separately from snapshot ownership.
+const cachePersistenceSchemaVersion = "18"
 
 var ErrCacheRecursiveCall = fmt.Errorf("recursive call detected")
 var ErrCacheSessionReleased = errors.New("cache session released")
@@ -1560,7 +1561,7 @@ func (c *Cache) SyncResultSnapshotOwnerLeases(ctx context.Context, res AnyResult
 	if shared == nil || shared.id == 0 {
 		return nil
 	}
-	return c.syncResultSnapshotLeases(ctx, shared)
+	return c.syncResultOwnerLeases(ctx, shared)
 }
 
 func (c *Cache) desiredImportedOwnerLeaseIDs() map[string]struct{} {
@@ -1582,6 +1583,9 @@ func (c *Cache) desiredImportedOwnerLeaseIDs() map[string]struct{} {
 		links := desiredSnapshotLinksForResult(res)
 		for _, link := range links {
 			desired[resultSnapshotLeaseID(res.id, link.Role)] = struct{}{}
+		}
+		for _, link := range desiredContentLinksForResult(res) {
+			desired[resultContentLeaseID(res.id, link)] = struct{}{}
 		}
 	}
 
@@ -1982,6 +1986,16 @@ type sharedResult struct {
 	// derives links from the same object encode pass that produced the payload.
 	// They are not child-result deps.
 	snapshotOwnerLinks []PersistedSnapshotRefLink
+	contentOwnerLinks  []PersistedContentRefLink
+	contentOwnerDirty  bool
+	contentOwnerMu     sync.Mutex
+	// Failed lazy bookkeeping must retain the operation's content until the
+	// permanent owner leases have been attached, or the result is abandoned.
+	contentHandoffReleases []OnReleaseFunc
+
+	// Physical content closure used by disk accounting, guarded by egraphMu.
+	// It is derived outside that lock and never persisted as a second graph.
+	contentUsageIdentities []string
 
 	// expiresAtUnix is the in-memory TTL deadline for cache-hit eligibility.
 	// 0 means "never expires".
@@ -2058,6 +2072,8 @@ type sharedResultPayloadState struct {
 	objClass           ObjectType
 	persistedEnvelope  *PersistedResultEnvelope
 	snapshotOwnerLinks []PersistedSnapshotRefLink
+	contentOwnerLinks  []PersistedContentRefLink
+	contentOwnerDirty  bool
 	createdAtUnixNano  int64
 	lastUsedAtUnixNano int64
 }
@@ -2108,6 +2124,8 @@ func (res *sharedResult) loadPayloadState() sharedResultPayloadState {
 		objClass:           res.objClass,
 		persistedEnvelope:  res.persistedEnvelope,
 		snapshotOwnerLinks: slices.Clone(res.snapshotOwnerLinks),
+		contentOwnerLinks:  slices.Clone(res.contentOwnerLinks),
+		contentOwnerDirty:  res.contentOwnerDirty,
 		createdAtUnixNano:  res.createdAtUnixNano,
 		lastUsedAtUnixNano: res.lastUsedAtUnixNano,
 	}
@@ -3055,6 +3073,8 @@ func (r Result[T]) WithContentDigest(ctx context.Context, contentDigest digest.D
 		}(),
 		persistedEnvelope:  state.persistedEnvelope,
 		snapshotOwnerLinks: state.snapshotOwnerLinks,
+		contentOwnerLinks:  state.contentOwnerLinks,
+		contentOwnerDirty:  state.contentOwnerDirty,
 		createdAtUnixNano:  state.createdAtUnixNano,
 		lastUsedAtUnixNano: state.lastUsedAtUnixNano,
 		cacheUsageSizeByIdentity: func() map[string]int64 {
@@ -3154,6 +3174,8 @@ func (r Result[T]) WithSessionResourceHandle(ctx context.Context, handle Session
 		requiredSessionResources: reqs,
 		persistedEnvelope:        state.persistedEnvelope,
 		snapshotOwnerLinks:       state.snapshotOwnerLinks,
+		contentOwnerLinks:        state.contentOwnerLinks,
+		contentOwnerDirty:        state.contentOwnerDirty,
 		createdAtUnixNano:        state.createdAtUnixNano,
 		lastUsedAtUnixNano:       state.lastUsedAtUnixNano,
 		cacheUsageSizeByIdentity: func() map[string]int64 {
@@ -3721,7 +3743,7 @@ func (c *Cache) evaluateOne(ctx context.Context, res AnyResult) (rerr error) {
 					}()
 				}
 
-				leaseCtx, release, leaseErr := withOperationLease(withoutOperationLease(callbackCtx))
+				leaseCtx, release, leaseErr := c.withResultOperationLease(callbackCtx, shared)
 				if leaseErr != nil {
 					err = fmt.Errorf("acquire operation lease: %w", leaseErr)
 					return
@@ -3733,10 +3755,21 @@ func (c *Cache) evaluateOne(ctx context.Context, res AnyResult) (rerr error) {
 				}
 				if err == nil {
 					bodyDone = true
-					err = c.syncResultSnapshotLeases(callbackCtx, shared)
+					err = c.syncResultOwnerLeases(callbackCtx, shared)
 				}
-				if releaseErr := release(context.WithoutCancel(callbackCtx)); releaseErr != nil && err == nil {
-					err = releaseErr
+				if bodyDone && lazyEval != nil && err != nil && len(desiredContentLinksForResult(shared)) > 0 {
+					shared.contentOwnerMu.Lock()
+					shared.contentHandoffReleases = append(shared.contentHandoffReleases, release)
+					shared.contentOwnerMu.Unlock()
+					return
+				}
+				if releaseErr := release(context.WithoutCancel(callbackCtx)); releaseErr != nil {
+					if _, ok := shared.loadPayloadState().self.(PersistedContentRefLinkProvider); ok {
+						shared.contentOwnerMu.Lock()
+						shared.contentHandoffReleases = append(shared.contentHandoffReleases, release)
+						shared.contentOwnerMu.Unlock()
+					}
+					err = errors.Join(err, releaseErr)
 				}
 			}
 			runEval()
@@ -3927,7 +3960,9 @@ func (c *Cache) cacheMetadataEstimateLocked() CacheMetadataEstimate {
 
 func (c *Cache) UsageEntriesAll(ctx context.Context) []CacheUsageEntry {
 	activeRoots := c.snapshotSessionResultIDs()
-	c.measureAllResultSizes(ctx)
+	if err := c.measureAllResultSizes(ctx); err != nil {
+		slog.Warn("failed to refresh cache usage", "err", err)
+	}
 	c.egraphMu.RLock()
 	defer c.egraphMu.RUnlock()
 	entries := c.usageEntriesLocked(activeRoots)
@@ -4065,12 +4100,15 @@ func cacheUsagePrimaryRecordType(recordTypes []string, fallback string) string {
 }
 
 type cacheUsageMeasurementInput struct {
-	resultID         sharedResultID
-	self             Typed
-	snapshotLinks    []PersistedSnapshotRefLink
-	identities       []string
-	existingSizeByID map[string]int64
-	sizeMayChange    bool
+	resultID          sharedResultID
+	self              Typed
+	snapshotLinks     []PersistedSnapshotRefLink
+	contentLinks      []PersistedContentRefLink
+	contentIdentities []string
+	contentSizes      map[string]int64
+	identities        []string
+	existingSizeByID  map[string]int64
+	sizeMayChange     bool
 }
 
 type cacheUsageIdentityMeasurement struct {
@@ -4078,13 +4116,16 @@ type cacheUsageIdentityMeasurement struct {
 	recordType string
 }
 
-func (c *Cache) measureAllResultSizes(ctx context.Context) {
+func (c *Cache) measureAllResultSizes(ctx context.Context) error {
 	inputs := c.collectUsageMeasurementInputs()
 	if len(inputs) == 0 {
-		return
+		return nil
+	}
+	if err := expandContentUsageInputs(ctx, c.snapshotManager, inputs); err != nil {
+		return err
 	}
 	measurements := buildCacheUsageMeasurements(ctx, c.snapshotManager, inputs)
-	c.publishUsageMeasurements(measurements)
+	return c.publishUsageMeasurements(measurements, inputs)
 }
 
 func (c *Cache) collectUsageMeasurementInputs() []cacheUsageMeasurementInput {
@@ -4110,7 +4151,7 @@ func (c *Cache) collectUsageMeasurementInputs() []cacheUsageMeasurementInput {
 			snapshotLinks = slices.Clone(state.snapshotOwnerLinks)
 			identities = cacheUsageIdentitiesFromSnapshotLinks(snapshotLinks)
 		}
-		if len(identities) == 0 {
+		if len(identities) == 0 && len(state.contentOwnerLinks) == 0 {
 			continue
 		}
 		existing := make(map[string]int64, len(res.cacheUsageSizeByIdentity))
@@ -4121,6 +4162,7 @@ func (c *Cache) collectUsageMeasurementInputs() []cacheUsageMeasurementInput {
 			resultID:         resID,
 			self:             self,
 			snapshotLinks:    snapshotLinks,
+			contentLinks:     state.contentOwnerLinks,
 			identities:       identities,
 			existingSizeByID: existing,
 			sizeMayChange:    sizeMayChange,
@@ -4161,6 +4203,10 @@ func buildCacheUsageMeasurements(ctx context.Context, snapshotManager bkcache.Sn
 			ok        bool
 			err       error
 		)
+		if size, found := input.contentSizes[identity]; found {
+			measurementByIdentity[identity] = cacheUsageIdentityMeasurement{sizeBytes: size}
+			continue
+		}
 		if !input.sizeMayChange {
 			if existingSizeBytes, found := input.existingSizeByID[identity]; found {
 				sizeBytes = existingSizeBytes
@@ -4224,9 +4270,12 @@ func buildCacheUsageMeasurements(ctx context.Context, snapshotManager bkcache.Sn
 	return published
 }
 
-func (c *Cache) publishUsageMeasurements(measurements map[sharedResultID]map[string]cacheUsageIdentityMeasurement) {
+func (c *Cache) publishUsageMeasurements(measurements map[sharedResultID]map[string]cacheUsageIdentityMeasurement, inputs []cacheUsageMeasurementInput) error {
 	c.egraphMu.Lock()
 	defer c.egraphMu.Unlock()
+	if err := c.publishContentUsageIdentitiesLocked(inputs); err != nil {
+		return err
+	}
 	for resultID, res := range c.resultsByID {
 		if res == nil {
 			continue
@@ -4253,6 +4302,7 @@ func (c *Cache) publishUsageMeasurements(measurements map[sharedResultID]map[str
 			res.recordType = cacheUsagePrimaryRecordType(recordTypes, "")
 		}
 	}
+	return nil
 }
 
 // Core cache lookup/insert flow is intentionally centralized here.
@@ -4946,7 +4996,7 @@ func (c *Cache) initCompletedResult(ctx context.Context, resolver TypeResolver, 
 		}
 	}
 	if !resWasCacheBacked {
-		oc.res.onRelease = joinOnRelease(c.resultSnapshotLeaseCleanup(oc.res), oc.res.onRelease)
+		oc.res.onRelease = joinOnRelease(c.resultOwnerLeaseCleanup(oc.res), oc.res.onRelease)
 	}
 	requestForIndex := req
 	if oc.res.createdAtUnixNano == 0 {
@@ -5208,7 +5258,7 @@ func (c *Cache) initCompletedResult(ctx context.Context, resolver TypeResolver, 
 		finishAttachDeps(attachErr)
 		return attachErr
 	}
-	if err := c.syncResultSnapshotLeases(ctx, oc.res); err != nil {
+	if err := c.syncResultOwnerLeases(ctx, oc.res); err != nil {
 		c.egraphMu.Lock()
 		queue, decErr := c.decrementIncomingOwnershipLocked(ctx, oc.res, nil)
 		collectReleases, collectErr := c.collectUnownedResultsLocked(context.WithoutCancel(ctx), queue)
@@ -5414,15 +5464,21 @@ func cacheUsageIdentitiesFromSnapshotLinks(links []PersistedSnapshotRefLink) []s
 	return slices.Compact(ids)
 }
 
+// Caller holds the cache's egraphMu while reading contentUsageIdentities.
 func cacheUsageIdentities(res *sharedResult) []string {
 	if res == nil {
 		return nil
 	}
 	state := res.loadPayloadState()
+	var identities []string
 	if state.hasValue && state.self != nil {
-		return cacheUsageIdentitiesFromSelf(state.self)
+		identities = cacheUsageIdentitiesFromSelf(state.self)
+	} else {
+		identities = cacheUsageIdentitiesFromSnapshotLinks(state.snapshotOwnerLinks)
 	}
-	return cacheUsageIdentitiesFromSnapshotLinks(state.snapshotOwnerLinks)
+	identities = append(identities, res.contentUsageIdentities...)
+	slices.Sort(identities)
+	return slices.Compact(identities)
 }
 
 func cacheUsageSizeMayChangeFromSelf(self Typed) bool {
