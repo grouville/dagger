@@ -53,7 +53,7 @@ func TestSyncReincludedFileUnderIgnoredParent(t *testing.T) {
 	assert.NilError(t, err)
 
 	mirrorRoot := t.TempDir()
-	local, err := newLocalFS(NewMirrorSharedState(mirrorRoot), "", nil, nil, nil, "")
+	local, err := newLocalFS(NewMirrorSharedState(mirrorRoot, nil), "", nil, nil, nil, "")
 	assert.NilError(t, err)
 
 	// Sync runs in two stages: write the client's files into the mirror, then
@@ -88,7 +88,7 @@ func TestSyncReincludedFileUnderIgnoredParentCacheContext(t *testing.T) {
 	client, err := fsxutil.NewGitIgnoreMarkedFS(base, nil)
 	assert.NilError(t, err)
 
-	local, err := newLocalFS(NewMirrorSharedState(t.TempDir()), "", nil, nil, nil, "")
+	local, err := newLocalFS(NewMirrorSharedState(t.TempDir(), nil), "", nil, nil, nil, "")
 	assert.NilError(t, err)
 
 	snapshotter, err := native.NewSnapshotter(t.TempDir())

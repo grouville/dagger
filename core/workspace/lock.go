@@ -295,6 +295,27 @@ func normalizeLookupInputs(operation string, inputs []any) []any {
 	return normalized
 }
 
+// PinsGitRemote reports whether any git-latest or git-sha entry names the
+// given remote. The remote is normalized like the entries themselves, so
+// transport, case and a trailing .git do not matter.
+func (l *Lock) PinsGitRemote(remote string) bool {
+	remote = NormalizeGitRemote(remote)
+	if remote == "" {
+		return false
+	}
+	for _, entry := range l.Entries() {
+		if entry.Namespace != CoreLockNamespace ||
+			(entry.Operation != LockOperationGitLatest && entry.Operation != LockOperationGitSHA) ||
+			len(entry.Inputs) == 0 {
+			continue
+		}
+		if entryRemote, ok := entry.Inputs[0].(string); ok && entryRemote == remote {
+			return true
+		}
+	}
+	return false
+}
+
 // Entries returns a deterministic snapshot of all lookup entries.
 func (l *Lock) Entries() []LookupEntry {
 	if l == nil {

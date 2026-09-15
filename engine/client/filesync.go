@@ -200,7 +200,7 @@ func (s FilesyncSource) DiffCopy(stream filesync.FileSync_DiffCopyServer) error 
 		if err != nil {
 			return err
 		}
-		return fsutil.Send(stream.Context(), stream, filteredFS, nil)
+		return fsutil.Send(stream.Context(), newWalkDigestStream(stream, opts.KnownWalkDigest), filteredFS, nil)
 	}
 }
 

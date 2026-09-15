@@ -49,14 +49,54 @@ type localFSSharedState struct {
 	// changeCache is the cache we use to dedupe/cache changes made to the local fs across
 	// different syncs (see docs on localFS.Sync for more info)
 	changeCache *changeCache
+
+	// walkDigests outlives this state, which only exists while the mirror
+	// is mounted; the owner keeps it for the mirror's lifetime.
+	walkDigests *WalkDigests
+}
+
+// WalkDigests remembers, per client path and filter set, the walk digest a
+// client reported and the content digest that sync produced, so an unchanged
+// tree can skip the stat stream and the mirror walk entirely.
+type WalkDigests struct {
+	mu      sync.Mutex
+	records map[string]walkDigestRecord
+}
+
+type walkDigestRecord struct {
+	walkDigest    string
+	contentDigest digest.Digest
+}
+
+func (d *WalkDigests) get(key string) (walkDigestRecord, bool) {
+	if d == nil {
+		return walkDigestRecord{}, false
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	rec, ok := d.records[key]
+	return rec, ok
+}
+
+func (d *WalkDigests) set(key string, rec walkDigestRecord) {
+	if d == nil {
+		return
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.records == nil {
+		d.records = map[string]walkDigestRecord{}
+	}
+	d.records[key] = rec
 }
 
 type MirrorSharedState = localFSSharedState
 
-func NewMirrorSharedState(rootPath string) *MirrorSharedState {
+func NewMirrorSharedState(rootPath string, walkDigests *WalkDigests) *MirrorSharedState {
 	return &MirrorSharedState{
 		rootPath:    rootPath,
 		changeCache: newChangeCache(),
+		walkDigests: walkDigests,
 	}
 }
 
@@ -110,6 +150,23 @@ func newLocalFS(sharedState *MirrorSharedState, subdir string, includes, exclude
 		excludes:           excludes,
 		copyPath:           copyPath,
 	}, nil
+}
+
+// refForContentDigest finds an existing immutable ref whose content hash is dgst.
+func refForContentDigest(ctx context.Context, cacheManager bkcache.Accessor, dgst digest.Digest) (bkcache.ImmutableRef, bool, error) {
+	sis, err := bkcontenthash.SearchContentHash(ctx, cacheManager, dgst)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to search content hash: %w", err)
+	}
+	for _, si := range sis {
+		finalRef, err := cacheManager.GetBySnapshotID(ctx, si.SnapshotID())
+		if err == nil {
+			bklog.G(ctx).Debugf("reusing copy ref %s", si.SnapshotID())
+			return finalRef, true, nil
+		}
+		bklog.G(ctx).Debugf("failed to get cache ref: %v", err)
+	}
+	return nil, false, nil
 }
 
 func localCopyOnlyPaths(only map[string]struct{}, basePath string) map[string]struct{} {
@@ -599,18 +656,10 @@ func (local *localFS) Sync( //nolint:gocyclo
 
 	// If we have already created a cache ref with the same content hash, use that instead of copying
 	// another equivalent one.
-	sis, err := bkcontenthash.SearchContentHash(ctx, cacheManager, dgst)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to search content hash: %w", err)
-	}
-	for _, si := range sis {
-		finalRef, err := cacheManager.GetBySnapshotID(ctx, si.SnapshotID())
-		if err == nil {
-			bklog.G(ctx).Debugf("reusing copy ref %s", si.SnapshotID())
-			return finalRef, dgst, nil
-		} else {
-			bklog.G(ctx).Debugf("failed to get cache ref: %v", err)
-		}
+	if finalRef, ok, err := refForContentDigest(ctx, cacheManager, dgst); err != nil {
+		return nil, "", err
+	} else if ok {
+		return finalRef, dgst, nil
 	}
 
 	copyRefMntable, err := newCopyRef.Mount(ctx, false)

@@ -30,6 +30,9 @@ type ClientFilesyncMirror struct {
 	mntPath string
 
 	sharedState *filesync.MirrorSharedState
+	// walkDigests lets an unchanged tree skip its sync; kept for the
+	// mirror's lifetime, unlike sharedState which goes with the mount.
+	walkDigests *filesync.WalkDigests
 	usageCount  int
 }
 
@@ -272,7 +275,10 @@ func (m *ClientFilesyncMirror) ensureRuntimeLocked(ctx context.Context, query *Q
 	if err != nil {
 		return err
 	}
-	m.sharedState = filesync.NewMirrorSharedState(m.mntPath)
+	if m.walkDigests == nil {
+		m.walkDigests = &filesync.WalkDigests{}
+	}
+	m.sharedState = filesync.NewMirrorSharedState(m.mntPath, m.walkDigests)
 	return nil
 }
 

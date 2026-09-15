@@ -260,6 +260,10 @@ func (state *HTTPState) Resolve(
 		state.snapshot = snapshot
 	}
 
+	if !state.revalidationNeeded(expectedChecksum) {
+		return state.fileResult(ctx, query, name, permissions)
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, state.URL, nil)
 	if err != nil {
 		return nil, err
@@ -389,6 +393,17 @@ func writeHTTPStateSnapshot(
 	}
 	bkref = nil
 	return snap, digest.NewDigest(digest.SHA256, h), lastModified, etagValue(resp.Header.Get("ETag")), nil
+}
+
+// revalidationNeeded reports whether the origin must be consulted. A
+// checksum names the content: when the cached snapshot already has that
+// digest the server has nothing to add. A different or missing checksum
+// keeps the once-per-session conditional request.
+func (state *HTTPState) revalidationNeeded(expectedChecksum digest.Digest) bool {
+	if expectedChecksum == "" || state.snapshot == nil {
+		return true
+	}
+	return state.ContentDigest != expectedChecksum
 }
 
 func (state *HTTPState) fileResult(

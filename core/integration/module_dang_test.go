@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"dagger.io/dagger"
+	"github.com/dagger/dagger/internal/buildkit/identity"
 	"github.com/dagger/testctx"
 	"github.com/stretchr/testify/require"
 )
@@ -435,6 +436,56 @@ func (DangSuite) TestSelfCallReturningOwnType(_ context.Context, t *testctx.T) {
 			Stdout(ctx)
 		require.NoError(t, err)
 		require.Equal(t, "constructed via api", strings.TrimSpace(out))
+	})
+}
+
+func (DangSuite) TestTypeDefsAcrossSessions(_ context.Context, t *testctx.T) {
+	// The typedef pass runs as ModuleSource._dangModuleTypes, a persistable
+	// call keyed on source content: a second session reuses the first one's
+	// result, and an edited source must not.
+	callMod := func(ctx context.Context, c *dagger.Client, edit func(*dagger.Container) *dagger.Container, args ...string) (string, error) {
+		ctr := dangModule(t, c, "test-mismatch").
+			WithEnvVariable("CACHEBUSTER", identity.NewID())
+		if edit != nil {
+			ctr = edit(ctr)
+		}
+		return ctr.With(daggerCall(args...)).Stdout(ctx)
+	}
+
+	t.Run("same source in a new session", func(ctx context.Context, t *testctx.T) {
+		c1 := connect(ctx, t)
+		out, err := callMod(ctx, c1, nil, "--n", "hello", "child", "parent-name")
+		require.NoError(t, err)
+		require.Equal(t, "hello", strings.TrimSpace(out))
+
+		c2 := connect(ctx, t)
+		out, err = callMod(ctx, c2, nil, "--n", "hello", "child", "parent-name")
+		require.NoError(t, err)
+		require.Equal(t, "hello", strings.TrimSpace(out))
+	})
+
+	t.Run("edited source in a new session", func(ctx context.Context, t *testctx.T) {
+		c1 := connect(ctx, t)
+		_, err := callMod(ctx, c1, nil, "--n", "hello", "child", "parent-name")
+		require.NoError(t, err)
+
+		c2 := connect(ctx, t)
+		addGreet := func(ctr *dagger.Container) *dagger.Container {
+			return ctr.WithNewFile("main.dang", `type TestMismatch {
+  pub name: String!
+
+  new(n: String!) {
+    self.name = n
+    self
+  }
+
+  pub greet: String! { "hi from an edit" }
+}
+`)
+		}
+		out, err := callMod(ctx, c2, addGreet, "--n", "hello", "greet")
+		require.NoError(t, err)
+		require.Equal(t, "hi from an edit", strings.TrimSpace(out))
 	})
 }
 
