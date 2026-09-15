@@ -358,7 +358,17 @@ func TestFileTreeSnapshotRootHintValidation(t *testing.T) {
 				if mode == "invalid-label" {
 					label = "not-json"
 				}
-				_, err := f.sn.Update(f.ctx, ctdsnapshots.Info{Name: id, Labels: map[string]string{"dagger.io/filetree.root.v1": label}}, "labels.dagger.io/filetree.root.v1")
+				info, err := f.sn.Stat(f.ctx, id)
+				require.NoError(t, err)
+				labels := map[string]string{"dagger.io/filetree.root.v2": label}
+				fields := []string{"labels.dagger.io/filetree.root.v2"}
+				if mode == "legacy-view" {
+					// A valid pre-fix hint must not select a filesync root whose public
+					// checksums were never retained by the experimental v1 importer.
+					labels["dagger.io/filetree.root.v1"] = info.Labels["dagger.io/filetree.root.v2"]
+					fields = append(fields, "labels.dagger.io/filetree.root.v1")
+				}
+				_, err = f.sn.Update(f.ctx, ctdsnapshots.Info{Name: id, Labels: labels}, fields...)
 				require.NoError(t, err)
 			case "missing-root":
 				require.NoError(t, f.db.ContentStore().Delete(f.ctx, root.Digest))

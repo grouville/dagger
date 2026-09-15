@@ -366,12 +366,12 @@ func benchmarkMetadataPopulateTransient(b *testing.B, c *Cache, ctx context.Cont
 	}
 }
 
-// BenchmarkCacheMetadataSchema18Import measures importing the unchanged
+// BenchmarkCacheMetadataSchema19Import measures importing the unchanged
 // current persistence schema at the same two scale points. Run each
 // sub-benchmark with -benchtime=1x in a fresh process.
-func BenchmarkCacheMetadataSchema18Import(b *testing.B) {
-	if cachePersistenceSchemaVersion != "18" {
-		b.Fatalf("benchmark expects persistence schema 18, got %s", cachePersistenceSchemaVersion)
+func BenchmarkCacheMetadataSchema19Import(b *testing.B) {
+	if cachePersistenceSchemaVersion != "19" {
+		b.Fatalf("benchmark expects persistence schema 19, got %s", cachePersistenceSchemaVersion)
 	}
 	for _, resultCount := range []int{200_000, 1_000_000} {
 		b.Run(strconv.Itoa(resultCount), func(b *testing.B) {

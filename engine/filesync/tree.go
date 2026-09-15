@@ -1,6 +1,7 @@
 package filesync
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -36,7 +37,7 @@ func (local *localFS) SyncTree(ctx context.Context, remote ReadFS, cacheManager 
 		return nil, "", errors.New("filesync requires content-addressed tree support")
 	}
 	var root filetree.Object
-	_, dgst, err := local.sync(ctx, remote, cacheManager, false, func(ctx context.Context, changes []CachedChange, only map[string]struct{}, dgst digest.Digest) (rerr error) {
+	_, dgst, err := local.sync(ctx, remote, cacheManager, false, func(ctx context.Context, changes []CachedChange, only map[string]struct{}, dgst digest.Digest, cacheCtx bkcontenthash.CacheContext) (rerr error) {
 		// Preserve filesync's existing semantic-equivalence reuse, which ignores
 		// e.g. hardlink topology. Reuse the old CAS root, not merely its view:
 		// reconstructing after view GC must give the same selected filesystem.
@@ -54,7 +55,27 @@ func (local *localFS) SyncTree(ctx context.Context, remote ReadFS, cacheManager 
 		if err != nil {
 			return err
 		}
-		root, err = local.ingestTree(ctx, in, changes, only)
+		// Retain the exact legacy path records, including resolved hardlinks and
+		// directory headers. Re-hashing a reconstructed view uses a different hash
+		// algorithm and changes public Directory/File digests.
+		data, err := bkcontenthash.MarshalCacheContext(cacheCtx)
+		if err != nil {
+			return err
+		}
+		checksums := filetree.Object{Digest: digest.FromBytes(data), Size: int64(len(data))}
+		if err := in.Retain(checksums); err != nil {
+			if !errdefs.IsNotFound(err) {
+				return err
+			}
+			stored, err := in.PutFile(bytes.NewReader(data), int64(len(data)))
+			if err != nil {
+				return err
+			}
+			if stored != checksums {
+				return errors.New("filesync checksum object changed during ingestion")
+			}
+		}
+		root, err = local.ingestTree(ctx, in, changes, only, &checksums)
 		return err
 	})
 	if err != nil {
@@ -84,7 +105,7 @@ func findTreeByContentHash(ctx context.Context, cacheManager bkcache.Accessor, m
 
 // ingestTree consumes the already-filtered sync result. It never walks the
 // mirror, which can contain files from other imports or gitignored build output.
-func (local *localFS) ingestTree(ctx context.Context, in *filetree.Ingest, changes []CachedChange, only map[string]struct{}) (filetree.Object, error) {
+func (local *localFS) ingestTree(ctx context.Context, in *filetree.Ingest, changes []CachedChange, only map[string]struct{}, checksums *filetree.Object) (filetree.Object, error) {
 	base := cleanLocalCopyPath(local.copyPath)
 	selected := localCopyOnlyPaths(only, base)
 	stats := make(map[string]*types.Stat)
@@ -222,6 +243,9 @@ func (local *localFS) ingestTree(ctx context.Context, in *filetree.Ingest, chang
 		tree := trees[name]
 		if tree == nil {
 			continue
+		}
+		if name == "" {
+			tree.Checksums = checksums
 		}
 		obj, err := in.PutTree(*tree)
 		if err != nil {

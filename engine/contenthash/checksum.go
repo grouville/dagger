@@ -258,6 +258,14 @@ func (cc *cacheContext) save() error {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
 
+	dt, err := cc.marshalLocked()
+	if err != nil {
+		return err
+	}
+	return cc.md.SetContentHash(dt)
+}
+
+func (cc *cacheContext) marshalLocked() ([]byte, error) {
 	if cc.txn != nil {
 		cc.commitActiveTransaction()
 	}
@@ -272,12 +280,7 @@ func (cc *cacheContext) save() error {
 		return false
 	})
 
-	dt, err := l.Marshal()
-	if err != nil {
-		return err
-	}
-
-	return cc.md.SetContentHash(dt)
+	return l.Marshal()
 }
 
 func keyPath(p string) string {

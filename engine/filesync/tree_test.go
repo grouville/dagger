@@ -19,6 +19,7 @@ import (
 	"github.com/containerd/containerd/v2/plugins/content/local"
 	"github.com/containerd/containerd/v2/plugins/snapshots/native"
 	"github.com/containerd/errdefs"
+	bkcontenthash "github.com/dagger/dagger/engine/contenthash"
 	"github.com/dagger/dagger/engine/filetree"
 	bkcache "github.com/dagger/dagger/engine/snapshots"
 	bkcontainerd "github.com/dagger/dagger/engine/snapshots/containerd"
@@ -160,6 +161,50 @@ func assertTreeFiles(t *testing.T, ctx context.Context, view *filetree.View, exp
 	require.ElementsMatch(t, directories, dirs)
 }
 
+func TestSyncTreeMaterializedChecksumParity(t *testing.T) {
+	f := newTreeSyncFixture(t)
+	source := writeTree(t, map[string]string{"nested/file": "payload", "other": "second file"})
+	require.NoError(t, os.Symlink("nested/file", filepath.Join(source, "link")))
+	require.NoError(t, os.Link(filepath.Join(source, "nested/file"), filepath.Join(source, "alias")))
+	l := f.local(t, "", "", nil, nil)
+	root, dgst, err := l.SyncTree(f.ctx, treeRemote(t, source, nil, nil, false), f.cm)
+	require.NoError(t, err)
+	legacyLocal, err := newLocalFS(f.legacy, "", nil, nil, nil, "")
+	require.NoError(t, err)
+	legacy, legacyDigest, err := legacyLocal.Sync(f.ctx, treeRemote(t, source, nil, nil, false), f.cm, false)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, legacy.Release(f.ctx)) }()
+	require.Equal(t, legacyDigest, dgst)
+	view, err := f.cm.(bkcache.FileTreeManager).MaterializeFileTree(f.ctx, *root, "")
+	require.NoError(t, err)
+	defer func() { require.NoError(t, view.Release(f.ctx)) }()
+	md := view.(bkcache.RefMetadata)
+	require.Error(t, bkcontenthash.RestoreFileTreeCacheContext(f.ctx, f.blobs, *root, md, digest.FromString("wrong root")))
+	// Core restores this root-owned context before exposing a derived view.
+	require.NoError(t, bkcontenthash.RestoreFileTreeCacheContext(f.ctx, f.blobs, *root, md, dgst))
+	// Import-time identity alone does not cover Directory.digest, File.digest,
+	// or checksums of subdirectories after a view has been reconstructed.
+	for _, test := range []struct {
+		name string
+		opts bkcontenthash.ChecksumOpts
+	}{
+		{name: "/"}, {name: "/nested"}, {name: "/nested/file"}, {name: "/other"}, {name: "/link"}, {name: "/alias"},
+		{name: "/link", opts: bkcontenthash.ChecksumOpts{FollowLinks: true}},
+		{name: "/", opts: bkcontenthash.ChecksumOpts{IncludePatterns: []string{"nested/**"}}},
+		{name: "/", opts: bkcontenthash.ChecksumOpts{ExcludePatterns: []string{"other"}}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			// The restored values must survive contenthash's in-memory cache too.
+			bkcontenthash.ClearCacheContext(md)
+			want, err := bkcontenthash.Checksum(f.ctx, legacy, test.name, test.opts)
+			require.NoError(t, err)
+			got, err := bkcontenthash.Checksum(f.ctx, view, test.name, test.opts)
+			require.NoError(t, err)
+			require.Equal(t, want, got)
+		})
+	}
+}
+
 func TestSyncTreeFiltersAndReincludedAncestors(t *testing.T) {
 	for _, gitignore := range []bool{false, true} {
 		t.Run(map[bool]string{false: "patterns", true: "gitignore"}[gitignore], func(t *testing.T) {
@@ -190,7 +235,7 @@ func TestSyncTreeWarmAndMissingBlobHint(t *testing.T) {
 	l := f.local(t, "", "", nil, nil)
 	view, _ := f.syncParity(t, l, source, false)
 	writes := f.blobs.files.Load()
-	require.EqualValues(t, 1, writes)
+	require.EqualValues(t, 2, writes, "one file payload and its root-owned checksum context")
 	view, _ = f.syncParity(t, l, source, false)
 	require.Equal(t, writes, f.blobs.files.Load(), "warm file hint must avoid payload ingestion")
 	root, err := filetree.NewStore(f.blobs).ReadTree(f.ctx, view.Root())
@@ -234,7 +279,7 @@ func TestSyncTreeEditReusesUnchangedDirectoryNodes(t *testing.T) {
 	// directory and the root should need new objects, not its untouched sibling.
 	require.Equal(t, before.Entries[1].Object, after.Entries[1].Object, "untouched subtree changed identity")
 	require.EqualValues(t, 2, f.blobs.treeWriters.Load()-writers, "only the ancestor spine needs new nodes")
-	require.EqualValues(t, 1, f.blobs.files.Load()-files, "only the edited payload needs ingestion")
+	require.EqualValues(t, 2, f.blobs.files.Load()-files, "edited payload and checksum context need ingestion")
 	writers = f.blobs.treeWriters.Load()
 	require.Equal(t, after, syncTree())
 	require.Equal(t, writers, f.blobs.treeWriters.Load(), "an unchanged ingest needs no tree writers")
@@ -261,7 +306,7 @@ func TestSyncTreeOverlappingImportCachedPaths(t *testing.T) {
 	require.Equal(t, "nested/file", innerChange.result().stat.Path)
 	in, err := f.cm.(bkcache.FileTreeManager).FileTreeIngest(f.ctx)
 	require.NoError(t, err)
-	root, err := inner.ingestTree(f.ctx, in, []CachedChange{innerChange}, map[string]struct{}{"file": {}})
+	root, err := inner.ingestTree(f.ctx, in, []CachedChange{innerChange}, map[string]struct{}{"file": {}}, nil)
 	require.NoError(t, err)
 	view, err := filetree.NewView(f.ctx, filetree.NewStore(f.blobs), root)
 	require.NoError(t, err)

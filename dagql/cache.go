@@ -137,7 +137,10 @@ type persistedEdge struct {
 // strings whose referents were never retained (and whose IDs may have been
 // reused), so they are wiped rather than imported.
 // 18: persist direct content roots separately from snapshot ownership.
-const cachePersistenceSchemaVersion = "18"
+// 19: filesync content roots retain their original path-checksum context.
+// Experimental v18 roots may lack it and cannot preserve public digests after
+// reconstruction, so they must be re-imported through ordinary source sync.
+const cachePersistenceSchemaVersion = "19"
 
 var ErrCacheRecursiveCall = fmt.Errorf("recursive call detected")
 var ErrCacheSessionReleased = errors.New("cache session released")

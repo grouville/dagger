@@ -153,9 +153,40 @@ func TestInvalidObjects(t *testing.T) {
 		if _, err := Encode(tree); err == nil {
 			t.Errorf("encoded invalid object %#v", object)
 		}
+		tree = Tree{Version: TreeVersion, Checksums: &object}
+		if _, err := Encode(tree); err == nil {
+			t.Errorf("encoded invalid checksum object %#v", object)
+		}
 	}
 	if err := testObject("").Validate(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestChecksumObjectReferences(t *testing.T) {
+	tree := testTree()
+	before := mustEncode(t, tree)
+	tree.Checksums = testObject("opaque engine checksum records")
+	encoded := mustEncode(t, tree)
+	if bytes.Equal(before, encoded) {
+		t.Fatal("checksum context must contribute to storage identity")
+	}
+	decoded, err := Decode(encoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(tree.Checksums, decoded.Checksums) || len(decoded.References()) != 3 {
+		t.Fatal("checksum object must round trip and remain GC-reachable")
+	}
+	tree.Checksums = tree.Entries[1].Object
+	if len(tree.References()) != 2 {
+		t.Fatal("references must deduplicate checksum and entry objects")
+	}
+	conflicting := *tree.Checksums
+	conflicting.Size++
+	tree.Checksums = &conflicting
+	if _, err := Encode(tree); err == nil {
+		t.Fatal("checksum object size must agree with an identical entry digest")
 	}
 }
 

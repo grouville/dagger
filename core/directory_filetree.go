@@ -91,13 +91,16 @@ func (lazy *DirectoryFileTreeLazy) Evaluate(ctx context.Context, dir *Directory)
 		if err != nil {
 			return err
 		}
+		md, ok := ref.(bkcache.RefMetadata)
+		if !ok {
+			return errors.Join(fmt.Errorf("filetree view metadata: unexpected ref type %T", ref), ref.Release(context.WithoutCancel(ctx)))
+		}
+		if err := bkcontenthash.RestoreFileTreeCacheContext(ctx, query.OCIStore(), dir.FileTree.Root, md, dir.FileTree.ContentDigest); err != nil {
+			return errors.Join(fmt.Errorf("restore filetree checksums: %w", err), ref.Release(context.WithoutCancel(ctx)))
+		}
 		if dgst := dir.FileTree.ContentDigest; dgst != "" {
 			if err := dgst.Validate(); err != nil {
 				return errors.Join(err, ref.Release(context.WithoutCancel(ctx)))
-			}
-			md, ok := ref.(bkcache.RefMetadata)
-			if !ok {
-				return errors.Join(fmt.Errorf("filetree view metadata: unexpected ref type %T", ref), ref.Release(context.WithoutCancel(ctx)))
 			}
 			if err := (bkcontenthash.CacheRefMetadata{RefMetadata: md}).SetContentHashKey(dgst); err != nil {
 				return errors.Join(err, ref.Release(context.WithoutCancel(ctx)))

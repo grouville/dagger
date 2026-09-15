@@ -72,6 +72,9 @@ type Tree struct {
 	Version  int      `json:"version"`
 	Metadata Metadata `json:"metadata"`
 	Entries  []Entry  `json:"entries"`
+	// Checksums retains an optional engine-authored checksum context for the
+	// complete imported root. It is not a filesystem entry or a payload hash.
+	Checksums *Object `json:"checksums,omitempty"`
 }
 
 // Encode validates and returns canonical JSON. Entries and xattrs are sorted by
@@ -88,6 +91,14 @@ func Encode(tree Tree) ([]byte, error) {
 	tree.Metadata = metadata
 	entries := make([]Entry, len(tree.Entries))
 	seenObjects := make(map[digest.Digest]int64)
+	if tree.Checksums != nil {
+		object := *tree.Checksums
+		if err := object.Validate(); err != nil {
+			return nil, fmt.Errorf("checksum object: %w", err)
+		}
+		tree.Checksums = &object
+		seenObjects[object.Digest] = object.Size
+	}
 	for i, entry := range tree.Entries {
 		if !validName(entry.Name) {
 			return nil, fmt.Errorf("invalid entry name %q", entry.Name)
@@ -156,6 +167,9 @@ func Decode(data []byte) (Tree, error) {
 // functions reject conflicting sizes for the same digest within a tree.
 func (tree Tree) References() []Object {
 	objects := make(map[digest.Digest]Object)
+	if tree.Checksums != nil {
+		objects[tree.Checksums.Digest] = *tree.Checksums
+	}
 	for _, entry := range tree.Entries {
 		if entry.Object != nil {
 			objects[entry.Object.Digest] = *entry.Object

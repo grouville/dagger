@@ -3,6 +3,7 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/core/leases"
 	"github.com/containerd/containerd/v2/core/metadata"
 	ctdsnapshots "github.com/containerd/containerd/v2/core/snapshots"
@@ -19,9 +21,13 @@ import (
 	"github.com/containerd/containerd/v2/plugins/snapshots/native"
 	"github.com/containerd/errdefs"
 	"github.com/dagger/dagger/dagql"
+	bkcontenthash "github.com/dagger/dagger/engine/contenthash"
 	"github.com/dagger/dagger/engine/filetree"
 	bkcache "github.com/dagger/dagger/engine/snapshots"
 	bkcontainerd "github.com/dagger/dagger/engine/snapshots/containerd"
+	"github.com/dagger/dagger/internal/fsutil"
+	"github.com/dagger/dagger/internal/fsutil/types"
+	"github.com/dagger/dagger/util/hashutil"
 	"github.com/opencontainers/go-digest"
 	"github.com/stretchr/testify/require"
 	bolt "go.etcd.io/bbolt"
@@ -49,11 +55,36 @@ func TestDirectoryFileTreePersistenceRematerializesWithoutSource(t *testing.T) {
 	md := filetree.Metadata{Mode: 0o755, UID: uint32(os.Getuid()), GID: uint32(os.Getgid()), ModTime: 1700000000000001234}
 	fileMD := md
 	fileMD.Mode = 0o644
+	// Seed a real CacheContext with engine-owned XXH3 path hashes. The separate
+	// filesync parity regression compares these hashes to an actual legacy sync;
+	// this source-free test checks their lifetime through GC and two restarts.
+	scratch, err := f.cm.New(leases.WithLease(f.ctx, lease.ID), nil)
+	require.NoError(t, err)
+	checksums, err := bkcontenthash.GetCacheContext(f.ctx, scratch.(bkcache.RefMetadata))
+	require.NoError(t, err)
+	for _, stat := range []*types.Stat{
+		{Path: "src", Mode: uint32(os.ModeDir) | 0o755},
+		{Path: "src/lib.rs", Mode: 0o644},
+		{Path: "alias.rs", Mode: 0o644, Linkname: "src/lib.rs"},
+	} {
+		info := persistedFileTreeChecksumInfo{StatInfo: &fsutil.StatInfo{Stat: stat}, hash: hashutil.HashStrings(stat.Path)}
+		require.NoError(t, checksums.HandleChange(fsutil.ChangeKindAdd, stat.Path, info, nil))
+	}
+	f.checksums = make(map[string]digest.Digest)
+	for _, name := range []string{"/", "/src", "/src/lib.rs", "/alias.rs"} {
+		f.checksums[name], err = checksums.Checksum(f.ctx, scratch, name, bkcontenthash.ChecksumOpts{})
+		require.NoError(t, err)
+	}
+	checksumData, err := bkcontenthash.MarshalCacheContext(checksums)
+	require.NoError(t, err)
+	checksumObject, err := in.PutFile(bytes.NewReader(checksumData), int64(len(checksumData)))
+	require.NoError(t, err)
+	require.NoError(t, scratch.Release(f.ctx))
 	child, err := in.PutTree(filetree.Tree{Version: filetree.TreeVersion, Metadata: md, Entries: []filetree.Entry{
 		{Name: []byte("lib.rs"), Kind: filetree.File, Metadata: &fileMD, Object: &blob},
 	}})
 	require.NoError(t, err)
-	root, err := in.PutTree(filetree.Tree{Version: filetree.TreeVersion, Metadata: md, Entries: []filetree.Entry{
+	root, err := in.PutTree(filetree.Tree{Version: filetree.TreeVersion, Metadata: md, Checksums: &checksumObject, Entries: []filetree.Entry{
 		{Name: []byte("src"), Kind: filetree.Directory, Object: &child},
 		{Name: []byte("alias.rs"), Kind: filetree.Hardlink, Linkname: []byte("src/lib.rs")},
 	}})
@@ -61,7 +92,7 @@ func TestDirectoryFileTreePersistenceRematerializesWithoutSource(t *testing.T) {
 
 	ctx, srv := f.openCache(t)
 	call := testResultCall("persist-filetree-directory", &Directory{}, nil)
-	dir := NewFileTreeDirectory(Platform{OS: "linux", Architecture: "amd64"}, root, digest.FromString("semantic identity"), "test-source-hint")
+	dir := NewFileTreeDirectory(Platform{OS: "linux", Architecture: "amd64"}, root, f.checksums["/"], "test-source-hint")
 	initial, err := dagql.NewObjectResultForCall(dir, srv, call)
 	require.NoError(t, err)
 	res, err := f.cache.GetOrInitCall(ctx, "filetree-session", srv,
@@ -77,7 +108,7 @@ func TestDirectoryFileTreePersistenceRematerializesWithoutSource(t *testing.T) {
 	require.Equal(t, wantLinks, links)
 	require.NoError(t, f.opts.LeaseManager.Delete(f.ctx, lease))
 	f.gc(t)
-	f.assertContent(t, root, child, blob)
+	f.assertContent(t, root, child, blob, checksumObject)
 
 	before, err := first.Self().EncodePersistedObject(ctx, f.cache)
 	require.NoError(t, err)
@@ -120,7 +151,7 @@ func TestDirectoryFileTreePersistenceRematerializesWithoutSource(t *testing.T) {
 			return nil
 		}))
 		require.Empty(t, remaining, "CAS ownership must not retain derived snapshots")
-		f.assertContent(t, root, child, blob)
+		f.assertContent(t, root, child, blob, checksumObject)
 
 		loaded, err := f.cache.GetOrInitCall(ctx, "filetree-session", srv,
 			&dagql.CallRequest{ResultCall: call, IsPersistable: true},
@@ -149,14 +180,29 @@ func TestDirectoryFileTreePersistenceRematerializesWithoutSource(t *testing.T) {
 }
 
 type directoryFileTreePersistenceFixture struct {
-	ctx   context.Context
-	root  string
-	db    *metadata.DB
-	sn    ctdsnapshots.Snapshotter
-	opts  bkcache.SnapshotManagerOpt
-	cm    bkcache.SnapshotManager
-	cache *dagql.Cache
+	ctx       context.Context
+	root      string
+	db        *metadata.DB
+	sn        ctdsnapshots.Snapshotter
+	opts      bkcache.SnapshotManagerOpt
+	cm        bkcache.SnapshotManager
+	cache     *dagql.Cache
+	checksums map[string]digest.Digest
 }
+
+type persistedFileTreeChecksumInfo struct {
+	*fsutil.StatInfo
+	hash digest.Digest
+}
+
+func (info persistedFileTreeChecksumInfo) Digest() digest.Digest { return info.hash }
+
+type fileTreePersistenceServer struct {
+	*cacheVolumeTestQueryServer
+	blobs content.Store
+}
+
+func (s *fileTreePersistenceServer) OCIStore() content.Store { return s.blobs }
 
 func newDirectoryFileTreePersistenceFixture(t *testing.T) *directoryFileTreePersistenceFixture {
 	t.Helper()
@@ -203,7 +249,10 @@ func (f *directoryFileTreePersistenceFixture) openCache(t *testing.T) (context.C
 	var err error
 	f.cache, err = dagql.NewCache(f.ctx, filepath.Join(f.root, "dagql.db"), f.cm, nil)
 	require.NoError(t, err)
-	query := &Query{Server: &cacheVolumeTestQueryServer{mockServer: &mockServer{}, cacheManager: f.cm}}
+	query := &Query{Server: &fileTreePersistenceServer{
+		cacheVolumeTestQueryServer: &cacheVolumeTestQueryServer{mockServer: &mockServer{}, cacheManager: f.cm},
+		blobs:                      f.opts.ContentStore,
+	}}
 	srv := newCoreDagqlServerForTest(t, query)
 	srv.InstallObject(dagql.NewClass(srv, dagql.ClassOpts[*Directory]{}))
 	return ContextWithQuery(dagql.ContextWithCache(f.ctx, f.cache), query), srv
@@ -247,6 +296,14 @@ func (f *directoryFileTreePersistenceFixture) readDirectory(t *testing.T, ctx co
 	t.Helper()
 	ref, err := directory.Self().Snapshot.GetOrEval(ctx, directory.Result)
 	require.NoError(t, err)
+	rootDigest, err := directory.Self().Digest(ctx, directory)
+	require.NoError(t, err)
+	require.Equal(t, f.checksums["/"].String(), rootDigest)
+	for name, want := range f.checksums {
+		got, err := bkcontenthash.Checksum(ctx, ref, name, bkcontenthash.ChecksumOpts{})
+		require.NoError(t, err)
+		require.Equal(t, want, got, "public checksum after reconstruction: %s", name)
+	}
 	mountable, err := ref.Mount(ctx, true)
 	require.NoError(t, err)
 	mounter := bkcache.LocalMounter(mountable)

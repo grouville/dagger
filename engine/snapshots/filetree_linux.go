@@ -29,7 +29,10 @@ var _ FileTreeManager = (*snapshotManager)(nil)
 
 const fileTreeRootKey = "filetree.root.v1"
 const fileTreeRootIndex = "filetree.root.v1:"
-const fileTreeRootLabel = "dagger.io/filetree.root.v1"
+
+// v2 invalidates pre-checksum-sidecar filesync hints from this experimental
+// implementation. Generic trees may still omit a filesync checksum context.
+const fileTreeRootLabel = "dagger.io/filetree.root.v2"
 const fileTreeSourceIndex = "filetree.source:"
 
 type fileTreeSourceKey string

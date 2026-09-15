@@ -171,7 +171,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 // publish runs while conflict-tracked mirror entries are still held. A CAS
 // publisher uses the same filtered entries and semantic checksum as the legacy
 // snapshot publisher, without another filesystem walk or an eager tree copy.
-type syncPublisher func(context.Context, []CachedChange, map[string]struct{}, digest.Digest) error
+type syncPublisher func(context.Context, []CachedChange, map[string]struct{}, digest.Digest, bkcontenthash.CacheContext) error
 
 func (local *localFS) sync( //nolint:gocyclo
 	ctx context.Context,
@@ -616,7 +616,7 @@ func (local *localFS) sync( //nolint:gocyclo
 		return nil, "", fmt.Errorf("failed to checksum: %w", err)
 	}
 	if publish != nil {
-		if err := publish(ctx, cachedResults, only, dgst); err != nil {
+		if err := publish(ctx, cachedResults, only, dgst, cacheCtx); err != nil {
 			return nil, "", err
 		}
 		return nil, dgst, nil
