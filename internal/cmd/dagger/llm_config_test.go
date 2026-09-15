@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -13,6 +14,50 @@ import (
 	"github.com/dagger/dagger/engine/client/secretprovider"
 	"github.com/dagger/dagger/internal/cmd/dagger/llmconfig"
 )
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (fn roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) { return fn(req) }
+
+// Startup must not contact an OAuth provider; only resolving the credential does.
+func TestLLMConfigStartupDoesNotRefreshOAuth(t *testing.T) {
+	origRoot, origFile, origTransport := llmconfig.ConfigRoot, llmconfig.ConfigFile, http.DefaultTransport
+	t.Cleanup(func() {
+		llmconfig.ConfigRoot, llmconfig.ConfigFile, http.DefaultTransport = origRoot, origFile, origTransport
+	})
+	llmconfig.ConfigRoot = t.TempDir()
+	llmconfig.ConfigFile = filepath.Join(llmconfig.ConfigRoot, llmconfig.ConfigFileName)
+	cfg := &llmconfig.Config{LLM: llmconfig.LLMConfig{
+		Providers: map[string]llmconfig.Provider{"openai-codex": {
+			AuthType: "oauth", AuthToken: "expired", RefreshToken: "refresh",
+			TokenExpiresAt: time.Now().Add(-time.Hour).UnixMilli(), Enabled: true,
+		}},
+	}}
+	if err := cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("OPENAI_CODEX_AUTH_TOKEN", "")
+	t.Setenv("OPENAI_CODEX_AUTH_TOKEN_EXPIRES_AT", "")
+	var requests atomic.Int32
+	http.DefaultTransport = roundTripFunc(func(*http.Request) (*http.Response, error) {
+		requests.Add(1)
+		return nil, errors.New("oauth endpoint unavailable")
+	})
+
+	applyLLMConfigEnv()
+	if got := requests.Load(); got != 0 {
+		t.Fatalf("startup made %d OAuth requests, want 0", got)
+	}
+
+	resolver, name, err := secretprovider.ResolverForID("env://OPENAI_CODEX_AUTH_TOKEN")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = resolver(t.Context(), name) // refresh failure falls back to the persisted token
+	if requests.Load() == 0 {
+		t.Fatal("resolving the credential did not attempt an OAuth refresh")
+	}
+}
 
 // TestRemoveKeyClearsDefaultModel verifies that removing the default provider
 // also clears the default model. Otherwise the stale model stays bound to
