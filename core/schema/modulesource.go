@@ -245,6 +245,10 @@ func (s *moduleSourceSchema) Install(dag *dagql.Server) {
 			Doc(`Load the source as a module. If this is a local source, the parent directory must have been provided during module source creation`),
 		dagql.NodeFunc("_implementationScoped", s.moduleSourceImplementationScoped).
 			Doc(`The module source scoped to implementation identity only, i.e. source code and dependency content rather than client-specific provenance.`),
+		dagql.NodeFunc("_dangModuleTypes", s.moduleSourceDangModuleTypes).
+			IsPersistable().
+			Doc(`The typedefs declared by a Dang module source, evaluated in-engine.`,
+				`Select on an implementation-scoped source so the result is keyed on content, like a containerized SDK's moduleTypes exec.`),
 		dagql.NodeFunc("introspectionSchemaJSON", s.moduleSourceIntrospectionSchemaJSON).
 			Doc(`The introspection schema JSON file for this module source.`,
 				`This file represents the schema visible to the module's source code, including all core types and those from the dependencies.`,
@@ -3449,6 +3453,31 @@ func (s *moduleSourceSchema) moduleSourceImplementationScoped(
 		return inst, err
 	}
 	return inst.WithContentDigest(ctx, scopedDigest)
+}
+
+type moduleSourceDangModuleTypesArgs struct {
+	ModuleContext     core.ModuleID `name:"moduleContext"`
+	IntrospectionJSON core.FileID   `name:"introspectionJson"`
+}
+
+func (s *moduleSourceSchema) moduleSourceDangModuleTypes(
+	ctx context.Context,
+	src dagql.ObjectResult[*core.ModuleSource],
+	args moduleSourceDangModuleTypesArgs,
+) (inst dagql.ObjectResult[*core.Module], err error) {
+	dag, err := core.CurrentDagqlServer(ctx)
+	if err != nil {
+		return inst, fmt.Errorf("failed to get dag server: %w", err)
+	}
+	scopedMod, err := args.ModuleContext.Load(ctx, dag)
+	if err != nil {
+		return inst, fmt.Errorf("failed to load module context for dang module types: %w", err)
+	}
+	schemaJSONFile, err := args.IntrospectionJSON.Load(ctx, dag)
+	if err != nil {
+		return inst, fmt.Errorf("failed to load introspection json for dang module types: %w", err)
+	}
+	return sdk.DangModuleTypes(ctx, src, scopedMod, schemaJSONFile.Result)
 }
 
 // resolveDefaultPathContextSource selects the context for legacy default paths

@@ -23,18 +23,13 @@ type Impl struct{}
 
 func (Impl) ModuleTypes(
 	ctx context.Context,
-	deps *core.SchemaBuilder,
 	src dagql.ObjectResult[*core.ModuleSource],
 	scopedMod dagql.ObjectResult[*core.Module],
+	schemaJSONFile dagql.Result[*core.File],
 ) (inst dagql.ObjectResult[*core.Module], rerr error) {
 	dag, err := core.CurrentDagqlServer(ctx)
 	if err != nil {
 		return inst, fmt.Errorf("failed to get dag for dang module sdk module types: %w", err)
-	}
-
-	schemaJSONFile, err := deps.SchemaIntrospectionJSONFileForModule(ctx)
-	if err != nil {
-		return inst, fmt.Errorf("failed to get schema introspection json during dang module sdk module types: %w", err)
 	}
 
 	query, err := core.CurrentQuery(ctx)

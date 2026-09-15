@@ -38,9 +38,9 @@ func (sdk *dangSDK) CloneForModuleSource(*core.ModuleSource) core.SDK {
 type dangImpl interface {
 	ModuleTypes(
 		ctx context.Context,
-		deps *core.SchemaBuilder,
 		scopedSrc dagql.ObjectResult[*core.ModuleSource],
 		scopedMod dagql.ObjectResult[*core.Module],
+		schemaJSONFile dagql.Result[*core.File],
 	) (dagql.ObjectResult[*core.Module], error)
 
 	Runtime(
@@ -165,6 +165,45 @@ func (sdk *dangSDK) ModuleTypes(
 	if err != nil {
 		return inst, fmt.Errorf("failed to scope module for dang module sdk module types: %w", err)
 	}
+	moduleContextID, err := core.ResultIDInput(scopedMod)
+	if err != nil {
+		return inst, fmt.Errorf("failed to get module context ID for dang module sdk module types: %w", err)
+	}
 
-	return dangImplFor(src.Self()).ModuleTypes(ctx, deps, src, scopedMod)
+	schemaJSONFile, err := deps.SchemaIntrospectionJSONFileForModule(ctx)
+	if err != nil {
+		return inst, fmt.Errorf("failed to get schema introspection json during dang module sdk module types: %w", err)
+	}
+	schemaJSONFileID, err := schemaJSONFile.ID()
+	if err != nil {
+		return inst, fmt.Errorf("failed to get schema introspection json ID during dang module sdk module types: %w", err)
+	}
+
+	// Run the typedef pass as a dagql call keyed on implementation identity
+	// (source content, dependency schema), the same identity containerized
+	// SDKs get from their moduleTypes exec. asModule is per-client, so without
+	// this every CLI command re-parsed and re-inferred the module in-process.
+	err = dag.Select(ctx, src, &inst, dagql.Selector{
+		Field: "_dangModuleTypes",
+		Args: []dagql.NamedInput{
+			{Name: "moduleContext", Value: moduleContextID},
+			{Name: "introspectionJson", Value: dagql.NewID[*core.File](schemaJSONFileID)},
+		},
+	})
+	if err != nil {
+		return inst, fmt.Errorf("failed to load dang module types: %w", err)
+	}
+	return inst, nil
+}
+
+// DangModuleTypes evaluates a Dang module's declarations into a Module of
+// typedefs. It is the resolver behind ModuleSource._dangModuleTypes; callers
+// go through that field so the result is cached and persisted by content.
+func DangModuleTypes(
+	ctx context.Context,
+	scopedSrc dagql.ObjectResult[*core.ModuleSource],
+	scopedMod dagql.ObjectResult[*core.Module],
+	schemaJSONFile dagql.Result[*core.File],
+) (dagql.ObjectResult[*core.Module], error) {
+	return dangImplFor(scopedSrc.Self()).ModuleTypes(ctx, scopedSrc, scopedMod, schemaJSONFile)
 }
