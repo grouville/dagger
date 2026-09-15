@@ -73,7 +73,7 @@ func (dc *DaggerCloudConnector) EngineID() string {
 	return dc.EngineSpec.InstanceID
 }
 
-func (d *daggerCloudDriver) Available(ctx context.Context) (bool, error) {
+func (d *daggerCloudDriver) Available(ctx context.Context, _ *url.URL) (bool, error) {
 	return true, nil // assume always available
 }
 
