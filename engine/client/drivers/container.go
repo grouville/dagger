@@ -124,8 +124,38 @@ type imageDriver struct {
 	backend containerBackend
 }
 
-func (d *imageDriver) Available(ctx context.Context) (bool, error) {
+func (d *imageDriver) Available(ctx context.Context, target *url.URL) (bool, error) {
+	// An engine that already answers on its shared socket needs no runtime
+	// discovery; the exec fallback still probes the runtime when it does not.
+	if _, ok := d.socketDirFor(target); ok {
+		return true, nil
+	}
 	return d.backend.Available(ctx)
+}
+
+// socketDirFor returns the shared socket directory of the engine container
+// target names, when that engine is currently dialable through it.
+func (d *imageDriver) socketDirFor(target *url.URL) (string, bool) {
+	if target == nil {
+		return "", false
+	}
+	name, err := (containerCreateOpts{
+		imageRef:      target.Host + target.Path,
+		containerName: target.Query().Get("container"),
+	}).resolveContainerName()
+	if err != nil {
+		return "", false
+	}
+	dir, ok := engineSocketDir(name)
+	if !ok {
+		return "", false
+	}
+	conn, ok := dialEngineSocket(context.Background(), dir)
+	if !ok {
+		return "", false
+	}
+	conn.Close()
+	return dir, true
 }
 
 func (d *imageDriver) Provision(ctx context.Context, target *url.URL, opts *DriverOpts) (Connector, error) {
@@ -135,6 +165,22 @@ func (d *imageDriver) Provision(ctx context.Context, target *url.URL, opts *Driv
 		cleanup = !b
 	} else if val := target.Query().Get("cleanup"); val != "" {
 		cleanup, _ = strconv.ParseBool(val)
+	}
+
+	// A running engine answers on its socket: skip listing, starting and
+	// pulling. Anything else (first run, upgrade, exec-only hosts) takes the
+	// full path, which also garbage-collects older engines.
+	if socketDir, ok := d.socketDirFor(target); ok {
+		name, _ := (containerCreateOpts{
+			imageRef:      target.Host + target.Path,
+			containerName: target.Query().Get("container"),
+		}).resolveContainerName()
+		return containerConnector{
+			backend:   d.backend,
+			host:      name,
+			values:    target.Query(),
+			socketDir: socketDir,
+		}, nil
 	}
 
 	port, _ := strconv.Atoi(target.Query().Get("port"))
@@ -184,7 +230,7 @@ type containerDriver struct {
 	backend containerBackend
 }
 
-func (d *containerDriver) Available(ctx context.Context) (bool, error) {
+func (d *containerDriver) Available(ctx context.Context, _ *url.URL) (bool, error) {
 	return d.backend.Available(ctx)
 }
 
@@ -397,7 +443,7 @@ func engineNames(versions []string) []string {
 // CleanupOldEngines removes local engine containers while preserving the
 // versions that are expected to be used by the current command.
 func CleanupOldEngines(ctx context.Context, preserveVersions []string) error {
-	driver, err := GetDriver(ctx, "image")
+	driver, err := GetDriver(ctx, &url.URL{Scheme: "image"})
 	if err != nil {
 		return err
 	}

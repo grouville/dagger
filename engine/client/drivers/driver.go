@@ -13,7 +13,8 @@ import (
 
 type Driver interface {
 	// Available returns true if the driver backend is running and available for use.
-	Available(ctx context.Context) (bool, error)
+	// Available reports whether this driver can serve target on this host.
+	Available(ctx context.Context, target *url.URL) (bool, error)
 
 	// Provision creates any underlying resources for a driver, and returns a
 	// Connector that can connect to it.
@@ -57,7 +58,8 @@ func register(scheme string, driver ...Driver) {
 	drivers[scheme] = driver
 }
 
-func GetDriver(ctx context.Context, name string) (Driver, error) {
+func GetDriver(ctx context.Context, target *url.URL) (Driver, error) {
+	name := target.Scheme
 	drivers, ok := drivers[name]
 	if !ok {
 		// Teach the usable values here: an engine selector is often the first
@@ -66,7 +68,7 @@ func GetDriver(ctx context.Context, name string) (Driver, error) {
 			name, strings.Join(RegisteredSchemes(), ", "))
 	}
 	for _, driver := range drivers {
-		available, err := driver.Available(ctx)
+		available, err := driver.Available(ctx, target)
 		if err != nil {
 			return nil, err
 		}
