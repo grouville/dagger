@@ -190,6 +190,10 @@ func addFlags(app *cli.App) {
 			Value: groupValue(defaultConf.GRPC.GID),
 		},
 		cli.StringFlag{
+			Name:  "token-file",
+			Usage: "file holding the token every connection to a TCP listening address must present first",
+		},
+		cli.StringFlag{
 			Name:  "debugaddr",
 			Usage: "debugging address (eg. 0.0.0.0:6060)",
 			Value: defaultConf.GRPC.DebugAddress,
@@ -554,7 +558,11 @@ func main() { //nolint:gocyclo
 			Protocols: protocols,
 		}
 		errCh := make(chan error, 1)
-		if err := serveAPI(bkcfg.GRPC, httpServer, errCh); err != nil {
+		endpointToken, err := readEndpointToken(c.String("token-file"))
+		if err != nil {
+			return err
+		}
+		if err := serveAPI(bkcfg.GRPC, endpointToken, httpServer, errCh); err != nil {
 			return err
 		}
 
@@ -600,8 +608,25 @@ func main() { //nolint:gocyclo
 	}
 }
 
+// readEndpointToken loads the token TCP listeners require, if configured.
+func readEndpointToken(path string) (string, error) {
+	if path == "" {
+		return "", nil
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("read token file: %w", err)
+	}
+	token := strings.TrimSpace(string(raw))
+	if token == "" {
+		return "", fmt.Errorf("token file %s is empty", path)
+	}
+	return token, nil
+}
+
 func serveAPI(
 	cfg bkconfig.GRPCConfig,
+	endpointToken string,
 	httpServer *http.Server,
 	errCh chan error,
 ) error {
@@ -624,6 +649,11 @@ func serveAPI(
 				l.Close()
 			}
 			return err
+		}
+		// Unix sockets are protected by their file permissions; a TCP
+		// listener is protected by the token when one is configured.
+		if endpointToken != "" && strings.HasPrefix(addr, "tcp://") {
+			l = engine.NewTokenListener(l, endpointToken)
 		}
 		listeners = append(listeners, l)
 	}

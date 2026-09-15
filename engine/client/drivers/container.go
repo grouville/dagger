@@ -144,8 +144,24 @@ func (d *imageDriver) Provision(ctx context.Context, target *url.URL, opts *Driv
 		cleanup, _ = strconv.ParseBool(val)
 	}
 
+	// An engine that already answers on its local endpoint needs no
+	// discovery at all; everything else takes the full path.
+	name, err := (containerCreateOpts{
+		imageRef:      target.Host + target.Path,
+		containerName: target.Query().Get("container"),
+	}).resolveContainerName()
+	if err != nil {
+		return nil, err
+	}
+	endpointDir, hasEndpointDir := localEndpointDir(name)
+	if hasEndpointDir {
+		if ep, ok := loadLocalEndpoint(endpointDir); ok && ep.probe(ctx) {
+			return containerConnector{backend: d.backend, host: name, values: target.Query(), endpoint: ep}, nil
+		}
+	}
+
 	port, _ := strconv.Atoi(target.Query().Get("port"))
-	target, err := d.create(ctx, containerCreateOpts{
+	target, err = d.create(ctx, containerCreateOpts{
 		imageRef:      target.Host + target.Path,
 		containerName: target.Query().Get("container"),
 		volumeName:    target.Query().Get("volume"),
@@ -154,15 +170,22 @@ func (d *imageDriver) Provision(ctx context.Context, target *url.URL, opts *Driv
 		env:           target.Query()["env"],
 		cpus:          target.Query().Get("cpus"),
 		memory:        target.Query().Get("memory"),
+		endpointDir:   endpointDir,
 	}, opts)
 	if err != nil {
 		return nil, err
 	}
-	return containerConnector{
+	connector := containerConnector{
 		backend: d.backend,
 		host:    target.Host,
 		values:  target.Query(),
-	}, nil
+	}
+	if hasEndpointDir {
+		if ep, ok := loadLocalEndpoint(endpointDir); ok {
+			connector.endpoint = ep
+		}
+	}
+	return connector, nil
 }
 
 func (d *imageDriver) ImageLoader(ctx context.Context) imageload.Backend {
@@ -173,6 +196,10 @@ type containerConnector struct {
 	host    string
 	values  url.Values
 	backend containerBackend
+
+	// endpoint, when recorded, is the engine's token-protected loopback
+	// port; the exec tunnel is the fallback when it does not answer.
+	endpoint localEndpoint
 }
 
 // imageDriver connects to a container directly
@@ -197,6 +224,11 @@ func (d *containerDriver) ImageLoader(ctx context.Context) imageload.Backend {
 }
 
 func (d containerConnector) Connect(ctx context.Context) (net.Conn, error) {
+	if d.endpoint.valid() {
+		if conn, err := d.endpoint.dial(ctx); err == nil {
+			return conn, nil
+		}
+	}
 	args := []string{}
 	if context := d.values.Get("context"); context != "" {
 		args = append(args, "--context="+context)
@@ -236,6 +268,22 @@ type containerCreateOpts struct {
 
 	cpus   string
 	memory string
+
+	// endpointDir, when set, receives a fresh local endpoint (loopback port
+	// and token) if create has to run a new container.
+	endpointDir string
+}
+
+// resolveContainerName is the name create will run the container under.
+func (opts containerCreateOpts) resolveContainerName() (string, error) {
+	if opts.containerName != "" {
+		return opts.containerName, nil
+	}
+	id, err := resolveImageID(opts.imageRef)
+	if err != nil {
+		return "", err
+	}
+	return containerNamePrefix + id, nil
 }
 
 // Pull the image and run it with a unique name tied to the pinned
@@ -248,14 +296,9 @@ func (d *imageDriver) create(ctx context.Context, opts containerCreateOpts, dopt
 	defer telemetry.EndWithCause(span, &rerr)
 	slog := slog.SpanLogger(ctx, InstrumentationLibrary)
 
-	containerName := opts.containerName
-	if containerName == "" {
-		id, err := resolveImageID(opts.imageRef)
-		if err != nil {
-			return nil, err
-		}
-		// run the container using that id in the name
-		containerName = containerNamePrefix + id
+	containerName, err := opts.resolveContainerName()
+	if err != nil {
+		return nil, err
 	}
 
 	// The common case is an engine that already exists: ask for it by name
@@ -334,6 +377,14 @@ func (d *imageDriver) create(ctx context.Context, opts containerCreateOpts, dopt
 	if opts.port != 0 {
 		runOptions.ports = append(runOptions.ports, fmt.Sprintf("%d:%d", opts.port, opts.port))
 		runOptions.args = append(runOptions.args, "--addr", fmt.Sprintf("tcp://0.0.0.0:%d", opts.port))
+	}
+	if opts.endpointDir != "" {
+		ep, err := newLocalEndpoint(opts.endpointDir)
+		if err != nil {
+			slog.Warn("could not prepare the engine's local endpoint, using the exec tunnel", "error", err)
+		} else {
+			ep.runOptions(opts.endpointDir, &runOptions)
+		}
 	}
 
 	if err := d.backend.ContainerRun(ctx, containerName, runOptions); err != nil {
