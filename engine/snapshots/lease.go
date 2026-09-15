@@ -8,6 +8,7 @@ import (
 
 	"github.com/containerd/containerd/v2/core/leases"
 	"github.com/containerd/containerd/v2/pkg/namespaces"
+	cerrdefs "github.com/containerd/errdefs"
 	"github.com/pkg/errors"
 )
 
@@ -89,14 +90,17 @@ func (s *lazyLeaseScope) release(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.released {
-		return nil
-	}
+	// Close the scope to new users immediately, but retain the lease until its
+	// deletion succeeds so callers can retry a failed cleanup.
 	s.released = true
 	if s.lease == nil {
 		return nil
 	}
-	return s.lm.Delete(ctx, s.lease.l)
+	if err := s.lm.Delete(ctx, s.lease.l); err != nil && !cerrdefs.IsNotFound(err) {
+		return err
+	}
+	s.lease = nil
+	return nil
 }
 
 func WithLease(ctx context.Context, ls leases.Manager, opts ...leases.Opt) (context.Context, func(context.Context) error, error) {

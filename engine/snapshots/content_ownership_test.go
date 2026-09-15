@@ -85,6 +85,89 @@ func expectedContentUsage(objects ...filetree.Object) []ContentUsage {
 	return usage
 }
 
+func TestContentOperationLeaseGC(t *testing.T) {
+	for _, cleanup := range []string{"release", "stale-owner"} {
+		t.Run(cleanup, func(t *testing.T) {
+			f := newContentOwnerFixture(t)
+			require.NoError(t, f.cm.LeaseManager.Delete(f.ctx, leases.Lease{ID: "operation"}))
+			const prefix = "dagql/result/42/content-operation/"
+			ctx, release, err := f.cm.WithContentOperationLease(f.ctx, prefix)
+			require.NoError(t, err)
+			all, err := f.cm.LeaseManager.List(f.ctx)
+			require.NoError(t, err)
+			require.Empty(t, all, "unused operations must not allocate leases")
+			ctx, err = EnsureLease(ctx)
+			require.NoError(t, err)
+			leaseID, ok := leases.FromContext(ctx)
+			require.True(t, ok)
+			require.True(t, strings.HasPrefix(leaseID, prefix))
+			require.NotEqual(t, prefix, leaseID, "keep NewLease's random suffix")
+			all, err = f.cm.LeaseManager.List(f.ctx)
+			require.NoError(t, err)
+			require.Len(t, all, 1)
+			require.Equal(t, leaseID, all[0].ID)
+			require.NotContains(t, all[0].Labels, "containerd.io/gc.expire")
+			require.NotContains(t, all[0].Labels, "containerd.io/gc.flat")
+
+			in, err := filetree.NewStore(f.cm.ContentStore).Ingest(ctx, f.cm.LeaseManager)
+			require.NoError(t, err)
+			data := "Rust source retained during lazy handoff"
+			file, err := in.PutFile(strings.NewReader(data), int64(len(data)))
+			require.NoError(t, err)
+			root, err := in.PutTree(filetree.Tree{Version: filetree.TreeVersion, Entries: []filetree.Entry{
+				{Name: []byte("lib.rs"), Kind: filetree.File, Metadata: &filetree.Metadata{Mode: 0o644}, Object: &file},
+			}})
+			require.NoError(t, err)
+			// Retain only the tree root: non-flat ownership must preserve its file.
+			require.NoError(t, f.cm.LeaseManager.DeleteResource(f.ctx, leases.Lease{ID: leaseID}, leases.Resource{Type: "content", ID: file.Digest.String()}))
+			f.gc(t)
+			usage, err := f.cm.ContentUsage(f.ctx, root.Digest)
+			require.NoError(t, err)
+			require.Equal(t, expectedContentUsage(root, file), usage)
+
+			if cleanup == "release" {
+				require.NoError(t, release(f.ctx))
+			} else {
+				// Startup can collect an orphaned pending operation by its normal
+				// result-owner prefix; no separate permanent lease registry is needed.
+				require.NoError(t, f.cm.DeleteStaleDaggerOwnerLeases(f.ctx, nil))
+			}
+			f.gc(t)
+			for _, obj := range []filetree.Object{root, file} {
+				_, err := f.cm.ContentStore.Info(f.ctx, obj.Digest)
+				require.True(t, cerrdefs.IsNotFound(err), "%v", err)
+			}
+			require.NoError(t, release(f.ctx), "cleanup is idempotent after release or stale-owner removal")
+		})
+	}
+}
+
+func TestContentOperationLeaseBorrowsExistingScope(t *testing.T) {
+	f := newContentOwnerFixture(t)
+	_, _, err := f.cm.WithContentOperationLease(f.ctx, "")
+	require.ErrorContains(t, err, "empty prefix")
+	const prefix = "dagql/result/42/content-operation/"
+	ctx := leases.WithLease(f.ctx, "operation")
+	borrowed, release, err := f.cm.WithContentOperationLease(ctx, prefix)
+	require.NoError(t, err)
+	leaseID, ok := leases.FromContext(borrowed)
+	require.True(t, ok)
+	require.Equal(t, "operation", leaseID)
+	require.NoError(t, release(f.ctx))
+	_, err = f.cm.LeaseManager.ListResources(f.ctx, leases.Lease{ID: "operation"})
+	require.NoError(t, err, "borrowed ownership must not be released")
+
+	ctx, releaseOuter, err := WithLazyLease(f.ctx, f.cm.LeaseManager)
+	require.NoError(t, err)
+	borrowed, release, err = f.cm.WithContentOperationLease(ctx, prefix)
+	require.NoError(t, err)
+	require.Same(t, lazyLeaseFromContext(ctx), lazyLeaseFromContext(borrowed))
+	require.NoError(t, release(f.ctx))
+	_, err = EnsureLease(borrowed)
+	require.NoError(t, err, "borrowed cleanup must not close the outer lazy scope")
+	require.NoError(t, releaseOuter(f.ctx))
+}
+
 func TestContentOwnershipNestedSharedGCAndRestart(t *testing.T) {
 	f := newContentOwnerFixture(t)
 	file := f.file(t, "shared Rust source")

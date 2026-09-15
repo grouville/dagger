@@ -18,6 +18,7 @@ import (
 // ContentManager is an optional capability for result-owned content graphs,
 // independent of snapshot ownership. RemoveLease releases either kind of owner.
 type ContentManager interface {
+	WithContentOperationLease(context.Context, string) (context.Context, func(context.Context) error, error)
 	AttachContentLease(context.Context, string, digest.Digest) error
 	ContentUsage(context.Context, digest.Digest) ([]ContentUsage, error)
 }
@@ -28,6 +29,25 @@ type ContentUsage struct {
 }
 
 var _ ContentManager = (*snapshotManager)(nil)
+
+// WithContentOperationLease lazily creates non-expiring ownership for a content
+// operation whose handoff may need retrying after its callback has completed.
+// The caller must use a result-scoped prefix recognized by stale-owner cleanup,
+// retain the release callback until handoff or abandonment, and supply a context
+// with any outer operation lease cleared. Like WithLazyLease, an existing lease
+// or lazy scope is borrowed unchanged and its release callback is a no-op.
+func (cm *snapshotManager) WithContentOperationLease(ctx context.Context, leasePrefix string) (context.Context, func(context.Context) error, error) {
+	if leasePrefix == "" {
+		return ctx, nil, errors.New("content operation lease: empty prefix")
+	}
+	return WithLazyLease(ctx, cm.LeaseManager, func(l *leases.Lease) error {
+		// NewLease applies these options after choosing a random ID and setting
+		// its normal operation timeout. Result ownership replaces that timeout.
+		l.ID = leasePrefix + l.ID
+		delete(l.Labels, "containerd.io/gc.expire")
+		return nil
+	})
+}
 
 // AttachContentLease owns one content root and its outgoing GC references. The
 // caller uses a distinct lease ID per result/role/digest and retains its operation
