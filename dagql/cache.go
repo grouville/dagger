@@ -3764,7 +3764,7 @@ func (c *Cache) evaluateOne(ctx context.Context, res AnyResult) (rerr error) {
 					return
 				}
 				if releaseErr := release(context.WithoutCancel(callbackCtx)); releaseErr != nil {
-					if _, ok := shared.loadPayloadState().self.(PersistedContentRefLinkProvider); ok {
+					if needsContentOperationLease(shared.loadPayloadState().self) {
 						shared.contentOwnerMu.Lock()
 						shared.contentHandoffReleases = append(shared.contentHandoffReleases, release)
 						shared.contentOwnerMu.Unlock()

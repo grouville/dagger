@@ -24,6 +24,22 @@ type PersistedContentRefLinkProvider interface {
 	PersistedContentRefLinks() []PersistedContentRefLink
 }
 
+// ContentOperationLeasePolicy lets types with both snapshot-backed and
+// content-backed values keep ordinary lazy operations on the existing lease
+// path. Content providers default to requiring a content operation lease:
+// their roots may only become known after the lazy callback has run.
+type ContentOperationLeasePolicy interface {
+	NeedsContentOperationLease() bool
+}
+
+func needsContentOperationLease(self Typed) bool {
+	if policy, ok := self.(ContentOperationLeasePolicy); ok {
+		return policy.NeedsContentOperationLease()
+	}
+	_, ok := self.(PersistedContentRefLinkProvider)
+	return ok
+}
+
 func contentOwnerLinksFromTyped(self Typed) []PersistedContentRefLink {
 	if provider, ok := self.(PersistedContentRefLinkProvider); ok {
 		return slices.Clone(provider.PersistedContentRefLinks())
@@ -152,7 +168,7 @@ func (c *Cache) syncResultContentLeases(ctx context.Context, res *sharedResult) 
 // are removed by the existing startup reconciliation.
 func (c *Cache) withResultOperationLease(ctx context.Context, res *sharedResult) (context.Context, func(context.Context) error, error) {
 	ctx = withoutOperationLease(ctx)
-	if _, ok := res.loadPayloadState().self.(PersistedContentRefLinkProvider); !ok {
+	if !needsContentOperationLease(res.loadPayloadState().self) {
 		return withOperationLease(ctx)
 	}
 	manager, ok := c.snapshotManager.(bkcache.ContentManager)

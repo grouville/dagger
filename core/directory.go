@@ -50,6 +50,10 @@ type Directory struct {
 	Lazy     Lazy[*Directory]
 	Dir      *LazyAccessor[string, *Directory] // a selected subdir of the rootfs of the on-disk Result, if any
 	Snapshot *LazyAccessor[bkcache.ImmutableRef, *Directory]
+
+	// FileTree is authoritative for a CAS-backed import, even after its lazy
+	// callback has materialized a derived snapshot and been cleared.
+	FileTree *DirectoryFileTree
 }
 
 func (*Directory) Type() *ast.Type {
@@ -195,6 +199,7 @@ func (dir *Directory) PersistedSnapshotRefLinks() []dagql.PersistedSnapshotRefLi
 const (
 	persistedDirectoryFormSnapshot = "snapshot"
 	persistedDirectoryFormLazy     = "lazy"
+	persistedDirectoryFormFileTree = "filetree"
 )
 
 const (
@@ -222,6 +227,7 @@ type persistedDirectoryPayload struct {
 	Services []persistedServiceBinding `json:"services,omitempty"`
 	LazyKind string                    `json:"lazyKind,omitempty"`
 	LazyJSON json.RawMessage           `json:"lazyJSON,omitempty"`
+	FileTree *DirectoryFileTree        `json:"fileTree,omitempty"`
 }
 
 func (dir *Directory) EncodePersistedObject(ctx context.Context, cache dagql.PersistedObjectCache) (dagql.PersistedObjectEncoding, error) {
@@ -242,6 +248,9 @@ func (dir *Directory) EncodePersistedObject(ctx context.Context, cache dagql.Per
 		Dir:      dirPath,
 		Platform: dir.Platform,
 		Services: services,
+	}
+	if dir.FileTree != nil {
+		return dir.encodePersistedFileTree(payload)
 	}
 	if dir.Snapshot != nil {
 		if snapshot, ok := dir.Snapshot.Peek(); ok && snapshot != nil {
@@ -303,6 +312,32 @@ func decodePersistedDirectoryWithSnapshotRole(ctx context.Context, dag *dagql.Se
 		dir.Dir.setValue(persisted.Dir)
 	}
 	switch persisted.Form {
+	case persistedDirectoryFormFileTree:
+		if persisted.FileTree == nil {
+			return nil, fmt.Errorf("decode persisted directory: missing filetree root")
+		}
+		if err := persisted.FileTree.Root.Validate(); err != nil {
+			return nil, fmt.Errorf("decode persisted directory filetree: %w", err)
+		}
+		if dgst := persisted.FileTree.ContentDigest; dgst != "" {
+			if err := dgst.Validate(); err != nil {
+				return nil, fmt.Errorf("decode persisted directory content digest: %w", err)
+			}
+		}
+		cache, err := dagql.EngineCache(ctx)
+		if err != nil {
+			return nil, err
+		}
+		links, err := cache.PersistedContentLinksByResultID(ctx, resultID)
+		if err != nil {
+			return nil, err
+		}
+		if !slices.Contains(links, dagql.PersistedContentRefLink{Role: "filetree", Digest: persisted.FileTree.Root.Digest}) {
+			return nil, fmt.Errorf("decode persisted directory: filetree root lacks retained ownership")
+		}
+		dir.FileTree = persisted.FileTree
+		dir.Lazy = &DirectoryFileTreeLazy{LazyState: NewLazyState()}
+		return dir, nil
 	case persistedDirectoryFormSnapshot:
 		snapshot, err := loadPersistedImmutableSnapshotByResultID(ctx, dag, resultID, "directory", snapshotRole)
 		if err != nil {

@@ -3,6 +3,7 @@ package dagql
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 )
 
@@ -23,6 +24,14 @@ func (c *Cache) PersistedSnapshotLinksByResultID(ctx context.Context, resultID u
 	}
 
 	return res.loadSnapshotOwnerLinks(), nil
+}
+
+func (c *Cache) PersistedContentLinksByResultID(ctx context.Context, resultID uint64) ([]PersistedContentRefLink, error) {
+	res, _, _, err := c.sharedResultByResultID(ctx, "", sharedResultID(resultID), sharedResultLookupExact)
+	if err != nil {
+		return nil, err
+	}
+	return slices.Clone(res.loadPayloadState().contentOwnerLinks), nil
 }
 
 func (c *Cache) PersistedResultID(res AnyResult) (uint64, error) {
