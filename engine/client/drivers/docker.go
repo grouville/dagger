@@ -135,8 +135,12 @@ func (d docker) ContainerExists(ctx context.Context, name string) (bool, error) 
 	return false, err
 }
 
-func (d docker) ContainerLs(ctx context.Context) ([]string, error) {
-	cmd := exec.CommandContext(ctx, d.cmd, "ps", "-a", "--format", "{{.Names}}")
+func (d docker) ContainerLs(ctx context.Context, namePatterns ...string) ([]string, error) {
+	args := []string{"ps", "-a", "--format", "{{.Names}}"}
+	for _, pattern := range namePatterns {
+		args = append(args, "--filter", "name="+pattern)
+	}
+	cmd := exec.CommandContext(ctx, d.cmd, args...)
 	stdout, _, err := traceexec.ExecOutput(ctx, cmd)
 	if err != nil {
 		return nil, err

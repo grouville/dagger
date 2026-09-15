@@ -168,7 +168,8 @@ func (apple) ContainerIsRunning(ctx context.Context, name string) (bool, error) 
 	return false, nil
 }
 
-func (apple) ContainerLs(ctx context.Context) ([]string, error) {
+func (apple) ContainerLs(ctx context.Context, _ ...string) ([]string, error) {
+	// Apple container has no name filter. The caller applies the exact filter.
 	cmd := exec.CommandContext(ctx, "container", "ls", "-a", "--format", "json")
 	stdout, _, err := traceexec.ExecOutput(ctx, cmd)
 	if err != nil {
