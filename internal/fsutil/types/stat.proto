@@ -27,6 +27,9 @@ message Packet {
       PACKET_DATA = 2;
       PACKET_FIN = 3;
       PACKET_ERR = 4;
+      // PACKET_UNCHANGED replaces the whole stat stream when the sender's
+      // walk digest equals the one the receiver announced.
+      PACKET_UNCHANGED = 5;
     }
   PacketType type = 1;
   Stat stat = 2;

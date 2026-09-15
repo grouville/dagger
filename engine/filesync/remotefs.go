@@ -24,8 +24,14 @@ type remoteFS struct {
 	followPaths  []string
 	useGitIgnore bool
 
+	// knownWalkDigest is announced to the client; walkDigest is what the
+	// client reported for the stream it actually sent.
+	knownWalkDigest string
+	walkDigest      string
+
 	startOnce   sync.Once
 	client      filesync.FileSync_DiffCopyClient
+	firstPkt    *types.Packet
 	filesMu     sync.RWMutex
 	filesByPath map[string]*remoteFile
 	filesByID   map[uint32]*remoteFile
@@ -48,6 +54,42 @@ func newRemoteFS(
 	}
 }
 
+// begin opens the stat stream and reads its first packet. It reports whether
+// the client answered PACKET_UNCHANGED for knownWalkDigest, in which case the
+// stream carries nothing else and the caller reuses the previous snapshot
+// instead of walking. Any other first packet is handed to Walk.
+func (fs *remoteFS) begin(ctx context.Context) (unchanged bool, err error) {
+	var started bool
+	fs.startOnce.Do(func() {
+		started = true
+	})
+	if !started {
+		return false, fmt.Errorf("walk already started")
+	}
+
+	fs.client, err = filesync.NewFileSyncClient(fs.callerConn).DiffCopy(engine.LocalImportOpts{
+		Path:            fs.clientPath,
+		UseGitIgnore:    fs.useGitIgnore,
+		IncludePatterns: fs.includes,
+		ExcludePatterns: fs.excludes,
+		FollowPaths:     fs.followPaths,
+		KnownWalkDigest: fs.knownWalkDigest,
+	}.AppendToOutgoingContext(ctx))
+	if err != nil {
+		return false, fmt.Errorf("failed to create diff copy client: %w", err)
+	}
+
+	var pkt types.Packet
+	if err := fs.client.RecvMsg(&pkt); err != nil {
+		return false, fmt.Errorf("failed to receive first message: %w", err)
+	}
+	if pkt.Type == types.PACKET_UNCHANGED {
+		return true, nil
+	}
+	fs.firstPkt = &pkt
+	return false, nil
+}
+
 // Walk implements WalkFS for the remote client's filesystem. It can only be called once for a given remoteFS instance.
 // The protocol is talking to an fsutil client. The gist of the idea is:
 //   - The client starts walking its filesystem and sending stats for every path it hits. We receive those msgs in the same
@@ -57,24 +99,14 @@ func newRemoteFS(
 //   - We can ask for the contents of a given file by sending a msg to it with type PACKET_REQ and the ID of the file we want.
 //     It will then send the file contents in chunks with type PACKET_DATA and the ID of the file.
 func (fs *remoteFS) Walk(ctx context.Context, path string, walkFn fs.WalkDirFunc) error {
-	var started bool
-	fs.startOnce.Do(func() {
-		started = true
-	})
-	if !started {
-		return fmt.Errorf("walk already started")
-	}
-
-	var err error
-	fs.client, err = filesync.NewFileSyncClient(fs.callerConn).DiffCopy(engine.LocalImportOpts{
-		Path:            fs.clientPath,
-		UseGitIgnore:    fs.useGitIgnore,
-		IncludePatterns: fs.includes,
-		ExcludePatterns: fs.excludes,
-		FollowPaths:     fs.followPaths,
-	}.AppendToOutgoingContext(ctx))
-	if err != nil {
-		return fmt.Errorf("failed to create diff copy client: %w", err)
+	if fs.client == nil {
+		unchanged, err := fs.begin(ctx)
+		if err != nil {
+			return err
+		}
+		if unchanged {
+			return fmt.Errorf("client reported an unchanged tree without a known walk digest")
+		}
 	}
 
 	fs.filesByPath = make(map[string]*remoteFile)
@@ -103,17 +135,27 @@ func (fs *remoteFS) Walk(ctx context.Context, path string, walkFn fs.WalkDirFunc
 		var pkt types.Packet
 		var curFileID uint32
 		for {
-			pkt = types.Packet{Data: pkt.Data[:0]}
-			if err := fs.client.RecvMsg(&pkt); err != nil {
-				return fmt.Errorf("failed to receive message: %w", err)
+			if fs.firstPkt != nil {
+				pkt = *fs.firstPkt
+				fs.firstPkt = nil
+			} else {
+				pkt = types.Packet{Data: pkt.Data[:0]}
+				if err := fs.client.RecvMsg(&pkt); err != nil {
+					return fmt.Errorf("failed to receive message: %w", err)
+				}
 			}
 
 			switch pkt.Type {
 			case types.PACKET_ERR:
 				return fmt.Errorf("error from sender: %s", pkt.Data)
 
+			case types.PACKET_UNCHANGED:
+				return fmt.Errorf("unexpected unchanged packet during walk")
+
 			case types.PACKET_STAT:
 				if pkt.Stat == nil {
+					// The terminating packet carries the client's walk digest.
+					fs.walkDigest = string(pkt.Data)
 					closeWalkCh()
 					continue
 				}
