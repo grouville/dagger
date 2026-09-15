@@ -13,6 +13,7 @@ import (
 	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/core/leases"
 	"github.com/containerd/errdefs"
+	"github.com/dagger/dagger/engine/wcprof"
 	"github.com/dagger/dagger/internal/buildkit/identity"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -79,12 +80,17 @@ func (in *Ingest) Retain(obj Object) error {
 	if err := obj.Validate(); err != nil {
 		return err
 	}
-	if err := in.leases.AddResource(in.ctx, in.lease, leases.Resource{
+	ctx, op := wcprof.BeginOp(in.ctx, wcprof.OpKindIO, "filetree.store.retain", wcprof.OpOpts{})
+	err := in.leases.AddResource(ctx, in.lease, leases.Resource{
 		Type: "content", ID: obj.Digest.String(),
-	}); err != nil {
+	})
+	op.EndErr(err)
+	if err != nil {
 		return fmt.Errorf("retain filetree object %s: %w", obj.Digest, err)
 	}
-	info, err := in.store.blobs.Info(in.ctx, obj.Digest)
+	ctx, op = wcprof.BeginOp(in.ctx, wcprof.OpKindIO, "filetree.store.info", wcprof.OpOpts{})
+	info, err := in.store.blobs.Info(ctx, obj.Digest)
+	op.EndErr(err)
 	if err != nil {
 		return fmt.Errorf("inspect filetree object %s: %w", obj.Digest, err)
 	}
@@ -134,7 +140,9 @@ func (in *Ingest) PutTree(tree Tree) (Object, error) {
 	}
 	// containerd's already-present fast path does not apply commit options.
 	// Repair only our deterministic fields; preserve unrelated content labels.
-	info, err := in.store.blobs.Info(in.ctx, obj.Digest)
+	ctx, op := wcprof.BeginOp(in.ctx, wcprof.OpKindIO, "filetree.store.labels", wcprof.OpOpts{})
+	defer func() { op.EndErr(err) }()
+	info, err := in.store.blobs.Info(ctx, obj.Digest)
 	if err != nil {
 		return Object{}, err
 	}
@@ -145,7 +153,7 @@ func (in *Ingest) PutTree(tree Tree) (Object, error) {
 		}
 	}
 	if len(fields) > 0 {
-		_, err = in.store.blobs.Update(in.ctx, content.Info{Digest: obj.Digest, Labels: labels}, fields...)
+		_, err = in.store.blobs.Update(ctx, content.Info{Digest: obj.Digest, Labels: labels}, fields...)
 		if err != nil {
 			return Object{}, fmt.Errorf("link filetree children: %w", err)
 		}
@@ -158,9 +166,15 @@ func (in *Ingest) put(r io.Reader, size int64, expected digest.Digest, labels ma
 		return Object{}, fmt.Errorf("invalid filetree object size %d", size)
 	}
 	ref := "filetree-" + identity.NewID()
-	w, err := in.store.blobs.Writer(in.ctx, content.WithRef(ref), content.WithDescriptor(ocispec.Descriptor{
+	kind := "filetree.file."
+	if expected != "" {
+		kind = "filetree.node."
+	}
+	ctx, op := wcprof.BeginOp(in.ctx, wcprof.OpKindIO, kind+"writer", wcprof.OpOpts{})
+	w, err := in.store.blobs.Writer(ctx, content.WithRef(ref), content.WithDescriptor(ocispec.Descriptor{
 		Digest: expected, Size: size,
 	}))
+	op.EndErr(err)
 	if err != nil {
 		if expected != "" && errdefs.IsAlreadyExists(err) {
 			obj := Object{Digest: expected, Size: size}
@@ -188,7 +202,9 @@ func (in *Ingest) put(r io.Reader, size int64, expected digest.Digest, labels ma
 	if status.Offset < 0 || status.Offset > size {
 		return Object{}, fmt.Errorf("filetree writer offset %d exceeds size %d", status.Offset, size)
 	}
+	_, op = wcprof.BeginOp(in.ctx, wcprof.OpKindIO, kind+"copy", wcprof.OpOpts{})
 	copied, err := content.CopyReader(w, io.LimitReader(&contextReader{ctx: in.ctx, r: r}, size+1))
+	op.EndErr(err)
 	if err != nil {
 		return Object{}, fmt.Errorf("write filetree object: %w", err)
 	}
@@ -198,7 +214,10 @@ func (in *Ingest) put(r io.Reader, size int64, expected digest.Digest, labels ma
 	if n != size {
 		return Object{}, fmt.Errorf("filetree object length %d, expected %d", n, size)
 	}
-	if err := w.Commit(in.ctx, size, expected, content.WithLabels(labels)); err != nil && !errdefs.IsAlreadyExists(err) {
+	ctx, op = wcprof.BeginOp(in.ctx, wcprof.OpKindIO, kind+"commit", wcprof.OpOpts{})
+	err = w.Commit(ctx, size, expected, content.WithLabels(labels))
+	op.EndErr(err)
+	if err != nil && !errdefs.IsAlreadyExists(err) {
 		return Object{}, fmt.Errorf("commit filetree object: %w", err)
 	}
 	// Writer.Digest is guaranteed only after commit. Reuse containerd's digest
@@ -225,7 +244,9 @@ func (s *Store) OpenFile(ctx context.Context, obj Object) (content.ReaderAt, err
 
 // ReadTree verifies the canonical node bytes and its outgoing GC links. Raw
 // file contents which happen to encode a tree are not yet a published node.
-func (s *Store) ReadTree(ctx context.Context, obj Object) (Tree, error) {
+func (s *Store) ReadTree(ctx context.Context, obj Object) (_ Tree, rerr error) {
+	ctx, op := wcprof.BeginOp(ctx, wcprof.OpKindIO, "filetree.store.readTree", wcprof.OpOpts{})
+	defer func() { op.EndErr(rerr) }()
 	if obj.Size > maxTreeSize {
 		return Tree{}, errors.New("filetree node exceeds size limit")
 	}

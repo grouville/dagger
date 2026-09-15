@@ -35,12 +35,8 @@ func (local *localFS) SyncTree(ctx context.Context, remote ReadFS, cacheManager 
 	if !ok {
 		return nil, "", errors.New("filesync requires content-addressed tree support")
 	}
-	in, err := manager.FileTreeIngest(ctx)
-	if err != nil {
-		return nil, "", err
-	}
 	var root filetree.Object
-	_, dgst, err := local.sync(ctx, remote, cacheManager, false, func(ctx context.Context, changes []CachedChange, only map[string]struct{}, dgst digest.Digest) error {
+	_, dgst, err := local.sync(ctx, remote, cacheManager, false, func(ctx context.Context, changes []CachedChange, only map[string]struct{}, dgst digest.Digest) (rerr error) {
 		// Preserve filesync's existing semantic-equivalence reuse, which ignores
 		// e.g. hardlink topology. Reuse the old CAS root, not merely its view:
 		// reconstructing after view GC must give the same selected filesystem.
@@ -53,10 +49,13 @@ func (local *localFS) SyncTree(ctx context.Context, remote ReadFS, cacheManager 
 			return nil
 		}
 		ctx, op := wcprof.BeginOp(ctx, wcprof.OpKindIO, "filesync.cas.ingest", wcprof.OpOpts{})
-		var ingestErr error
-		root, ingestErr = local.ingestTree(ctx, in, changes, only)
-		op.EndErr(ingestErr)
-		return ingestErr
+		defer func() { op.EndErr(rerr) }()
+		in, err := manager.FileTreeIngest(ctx)
+		if err != nil {
+			return err
+		}
+		root, err = local.ingestTree(ctx, in, changes, only)
+		return err
 	})
 	if err != nil {
 		return nil, "", err
