@@ -35,6 +35,9 @@ const (
 	PACKET_DATA Packet_PacketType = 2
 	PACKET_FIN  Packet_PacketType = 3
 	PACKET_ERR  Packet_PacketType = 4
+	// PACKET_UNCHANGED replaces the whole stat stream when the sender's
+	// walk digest equals the one the receiver announced.
+	PACKET_UNCHANGED Packet_PacketType = 5
 )
 
 var Packet_PacketType_name = map[int32]string{
@@ -43,14 +46,16 @@ var Packet_PacketType_name = map[int32]string{
 	2: "PACKET_DATA",
 	3: "PACKET_FIN",
 	4: "PACKET_ERR",
+	5: "PACKET_UNCHANGED",
 }
 
 var Packet_PacketType_value = map[string]int32{
-	"PACKET_STAT": 0,
-	"PACKET_REQ":  1,
-	"PACKET_DATA": 2,
-	"PACKET_FIN":  3,
-	"PACKET_ERR":  4,
+	"PACKET_STAT":      0,
+	"PACKET_REQ":       1,
+	"PACKET_DATA":      2,
+	"PACKET_FIN":       3,
+	"PACKET_ERR":       4,
+	"PACKET_UNCHANGED": 5,
 }
 
 func (Packet_PacketType) EnumDescriptor() ([]byte, []int) {

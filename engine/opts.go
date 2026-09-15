@@ -288,6 +288,10 @@ type LocalImportOpts struct {
 	GetAbsPathOnly     bool             `json:"get_abs_path_only"`
 	GlobPattern        string           `json:"glob_pattern"`
 	SearchOpts         *LocalSearchOpts `json:"search_opts,omitempty"`
+	// KnownWalkDigest is the walk digest the engine recorded for the last
+	// sync of this path and filter set. A client that computes the same
+	// digest answers with a single PACKET_UNCHANGED instead of the stats.
+	KnownWalkDigest string `json:"known_walk_digest,omitempty"`
 }
 
 func (o LocalImportOpts) ToGRPCMD() metadata.MD {

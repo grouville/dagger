@@ -15,6 +15,7 @@ import (
 
 	"github.com/dagger/dagger/engine"
 	"github.com/dagger/dagger/engine/client/pathutil"
+	"github.com/dagger/dagger/util/hashutil"
 	telemetry "github.com/dagger/otel-go"
 )
 
@@ -124,12 +125,47 @@ func (ls *FileSyncer) sync(
 		cancel(rerr)
 	}()
 
-	remote := newRemoteFS(callerConn, drive+clientPath, opts.IncludePatterns, opts.ExcludePatterns, opts.FollowPaths, opts.GitIgnore)
 	local, err := newLocalFS(sharedState, clientPath, opts.IncludePatterns, opts.ExcludePatterns, opts.FollowPaths, opts.RelativePath)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create local fs: %w", err)
 	}
-	return local.Sync(ctx, remote, ls.cacheManager, false)
+
+	// Announce the walk digest of the last sync of this tree. A client whose
+	// walk hashes the same sends no stats, and the snapshot it produced last
+	// time is reused without touching the mirror. If that snapshot is gone,
+	// fall back to a plain sync on a fresh stream.
+	walkKey := hashutil.HashStrings(
+		"filesync-walk", drive+clientPath, opts.RelativePath, fmt.Sprintf("%t", opts.GitIgnore),
+		fmt.Sprint(opts.IncludePatterns), fmt.Sprint(opts.ExcludePatterns), fmt.Sprint(opts.FollowPaths),
+	).String()
+	remote := newRemoteFS(callerConn, drive+clientPath, opts.IncludePatterns, opts.ExcludePatterns, opts.FollowPaths, opts.GitIgnore)
+	if rec, ok := sharedState.walkDigests.get(walkKey); ok {
+		remote.knownWalkDigest = rec.walkDigest
+		// The stream lives until this function's cancel fires, on every path.
+		unchanged, err := remote.begin(ctx)
+		if err != nil {
+			return nil, "", err
+		}
+		if unchanged {
+			ref, found, err := refForContentDigest(ctx, ls.cacheManager, rec.contentDigest)
+			if err != nil {
+				return nil, "", err
+			}
+			if found {
+				return ref, rec.contentDigest, nil
+			}
+			remote = newRemoteFS(callerConn, drive+clientPath, opts.IncludePatterns, opts.ExcludePatterns, opts.FollowPaths, opts.GitIgnore)
+		}
+	}
+
+	ref, dgst, err := local.Sync(ctx, remote, ls.cacheManager, false)
+	if err != nil {
+		return nil, "", err
+	}
+	if remote.walkDigest != "" {
+		sharedState.walkDigests.set(walkKey, walkDigestRecord{walkDigest: remote.walkDigest, contentDigest: dgst})
+	}
+	return ref, dgst, nil
 }
 
 func (ls *FileSyncer) syncParentDirs(
