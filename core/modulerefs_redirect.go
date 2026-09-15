@@ -81,6 +81,12 @@ func ResolveDaggerGetRedirect(ctx context.Context, refString string) (string, er
 		); ok {
 			return sourceURLWithVersion(resolvedURL, version), nil
 		}
+		// A remote the lock already pinned was resolved once; like every
+		// other pin it stays authoritative until an explicit update, so no
+		// redirect probe is needed to find out where the ref goes.
+		if lockPinsSourceURL(lock, sourceURL) {
+			return refString, nil
+		}
 		if !lockOverridden && queryErr == nil {
 			_, lockWritable, err := query.CurrentWorkspaceLock(ctx, true)
 			if err != nil {
@@ -138,6 +144,24 @@ func ResolveDaggerGetRedirect(ctx context.Context, refString string) (string, er
 		return "", fmt.Errorf("set vanity-url lock entry: %w", err)
 	}
 	return sourceURLWithVersion(resolvedRef, version), nil
+}
+
+// lockPinsSourceURL reports whether the lock pins the repository a source
+// URL lives in. A ref may name a subpath of its repository, so every parent
+// path is a candidate remote.
+func lockPinsSourceURL(lock *workspace.Lock, sourceURL string) bool {
+	remote := workspace.NormalizeGitRemote(sourceURL)
+	for remote != "" {
+		if lock.PinsGitRemote(remote) {
+			return true
+		}
+		i := strings.LastIndex(remote, "/")
+		if i < 0 {
+			return false
+		}
+		remote = remote[:i]
+	}
+	return false
 }
 
 func splitSourceURLVersion(refString string) (string, string, error) {

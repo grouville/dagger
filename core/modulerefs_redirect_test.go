@@ -267,6 +267,57 @@ func TestResolveDaggerGetRedirectUsesWorkspaceLock(t *testing.T) {
 	require.Zero(t, requests.Load(), "lock hit should avoid the HTTP probe")
 }
 
+func TestResolveDaggerGetRedirectSkipsProbeForPinnedRemote(t *testing.T) {
+	var requests atomic.Int32
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		http.Redirect(w, r, "https://github.com/dagger/dagger?dagger-get=1", http.StatusTemporaryRedirect)
+	}))
+	defer srv.Close()
+
+	oldClient := daggerGetClient
+	daggerGetClient = srv.Client()
+	// Use a port-free vanity URL; schemeless host:port refs are SSH-like.
+	daggerGetClient.Transport.(*http.Transport).DialContext = func(ctx context.Context, network, _ string) (net.Conn, error) {
+		return (&net.Dialer{}).DialContext(ctx, network, srv.Listener.Addr().String())
+	}
+	daggerGetClient.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	defer func() { daggerGetClient = oldClient }()
+
+	lock := workspace.NewLock()
+	require.NoError(t, lock.SetLookup(
+		workspace.CoreLockNamespace,
+		workspace.LockOperationGitSHA,
+		[]any{"https://127.0.0.1/org/repo.git", "refs/tags/v1"},
+		"d730fb3af8757e1ca293e01aa4fcfd510a6e40e5",
+	))
+	cache, err := dagql.NewCache(t.Context(), "", nil, nil)
+	require.NoError(t, err)
+	ctx := ContextWithQuery(t.Context(), &Query{Server: &mockServer{workspaceLock: lock, lockWritable: true}})
+	ctx = engine.ContextWithClientMetadata(ctx, &engine.ClientMetadata{SessionID: "session-a"})
+	ctx = dagql.ContextWithCache(ctx, cache)
+
+	// The pinned repository and any subpath in it resolve without a probe.
+	for _, ref := range []string{
+		"https://127.0.0.1/org/repo@main",
+		"127.0.0.1/org/repo/sub/dir@v1",
+		"https://127.0.0.1/org/repo.git@main",
+	} {
+		resolved, err := ResolveDaggerGetRedirect(ctx, ref)
+		require.NoError(t, err)
+		require.Equal(t, ref, resolved)
+	}
+	require.Zero(t, requests.Load(), "a pinned remote must not be probed")
+
+	// A remote the lock does not pin is still probed.
+	resolved, err := ResolveDaggerGetRedirect(ctx, "127.0.0.1/org/other@main")
+	require.NoError(t, err)
+	require.Equal(t, "https://github.com/dagger/dagger@main", resolved)
+	require.EqualValues(t, 1, requests.Load())
+}
+
 func TestResolveDaggerGetRedirectWritesWorkspaceLock(t *testing.T) {
 	var requests atomic.Int32
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
