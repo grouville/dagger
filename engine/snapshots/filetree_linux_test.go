@@ -312,3 +312,66 @@ func TestFileTreeSnapshotConcurrentReuseAndSourceHint(t *testing.T) {
 	require.Equal(t, id, info.Parent, "a source hint should enable delta reuse without becoming content identity")
 	f.assertTree(t, ref, after)
 }
+
+func TestFileTreeSnapshotRootHintRetainsOnlyContent(t *testing.T) {
+	f := newFileTreeSnapshotFixture(t, "native")
+	oldCtx, releaseOld := f.operation(t, "old")
+	manager := f.cm.(snapshots.FileTreeManager)
+	in, err := manager.FileTreeIngest(oldCtx)
+	require.NoError(t, err)
+	root := fileTreeRoot(t, in, fileTreeFile(t, in, "a", "retained"),
+		filetree.Entry{Name: []byte("z"), Kind: filetree.Hardlink, Linkname: []byte("a")})
+	first := f.materialize(t, oldCtx, root, "")
+	id := first.SnapshotID()
+	ctx, _ := f.operation(t, "new")
+	selected, err := manager.FileTreeRoot(ctx, id)
+	require.NoError(t, err)
+	require.Equal(t, root, selected)
+	require.NoError(t, first.Release(f.ctx))
+	releaseOld()
+	f.gc(t)
+	_, err = f.sn.Stat(f.ctx, id)
+	require.True(t, errdefs.IsNotFound(err), "root selection must not retain the old view: %v", err)
+	reconstructed := f.materialize(t, ctx, selected, id)
+	defer reconstructed.Release(f.ctx)
+	f.assertTree(t, reconstructed, root)
+}
+
+func TestFileTreeSnapshotRootHintValidation(t *testing.T) {
+	for _, mode := range []string{"missing-view", "legacy-view", "missing-root", "missing-leaf", "invalid-label"} {
+		t.Run(mode, func(t *testing.T) {
+			f := newFileTreeSnapshotFixture(t, "native")
+			ctx, _ := f.operation(t, "hint")
+			manager := f.cm.(snapshots.FileTreeManager)
+			in, err := manager.FileTreeIngest(ctx)
+			require.NoError(t, err)
+			file := fileTreeFile(t, in, "file", "bytes")
+			root := fileTreeRoot(t, in, file)
+			ref := f.materialize(t, ctx, root, "")
+			defer ref.Release(f.ctx)
+			id := ref.SnapshotID()
+			switch mode {
+			case "missing-view":
+				id = "absent"
+			case "legacy-view", "invalid-label":
+				label := ""
+				if mode == "invalid-label" {
+					label = "not-json"
+				}
+				_, err := f.sn.Update(f.ctx, ctdsnapshots.Info{Name: id, Labels: map[string]string{"dagger.io/filetree.root.v1": label}}, "labels.dagger.io/filetree.root.v1")
+				require.NoError(t, err)
+			case "missing-root":
+				require.NoError(t, f.db.ContentStore().Delete(f.ctx, root.Digest))
+			case "missing-leaf":
+				require.NoError(t, f.db.ContentStore().Delete(f.ctx, file.Object.Digest))
+			}
+			_, err = manager.FileTreeRoot(ctx, id)
+			if mode == "invalid-label" {
+				require.ErrorContains(t, err, "decode filetree root")
+				require.False(t, errdefs.IsNotFound(err) || snapshots.IsNotFound(err))
+			} else {
+				require.True(t, errdefs.IsNotFound(err) || snapshots.IsNotFound(err), "%v", err)
+			}
+		})
+	}
+}

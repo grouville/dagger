@@ -21,6 +21,7 @@ import (
 // and any materialized snapshot. It must not use a flat snapshot-owner lease.
 type FileTreeManager interface {
 	FileTreeIngest(context.Context) (*filetree.Ingest, error)
+	FileTreeRoot(context.Context, string) (filetree.Object, error)
 	MaterializeFileTree(context.Context, filetree.Object, string, ...RefOption) (ImmutableRef, error)
 }
 
@@ -46,6 +47,42 @@ func (cm *snapshotManager) FileTreeIngest(ctx context.Context) (*filetree.Ingest
 		return nil, err
 	}
 	return filetree.NewStore(cm.ContentStore).Ingest(ctx, cm.LeaseManager)
+}
+
+// FileTreeRoot resolves an optional derived-view hint and retains its complete
+// content tree in the caller's operation lease. The view itself is not retained:
+// callers publish the returned root, never rely on the view remaining available.
+// A legacy view without a root label is a miss, just like a collected view/root.
+func (cm *snapshotManager) FileTreeRoot(ctx context.Context, snapshotID string) (filetree.Object, error) {
+	info, err := cm.Snapshotter.Stat(ctx, snapshotID)
+	if err != nil {
+		return filetree.Object{}, err
+	}
+	payload := info.Labels[fileTreeRootLabel]
+	if payload == "" {
+		return filetree.Object{}, fmt.Errorf("snapshot %s has no filetree root: %w", snapshotID, errNotFound)
+	}
+	var root filetree.Object
+	if err := json.Unmarshal([]byte(payload), &root); err != nil {
+		return filetree.Object{}, fmt.Errorf("decode filetree root: %w", err)
+	}
+	in, err := cm.FileTreeIngest(ctx)
+	if err != nil {
+		return filetree.Object{}, err
+	}
+	if err := in.Retain(root); err != nil {
+		return filetree.Object{}, err
+	}
+	// A surviving snapshot is not evidence that all CAS objects still exist.
+	// Check the canonical tree/GC links and leaf availability before choosing
+	// this root instead of re-ingesting the current, conflict-held mirror.
+	if _, err := filetree.NewView(ctx, filetree.NewStore(cm.ContentStore), root); err != nil {
+		return filetree.Object{}, err
+	}
+	if _, err := cm.ContentUsage(ctx, root.Digest); err != nil {
+		return filetree.Object{}, err
+	}
+	return root, nil
 }
 
 // MaterializeFileTree reconstructs root, optionally reusing a previous immutable
