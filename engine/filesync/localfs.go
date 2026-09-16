@@ -88,7 +88,9 @@ type localFS struct {
 }
 
 func newLocalFS(sharedState *MirrorSharedState, subdir string, includes, excludes, followPaths []string, copyPath string) (*localFS, error) {
-	baseFS, err := fsutil.NewFS(filepath.Join(sharedState.rootPath, subdir))
+	// The differ does not use xattrs. GetPreviousChange reads the content hash
+	// separately, under the change cache, and repairs it if it is missing.
+	baseFS, err := fsutil.NewFS(filepath.Join(sharedState.rootPath, subdir), fsutil.WithSkipXattrs())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create base fs: %w", err)
 	}
