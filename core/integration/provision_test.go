@@ -103,6 +103,78 @@ func (ProvisionSuite) TestImageDriver(ctx context.Context, t *testctx.T) {
 	}
 }
 
+// A local daemon gets an authenticated loopback endpoint when the CLI creates
+// the engine container; a remote one (every other provisioning test here,
+// where DOCKER_HOST is a tcp:// service) does not. dockerd and the CLI share
+// one container so the daemon is local.
+func (ProvisionSuite) TestImageDriverLocalEndpoint(ctx context.Context, t *testctx.T) {
+	c := connect(ctx, t)
+	tarPath := "./bin/engine.tar"
+	if v, ok := os.LookupEnv("_DAGGER_TESTS_ENGINE_TAR"); ok {
+		tarPath = v
+	}
+	script := `
+set -eu
+/usr/local/bin/dagger-dockerd-entrypoint.sh dockerd --host=unix:///var/run/docker.sock >/var/log/dockerd.log 2>&1 &
+for i in $(seq 1 60); do docker info >/dev/null 2>&1 && break; sleep 1; done
+docker image load -i /engine.tar > /tmp/load.txt
+# "Loaded image: <ref>" for a tagged tarball, "Loaded image ID: sha256:..." otherwise
+docker tag "$(sed -n 's/^Loaded image: //p; s/^Loaded image ID: //p' /tmp/load.txt | head -1)" registry.dagger.io/engine:dev
+# the docker state is a cache volume: start from no engine container
+docker rm -f dagger-engine-dev >/dev/null 2>&1 || true
+
+export XDG_STATE_HOME=/root/.local/state
+export _EXPERIMENTAL_DAGGER_RUNNER_HOST=image+docker://registry.dagger.io/engine:dev
+query() { echo '{version}' | /bin/dagger query -M | grep -q '"version"'; }
+
+query # first run creates the engine with its endpoint
+d=$XDG_STATE_HOME/dagger/engines/dagger-engine-dev
+test -f "$d/port" && test -f "$d/token"
+test "$(stat -c %a "$d/token")" = 600
+docker inspect dagger-engine-dev --format '{{json .Args}}' | grep -q -- '--token-addr'
+docker inspect dagger-engine-dev --format '{{json .HostConfig.PortBindings}}' | grep -q '"HostIp":"127.0.0.1"'
+echo ENDPOINT_CREATED
+
+query # second run connects over the endpoint
+echo ENDPOINT_REUSED
+
+# A peer that fails the handshake is not the engine: a corrupted token
+# falls back to the exec tunnel, and so does a missing one.
+cp "$d/token" "$d/token.orig"
+echo 0000000000000000000000000000000000000000000000000000000000000000 > "$d/token"
+query
+mv "$d/token" "$d/token.bad"
+query
+mv "$d/token.orig" "$d/token"
+query
+echo FALLBACK_OK
+
+# The state directory is gone when docker restarts the container: the
+# engine starts without its endpoint and the client uses the exec tunnel.
+docker stop -t 5 dagger-engine-dev >/dev/null
+rm -rf "$d"
+query
+docker inspect dagger-engine-dev --format '{{.State.Running}}' | grep -q true
+echo STATE_LOST_OK
+`
+	out, err := c.Container().From("docker:dind").
+		WithNewFile("/usr/local/bin/dagger-dockerd-entrypoint.sh", dockerdKernelCompatEntrypoint, dagger.ContainerWithNewFileOpts{Permissions: 0o755}).
+		WithMountedFile("/bin/dagger", daggerCliFile(t, c)).
+		WithMountedFile("/engine.tar", c.Host().File(tarPath)).
+		// dockerd needs a real filesystem under it, not the container's overlay
+		WithMountedCache("/var/lib/docker", c.CacheVolume(t.Name()+"-docker-lib"), dagger.ContainerWithMountedCacheOpts{
+			Sharing: dagger.CacheSharingModePrivate,
+		}).
+		WithEnvVariable("CACHEBUSTER", identity.NewID()).
+		WithExec([]string{"sh", "-c", script}, dagger.ContainerWithExecOpts{InsecureRootCapabilities: true}).
+		Stdout(ctx)
+	require.NoError(t, err)
+	require.Contains(t, out, "ENDPOINT_CREATED")
+	require.Contains(t, out, "ENDPOINT_REUSED")
+	require.Contains(t, out, "FALLBACK_OK")
+	require.Contains(t, out, "STATE_LOST_OK")
+}
+
 func (ProvisionSuite) TestImageDriverConfig(ctx context.Context, t *testctx.T) {
 	for _, tc := range driverTestCases {
 		t.Run(tc.name, func(ctx context.Context, t *testctx.T) {

@@ -17,7 +17,7 @@ func TestImageDriverCreateEnablesLoopbackDebugListener(t *testing.T) {
 	backend := &captureContainerBackend{}
 	driver := &imageDriver{backend: backend}
 
-	target, err := driver.create(ctx, containerCreateOpts{
+	target, _, err := driver.create(ctx, containerCreateOpts{
 		imageRef: "registry.example.com/dagger-engine:v0.21.0",
 		port:     1234,
 	}, &DriverOpts{})

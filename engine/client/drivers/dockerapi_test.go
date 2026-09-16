@@ -2,6 +2,7 @@ package drivers
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"io"
 	"net"
@@ -161,3 +162,14 @@ func TestDockerAPIBackendUnavailableDaemon(t *testing.T) {
 }
 
 var _ io.Reader = (*execConn)(nil)
+
+type dialCountBackend struct {
+	captureContainerBackend
+	dials int
+}
+
+func (b *dialCountBackend) ContainerDial(context.Context, string, []string) (net.Conn, error) {
+	b.dials++
+	c, _ := net.Pipe()
+	return c, nil
+}

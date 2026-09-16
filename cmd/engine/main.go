@@ -190,6 +190,14 @@ func addFlags(app *cli.App) {
 			Value: groupValue(defaultConf.GRPC.GID),
 		},
 		cli.StringFlag{
+			Name:  "token-addr",
+			Usage: "additional TCP listening address that only accepts connections presenting the token from --token-file",
+		},
+		cli.StringFlag{
+			Name:  "token-file",
+			Usage: "file holding the token connections to --token-addr must present first",
+		},
+		cli.StringFlag{
 			Name:  "debugaddr",
 			Usage: "debugging address (eg. 0.0.0.0:6060)",
 			Value: defaultConf.GRPC.DebugAddress,
@@ -554,7 +562,11 @@ func main() { //nolint:gocyclo
 			Protocols: protocols,
 		}
 		errCh := make(chan error, 1)
-		if err := serveAPI(bkcfg.GRPC, httpServer, errCh); err != nil {
+		tokenAddr, endpointToken, err := readEndpointToken(ctx, c.String("token-addr"), c.String("token-file"))
+		if err != nil {
+			return err
+		}
+		if err := serveAPI(bkcfg.GRPC, tokenAddr, endpointToken, httpServer, errCh); err != nil {
 			return err
 		}
 
@@ -600,14 +612,47 @@ func main() { //nolint:gocyclo
 	}
 }
 
+// readEndpointToken loads the token the --token-addr listener requires.
+// Both flags go together; --addr listeners are never token-protected, so a
+// port a user publishes on purpose keeps working as before. A token file
+// that is missing or empty disables the listener rather than the engine:
+// the client that lost the file falls back to the exec tunnel.
+func readEndpointToken(ctx context.Context, addr, path string) (string, string, error) {
+	if addr == "" && path == "" {
+		return "", "", nil
+	}
+	if addr == "" || path == "" {
+		return "", "", errors.New("--token-addr and --token-file must be set together")
+	}
+	if !strings.HasPrefix(addr, "tcp://") {
+		return "", "", fmt.Errorf("--token-addr must be a tcp:// address, got %s", addr)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		bklog.G(ctx).WithError(err).Warnf("token file %s not readable, not serving %s", path, addr)
+		return "", "", nil
+	}
+	token := strings.TrimSpace(string(raw))
+	if token == "" {
+		bklog.G(ctx).Warnf("token file %s is empty, not serving %s", path, addr)
+		return "", "", nil
+	}
+	return addr, token, nil
+}
+
 func serveAPI(
 	cfg bkconfig.GRPCConfig,
+	tokenAddr string,
+	endpointToken string,
 	httpServer *http.Server,
 	errCh chan error,
 ) error {
 	addrs := cfg.Address
 	if len(addrs) == 0 {
 		return errors.New("--addr cannot be empty")
+	}
+	if tokenAddr != "" {
+		addrs = append(addrs, tokenAddr)
 	}
 	addrs = removeDuplicates(addrs)
 
@@ -624,6 +669,12 @@ func serveAPI(
 				l.Close()
 			}
 			return err
+		}
+		// Unix sockets are protected by their file permissions and --addr
+		// listeners by whatever the user put in front of them; only the
+		// token address requires the token.
+		if addr == tokenAddr {
+			l = engine.NewTokenListener(l, endpointToken)
 		}
 		listeners = append(listeners, l)
 	}

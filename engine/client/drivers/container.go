@@ -144,8 +144,24 @@ func (d *imageDriver) Provision(ctx context.Context, target *url.URL, opts *Driv
 		cleanup, _ = strconv.ParseBool(val)
 	}
 
+	// An engine that already answers on its local endpoint needs no
+	// discovery at all; everything else takes the full path.
+	name, err := (containerCreateOpts{
+		imageRef:      target.Host + target.Path,
+		containerName: target.Query().Get("container"),
+	}).resolveContainerName()
+	if err != nil {
+		return nil, err
+	}
+	endpointDir, hasEndpointDir := localEndpointDir(name)
+	if hasEndpointDir {
+		if ep, ok := loadLocalEndpoint(endpointDir); ok && ep.probe(ctx) {
+			return containerConnector{backend: d.backend, host: name, values: target.Query(), endpoint: ep}, nil
+		}
+	}
+
 	port, _ := strconv.Atoi(target.Query().Get("port"))
-	target, err := d.create(ctx, containerCreateOpts{
+	target, endpoint, err := d.create(ctx, containerCreateOpts{
 		imageRef:      target.Host + target.Path,
 		containerName: target.Query().Get("container"),
 		volumeName:    target.Query().Get("volume"),
@@ -154,14 +170,19 @@ func (d *imageDriver) Provision(ctx context.Context, target *url.URL, opts *Driv
 		env:           target.Query()["env"],
 		cpus:          target.Query().Get("cpus"),
 		memory:        target.Query().Get("memory"),
+		endpointDir:   endpointDir,
 	}, opts)
 	if err != nil {
 		return nil, err
 	}
+	// Only a container created just now gets its endpoint attached: an
+	// existing one that did not answer the probe is reached through the
+	// exec tunnel.
 	return containerConnector{
-		backend: d.backend,
-		host:    target.Host,
-		values:  target.Query(),
+		backend:  d.backend,
+		host:     target.Host,
+		values:   target.Query(),
+		endpoint: endpoint,
 	}, nil
 }
 
@@ -173,6 +194,10 @@ type containerConnector struct {
 	host    string
 	values  url.Values
 	backend containerBackend
+
+	// endpoint, when set, is the engine's token-protected loopback port;
+	// the exec tunnel is the fallback when it does not answer.
+	endpoint *localEndpoint
 }
 
 // imageDriver connects to a container directly
@@ -197,6 +222,9 @@ func (d *containerDriver) ImageLoader(ctx context.Context) imageload.Backend {
 }
 
 func (d containerConnector) Connect(ctx context.Context) (net.Conn, error) {
+	if conn, ok := d.endpoint.connect(ctx); ok {
+		return conn, nil
+	}
 	args := []string{}
 	if context := d.values.Get("context"); context != "" {
 		args = append(args, "--context="+context)
@@ -236,6 +264,22 @@ type containerCreateOpts struct {
 
 	cpus   string
 	memory string
+
+	// endpointDir, when set, receives a fresh local endpoint (loopback port
+	// and token) if create has to run a new container.
+	endpointDir string
+}
+
+// resolveContainerName is the name create will run the container under.
+func (opts containerCreateOpts) resolveContainerName() (string, error) {
+	if opts.containerName != "" {
+		return opts.containerName, nil
+	}
+	id, err := resolveImageID(opts.imageRef)
+	if err != nil {
+		return "", err
+	}
+	return containerNamePrefix + id, nil
 }
 
 // Pull the image and run it with a unique name tied to the pinned
@@ -243,19 +287,16 @@ type containerCreateOpts struct {
 // previous executions of the engine at different versions (which
 // are identified by looking for containers with the prefix
 // "dagger-engine-").
-func (d *imageDriver) create(ctx context.Context, opts containerCreateOpts, dopts *DriverOpts) (target *url.URL, rerr error) {
+// It returns the local endpoint it published for a container it created,
+// or nil.
+func (d *imageDriver) create(ctx context.Context, opts containerCreateOpts, dopts *DriverOpts) (target *url.URL, endpoint *localEndpoint, rerr error) {
 	ctx, span := otel.Tracer("").Start(ctx, "create container")
 	defer telemetry.EndWithCause(span, &rerr)
 	slog := slog.SpanLogger(ctx, InstrumentationLibrary)
 
-	containerName := opts.containerName
-	if containerName == "" {
-		id, err := resolveImageID(opts.imageRef)
-		if err != nil {
-			return nil, err
-		}
-		// run the container using that id in the name
-		containerName = containerNamePrefix + id
+	containerName, err := opts.resolveContainerName()
+	if err != nil {
+		return nil, nil, err
 	}
 
 	// The common case is an engine that already exists: ask for it by name
@@ -265,21 +306,21 @@ func (d *imageDriver) create(ctx context.Context, opts containerCreateOpts, dopt
 	exists, err := d.backend.ContainerExists(ctx, containerName)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			return nil, err
+			return nil, nil, err
 		}
 		slog.Warn("failed to inspect container", "name", containerName, "error", err)
 	}
 	if exists {
 		if err := d.backend.ContainerStart(ctx, containerName); err != nil {
-			return nil, fmt.Errorf("failed to start container: %w", err)
+			return nil, nil, fmt.Errorf("failed to start container: %w", err)
 		}
-		return &url.URL{Host: containerName}, nil
+		return &url.URL{Host: containerName}, nil, nil
 	}
 
 	leftoverEngines, err := d.collectLeftoverEngines(ctx, containerName)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			return nil, err
+			return nil, nil, err
 		}
 		slog.Warn("failed to list containers", "error", err)
 		leftoverEngines = []string{}
@@ -288,11 +329,11 @@ func (d *imageDriver) create(ctx context.Context, opts containerCreateOpts, dopt
 	// ensure the image is pulled
 	exists, err = d.backend.ImageExists(ctx, opts.imageRef)
 	if err != nil {
-		return nil, fmt.Errorf("failed to inspect image: %w", err)
+		return nil, nil, fmt.Errorf("failed to inspect image: %w", err)
 	}
 	if !exists {
 		if err := d.backend.ImagePull(ctx, opts.imageRef); err != nil {
-			return nil, fmt.Errorf("failed to pull image: %w", err)
+			return nil, nil, fmt.Errorf("failed to pull image: %w", err)
 		}
 	}
 
@@ -335,13 +376,29 @@ func (d *imageDriver) create(ctx context.Context, opts containerCreateOpts, dopt
 		runOptions.ports = append(runOptions.ports, fmt.Sprintf("%d:%d", opts.port, opts.port))
 		runOptions.args = append(runOptions.args, "--addr", fmt.Sprintf("tcp://0.0.0.0:%d", opts.port))
 	}
+	if opts.endpointDir != "" {
+		ep, err := newLocalEndpoint(opts.endpointDir)
+		if err != nil {
+			slog.Warn("could not prepare the engine's local endpoint, using the exec tunnel", "error", err)
+		} else {
+			ep.runOptions(opts.endpointDir, &runOptions)
+			endpoint = ep
+		}
+	}
 
 	if err := d.backend.ContainerRun(ctx, containerName, runOptions); err != nil {
 		// maybe someone else started the container simultaneously?
 		if !errors.Is(err, errContainerAlreadyExists) {
 			if exists, _ := d.backend.ContainerExists(ctx, containerName); !exists {
-				return nil, fmt.Errorf("failed to run container: %w", err)
+				return nil, nil, fmt.Errorf("failed to run container: %w", err)
 			}
+		}
+		// The other creator's container does not hold the endpoint that
+		// was just recorded, and its own record was overwritten: drop it so
+		// no command pays a failed probe for this engine.
+		if endpoint != nil {
+			forgetLocalEndpoint(opts.endpointDir)
+			endpoint = nil
 		}
 	}
 
@@ -350,7 +407,7 @@ func (d *imageDriver) create(ctx context.Context, opts containerCreateOpts, dopt
 	// version
 	d.garbageCollectEngines(ctx, opts.cleanup, nil, leftoverEngines)
 
-	return &url.URL{Host: containerName}, nil
+	return &url.URL{Host: containerName}, endpoint, nil
 }
 
 func (d *imageDriver) garbageCollectEngines(ctx context.Context, cleanup bool, preserveNames, engines []string) {
@@ -365,7 +422,9 @@ func (d *imageDriver) garbageCollectEngines(ctx context.Context, cleanup bool, p
 			if errors.Is(err, context.Canceled) {
 				return
 			}
+			continue
 		}
+		removeLocalEndpointState(engineName)
 	}
 }
 
