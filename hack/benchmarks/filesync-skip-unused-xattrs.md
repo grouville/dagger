@@ -52,8 +52,36 @@ of client and 98 ms of mirror xattr work removed, but that pair's sync phase
 improved only about 13 ms and its whole command was essentially unchanged.
 Overlapping work counters must not be added together as predicted savings.
 
-Profiling-off confirmation is pending. These are filesync-only diagnostic
-results, not Rust/Cargo end-to-end results or a complete-install benchmark.
+These are filesync-only diagnostic results, not Rust/Cargo end-to-end results
+or a complete-install benchmark.
+
+## Profiling-off follow-up
+
+Three fresh alternating pairs (24 commands), all source/digest gates passed,
+fixture restored. Same images with profiling and sender counters disabled;
+no heavy builds/tests ran concurrently. These are CLI wall times, not engine
+phase timings. This small follow-up does **not** confirm an edit-flow speedup.
+
+| Flow | Control median ms | Candidate median ms | Median paired candidate minus control ms |
+| --- | ---: | ---: | ---: |
+| Fresh engine/cache import | 5876.992 | 5829.303 | -451.809 |
+| Unchanged after initial | 1066.400 | 1015.804 | -99.234 |
+| One-file edit | 1718.126 | 1717.643 | +0.345 |
+| Unchanged after edit | 1016.793 | 965.580 | -101.094 |
+
+Keep the limitations visible: cold paired differences range from -505.469 ms
+to -0.767 ms and include provisioning variability; they are not a filesync
+phase attribution. Edit pairs range from -50.870 ms to +50.067 ms. The repeated
+edited candidate has a 1317.211 ms maximum and one +351.118 ms paired regression.
+No samples were removed. The subprocess timeout wait polls with a delay capped
+at 50 ms, so CLI observation has additional quantization/exit-detection lag;
+the earlier native wcprof engine intervals do not have that polling artifact.
+Do not convert these three pairs into a precise production speedup claim.
+
+Raw follow-up: `filesync-pairs-r2/unprofiled-results.json` and `runtime-r21`
+through `runtime-r26` under the same retained scratch root below. Reproduction:
+`run_unprofiled_pairs.py --cohort 2 --pairs 3` after preparing fresh runtimes;
+the selected prefix and all six planned pairs are recorded in the receipts.
 
 ## Regression tests and reproduction
 
