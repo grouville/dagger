@@ -87,10 +87,16 @@ func (m *ClientFilesyncMirror) CacheUsageSize(ctx context.Context, _ dagql.Cache
 		return 0, false, nil
 	}
 	m.mu.Lock()
+	defer m.mu.Unlock()
 	snapshot := m.snapshot
-	m.mu.Unlock()
 	if snapshot == nil || snapshot.SnapshotID() != identity {
 		return 0, false, nil
+	}
+	// The mirror (including its inode cache) grows and shrinks without changing
+	// snapshot identity. Size caches metadata, so CacheUsageMayChange alone is
+	// insufficient. Serialize size refreshes and never return that stale value.
+	if err := snapshot.InvalidateSize(ctx); err != nil {
+		return 0, false, err
 	}
 	size, err := snapshot.Size(ctx)
 	if err != nil {
