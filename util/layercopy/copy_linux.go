@@ -328,11 +328,24 @@ func (c *Copier) copyRegular(ent sourceEntry, realPath string, opts CopyOptions)
 	if !ok {
 		return fmt.Errorf("unexpected stat type %T", ent.Info.Sys())
 	}
-	var ino inode
+	var linkKey sourceLinkKey
 	if !opts.DisableHardlinks {
-		ino = statInode(st)
-		_, immutable := c.dest.immutableSources[ino]
-		if linkSrc, ok := c.dest.sourceLinks[ino]; ok && (!immutable || (opts.Chown == nil && opts.Mode == nil)) {
+		linkKey = sourceLinkKey{
+			inode:                  statInode(st),
+			mode:                   ent.Info.Mode(),
+			uid:                    int(st.Uid),
+			gid:                    int(st.Gid),
+			disableXAttrs:          opts.DisableXAttrs,
+			disableSourceHardlinks: opts.DisableSourceHardlinks,
+		}
+		if opts.Mode != nil {
+			linkKey.mode = *opts.Mode
+		}
+		if opts.Chown != nil {
+			linkKey.uid, linkKey.gid = opts.Chown.UID, opts.Chown.GID
+		}
+		_, immutable := c.dest.immutableSources[linkKey]
+		if linkSrc, ok := c.dest.sourceLinks[linkKey]; ok {
 			if err := c.dest.removeAll(realPath, !opts.ReplaceExisting); err != nil {
 				return err
 			}
@@ -357,11 +370,11 @@ func (c *Copier) copyRegular(ent sourceEntry, realPath string, opts CopyOptions)
 				return err
 			}
 			if err := os.Link(path, realPath); err == nil {
-				c.dest.sourceLinks[ino] = realPath
+				c.dest.sourceLinks[linkKey] = realPath
 				// The cached inode need not be the source inode. Keep alias
 				// protection separate from cross-link usage accounting; count
 				// these bytes conservatively as independently owned by the result.
-				c.dest.immutableSources[ino] = struct{}{}
+				c.dest.immutableSources[linkKey] = struct{}{}
 				return nil
 			} else if !isHardlinkFallback(err) {
 				return err
@@ -374,9 +387,9 @@ func (c *Copier) copyRegular(ent sourceEntry, realPath string, opts CopyOptions)
 			return err
 		}
 		if err := os.Link(ent.RealPath, realPath); err == nil {
-			c.dest.sourceLinks[ino] = realPath
-			c.dest.crossLinks[ino] = struct{}{}
-			c.dest.immutableSources[ino] = struct{}{}
+			c.dest.sourceLinks[linkKey] = realPath
+			c.dest.crossLinks[linkKey.inode] = struct{}{}
+			c.dest.immutableSources[linkKey] = struct{}{}
 			return nil
 		} else if !isHardlinkFallback(err) {
 			return err
@@ -387,7 +400,7 @@ func (c *Copier) copyRegular(ent sourceEntry, realPath string, opts CopyOptions)
 		return err
 	}
 	if !opts.DisableHardlinks {
-		c.dest.sourceLinks[ino] = realPath
+		c.dest.sourceLinks[linkKey] = realPath
 	}
 	return c.dest.applyMetadataPath(realPath, &ent, opts)
 }

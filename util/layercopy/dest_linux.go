@@ -23,15 +23,26 @@ type inode struct {
 	ino uint64
 }
 
+// sourceLinkKey keeps copies with different metadata or isolation policies from
+// sharing a destination inode. One Copier can serve several Copy calls.
+type sourceLinkKey struct {
+	inode                  inode
+	mode                   os.FileMode
+	uid                    int
+	gid                    int
+	disableXAttrs          bool
+	disableSourceHardlinks bool
+}
+
 type destination struct {
 	viewRoot  string
 	writeRoot string
 	overlay   bool
 	userxattr bool
 
-	sourceLinks      map[inode]string
+	sourceLinks      map[sourceLinkKey]string
 	crossLinks       map[inode]struct{}
-	immutableSources map[inode]struct{}
+	immutableSources map[sourceLinkKey]struct{}
 
 	// materializedDirs records resolved relative paths already known to exist
 	// as directories in the write root, so repeated copies into the same
@@ -54,9 +65,9 @@ func newDestination(m Mount) (*destination, error) {
 	d := &destination{
 		viewRoot:         m.Root,
 		writeRoot:        m.Root,
-		sourceLinks:      map[inode]string{},
+		sourceLinks:      map[sourceLinkKey]string{},
 		crossLinks:       map[inode]struct{}{},
-		immutableSources: map[inode]struct{}{},
+		immutableSources: map[sourceLinkKey]struct{}{},
 		materializedDirs: map[string]struct{}{},
 	}
 	if m.Mount == nil {
