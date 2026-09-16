@@ -16,6 +16,7 @@ import (
 	"github.com/containerd/continuity/sysx"
 	bkcontenthash "github.com/dagger/dagger/engine/contenthash"
 	bkcache "github.com/dagger/dagger/engine/snapshots"
+	"github.com/dagger/dagger/engine/wcprof"
 	"github.com/dagger/dagger/internal/buildkit/util/bklog"
 	"github.com/dagger/dagger/internal/fsutil"
 	"github.com/dagger/dagger/internal/fsutil/types"
@@ -49,6 +50,10 @@ type localFSSharedState struct {
 	// changeCache is the cache we use to dedupe/cache changes made to the local fs across
 	// different syncs (see docs on localFS.Sync for more info)
 	changeCache *changeCache
+
+	// blobRoot is a private, engine-owned directory of sealed regular files.
+	// It is never part of the client's mirrored namespace.
+	blobRoot string
 }
 
 type MirrorSharedState = localFSSharedState
@@ -58,6 +63,14 @@ func NewMirrorSharedState(rootPath string) *MirrorSharedState {
 		rootPath:    rootPath,
 		changeCache: newChangeCache(),
 	}
+}
+
+// NewMirrorSharedStateWithFileCache enables immutable inode reuse. Both roots
+// must be held by the caller's snapshot for the entire sync.
+func NewMirrorSharedStateWithFileCache(rootPath, blobRoot string) *MirrorSharedState {
+	state := NewMirrorSharedState(rootPath)
+	state.blobRoot = blobRoot
+	return state
 }
 
 type ChangeWithStat struct {
@@ -165,6 +178,8 @@ func (local *localFS) Sync( //nolint:gocyclo
 	cacheManager bkcache.Accessor,
 	forParents bool,
 ) (_ bkcache.ImmutableRef, _ digest.Digest, rerr error) {
+	ctx, syncOp := wcprof.BeginOp(ctx, wcprof.OpKindIO, "filesync.sync", wcprof.OpOpts{})
+	defer func() { syncOp.EndErr(rerr) }()
 	var newCopyRef bkcache.MutableRef       // the mutable ref we will copy into with the frozen files+dirs if needed
 	var cacheCtx bkcontenthash.CacheContext // track file+dir hashes
 
@@ -668,6 +683,13 @@ func (local *localFS) Sync( //nolint:gocyclo
 		}
 	}()
 
+	ctx, materialize := wcprof.BeginOp(ctx, wcprof.OpKindIO, "filesync.flat.materialize", wcprof.OpOpts{})
+	defer func() { materialize.EndErr(rerr) }()
+	var immutableFileSource func(string, os.FileInfo) (string, error)
+	if local.blobRoot != "" {
+		immutableFileSource = local.immutableFileSource(ctx, cachedResults)
+	}
+
 	if err := copier.Copy(ctx,
 		layercopy.Mount{Root: filepath.Join(local.rootPath, local.subdir)},
 		local.copyPath,
@@ -680,6 +702,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 			DisableXAttrs:          true,
 			CopyDirContents:        true,
 			DisableSourceHardlinks: true,
+			ImmutableFileSource:    immutableFileSource,
 			XAttrErrorHandler: func(dst, src, key string, err error) error {
 				if key != "" {
 					bklog.G(ctx).Debugf("xattr %q error during local import copy from %q to %q: %v", key, src, dst, err)

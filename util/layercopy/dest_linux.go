@@ -29,8 +29,9 @@ type destination struct {
 	overlay   bool
 	userxattr bool
 
-	sourceLinks map[inode]string
-	crossLinks  map[inode]struct{}
+	sourceLinks      map[inode]string
+	crossLinks       map[inode]struct{}
+	immutableSources map[inode]struct{}
 
 	// materializedDirs records resolved relative paths already known to exist
 	// as directories in the write root, so repeated copies into the same
@@ -55,6 +56,7 @@ func newDestination(m Mount) (*destination, error) {
 		writeRoot:        m.Root,
 		sourceLinks:      map[inode]string{},
 		crossLinks:       map[inode]struct{}{},
+		immutableSources: map[inode]struct{}{},
 		materializedDirs: map[string]struct{}{},
 	}
 	if m.Mount == nil {

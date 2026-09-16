@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/dagger/dagger/engine/filesync"
@@ -24,7 +26,8 @@ type ClientFilesyncMirror struct {
 
 	mu sync.Mutex
 
-	snapshot bkcache.MutableRef
+	snapshot      bkcache.MutableRef
+	layoutVersion int
 
 	mounter bkcache.Mounter
 	mntPath string
@@ -99,6 +102,7 @@ func (m *ClientFilesyncMirror) CacheUsageSize(ctx context.Context, _ dagql.Cache
 type persistedClientFilesyncMirrorPayload struct {
 	StableClientID string `json:"stableClientID"`
 	Drive          string `json:"drive,omitempty"`
+	LayoutVersion  int    `json:"layoutVersion,omitempty"`
 }
 
 func (m *ClientFilesyncMirror) EncodePersistedObject(ctx context.Context, cache dagql.PersistedObjectCache) (dagql.PersistedObjectEncoding, error) {
@@ -118,10 +122,12 @@ func (m *ClientFilesyncMirror) EncodePersistedObject(ctx context.Context, cache 
 			Role:   "snapshot",
 		}}
 	}
+	layoutVersion := m.layoutVersion
 	m.mu.Unlock()
 	payload, err := json.Marshal(persistedClientFilesyncMirrorPayload{
 		StableClientID: m.StableClientID,
 		Drive:          m.Drive,
+		LayoutVersion:  layoutVersion,
 	})
 	if err != nil {
 		return dagql.PersistedObjectEncoding{}, err
@@ -140,6 +146,10 @@ func (*ClientFilesyncMirror) DecodePersistedObject(ctx context.Context, dag *dag
 	mirror := &ClientFilesyncMirror{
 		StableClientID: persisted.StableClientID,
 		Drive:          persisted.Drive,
+		layoutVersion:  persisted.LayoutVersion,
+	}
+	if mirror.layoutVersion < 0 || mirror.layoutVersion > 1 {
+		return nil, fmt.Errorf("unsupported filesync mirror layout %d", mirror.layoutVersion)
 	}
 	if resultID == 0 {
 		return mirror, nil
@@ -198,6 +208,7 @@ func (m *ClientFilesyncMirror) EnsureCreated(ctx context.Context, query *Query) 
 		return err
 	}
 	m.snapshot = ref
+	m.layoutVersion = 1
 	return nil
 }
 
@@ -261,6 +272,7 @@ func (m *ClientFilesyncMirror) ensureRuntimeLocked(ctx context.Context, query *Q
 			return err
 		}
 		m.snapshot = ref
+		m.layoutVersion = 1
 	}
 
 	mountable, err := m.snapshot.Mount(ctx, false)
@@ -272,7 +284,20 @@ func (m *ClientFilesyncMirror) ensureRuntimeLocked(ctx context.Context, query *Q
 	if err != nil {
 		return err
 	}
-	m.sharedState = filesync.NewMirrorSharedState(m.mntPath)
+	if m.layoutVersion == 1 {
+		filesPath := filepath.Join(m.mntPath, "files")
+		blobsPath := filepath.Join(m.mntPath, "blobs")
+		if err := os.MkdirAll(filesPath, 0o755); err != nil {
+			return err
+		}
+		if err := os.MkdirAll(blobsPath, 0o700); err != nil {
+			return err
+		}
+		m.sharedState = filesync.NewMirrorSharedStateWithFileCache(filesPath, blobsPath)
+	} else {
+		// Existing persisted mirrors keep their original layout and copy path.
+		m.sharedState = filesync.NewMirrorSharedState(m.mntPath)
+	}
 	return nil
 }
 

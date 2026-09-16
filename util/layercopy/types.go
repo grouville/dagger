@@ -66,6 +66,12 @@ type CopyOptions struct {
 	// DisableSourceHardlinks disables hardlinking from source paths into the
 	// destination while still preserving hardlinks within this copy.
 	DisableSourceHardlinks bool
+
+	// ImmutableFileSource optionally supplies a metadata-compatible immutable
+	// regular file to link instead of copying a mutable source. An empty path
+	// declines reuse. The caller must hold the source alive throughout Copy.
+	// The returned path is a backing filesystem path, not an overlay view.
+	ImmutableFileSource func(path string, info os.FileInfo) (string, error)
 }
 
 type Copier struct {

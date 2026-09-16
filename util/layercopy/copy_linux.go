@@ -331,14 +331,40 @@ func (c *Copier) copyRegular(ent sourceEntry, realPath string, opts CopyOptions)
 	var ino inode
 	if !opts.DisableHardlinks {
 		ino = statInode(st)
-		if linkSrc, ok := c.dest.sourceLinks[ino]; ok {
+		_, immutable := c.dest.immutableSources[ino]
+		if linkSrc, ok := c.dest.sourceLinks[ino]; ok && (!immutable || (opts.Chown == nil && opts.Mode == nil)) {
 			if err := c.dest.removeAll(realPath, !opts.ReplaceExisting); err != nil {
 				return err
 			}
 			if err := os.Link(linkSrc, realPath); err != nil && !isHardlinkFallback(err) {
 				return err
 			} else if err == nil {
+				if immutable {
+					return nil
+				}
 				return c.dest.applyMetadataPath(realPath, &ent, opts)
+			}
+		}
+	}
+
+	if !opts.DisableHardlinks && opts.ImmutableFileSource != nil && opts.Chown == nil && opts.Mode == nil {
+		path, err := opts.ImmutableFileSource(ent.ViewPath, ent.Info)
+		if err != nil {
+			return err
+		}
+		if path != "" {
+			if err := c.dest.removeAll(realPath, !opts.ReplaceExisting); err != nil {
+				return err
+			}
+			if err := os.Link(path, realPath); err == nil {
+				c.dest.sourceLinks[ino] = realPath
+				// The cached inode need not be the source inode. Keep alias
+				// protection separate from cross-link usage accounting; count
+				// these bytes conservatively as independently owned by the result.
+				c.dest.immutableSources[ino] = struct{}{}
+				return nil
+			} else if !isHardlinkFallback(err) {
+				return err
 			}
 		}
 	}
@@ -350,6 +376,7 @@ func (c *Copier) copyRegular(ent sourceEntry, realPath string, opts CopyOptions)
 		if err := os.Link(ent.RealPath, realPath); err == nil {
 			c.dest.sourceLinks[ino] = realPath
 			c.dest.crossLinks[ino] = struct{}{}
+			c.dest.immutableSources[ino] = struct{}{}
 			return nil
 		} else if !isHardlinkFallback(err) {
 			return err
