@@ -178,7 +178,8 @@ func (s FilesyncSource) DiffCopy(stream filesync.FileSync_DiffCopyServer) error 
 
 	default:
 		// otherwise, do the whole directory sync back to the caller
-		fs, err := fsutil.NewFS(absPath)
+		// Local imports discard xattrs in normalizeLocalImportStat below.
+		fs, err := fsutil.NewFS(absPath, fsutil.WithSkipXattrs())
 		if err != nil {
 			return err
 		}

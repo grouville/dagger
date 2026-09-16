@@ -21,8 +21,19 @@ type FS interface {
 	Open(string) (io.ReadCloser, error)
 }
 
+// FSOpt configures a filesystem created by NewFS.
+type FSOpt func(*fs)
+
+// WithSkipXattrs disables reading extended attributes when walking a filesystem.
+// Use it only when the caller does not need extended attributes in Stat.Xattrs.
+func WithSkipXattrs() FSOpt {
+	return func(fs *fs) {
+		fs.skipXattrs = true
+	}
+}
+
 // NewFS creates a new FS from a root directory on the host filesystem.
-func NewFS(root string) (FS, error) {
+func NewFS(root string, opts ...FSOpt) (FS, error) {
 	root, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		return nil, errors.WithStack(&os.PathError{Op: "resolve", Path: root, Err: err})
@@ -35,13 +46,16 @@ func NewFS(root string) (FS, error) {
 		return nil, errors.WithStack(&os.PathError{Op: "stat", Path: root, Err: syscall.ENOTDIR})
 	}
 
-	return &fs{
-		root: root,
-	}, nil
+	f := &fs{root: root}
+	for _, opt := range opts {
+		opt(f)
+	}
+	return f, nil
 }
 
 type fs struct {
-	root string
+	root       string
+	skipXattrs bool
 }
 
 func (fs *fs) Walk(ctx context.Context, target string, fn gofs.WalkDirFunc) error {
@@ -66,10 +80,11 @@ func (fs *fs) Walk(ctx context.Context, target string, fn gofs.WalkDirFunc) erro
 		var entry gofs.DirEntry
 		if dirEntry != nil {
 			entry = &DirEntryInfo{
-				path:      path,
-				origpath:  origpath,
-				entry:     dirEntry,
-				seenFiles: seenFiles,
+				path:       path,
+				origpath:   origpath,
+				entry:      dirEntry,
+				seenFiles:  seenFiles,
+				skipXattrs: fs.skipXattrs,
 			}
 		}
 
@@ -209,10 +224,11 @@ func (s *StatInfo) Sys() interface{} {
 type DirEntryInfo struct {
 	*types.Stat
 
-	entry     gofs.DirEntry
-	path      string
-	origpath  string
-	seenFiles map[uint64]string
+	entry      gofs.DirEntry
+	path       string
+	origpath   string
+	seenFiles  map[uint64]string
+	skipXattrs bool
 }
 
 func (s *DirEntryInfo) Name() string {
@@ -239,7 +255,7 @@ func (s *DirEntryInfo) Info() (gofs.FileInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		stat, err := mkstat(s.origpath, s.path, fi, s.seenFiles)
+		stat, err := mkstat(s.origpath, s.path, fi, s.seenFiles, s.skipXattrs)
 		if err != nil {
 			return nil, err
 		}
