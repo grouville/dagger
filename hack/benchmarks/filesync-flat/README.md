@@ -24,8 +24,9 @@ It is not an O(changed paths) materializer or a host change-detection solution.
 
 ## First Ruff comparison
 
-Ruff `c2cd236b9cc5b2149c74247e179d6567ec74066f`, approximately 137 MB,
-12,025 imported entries. One-file edit: `crates/ruff/src/lib.rs`.
+Ruff `c2cd236b9cc5b2149c74247e179d6567ec74066f`, 89,442,628 regular-file
+bytes: 11,139 files, 885 directories and one symlink (12,025 entries).
+One-file edit: `crates/ruff/src/lib.rs`.
 Six alternating pairs, four flows per arm (48 profiled standalone commands),
 fresh owned engine volume and CLI state per arm. Images already available;
 host OS caches not cleared. Default GC, no observed evictions. Main and candidate
@@ -67,17 +68,50 @@ module: `go test -tags=privileged -race -parallel=1 -count=1 ./engine/filesync`
 (selected cached-file/source/hardlink/re-included-parent tests), and the complete
 `./util/layercopy` package. Exact commands are in build-r2/build-r3 receipts.
 
+## Corrected candidate: second independent cohort
+
+Candidate `78408ba` includes the mixed-copy metadata fix (`f87d508`) and real
+mutable-mirror size refresh (`78408ba`). Race-enabled layercopy, focused filesync,
+and real-snapshot growth/deletion accounting regression tests passed (build-r5
+through build-r7). Build-r8 exported this exact committed source.
+
+The same six alternating pairs and 48 profiled commands passed source/digest,
+profile completeness/replay and full edited-tree export gates. No observed
+evictions. Do not pool the two cohorts: their candidate code differs.
+
+| Flow | Main engine median ms | Candidate engine median ms | Median paired candidate−main ms |
+| --- | ---: | ---: | ---: |
+| Cold import | 2120.474 | 2720.031 | +579.534 |
+| Unchanged | 390.210 | 368.971 | +9.008 |
+| One-file edit | 1110.835 | 844.485 | -241.061 |
+| Unchanged after edit | 358.500 | 371.258 | +9.618 |
+
+| Flow | Main CLI median ms | Candidate CLI median ms | Median paired candidate−main ms |
+| --- | ---: | ---: | ---: |
+| Cold import, including engine startup | 5351.307 | 5977.142 | +574.247 |
+| Unchanged | 996.485 | 965.572 | -55.466 |
+| One-file edit | 1717.550 | 1516.939 | -175.127 |
+| Unchanged after edit | 916.690 | 966.183 | -0.701 |
+
+The candidate edit engine range was 821.493–2130.464 ms and CLI range
+1416.330–7609.446 ms, versus main 1071.265–1162.418 and 1667.071–1918.411 ms.
+Both slow candidate samples remain in the report. Elevated host I/O pressure
+coincided with the largest CLI tail; that is not a demonstrated cause. Median
+paired differences need not equal the difference of the two marginal medians.
+
+Evidence: `/tmp/dagger-filesync-flat.c5ihvUc6/filesync-pairs-r2/RESULTS.md` and
+`RESULTS.json`; root `BREAKDOWN.md` explains phase boundaries and remaining
+attribution gaps. These are profiled diagnostics, not unprofiled performance
+proof. The candidate has many more native profiling events than main.
+
 ## Promotion blockers
 
 - Cold import is slower. Do not advertise an across-the-board win.
 - Bound/evict the inode cache and validate long-running default-GC behavior.
-- Recompute mutable mirror usage after growth; the existing cached Size path
-  can otherwise under-account accumulated blob versions.
-- Fix and regress mixed-option reuse of one Copier: a private mode-overridden
-  copy must not become an immutable donor for a subsequent default-mode copy.
+- Attribute and resolve edited-command tails; do not discard them as noise.
 - Validate restart/layout migration, concurrent imports and real writable
   container isolation. Unit hardlink isolation tests are not all these gates.
 - Account shared physical bytes accurately; standalone snapshots must not depend
   on retaining the cache for their data lifetime.
 
-This first scorecard measures the initial prototype, before follow-up fixes.
+The first scorecard above remains the initial prototype, before follow-up fixes.
