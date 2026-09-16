@@ -15,7 +15,7 @@ import (
 // info. inodemap is used to calculate hardlinks over a series of
 // mkstat calls and maps inode to the canonical (aka "first") path for
 // a set of hardlinks to that inode.
-func mkstat(path, relpath string, fi os.FileInfo, inodemap map[uint64]string) (*types.Stat, error) {
+func mkstat(path, relpath string, fi os.FileInfo, inodemap map[uint64]string, profile *fsWalkProfile) (*types.Stat, error) {
 	relpath = filepath.ToSlash(relpath)
 
 	stat := &types.Stat{
@@ -36,8 +36,11 @@ func mkstat(path, relpath string, fi os.FileInfo, inodemap map[uint64]string) (*
 			stat.Linkname = link
 		}
 	}
-	if err := loadXattr(path, stat); err != nil {
-		return nil, err
+	finishXattr := profile.measure("load_xattrs")
+	xattrErr := loadXattr(path, stat)
+	finishXattr()
+	if xattrErr != nil {
+		return nil, xattrErr
 	}
 
 	if runtime.GOOS == "windows" {
@@ -60,5 +63,5 @@ func Stat(path string) (*types.Stat, error) {
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	return mkstat(path, filepath.Base(path), fi, nil)
+	return mkstat(path, filepath.Base(path), fi, nil, nil)
 }

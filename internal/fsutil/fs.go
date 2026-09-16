@@ -44,9 +44,12 @@ type fs struct {
 	root string
 }
 
-func (fs *fs) Walk(ctx context.Context, target string, fn gofs.WalkDirFunc) error {
+func (fs *fs) Walk(ctx context.Context, target string, fn gofs.WalkDirFunc) (rerr error) {
+	profile := newFSWalkProfile(ctx)
+	defer func() { profile.finish(rerr) }()
 	seenFiles := make(map[uint64]string)
 	return filepath.WalkDir(filepath.Join(fs.root, target), func(path string, dirEntry gofs.DirEntry, walkErr error) (retErr error) {
+		defer profile.measure("callback_inclusive")()
 		defer func() {
 			if retErr != nil && isNotExist(retErr) {
 				retErr = filepath.SkipDir
@@ -54,7 +57,9 @@ func (fs *fs) Walk(ctx context.Context, target string, fn gofs.WalkDirFunc) erro
 		}()
 
 		origpath := path
+		finishRel := profile.measure("relative_path")
 		path, err := filepath.Rel(fs.root, path)
+		finishRel()
 		if err != nil {
 			return err
 		}
@@ -70,6 +75,7 @@ func (fs *fs) Walk(ctx context.Context, target string, fn gofs.WalkDirFunc) erro
 				origpath:  origpath,
 				entry:     dirEntry,
 				seenFiles: seenFiles,
+				profile:   profile,
 			}
 		}
 
@@ -213,6 +219,7 @@ type DirEntryInfo struct {
 	path      string
 	origpath  string
 	seenFiles map[uint64]string
+	profile   *fsWalkProfile
 }
 
 func (s *DirEntryInfo) Name() string {
@@ -235,11 +242,13 @@ func (s *DirEntryInfo) Type() gofs.FileMode {
 }
 func (s *DirEntryInfo) Info() (gofs.FileInfo, error) {
 	if s.Stat == nil {
+		finishStat := s.profile.measure("entry_stat")
 		fi, err := s.entry.Info()
+		finishStat()
 		if err != nil {
 			return nil, err
 		}
-		stat, err := mkstat(s.origpath, s.path, fi, s.seenFiles)
+		stat, err := mkstat(s.origpath, s.path, fi, s.seenFiles, s.profile)
 		if err != nil {
 			return nil, err
 		}
