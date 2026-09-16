@@ -19,6 +19,10 @@ func (c *Copier) Copy(context.Context, Mount, string, string, CopyOptions) error
 	return errors.New("layercopy is only implemented on linux")
 }
 
+func (c *Copier) CopyToEmpty(context.Context, Mount, string, CopyOptions, FreshFileMaterializer) error {
+	return errors.New("layercopy is only implemented on linux")
+}
+
 func (c *Copier) CopyFile(context.Context, Mount, string, string, CopyOptions) error {
 	return errors.New("layercopy is only implemented on linux")
 }

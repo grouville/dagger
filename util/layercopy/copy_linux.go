@@ -31,6 +31,39 @@ func NewCopier(dest Mount) (*Copier, error) {
 }
 
 func (c *Copier) Copy(ctx context.Context, src Mount, srcPath, destPath string, opts CopyOptions) error {
+	if c.fresh {
+		return fmt.Errorf("cannot reuse a CopyToEmpty copier")
+	}
+	c.used = true
+	return c.copyFrom(ctx, src, srcPath, destPath, opts)
+}
+
+// CopyToEmpty copies once into a private, empty destination root. The caller
+// must exclusively own the destination throughout the copy and must not mutate
+// finalized files afterwards. Unlike Copy, this copier cannot be reused for any
+// subsequent mutation, so materialized inodes can be retained after Close.
+func (c *Copier) CopyToEmpty(ctx context.Context, src Mount, srcPath string, opts CopyOptions, materialize FreshFileMaterializer) error {
+	if c.used {
+		return fmt.Errorf("CopyToEmpty requires an unused copier")
+	}
+	if opts.ReplaceExisting || opts.Chown != nil || opts.Mode != nil || !opts.DisableSourceHardlinks || !opts.DisableXAttrs {
+		return fmt.Errorf("CopyToEmpty requires isolated files without metadata overrides")
+	}
+	entries, err := os.ReadDir(c.dest.viewRoot)
+	if err != nil {
+		return err
+	}
+	if len(entries) != 0 {
+		return fmt.Errorf("CopyToEmpty requires an empty destination")
+	}
+	c.used = true
+	c.fresh = true
+	c.materializeFile = materialize
+	defer func() { c.materializeFile = nil }()
+	return c.copyFrom(ctx, src, srcPath, "/", opts)
+}
+
+func (c *Copier) copyFrom(ctx context.Context, src Mount, srcPath, destPath string, opts CopyOptions) error {
 	c.dest.profile = opts.Profile
 	defer opts.Profile.measure("copy.total_inclusive")()
 	s, err := c.sourceForCopy(src)
@@ -45,6 +78,10 @@ func (c *Copier) Copy(ctx context.Context, src Mount, srcPath, destPath string, 
 }
 
 func (c *Copier) CopyFile(ctx context.Context, src Mount, srcPath, destPath string, opts CopyOptions) error {
+	if c.fresh {
+		return fmt.Errorf("cannot reuse a CopyToEmpty copier")
+	}
+	c.used = true
 	c.dest.profile = opts.Profile
 	defer opts.Profile.measure("copy.total_inclusive")()
 	s, err := c.sourceForCopy(src)
@@ -77,6 +114,10 @@ func (c *Copier) sourceForCopy(m Mount) (*source, error) {
 }
 
 func (c *Copier) Mkdir(ctx context.Context, destPath string, opts CopyOptions) error {
+	if c.fresh {
+		return fmt.Errorf("cannot reuse a CopyToEmpty copier")
+	}
+	c.used = true
 	c.dest.profile = opts.Profile
 	defer opts.Profile.measure("copy.total_inclusive")()
 	select {
@@ -88,6 +129,10 @@ func (c *Copier) Mkdir(ctx context.Context, destPath string, opts CopyOptions) e
 }
 
 func (c *Copier) MaterializeDestDir(ctx context.Context, destPath string) (string, error) {
+	if c.fresh {
+		return "", fmt.Errorf("cannot reuse a CopyToEmpty copier")
+	}
+	c.used = true
 	select {
 	case <-ctx.Done():
 		return "", context.Cause(ctx)
@@ -386,7 +431,7 @@ func (c *Copier) copyRegular(ent sourceEntry, realPath string, opts CopyOptions)
 				// these bytes conservatively as independently owned by the result.
 				c.dest.immutableSources[linkKey] = struct{}{}
 				return nil
-			} else if !isHardlinkFallback(err) {
+			} else if !isHardlinkFallback(err) && !(c.fresh && os.IsNotExist(err)) {
 				return err
 			}
 		}
@@ -403,6 +448,22 @@ func (c *Copier) copyRegular(ent sourceEntry, realPath string, opts CopyOptions)
 			return nil
 		} else if !isHardlinkFallback(err) {
 			return err
+		}
+	}
+
+	if c.materializeFile != nil {
+		finishMaterialize := opts.Profile.measure("cache.materialize_inclusive")
+		handled, err := c.materializeFile(ent.ViewPath, realPath, ent.Info)
+		finishMaterialize()
+		if err != nil {
+			return err
+		}
+		if handled {
+			if !opts.DisableHardlinks {
+				c.dest.sourceLinks[linkKey] = realPath
+				c.dest.immutableSources[linkKey] = struct{}{}
+			}
+			return nil
 		}
 	}
 

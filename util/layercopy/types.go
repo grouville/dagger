@@ -78,7 +78,17 @@ type CopyOptions struct {
 	ImmutableFileSource func(path string, info os.FileInfo) (string, error)
 }
 
+// FreshFileMaterializer may create a regular file in a private, empty destination.
+// Returning true means the file's contents and metadata are final; subsequent
+// source hardlink aliases will not rewrite its metadata. A false return must
+// leave destination untouched. The callback must not publish the inode until
+// CopyToEmpty and Close both succeed, and must never hardlink a mutable source.
+type FreshFileMaterializer func(source, destination string, info os.FileInfo) (bool, error)
+
 type Copier struct {
-	dest         *destination
-	sourceCaches map[sourceCacheKey]*sourceCache
+	dest            *destination
+	sourceCaches    map[sourceCacheKey]*sourceCache
+	used            bool
+	fresh           bool
+	materializeFile FreshFileMaterializer
 }
