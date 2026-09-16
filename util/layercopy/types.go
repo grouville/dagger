@@ -67,6 +67,10 @@ type CopyOptions struct {
 	// destination while still preserving hardlinks within this copy.
 	DisableSourceHardlinks bool
 
+	// Profile optionally records aggregate diagnostic Go-operation wall work.
+	// Use one collector per sequential Copier; nil disables recording.
+	Profile *CopyProfile
+
 	// ImmutableFileSource optionally supplies a metadata-compatible immutable
 	// regular file to link instead of copying a mutable source. An empty path
 	// declines reuse. The caller must hold the source alive throughout Copy.

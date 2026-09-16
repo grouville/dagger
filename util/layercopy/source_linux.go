@@ -16,6 +16,8 @@ import (
 )
 
 type source struct {
+	profile *CopyProfile
+
 	root         string
 	realRoot     string
 	layers       []string
@@ -67,11 +69,12 @@ func newSource(m Mount) (*source, error) {
 }
 
 func (s *source) selectBase(srcPath string, followFinalSymlink bool) error {
+	defer s.profile.measure("source.select_base_inclusive")()
 	if s.baseCached {
 		return nil
 	}
 
-	baseView, err := rootPath(s.root, srcPath, followFinalSymlink)
+	baseView, err := s.profile.rootPath("source.root_path", s.root, srcPath, followFinalSymlink)
 	if err != nil {
 		return err
 	}
@@ -87,7 +90,7 @@ func (s *source) selectBase(srcPath string, followFinalSymlink bool) error {
 		baseRel = ""
 	}
 
-	info, err := os.Lstat(baseView)
+	info, err := s.profile.lstat("source.stat", baseView)
 	if err != nil {
 		return err
 	}
@@ -111,6 +114,7 @@ func (s *source) selectBase(srcPath string, followFinalSymlink bool) error {
 }
 
 func (s *source) readDir(rel string, minLayer int) ([]sourceEntry, error) {
+	defer s.profile.measure("source.read_dir_inclusive")()
 	if err := s.selectBase(".", false); err != nil {
 		return nil, err
 	}
@@ -124,7 +128,7 @@ func (s *source) readDir(rel string, minLayer int) ([]sourceEntry, error) {
 func (s *source) readBindDir(rel string) ([]sourceEntry, error) {
 	viewDir := filepath.Join(s.baseView, rel)
 	realDir := filepath.Join(s.baseReal, rel)
-	dirents, err := os.ReadDir(viewDir)
+	dirents, err := s.profile.readDir(viewDir)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +137,7 @@ func (s *source) readBindDir(rel string) ([]sourceEntry, error) {
 	for _, de := range dirents {
 		name := de.Name()
 		viewPath := filepath.Join(viewDir, name)
-		info, err := os.Lstat(viewPath)
+		info, err := s.profile.lstat("source.stat", viewPath)
 		if err != nil {
 			if !os.IsNotExist(err) {
 				return nil, err
@@ -181,7 +185,7 @@ func (s *source) readOverlayDir(rel string, minLayer int) ([]sourceEntry, error)
 			break
 		}
 
-		dirents, err := os.ReadDir(layerDir)
+		dirents, err := s.profile.readDir(layerDir)
 		if os.IsNotExist(err) || isNotDir(err) {
 			continue
 		}
@@ -199,7 +203,7 @@ func (s *source) readOverlayDir(rel string, minLayer int) ([]sourceEntry, error)
 			}
 
 			realPath := filepath.Join(layerDir, name)
-			info, err := os.Lstat(realPath)
+			info, err := s.profile.lstat("source.stat", realPath)
 			if err != nil {
 				return nil, err
 			}
@@ -244,7 +248,7 @@ func (s *source) realPath(rel string, minLayer int) (string, os.FileInfo, error)
 	rel = cleanRel(filepath.Join(s.baseRel, rel))
 	if !s.overlay {
 		realPath := filepath.Join(s.realRoot, rel)
-		realInfo, err := os.Lstat(realPath)
+		realInfo, err := s.profile.lstat("source.stat", realPath)
 		if err != nil {
 			return "", nil, err
 		}
@@ -253,7 +257,7 @@ func (s *source) realPath(rel string, minLayer int) (string, os.FileInfo, error)
 
 	for i := len(s.layers) - 1; i >= minLayer; i-- {
 		realPath := filepath.Join(s.layers[i], rel)
-		realInfo, err := os.Lstat(realPath)
+		realInfo, err := s.profile.lstat("source.stat", realPath)
 		if err == nil {
 			if isWhiteout(realInfo) {
 				break

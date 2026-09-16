@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/dagger/dagger/internal/fsutil/types"
 	"github.com/pkg/errors"
@@ -148,11 +149,24 @@ func (s *sender) sendFile(h *sendHandle) error {
 
 func (s *sender) walk(ctx context.Context) error {
 	var i uint32 = 0
+	profile := newSendWalkProfile()
 	err := s.fs.Walk(ctx, "/", func(path string, entry os.DirEntry, err error) error {
+		if profile != nil {
+			start := time.Now()
+			profile.entries++
+			defer func() { profile.callbackNS += time.Since(start).Nanoseconds() }()
+		}
 		if err != nil {
 			return err
 		}
+		var infoStart time.Time
+		if profile != nil {
+			infoStart = time.Now()
+		}
 		fi, err := entry.Info()
+		if profile != nil {
+			profile.entryInfoNS += time.Since(infoStart).Nanoseconds()
+		}
 		if err != nil {
 			return err
 		}
@@ -173,8 +187,17 @@ func (s *sender) walk(ctx context.Context) error {
 		}
 		i++
 		s.updateProgress(p.Size(), false)
-		return errors.Wrapf(s.conn.SendMsg(p), "failed to send stat %s", path)
+		var sendStart time.Time
+		if profile != nil {
+			sendStart = time.Now()
+		}
+		err = s.conn.SendMsg(p)
+		if profile != nil {
+			profile.sendNS += time.Since(sendStart).Nanoseconds()
+		}
+		return errors.Wrapf(err, "failed to send stat %s", path)
 	})
+	profile.finish(err)
 	if err != nil {
 		return err
 	}

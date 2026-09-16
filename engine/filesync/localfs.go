@@ -182,6 +182,11 @@ func (local *localFS) Sync( //nolint:gocyclo
 	defer func() { syncOp.EndErr(rerr) }()
 	var newCopyRef bkcache.MutableRef       // the mutable ref we will copy into with the frozen files+dirs if needed
 	var cacheCtx bkcontenthash.CacheContext // track file+dir hashes
+	ctx, syncWork := startSyncWorkProfile(ctx)
+	defer func() { logSyncWorkProfile(ctx, syncWork, forParents, rerr) }()
+	phases := syncPhaseProfile{parent: ctx}
+	defer func() { phases.end(rerr) }()
+	ctx = phases.next(ctx, "prepare")
 
 	// skip creating a cache ref if we're only syncing parent dirs
 	if !forParents {
@@ -209,6 +214,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 		}
 	}
 
+	ctx = phases.next(ctx, "sync")
 	eg, egCtx := errgroup.WithContext(ctx)
 
 	// When a file or dir is added, modified, or deleted, we need to apply the change to the local fs. The local.changeCache
@@ -297,7 +303,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 		if doHandle {
 			relPathFound.Store(true)
 			applied := appliedChange.result()
-			if err := cacheCtx.HandleChange(applied.kind, dir, applied.stat, nil); err != nil {
+			if err := profileHandleChange(ctx, cacheCtx, applied.kind, dir, applied.stat); err != nil {
 				return fmt.Errorf("failed to handle change in content hasher: %w", err)
 			}
 		}
@@ -399,7 +405,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 				if doHandle {
 					relPathFound.Store(true)
 					applied := appliedChange.result()
-					if err := cacheCtx.HandleChange(applied.kind, path, applied.stat, nil); err != nil {
+					if err := profileHandleChange(ctx, cacheCtx, applied.kind, path, applied.stat); err != nil {
 						return fmt.Errorf("failed to handle change in content hasher: %w", err)
 					}
 				}
@@ -429,7 +435,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 				if doHandle {
 					relPathFound.Store(true)
 					applied := appliedChange.result()
-					if err := cacheCtx.HandleChange(applied.kind, path, applied.stat, nil); err != nil {
+					if err := profileHandleChange(ctx, cacheCtx, applied.kind, path, applied.stat); err != nil {
 						return fmt.Errorf("failed to handle change in content hasher: %w", err)
 					}
 				}
@@ -496,7 +502,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 					if doHandle {
 						relPathFound.Store(true)
 						applied := appliedChange.result()
-						if err := cacheCtx.HandleChange(applied.kind, path, applied.stat, nil); err != nil {
+						if err := profileHandleChange(ctx, cacheCtx, applied.kind, path, applied.stat); err != nil {
 							return fmt.Errorf("failed to handle change in content hasher: %w", err)
 						}
 					}
@@ -555,7 +561,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 			if doHandle {
 				relPathFound.Store(true)
 				applied := appliedChange.result()
-				if err := cacheCtx.HandleChange(applied.kind, path, applied.stat, nil); err != nil {
+				if err := profileHandleChange(ctx, cacheCtx, applied.kind, path, applied.stat); err != nil {
 					return fmt.Errorf("failed to handle change in content hasher: %w", err)
 				}
 			}
@@ -588,7 +594,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 		if doHandle {
 			relPathFound.Store(true)
 			applied := appliedChange.result()
-			if err := cacheCtx.HandleChange(applied.kind, path, applied.stat, nil); err != nil {
+			if err := profileHandleChange(ctx, cacheCtx, applied.kind, path, applied.stat); err != nil {
 				return nil, "", fmt.Errorf("failed to handle change in content hasher: %w", err)
 			}
 		}
@@ -596,9 +602,11 @@ func (local *localFS) Sync( //nolint:gocyclo
 
 	if forParents {
 		// we created the parent dirs, nothing else to do now
+		ctx = phases.next(ctx, "release")
 		return nil, "", nil
 	}
 
+	ctx = phases.next(ctx, "checksum")
 	ctx, copySpan := Tracer(ctx).Start(ctx, "copy")
 	defer telemetry.EndWithCause(copySpan, &rerr)
 
@@ -614,6 +622,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 
 	// If we have already created a cache ref with the same content hash, use that instead of copying
 	// another equivalent one.
+	ctx = phases.next(ctx, "resultLookup")
 	sis, err := bkcontenthash.SearchContentHash(ctx, cacheManager, dgst)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to search content hash: %w", err)
@@ -622,12 +631,14 @@ func (local *localFS) Sync( //nolint:gocyclo
 		finalRef, err := cacheManager.GetBySnapshotID(ctx, si.SnapshotID())
 		if err == nil {
 			bklog.G(ctx).Debugf("reusing copy ref %s", si.SnapshotID())
+			ctx = phases.next(ctx, "release")
 			return finalRef, dgst, nil
 		} else {
 			bklog.G(ctx).Debugf("failed to get cache ref: %v", err)
 		}
 	}
 
+	ctx = phases.next(ctx, "mount")
 	copyRefMntable, err := newCopyRef.Mount(ctx, false)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to get mountable: %w", err)
@@ -668,6 +679,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 		}
 	}()
 
+	ctx = phases.next(ctx, "copierInit")
 	copier, err := layercopy.NewCopier(layercopy.Mount{
 		Root:  copyRefMntPath,
 		Mount: &copyRefMounts[0],
@@ -683,8 +695,9 @@ func (local *localFS) Sync( //nolint:gocyclo
 		}
 	}()
 
-	ctx, materialize := wcprof.BeginOp(ctx, wcprof.OpKindIO, "filesync.flat.materialize", wcprof.OpOpts{})
-	defer func() { materialize.EndErr(rerr) }()
+	copyProfile := newCopyProfile(ctx)
+	defer logCopyProfile(ctx, copyProfile)
+	ctx = phases.next(ctx, "copy")
 	var immutableFileSource func(string, os.FileInfo) (string, error)
 	if local.blobRoot != "" {
 		immutableFileSource = local.immutableFileSource(ctx, cachedResults)
@@ -702,6 +715,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 			DisableXAttrs:          true,
 			CopyDirContents:        true,
 			DisableSourceHardlinks: true,
+			Profile:                copyProfile,
 			ImmutableFileSource:    immutableFileSource,
 			XAttrErrorHandler: func(dst, src, key string, err error) error {
 				if key != "" {
@@ -715,12 +729,14 @@ func (local *localFS) Sync( //nolint:gocyclo
 	); err != nil {
 		return nil, "", fmt.Errorf("failed to copy %q: %w", local.subdir, err)
 	}
+	ctx = phases.next(ctx, "flush")
 	if err := copier.Close(); err != nil {
 		copier = nil
 		return nil, "", fmt.Errorf("failed to close copier: %w", err)
 	}
 	copier = nil
 
+	ctx = phases.next(ctx, "unmount")
 	if err := copyRefMnter.Unmount(); err != nil {
 		copyRefMnter = nil
 		return nil, "", fmt.Errorf("failed to unmount: %w", err)
@@ -734,6 +750,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 		copyRefReleaseFn = nil
 	}
 
+	ctx = phases.next(ctx, "commit")
 	finalRef, err := newCopyRef.Commit(ctx)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to commit: %w", err)
@@ -750,6 +767,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 		}
 	}()
 
+	ctx = phases.next(ctx, "publish")
 	finalMD, ok := any(finalRef).(bkcache.RefMetadata)
 	if !ok {
 		return nil, "", fmt.Errorf("final sync metadata: unexpected ref type %T", finalRef)
@@ -766,6 +784,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 		return nil, "", fmt.Errorf("failed to set description: %w", err)
 	}
 
+	ctx = phases.next(ctx, "release")
 	return finalRef, dgst, nil
 }
 
@@ -795,12 +814,13 @@ func (local *localFS) cacheKey(path string) string {
 //
 // Unlike other methods below, we don't need to verifyExpectedChange since there was no change applied to the path.
 func (local *localFS) GetPreviousChange(ctx context.Context, path string, stat *types.Stat) (CachedChange, error) {
+	defer syncWorkFromContext(ctx).measure(syncWorkPrevious)()
 	return local.changeCache.getOrInit(ctx, local.cacheKey(path), func(_ context.Context) (*ChangeWithStat, error) {
 		fullPath := local.toFullPath(path)
 
 		isRegular := stat.Mode&uint32(os.ModeType) == 0
 		if isRegular {
-			dgstBytes, err := sysx.Getxattr(fullPath, hashXattrKey)
+			dgstBytes, err := profilePreviousHash(ctx, fullPath)
 			if err != nil {
 				if !isMissingContentHashXattr(err) {
 					return nil, fmt.Errorf("failed to get content hash xattr: %w", err)
@@ -1004,9 +1024,10 @@ var copyBufferPool = &sync.Pool{
 }
 
 func (local *localFS) WriteFile(ctx context.Context, expectedChangeKind ChangeKind, path string, upperStat *types.Stat, upperFS ReadFS) (CachedChange, int64, error) {
+	defer syncWorkFromContext(ctx).measure(syncWorkWrite)()
 	var writtenBytes int64
 	appliedChange, err := local.changeCache.getOrInit(ctx, local.cacheKey(path), func(ctx context.Context) (*ChangeWithStat, error) {
-		reader, err := upperFS.ReadFile(ctx, path)
+		reader, err := profilePayloadOpen(ctx, upperFS, path)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read file %q: %w", path, err)
 		}
@@ -1036,7 +1057,7 @@ func (local *localFS) WriteFile(ctx context.Context, expectedChangeKind ChangeKi
 		h := newHashFromStat(upperStat)
 
 		copyBuf := copyBufferPool.Get().(*[]byte)
-		written, err := io.CopyBuffer(io.MultiWriter(f, h), reader, *copyBuf)
+		written, err := profilePayloadCopy(ctx, io.MultiWriter(f, h), reader, *copyBuf)
 		writtenBytes = written
 		copyBufferPool.Put(copyBuf)
 		if err != nil {

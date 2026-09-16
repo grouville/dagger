@@ -35,6 +35,8 @@ type sourceLinkKey struct {
 }
 
 type destination struct {
+	profile *CopyProfile
+
 	viewRoot  string
 	writeRoot string
 	overlay   bool
@@ -113,7 +115,7 @@ func (d *destination) mkdir(destPath string, opts CopyOptions) error {
 				return err
 			}
 			if d.overlay {
-				if err := os.Mkdir(realPath, mkdirMode(nil, opts)); err != nil && !os.IsExist(err) {
+				if err := d.profile.mkdir(realPath, mkdirMode(nil, opts)); err != nil && !os.IsExist(err) {
 					return err
 				}
 				if err := d.markOpaque(realPath); err != nil {
@@ -162,7 +164,7 @@ func (d *destination) ensureDir(destPath string, src *sourceEntry, opts CopyOpti
 }
 
 func (d *destination) ensureExistingDir(destPath string, src *sourceEntry, opts CopyOptions, overwriteMetadata bool) (string, bool, error) {
-	viewPath, err := rootPath(d.viewRoot, destPath, true)
+	viewPath, err := d.profile.rootPath("destination.root_path", d.viewRoot, destPath, true)
 	if err != nil {
 		if os.IsNotExist(err) || isNotDir(err) {
 			return "", false, nil
@@ -170,7 +172,7 @@ func (d *destination) ensureExistingDir(destPath string, src *sourceEntry, opts 
 		return "", false, err
 	}
 
-	info, err := os.Stat(viewPath)
+	info, err := d.profile.stat("destination.stat", viewPath)
 	if err != nil {
 		if os.IsNotExist(err) || isNotDir(err) {
 			return "", false, nil
@@ -214,7 +216,7 @@ func (d *destination) ensureOverlayReplacementDir(destPath, viewPath string, src
 	}
 	rel = cleanRel(rel)
 	realPath := filepath.Join(d.writeRoot, rel)
-	upperInfo, err := os.Lstat(realPath)
+	upperInfo, err := d.profile.lstat("destination.stat", realPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", false, fmt.Errorf("cannot copy directory to non-directory %q", destPath)
@@ -243,7 +245,7 @@ func (d *destination) createDir(destPath string, src *sourceEntry, opts CopyOpti
 	rel := filepath.Join(parentRel, filepath.Base(destPath))
 	realPath := filepath.Join(d.writeRoot, rel)
 	mode := mkdirMode(src, opts)
-	if err := os.Mkdir(realPath, mode); err != nil {
+	if err := d.profile.mkdir(realPath, mode); err != nil {
 		if !os.IsExist(err) {
 			return "", false, err
 		}
@@ -262,7 +264,7 @@ func (d *destination) replaceCreateDir(realPath string, mode os.FileMode, opts C
 	if !opts.ReplaceExisting {
 		return nil
 	}
-	info, err := os.Lstat(realPath)
+	info, err := d.profile.lstat("destination.stat", realPath)
 	if err != nil {
 		return err
 	}
@@ -272,7 +274,7 @@ func (d *destination) replaceCreateDir(realPath string, mode os.FileMode, opts C
 	if err := d.removeAll(realPath, false); err != nil {
 		return err
 	}
-	if err := os.Mkdir(realPath, mode); err != nil && !os.IsExist(err) {
+	if err := d.profile.mkdir(realPath, mode); err != nil && !os.IsExist(err) {
 		return err
 	}
 	if d.overlay {
@@ -325,7 +327,7 @@ func (d *destination) materializeExistingDir(rel, viewPath string) (string, bool
 	if _, ok := d.materializedDirs[rel]; ok {
 		return realPath, false, nil
 	}
-	if info, err := os.Lstat(realPath); err == nil {
+	if info, err := d.profile.lstat("destination.stat", realPath); err == nil {
 		if !info.IsDir() {
 			return "", false, fmt.Errorf("destination upper path %q exists and is not a directory", realPath)
 		}
@@ -335,14 +337,14 @@ func (d *destination) materializeExistingDir(rel, viewPath string) (string, bool
 		return "", false, err
 	}
 
-	info, err := os.Lstat(viewPath)
+	info, err := d.profile.lstat("destination.stat", viewPath)
 	if err != nil {
 		return "", false, err
 	}
-	if err := os.Mkdir(realPath, info.Mode().Perm()); err != nil && !os.IsExist(err) {
+	if err := d.profile.mkdir(realPath, info.Mode().Perm()); err != nil && !os.IsExist(err) {
 		return "", false, err
 	}
-	if err := copyMetadata(realPath, viewPath, info, nil, nil, false, nil, false); err != nil {
+	if err := copyMetadata(realPath, viewPath, info, nil, nil, false, nil, false, d.profile); err != nil {
 		return "", false, err
 	}
 	d.markMaterialized(rel)
@@ -359,7 +361,7 @@ func (d *destination) markMaterialized(rel string) {
 // caller cannot rule out that the path is a directory; removing a directory
 // invalidates the materialized set, whereas removing a file never can.
 func (d *destination) removeAll(realPath string, mayBeDir bool) error {
-	if err := os.RemoveAll(realPath); err != nil {
+	if err := d.profile.removeAll(realPath); err != nil {
 		return err
 	}
 	if mayBeDir {
@@ -383,6 +385,7 @@ type resolvedParent struct {
 // directory when there is one. realPath resolves only the parent and appends
 // the final component, so this is the same answer without the walk.
 func (d *destination) realPathIn(destPath string, parent resolvedParent) (string, error) {
+	defer d.profile.measure("destination.resolve_inclusive")()
 	if !parent.ok {
 		return d.realPath(destPath)
 	}
@@ -397,7 +400,7 @@ func (d *destination) realPathIn(destPath string, parent resolvedParent) (string
 func (d *destination) statViewIn(destPath string, parent resolvedParent) (os.FileInfo, bool, error) {
 	if parent.ok {
 		base := filepath.Base(cleanContainerPath(destPath))
-		info, err := os.Lstat(filepath.Join(d.viewRoot, parent.rel, base))
+		info, err := d.profile.lstat("destination.stat", filepath.Join(d.viewRoot, parent.rel, base))
 		switch {
 		case err == nil && info.Mode()&os.ModeSymlink == 0:
 			return info, true, nil
@@ -421,14 +424,14 @@ func (d *destination) realPath(destPath string) (string, error) {
 }
 
 func (d *destination) statView(destPath string) (os.FileInfo, bool, error) {
-	viewPath, err := rootPath(d.viewRoot, destPath, true)
+	viewPath, err := d.profile.rootPath("destination.root_path", d.viewRoot, destPath, true)
 	if err != nil {
 		if os.IsNotExist(err) || isNotDir(err) {
 			return nil, false, nil
 		}
 		return nil, false, err
 	}
-	info, err := os.Stat(viewPath)
+	info, err := d.profile.stat("destination.stat", viewPath)
 	if err == nil {
 		return info, true, nil
 	}
@@ -463,7 +466,7 @@ func (d *destination) removeForReplace(destPath string, parent resolvedParent, s
 		return "", err
 	}
 	if d.overlay && srcInfo.IsDir() && !destInfo.IsDir() {
-		if err := os.Mkdir(realPath, srcInfo.Mode().Perm()); err != nil && !os.IsExist(err) {
+		if err := d.profile.mkdir(realPath, srcInfo.Mode().Perm()); err != nil && !os.IsExist(err) {
 			return "", err
 		}
 		if err := d.markOpaque(realPath); err != nil {
@@ -480,14 +483,16 @@ func (d *destination) applyMetadataPath(dstPath string, src *sourceEntry, opts C
 		info = src.Info
 		srcPath = src.RealPath
 	}
-	return copyMetadata(dstPath, srcPath, info, opts.Chown, opts.Mode, d.userxattr, opts.XAttrErrorHandler, opts.DisableXAttrs)
+	return copyMetadata(dstPath, srcPath, info, opts.Chown, opts.Mode, d.userxattr, opts.XAttrErrorHandler, opts.DisableXAttrs, d.profile)
 }
 
 func (d *destination) flush() error {
+	defer d.profile.measure("flush")()
 	return nil
 }
 
 func (d *destination) usage() (snapshots.Usage, error) {
+	defer d.profile.measure("usage_walk_inclusive")()
 	seen := map[inode]struct{}{}
 	var usage snapshots.Usage
 	err := filepath.WalkDir(d.writeRoot, func(path string, ent fs.DirEntry, err error) error {
@@ -517,7 +522,7 @@ func (d *destination) usage() (snapshots.Usage, error) {
 	return usage, err
 }
 
-func copyMetadata(dstPath, srcPath string, srcInfo os.FileInfo, chown *Ownership, modeOverride *os.FileMode, userxattr bool, xattrErrorHandler XAttrErrorHandler, disableXAttrs bool) error {
+func copyMetadata(dstPath, srcPath string, srcInfo os.FileInfo, chown *Ownership, modeOverride *os.FileMode, userxattr bool, xattrErrorHandler XAttrErrorHandler, disableXAttrs bool, profile *CopyProfile) error {
 	if srcInfo != nil {
 		st, ok := srcInfo.Sys().(*syscall.Stat_t)
 		if !ok {
@@ -527,7 +532,7 @@ func copyMetadata(dstPath, srcPath string, srcInfo os.FileInfo, chown *Ownership
 		if chown != nil {
 			uid, gid = chown.UID, chown.GID
 		}
-		if err := os.Lchown(dstPath, uid, gid); err != nil {
+		if err := profile.chown(dstPath, uid, gid); err != nil {
 			return err
 		}
 
@@ -536,13 +541,13 @@ func copyMetadata(dstPath, srcPath string, srcInfo os.FileInfo, chown *Ownership
 			mode = *modeOverride
 		}
 		if srcInfo.Mode()&os.ModeSymlink == 0 {
-			if err := os.Chmod(dstPath, mode); err != nil {
+			if err := profile.chmod(dstPath, mode); err != nil {
 				return err
 			}
 		}
 
 		if srcPath != "" && !disableXAttrs {
-			if err := copyXattrs(dstPath, srcPath, userxattr, xattrErrorHandler); err != nil {
+			if err := profile.xattrs(dstPath, srcPath, userxattr, xattrErrorHandler); err != nil {
 				return err
 			}
 		}
@@ -550,18 +555,18 @@ func copyMetadata(dstPath, srcPath string, srcInfo os.FileInfo, chown *Ownership
 		atime := unix.Timespec{Sec: st.Atim.Sec, Nsec: st.Atim.Nsec}
 		mtime := unix.Timespec{Sec: st.Mtim.Sec, Nsec: st.Mtim.Nsec}
 		if srcInfo.IsDir() {
-			return unix.UtimesNanoAt(unix.AT_FDCWD, dstPath, []unix.Timespec{atime, mtime}, unix.AT_SYMLINK_NOFOLLOW)
+			return profile.utimes(dstPath, []unix.Timespec{atime, mtime})
 		}
-		return unix.UtimesNanoAt(unix.AT_FDCWD, dstPath, []unix.Timespec{atime, mtime}, unix.AT_SYMLINK_NOFOLLOW)
+		return profile.utimes(dstPath, []unix.Timespec{atime, mtime})
 	}
 
 	if chown != nil {
-		if err := os.Lchown(dstPath, chown.UID, chown.GID); err != nil {
+		if err := profile.chown(dstPath, chown.UID, chown.GID); err != nil {
 			return err
 		}
 	}
 	if modeOverride != nil {
-		if err := os.Chmod(dstPath, *modeOverride); err != nil {
+		if err := profile.chmod(dstPath, *modeOverride); err != nil {
 			return err
 		}
 	}
