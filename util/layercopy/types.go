@@ -66,6 +66,10 @@ type CopyOptions struct {
 	// DisableSourceHardlinks disables hardlinking from source paths into the
 	// destination while still preserving hardlinks within this copy.
 	DisableSourceHardlinks bool
+
+	// Profile optionally records aggregate diagnostic Go-operation wall work.
+	// Use one collector per sequential Copier; nil disables recording.
+	Profile *CopyProfile
 }
 
 type Copier struct {

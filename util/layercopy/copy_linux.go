@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -32,6 +31,8 @@ func NewCopier(dest Mount) (*Copier, error) {
 }
 
 func (c *Copier) Copy(ctx context.Context, src Mount, srcPath, destPath string, opts CopyOptions) error {
+	c.dest.profile = opts.Profile
+	defer opts.Profile.measure("copy.total_inclusive")()
 	s, err := c.sourceForCopy(src)
 	if err != nil {
 		return err
@@ -44,6 +45,8 @@ func (c *Copier) Copy(ctx context.Context, src Mount, srcPath, destPath string, 
 }
 
 func (c *Copier) CopyFile(ctx context.Context, src Mount, srcPath, destPath string, opts CopyOptions) error {
+	c.dest.profile = opts.Profile
+	defer opts.Profile.measure("copy.total_inclusive")()
 	s, err := c.sourceForCopy(src)
 	if err != nil {
 		return err
@@ -55,6 +58,9 @@ func (c *Copier) sourceForCopy(m Mount) (*source, error) {
 	s, err := newSource(m)
 	if err != nil {
 		return nil, err
+	}
+	if c.dest != nil {
+		s.profile = c.dest.profile
 	}
 	if !s.overlay {
 		return s, nil
@@ -71,6 +77,8 @@ func (c *Copier) sourceForCopy(m Mount) (*source, error) {
 }
 
 func (c *Copier) Mkdir(ctx context.Context, destPath string, opts CopyOptions) error {
+	c.dest.profile = opts.Profile
+	defer opts.Profile.measure("copy.total_inclusive")()
 	select {
 	case <-ctx.Done():
 		return context.Cause(ctx)
@@ -335,7 +343,7 @@ func (c *Copier) copyRegular(ent sourceEntry, realPath string, opts CopyOptions)
 			if err := c.dest.removeAll(realPath, !opts.ReplaceExisting); err != nil {
 				return err
 			}
-			if err := os.Link(linkSrc, realPath); err != nil && !isHardlinkFallback(err) {
+			if err := opts.Profile.link("link.alias", linkSrc, realPath); err != nil && !isHardlinkFallback(err) {
 				return err
 			} else if err == nil {
 				return c.dest.applyMetadataPath(realPath, &ent, opts)
@@ -347,7 +355,7 @@ func (c *Copier) copyRegular(ent sourceEntry, realPath string, opts CopyOptions)
 		if err := c.dest.removeAll(realPath, !opts.ReplaceExisting); err != nil {
 			return err
 		}
-		if err := os.Link(ent.RealPath, realPath); err == nil {
+		if err := opts.Profile.link("link.source", ent.RealPath, realPath); err == nil {
 			c.dest.sourceLinks[ino] = realPath
 			c.dest.crossLinks[ino] = struct{}{}
 			return nil
@@ -356,7 +364,7 @@ func (c *Copier) copyRegular(ent sourceEntry, realPath string, opts CopyOptions)
 		}
 	}
 
-	if err := copyFileContent(realPath, ent.RealPath); err != nil {
+	if err := copyFileContent(realPath, ent.RealPath, opts.Profile); err != nil {
 		return err
 	}
 	if !opts.DisableHardlinks {
@@ -370,19 +378,19 @@ func isHardlinkFallback(err error) bool {
 	return err != nil && (os.IsExist(err) || errors.Is(err, unix.EXDEV) || errors.Is(err, unix.EMLINK))
 }
 
-func copyFileContent(dstPath, srcPath string) error {
-	src, err := os.Open(srcPath)
+func copyFileContent(dstPath, srcPath string, profile *CopyProfile) error {
+	src, err := profile.open(srcPath)
 	if err != nil {
 		return err
 	}
-	defer src.Close()
+	defer profile.close(src)
 
-	dst, err := os.Create(dstPath)
+	dst, err := profile.create(dstPath)
 	if err != nil {
 		return err
 	}
-	_, copyErr := io.Copy(dst, src)
-	closeErr := dst.Close()
+	_, copyErr := profile.copy(dst, src)
+	closeErr := profile.close(dst)
 	if copyErr != nil {
 		return copyErr
 	}
