@@ -34,7 +34,7 @@ func TestCachedFileRejectsChangedSource(t *testing.T) {
 			require.NoError(t, os.WriteFile(source, []byte(changed), 0o644))
 
 			cacheRoot := t.TempDir()
-			path, err := cachedFile(context.Background(), cacheRoot, digest.FromString("object"), source, stat)
+			path, err := fileCacheTestIngest(t, context.Background(), cacheRoot, source, stat)
 			require.ErrorContains(t, err, "source changed while copying")
 			require.Empty(t, path)
 			require.NoError(t, filepath.WalkDir(cacheRoot, func(_ string, entry fs.DirEntry, err error) error {
@@ -52,7 +52,7 @@ func TestCachedFileStripsMirrorXattr(t *testing.T) {
 	source := filepath.Join(writeTree(t, map[string]string{"file": "contents"}), "file")
 	require.NoError(t, sysx.Setxattr(source, hashXattrKey, []byte("private mirror metadata"), 0))
 	stat := fileCacheTestStat(t, source)
-	path, err := cachedFile(context.Background(), t.TempDir(), digest.FromString("object"), source, stat)
+	path, err := fileCacheTestIngest(t, context.Background(), t.TempDir(), source, stat)
 	require.NoError(t, err)
 
 	_, err = sysx.Getxattr(path, hashXattrKey)
@@ -201,27 +201,67 @@ func fileCacheTestChanges(t *testing.T, local *localFS, names ...string) []Cache
 
 func fileCacheTestResolve(t *testing.T, local *localFS, name string) string {
 	t.Helper()
-	source := filepath.Join(local.rootPath, name)
-	resolve := local.immutableFileSource(context.Background(), fileCacheTestChanges(t, local, name))
-	path, err := resolve(source, fileCacheTestInfo(t, source))
-	require.NoError(t, err)
-	require.NotEmpty(t, path)
+	stat := fileCacheTestStat(t, filepath.Join(local.rootPath, name))
+	fileCacheTestCopy(t, local, name)
+	path := fileCachePath(local.blobRoot, fileCacheKey(stat))
+	require.FileExists(t, path)
 	return path
 }
 
 func fileCacheTestCopy(t *testing.T, local *localFS, names ...string) string {
 	t.Helper()
+	ctx := context.Background()
+	cache := local.newFileCacheCopy(ctx, fileCacheTestChanges(t, local, names...))
 	root := t.TempDir()
 	copier, err := layercopy.NewCopier(layercopy.Mount{Root: root})
 	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, copier.Close()) })
-	require.NoError(t, copier.Copy(context.Background(), layercopy.Mount{Root: local.rootPath}, "/", "/", layercopy.CopyOptions{
+	copyErr := copier.CopyToEmpty(ctx, layercopy.Mount{Root: local.rootPath}, "/", layercopy.CopyOptions{
 		CopyDirContents:        true,
 		DisableSourceHardlinks: true,
 		DisableXAttrs:          true,
-		ImmutableFileSource:    local.immutableFileSource(context.Background(), fileCacheTestChanges(t, local, names...)),
-	}))
+		ImmutableFileSource:    cache.lookup,
+	}, cache.materialize)
+	closeErr := copier.Close()
+	require.NoError(t, copyErr)
+	require.NoError(t, closeErr)
+	require.NoError(t, cache.publish(ctx))
 	return root
+}
+
+func fileCacheTestIngest(t *testing.T, ctx context.Context, cacheRoot, source string, expectedStat *HashedStatInfo) (string, error) {
+	t.Helper()
+	local, err := newLocalFS(NewMirrorSharedStateWithFileCache(filepath.Dir(source), cacheRoot), "", nil, nil, nil, "")
+	if err != nil {
+		return "", err
+	}
+	cache := local.newFileCacheCopy(ctx, []CachedChange{&cachedChange{
+		callKey: filepath.Base(source),
+		val: &ChangeWithStat{
+			kind: ChangeKindNone,
+			stat: expectedStat,
+		},
+	}})
+	copier, err := layercopy.NewCopier(layercopy.Mount{Root: t.TempDir()})
+	if err != nil {
+		return "", err
+	}
+	copyErr := copier.CopyToEmpty(ctx, layercopy.Mount{Root: local.rootPath}, "/"+filepath.Base(source), layercopy.CopyOptions{
+		CopyDirContents:        true,
+		DisableSourceHardlinks: true,
+		DisableXAttrs:          true,
+		ImmutableFileSource:    cache.lookup,
+	}, cache.materialize)
+	closeErr := copier.Close()
+	if copyErr != nil {
+		return "", copyErr
+	}
+	if closeErr != nil {
+		return "", closeErr
+	}
+	if err := cache.publish(ctx); err != nil {
+		return "", err
+	}
+	return fileCachePath(cacheRoot, fileCacheKey(expectedStat)), nil
 }
 
 func fileCacheTestInfo(t *testing.T, path string) os.FileInfo {

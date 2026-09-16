@@ -698,15 +698,18 @@ func (local *localFS) Sync( //nolint:gocyclo
 	copyProfile := newCopyProfile(ctx)
 	defer logCopyProfile(ctx, copyProfile)
 	ctx = phases.next(ctx, "copy")
+	var fileCache *fileCacheCopy
 	var immutableFileSource func(string, os.FileInfo) (string, error)
+	var materializeFile layercopy.FreshFileMaterializer
 	if local.blobRoot != "" {
-		immutableFileSource = local.immutableFileSource(ctx, cachedResults)
+		fileCache = local.newFileCacheCopy(ctx, cachedResults)
+		immutableFileSource = fileCache.lookup
+		materializeFile = fileCache.materialize
 	}
 
-	if err := copier.Copy(ctx,
+	if err := copier.CopyToEmpty(ctx,
 		layercopy.Mount{Root: filepath.Join(local.rootPath, local.subdir)},
 		local.copyPath,
-		"/",
 		layercopy.CopyOptions{
 			Filter: layercopy.Filter{
 				// Only copy files that we know about changes for.
@@ -726,6 +729,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 				return nil
 			},
 		},
+		materializeFile,
 	); err != nil {
 		return nil, "", fmt.Errorf("failed to copy %q: %w", local.subdir, err)
 	}
@@ -735,6 +739,14 @@ func (local *localFS) Sync( //nolint:gocyclo
 		return nil, "", fmt.Errorf("failed to close copier: %w", err)
 	}
 	copier = nil
+	if fileCache != nil {
+		// The one-shot copier has finished all aliases and metadata. Retain its
+		// finalized backing inodes while both snapshots are still mounted; no
+		// later result operation writes these files, even if commit fails.
+		if err := fileCache.publish(ctx); err != nil {
+			return nil, "", fmt.Errorf("failed to publish file cache: %w", err)
+		}
+	}
 
 	ctx = phases.next(ctx, "unmount")
 	if err := copyRefMnter.Unmount(); err != nil {
