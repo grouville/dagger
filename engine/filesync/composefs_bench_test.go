@@ -146,16 +146,22 @@ func TestComposefsMaterialize(t *testing.T) {
 				key := fileCacheKey(n.stat)
 				path := fileCachePath(cacheRoot, key)
 				hit, err := lookupCachedFile(path, key, n.stat)
-				require.NoError(t, err)
+				if err != nil {
+					t.Fatal(err)
+				}
 				if hit != "" {
 					continue
 				}
 				// Same verified writer and atomic no-replace publication as the
 				// inode CAS. No destination tree exists to ingest into in this arm.
 				_, op := wcprof.BeginOp(ctx, wcprof.OpKindIO, "materializer.ingest", wcprof.OpOpts{})
-				require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
+				if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+					t.Fatal(err)
+				}
 				f, err := os.CreateTemp(filepath.Dir(path), ".ingest-")
-				require.NoError(t, err)
+				if err != nil {
+					t.Fatal(err)
+				}
 				err = writeCachedFile(f, filepath.Join(source, n.name), n.stat)
 				if err == nil {
 					err = os.Link(f.Name(), path)
@@ -166,8 +172,12 @@ func TestComposefsMaterialize(t *testing.T) {
 				_ = f.Close()
 				removeErr := os.Remove(f.Name())
 				op.EndErr(err)
-				require.NoError(t, err)
-				require.NoError(t, removeErr)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if removeErr != nil {
+					t.Fatal(removeErr)
+				}
 				r.Ingested++
 			}
 		})
@@ -185,13 +195,17 @@ func TestComposefsMaterialize(t *testing.T) {
 					payload = composeBenchEscape(n.stat.Linkname)
 				case n.stat.Mode().IsRegular() && n.stat.Size() > 0:
 					rel, err := filepath.Rel(cacheRoot, fileCachePath(cacheRoot, fileCacheKey(n.stat)))
-					require.NoError(t, err)
+					if err != nil {
+						t.Fatal(err)
+					}
 					payload = composeBenchEscape(rel)
 				}
 				_, err := fmt.Fprintf(w, "%s %d %s %d %d %d %d %d.%09d %s - -\n",
 					composeBenchEscape("/"+n.name), n.stat.Size(), mode, n.unix.Nlink,
 					n.stat.Uid, n.stat.Gid, n.unix.Rdev, n.stat.ModTime().Unix(), n.stat.ModTime().Nanosecond(), payload)
-				require.NoError(t, err)
+				if err != nil {
+					t.Fatal(err)
+				}
 			}
 			require.NoError(t, w.Flush())
 			require.NoError(t, f.Close())
@@ -241,19 +255,32 @@ func TestComposefsMaterialize(t *testing.T) {
 
 func composeBenchCapture(t *testing.T, root string) []composeBenchNode {
 	t.Helper()
+	nodes, err := composeBenchReadTree(root)
+	require.NoError(t, err)
+	return nodes
+}
+
+// Keep assertion bookkeeping and per-file copy-buffer allocation out of the
+// timed consumer. All failures still reach the same boundary assertion.
+func composeBenchReadTree(root string) ([]composeBenchNode, error) {
 	var nodes []composeBenchNode
 	links := map[[2]uint64]string{}
-	require.NoError(t, filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+	buf := make([]byte, 32*1024)
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		rel, err := filepath.Rel(root, path)
-		require.NoError(t, err)
+		if err != nil {
+			return err
+		}
 		if rel == "." {
 			rel = ""
 		}
 		info, err := entry.Info()
-		require.NoError(t, err)
+		if err != nil {
+			return err
+		}
 		u := info.Sys().(*syscall.Stat_t)
 		st := &fstypes.Stat{Path: rel, Mode: uint32(info.Mode()), Uid: u.Uid, Gid: u.Gid, ModTime: info.ModTime().UnixNano()}
 		if !info.IsDir() {
@@ -261,17 +288,28 @@ func composeBenchCapture(t *testing.T, root string) []composeBenchNode {
 		}
 		if info.Mode()&os.ModeSymlink != 0 {
 			st.Linkname, err = os.Readlink(path)
-			require.NoError(t, err)
+			if err != nil {
+				return err
+			}
 		}
 		h := newHashFromStat(st)
 		if info.Mode().IsRegular() {
 			f, err := os.Open(path)
-			require.NoError(t, err)
-			_, err = io.Copy(h, f)
-			require.NoError(t, err)
-			require.NoError(t, f.Close())
+			if err != nil {
+				return err
+			}
+			_, err = io.CopyBuffer(h, struct{ io.Reader }{f}, buf)
+			closeErr := f.Close()
+			if err != nil {
+				return err
+			}
+			if closeErr != nil {
+				return closeErr
+			}
 		} else {
-			require.True(t, info.IsDir() || info.Mode()&os.ModeSymlink != 0, "unsupported fixture node: %s", path)
+			if !info.IsDir() && info.Mode()&os.ModeSymlink == 0 {
+				return fmt.Errorf("unsupported fixture node: %s", path)
+			}
 		}
 		n := composeBenchNode{name: rel, unix: u, stat: &HashedStatInfo{StatInfo: StatInfo{st}, dgst: digest.NewDigest(hashutil.XXH3, h)}}
 		if info.Mode().IsRegular() {
@@ -283,8 +321,8 @@ func composeBenchCapture(t *testing.T, root string) []composeBenchNode {
 		}
 		nodes = append(nodes, n)
 		return nil
-	}))
-	return nodes
+	})
+	return nodes, err
 }
 
 func composeBenchVerify(t *testing.T, root string, expected []composeBenchNode) {
@@ -293,18 +331,18 @@ func composeBenchVerify(t *testing.T, root string, expected []composeBenchNode) 
 	require.Len(t, actual, len(expected))
 	for i, want := range expected {
 		got := actual[i]
-		require.Equal(t, want.name, got.name)
+		if want.name != got.name {
+			t.Fatalf("path mismatch: %q != %q", want.name, got.name)
+		}
 		if want.name == "" {
 			// CopyDirContents imports children, not the source root inode.
 			require.True(t, got.stat.IsDir())
 			continue
 		}
-		require.Equal(t, want.stat.Digest(), got.stat.Digest(), "bytes/type/mode/owner/link target: %s", want.name)
-		require.Equal(t, want.stat.ModTime(), got.stat.ModTime(), "mtime: %s", want.name)
-		if !want.stat.IsDir() {
-			require.Equal(t, want.stat.Size(), got.stat.Size(), "size: %s", want.name)
+		if want.stat.Digest() != got.stat.Digest() || !want.stat.ModTime().Equal(got.stat.ModTime()) ||
+			(!want.stat.IsDir() && want.stat.Size() != got.stat.Size()) || want.link != got.link {
+			t.Fatalf("content, metadata or alias mismatch: %s", want.name)
 		}
-		require.Equal(t, want.link, got.link, "hardlink grouping: %s", want.name)
 	}
 }
 

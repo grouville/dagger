@@ -5,6 +5,10 @@ the synchronous result-first CAS at `31064758056ac175f54941d6293eff1905df894a`.
 It asks whether a composefs metadata image can replace full-tree hardlink
 materialization. This is not a snapshotter implementation or an e2e speedup.
 
+See [RESULTS.md](RESULTS.md) for the original frozen matrix and
+[READ-COST.md](READ-COST.md) for first-access attribution and a corrected
+full-matrix verifier with less test-only allocation/assertion overhead.
+
 ## Scope and invariants
 
 - CAS arm: the existing `fileCacheCopy`, `layercopy.CopyToEmpty`, and synchronous
