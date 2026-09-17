@@ -1,0 +1,8 @@
+query Import($path: String!, $probe: String!) {
+  host {
+    directory(path: $path, exclude: [".git", "target", "dagger.toml", "dagger.lock"], noCache: true) {
+      digest
+      file(path: $probe) { contents }
+    }
+  }
+}
