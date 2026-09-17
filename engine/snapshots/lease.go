@@ -13,6 +13,15 @@ import (
 
 type lazyLeaseScopeKey struct{}
 type withoutLazyLeaseScope struct{}
+type mountLeaseExpirationKey struct{}
+
+// WithMountLeaseExpiration opts subsequent immutable mounts into an expiring
+// view lease. The caller must stop using and release the mount before ttl
+// elapses; cancellation alone does not release a mount. Ordinary mounts keep
+// their existing lifetime. Nonpositive values are rejected by Mount.
+func WithMountLeaseExpiration(ctx context.Context, ttl time.Duration) context.Context {
+	return context.WithValue(ctx, mountLeaseExpirationKey{}, ttl)
+}
 
 type lazyLeaseScope struct {
 	mu       sync.Mutex

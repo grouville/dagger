@@ -611,13 +611,21 @@ func (sr *immutableRef) Mount(ctx context.Context, readonly bool) (_ MountableRe
 
 	viewLeaseID := identity.NewID()
 	viewSnapshotID := viewLeaseID + "-view"
-	if _, err := sr.cm.LeaseManager.Create(ctx, func(l *leases.Lease) error {
+	leaseOpts := []leases.Opt{func(l *leases.Lease) error {
 		l.ID = viewLeaseID
 		l.Labels = map[string]string{
 			"containerd.io/gc.flat": time.Now().UTC().Format(time.RFC3339Nano),
 		}
 		return nil
-	}, MakeTemporary); err != nil && !cerrdefs.IsAlreadyExists(err) {
+	}, MakeTemporary}
+	if ttl, ok := ctx.Value(mountLeaseExpirationKey{}).(time.Duration); ok {
+		if ttl <= 0 {
+			return nil, errors.New("mount lease expiration must be positive")
+		}
+		// Apply last: the option above replaces the label map.
+		leaseOpts = append(leaseOpts, leases.WithExpiration(ttl))
+	}
+	if _, err := sr.cm.LeaseManager.Create(ctx, leaseOpts...); err != nil && !cerrdefs.IsAlreadyExists(err) {
 		return nil, err
 	}
 	releaseViewLease := func() error {

@@ -181,7 +181,9 @@ func (p *FileCachePublisher) prepare(mirror bkcache.MutableRef, result bkcache.I
 func (j *fileCachePublication) publish() (rerr error) {
 	ctx, op := wcprof.BeginOp(j.ctx, wcprof.OpKindIO, "filesync.filecache.remountAndPublish", wcprof.OpOpts{})
 	defer func() { op.EndErr(rerr) }()
-	mountable, err := j.result.Mount(ctx, true)
+	// The job is bounded to one minute; also bound its independent view lease.
+	mountCtx := bkcache.WithMountLeaseExpiration(ctx, time.Hour)
+	mountable, err := j.result.Mount(mountCtx, true)
 	if err != nil {
 		return err
 	}
