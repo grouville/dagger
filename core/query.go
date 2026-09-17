@@ -20,6 +20,7 @@ import (
 	engineclient "github.com/dagger/dagger/engine/client"
 	"github.com/dagger/dagger/engine/clientdb"
 	"github.com/dagger/dagger/engine/engineutil"
+	"github.com/dagger/dagger/engine/filesync"
 	serverresolver "github.com/dagger/dagger/engine/server/resolver"
 	"google.golang.org/grpc"
 )
@@ -175,6 +176,9 @@ type Server interface {
 
 	// Gets the engine snapshot manager.
 	SnapshotManager() bkcache.SnapshotManager
+
+	// Engine-owned optional inode-cache admission, independent of CLI sessions.
+	FileCachePublisher() *filesync.FileCachePublisher
 
 	// A global lock for the engine, can be used to synchronize access to
 	// shared resources between multiple potentially concurrent calls.

@@ -21,6 +21,7 @@ import (
 	"github.com/Khan/genqlient/graphql"
 	"github.com/containerd/containerd/v2/core/content"
 	"github.com/containerd/containerd/v2/core/leases"
+	"github.com/dagger/dagger/engine/filesync"
 	bkcache "github.com/dagger/dagger/engine/snapshots"
 	"github.com/dagger/dagger/engine/telemetryattrs"
 	"github.com/dagger/dagger/internal/buildkit/executor/oci"
@@ -3600,6 +3601,10 @@ func (srv *Server) DNS() *oci.DNSConfig {
 // The lease manager for the engine as a whole
 func (srv *Server) LeaseManager() *bkcache.LeaseManager {
 	return srv.leaseManager
+}
+
+func (srv *Server) FileCachePublisher() *filesync.FileCachePublisher {
+	return srv.fileCachePublisher
 }
 
 // A shared engine-wide salt used when creating cache keys for secrets based on their plaintext

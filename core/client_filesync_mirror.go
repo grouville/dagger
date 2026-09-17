@@ -232,8 +232,13 @@ func (m *ClientFilesyncMirror) Snapshot(
 	defer func() {
 		_ = release(context.WithoutCancel(ctx))
 	}()
+	m.mu.Lock()
+	snapshot := m.snapshot
+	m.mu.Unlock()
 	return filesync.NewFileSyncer(filesync.FileSyncerOpt{
-		CacheAccessor: query.SnapshotManager(),
+		CacheAccessor:      query.SnapshotManager(),
+		FileCachePublisher: query.FileCachePublisher(),
+		Mirror:             snapshot,
 	}).Snapshot(ctx, sharedState, callerConn, clientPath, opts)
 }
 

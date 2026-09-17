@@ -19,15 +19,19 @@ import (
 )
 
 type FileSyncer struct {
-	cacheManager bkcache.Accessor
+	cacheManager       bkcache.Accessor
+	fileCachePublisher *FileCachePublisher
+	mirror             bkcache.MutableRef
 }
 
 type FileSyncerOpt struct {
-	CacheAccessor bkcache.Accessor
+	CacheAccessor      bkcache.Accessor
+	FileCachePublisher *FileCachePublisher
+	Mirror             bkcache.MutableRef
 }
 
 func NewFileSyncer(opt FileSyncerOpt) *FileSyncer {
-	return &FileSyncer{cacheManager: opt.CacheAccessor}
+	return &FileSyncer{cacheManager: opt.CacheAccessor, fileCachePublisher: opt.FileCachePublisher, mirror: opt.Mirror}
 }
 
 type SnapshotOpts struct {
@@ -129,6 +133,8 @@ func (ls *FileSyncer) sync(
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create local fs: %w", err)
 	}
+	local.fileCachePublisher = ls.fileCachePublisher
+	local.mirror = ls.mirror
 	return local.Sync(ctx, remote, ls.cacheManager, false)
 }
 

@@ -15,6 +15,7 @@ import (
 	engineclient "github.com/dagger/dagger/engine/client"
 	"github.com/dagger/dagger/engine/clientdb"
 	"github.com/dagger/dagger/engine/engineutil"
+	"github.com/dagger/dagger/engine/filesync"
 	serverresolver "github.com/dagger/dagger/engine/server/resolver"
 	bkcache "github.com/dagger/dagger/engine/snapshots"
 	"github.com/dagger/dagger/internal/buildkit/executor/oci"
@@ -191,12 +192,13 @@ func (ms *mockServer) EngineLocalCacheEntries(context.Context) (*EngineCacheEntr
 func (ms *mockServer) PruneEngineLocalCacheEntries(context.Context, EngineCachePruneOptions) (*EngineCacheEntrySet, error) {
 	return nil, nil
 }
-func (ms *mockServer) EngineLocalCachePolicy() *dagql.CachePrunePolicy { return nil }
-func (ms *mockServer) SnapshotManager() bkcache.SnapshotManager        { return nil }
-func (ms *mockServer) Locker() *locker.Locker                          { return nil }
-func (ms *mockServer) SecretSalt() []byte                              { return nil }
-func (ms *mockServer) EngineVolumeState() EngineVolumeState            { return EngineVolumeState{} }
-func (ms *mockServer) FlushSessionTelemetry(context.Context) error     { return nil }
+func (ms *mockServer) EngineLocalCachePolicy() *dagql.CachePrunePolicy  { return nil }
+func (ms *mockServer) SnapshotManager() bkcache.SnapshotManager         { return nil }
+func (ms *mockServer) FileCachePublisher() *filesync.FileCachePublisher { return nil }
+func (ms *mockServer) Locker() *locker.Locker                           { return nil }
+func (ms *mockServer) SecretSalt() []byte                               { return nil }
+func (ms *mockServer) EngineVolumeState() EngineVolumeState             { return EngineVolumeState{} }
+func (ms *mockServer) FlushSessionTelemetry(context.Context) error      { return nil }
 func (ms *mockServer) SessionScopedContext(ctx context.Context) (context.Context, error) {
 	return context.WithoutCancel(ctx), nil
 }

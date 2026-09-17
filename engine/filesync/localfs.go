@@ -83,6 +83,8 @@ type CachedChange = *cachedChange
 // localFS holds the state for a single sync of a client's fs into our cache
 type localFS struct {
 	*localFSSharedState
+	fileCachePublisher *FileCachePublisher
+	mirror             bkcache.MutableRef
 
 	// the subdir under rootPath that we are syncing, e.g. if the client is syncing in their
 	// /foo/bar/ dir this will be /foo/bar and we will be syncing into <rootPath>/foo/bar
@@ -741,7 +743,9 @@ func (local *localFS) Sync( //nolint:gocyclo
 		return nil, "", fmt.Errorf("failed to close copier: %w", err)
 	}
 	copier = nil
-	if fileCache != nil {
+	asyncCacheRoot := fileCacheBindRoot(copyRefMounts)
+	asyncCache := fileCache != nil && local.fileCachePublisher != nil && local.mirror != nil && asyncCacheRoot != ""
+	if fileCache != nil && !asyncCache {
 		// The one-shot copier has finished all aliases and metadata. Retain its
 		// finalized backing inodes while both snapshots are still mounted; no
 		// later result operation writes these files, even if commit fails.
@@ -796,6 +800,9 @@ func (local *localFS) Sync( //nolint:gocyclo
 	}
 	if err := finalMD.SetDescription(fmt.Sprintf("local dir %s (include: %v) (exclude %v)", local.subdir, local.includes, local.excludes)); err != nil {
 		return nil, "", fmt.Errorf("failed to set description: %w", err)
+	}
+	if asyncCache {
+		local.fileCachePublisher.schedule(ctx, local.mirror, finalRef, asyncCacheRoot, fileCache)
 	}
 
 	ctx = phases.next(ctx, "release")

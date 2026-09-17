@@ -31,6 +31,7 @@ import (
 	"github.com/dagger/dagger/core/schema"
 	"github.com/dagger/dagger/dagql"
 	"github.com/dagger/dagger/engine/config"
+	"github.com/dagger/dagger/engine/filesync"
 	bkcache "github.com/dagger/dagger/engine/snapshots"
 	containerdsnapshot "github.com/dagger/dagger/engine/snapshots/containerd"
 	controlapi "github.com/dagger/dagger/internal/buildkit/api/services/control"
@@ -88,6 +89,7 @@ type Server struct {
 
 	engineUtilOpts        *engineutil.Opts
 	workerCache           bkcache.SnapshotManager
+	fileCachePublisher    *filesync.FileCachePublisher
 	workerGCPolicies      []dagql.CachePrunePolicy
 	workerDefaultGCPolicy *dagql.CachePrunePolicy
 
@@ -267,6 +269,7 @@ func NewServer(ctx context.Context, opts *NewServerOpts) (*Server, error) {
 	if err := srv.initLocalCacheState(ctx, *cfg, ociCfg); err != nil {
 		return nil, err
 	}
+	srv.fileCachePublisher = filesync.NewFileCachePublisher(srv.workerCache, srv.leaseManager)
 
 	// Sweep any worker state moved aside by a cache reset — this startup's or
 	// an interrupted sweep from a previous one — in the background.
@@ -628,6 +631,10 @@ func (srv *Server) initLocalCacheStateOnce(ctx context.Context, cfg config.Confi
 
 func (srv *Server) closeLocalCacheStateForReset() error {
 	var err error
+	if srv.fileCachePublisher != nil {
+		srv.fileCachePublisher.Close()
+		srv.fileCachePublisher = nil
+	}
 	if srv.engineCache != nil {
 		err = errors.Join(err, srv.engineCache.CloseDiscardingPersistence())
 		srv.engineCache = nil
@@ -811,6 +818,9 @@ func (srv *Server) Clients() []string {
 // run with NoSync=true (plus NoFreelistSync/NoGrowSync) for performance reasons.
 func (srv *Server) GracefulStop(ctx context.Context) error {
 	srv.BeginGracefulStop()
+	if srv.fileCachePublisher != nil {
+		srv.fileCachePublisher.Close()
+	}
 
 	var err error
 
