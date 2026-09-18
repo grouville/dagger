@@ -3838,7 +3838,12 @@ func (srv *Server) CloudEngineClient(
 	// TODO: cloud support for "run on yourself", return (nil, false, nil) in that case
 
 	params := engineclient.Params{
-		RunnerHost: engine.DefaultCloudRunnerHost,
+		RunnerHost:     engine.DefaultCloudRunnerHost,
+		Workspace:      parentClient.clientMetadata.Workspace,
+		WorkspaceEnv:   parentClient.clientMetadata.WorkspaceEnv,
+		UserConfigPath: parentClient.clientMetadata.UserConfigPath,
+		// Artifact queries load their own selected modules.
+		SkipWorkspaceModules: true,
 
 		Module:   module,
 		Function: function,
