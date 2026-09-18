@@ -3837,11 +3837,18 @@ func (srv *Server) CloudEngineClient(
 
 	// TODO: cloud support for "run on yourself", return (nil, false, nil) in that case
 
+	runnerHost := engine.DefaultCloudRunnerHost
+	// Integration tests connect two copies of the dev engine.
+	if testHost := os.Getenv("_DAGGER_TESTS_CLOUD_RUNNER_HOST"); testHost != "" {
+		runnerHost = testHost
+	}
+
 	params := engineclient.Params{
-		RunnerHost:     engine.DefaultCloudRunnerHost,
+		RunnerHost:     runnerHost,
 		Workspace:      parentClient.clientMetadata.Workspace,
 		WorkspaceEnv:   parentClient.clientMetadata.WorkspaceEnv,
 		UserConfigPath: parentClient.clientMetadata.UserConfigPath,
+		ExtraModules:   parentClient.clientMetadata.ExtraModules,
 		// Artifact queries load their own selected modules.
 		SkipWorkspaceModules: true,
 
