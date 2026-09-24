@@ -59,3 +59,55 @@ func (dims Dimensions) DisplayName(dim *Dimension) string {
 	}
 	return dim.Identifier
 }
+
+// DimensionNameIndex resolves display aliases within one immutable schema scope.
+// Building it costs O(number of dimensions); each display-name lookup is O(1).
+type DimensionNameIndex struct {
+	small       Dimensions
+	identifiers map[string]bool
+	aliases     map[string]string
+	counts      map[string]int
+}
+
+func (dims Dimensions) IndexNames() *DimensionNameIndex {
+	// Most paths have one or two dimensions. A bounded linear lookup avoids
+	// three maps per path while keeping lookup cost independent of large scopes.
+	if len(dims) <= 8 {
+		return &DimensionNameIndex{small: dims}
+	}
+	index := &DimensionNameIndex{
+		identifiers: make(map[string]bool, len(dims)),
+		aliases:     map[string]string{},
+		counts:      map[string]int{},
+	}
+	for _, dim := range dims {
+		index.identifiers[dim.Identifier] = true
+		index.aliases[dim.Name] = dim.Identifier
+		index.counts[dim.Name]++
+		// Resolve counts each matching dimension only once.
+		if dim.QualifiedName != dim.Name {
+			index.aliases[dim.QualifiedName] = dim.Identifier
+			index.counts[dim.QualifiedName]++
+		}
+	}
+	return index
+}
+
+func (index *DimensionNameIndex) DisplayName(dim *Dimension) string {
+	if index.small != nil {
+		return index.small.DisplayName(dim)
+	}
+	for _, alias := range []string{dim.Name, dim.QualifiedName} {
+		// Exact identifiers take precedence over aliases, as in Resolve.
+		if index.identifiers[alias] {
+			if alias == dim.Identifier {
+				return alias
+			}
+		} else if index.counts[alias] == 1 && index.aliases[alias] == dim.Identifier {
+			return alias
+		} else if index.counts[alias] == 0 && alias == dim.Identifier {
+			return alias
+		}
+	}
+	return dim.Identifier
+}

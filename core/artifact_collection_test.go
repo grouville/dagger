@@ -4,13 +4,152 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
+	"slices"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/dagger/dagger/core/dagaddress"
+	"github.com/dagger/dagger/dagql"
 	"github.com/stretchr/testify/require"
 )
+
+func TestArtifactCollectionSharedDiscovery(t *testing.T) {
+	all, keys, calls := artifactDiscoveryFixture(100, 16, 8)
+	selected := all.filter(func(*Artifact) bool { return true }).filter(func(*Artifact) bool { return true })
+	require.NotSame(t, all.Entries[0].Node.Parent, selected.Entries[0].Node.Parent)
+	for i := range 2 {
+		expanded, err := selected.expand(t.Context(), keys)
+		require.NoError(t, err)
+		require.Len(t, expanded.Entries, 100*16*8)
+		require.EqualValues(t, (i+1)*17, calls.Load(), "one enumeration per receiver, with no reuse across requests")
+		for _, source := range []*Artifacts{all, selected} {
+			for _, entry := range source.Entries {
+				for node := entry.Node; node != nil; node = node.Parent {
+					require.Nil(t, node.CollectionKey)
+				}
+			}
+		}
+	}
+}
+
+func TestArtifactCollectionSharedDiscoveryWorkspaceScope(t *testing.T) {
+	all, _, _ := artifactDiscoveryFixture(1, 1, 1)
+	for _, name := range []string{"first", "second"} {
+		ws, err := dagql.NewResultForCall(&Workspace{Address: name}, &dagql.ResultCall{})
+		require.NoError(t, err)
+		entry := *all.Entries[0]
+		entry.Workspace = dagql.ObjectResult[*Workspace]{Result: ws}
+		all.Entries = append(all.Entries, &entry)
+	}
+	all.Entries = all.Entries[1:]
+	var calls atomic.Int32
+	expanded, err := all.expand(t.Context(), func(_ context.Context, receiver *Artifact) ([]collectionKey, error) {
+		calls.Add(1)
+		return []collectionKey{{text: receiver.Workspace.Self().Address}}, nil
+	})
+	require.NoError(t, err)
+	require.EqualValues(t, 4, calls.Load())
+	require.Len(t, expanded.Entries, 2)
+	for i, name := range []string{"first", "second"} {
+		require.Equal(t, []*ArtifactDimensionKey{{Dimension: "App.modules", Key: name}, {Dimension: "Module.tests", Key: name}}, expanded.Entries[i].DimensionKeys)
+	}
+}
+
+func TestArtifactCollectionSharedDiscoveryDoesNotRetainKeysOrErrors(t *testing.T) {
+	all, _, _ := artifactDiscoveryFixture(2, 1, 1)
+	unavailable := errors.New("temporarily unavailable")
+	for _, value := range []string{"before", "error", "after"} {
+		expanded, err := all.expand(t.Context(), func(context.Context, *Artifact) ([]collectionKey, error) {
+			if value == "error" {
+				return nil, unavailable
+			}
+			return []collectionKey{{text: value}}, nil
+		})
+		if value == "error" {
+			require.ErrorIs(t, err, unavailable)
+			continue
+		}
+		require.NoError(t, err)
+		require.Len(t, expanded.Entries, 2)
+		for _, entry := range expanded.Entries {
+			require.Equal(t, []*ArtifactDimensionKey{
+				{Dimension: "App.modules", Key: value},
+				{Dimension: "Module.tests", Key: value},
+			}, entry.DimensionKeys)
+		}
+	}
+}
+
+func TestArtifactCollectionSharedDiscoveryFailure(t *testing.T) {
+	all, _, _ := artifactDiscoveryFixture(100, 16, 8)
+	failure := errors.New("keys unavailable")
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	var calls atomic.Int32
+	expanded, err := all.expand(ctx, func(context.Context, *Artifact) ([]collectionKey, error) {
+		calls.Add(1)
+		return nil, failure
+	})
+	require.ErrorIs(t, err, failure)
+	require.Nil(t, expanded)
+	require.EqualValues(t, 1, calls.Load())
+}
+
+func TestArtifactCollectionDimensionKeyPruning(t *testing.T) {
+	// Compare the index to the exhaustive definition on overlapping, unsorted
+	// paths with different dimension chains, including collection/item pairs
+	// at the same address. No values are evaluated by either implementation.
+	rng := rand.New(rand.NewPCG(1, 2))
+	all := &Artifacts{}
+	for range 300 {
+		entry := &Artifact{}
+		for range rng.IntN(4) {
+			entry.Path = append(entry.Path, fmt.Sprint(rng.IntN(3)))
+		}
+		for range rng.IntN(4) {
+			dim := &ArtifactDimension{Identifier: fmt.Sprint(rng.IntN(3))}
+			entry.Node = &ModTreeNode{Parent: entry.Node, CollectionDimension: dim}
+		}
+		all.Entries = append(all.Entries, entry)
+	}
+	for _, selector := range []ArtifactSelector{
+		{},
+		{Dimensions: []ArtifactDimensionFilter{{Dimension: "1"}}},
+		{Dimensions: []ArtifactDimensionFilter{{Dimension: "1", Keys: []string{}}}},
+		{DimensionAlternatives: [][]string{{"1", "2"}}},
+		{ExcludedURIs: []string{"dag://0?1=x"}},
+	} {
+		all.Selector = selector
+		for _, dimension := range []string{"0", "1", "2", "missing"} {
+			var want []*Artifact
+			for _, candidate := range all.Entries {
+				childDims := candidate.DimensionDefinitions()
+				covered := false
+				if len(selector.ExcludedURIs) == 0 {
+					for _, ancestor := range all.Entries {
+						parentDims := ancestor.DimensionDefinitions()
+						if len(ancestor.Path) > len(candidate.Path) || len(parentDims) > len(childDims) ||
+							len(ancestor.Path) == len(candidate.Path) && len(parentDims) == len(childDims) {
+							continue
+						}
+						if slices.Equal(ancestor.Path, candidate.Path[:len(ancestor.Path)]) && all.matchesDimensionFilters(parentDims) &&
+							slices.ContainsFunc(parentDims, func(d *ArtifactDimension) bool { return d.Identifier == dimension }) &&
+							slices.EqualFunc(parentDims, childDims[:len(parentDims)], func(a, b *ArtifactDimension) bool { return a.Identifier == b.Identifier }) {
+							covered = true
+							break
+						}
+					}
+				}
+				if !covered {
+					want = append(want, candidate)
+				}
+			}
+			require.Equal(t, want, all.ForDimensionKeys(dimension).Entries)
+		}
+	}
+}
 
 func collectionArtifactFixture() *Artifacts {
 	artifacts := &Artifacts{}

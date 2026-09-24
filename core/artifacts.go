@@ -59,10 +59,19 @@ type Artifact struct {
 // Clone gives each API result its own writable dependency wrappers. Attachment
 // rewrites those wrappers, including the module tree's parent chain.
 func (a *Artifact) Clone() *Artifact {
+	return a.clone(make(map[*ModTreeNode]*ModTreeNode))
+}
+
+func (a *Artifact) clone(nodes map[*ModTreeNode]*ModTreeNode) *Artifact {
 	copy := *a
 	parent := &copy.Node
 	for node := a.Node; node != nil; node = node.Parent {
+		if cloned, ok := nodes[node]; ok {
+			*parent = cloned
+			break
+		}
 		cloned := *node
+		nodes[node] = &cloned
 		*parent = &cloned
 		parent = &cloned.Parent
 	}
@@ -192,9 +201,12 @@ func (*Artifacts) TypeDescription() string {
 
 func (a *Artifacts) filter(matches func(*Artifact) bool) *Artifacts {
 	selected := &Artifacts{Entries: make([]*Artifact, 0, len(a.Entries)), Selector: a.Selector.clone()}
+	// Keep the shared prefix structure within this result, while giving it
+	// dependency wrappers independent of the input selection.
+	nodes := make(map[*ModTreeNode]*ModTreeNode)
 	for _, artifact := range a.Entries {
 		if matches(artifact) {
-			selected.Entries = append(selected.Entries, artifact.Clone())
+			selected.Entries = append(selected.Entries, artifact.clone(nodes))
 		}
 	}
 	return selected

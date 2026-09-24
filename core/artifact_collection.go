@@ -7,6 +7,7 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/dagger/dagger/core/artifact"
 	"github.com/dagger/dagger/core/dagaddress"
@@ -128,21 +129,65 @@ func (a *Artifacts) ForDimensionKeys(dimension string) *Artifacts {
 	if !a.hasCollections() || len(a.Selector.ExcludedURIs) > 0 {
 		return a
 	}
+	// Index eligible ancestors by literal path. A candidate only needs to
+	// inspect its prefixes, not every artifact in the workspace.
+	type dimensionPrefix struct {
+		children map[string]*dimensionPrefix
+		terminal bool
+	}
+	type ancestor struct {
+		children   map[string]*ancestor
+		dimensions *dimensionPrefix
+	}
+	root := &ancestor{}
+	dimensions := make(map[*Artifact][]*ArtifactDimension, len(a.Entries))
+	for _, entry := range a.Entries {
+		dims := entry.DimensionDefinitions()
+		dimensions[entry] = dims
+		if !a.matchesDimensionFilters(dims) || !slices.ContainsFunc(dims, func(d *ArtifactDimension) bool { return d.Identifier == dimension }) {
+			continue
+		}
+		node := root
+		for _, part := range entry.Path {
+			if node.children == nil {
+				node.children = map[string]*ancestor{}
+			}
+			if node.children[part] == nil {
+				node.children[part] = &ancestor{}
+			}
+			node = node.children[part]
+		}
+		if node.dimensions == nil {
+			node.dimensions = &dimensionPrefix{}
+		}
+		prefix := node.dimensions
+		for _, dim := range dims {
+			if prefix.children == nil {
+				prefix.children = map[string]*dimensionPrefix{}
+			}
+			if prefix.children[dim.Identifier] == nil {
+				prefix.children[dim.Identifier] = &dimensionPrefix{}
+			}
+			prefix = prefix.children[dim.Identifier]
+		}
+		prefix.terminal = true
+	}
 	return a.filter(func(candidate *Artifact) bool {
-		childDims := candidate.DimensionDefinitions()
-		for _, ancestor := range a.Entries {
-			parentDims := ancestor.DimensionDefinitions()
-			if len(ancestor.Path) > len(candidate.Path) || len(parentDims) > len(childDims) ||
-				len(ancestor.Path) == len(candidate.Path) && len(parentDims) == len(childDims) {
-				continue
+		childDims := dimensions[candidate]
+		for node, depth := root, 0; node != nil; depth++ {
+			for prefix, dimDepth := node.dimensions, 0; prefix != nil; dimDepth++ {
+				if prefix.terminal && (depth < len(candidate.Path) || dimDepth < len(childDims)) {
+					return false
+				}
+				if dimDepth == len(childDims) {
+					break
+				}
+				prefix = prefix.children[childDims[dimDepth].Identifier]
 			}
-			if !slices.Equal(ancestor.Path, candidate.Path[:len(ancestor.Path)]) || !a.matchesDimensionFilters(parentDims) ||
-				!slices.ContainsFunc(parentDims, func(d *ArtifactDimension) bool { return d.Identifier == dimension }) {
-				continue
+			if depth == len(candidate.Path) {
+				break
 			}
-			if slices.EqualFunc(parentDims, childDims[:len(parentDims)], func(a, b *ArtifactDimension) bool { return a.Identifier == b.Identifier }) {
-				return false
-			}
+			node = node.children[candidate.Path[depth]]
 		}
 		return true
 	})
@@ -270,12 +315,33 @@ func (a *Artifacts) expand(ctx context.Context, collectionKeys artifactCollectio
 		return bound, nil
 	}
 	result := &Artifacts{Entries: []*Artifact{}, Selector: bound.Selector}
+	// Dimension aliases are scoped to an exact schema path. Build that scope
+	// once; filtering the whole selection per template is quadratic and clones
+	// dependency wrappers just to read metadata.
+	pathDimensions := map[string]map[string]*ArtifactDimension{}
+	templateDimensions := make([][]*ArtifactDimension, len(bound.Entries))
+	for i, template := range bound.Entries {
+		dims := template.DimensionDefinitions()
+		templateDimensions[i] = dims
+		path := strings.Join(template.Path, "/")
+		if pathDimensions[path] == nil {
+			pathDimensions[path] = map[string]*ArtifactDimension{}
+		}
+		for _, dim := range dims {
+			pathDimensions[path][dim.Identifier] = dim
+		}
+	}
+	pathNames := make(map[string]*artifact.DimensionNameIndex, len(pathDimensions))
+	for path, dims := range pathDimensions {
+		pathNames[path] = artifact.Dimensions(slices.Collect(maps.Values(dims))).IndexNames()
+	}
 	// Each worker owns one slot; flatten only after all workers finish so
 	// discovery order is independent of evaluation completion order.
 	entries := make([][]*Artifact, len(bound.Entries))
+	expansion := &artifactExpansion{filters: bound.Selector.Dimensions, collectionKeys: collectionKeys}
 	group, ctx := errgroup.WithContext(ctx)
 	for i, template := range bound.Entries {
-		dims := template.DimensionDefinitions()
+		dims := templateDimensions[i]
 		if !bound.matchesDimensionFilters(dims) {
 			continue
 		}
@@ -284,19 +350,19 @@ func (a *Artifacts) expand(ctx context.Context, collectionKeys artifactCollectio
 			continue
 		}
 		group.Go(func() error {
-			nodes, err := expandArtifactNode(ctx, template.Node, template.Workspace, bound.Selector.Dimensions, collectionKeys)
+			nodes, err := expansion.expand(ctx, template.Node, template.Workspace)
 			if err != nil {
 				return err
 			}
 			dimensionNames := map[string]string{}
-			pathDims := bound.FilterPath(template.Path).DimensionDefinitions()
+			names := pathNames[strings.Join(template.Path, "/")]
 			for _, dim := range dims {
-				dimensionNames[dim.Identifier] = pathDims.DisplayName(dim)
+				dimensionNames[dim.Identifier] = names.DisplayName(dim)
 			}
 			for _, node := range nodes {
-				item := template.Clone()
+				item := *template
 				item.Node = node
-				item.DimensionKeys = []*ArtifactDimensionKey{}
+				item.DimensionKeys = make([]*ArtifactDimensionKey, 0, len(dims))
 				for n := node; n != nil; n = n.Parent {
 					if n.CollectionDimension != nil && n.CollectionKey != nil {
 						item.DimensionKeys = append(item.DimensionKeys, &ArtifactDimensionKey{Dimension: n.CollectionDimension.Identifier, Key: *n.CollectionKey})
@@ -304,7 +370,7 @@ func (a *Artifacts) expand(ctx context.Context, collectionKeys artifactCollectio
 				}
 				slices.Reverse(item.DimensionKeys)
 				item.DimensionNames = dimensionNames
-				entries[i] = append(entries[i], item)
+				entries[i] = append(entries[i], &item)
 			}
 			return nil
 		})
@@ -339,20 +405,57 @@ func (a *Artifacts) selectsDimension(id string) bool {
 	return slices.ContainsFunc(a.Selector.DimensionAlternatives, func(group []string) bool { return slices.Contains(group, id) })
 }
 
-func expandArtifactNode(ctx context.Context, node *ModTreeNode, ws dagql.ObjectResult[*Workspace], filters []ArtifactDimensionFilter, collectionKeys artifactCollectionKeyFunc) ([]*ModTreeNode, error) {
+// A request-local expansion DAG evaluates shared schema prefixes once. Keep
+// workspace identity in the key: unions can use the same module tree in different
+// workspaces. Nothing survives the request, so mutable key discovery stays fresh.
+type artifactExpansion struct {
+	filters        []ArtifactDimensionFilter
+	collectionKeys artifactCollectionKeyFunc
+	nodes          sync.Map // artifactExpansionKey -> *artifactExpandedNodes
+}
+
+type artifactExpansionKey struct {
+	node      *ModTreeNode
+	workspace dagql.Result[*Workspace]
+}
+
+type artifactExpandedNodes struct {
+	ready chan struct{}
+	nodes []*ModTreeNode
+	err   error
+}
+
+func (e *artifactExpansion) expand(ctx context.Context, node *ModTreeNode, ws dagql.ObjectResult[*Workspace]) ([]*ModTreeNode, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	if node == nil {
 		return []*ModTreeNode{nil}, nil
 	}
-	parents, err := expandArtifactNode(ctx, node.Parent, ws, filters, collectionKeys)
+	pending := &artifactExpandedNodes{ready: make(chan struct{})}
+	actual, loaded := e.nodes.LoadOrStore(artifactExpansionKey{node, ws.Result}, pending)
+	if loaded {
+		result := actual.(*artifactExpandedNodes)
+		select {
+		case <-result.ready:
+			return result.nodes, result.err
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	pending.nodes, pending.err = e.expandNode(ctx, node, ws)
+	close(pending.ready)
+	return pending.nodes, pending.err
+}
+
+func (e *artifactExpansion) expandNode(ctx context.Context, node *ModTreeNode, ws dagql.ObjectResult[*Workspace]) ([]*ModTreeNode, error) {
+	parents, err := e.expand(ctx, node.Parent, ws)
 	if err != nil {
 		return nil, err
 	}
 	var expanded []*ModTreeNode
 	if node.CollectionDimension == nil || node.CollectionKey != nil {
-		if node.CollectionDimension != nil && slices.ContainsFunc(filters, func(filter ArtifactDimensionFilter) bool {
+		if node.CollectionDimension != nil && slices.ContainsFunc(e.filters, func(filter ArtifactDimensionFilter) bool {
 			return filter.Dimension == node.CollectionDimension.Identifier && filter.Keys != nil && !slices.Contains(filter.Keys, *node.CollectionKey)
 		}) {
 			return nil, nil
@@ -374,13 +477,13 @@ func expandArtifactNode(ctx context.Context, node *ModTreeNode, ws dagql.ObjectR
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			keys, err := collectionKeys(ctx, &Artifact{Node: parent, Workspace: ws})
+			keys, err := e.collectionKeys(ctx, &Artifact{Node: parent, Workspace: ws})
 			if err != nil {
 				return fmt.Errorf("dimension %q: %w", node.CollectionDimension.Identifier, err)
 			}
 			for _, key := range keys {
 				keep := true
-				for _, filter := range filters {
+				for _, filter := range e.filters {
 					if filter.Dimension == node.CollectionDimension.Identifier && filter.Keys != nil && !slices.Contains(filter.Keys, key.text) {
 						keep = false
 					}
