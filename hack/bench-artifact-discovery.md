@@ -4,6 +4,12 @@ For the current, full-application comparison using Kyle's exact
 `greetings-api` command, see [the team report](collections-qa-performance.md).
 The measurements below also include earlier synthetic workloads and prototypes.
 
+The runner accepts `--expect-stdout /path/to/known-correct-listing.out` to
+reject a partial or otherwise different listing even when the command exits
+zero. The original exit status and output hash are preserved; a mismatch is
+counted as a benchmark failure. For source edits, use independently computed
+expected keys as in the archived invalidation scripts.
+
 Experiment against [Artifact Collections, dagger/dagger#14221](https://github.com/dagger/dagger/pull/14221),
 pinned at `175dca038268639231c21323cd7aaa1d746617dd`, on branch
 `perf/collections-discovery`. The Go module comparison is against

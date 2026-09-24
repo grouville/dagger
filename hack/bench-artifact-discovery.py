@@ -34,6 +34,8 @@ def main():
     parser.add_argument("--warmups", type=int, default=1)
     parser.add_argument("--timeout", type=float, default=300)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--expect-stdout", type=Path,
+                        help="require byte-identical output; a successful partial listing is not a valid sample")
     parser.add_argument("--wcprof-url")
     parser.add_argument("--cold-profile", action="store_true",
                         help="fresh/drained recorder: skip initialization so edited or cold inputs stay cold")
@@ -47,6 +49,11 @@ def main():
     if args.cold_profile and (not args.wcprof_url or args.warmups != 0):
         parser.error("--cold-profile requires --wcprof-url and --warmups 0 with a fresh/drained recorder")
     args.output.mkdir(parents=True, exist_ok=True)
+    expected_digest = (hashlib.sha256(args.expect_stdout.read_bytes()).hexdigest()
+                       if args.expect_stdout else None)
+
+    def succeeded(result):
+        return result["status"] == 0 and result.get("stdout_matches_expected", True)
 
     def run(label, profile=False):
         cmd = command[:1] + (["--profile"] if profile else []) + command[1:]
@@ -88,12 +95,15 @@ def main():
         result = {"run": label, "seconds": elapsed, "status": status,
                   "load_average_before": load_before, "load_average_after": os.getloadavg(),
                   "stdout_sha256": hashlib.sha256((args.output / f"{label}.out").read_bytes()).hexdigest()}
+        if expected_digest is not None:
+            result["expected_stdout_sha256"] = expected_digest
+            result["stdout_matches_expected"] = result["stdout_sha256"] == expected_digest
         print(json.dumps(result), flush=True)
         return result
 
     for i in range(args.warmups):
-        if run(f"warmup-{i}")["status"]:
-            raise SystemExit("warmup failed; inspect saved stderr")
+        if not succeeded(run(f"warmup-{i}")):
+            raise SystemExit("warmup failed; inspect saved output")
 
     def dump(name):
         url = args.wcprof_url.rstrip("/") + "/debug/wcprof/dump"
@@ -105,8 +115,8 @@ def main():
     if args.wcprof_url and not args.cold_profile:
         # Enable a tiny profiled command to initialize the recorder, then drain
         # any earlier data before collecting the measured runs.
-        if run("profile-init", profile=True)["status"]:
-            raise SystemExit("profile initialization failed; inspect saved stderr")
+        if not succeeded(run("profile-init", profile=True)):
+            raise SystemExit("profile initialization failed; inspect saved output")
         dump("warmup.wcprof")
     start = time.perf_counter()
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as pool:
@@ -117,10 +127,10 @@ def main():
     times = sorted(r["seconds"] for r in results)
     summary = {"command": command, "cwd": os.getcwd(), "cpu_count": os.cpu_count(), "jobs": args.jobs, "runs": results,
                "profiled": bool(args.wcprof_url), "elapsed_seconds": elapsed,
-               "commands_per_second": sum(r["status"] == 0 for r in results) / elapsed,
+               "commands_per_second": sum(succeeded(r) for r in results) / elapsed,
                "median_seconds": statistics.median(times),
                "p95_seconds": times[math.ceil(0.95 * len(times)) - 1],
-               "max_seconds": max(times), "failures": sum(r["status"] != 0 for r in results),
+               "max_seconds": max(times), "failures": sum(not succeeded(r) for r in results),
                "distinct_outputs": len({r["stdout_sha256"] for r in results})}
     (args.output / "results.json").write_text(json.dumps(summary, indent=2) + "\n")
     print(json.dumps({k: v for k, v in summary.items() if k != "runs"}), flush=True)
