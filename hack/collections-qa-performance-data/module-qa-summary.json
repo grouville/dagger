@@ -1,0 +1,46 @@
+[
+  {
+    "variant": "original",
+    "exit_code": 0,
+    "seconds": 99.09520339500159,
+    "command": [
+      "/tmp/collections-perf/untouched-pr/dagger",
+      "--engine",
+      "container://dagger-engine.collections-untouched",
+      "--workspace",
+      "/tmp/collections-perf/untouched-pr/qa-original",
+      "check",
+      "-m",
+      "/tmp/collections-perf/untouched-pr/qa-original/.dagger/modules/go-dev",
+      "--generated=false",
+      "discovery-check",
+      "discovery-from-subdir-check",
+      "collection-check",
+      "tests-collection-check",
+      "module-introspection-check",
+      "skips-non-modules-check"
+    ]
+  },
+  {
+    "variant": "optimized",
+    "exit_code": 0,
+    "seconds": 11.345072472002357,
+    "command": [
+      "/tmp/collections-perf/dagger-pinned-discovery",
+      "--engine",
+      "container://dagger-engine.collections-profile-stack",
+      "--workspace",
+      "/tmp/collections-perf/untouched-pr/qa-optimized",
+      "check",
+      "-m",
+      "/tmp/collections-perf/untouched-pr/qa-optimized/.dagger/modules/go-dev",
+      "--generated=false",
+      "discovery-check",
+      "discovery-from-subdir-check",
+      "collection-check",
+      "tests-collection-check",
+      "module-introspection-check",
+      "skips-non-modules-check"
+    ]
+  }
+]

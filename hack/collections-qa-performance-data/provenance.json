@@ -1,0 +1,106 @@
+{
+  "measured_date_utc": "2026-09-24",
+  "platform": "Linux-7.0.0-30-generic-x86_64-with-glibc2.39",
+  "cpu": "Intel Core i5-9300H @ 2.40GHz",
+  "logical_cpus": 8,
+  "app_commit": "14d684fccf75a137de96f3f0c7eb8c6dafef2d3e",
+  "dagger_commit": "175dca038268639231c21323cd7aaa1d746617dd",
+  "go_module_commit": "9af8ac523f026932454474e06053d9eaf251d868",
+  "user_reported_seconds": 41.72,
+  "user_reported_cache_state": "unknown; not a matched baseline",
+  "stack_manifest": {
+    "dagger_base": "175dca038268639231c21323cd7aaa1d746617dd",
+    "branch": "perf/collections-discovery",
+    "engine_source": "/tmp/dagger-collections-perf-stack",
+    "cli_overlay": {
+      "Replace": {
+        "/tmp/dagger-collections-perf-stack/engine/telemetry/labels.go": "/home/dagger/dag/engine/telemetry/labels.go"
+      }
+    },
+    "stacked_prs": [
+      14180,
+      14182,
+      14183,
+      14179
+    ],
+    "syntax_cache_prototype": "/tmp/dang-discovery-parse-cache",
+    "module_source": "/tmp/dagger-go-discovery",
+    "files": {
+      "dagger-discovery.patch": {
+        "bytes": 144508,
+        "sha256": "f31f8b28e314e40bfbb2f236bf7e6db7339d3cf3edd09709275f32ee7957c23a"
+      },
+      "go-discovery.patch": {
+        "bytes": 44582,
+        "sha256": "71e0dd7fd906ef3d9ebce51993becc7920a27d50b5c35ce42033087ecb0e3f37"
+      },
+      "dang-syntax-cache-prototype.patch": {
+        "bytes": 9889,
+        "sha256": "304f7c31724a3fd9ae1db4679e8fef13280a4fcb1a7c51c84fbddf29aa063e31"
+      },
+      "dang-syntax-cache-wiring.patch": {
+        "bytes": 720,
+        "sha256": "65887a592f3b120963ce767adc2d22d25f017b03c6b1c6dac3b1ca44996c1065"
+      },
+      "dang-map-merge.patch": {
+        "bytes": 3438,
+        "sha256": "9513cd7ebd5cfdebf26881bb311b49edc0c277ea6e92ea8b4e289b470e499514"
+      },
+      "engine-prepared-authority": {
+        "bytes": 218094392,
+        "sha256": "125316cbd795f3916d29c673a3b584c1813081ef4b5297b464c97c9d55434cb2"
+      },
+      "dagger-buffered-list": {
+        "bytes": 106734439,
+        "sha256": "d35edc71532d23390a12107810713285d9d50ef8ffff269f36f3f57c95524fcb"
+      },
+      "dagger-pinned-discovery": {
+        "bytes": 106739101,
+        "sha256": "bfe8cbae0f9a9ba1bd87749418943ac37fa9258e752e4fda5b38c513d38a1468"
+      }
+    },
+    "current_cli": "/tmp/collections-perf/dagger-pinned-discovery",
+    "cli_git_telemetry": "original reader, via the recorded overlay; native-Git candidate excluded",
+    "module_base": "9af8ac523f026932454474e06053d9eaf251d868",
+    "latest_evidence": {
+      "cold_scanner_build": "/tmp/collections-perf/scanner-build/summary.json",
+      "cold_scanner_command": "/tmp/collections-perf/scanner-build/cold-command/results.json",
+      "cold_final_command": "/tmp/collections-perf/module-join/cold-final/results.json",
+      "seven_command_matrix": "/tmp/collections-perf/module-join/ux-final/summary.json",
+      "scale_matrix": "/tmp/collections-perf/module-join/scale-final/summary.json",
+      "four_clients": "/tmp/collections-perf/module-join/load4/summary.json",
+      "edit_matrix": "/tmp/collections-perf/module-join/edits",
+      "project_cwd_edits": "/tmp/collections-perf/module-join/cwd-edits",
+      "wcprof_large_before": "/tmp/collections-perf/module-join/profile-large-before/runs.wcprof",
+      "wcprof_large_final": "/tmp/collections-perf/module-join/profile-final-large-after/runs.wcprof",
+      "membership_prototype": "/tmp/collections-perf/module-join/results.txt",
+      "cli_id_reuse": "provisional: fewer operations, mixed wall-time results",
+      "target_500_ms": "not reached; all final edit phases failed the budget",
+      "cold_prebuilt_scanner": "/tmp/collections-perf/prebuilt-scanner/cold-summary.json",
+      "cold_prebuilt_delivery": "Prototype only: local immutable static linux/amd64 executable via module File, no published image download measured; source-build module patch unchanged."
+    },
+    "patch_checks": "Both combined patches pass git apply --check --cached against their pinned baseline checkouts."
+  },
+  "notes": [
+    "Warm and edit commands run from the project directory, with a fresh CLI process each time.",
+    "Source-built Go scanner, no prebuilt scanner or direct-library-call prototype.",
+    "All original service/module settings retained.",
+    "Full-stack changes only the Go module source entry to the local optimized checkout.",
+    "The baseline resolves Go@collections to the recorded immutable commit.",
+    "Warm optimized app Git origin was a local clone path, causing a telemetry warning; no Git reader optimization is included.",
+    "Independent module QA oracle main.dang SHA256 837bc228db4725281ee77150d1921474873aaac63fc4132fac17ef178399889e. Only harness wiring and implementation sources changed."
+  ],
+  "baseline_cli": {
+    "sha256": "cbd97cce0471882ee5bb846fa6262852806073235395d06da287a6779c05e2dc"
+  },
+  "baseline_engine": {
+    "sha256": "222bea8979da146ef2856bf9e6aa0b6c94031512065a54f1c4db451866216524"
+  },
+  "cold_notes": [
+    "Four separate new engine volumes; process ready before timing; both Go implementations local; alternating order.",
+    "Host and remote caches retained; frontend source, service wiring, unrelated modules and command unchanged.",
+    "Original cold module is unmodified source at 9af8ac5; optimized cold module builds its scanner from source."
+  ],
+  "cold_lock_sha256_original": "d1519b34ca8fdc6a58f1e4ff0d5a35436d0f20778262bdb4db8f9fcd5e56a69a",
+  "cold_lock_sha256_full-stack": "d1519b34ca8fdc6a58f1e4ff0d5a35436d0f20778262bdb4db8f9fcd5e56a69a"
+}

@@ -1,0 +1,46 @@
+[
+  {
+    "variant": "original",
+    "check": "api-get",
+    "exit_code": 1,
+    "seconds": 1.3167526139877737,
+    "command": [
+      "/tmp/collections-perf/untouched-pr/dagger",
+      "--engine",
+      "container://dagger-engine.collections-untouched",
+      "--workspace",
+      "/tmp/collections-perf/untouched-pr/qa-original",
+      "api",
+      "call",
+      "-m",
+      "/tmp/dagger-go-collections",
+      "modules",
+      "get",
+      "--key",
+      ".",
+      "path"
+    ]
+  },
+  {
+    "variant": "full-stack",
+    "check": "api-get",
+    "exit_code": 1,
+    "seconds": 1.0685637469869107,
+    "command": [
+      "/tmp/collections-perf/dagger-pinned-discovery",
+      "--engine",
+      "container://dagger-engine.collections-profile-stack",
+      "--workspace",
+      "/tmp/collections-perf/untouched-pr/qa-optimized",
+      "api",
+      "call",
+      "-m",
+      "/tmp/dagger-go-discovery",
+      "modules",
+      "get",
+      "--key",
+      ".",
+      "path"
+    ]
+  }
+]

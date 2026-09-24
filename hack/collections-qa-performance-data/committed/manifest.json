@@ -1,0 +1,246 @@
+{
+  "dagger_head": "6e6bdfb16ae89585b1f5f42e569ddabad36a6bc3",
+  "dagger_tree": "e035eb5583a311fa12e57e71b817449acf1d8a58",
+  "go_module_head": "c84f15b11981bdc2eb52987d4e6139c4309bfd82",
+  "dang_map_head": "d7fadb86cb93a0225fe6e3e699e995fd49cfede6",
+  "dang_dependency": {
+    "Path": "github.com/vito/dang/v2",
+    "Version": "v2.1.4",
+    "Time": "2026-09-15T22:45:22Z",
+    "Dir": "/home/dagger/go/pkg/mod/github.com/vito/dang/v2@v2.1.4",
+    "GoMod": "/home/dagger/go/pkg/mod/cache/download/github.com/vito/dang/v2/@v/v2.1.4.mod",
+    "GoVersion": "1.25.3",
+    "Sum": "h1:pittvp9LYuHq85JSxXctpNzv2ugOaR0iDKh1L68/ySg=",
+    "GoModSum": "h1:DlbXb+x+e37dTHJMKzRZnOkAucBUC0RGky7l6BAiIjc="
+  },
+  "syntax_cache": false,
+  "local_replace": false,
+  "go_overlay": false,
+  "prebuilt_scanner": false,
+  "git_telemetry": "original implementation",
+  "ssh_agent": "SSH_AUTH_SOCK omitted for both variants because the forwarded agent returned EOF; dependencies remain public and pinned",
+  "binaries": {
+    "dagger": "deb48016e32485c7f0f409a7bd41a665776baedd130b6edbea25e7eddafa3a77",
+    "engine": "d3b674891e50fa6b7d5b5ff85f94138ffe0bae91217543ef209fbac6c3f3ca7a"
+  },
+  "new_dagger_commits": [
+    {
+      "commit": "4fc6cdc44faaf9a58bb61a8b9cbe027e23773fad",
+      "title": "core: index artifact dimensions and share collection expansion",
+      "paths": [
+        "core/artifact/dimension.go",
+        "core/artifact/dimension_test.go",
+        "core/artifact_collection.go",
+        "core/artifact_collection_test.go",
+        "core/artifacts.go",
+        "core/artifact_discovery_bench_test.go"
+      ]
+    },
+    {
+      "commit": "ee89fcb3e172b70953b7141e6113ea9530a4dd79",
+      "title": "cli: load artifact metadata in bulk within one discovery session",
+      "paths": [
+        "core/schema/artifacts.go",
+        "core/schema/artifacts_test.go",
+        "internal/cmd/dagger/artifacts.go",
+        "internal/cmd/dagger/artifacts_test.go",
+        "internal/cmd/dagger/list.go"
+      ]
+    },
+    {
+      "commit": "9ed7c86a02351881b77bd0b4e72fffe1aeb87b21",
+      "title": "cli: buffer collection output to preserve every listed row",
+      "paths": [
+        "internal/cmd/dagger/list_format.go",
+        "core/integration/collections_test.go"
+      ]
+    },
+    {
+      "commit": "1fe5cbcc2019ed829e0f1ea964f39921934fb97c",
+      "title": "core: skip default lookup when module environment is empty",
+      "paths": [
+        "core/modfunc.go",
+        "core/modfunc_defaults_test.go"
+      ]
+    },
+    {
+      "commit": "8f2c2d49b075c0b4b25e925faa4b79a468c6d89c",
+      "title": "dang: skip registration metadata passes for native function calls",
+      "paths": [
+        "core/sdk/dang/v2/entrypoint.go",
+        "core/sdk/dang/v2/helpers.go",
+        "core/sdk/dang/v2/sdk.go"
+      ]
+    },
+    {
+      "commit": "b184a54f01db31b748acee1d689f69b4cdd7b029",
+      "title": "engine: avoid installing self-call modules twice",
+      "paths": [
+        "engine/server/session.go"
+      ]
+    },
+    {
+      "commit": "80b042420f4322721d76b6a0ae1de662f5610a0e",
+      "title": "core: reuse prepared schemas within the same caller authority",
+      "paths": [
+        "core/moddeps.go",
+        "core/moddeps_prepared_test.go",
+        "engine/client_scope.go"
+      ]
+    }
+  ],
+  "stacked_prs": [
+    {
+      "commits": [
+        {
+          "authoredDate": "2026-09-17T01:45:21Z",
+          "authors": [
+            {
+              "email": "guillaume@dagger.io",
+              "id": "MDQ6VXNlcjMxNjkxMjUw",
+              "login": "grouville",
+              "name": "Guillaume de Rouville"
+            }
+          ],
+          "committedDate": "2026-09-17T01:45:21Z",
+          "messageBody": "Some Dang invocations took 5 to 7 seconds longer than their work, at the\nvery end, once everything was already done.\n\nEach invocation serves the module a private API over a loopback\nlistener, runs the function, then shuts that server down. The function's\nGraphQL client used the process-wide http.DefaultTransport. Under\nconcurrent requests that pool can dial a connection that never carries a\nrequest: request A holds the only connection, B starts a dial, A finishes\nfirst, B takes A's connection, and B's dial completes with nothing to do.\nThe server sees that connection in StateNew, and http.Server.Shutdown\nonly counts StateNew as idle after 5 seconds. So the invocation waited\nout that grace period for a connection nobody used.\n\nGive each invocation its own transport and close its idle connections\nright before Shutdown. Requests still in flight are drained as before;\nonly the connections with nothing on them go away at once.\n\nIt shows up most on `dagger generate`, whose functions fire many calls\nconcurrently. On a Rust module, edit + generate over 8 runs: two runs\nstalled, 6.1s and 16.5s, against a 2.0s median; with the drain, max 2.6s\nand no stall. Medians do not move; the tail does.\n\nVerify:\n  go test -race -count=3 -run TestServeNestedClient ./core/sdk/dang/shared\n  The first test builds the stray connection deliberately and fails in\n  5.3s without the drain, passes in 10ms with it.\nSigned-off-by: Guillaume de Rouville <guillaume@dagger.io>",
+          "messageHeadline": "fix(dang): drain the nested client's connection pool before shutdown",
+          "oid": "d42148faa6b8505a77fc8d267f142d57899cb4f3"
+        },
+        {
+          "authoredDate": "2026-09-17T02:59:30Z",
+          "authors": [
+            {
+              "email": "guillaume@dagger.io",
+              "id": "MDQ6VXNlcjMxNjkxMjUw",
+              "login": "grouville",
+              "name": "Guillaume de Rouville"
+            }
+          ],
+          "committedDate": "2026-09-17T02:59:30Z",
+          "messageBody": "Signed-off-by: Guillaume de Rouville <guillaume@dagger.io>",
+          "messageHeadline": "chore: add changelog fragment for #14180",
+          "oid": "81f97bc71c33138dc9d3990f9d187549a8248bdc"
+        }
+      ],
+      "headRefOid": "81f97bc71c33138dc9d3990f9d187549a8248bdc",
+      "number": 14180,
+      "state": "OPEN",
+      "title": "fix(dang): drain the nested client's connection pool before shutdown"
+    },
+    {
+      "commits": [
+        {
+          "authoredDate": "2026-09-15T00:28:13Z",
+          "authors": [
+            {
+              "email": "guillaume@dagger.io",
+              "id": "MDQ6VXNlcjMxNjkxMjUw",
+              "login": "grouville",
+              "name": "Guillaume de Rouville"
+            }
+          ],
+          "committedDate": "2026-09-22T22:06:54Z",
+          "messageBody": "When you are logged in to Dagger Cloud, every command ended by uploading\na metrics report with nothing in it.\n\nThe CLI exports three things to Cloud at exit: traces, logs and metrics.\nThe OpenTelemetry metrics reader always performs one last collection\nwhen it shuts down, whether or not anything was ever recorded. Most CLI\ncommands record no metrics at all, so that final collection is an empty\nResourceMetrics, and the exporter dutifully POSTed it to Cloud: one full\nround trip, in the exit path, for a request that carries nothing.\n\nSkip a collection that has no instrumentation scopes, before it takes a\nsequence number. A collection with real data, an explicit empty scope,\nerrors, flush and shutdown all behave as before; the only request that\ndisappears is the one with no contents.\n\nMeasured on a cached `dagger check` while logged in, three instrumented\nruns: the meter provider's shutdown went from 73-81ms to 0. Cloud\ntelemetry shutdown is 205-325ms in total on this machine; what remains\nis the final trace upload, which does carry data.\n\nNot logged in: nothing changes, there is no Cloud exporter to skip.\n\nVerify:\n  go test -race -run 'Test(SequencedMetrics|ExportSequenc)' ./engine/telemetry\nSigned-off-by: Guillaume de Rouville <guillaume@dagger.io>",
+          "messageHeadline": "perf(telemetry): skip the empty Cloud metrics upload on shutdown",
+          "oid": "5e8d34c132a2ce5164e4165946423bc5f377c032"
+        },
+        {
+          "authoredDate": "2026-09-17T03:53:49Z",
+          "authors": [
+            {
+              "email": "guillaume@dagger.io",
+              "id": "MDQ6VXNlcjMxNjkxMjUw",
+              "login": "grouville",
+              "name": "Guillaume de Rouville"
+            }
+          ],
+          "committedDate": "2026-09-22T22:06:54Z",
+          "messageBody": "Signed-off-by: Guillaume de Rouville <guillaume@dagger.io>",
+          "messageHeadline": "chore: add changelog fragment for #14182",
+          "oid": "45f88858ac188a8b57078bc4ab03a82caa492492"
+        }
+      ],
+      "headRefOid": "45f88858ac188a8b57078bc4ab03a82caa492492",
+      "number": 14182,
+      "state": "OPEN",
+      "title": "perf(telemetry): skip the empty Cloud metrics upload on shutdown"
+    },
+    {
+      "commits": [
+        {
+          "authoredDate": "2026-09-14T23:35:55Z",
+          "authors": [
+            {
+              "email": "guillaume@dagger.io",
+              "id": "MDQ6VXNlcjMxNjkxMjUw",
+              "login": "grouville",
+              "name": "Guillaume de Rouville"
+            }
+          ],
+          "committedDate": "2026-09-17T03:25:40Z",
+          "messageBody": "Every schema build in the engine JSON-encoded the whole schema and hashed\nit, to have a digest ready in case something asked for one. Only the\nschema-scoped cache inputs ever ask; query validation does not. A\ncommand builds several schemas, one per served module and nested client,\nso most of that encoding was for digests nobody read.\n\nKeep the digest as a sync.OnceValue created alongside the schema, and\nhave SchemaDigest fetch both under the same lock, so an install between\n\"build\" and \"read digest\" can no longer yield a stale or empty digest.\nThe digest is still computed exactly once per schema; just not before\nsomeone wants it.\n\nEngine CPU during a loop of cached `dagger check` commands, engines from\nmain with and without this change, 25s pprof each:\n\n    dagql schema building, share of engine CPU   7.6%  -> 4.6%\n    per cached check                             34ms  -> 21ms of engine CPU\n\nThat is CPU inside the engine, not wall time. On the command itself the\ndifference sits inside the noise of a 700ms check; the original\nmeasurement had -25ms median on 4 of 5 pairs, which I could not resolve\nagain on today's machine.\n\nVerify: go test -race -count=3 -run 'TestSchemaDigest|TestImplicitInputCachePer|TestViews' ./dagql\nSigned-off-by: Guillaume de Rouville <guillaume@dagger.io>",
+          "messageHeadline": "perf(dagql): compute the schema digest lazily",
+          "oid": "c2821075c5e34785b860b8b8efdf17ad1f298ba5"
+        },
+        {
+          "authoredDate": "2026-09-17T03:54:06Z",
+          "authors": [
+            {
+              "email": "guillaume@dagger.io",
+              "id": "MDQ6VXNlcjMxNjkxMjUw",
+              "login": "grouville",
+              "name": "Guillaume de Rouville"
+            }
+          ],
+          "committedDate": "2026-09-17T03:54:06Z",
+          "messageBody": "Signed-off-by: Guillaume de Rouville <guillaume@dagger.io>",
+          "messageHeadline": "chore: add changelog fragment for #14183",
+          "oid": "882e400c6a7fe673f306adf4da13ae29a718b41a"
+        }
+      ],
+      "headRefOid": "882e400c6a7fe673f306adf4da13ae29a718b41a",
+      "number": 14183,
+      "state": "OPEN",
+      "title": "perf(dagql): compute the schema digest lazily"
+    },
+    {
+      "commits": [
+        {
+          "authoredDate": "2026-09-16T22:40:29Z",
+          "authors": [
+            {
+              "email": "guillaume@dagger.io",
+              "id": "MDQ6VXNlcjMxNjkxMjUw",
+              "login": "grouville",
+              "name": "Guillaume de Rouville"
+            }
+          ],
+          "committedDate": "2026-09-22T22:37:01Z",
+          "messageBody": "\u2026d of syncing directories\n\nLoading a local module synced three directories from your machine before\ndoing any work, each time only to read one small file or to learn whether\none exists.\n\nThe engine already has two ways to talk to the machine that ran the\ncommand. Uploads through host.directory and host.file bring data in as an\ninput, content-addressed and cached: right for a module's source tree.\nPlain session requests, ReadCallerHostFile and StatCallerHostPath, answer\na question about the host: right for find-up, and how the workspace\nconfig is already read. The module loader used the first kind for three\nquestions: the module config's bytes, whether the module directory holds\na .env, and whether a .env found up the tree is a regular file. Each was\na filesync round trip, a client walk and a snapshot, 15 to 30ms apiece.\n\nUse the second kind for the three questions. The context directory, the\nmodule's real input, still goes through host.directory with its\ncontent-addressed reuse, and it includes the config file, so the module's\nimplementation digest still follows config changes.\n\nNothing behaves differently. The config read was already noCache, the\nprobes were once-per-session calls, a module directory that does not\nexist yet (dagger init) still yields no inner .env, a .env that is a\ndirectory or a symlink is still ignored, and a .env that exists is still\nread through host.file and asEnvFile.\n\nThe cost being avoided really belongs to the upload tier: host.file\ncould fast-path a single file with no directory snapshot, and\nDirectory.exists on a one-name include could answer from a stat. That\nwould make this change unnecessary and help every module that reads a\nhost file the plain way. Not done here.\n\nMeasured on a cached `dagger check` with a local Dang module, engines\nbuilt from main with and without this change, client timeline:\nQuery.moduleSource 73ms -> 34ms; whole command about 25ms faster over 10\ninterleaved pairs, the rest being noise around a 700ms command.\n\nVerify:\n  go test ./core/integration -run 'TestWorkspaceCompat/TestOuterEnvFile|TestEnvFile|TestModuleLoading/TestModuleSourceResolution'\nSigned-off-by: Guillaume de Rouville <guillaume@dagger.io>",
+          "messageHeadline": "perf(core): read module config and probe .env over the session instea\u2026",
+          "oid": "4213a42d8bdcf4c7b5c37c020e9fd5abae5c2541"
+        },
+        {
+          "authoredDate": "2026-09-17T02:49:08Z",
+          "authors": [
+            {
+              "email": "guillaume@dagger.io",
+              "id": "MDQ6VXNlcjMxNjkxMjUw",
+              "login": "grouville",
+              "name": "Guillaume de Rouville"
+            }
+          ],
+          "committedDate": "2026-09-22T22:37:01Z",
+          "messageBody": "Signed-off-by: Guillaume de Rouville <guillaume@dagger.io>",
+          "messageHeadline": "chore: add changelog fragment for #14179",
+          "oid": "aec01d436dd6273ad979a51d80db548353b8f14e"
+        }
+      ],
+      "headRefOid": "aec01d436dd6273ad979a51d80db548353b8f14e",
+      "number": 14179,
+      "state": "OPEN",
+      "title": "perf(core): read module config and probe .env over the session instead of syncing directories"
+    }
+  ]
+}

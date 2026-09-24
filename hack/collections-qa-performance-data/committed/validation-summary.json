@@ -1,0 +1,85 @@
+[
+  {
+    "name": "collections-integration",
+    "exit_code": 0,
+    "seconds": 138.28191911196336,
+    "command": [
+      "go",
+      "test",
+      "-v",
+      "./core/integration",
+      "-count=1",
+      "-parallel=1",
+      "-run",
+      "^TestCollections$/(TestCLI|TestCommandLists|TestCommandListSchemaPaths|TestListFormats|TestLargeCollectionListOutput|TestCheckSelection|TestDimensionItems|TestBatchReplacement)$"
+    ]
+  },
+  {
+    "name": "dang-boundaries",
+    "exit_code": 0,
+    "seconds": 39.470801363000646,
+    "command": [
+      "go",
+      "test",
+      "-v",
+      "./core/integration",
+      "-count=1",
+      "-parallel=1",
+      "-run",
+      "^(TestDang|TestDangForcing)$/(TestDirectives|TestSDKClientAttachables|TestWorkspaceArg|TestVersionedSyntax|TestSelfCallReturningOwnType|TestLazyChainForcing)$"
+    ]
+  },
+  {
+    "name": "module-original",
+    "exit_code": 0,
+    "seconds": 104.30046565481462,
+    "command": [
+      "/tmp/collections-perf/untouched-pr/dagger",
+      "--engine",
+      "container://dagger-engine.collections-committed-original-0",
+      "--workspace",
+      "/tmp/collections-perf/untouched-pr/qa-original",
+      "check",
+      "-m",
+      "/tmp/collections-perf/untouched-pr/qa-original/.dagger/modules/go-dev",
+      "--generated=false",
+      "discovery-check",
+      "discovery-from-subdir-check",
+      "collection-check",
+      "tests-collection-check",
+      "module-introspection-check",
+      "skips-non-modules-check"
+    ]
+  },
+  {
+    "name": "module-candidate",
+    "exit_code": 0,
+    "seconds": 82.86738907196559,
+    "command": [
+      "/tmp/collections-perf/committed/dagger",
+      "--engine",
+      "container://dagger-engine.collections-committed-candidate-0",
+      "--workspace",
+      "/tmp/collections-perf/untouched-pr/qa-optimized",
+      "check",
+      "-m",
+      "/tmp/collections-perf/untouched-pr/qa-optimized/.dagger/modules/go-dev",
+      "--generated=false",
+      "discovery-check",
+      "discovery-from-subdir-check",
+      "collection-check",
+      "tests-collection-check",
+      "module-introspection-check",
+      "skips-non-modules-check"
+    ]
+  },
+  {
+    "name": "selected-tests",
+    "exit_code": 0,
+    "seconds": 70.45696734008379,
+    "command": [
+      "/usr/bin/python3",
+      "/tmp/collections-perf/committed/batch-qa.py"
+    ]
+  }
+]

@@ -1,0 +1,86 @@
+[
+  {
+    "variant": "original",
+    "mode": "list",
+    "exit_code": 0,
+    "seconds": 9.484429537085816,
+    "command": [
+      "/tmp/collections-perf/untouched-pr/dagger",
+      "--engine",
+      "container://dagger-engine.collections-untouched",
+      "check",
+      "-l",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestSelectGreeting",
+      "--go-test=TestFormatResponse"
+    ]
+  },
+  {
+    "variant": "original",
+    "mode": "execute",
+    "exit_code": 0,
+    "seconds": 25.024219962069765,
+    "command": [
+      "/tmp/collections-perf/untouched-pr/dagger",
+      "--engine",
+      "container://dagger-engine.collections-untouched",
+      "--profile",
+      "check",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestSelectGreeting",
+      "--go-test=TestFormatResponse"
+    ],
+    "execution_counts": {
+      "go:GoTests.batch": 1,
+      "go:GoModule.tests": 1,
+      "go:GoTests.subset": 1,
+      "go:GoTests_Batch.run": 1
+    },
+    "dropped_events": 0,
+    "open_ops": 0
+  },
+  {
+    "variant": "full-stack",
+    "mode": "list",
+    "exit_code": 0,
+    "seconds": 4.32664351304993,
+    "command": [
+      "/tmp/collections-perf/dagger-pinned-discovery",
+      "--engine",
+      "container://dagger-engine.collections-profile-stack",
+      "check",
+      "-l",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestSelectGreeting",
+      "--go-test=TestFormatResponse"
+    ]
+  },
+  {
+    "variant": "full-stack",
+    "mode": "execute",
+    "exit_code": 0,
+    "seconds": 17.106795360101387,
+    "command": [
+      "/tmp/collections-perf/dagger-pinned-discovery",
+      "--engine",
+      "container://dagger-engine.collections-profile-stack",
+      "--profile",
+      "check",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestSelectGreeting",
+      "--go-test=TestFormatResponse"
+    ],
+    "execution_counts": {
+      "go:GoTests.batch": 1,
+      "go:GoTests.subset": 1,
+      "go:GoTests_Batch.run": 1,
+      "go:GoModule.tests": 1
+    },
+    "dropped_events": 0,
+    "open_ops": 0
+  }
+]
