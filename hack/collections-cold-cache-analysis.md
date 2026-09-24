@@ -132,9 +132,9 @@ distributed-cache latency or predicted percentage is claimed.
 
 1. **Reduce compilation required just to discover module definitions.** Go
    currently obtains definitions by building and invoking the module runtime.
-   The two app builds dominate the stable cold path. Portable generated schema
-   metadata or narrower module loading could avoid work even without a peer;
-   either needs semantic and invalidation validation before implementation.
+   The two app builds dominate the stable cold path. Existing manifest-v2
+   entrypoints already support a separate type path; test SDK adoption before
+   adding a new mechanism (see the SDK review below).
 2. **Measure a real peer hit before optimizing around it.** Check compilation
    count, transferred bytes and layers actually applied, as well as command
    time. Repeat after changing source and verify that stale results never win.
@@ -146,6 +146,105 @@ distributed-cache latency or predicted percentage is claimed.
 4. **Separate image-resolution network time from local metadata I/O.** The
    slower late `Container.from` calls are the remaining variance boundary.
    Keep normal tag freshness and credential isolation when optimizing them.
+
+## How to avoid compilation for definitions
+
+A follow-up source audit makes the first item more specific. The builtin Go
+SDK's `AsModuleTypes` returns false. `moduleSourceAsModule` loads dependencies,
+then `moduleDefViaRuntime` asks for the Go runtime. Building that runtime runs
+`go build`; invoking its dispatcher with an empty object name returns the
+module's declarative registration expression from `dagger.gen.go`.
+
+The two application modules have different requirements:
+
+| Module | Why the listing loads it | What a static definition could avoid |
+| --- | --- | --- |
+| `greetings` | Its workspace entrypoint schema must be known; the generated API has `Build` and a constructor | Its compilation for definition discovery; the second Go build is about 5 s in the stable profiles |
+| `backend` | Its schema is needed, and `base = "dag://backend/go-test-base"` also invokes its code | Definition discovery can become cheap, but the configured base still requires a runtime under the current argument-resolution path |
+
+Therefore a schema-only change cannot be assumed to remove the full 16 s of
+Go compilation. Deferring a required build can also change overlap with other
+work. A full-command benchmark must measure the resulting critical path.
+
+The existing generated registration expression is 726 bytes for `greetings`
+and 3,046 bytes for `backend`. A diagnostic parses the full generated Go files
+in memory and finds this expression: median 0.155 ms and 0.232 ms, respectively,
+over 1,000 iterations. This excludes file I/O, input validation, schema
+installation and the entire Dagger command. It demonstrates that the definition
+itself is small; it is not an implemented fast path or a predicted latency.
+The diagnostic is intentionally not an authoritative schema loader.
+
+## Existing SDK work: use ModuleEntrypoint
+
+The SDK PR review changes the implementation direction: **do not add another
+portable-schema format.** The common `ModuleEntrypoint.types` / `call` interface
+already exists, and the benchmark branch already includes its engine loader
+from [#14038](https://github.com/dagger/dagger/pull/14038). `entrypointSDK`
+implements `AsModuleTypes`; its type path calls `EntrypointModuleTypes`, while
+its runtime is a separate Dang entrypoint call. An entrypoint may compute its
+types dynamically, so the interface alone is not proof of cheap discovery.
+
+Yves Brissaud (`eunomie`) already contributed the related SDK lifecycle work:
+
+* [#13381](https://github.com/dagger/dagger/pull/13381), Go no-codegen-at-runtime
+  and single-pass generation, is in the benchmark branch. The generator derives
+  self-call types without first building the module, but the builtin Go runtime
+  still builds the module to load its definition.
+* [#13598](https://github.com/dagger/dagger/pull/13598) makes the rule generic:
+  TOML modules use committed bindings, and SDK capability detection permits
+  omitting dependency introspection from runtime construction. It is also
+  already included, along with Python adoption in
+  [#13593](https://github.com/dagger/dagger/pull/13593).
+* [#13548](https://github.com/dagger/dagger/pull/13548) already loads selected
+  workspace modules on demand. Complete listings still need all candidate
+  definitions. It too is included.
+
+The newer SDK implementations provide the more direct match:
+
+| SDK work | Actual discovery path in the reviewed code | Status on September 24 |
+| --- | --- | --- |
+| Yves's [Java SDK #19](https://github.com/dagger/java-sdk/pull/19) | The annotation processor renders static Dang TypeDefs from the same model as runtime registration. `types()` returns them; `call()` requests the jar build. | Open prototype |
+| Solomon's [Go SDK #36](https://github.com/dagger/go-sdk/pull/36), referenced by the Java PR | Generates static Dang TypeDefs and a separate `call()` that requests the Go dispatch binary. | Open prototype; not automatically applied to the benchmark app |
+| Yves's [Python SDK #33](https://github.com/dagger/python-sdk/pull/33) | The shared entrypoint's `types()` requests `describeJSON`, which uses `build.installed` and runs `python -m dagger.mod describe`. | Open; the shared entrypoint still prepares and imports Python code for discovery |
+| Yves's [Go SDK #35](https://github.com/dagger/go-sdk/pull/35) | Offers an opt-in build-only runtime and moves generation into the SDK repository; the runtime still compiles committed Go source. | Open; leaves builtin `go` routing unchanged |
+
+These findings come from the implementations, not only the PR titles. In
+particular, no-codegen-at-runtime is already achieved on our TOML baseline;
+no-compilation-for-type-discovery is a different property. Python's earlier
+AST analyzer was deliberately removed in Yves's
+[#13251](https://github.com/dagger/dagger/pull/13251), returning to runtime
+introspection. A second universal source scanner would duplicate language
+semantics and undo that direction.
+
+Both application Go modules in our measured greetings-api checkout still say
+`[runtime] source = "go"`, rather than selecting a generated Dang entrypoint.
+That explains why our cold profiles still contain their two builds despite the
+engine supporting the newer interface. Go SDK #36 also currently rejects
+`package main`, which these modules use; trying it requires an isolated,
+explicit migration rather than silently calling it the same baseline. Its
+older PR description says the engine loader is unfinished, but #14038 has
+since merged and is already in this branch. Its generated `call` still takes
+`fnArgs: [FunctionCallArgValue!]!`, whereas the merged engine contract takes JSON. That protocol mismatch and the package
+layout must be adapted before an honest end-to-end comparison; merging the
+engine loader alone does not make this older prototype compatible.
+
+The next performance experiment should therefore use the existing entrypoint
+protocol: migrate an isolated copy, compare the complete listing and metadata,
+then exercise actual calls and edits. Count builds separately under `types()`
+and `call()`. For Python, distinguish its shared entrypoint from an SDK-generated
+static entrypoint. Preserve defaults, check and collection annotations, source
+maps, invalidation, services and caller/workspace authority. No new schema file
+format or engine loader is needed merely to test this direction.
+
+The custom Go base still calls `backend/go-test-base` during the current listing
+path, so cheap type discovery alone does not make every runtime unnecessary.
+Deferring execution-only settings, without changing their Container API or
+per-call semantics, would be a separate experiment. This review does not claim
+new full-listing timings or that the prototypes are ready to merge.
+
+The [definition audit](collections-qa-performance-data/go-definition/)
+contains the standalone size/parsing diagnostic, results and a pinned PR/source
+ledger. It is not a production loader. No engine behavior changed in this audit.
 
 The retained code change is finer layer-level wcprof instrumentation, validated
 by five focused snapshot tests and complete listing profiles. No new speedup
