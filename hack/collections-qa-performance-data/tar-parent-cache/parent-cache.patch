@@ -1,0 +1,214 @@
+--- a/pkg/archive/tar.go
++++ b/pkg/archive/tar.go
+@@ -147,6 +147,9 @@
+ 			return 0, fmt.Errorf("failed to apply option: %w", err)
+ 		}
+ 	}
++	if options.Filter == nil && options.ConvertWhiteout == nil {
++		options.cacheConsecutiveParents = true
++	}
+ 	if options.Filter == nil {
+ 		options.Filter = all
+ 	}
+@@ -170,7 +173,8 @@
+ 		// may occur out of order
+ 		unpackedPaths = make(map[string]struct{})
+ 
+-		convertWhiteout = options.ConvertWhiteout
++		convertWhiteout                = options.ConvertWhiteout
++		lastParentName, lastParentPath string
+ 	)
+ 
+ 	if convertWhiteout == nil {
+@@ -250,10 +254,19 @@
+ 
+ 		// Split name and resolve symlinks for root directory.
+ 		ppath, base := filepath.Split(hdr.Name)
+-		ppath, err = fs.RootPath(root, ppath)
+-		if err != nil {
+-			return 0, fmt.Errorf("failed to get root path: %w", err)
+-		}
++		parentName := ppath
++		regular := hdr.Typeflag == tar.TypeReg || hdr.Typeflag == tar.TypeRegA
++		cacheable := options.cacheConsecutiveParents && regular && !strings.HasPrefix(base, whiteoutPrefix)
++		reuseParent := cacheable && lastParentPath != "" && parentName == lastParentName
++		if reuseParent {
++			ppath = lastParentPath
++		} else {
++			ppath, err = fs.RootPath(root, ppath)
++			if err != nil {
++				return 0, fmt.Errorf("failed to get root path: %w", err)
++			}
++		}
++		lastParentName, lastParentPath = "", ""
+ 
+ 		// Join to root before joining to parent path to ensure relative links are
+ 		// already resolved based on the root before adding to parent.
+@@ -265,7 +278,7 @@
+ 
+ 		// If file is not directly under root, ensure parent directory
+ 		// exists or is created.
+-		if ppath != root {
++		if ppath != root && !reuseParent {
+ 			parentPath := ppath
+ 			if base == "" {
+ 				parentPath = filepath.Dir(path)
+@@ -312,6 +325,12 @@
+ 			dirs = append(dirs, hdr)
+ 		}
+ 		unpackedPaths[path] = struct{}{}
++		// Keep only one lexical parent, and never retain a symlink-resolved
++		// alias. A regular sibling cannot replace this parent or its ancestors.
++		// Any non-regular entry or whiteout resets the cache before mutation.
++		if cacheable && ppath == filepath.Join(root, filepath.Join("/", parentName)) {
++			lastParentName, lastParentPath = parentName, ppath
++		}
+ 	}
+ 
+ 	for _, hdr := range dirs {
+--- a/pkg/archive/tar_opts.go
++++ b/pkg/archive/tar_opts.go
+@@ -30,7 +30,8 @@
+ 	Parents         []string        // Parent directories to handle inherited attributes without CoW
+ 	NoSameOwner     bool            // NoSameOwner will not attempt to preserve the owner specified in the tar archive.
+ 
+-	applyFunc func(context.Context, string, io.Reader, ApplyOptions) (int64, error)
++	cacheConsecutiveParents bool
++	applyFunc               func(context.Context, string, io.Reader, ApplyOptions) (int64, error)
+ }
+ 
+ // ApplyOpt allows setting mutable archive apply properties on creation
+@@ -109,3 +110,14 @@
+ 		return nil
+ 	}
+ }
++
++// WithConsecutiveParentCache reuses a verified, non-aliased parent directory
++// between consecutive regular-file entries. Callbacks must not mutate parent
++// paths for ordinary files. The cache is local to one Apply invocation.
++// Experimental: used by the standard overlay converter only in this prototype.
++func WithConsecutiveParentCache() ApplyOpt {
++	return func(options *ApplyOptions) error {
++		options.cacheConsecutiveParents = true
++		return nil
++	}
++}
+--- a/core/diff/apply/apply_linux.go
++++ b/core/diff/apply/apply_linux.go
+@@ -48,6 +48,7 @@
+ 		}
+ 		opts := []archive.ApplyOpt{
+ 			archive.WithConvertWhiteout(archive.OverlayConvertWhiteout),
++			archive.WithConsecutiveParentCache(),
+ 		}
+ 		if len(parents) > 0 {
+ 			opts = append(opts, archive.WithParents(parents))
+--- a/pkg/archive/tar_linux_test.go
++++ b/pkg/archive/tar_linux_test.go
+@@ -144,7 +144,7 @@
+ 		return "", nil, fmt.Errorf("failed to create temp dir: %w", err)
+ 	}
+ 
+-	if _, err = Apply(ctx, next, buf, WithConvertWhiteout(OverlayConvertWhiteout), WithParents(oc.lowers)); err != nil {
++	if _, err = Apply(ctx, next, buf, WithConvertWhiteout(OverlayConvertWhiteout), WithParents(oc.lowers), WithConsecutiveParentCache()); err != nil {
+ 		return "", nil, fmt.Errorf("failed to apply tar stream: %w", err)
+ 	}
+ 
+--- /dev/null
++++ b/pkg/archive/consecutive_parent_test.go
+@@ -0,0 +1,95 @@
++package archive
++
++import (
++	"archive/tar"
++	"bytes"
++	"context"
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++func TestConsecutiveParentTransitions(t *testing.T) {
++	type entry struct {
++		name, target, contents string
++		kind                   byte
++	}
++	cases := []struct {
++		name      string
++		entries   []entry
++		files     map[string]string
++		wantError bool
++	}{
++		{name: "siblings", entries: []entry{{name: "a/b/one", contents: "1"}, {name: "a/b/two", contents: "2"}, {name: "a/b/three", contents: "3"}}, files: map[string]string{"a/b/one": "1", "a/b/two": "2", "a/b/three": "3"}},
++		{name: "parent replaced then recreated", entries: []entry{{name: "a/one", contents: "1"}, {name: "a", contents: "file"}, {name: "a", kind: tar.TypeDir}, {name: "a/two", contents: "2"}}, files: map[string]string{"a/two": "2"}},
++		{name: "parent replaced with file", entries: []entry{{name: "a/one", contents: "1"}, {name: "a", contents: "file"}, {name: "a/two", contents: "2"}}, wantError: true},
++		{name: "parent replaced with symlink", entries: []entry{{name: "a/one", contents: "1"}, {name: "b", kind: tar.TypeDir}, {name: "a", kind: tar.TypeSymlink, target: "b"}, {name: "a/two", contents: "2"}, {name: "a/three", contents: "3"}}, files: map[string]string{"b/two": "2", "b/three": "3"}},
++		{name: "alias replaces its own ancestor", entries: []entry{{name: "a", kind: tar.TypeDir}, {name: "a/l", kind: tar.TypeSymlink, target: ".."}, {name: "a/l/a", contents: "file"}, {name: "a/l/b", contents: "2"}}, wantError: true},
++		{name: "whiteout then recreate", entries: []entry{{name: "a/one", contents: "1"}, {name: ".wh.a"}, {name: "a/two", contents: "2"}, {name: "a/three", contents: "3"}}, files: map[string]string{"a/two": "2", "a/three": "3"}},
++		{name: "hardlink transition", entries: []entry{{name: "a/one", contents: "1"}, {name: "a/link", kind: tar.TypeLink, target: "a/one"}, {name: "a/two", contents: "2"}}, files: map[string]string{"a/link": "1", "a/two": "2"}},
++	}
++	for _, tc := range cases {
++		t.Run(tc.name, func(t *testing.T) {
++			var data bytes.Buffer
++			tw := tar.NewWriter(&data)
++			for _, e := range tc.entries {
++				kind := e.kind
++				if kind == 0 {
++					kind = tar.TypeReg
++				}
++				h := &tar.Header{Name: e.name, Linkname: e.target, Typeflag: kind, Mode: 0755}
++				if kind == tar.TypeReg {
++					h.Size = int64(len(e.contents))
++				}
++				require.NoError(t, tw.WriteHeader(h))
++				if h.Size > 0 {
++					_, err := tw.Write([]byte(e.contents))
++					require.NoError(t, err)
++				}
++			}
++			require.NoError(t, tw.Close())
++			root := t.TempDir()
++			_, err := Apply(context.Background(), root, bytes.NewReader(data.Bytes()), WithNoSameOwner())
++			if tc.wantError {
++				require.Error(t, err)
++				return
++			}
++			require.NoError(t, err)
++			for path, want := range tc.files {
++				got, err := os.ReadFile(filepath.Join(root, path))
++				require.NoError(t, err)
++				require.Equal(t, want, string(got))
++			}
++		})
++	}
++}
++
++func TestConsecutiveParentCustomCallbacks(t *testing.T) {
++	// A custom filter deliberately changes an existing parent. Default Apply
++	// must not reuse a parent across an arbitrary callback.
++	root := t.TempDir()
++	var data bytes.Buffer
++	tw := tar.NewWriter(&data)
++	for _, name := range []string{"a/one", "a/two"} {
++		require.NoError(t, tw.WriteHeader(&tar.Header{Name: name, Mode: 0644, Size: 1}))
++		_, err := tw.Write([]byte("x"))
++		require.NoError(t, err)
++	}
++	require.NoError(t, tw.Close())
++	filter := func(h *tar.Header) (bool, error) {
++		if strings.HasSuffix(h.Name, "two") {
++			require.NoError(t, os.RemoveAll(filepath.Join(root, "a")))
++			require.NoError(t, os.Mkdir(filepath.Join(root, "b"), 0755))
++			require.NoError(t, os.Symlink("b", filepath.Join(root, "a")))
++		}
++		return true, nil
++	}
++	_, err := Apply(context.Background(), root, bytes.NewReader(data.Bytes()), WithFilter(filter), WithNoSameOwner())
++	require.NoError(t, err)
++	got, err := os.ReadFile(filepath.Join(root, "b/two"))
++	require.NoError(t, err)
++	require.Equal(t, "x", string(got))
++}

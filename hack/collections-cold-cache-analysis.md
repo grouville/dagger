@@ -184,6 +184,12 @@ implements `AsModuleTypes`; its type path calls `EntrypointModuleTypes`, while
 its runtime is a separate Dang entrypoint call. An entrypoint may compute its
 types dynamically, so the interface alone is not proof of cheap discovery.
 
+The SDK authors own this implementation work. This investigation leaves it to
+them and moves to independent bottlenecks. The subsequent
+[archive parent-path experiment](collections-extraction-parent-performance.md)
+tests one such optimization; its small import gain does not establish faster
+complete discovery, so it remains disabled.
+
 Yves Brissaud (`eunomie`) already contributed the related SDK lifecycle work:
 
 * [#13381](https://github.com/dagger/dagger/pull/13381), Go no-codegen-at-runtime

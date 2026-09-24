@@ -1,0 +1,74 @@
+wcprof analysis
+===============
+
+ops: 34419  roots: 76  open at dump: 0  dropped events: 0
+trace span: 26.04s   makespan over roots: 26.04s
+
+simulated baseline makespan: 28.25s (drift vs actual: +8.5%)
+
+what-if: makespan saved if a class's self-time is scaled by factor f
+(ranked by saving at f=0.5; this is the bottleneck candidate list)
+
+class                                                   worktype       save@0     save@0.5     save@0.9
+exec_phase:runtime                                      user            2.21s        1.22s      244.3ms
+call_exec:Container.from                                engine          2.21s        1.12s      224.5ms
+internal:dang.invoke                                    engine        501.7ms      257.5ms       51.5ms
+call_exec:Address.container                             engine        163.2ms       81.6ms       16.3ms
+internal:dang.runSource                                 engine         50.4ms       25.2ms        5.0ms
+internal:dang.decodeSchema                              engine         47.2ms       23.6ms        4.7ms
+exec:exec.run                                           engine         37.8ms       18.9ms        3.8ms
+call_exec:Host.directory                                engine         33.9ms       17.0ms        3.4ms
+session_phase:session.schemaBuild                       engine         30.2ms       15.1ms        3.0ms
+call_exec:go:Query.go                                   engine         29.9ms       14.9ms        3.0ms
+session_phase:session.query                             engine         17.6ms        8.8ms        1.8ms
+call_exec:Artifacts.__itemsJSON                         engine         15.1ms        7.6ms        1.5ms
+internal:dang.flushTelemetry                            engine         10.5ms        5.3ms        1.1ms
+call:TypeDef.withOptional                               engine          7.4ms        3.7ms        771µs
+call:TypeDef.withKind                                   engine          7.2ms        3.7ms        763µs
+call:Query.typeDef                                      engine          6.1ms        3.1ms        634µs
+call:Query.node                                         engine          4.6ms        2.3ms        458µs
+call:Module._implementationScoped                       engine          3.6ms        1.8ms        360µs
+call_exec:Query.__schemaJSONFile                        engine          3.3ms        1.7ms        331µs
+exec_phase:withExec.applyOutputs                        engine          3.3ms        1.6ms        326µs
+call_exec:go:GoModule.tests                             engine          2.9ms        1.4ms        289µs
+call:Query.__objectTypeDef                              engine          2.2ms        1.1ms        224µs
+call_exec:go:Go.modules                                 engine          2.2ms        1.1ms        224µs
+call_exec:go:GoModules.get                              engine          1.9ms        953µs        190µs
+exec_phase:withExec.prepareMounts                       engine          1.9ms        948µs        189µs
+
+top classes by total self-time
+
+class                                                   worktype    count   total-self   total-wall   p50-self   p95-self   max-self outcomes
+exec_phase:go build                                     user            2       16.45s       16.45s     11.29s     11.29s     11.29s ok:2
+exec_phase:runtime                                      user            8       10.77s       10.77s    134.1ms      7.73s      7.73s ok:8
+lazy:GitRef.tree                                        engine         10        6.94s        6.94s    706.1ms      1.51s      1.51s ok:10
+internal:image.applyLayer                               engine         20        6.17s        6.17s     90.9ms      2.66s      2.66s ok:20
+call_exec:Container.from                                engine          4        4.25s        5.95s      1.70s      2.01s      2.01s ok:4
+lazy:Container.withMountedDirectory                     engine          9        3.85s        7.69s      1.4ms      3.84s      3.84s ok:9
+call_exec:Query.git                                     engine         16        3.39s        4.04s    243.5ms    622.3ms    622.3ms ok:16
+exec_phase:tsx                                          user            2        3.38s        3.38s      1.82s      1.82s      1.82s ok:2
+call_exec:Query.moduleSource                            engine         13        2.93s       21.25s     35.5ms    723.0ms    723.0ms ok:13
+lazy:Container.from                                     engine          4        2.10s        3.23s      398µs      2.10s      2.10s ok:4
+exec_phase:yarn install                                 user            1        1.56s        1.56s      1.56s      1.56s      1.56s ok:1
+internal:dang.selfTypes                                 engine         10        1.44s        1.44s    142.0ms    435.9ms    435.9ms ok:10
+internal:dang.invoke                                    engine         33        1.22s        1.51s      6.0ms    269.2ms    341.6ms ok:33
+internal:builtinImage.copyContent                       engine          2        1.11s        1.11s    650.4ms    650.4ms    650.4ms ok:2
+internal:dang.runSource                                 engine         33      618.9ms      618.9ms     10.6ms     56.4ms    199.7ms ok:33
+exec_phase:apk add                                      user            1      580.8ms      580.8ms    580.8ms    580.8ms    580.8ms ok:1
+internal:dang.decodeSchema                              engine         33      449.9ms      449.9ms     13.2ms     23.6ms     28.2ms ok:33
+call_exec:ModuleSource.asModule                         engine         16      403.0ms       76.49s     21.5ms     76.5ms     76.5ms ok:16
+call_exec:Host.directory                                engine         10      379.6ms      386.9ms     14.1ms    165.1ms    165.1ms ok:10
+call_exec:Address.container                             engine          4      378.1ms        2.95s    103.1ms    111.8ms    111.8ms ok:4
+internal:dagql.publishResult                            engine       4371      367.7ms      367.7ms       43µs      244µs     10.1ms ok:4371
+exec_phase:git config                                   user            4      272.0ms      272.0ms     70.6ms     70.9ms     70.9ms ok:4
+exec:exec.run                                           engine         21      261.3ms       33.54s      9.7ms     23.8ms     29.4ms ok:21
+session_phase:session.query                             engine        293      165.9ms       37.10s      217µs      2.5ms      7.0ms ok:293
+internal:image.commitSnapshot                           engine         20      161.2ms      161.2ms      1.2ms     91.3ms     91.3ms ok:20
+
+end-of-workload blocking chain (latest-finishing path)
+
+  session_phase session.serveQuery                                 dur=2.8ms      self=8µs        [26.04s..26.04s]
+  session_phase session.query                                      dur=2.7ms      self=348µs      [26.04s..26.04s]
+  call         ArtifactDimension.collectionType                   dur=578µs      self=506µs      [26.04s..26.04s]
+  call_exec    ArtifactDimension.collectionType                   dur=67µs       self=67µs       [26.04s..26.04s]
+  internal     dagql.publishResult                                dur=50µs       self=50µs       [26.04s..26.04s]
