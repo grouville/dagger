@@ -1424,7 +1424,10 @@ func (srv *Server) initializeClientRuntime(
 
 		client.defaultDeps = core.NewSchemaBuilder(client.dagqlRoot, []core.Mod{coreMod})
 		client.servedMods = client.mod.Self().Deps.WithRoot(client.dagqlRoot)
-		if len(client.mod.Self().ObjectDefs) > 0 {
+		// Attachment already adds the module to its dependencies when self
+		// calls are enabled. Installing it twice repeats function/default/type
+		// setup for every nested client without adding any fields.
+		if len(client.mod.Self().ObjectDefs) > 0 && !client.mod.Self().IncludeSelfInDeps {
 			client.servedMods = client.servedMods.Append(core.NewUserMod(client.mod))
 		}
 	} else {
