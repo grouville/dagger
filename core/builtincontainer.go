@@ -11,6 +11,7 @@ import (
 	specs "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/dagger/dagger/dagql"
+	"github.com/dagger/dagger/engine/wcprof"
 	"github.com/dagger/dagger/internal/buildkit/util/contentutil"
 )
 
@@ -53,10 +54,15 @@ func builtinContainerInto(ctx context.Context, container *Container, platform Pl
 	if err := query.SnapshotManager().PinContent(ctx, leaseID, nil); err != nil {
 		return fmt.Errorf("create builtin image lease: %w", err)
 	}
-	if err := contentutil.CopyChain(leases.WithLease(ctx, leaseID), query.OCIStore(), query.BuiltinOCIStore(), manifestDesc); err != nil {
+	copyCtx, copyOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "builtinImage.copyContent", wcprof.OpOpts{Ident: manifestDigest.String()})
+	err = contentutil.CopyChain(leases.WithLease(copyCtx, leaseID), query.OCIStore(), query.BuiltinOCIStore(), manifestDesc)
+	copyOp.EndErr(err)
+	if err != nil {
 		return fmt.Errorf("copy builtin image content: %w", err)
 	}
-	loaded, err := loadImportedImageFromStore(ctx, query.OCIStore(), manifestDesc, "")
+	metadataCtx, metadataOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "builtinImage.loadMetadata", wcprof.OpOpts{Ident: manifestDigest.String()})
+	loaded, err := loadImportedImageFromStore(metadataCtx, query.OCIStore(), manifestDesc, "")
+	metadataOp.EndErr(err)
 	if err != nil {
 		return err
 	}
@@ -64,7 +70,9 @@ func builtinContainerInto(ctx context.Context, container *Container, platform Pl
 		return fmt.Errorf("pin builtin image content: %w", err)
 	}
 	container.Platform = platform
-	_, err = container.FromOCIStore(ctx, manifestDesc, "")
+	importCtx, importOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "builtinImage.importRootfs", wcprof.OpOpts{Ident: manifestDigest.String()})
+	_, err = container.FromOCIStore(importCtx, manifestDesc, "")
+	importOp.EndErr(err)
 	return err
 }
 
