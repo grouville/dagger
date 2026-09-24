@@ -1,0 +1,331 @@
+--- a/pkg/dang/eval.go
++++ b/pkg/dang/eval.go
+@@ -2671,7 +2671,7 @@
+ 
+ 	blocks := make([]*FileBlock, 0, len(dangFiles))
+ 	for _, filePath := range dangFiles {
+-		parsed, err := ParseFileWithRecovery(filePath, GlobalStore("filePath", filePath))
++		parsed, err := ParseFileCached(filePath)
+ 		if err != nil {
+ 			return ctx, nil, fmt.Errorf("failed to parse file %s: %w", filePath, err)
+ 		}
+--- a/pkg/dang/parse_cache.go
++++ b/pkg/dang/parse_cache.go
+@@ -0,0 +1,196 @@
++package dang
++
++// Experimental syntax-only cache. Inference mutates AST nodes and attaches
++// per-call clients, so cached templates must never escape to an evaluator.
++import (
++	"container/list"
++	"crypto/sha256"
++	"fmt"
++	"golang.org/x/sync/singleflight"
++	"os"
++	"reflect"
++	"sync"
++)
++
++const syntaxCacheEntries = 16
++const syntaxCacheMaxSource = 128 << 10
++
++type syntaxEntry struct {
++	key   [32]byte
++	block *FileBlock
++}
++
++var syntaxCache = struct {
++	sync.Mutex
++	entries map[[32]byte]*list.Element
++	lru     list.List
++	loading singleflight.Group
++}{entries: make(map[[32]byte]*list.Element)}
++
++// ParseFileCached returns a fresh syntax tree, keyed by source bytes rather
++// than pathname, mtime, module ID, schema, or workspace snapshot. All runtime
++// state is rebuilt normally. Failed parses use the ordinary diagnostic path.
++// This prototype uses checked reflection; an upstream implementation should
++// generate typed syntax cloning alongside the AST definitions.
++func ParseFileCached(filename string) (any, error) {
++	data, err := os.ReadFile(filename)
++	if err != nil {
++		return nil, err
++	}
++	if len(data) > syntaxCacheMaxSource {
++		return ParseFileWithRecovery(filename, GlobalStore("filePath", filename))
++	}
++	key := sha256.Sum256(data)
++	load := func() *FileBlock {
++		syntaxCache.Lock()
++		defer syntaxCache.Unlock()
++		if elem := syntaxCache.entries[key]; elem != nil {
++			syntaxCache.lru.MoveToFront(elem)
++			return elem.Value.(syntaxEntry).block
++		}
++		return nil
++	}
++	template := load()
++	if template == nil {
++		result, parseErr, _ := syntaxCache.loading.Do(string(key[:]), func() (any, error) {
++			if block := load(); block != nil {
++				return block, nil
++			}
++			parsed, err := Parse("<cached>", data, GlobalStore("filePath", "<cached>"))
++			if err != nil {
++				return nil, err
++			}
++			block, ok := parsed.(*FileBlock)
++			if !ok {
++				return nil, fmt.Errorf("unexpected parse result %T", parsed)
++			}
++			if _, err := cloneSyntax(block, filename); err != nil {
++				return nil, err
++			}
++			syntaxCache.Lock()
++			defer syntaxCache.Unlock()
++			elem := syntaxCache.lru.PushFront(syntaxEntry{key, block})
++			syntaxCache.entries[key] = elem
++			if syntaxCache.lru.Len() > syntaxCacheEntries {
++				last := syntaxCache.lru.Back()
++				delete(syntaxCache.entries, last.Value.(syntaxEntry).key)
++				syntaxCache.lru.Remove(last)
++			}
++			return block, nil
++		})
++		if parseErr != nil {
++			return ParseFileWithRecovery(filename, GlobalStore("filePath", filename))
++		}
++		template = result.(*FileBlock)
++	}
++	return cloneSyntax(template, filename)
++}
++
++func cloneSyntax(block *FileBlock, filename string) (*FileBlock, error) {
++	type pointer struct {
++		typ  reflect.Type
++		addr uintptr
++	}
++	seen := make(map[pointer]reflect.Value)
++	remaining := 262144
++	var copyValue func(reflect.Value) (reflect.Value, error)
++	copyValue = func(src reflect.Value) (reflect.Value, error) {
++		remaining--
++		if remaining < 0 {
++			return reflect.Value{}, fmt.Errorf("syntax exceeds clone budget")
++		}
++		dst := reflect.New(src.Type()).Elem()
++		switch src.Kind() {
++		case reflect.Pointer:
++			if src.IsNil() {
++				return dst, nil
++			}
++			key := pointer{src.Type(), src.Pointer()}
++			if prior, ok := seen[key]; ok {
++				return prior, nil
++			}
++			dst.Set(reflect.New(src.Type().Elem()))
++			seen[key] = dst
++			value, err := copyValue(src.Elem())
++			if err != nil {
++				return reflect.Value{}, err
++			}
++			dst.Elem().Set(value)
++		case reflect.Interface:
++			if src.IsNil() {
++				return dst, nil
++			}
++			value, err := copyValue(src.Elem())
++			if err != nil {
++				return reflect.Value{}, err
++			}
++			dst.Set(value)
++		case reflect.Struct:
++			for i := 0; i < src.NumField(); i++ {
++				field := src.Type().Field(i)
++				if field.PkgPath != "" {
++					if !src.Field(i).IsZero() {
++						return reflect.Value{}, fmt.Errorf("nonzero private syntax field %s.%s", src.Type(), field.Name)
++					}
++					continue
++				}
++				value, err := copyValue(src.Field(i))
++				if err != nil {
++					return reflect.Value{}, err
++				}
++				dst.Field(i).Set(value)
++			}
++			if src.Type() == reflect.TypeFor[SourceLocation]() {
++				dst.FieldByName("Filename").SetString(filename)
++			}
++		case reflect.Slice:
++			if src.IsNil() {
++				return dst, nil
++			}
++			dst.Set(reflect.MakeSlice(src.Type(), src.Len(), src.Len()))
++			for i := 0; i < src.Len(); i++ {
++				value, err := copyValue(src.Index(i))
++				if err != nil {
++					return reflect.Value{}, err
++				}
++				dst.Index(i).Set(value)
++			}
++		case reflect.Map:
++			if src.IsNil() {
++				return dst, nil
++			}
++			dst.Set(reflect.MakeMapWithSize(src.Type(), src.Len()))
++			iter := src.MapRange()
++			for iter.Next() {
++				key, err := copyValue(iter.Key())
++				if err != nil {
++					return reflect.Value{}, err
++				}
++				value, err := copyValue(iter.Value())
++				if err != nil {
++					return reflect.Value{}, err
++				}
++				dst.SetMapIndex(key, value)
++			}
++		case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
++			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
++			reflect.Float32, reflect.Float64, reflect.String:
++			dst.Set(src)
++		case reflect.Func:
++			// Parser constructors install stateless package-level operator
++			// functions here. No evaluator closures are present before inference.
++			if !src.IsNil() && src.Type() != reflect.TypeFor[BinaryOperatorEvaluator]() {
++				return reflect.Value{}, fmt.Errorf("unsupported syntax function %s", src.Type())
++			}
++			dst.Set(src)
++		default:
++			return reflect.Value{}, fmt.Errorf("unsupported syntax value %s", src.Type())
++		}
++		return dst, nil
++	}
++	value, err := copyValue(reflect.ValueOf(block))
++	if err != nil {
++		return nil, err
++	}
++	return value.Interface().(*FileBlock), nil
++}
+--- a/pkg/dang/parse_cache_test.go
++++ b/pkg/dang/parse_cache_test.go
+@@ -0,0 +1,118 @@
++package dang
++
++import (
++	"context"
++	"fmt"
++	"os"
++	"path/filepath"
++	"sync"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++func TestSyntaxCacheIsolationAndContentEdits(t *testing.T) {
++	dir := t.TempDir()
++	file := filepath.Join(dir, "main.dang")
++	write := func(value string) {
++		require.NoError(t, os.WriteFile(file, []byte("pub answer: String! = \""+value+"\"\n"), 0600))
++	}
++	write("first")
++	original, err := os.Stat(file)
++	require.NoError(t, err)
++	first, err := ParseFileCached(file)
++	require.NoError(t, err)
++	first.(*FileBlock).Forms[0].(*FieldDecl).Name.Name = "mutated"
++	again, err := ParseFileCached(file)
++	require.NoError(t, err)
++	require.Equal(t, "answer", again.(*FileBlock).Forms[0].(*FieldDecl).Name.Name)
++
++	for _, value := range []string{"first", "other", "first"} {
++		write(value)
++		// Same size and timestamp must not cause a stale syntax hit.
++		require.NoError(t, os.Chtimes(file, original.ModTime(), original.ModTime()))
++		env, err := RunDir(context.Background(), dir, false)
++		require.NoError(t, err)
++		got, found := requireEvalGet(t, env, "answer")
++		require.True(t, found)
++		require.Equal(t, value, got.(StringValue).Val)
++	}
++	second := filepath.Join(t.TempDir(), "other.dang")
++	data, err := os.ReadFile(file)
++	require.NoError(t, err)
++	require.NoError(t, os.WriteFile(second, data, 0600))
++	parsed, err := ParseFileCached(second)
++	require.NoError(t, err)
++	parsed.(*FileBlock).Walk(func(n Node) bool {
++		if loc := n.GetSourceLocation(); loc != nil {
++			require.Equal(t, second, loc.Filename)
++		}
++		return true
++	})
++	// A bad edit must fail; fixing it must work without restarting the cache.
++	require.NoError(t, os.WriteFile(file, []byte("pub answer: String! = \""), 0600))
++	_, err = ParseFileCached(file)
++	require.Error(t, err)
++	write("fixed")
++	_, err = RunDir(context.Background(), dir, false)
++	require.NoError(t, err)
++}
++
++func TestSyntaxCacheConcurrentInference(t *testing.T) {
++	dir := t.TempDir()
++	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.dang"), []byte("pub answer: String! = \"shared\"\n"), 0600))
++	var wg sync.WaitGroup
++	errs := make(chan error, 16)
++	for range 16 {
++		wg.Go(func() {
++			_, err := RunDir(context.Background(), dir, false)
++			errs <- err
++		})
++	}
++	wg.Wait()
++	close(errs)
++	for err := range errs {
++		require.NoError(t, err)
++	}
++}
++
++func TestSyntaxCacheCapacity(t *testing.T) {
++	file := filepath.Join(t.TempDir(), "main.dang")
++	for i := range syntaxCacheEntries + 4 {
++		require.NoError(t, os.WriteFile(file, fmt.Appendf(nil, "pub item%d: String! = \"bounded\"\n", i), 0600))
++		_, err := ParseFileCached(file)
++		require.NoError(t, err)
++	}
++	syntaxCache.Lock()
++	defer syntaxCache.Unlock()
++	require.LessOrEqual(t, len(syntaxCache.entries), syntaxCacheEntries)
++}
++
++func BenchmarkDiscoverySyntaxCache(b *testing.B) {
++	root := os.Getenv("DAGGER_DANG_BENCH_ROOT")
++	if root == "" {
++		b.Skip("set DAGGER_DANG_BENCH_ROOT")
++	}
++	for _, name := range []string{"go.dang", "gomod/main.dang"} {
++		file := filepath.Join(root, name)
++		data, err := os.ReadFile(file)
++		if err != nil {
++			b.Fatal(err)
++		}
++		parsed, err := Parse(file, data, GlobalStore("filePath", file))
++		if err != nil {
++			b.Fatal(err)
++		}
++		if _, err = cloneSyntax(parsed.(*FileBlock), file); err != nil {
++			b.Fatal(err)
++		}
++		b.Run(name, func(b *testing.B) {
++			b.ReportAllocs()
++			for b.Loop() {
++				if _, err := ParseFileCached(file); err != nil {
++					b.Fatal(err)
++				}
++			}
++		})
++	}
++}

@@ -1,0 +1,20 @@
+--- a/core/sdk/dang/v2/helpers.go
++++ b/core/sdk/dang/v2/helpers.go
+@@ -275,7 +275,7 @@
+ 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".dang" {
+ 			continue
+ 		}
+-		root, err := dang.ParseFile(filepath.Join(dir, entry.Name()))
++		root, err := dang.ParseFileCached(filepath.Join(dir, entry.Name()))
+ 		if err != nil {
+ 			return err
+ 		}
+@@ -392,7 +392,7 @@
+ 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".dang" {
+ 			continue
+ 		}
+-		root, err := dang.ParseFile(filepath.Join(modSrcDir, entry.Name()))
++		root, err := dang.ParseFileCached(filepath.Join(modSrcDir, entry.Name()))
+ 		if err != nil {
+ 			slog.Debug("ensureModuleSelfTypes: parse module file", "file", entry.Name(), "error", err)
+ 			continue

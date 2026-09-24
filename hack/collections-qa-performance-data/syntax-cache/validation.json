@@ -1,0 +1,78 @@
+[
+  {
+    "name": "dang-library",
+    "exit_code": 0,
+    "seconds": 6.22734608897008,
+    "command": [
+      "go",
+      "test",
+      "./pkg/dang",
+      "-count=1"
+    ],
+    "cwd": "/tmp/collections-perf/syntax-isolated/dang"
+  },
+  {
+    "name": "syntax-cache-race",
+    "exit_code": 0,
+    "seconds": 10.18273835722357,
+    "command": [
+      "go",
+      "test",
+      "-race",
+      "./pkg/dang",
+      "-run",
+      "^TestSyntaxCache",
+      "-count=1"
+    ],
+    "cwd": "/tmp/collections-perf/syntax-isolated/dang"
+  },
+  {
+    "name": "parse-versus-clone",
+    "exit_code": 0,
+    "seconds": 23.880273954942822,
+    "command": [
+      "go",
+      "test",
+      "./pkg/dang",
+      "-run",
+      "^$",
+      "-bench",
+      "^BenchmarkSyntaxCacheAB$",
+      "-benchmem",
+      "-count=3"
+    ],
+    "cwd": "/tmp/collections-perf/syntax-isolated/dang"
+  },
+  {
+    "name": "dang-boundaries",
+    "exit_code": 0,
+    "seconds": 57.82982011511922,
+    "command": [
+      "go",
+      "test",
+      "-v",
+      "./core/integration",
+      "-count=1",
+      "-parallel=1",
+      "-run",
+      "^(TestDang|TestDangForcing)$/(TestDirectives|TestSDKClientAttachables|TestWorkspaceArg|TestVersionedSyntax|TestSelfCallReturningOwnType|TestLazyChainForcing|TestLoadErrorReport)$"
+    ],
+    "cwd": "/home/dagger/dag"
+  },
+  {
+    "name": "collections",
+    "exit_code": 0,
+    "seconds": 57.933917057933286,
+    "command": [
+      "go",
+      "test",
+      "-v",
+      "./core/integration",
+      "-count=1",
+      "-parallel=1",
+      "-run",
+      "^TestCollections$/(TestCommandLists|TestCheckSelection|TestDimensionItems|TestBatchReplacement)$"
+    ],
+    "cwd": "/home/dagger/dag"
+  }
+]

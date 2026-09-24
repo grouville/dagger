@@ -1,5 +1,14 @@
 # Collections discovery: committed changes on greetings-api
 
+**Baseline update:** Kyle subsequently reported **29.88 s cold and 3–4 s warm**.
+Go module `1784ff37eb` removes the helper build from artifact listing; the engine
+and application refs are unchanged. The measurements below use the earlier Go
+module (`9af8ac523f`) and must not be presented as gains over his new version.
+His cold improvement and our warm improvement are separate comparisons.
+The [new matched comparison](collections-kyle-latest-performance.md) uses his
+new module on all sides: **6.73 s → 5.00 s** with committed engine/CLI changes,
+then **3.98 s** with the experimental syntax cache. Its cold pair shows no gain.
+
 Measured September 24, 2026. The exact `dagger check -l --all` workload now
 measures **6.16 s → 4.40 s warm median (29% less elapsed time)**
 using the committed changes. Real edits take **4.93–5.24 s**, down from
@@ -10,6 +19,11 @@ These numbers replace the earlier **3.83 s prototype** as the result to quote
 for the committed branch. That prototype included an experimental Dang syntax
 cache. It is preserved in the [historical report](collections-qa-performance-prototype.md);
 its measurements must not be presented as results of these commits.
+
+A subsequent [isolated syntax-cache experiment](collections-syntax-cache-performance.md)
+reproduces **4.52 s → 3.66 s** with only that prototype added to the committed
+stack. It also records two edit sequences and an empty-cache pair. The cache
+remains experimental and is not enabled by the committed production source.
 
 ## What was committed
 

@@ -1,0 +1,27 @@
+package dang
+
+import (
+ "os"
+ "path/filepath"
+ "testing"
+)
+
+func BenchmarkSyntaxCacheAB(b *testing.B) {
+ root := os.Getenv("DAGGER_DANG_BENCH_ROOT")
+ if root == "" { b.Skip("set DAGGER_DANG_BENCH_ROOT") }
+ for _, name := range []string{"go.dang", "gomod/main.dang"} {
+  file := filepath.Join(root, name)
+  for _, cached := range []bool{false, true} {
+   label := "parse"
+   if cached { label = "cached-clone"; if _, err := ParseFileCached(file); err != nil { b.Fatal(err) } }
+   b.Run(name+"/"+label, func(b *testing.B) {
+    b.ReportAllocs()
+    for b.Loop() {
+     var err error
+     if cached { _, err = ParseFileCached(file) } else { _, err = ParseFileWithRecovery(file, GlobalStore("filePath", file)) }
+     if err != nil { b.Fatal(err) }
+    }
+   })
+  }
+ }
+}
