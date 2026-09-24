@@ -84,7 +84,10 @@ func prepareArtifactCommands(ctx context.Context, root *cobra.Command, args, raw
 		if !completing && len(commandArgs) == 0 && !all {
 			return nil
 		}
-		if !all && (completing || len(commandArgs) > 0 || discover) {
+		// Ordinary listing resolves its type or collection in runArtifacts,
+		// sharing one engine session with discovery and output. Only help and
+		// completion need dynamic Cobra commands before execution.
+		if !all && (completing || discover) {
 			paths := commandArgs
 			if !all && len(paths) > 0 {
 				paths = paths[1:]

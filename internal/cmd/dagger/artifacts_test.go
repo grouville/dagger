@@ -197,6 +197,9 @@ func TestArtifactPreparationDoesNotConnect(t *testing.T) {
 		{"list", "-a"},
 		{"list", "-a", "--type=Container"},
 		{"list", "-a", "--go-module=sdk/go"},
+		{"list", "go-modules"},
+		{"list", "go-tests", "--go-module=sdk/go"},
+		{"list", "containers", "go/modules/tests/container", "--format=link"},
 	} {
 		t.Run(args[1], func(t *testing.T) {
 			root := &cobra.Command{Use: "dagger"}

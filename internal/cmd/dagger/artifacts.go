@@ -2,6 +2,7 @@ package daggercmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -32,7 +33,7 @@ func newListCommand() *cobra.Command {
 			all, _ := cmd.Flags().GetBool("all")
 			if !all {
 				if len(args) > 0 {
-					return fmt.Errorf("unknown type or collection %q; see 'dagger list --help'", args[0])
+					return runArtifactsWithSelector(cmd, args[1:], args[0])
 				}
 				return cmd.Help()
 			}
@@ -249,6 +250,11 @@ func completeArtifactTypes(cmd *cobra.Command, args []string, _ string) ([]strin
 }
 
 func runArtifacts(cmd *cobra.Command, addresses []string) error {
+	return runArtifactsWithSelector(cmd, addresses, "")
+}
+
+func runArtifactsWithSelector(cmd *cobra.Command, addresses []string, selector string) error {
+	typeName := cmd.Annotations[artifactListType]
 	collectionType := cmd.Annotations[artifactListCollection]
 	format, _ := cmd.Flags().GetString("format")
 	if err := validateArtifactListFormat(format); err != nil {
@@ -267,11 +273,63 @@ func runArtifacts(cmd *cobra.Command, addresses []string) error {
 		return err
 	}
 	return withEngine(cmd.Context(), params, func(ctx context.Context, ec *client.Client) error {
+		// Reuse each static selection within this command. Holding its ID
+		// avoids re-running workspace discovery for every metadata projection;
+		// runtime keys are still enumerated by the filtered selection below.
+		scopes := map[string]*artifactListingScope{}
+		loadScope := func(paths []string) (*artifactListingScope, error) {
+			key, err := json.Marshal(paths)
+			if err != nil {
+				return nil, err
+			}
+			if scope := scopes[string(key)]; scope != nil {
+				return scope, nil
+			}
+			id, err := ec.Dagger().CurrentWorkspace().Artifacts(dagger.WorkspaceArtifactsOpts{Include: paths}).ID(ctx)
+			if err != nil {
+				return nil, err
+			}
+			selection := dagger.Ref[*dagger.Artifacts](ec.Dagger(), id)
+			dimensions, err := artifactDimensions(ctx, ec.Dagger(), selection)
+			if err != nil {
+				return nil, err
+			}
+			scope := &artifactListingScope{selection: selection, dimensions: dimensions}
+			scopes[string(key)] = scope
+			return scope, nil
+		}
+		if selector != "" {
+			// Resolve the dynamic command inside the session that lists its
+			// results. Help and completion still register Cobra subcommands,
+			// but normal execution needs no preliminary engine connection.
+			all, err := loadScope(nil)
+			if err != nil {
+				return err
+			}
+			types, err := readArtifactTypes(ctx, ec.Dagger(), all.selection)
+			if err != nil {
+				return err
+			}
+			collections := map[string]bool{}
+			for _, dimension := range all.dimensions {
+				collections[dimension.CollectionType] = true
+			}
+			resolved := artifactTypeCommands(artifactTypeNames(types), collections)[selector]
+			if resolved == "" {
+				return fmt.Errorf("unknown type or collection %q; see 'dagger list --help'", selector)
+			}
+			if collections[resolved] {
+				collectionType = resolved
+			} else {
+				typeName = resolved
+			}
+		}
 		// Flags bind in the combined path scope; address queries bind in their own scope.
-		defs, err := artifactDimensions(ctx, ec.Dagger(), ec.Dagger().CurrentWorkspace().Artifacts(dagger.WorkspaceArtifactsOpts{Include: artifactPaths(parsed)}))
+		scope, err := loadScope(artifactPaths(parsed))
 		if err != nil {
 			return err
 		}
+		defs := scope.dimensions
 		if err := validateArtifactDimensionFlags(cmd, defs); err != nil {
 			return err
 		}
@@ -284,18 +342,19 @@ func runArtifacts(cmd *cobra.Command, addresses []string) error {
 		}
 		var rows []listedArtifact
 		for _, addr := range parsed {
-			artifacts := ec.Dagger().CurrentWorkspace().Artifacts(dagger.WorkspaceArtifactsOpts{Include: artifactPaths([]*dagaddress.Address{addr})})
+			scope, err := loadScope(artifactPaths([]*dagaddress.Address{addr}))
+			if err != nil {
+				return err
+			}
+			artifacts := scope.selection
 			var pathDefs artifact.Dimensions
 			if len(addr.Query) > 0 || collectionType != "" {
-				pathDefs, err = artifactDimensions(ctx, ec.Dagger(), artifacts)
-				if err != nil {
-					return err
-				}
+				pathDefs = scope.dimensions
 				if err := bindArtifactDimensions(addr.Query, pathDefs); err != nil {
 					return err
 				}
 			}
-			if typeName := cmd.Annotations[artifactListType]; typeName != "" {
+			if typeName != "" {
 				artifacts = artifacts.FilterTypes([]string{typeName})
 			}
 			artifacts = applyArtifactFilters(cmd, addr, flags, artifacts)
@@ -327,6 +386,11 @@ func runArtifacts(cmd *cobra.Command, addresses []string) error {
 		}
 		return writeArtifactList(cmd, rows, names)
 	})
+}
+
+type artifactListingScope struct {
+	selection  *dagger.Artifacts
+	dimensions artifact.Dimensions
 }
 
 func artifactDimensions(ctx context.Context, dag *dagger.Client, artifacts *dagger.Artifacts) (artifact.Dimensions, error) {
@@ -388,7 +452,7 @@ func readArtifactTypes(ctx context.Context, dag *dagger.Client, artifacts *dagge
 	}
 	err = dag.Do(ctx, &dagger.Request{
 		Query: `query($id: ID!) { node(id: $id) { ... on Artifacts {
-  types { name asObject { description } }
+  types: __typeDefinitions { name asObject { description } }
  } } }`,
 		Variables: map[string]any{"id": id},
 	}, &dagger.Response{Data: &response})
@@ -432,12 +496,17 @@ func readListedArtifacts(ctx context.Context, dag *dagger.Client, selection *dag
 		return nil, err
 	}
 	var response struct {
-		Node struct{ Items []listedArtifact }
+		Node struct{ Items string }
 	}
 	err = dag.Do(ctx, &dagger.Request{Query: `query($id: ID!, $absolute: Boolean!, $typeAssertion: Boolean!) {
-  node(id: $id) { ... on Artifacts { items { uri(absolute: $absolute, typeAssertion: $typeAssertion) description dimensionKeys { dimension key } } } }
+  node(id: $id) { ... on Artifacts { items: __itemsJSON(absolute: $absolute, typeAssertion: $typeAssertion) } }
  }`, Variables: map[string]any{"id": id, "absolute": absolute, "typeAssertion": typed}}, &dagger.Response{Data: &response})
-	return response.Node.Items, err
+	if err != nil {
+		return nil, err
+	}
+	var items []listedArtifact
+	err = json.Unmarshal([]byte(response.Node.Items), &items)
+	return items, err
 }
 
 func readListedDimensionItems(ctx context.Context, dag *dagger.Client, selection *dagger.Artifacts, dimension string, absolute bool) ([]listedArtifact, error) {
@@ -446,12 +515,17 @@ func readListedDimensionItems(ctx context.Context, dag *dagger.Client, selection
 		return nil, err
 	}
 	var response struct {
-		Node struct{ Items []listedArtifact }
+		Node struct{ Items string }
 	}
 	err = dag.Do(ctx, &dagger.Request{Query: `query($id: ID!, $dimension: String!, $absolute: Boolean!) {
   node(id: $id) { ... on Artifacts {
-    items: dimensionItems(dimension: $dimension) { uri(absolute: $absolute, typeAssertion: true) description dimensionKeys { dimension key } }
+    items: __itemsJSON(dimension: $dimension, absolute: $absolute, typeAssertion: true)
   } }
  }`, Variables: map[string]any{"id": id, "dimension": dimension, "absolute": absolute}}, &dagger.Response{Data: &response})
-	return response.Node.Items, err
+	if err != nil {
+		return nil, err
+	}
+	var items []listedArtifact
+	err = json.Unmarshal([]byte(response.Node.Items), &items)
+	return items, err
 }

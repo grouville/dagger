@@ -47,6 +47,9 @@ func (s *artifactsSchema) Install(srv *dagql.Server) {
 		// Each invocation gets a new cache key. Retain its results so SDK clients can load their IDs.
 		dagql.NodeFunc("values", s.values).WithInput(dagql.PerCallInput).Doc("Evaluate the selection in parallel, retaining each result and error.").Args(dagql.Arg("failFast").Doc("Cancel remaining work after the first failure."), dagql.Arg("arguments").Doc("Field arguments applied to each artifact, as a JSON object.")),
 		dagql.Func("types", s.types).Doc("List concrete type definitions represented in this selection, sorted by name with no duplicates."),
+		// CLI command discovery must see schema types even for empty collections
+		// and must not run collection receivers before applying user filters.
+		dagql.Func("__typeDefinitions", s.typeDefinitions),
 		dagql.Func("filterCheckCommand", s.filterCheckCommand).Doc("Select Check artifacts for dagger check, using each workspace's check and generator settings. Include stale checks only for Changesets marked generate.").Args(dagql.Arg("generated").Doc("Include generated-file checks. Defaults to the workspace check-generated setting, or true when unset.")),
 		dagql.Func("filterGenerateCommand", s.filterGenerateCommand).Doc("Select Changeset artifacts marked generate, using each workspace's generator settings."),
 		dagql.Func("filterAgentCommand", s.filterAgentCommand).Doc("Select LLM artifacts marked agent."),
@@ -68,6 +71,9 @@ func (s *artifactsSchema) Install(srv *dagql.Server) {
 		dagql.Func("dimensionKeys", s.dimensionKeys).Doc("List keys represented in this selection for the given dimension, sorted with no duplicates."),
 		dagql.Func("dimensionItems", s.dimensionItems).Doc("List collection items represented in this selection for the given dimension. Preserve parent keys and remove duplicate item addresses. Does not evaluate item values."),
 		dagql.Func("__evaluationItems", s.evaluationItems),
+		// The CLI needs a metadata snapshot, not separately addressable results
+		// for every string in the listing. Keep the public object API available.
+		dagql.Func("__itemsJSON", s.itemsJSON),
 		dagql.Func("items", s.items).Doc("Enumerate complete artifacts without evaluating their values."),
 		dagql.Func("one", s.one).Doc("Require exactly one artifact; fail if there are zero or multiple matches. Several matches are listed, one address per line."),
 		dagql.Func("uri", s.uri).Doc("The DAG address that selects this whole selection: filterUri(uri) selects the same set."),
@@ -94,11 +100,15 @@ func (s *artifactsSchema) Install(srv *dagql.Server) {
 	}, s.value)
 }
 
-func (*artifactsSchema) types(ctx context.Context, parent *core.Artifacts, _ struct{}) (dagql.ObjectResultArray[*core.TypeDef], error) {
+func (s *artifactsSchema) types(ctx context.Context, parent *core.Artifacts, _ struct{}) (dagql.ObjectResultArray[*core.TypeDef], error) {
 	parent, err := expandArtifacts(ctx, parent)
 	if err != nil {
 		return nil, err
 	}
+	return s.typeDefinitions(ctx, parent, struct{}{})
+}
+
+func (*artifactsSchema) typeDefinitions(ctx context.Context, parent *core.Artifacts, _ struct{}) (dagql.ObjectResultArray[*core.TypeDef], error) {
 	byName := map[string]dagql.ObjectResult[*core.TypeDef]{}
 	for _, artifact := range parent.Entries {
 		if artifact.Node != nil && artifact.Node.Type.Self() != nil {
@@ -300,6 +310,59 @@ func (*artifactsSchema) items(ctx context.Context, parent *core.Artifacts, _ str
 	}
 	return items, nil
 }
+
+type artifactItemsJSONArgs struct {
+	Absolute      bool `default:"false"`
+	TypeAssertion bool `default:"false"`
+	Dimension     dagql.Optional[dagql.String]
+}
+
+func (s *artifactsSchema) itemsJSON(ctx context.Context, parent *core.Artifacts, args artifactItemsJSONArgs) (core.JSON, error) {
+	var items []*core.Artifact
+	if args.Dimension.Valid {
+		var err error
+		items, err = s.dimensionItems(ctx, parent, struct{ Dimension string }{args.Dimension.Value.String()})
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		expanded, err := expandArtifacts(ctx, parent)
+		if err != nil {
+			return nil, err
+		}
+		items = expanded.Entries
+	}
+	type dimensionKey struct {
+		Dimension string `json:"dimension"`
+		Key       string `json:"key"`
+	}
+	type row struct {
+		URI           string         `json:"uri"`
+		Description   string         `json:"description"`
+		DimensionKeys []dimensionKey `json:"dimensionKeys"`
+	}
+	rows := make([]row, 0, len(items))
+	for _, item := range items {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		uri, err := item.URI(core.ArtifactURIOpts{Absolute: args.Absolute, TypeAssertion: args.TypeAssertion, DimensionKeys: true})
+		if err != nil {
+			return nil, err
+		}
+		description, err := s.description(ctx, item, struct{}{})
+		if err != nil {
+			return nil, err
+		}
+		keys := make([]dimensionKey, 0, len(item.DimensionKeys))
+		for _, key := range item.DimensionKeys {
+			keys = append(keys, dimensionKey{Dimension: key.Dimension, Key: key.Key})
+		}
+		rows = append(rows, row{URI: uri, Description: description, DimensionKeys: keys})
+	}
+	return json.Marshal(rows)
+}
+
 func (*artifactsSchema) one(ctx context.Context, parent *core.Artifacts, _ struct{}) (*core.Artifact, error) {
 	expanded, err := expandArtifacts(ctx, parent)
 	if err != nil {
