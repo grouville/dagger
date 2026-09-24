@@ -20,6 +20,13 @@ published CLI release or engine image.
 * The TypeScript SDK manifest migration described in the
   [cold-start investigation](collections-cold-performance.md). Rebuild the SDK
   payload; changing only the engine executable will not apply it.
+* Finer image-import profiling. The [Go SDK import investigation](collections-go-import-performance.md)
+  explains why trimming compiler test files was not adopted: it loses layer reuse
+  with the application's Go image.
+
+The [cold variance and distributed-cache analysis](collections-cold-cache-analysis.md)
+separates host disk pressure from code changes and explains which cold work a
+compatible remote result could avoid. The measured runs do not use Cloud caching.
 
 The experimental Dang syntax cache and TypeScript SDK bundle changes are
 **not enabled by a normal build**. Their patches and validation are in the

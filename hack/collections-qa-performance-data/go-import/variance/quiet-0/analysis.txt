@@ -1,0 +1,65 @@
+wcprof analysis
+===============
+
+ops: 34419  roots: 76  open at dump: 0  dropped events: 0
+trace span: 26.38s   makespan over roots: 26.38s
+
+simulated baseline makespan: 29.35s (drift vs actual: +11.3%)
+
+what-if: makespan saved if a class's self-time is scaled by factor f
+(ranked by saving at f=0.5; this is the bottleneck candidate list)
+
+class                                                   worktype       save@0     save@0.5     save@0.9
+exec_phase:runtime                                      user            2.97s        1.60s      321.0ms
+call_exec:Container.from                                engine          2.97s        1.51s      301.7ms
+internal:dang.invoke                                    engine        519.4ms      259.7ms       51.9ms
+call_exec:Address.container                             engine        183.7ms      100.9ms       20.6ms
+internal:dang.decodeSchema                              engine         55.0ms       27.5ms        5.5ms
+internal:dang.runSource                                 engine         45.8ms       22.9ms        4.6ms
+call_exec:Host.directory                                engine         36.2ms       18.1ms        3.6ms
+exec:exec.run                                           engine         26.5ms       13.2ms        2.6ms
+call_exec:go:Query.go                                   engine         26.0ms       13.0ms        2.6ms
+call_exec:Artifacts.__itemsJSON                         engine         22.2ms       11.1ms        2.2ms
+session_phase:session.query                             engine         15.9ms        7.9ms        1.6ms
+session_phase:session.schemaBuild                       engine         11.9ms        5.9ms        1.2ms
+call:TypeDef.withOptional                               engine          7.9ms        4.0ms        816µs
+call_exec:Query.__schemaJSONFile                        engine          7.6ms        3.8ms        758µs
+call:Query.typeDef                                      engine          6.1ms        3.1ms        628µs
+call:Module._implementationScoped                       engine          5.0ms        2.7ms        530µs
+call:Query.node                                         engine          4.9ms        2.4ms        488µs
+lazy:Query.__schemaJSONFile                             engine          3.8ms        1.9ms        380µs
+call:TypeDef.withKind                                   engine          3.4ms        1.7ms        345µs
+internal:dang.flushTelemetry                            engine          2.9ms        1.5ms        290µs
+
+top classes by total self-time
+
+class                                                   worktype    count   total-self   total-wall   p50-self   p95-self   max-self outcomes
+exec_phase:go build                                     user            2       16.21s       16.21s     11.00s     11.00s     11.00s ok:2
+exec_phase:runtime                                      user            8       12.14s       12.14s    131.7ms      8.29s      8.29s ok:8
+lazy:GitRef.tree                                        engine         10        7.07s        7.07s    628.9ms      1.42s      1.42s ok:10
+internal:image.applyLayer                               engine         20        6.14s        6.14s     91.4ms      2.52s      2.52s ok:20
+call_exec:Container.from                                engine          4        5.10s        6.91s      1.81s      2.08s      2.08s ok:4
+lazy:Container.withMountedDirectory                     engine          9        4.32s        8.64s      1.2ms      4.31s      4.31s ok:9
+call_exec:Query.git                                     engine         16        3.45s        4.02s    245.1ms    652.4ms    652.4ms ok:16
+call_exec:Query.moduleSource                            engine         13        3.25s       21.98s     37.8ms    854.3ms    854.3ms ok:13
+exec_phase:tsx                                          user            2        2.66s        2.66s      1.35s      1.35s      1.35s ok:2
+lazy:Container.from                                     engine          4        1.99s        3.15s      350µs      1.99s      1.99s ok:4
+exec_phase:yarn install                                 user            1        1.53s        1.53s      1.53s      1.53s      1.53s ok:1
+internal:dang.selfTypes                                 engine         10        1.53s        1.53s    136.7ms    385.2ms    385.2ms ok:10
+internal:dang.invoke                                    engine         33        1.25s        1.53s      5.2ms    263.3ms    342.8ms ok:33
+exec_phase:apk add                                      user            1        1.13s        1.13s      1.13s      1.13s      1.13s ok:1
+internal:builtinImage.copyContent                       engine          2        1.13s        1.13s    574.9ms    574.9ms    574.9ms ok:2
+internal:dang.runSource                                 engine         33      758.9ms      758.9ms     11.5ms    156.9ms    168.1ms ok:33
+call_exec:ModuleSource.asModule                         engine         16      621.1ms       75.72s     29.9ms    184.3ms    184.3ms ok:16
+internal:dang.decodeSchema                              engine         33      470.4ms      470.4ms     14.5ms     24.3ms     28.9ms ok:33
+call_exec:Address.container                             engine          4      418.9ms        3.73s    118.6ms    135.3ms    135.3ms ok:4
+call_exec:Host.directory                                engine         10      366.7ms      376.8ms     15.8ms    140.5ms    140.5ms ok:10
+
+end-of-workload blocking chain (latest-finishing path)
+
+  session_phase session.serveQuery                                 dur=2.7ms      self=9µs        [26.38s..26.38s]
+  session_phase session.query                                      dur=2.6ms      self=357µs      [26.38s..26.38s]
+  call         ArtifactDimension.itemType                         dur=372µs      self=316µs      [26.38s..26.38s]
+  call_exec    ArtifactDimension.itemType                         dur=53µs       self=53µs       [26.38s..26.38s]
+  internal     dagql.publishResult                                dur=53µs       self=53µs       [26.38s..26.38s]
+

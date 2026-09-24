@@ -1,0 +1,44 @@
+File: dagger-engine
+Build ID: 8b64a4b158204d18b0b0206e23684cab03d96891
+Type: cpu
+Time: 2026-09-24 12:07:19 PDT
+Duration: 10s, Total samples = 7.25s (72.49%)
+Showing nodes accounting for 3.84s, 52.97% of 7.25s total
+Dropped 502 nodes (cum <= 0.04s)
+Showing top 35 nodes out of 289
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%      3.83s 52.83%  github.com/dagger/dagger/dagql.(*Cache).runLazyEvalBody
+         0     0%     0%      3.83s 52.83%  github.com/dagger/dagger/dagql.(*Cache).runLazyTask.func1
+         0     0%     0%      3.82s 52.69%  github.com/dagger/dagger/core.(*Container).FromOCIStore
+         0     0%     0%      3.82s 52.69%  github.com/dagger/dagger/core.(*Container).LazyEvalFunc.func3
+         0     0%     0%      3.82s 52.69%  github.com/dagger/dagger/core.(*Container).LazyEvalFunc.func3.1
+         0     0%     0%      3.82s 52.69%  github.com/dagger/dagger/core.(*ContainerBuiltinLazy).Evaluate
+         0     0%     0%      3.82s 52.69%  github.com/dagger/dagger/core.(*ContainerBuiltinLazy).Evaluate.func1
+         0     0%     0%      3.82s 52.69%  github.com/dagger/dagger/core.(*LazyState).Evaluate
+         0     0%     0%      3.82s 52.69%  github.com/dagger/dagger/core.builtinContainerInto
+         0     0%     0%      3.82s 52.69%  github.com/dagger/dagger/dagql.(*PartHost).RunNative
+         0     0%     0%      3.82s 52.69%  github.com/dagger/dagger/engine/snapshots.(*snapshotManager).ImportImage
+         0     0%     0%      3.82s 52.69%  github.com/dagger/dagger/engine/snapshots.(*snapshotManager).importLayer
+         0     0%     0%      3.69s 50.90%  github.com/containerd/containerd/v2/core/diff/apply.(*fsApplier).Apply
+         0     0%     0%      3.69s 50.90%  github.com/dagger/dagger/internal/buildkit/util/winlayers.(*winApplier).Apply
+         0     0%     0%      3.69s 50.90%  github.com/dagger/dagger/internal/buildkit/util/winlayers.(*winApplier).apply (inline)
+         0     0%     0%      3.67s 50.62%  github.com/containerd/containerd/v2/core/diff/apply.apply
+         0     0%     0%      3.67s 50.62%  github.com/containerd/containerd/v2/pkg/archive.Apply
+     0.02s  0.28%  0.28%      3.67s 50.62%  github.com/containerd/containerd/v2/pkg/archive.applyNaive
+     0.01s  0.14%  0.41%      2.54s 35.03%  github.com/containerd/containerd/v2/pkg/archive.createTarFile
+     1.94s 26.76% 27.17%      1.94s 26.76%  internal/runtime/syscall/linux.Syscall6
+         0     0% 27.17%      1.90s 26.21%  syscall.RawSyscall6
+         0     0% 27.17%      1.86s 25.66%  crypto/internal/fips140/sha256.(*Digest).Write
+     0.01s  0.14% 27.31%      1.86s 25.66%  crypto/internal/fips140/sha256.block
+     1.85s 25.52% 52.83%      1.85s 25.52%  crypto/internal/fips140/sha256.blockAVX2
+     0.01s  0.14% 52.97%      1.75s 24.14%  github.com/containerd/containerd/v2/pkg/archive.copyBuffered
+         0     0% 52.97%      1.55s 21.38%  github.com/containerd/containerd/v2/core/diff/apply.(*readCounter).Read (partial-inline)
+         0     0% 52.97%      1.52s 20.97%  io.(*teeReader).Read
+         0     0% 52.97%      1.45s 20.00%  archive/tar.(*Reader).Read
+         0     0% 52.97%      1.45s 20.00%  archive/tar.(*regFileReader).Read
+         0     0% 52.97%      1.16s 16.00%  os.ignoringEINTR (inline)
+         0     0% 52.97%      1.11s 15.31%  syscall.Syscall6
+         0     0% 52.97%      0.81s 11.17%  syscall.Syscall
+         0     0% 52.97%      0.72s  9.93%  os.Lstat
+         0     0% 52.97%      0.72s  9.93%  os.lstatNolog
+         0     0% 52.97%      0.68s  9.38%  os.lstatNolog.func1 (inline)

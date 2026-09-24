@@ -1,0 +1,30 @@
+--- a/core/diff/apply/apply.go
++++ b/core/diff/apply/apply.go
+@@ -106,9 +106,24 @@
+ 	defer processor.Close()
+ 
+ 	digester := digest.Canonical.Digester()
+-	rc := &readCounter{
+-		r: io.TeeReader(processor, digester.Hash()),
+-	}
++	var verified io.Reader = io.TeeReader(processor, digester.Hash())
++	if desc.Size >= 1<<20 {
++		// Prototype: overlap digesting the next chunk with filesystem writes.
++		// Keep the original stream, digest and layer identity intact.
++		reader, writer := io.Pipe()
++		done := make(chan struct{})
++		go func() {
++			defer close(done)
++			_, copyErr := io.CopyBuffer(io.MultiWriter(digester.Hash(), writer), processor, make([]byte, 32<<10))
++			_ = writer.CloseWithError(copyErr)
++		}()
++		defer func() {
++			_ = reader.Close()
++			<-done
++		}()
++		verified = reader
++	}
++	rc := &readCounter{r: verified}
+ 
+ 	// The number of `mounts` that need to be parsed by the mount manager
+ 	// will be more than 1 in reality; this is needed to work around some

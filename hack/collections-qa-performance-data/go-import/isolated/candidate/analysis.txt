@@ -1,0 +1,64 @@
+wcprof analysis
+===============
+
+ops: 63  roots: 1  open at dump: 0  dropped events: 0
+trace span: 4.43s   makespan over roots: 4.43s
+
+simulated baseline makespan: 4.43s (drift vs actual: -0.0%)
+
+what-if: makespan saved if a class's self-time is scaled by factor f
+(ranked by saving at f=0.5; this is the bottleneck candidate list)
+
+class                                                   worktype       save@0     save@0.5     save@0.9
+internal:image.applyLayer                               engine          3.77s        1.88s      376.9ms
+internal:builtinImage.copyContent                       engine        504.8ms      252.4ms       50.5ms
+internal:image.commitSnapshot                           engine        122.7ms       61.3ms       12.3ms
+internal:image.importLayer                              engine          9.8ms        4.9ms        982µs
+session_phase:session.workspaceLoad                     engine          7.5ms        3.8ms        754µs
+internal:image.prepareSnapshot                          engine          4.0ms        2.0ms        395µs
+session_phase:session.query                             engine          3.9ms        1.9ms        386µs
+lazy:Directory.file                                     engine          1.9ms        957µs        191µs
+lazy:Query._builtinContainer                            engine          1.9ms        933µs        186µs
+internal:builtinImage.importRootfs                      engine          1.4ms        722µs        144µs
+lazy:Container.file                                     engine          1.4ms        697µs        139µs
+lazy:Container.rootfs                                   engine          1.2ms        620µs        124µs
+
+top classes by total self-time
+
+class                                                   worktype    count   total-self   total-wall   p50-self   p95-self   max-self outcomes
+internal:image.applyLayer                               engine          9        3.77s        3.77s     76.4ms      2.25s      2.25s ok:9
+internal:builtinImage.copyContent                       engine          1      504.8ms      504.8ms    504.8ms    504.8ms    504.8ms ok:1
+internal:image.commitSnapshot                           engine          9      122.7ms      122.7ms      2.4ms     81.0ms     81.0ms ok:9
+internal:image.importLayer                              engine          9        9.8ms        3.91s      1.1ms      1.7ms      1.7ms ok:9
+session_phase:session.workspaceLoad                     engine          1        7.5ms        7.5ms      7.5ms      7.5ms      7.5ms ok:1
+internal:image.prepareSnapshot                          engine          9        4.0ms        4.0ms      280µs      1.7ms      1.7ms ok:9
+session_phase:session.query                             engine          1        3.9ms        4.42s      3.9ms      3.9ms      3.9ms ok:1
+lazy:Directory.file                                     engine          1        1.9ms        3.2ms      1.9ms      1.9ms      1.9ms ok:1
+lazy:Query._builtinContainer                            engine          1        1.9ms        4.41s      1.9ms      1.9ms      1.9ms ok:1
+internal:builtinImage.importRootfs                      engine          1        1.4ms        3.91s      1.4ms      1.4ms      1.4ms ok:1
+lazy:Container.file                                     engine          1        1.4ms        4.8ms      1.4ms      1.4ms      1.4ms ok:1
+lazy:Container.rootfs                                   engine          1        1.2ms        1.2ms      1.2ms      1.2ms      1.2ms ok:1
+call_exec:File.contents                                 engine          1        737µs        5.6ms      737µs      737µs      737µs ok:1
+internal:builtinImage.loadMetadata                      engine          1        653µs        653µs      653µs      653µs      653µs ok:1
+session_phase:session.schemaBuild                       engine          1        516µs        516µs      516µs      516µs      516µs ok:1
+internal:dagql.publishResult                            engine          5        367µs        367µs       79µs       97µs       97µs ok:5
+call_exec:Container.file                                engine          1        159µs        4.41s      159µs      159µs      159µs ok:1
+call:Query._builtinContainer                            engine          1        127µs        191µs      127µs      127µs      127µs executed:1
+call:Container.file                                     engine          1        120µs        4.41s      120µs      120µs      120µs executed:1
+call:Container.rootfs                                   engine          1        111µs        157µs      111µs      111µs      111µs executed:1
+call:File.contents                                      engine          1         94µs        5.7ms       94µs       94µs       94µs executed:1
+call_exec:Query._builtinContainer                       engine          1         58µs         58µs       58µs       58µs       58µs ok:1
+call:Directory.file                                     engine          1         54µs        101µs       54µs       54µs       54µs executed:1
+call_exec:Container.rootfs                              engine          1         42µs         42µs       42µs       42µs       42µs ok:1
+call_exec:Directory.file                                engine          1         42µs         42µs       42µs       42µs       42µs ok:1
+session_phase:session.serveQuery                        engine          1         20µs        4.43s       20µs       20µs       20µs ok:1
+session_phase:session.modulesLoad                       engine          1          3µs          3µs        3µs        3µs        3µs ok:1
+
+end-of-workload blocking chain (latest-finishing path)
+
+  session_phase session.serveQuery                                 dur=4.43s      self=20µs       [0ns..4.43s]
+  session_phase session.query                                      dur=4.42s      self=3.9ms      [8.1ms..4.43s]
+  call         File.contents                                      dur=5.7ms      self=94µs       [4.43s..4.43s]
+  call_exec    File.contents                                      dur=5.6ms      self=737µs      [4.43s..4.43s]
+  internal     dagql.publishResult                                dur=63µs       self=63µs       [4.43s..4.43s]
+

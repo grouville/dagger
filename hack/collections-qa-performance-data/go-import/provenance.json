@@ -1,0 +1,48 @@
+{
+  "source_commit": "624e4457e122a3845ff8926ccd813be7f74e1a2e",
+  "platform": "linux/amd64",
+  "stack": "isolated Dang syntax cache + app TypeScript import split + prebuilt TypeScript SDK runtime; same in all comparisons",
+  "production_change": "layer-level wcprof instrumentation only",
+  "experimental_status": "trimmed Go SDK and asynchronous hashing are not enabled in normal builds",
+  "cli_sha256": "deb48016e32485c7f0f409a7bd41a665776baedd130b6edbea25e7eddafa3a77",
+  "engine_sha256": "2e5627ed9afa498f434a005911d5159631021ff1047bfbb0ae03387edc4e829f",
+  "pipeline_engine_sha256": "deab92a75c3e43ff28ba63b39f878b8528527a90a1c25d0bff0e883c0456afd3",
+  "original_go_sdk_manifest": "sha256:a5a4214938de6b898267ee413c8b8f6580a08b38ac9db400742a1c934799cc70",
+  "trimmed_go_sdk_manifest": {
+    "digest": "sha256:6c66422ffd2779cb4e59b6800d3d56d743572043aa1acb3d253200c39ec5c809",
+    "size": 1663
+  },
+  "containerd": "v2.2.5",
+  "initial_cpu_capture": "Full-listing wcprof succeeded with complete output; concurrent CPU request reset before capture. CPU profile was collected separately on the isolated import after HTTP readiness.",
+  "pipeline_validation": "Isolated VERSION query succeeds. No end-to-end speedup or full pipeline correctness/race validation; prototype not adopted.",
+  "raw_profile_sha256": {
+    "diagnostic/candidate/runs.wcprof": "eccbb68df2a433e7141a08f18eb9c53e0c757a7b6a2e11d3ae4023364aebf4cd",
+    "isolated/candidate/cpu.pprof": "4d217441c86c3cdfbd49eb68df3497b10f6328296752b5114ebf7d863553707e",
+    "isolated/candidate/runs.wcprof": "5ad0e1fe3b6cd83c92744d602916760cc768ea694ed4b407c2b98de60bf8ce71",
+    "compare/candidate-1/runs.wcprof": "16710e3228c76c698862c3f343c8308be38d766324ecfa846e83cd0711d32b4e",
+    "compare/control-1/runs.wcprof": "358f6687bb7932924e1728400ec5cf97b299b43ca4b1d76ee82f7b67152ea866",
+    "compare/control-0/runs.wcprof": "cb5a614d03ae86a5fa21c6186b20af4ed3d4862f281c6c6faa5dc8bc7e05b374",
+    "compare/candidate-0/runs.wcprof": "7b220be76b7c7b0810428d3f33396c28889193e781b8c757839e7923c170f70d",
+    "pipeline-isolated/candidate/cpu.pprof": "dc941c0d4c2a8798fd20dd29ffe347fbb322340fa41f7d262a87bedec4fc085e",
+    "pipeline-isolated/candidate/runs.wcprof": "b58726f1320de2151a53b6b68f1004b0e204b6632c90f09dd9194e45686b7e6e",
+    "base-image/control/before.wcprof": "f98e039b8d59760b70e2df7e0d0564bdd39f764ac008944d656dd665d62263ae",
+    "base-image/control/runs.wcprof": "aa28f37e1641ada465af9b294b63e89f293cf1d3d61681ff5bf6de61091a3a73",
+    "base-image/candidate/before.wcprof": "bf3632101884a95990c40f39a4f6ef5195141e712445ddd0440d1307ab7aeead",
+    "base-image/candidate/runs.wcprof": "da7826657dcba42023b318b6a9a89dab7dbf04a003e4065b6bb19b256251fc0a",
+    "warm/profile/full/warmup.wcprof": "5e201981ecc954cd2f772fb72690cc3f22c052bdbdb1afde652d075560916d4b",
+    "warm/profile/full/runs.wcprof": "f812f12a23efe76f3d78808df3124659a7e94439c59156343a3911d4b4741c92",
+    "warm/profile/control/warmup.wcprof": "be0a1f2e9a7a984f0be985add847db1ea8cf296eb656e3ef31393e269c697c99",
+    "warm/profile/control/runs.wcprof": "81c8d0fd802943b007d853283f0c1f3d3fbb15f20ea83d85c0ddba8b4c70c318",
+    "variance/quiet-2/runs.wcprof": "a8aa2d1fc5bba955927b0d0015bf596ed08dfb270a4c7f9c85c2fef7bd029889",
+    "variance/quiet-1/runs.wcprof": "fcf40b1b7143a9ade6f1440a020cfdd64f2548b8f1853b549495e4e59d9e439f",
+    "variance/quiet-0/runs.wcprof": "643efdd730884ee4d76cabe1f04cd63ec54bf76bdddd4af5926cc0993ade1a70"
+  },
+  "raw_host_data_sha256": {
+    "old-engine-metrics.log": "1d85efc109d0a82de33f8390026d8c209f3dc01c28012b488e818e79396ba2b7",
+    "variance/quiet-2/host-samples.jsonl": "41886ece5b03bb062199d10179ef9bad8febff7acd47b6015860df9041683dd8",
+    "variance/quiet-1/host-samples.jsonl": "1486672dec88133a9b26cedccbfd403a43e33f42ee0418b6f988c6a8241b61f3",
+    "variance/quiet-0/host-samples.jsonl": "3a342c58d59477e0d2e130d5a255e44ffb7132aa6b3b7557f33dbb1191a41bac"
+  },
+  "variance_intervention": "Stopped idle collections-profile-stack engine, preserving its volume; Docker shutdown deadline 60 s, exit 137. No code change across original and quiet repetitions.",
+  "variance_sampling": "Host /proc counters every 250 ms around driver and profile dump; compact records retain relevant raw counters. Cold timings profile CLI from first command; warm follow-up unprofiled."
+}
