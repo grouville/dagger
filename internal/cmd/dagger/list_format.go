@@ -1,6 +1,7 @@
 package daggercmd
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -27,6 +28,17 @@ func validateArtifactListFormat(format string) error {
 // unambiguous CLI flag names; it does not change item identity.
 func writeArtifactList(cmd *cobra.Command, items []listedArtifact, names map[string]string) error {
 	format, _ := cmd.Flags().GetString("format")
+	// Command output goes through span stdio. In particular, tabwriter emits
+	// many tiny writes per row, which can overflow the telemetry log queue.
+	// Coalesce those writes without buffering another entire listing.
+	out := bufio.NewWriterSize(cmd.OutOrStdout(), 32*1024)
+	if err := writeArtifactListTo(out, format, items, names); err != nil {
+		return err
+	}
+	return out.Flush()
+}
+
+func writeArtifactListTo(out io.Writer, format string, items []listedArtifact, names map[string]string) error {
 	if err := validateArtifactListFormat(format); err != nil {
 		return err
 	}
@@ -37,14 +49,14 @@ func writeArtifactList(cmd *cobra.Command, items []listedArtifact, names map[str
 	}
 	if format == "link" {
 		for _, item := range items {
-			if _, err := fmt.Fprintln(cmd.OutOrStdout(), item.URI); err != nil {
+			if _, err := fmt.Fprintln(out, item.URI); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
 	if format == "cli" {
-		return writeArtifactCLI(cmd.OutOrStdout(), items, names, nil)
+		return writeArtifactCLI(out, items, names, nil)
 	}
 	var dimensions []string
 	var rows [][]string
@@ -105,7 +117,7 @@ func writeArtifactList(cmd *cobra.Command, items []listedArtifact, names map[str
 	if needsLink {
 		header = append(header, "LINK")
 	}
-	writer := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 4, 2, ' ', 0)
+	writer := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)
 	if _, err := fmt.Fprintln(writer, strings.Join(header, "\t")); err != nil {
 		return err
 	}

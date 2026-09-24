@@ -216,6 +216,42 @@ func (CollectionsSuite) TestListFormats(ctx context.Context, t *testctx.T) {
 	})
 }
 
+func (CollectionsSuite) TestLargeCollectionListOutput(ctx context.Context, t *testctx.T) {
+	c := connect(ctx, t)
+	// More output writes than the telemetry queue can hold: rendering must
+	// retain every row, including when tabwriter writes each cell separately.
+	source := strings.Replace(collectionGoSource,
+		`return &Items{Names: []string{"b", "a", "c"}, Prefix: "item:"}`,
+		`names := make([]string, 4096)
+  for i := range names { names[i] = fmt.Sprintf("%04d", i) }
+  return &Items{Names: names, Prefix: "item:"}`, 1)
+	base := goGitBase(t, c).WithDirectory("/work", collectionSource(c).WithNewFile("collections/main.go", source)).WithWorkdir("/work")
+	for _, format := range []string{"table", "link", "cli"} {
+		t.Run(format, func(ctx context.Context, t *testctx.T) {
+			args := []string{"list", "collections-items", "items"}
+			var want strings.Builder
+			if format == "table" {
+				want.WriteString("ITEM\n")
+			} else {
+				args = append(args, "-f", format)
+			}
+			for i := range 4096 {
+				switch format {
+				case "table":
+					fmt.Fprintf(&want, "%04d\n", i)
+				case "link":
+					fmt.Fprintf(&want, "dag+collections-item://items?item=%04d\n", i)
+				case "cli":
+					fmt.Fprintf(&want, "--collections-items=%04d\n", i)
+				}
+			}
+			out, err := base.With(daggerExec(args...)).Stdout(ctx)
+			require.NoError(t, err)
+			require.Equal(t, want.String(), out)
+		})
+	}
+}
+
 func (CollectionsSuite) TestCheckSelection(ctx context.Context, t *testctx.T) {
 	c := connect(ctx, t)
 	source := collectionSource(c).WithNewFile("collections/main.go", collectionGoSource+`
