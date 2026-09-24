@@ -1,5 +1,9 @@
 # Isolated Dang syntax-cache experiment
 
+These historical measurements use `--extra-debug` engines. The
+[normal-engine audit](collections-normal-mode-performance.md) repeats the
+full comparison without that flag and with Kyle's remote Go module.
+
 Measured September 24, 2026, after the [committed discovery changes](collections-qa-performance.md).
 On the same `greetings-api` checkout, adding only the experimental syntax cache
 reduces the warm median from **4.522 s to 3.663 s (19%)**. This reproduces the

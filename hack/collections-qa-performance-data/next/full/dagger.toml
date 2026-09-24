@@ -1,0 +1,54 @@
+[modules.greetings]
+source = ".dagger/modules/greetings"
+entrypoint = true
+
+[modules.backend]
+source = ".dagger/modules/backend"
+
+[modules.frontend]
+source = ".dagger/modules/frontend"
+
+[modules.dagger-go-sdk]
+source = "github.com/dagger/go-sdk"
+
+[modules.dagger-typescript-sdk]
+source = "github.com/dagger/typescript-sdk"
+
+[modules.go]
+source = "/tmp/dagger-go-kyle-existence"
+
+[modules.go.settings]
+# The e2e tests in e2e_test.go need the API running. The toolchain cannot start
+# it, so it is handed a base container with backend:serve already bound (as
+# GREETINGS_API_URL) and it runs the tests itself. Without this its test check
+# would run without the variable, and the e2e tests skip when that is unset,
+# which looks exactly like passing.
+base = "dag://backend/go-test-base"
+
+[modules.golangci-lint]
+source = "dagger.io/go/golangci-lint@do-not-merge-hack"
+
+[modules.eslint]
+source = "dagger.io/js/eslint@pull/13/head"
+
+[modules.playwright]
+source = "github.com/dagger/playwright"
+
+[modules.playwright.settings]
+service = "dag://frontend/serve"
+
+[sdks.go]
+module = "dagger-go-sdk"
+
+[sdks.go.scopes.".dagger/modules/backend"]
+is-module = true
+
+[sdks.go.scopes.".dagger/modules/greetings"]
+is-module = true
+clients = ["./.dagger/modules/backend", "./.dagger/modules/frontend"]
+
+[sdks.typescript]
+module = "dagger-typescript-sdk"
+
+[sdks.typescript.scopes.".dagger/modules/frontend"]
+is-module = true

@@ -1,0 +1,73 @@
+{
+  "app": "14d684fccf75a137de96f3f0c7eb8c6dafef2d3e",
+  "go_remote": "1784ff37eb3dd1aacab7aaff91b1d86e311cc8de",
+  "original_engine_source": "175dca038268639231c21323cd7aaa1d746617dd",
+  "committed_engine_source": "6e6bdfb16a",
+  "experimental": "committed source + isolated syntax cache + split TypeScript dynamic imports; unchanged remote Go module",
+  "engine_mode": "No --extra-debug; reused stopped benchmark-owned state volumes, two warmup rounds, then five measured alternating rounds; profiles separately. Not cold.",
+  "engines": {
+    "original": {
+      "image": "sha256:29d31daa5bc3f342901c78601dce8ab7ab1371b121a59b775b47aa53b8357277",
+      "args": [
+        "--debugaddr=0.0.0.0:6060"
+      ],
+      "environment": [
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "DAGGER_GO_SDK_MANIFEST_DIGEST=sha256:a5a4214938de6b898267ee413c8b8f6580a08b38ac9db400742a1c934799cc70",
+        "DAGGER_PYTHON_SDK_MANIFEST_DIGEST=sha256:bbb0bfabed893b039e5e16381b62dc665fa18263dd7914f26c102fef0434354e",
+        "DAGGER_TYPESCRIPT_SDK_MANIFEST_DIGEST=sha256:7bd04f82d1e9f402500c6687830eecc65420510b05dbb6bf555e805122f7e8d9",
+        "_EXPERIMENTAL_DAGGER_RUNNER_HOST=unix:///run/dagger/engine.sock"
+      ],
+      "cache_volumes": [
+        "dagger-engine.collections-kyle-original"
+      ],
+      "no_cpu_or_memory_limit": true
+    },
+    "committed": {
+      "image": "sha256:29d31daa5bc3f342901c78601dce8ab7ab1371b121a59b775b47aa53b8357277",
+      "args": [
+        "--debugaddr=0.0.0.0:6060"
+      ],
+      "environment": [
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "DAGGER_GO_SDK_MANIFEST_DIGEST=sha256:a5a4214938de6b898267ee413c8b8f6580a08b38ac9db400742a1c934799cc70",
+        "DAGGER_PYTHON_SDK_MANIFEST_DIGEST=sha256:bbb0bfabed893b039e5e16381b62dc665fa18263dd7914f26c102fef0434354e",
+        "DAGGER_TYPESCRIPT_SDK_MANIFEST_DIGEST=sha256:7bd04f82d1e9f402500c6687830eecc65420510b05dbb6bf555e805122f7e8d9",
+        "_EXPERIMENTAL_DAGGER_RUNNER_HOST=unix:///run/dagger/engine.sock"
+      ],
+      "cache_volumes": [
+        "dagger-engine.collections-committed-candidate-0"
+      ],
+      "no_cpu_or_memory_limit": true
+    },
+    "experimental": {
+      "image": "sha256:29d31daa5bc3f342901c78601dce8ab7ab1371b121a59b775b47aa53b8357277",
+      "args": [
+        "--debugaddr=0.0.0.0:6060"
+      ],
+      "environment": [
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "DAGGER_GO_SDK_MANIFEST_DIGEST=sha256:a5a4214938de6b898267ee413c8b8f6580a08b38ac9db400742a1c934799cc70",
+        "DAGGER_PYTHON_SDK_MANIFEST_DIGEST=sha256:bbb0bfabed893b039e5e16381b62dc665fa18263dd7914f26c102fef0434354e",
+        "DAGGER_TYPESCRIPT_SDK_MANIFEST_DIGEST=sha256:7bd04f82d1e9f402500c6687830eecc65420510b05dbb6bf555e805122f7e8d9",
+        "_EXPERIMENTAL_DAGGER_RUNNER_HOST=unix:///run/dagger/engine.sock"
+      ],
+      "cache_volumes": [
+        "dagger-engine.collections-kyle-syntax"
+      ],
+      "no_cpu_or_memory_limit": true
+    }
+  },
+  "binary_sha256": {
+    "original_cli": "cbd97cce0471882ee5bb846fa6262852806073235395d06da287a6779c05e2dc",
+    "original_engine": "222bea8979da146ef2856bf9e6aa0b6c94031512065a54f1c4db451866216524",
+    "committed_cli": "deb48016e32485c7f0f409a7bd41a665776baedd130b6edbea25e7eddafa3a77",
+    "committed_engine": "d3b674891e50fa6b7d5b5ff85f94138ffe0bae91217543ef209fbac6c3f3ca7a",
+    "syntax_engine": "9f2c2389bb8b7609f75bc84d26d11fb9bfb9fe6fea6fff0d8a0bfc3dcc86f43f"
+  },
+  "platform": "Linux x86_64",
+  "logical_cpus": 8,
+  "cpu_model": "Intel(R) Core(TM) i5-9300H CPU @ 2.40GHz",
+  "kernel": "7.0.0-30-generic",
+  "published_binary_status": "No image found at registry.dagger.io/engine:175dca038268639231c21323cd7aaa1d746617dd or :collections; measurements use source-built binaries and shared SDK image."
+}

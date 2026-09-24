@@ -1,0 +1,35 @@
+diff --git a/.dagger/modules/frontend/sdk/core.js b/.dagger/modules/frontend/sdk/core.js
+index d3a5a10..00fd6a6 100644
+--- a/.dagger/modules/frontend/sdk/core.js
++++ b/.dagger/modules/frontend/sdk/core.js
+@@ -28421,7 +28421,7 @@ var require_otlp_node_http_configuration = __commonJS((exports) => {
+   function httpAgentFactoryFromOptions(options) {
+     return async (protocol) => {
+       const isInsecure = protocol === "http:";
+-      const module2 = isInsecure ? import("http") : import("https");
++      const module2 = isInsecure ? __daggerImportHttp() : __daggerImportHttps();
+       const { Agent } = await module2;
+       if (isInsecure) {
+         const { ca, cert, key, ...insecureOptions } = options;
+@@ -28649,7 +28649,7 @@ var require_http_exporter_transport = __commonJS((exports) => {
+     }
+   }
+   async function requestFunctionFactory(protocol) {
+-    const module2 = protocol === "http:" ? import("http") : import("https");
++    const module2 = protocol === "http:" ? __daggerImportHttp() : __daggerImportHttps();
+     const { request: request2 } = await module2;
+     return request2;
+   }
+@@ -108027,3 +108027,5 @@ export {
+   Agent,
+   Address
+ };
++
++import { importHttp as __daggerImportHttp, importHttps as __daggerImportHttps } from "./core-node-imports.js";
+diff --git a/.dagger/modules/frontend/sdk/core-node-imports.js b/.dagger/modules/frontend/sdk/core-node-imports.js
+new file mode 100644
+--- /dev/null
++++ b/.dagger/modules/frontend/sdk/core-node-imports.js
+@@ -0,0 +1,2 @@
++export const importHttp = () => import("http");
++export const importHttps = () => import("https");

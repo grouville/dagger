@@ -1,5 +1,10 @@
 # Collections discovery: committed changes on greetings-api
 
+For the current source branch and normal engine mode, see the
+[latest audit](collections-normal-mode-performance.md) and
+[build instructions](collections-performance-start.md). The historical
+measurements below used `--extra-debug` engines.
+
 **Baseline update:** Kyle subsequently reported **29.88 s cold and 3–4 s warm**.
 Go module `1784ff37eb` removes the helper build from artifact listing; the engine
 and application refs are unchanged. The measurements below use the earlier Go

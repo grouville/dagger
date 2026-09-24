@@ -1,0 +1,71 @@
+wcprof analysis
+===============
+
+ops: 21419  roots: 72  open at dump: 0  dropped events: 0
+trace span: 2.37s   makespan over roots: 2.37s
+
+simulated baseline makespan: 2.37s (drift vs actual: -0.0%)
+
+what-if: makespan saved if a class's self-time is scaled by factor f
+(ranked by saving at f=0.5; this is the bottleneck candidate list)
+
+class                                                   worktype       save@0     save@0.5     save@0.9
+call:Query.node                                         engine          1.2ms        610µs        122µs
+session_phase:session.query                             engine          377µs        188µs         37µs
+call:Module._implementationScoped                       engine          113µs         56µs         11µs
+session_phase:session.serveQuery                        engine            7µs          3µs        768ns
+session_phase:session.schemaBuild                       engine            1µs        578ns        116ns
+session_phase:session.workspaceLoad                     engine          989ns        495ns         99ns
+
+top classes by total self-time
+
+class                                                   worktype    count   total-self   total-wall   p50-self   p95-self   max-self outcomes
+call_exec:Query.git                                     engine         12        2.68s        3.17s    132.0ms    632.8ms    632.8ms ok:12
+exec_phase:tsx                                          user            2        1.99s        1.99s      1.00s      1.00s      1.00s ok:2
+internal:dang.invoke                                    engine         21      812.9ms      981.5ms      8.2ms    222.9ms    274.2ms ok:21
+exec_phase:runtime                                      user            6      564.8ms      564.8ms    103.6ms    107.7ms    107.7ms ok:6
+call_exec:Query.moduleSource                            engine         13      453.2ms        5.10s     16.5ms     77.5ms     77.5ms ok:13
+call_exec:GitRepository.ref                             engine          3      384.9ms      385.7ms      686µs    383.8ms    383.8ms ok:3
+call_exec:Address.container                             engine          4      330.5ms      582.4ms     87.1ms     87.1ms     87.1ms ok:4
+call_exec:ModuleSource.asModule                         engine         16      280.2ms        4.97s     20.5ms     26.8ms     26.8ms ok:16
+call_exec:Host.directory                                engine         12      248.1ms      248.5ms     22.7ms     35.8ms     35.8ms ok:12
+internal:dang.decodeSchema                              engine         21      246.4ms      246.4ms     12.1ms     13.9ms     15.7ms ok:21
+internal:dang.runSource                                 engine         21      234.7ms      234.7ms     10.3ms     25.4ms     33.1ms ok:21
+internal:dagql.publishResult                            engine       2046      176.1ms      176.1ms       39µs      189µs      9.5ms ok:2046
+call_exec:Workspace.artifacts                           engine          2      112.6ms        1.47s     57.1ms     57.1ms     57.1ms ok:2
+session_phase:session.query                             engine        254      108.1ms        3.17s      144µs      2.3ms      3.7ms ok:254
+internal:dang.objectDirectives                          engine         10       84.3ms       84.3ms      6.3ms     28.5ms     28.5ms ok:10
+internal:dang.selfTypes                                 engine         10       82.8ms       82.8ms      7.5ms     28.9ms     28.9ms ok:10
+exec:exec.run                                           engine          8       76.6ms        2.65s     10.0ms     12.6ms     12.6ms ok:8
+call:Query.node                                         engine         57       54.7ms       58.4ms      949µs      1.3ms      1.8ms do_not_cache:57
+internal:dang.flushTelemetry                            engine         11       38.9ms       38.9ms      2.6ms     15.7ms     15.7ms ok:11
+call:TypeDef.withOptional                               engine       4312       32.6ms       33.6ms        5µs       10µs      2.6ms executed:35 hit:4277
+call:Query.typeDef                                      engine       3111       28.5ms       28.5ms        5µs       16µs      1.6ms hit:3111
+call_exec:Directory.exists                              engine         16       23.8ms       23.8ms      1.4ms      3.7ms      3.7ms ok:16
+call:ObjectTypeDef.__withFunction                       engine        287       21.4ms       27.6ms       75µs      167µs      677µs executed:187 hit:100
+exec_phase:withExec.prepareMounts                       engine          8       21.0ms       21.0ms      2.2ms      7.2ms      7.2ms ok:8
+call:Query.sourceMap                                    engine        729       17.6ms       18.6ms        7µs       52µs      1.6ms executed:51 hit:678
+session_phase:session.schemaBuild                       engine        254       16.7ms       24.5ms        1µs       88µs     11.9ms ok:254
+call_exec:Directory.file                                engine         12       16.6ms       16.6ms      1.4ms      2.2ms      2.2ms ok:12
+call:Container.withWorkdir                              engine         11       16.5ms       17.1ms       13µs      7.1ms      7.1ms executed:3 hit:8
+call_exec:go:Go.modules                                 engine          1       16.4ms      312.6ms     16.4ms     16.4ms     16.4ms ok:1
+call:Query.function                                     engine        188       15.8ms       19.1ms       12µs      119µs      3.7ms executed:68 hit:120
+call_exec:Artifacts.__itemsJSON                         engine          1       15.3ms      847.6ms     15.3ms     15.3ms     15.3ms ok:1
+call:Container.withEntrypoint                           engine          5       14.6ms       15.9ms       16µs      9.5ms      9.5ms executed:2 hit:3
+call_exec:File.contents                                 engine         12       13.6ms       13.6ms      1.0ms      2.2ms      2.2ms ok:12
+exec_phase:withExec.applyOutputs                        engine          8       12.9ms       12.9ms      1.6ms      2.8ms      2.8ms ok:8
+call_exec:gomod:Gomod.modules                           engine          1       12.7ms      254.8ms     12.7ms     12.7ms     12.7ms ok:1
+call:TypeDef.withObject                                 engine       1034       12.5ms       18.2ms        6µs       24µs      1.1ms executed:34 hit:1000
+call:Function.withArg                                   engine        305       12.1ms       42.3ms       12µs      113µs      628µs executed:130 hit:175
+call:Function.__withArg                                 engine        305       11.9ms       18.5ms        9µs       93µs      1.5ms executed:130 hit:175
+call:Function.withDescription                           engine        153       11.7ms       13.0ms       10µs      210µs      2.6ms executed:65 hit:88
+call:Module._implementationScoped                       engine        193       11.4ms       12.9ms       10µs      449µs      1.7ms executed:19 hit:173 joined:1
+
+end-of-workload blocking chain (latest-finishing path)
+
+  session_phase session.serveQuery                                 dur=2.8ms      self=7µs        [2.36s..2.37s]
+  session_phase session.query                                      dur=2.8ms      self=377µs      [2.36s..2.37s]
+  call         ArtifactDimension.keyName                          dur=327µs      self=297µs      [2.37s..2.37s]
+  call_exec    ArtifactDimension.keyName                          dur=27µs       self=27µs       [2.37s..2.37s]
+  internal     dagql.publishResult                                dur=28µs       self=28µs       [2.37s..2.37s]
+

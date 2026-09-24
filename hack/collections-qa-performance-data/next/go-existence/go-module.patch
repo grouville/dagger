@@ -1,0 +1,103 @@
+From 59d9ca5cff3dcacc2677cdd2e1db29c7a43074a4 Mon Sep 17 00:00:00 2001
+From: Guillaume de Rouville <guillaume@dagger.io>
+Date: Thu, 24 Sep 2026 10:03:55 -0700
+Subject: [PATCH] perf(gomod): avoid sorting files for module existence checks
+
+---
+ gomod/.dagger/modules/e2e/main.dang | 38 +++++++++++++++++++++++++++++
+ gomod/main.dang                     | 22 ++++++++++-------
+ 2 files changed, 51 insertions(+), 9 deletions(-)
+
+diff --git a/gomod/.dagger/modules/e2e/main.dang b/gomod/.dagger/modules/e2e/main.dang
+index 700f645..e87f4e6 100644
+--- a/gomod/.dagger/modules/e2e/main.dang
++++ b/gomod/.dagger/modules/e2e/main.dang
+@@ -78,6 +78,44 @@ type E2e {
+     null
+   }
+ 
++  """
++  Module existence uses the same ownership rules as ordered file listings,
++  including when the only Go files belong to ignored or nested directories.
++  """
++  fileMembershipCheck(ws: Workspace!): Void @check {
++    let root = "discovery-membership-fixture"
++    let ignored = directory
++      .withNewFile("go.mod", "module example.com/membership\n\ngo 1.26.1\n")
++      .withNewFile("testdata/ignored.go", "package ignored\n")
++      .withNewFile("_ignored/ignored.go", "package ignored\n")
++      .withNewFile(".ignored/ignored.go", "package ignored\n")
++      .withNewFile("_ignored.go", "package ignored\n")
++      .withNewFile("nested/go.mod", "module example.com/nested\n\ngo 1.26.1\n")
++      .withNewFile("nested/only.go", "package nested\n")
++    let empty = ws.withDirectory(root, ignored)
++    let mod = gomod.at(root)
++    assert(mod.isGoModule(empty) == false, "nested or ignored files made the parent a module")
++    assert(mod.ownFiles(empty, "*.go") == [], "nested or ignored files belonged to the parent")
++    assert(gomod.at(root + "/nested").isGoModule(empty), "a nested module lost its own files")
++
++    # Directory traversal order is not full path order: foo.go sorts before
++    # foo/z.go, even if the walker visits the foo directory first.
++    let populated = ws.withDirectory(
++      root,
++      ignored
++        .withNewFile("z.go", "package membership\n")
++        .withNewFile("foo/z.go", "package foo\n")
++        .withNewFile("foo.go", "package membership\n"),
++    )
++    assert(mod.isGoModule(populated), "adding an owned file did not discover the module")
++    assert(
++      mod.ownFiles(populated, "*.go") == [root + "/foo.go", root + "/foo/z.go", root + "/z.go"],
++      "public file ordering or ownership changed",
++    )
++    assert(mod.isGoModule(empty) == false, "removing owned files left stale module membership")
++    null
++  }
++
+   """
+   One selection syntax for every tool. These are the cases each tool used to
+   assert separately.
+diff --git a/gomod/main.dang b/gomod/main.dang
+index fcc419d..5e2d222 100644
+--- a/gomod/main.dang
++++ b/gomod/main.dang
+@@ -375,7 +375,7 @@ type GoMod {
+   """
+   isGoModule(ws: Workspace!): Boolean! {
+     ws.file("/" + subpath("go.mod")).contents.match(`(?m)^[ \t]*module([ \t(]|$)`) != null
+-      and ownFiles(ws, "*.go").length > 0
++      and unsortedOwnFiles(ws, "*.go").length > 0
+   }
+ 
+   """
+@@ -383,15 +383,19 @@ type GoMod {
+   and names starting with "." or "_" are left out, as Go leaves them out.
+   """
+   ownFiles(ws: Workspace!, glob: String!): [String!]! {
++    sorted(unsortedOwnFiles(ws, glob))
++  }
++
++  # Membership does not require ordering. Keep module-existence checks out of
++  # the insertion sort used to order public file listings.
++  let unsortedOwnFiles(ws: Workspace!, glob: String!): [String!]! {
+     let nested = nestedRoots(ws)
+-    sorted(
+-      ws
+-        .glob(subpath("**/" + glob))
+-        .filter { file => file.hasSuffix("/") == false }
+-        .map { file => file.trimPrefix("/").trimPrefix("./") }
+-        .filter { file => nested.any { root => file.hasPrefix(root + "/") } == false }
+-        .filter { file => goIgnores(relative(file)) == false },
+-    )
++    ws
++      .glob(subpath("**/" + glob))
++      .filter { file => file.hasSuffix("/") == false }
++      .map { file => file.trimPrefix("/").trimPrefix("./") }
++      .filter { file => nested.any { root => file.hasPrefix(root + "/") } == false }
++      .filter { file => goIgnores(relative(file)) == false }
+   }
+ 
+   """
+-- 
+2.43.0
+

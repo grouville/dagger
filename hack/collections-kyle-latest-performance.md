@@ -1,5 +1,14 @@
 # Discovery with Kyle's scanner-free listing
 
+Start with the [normal-engine audit](collections-normal-mode-performance.md)
+and [branch instructions](collections-performance-start.md) for the latest
+reference. The historical measurements below used `--extra-debug` engines.
+
+Follow-up: the [next investigation](collections-next-performance.md) measures
+the full experimental candidate at 3.016 s against a fresh matched 6.465 s
+baseline, isolates the TypeScript loader cost, and records new cold failures.
+The comparisons below are the earlier measurements, without that SDK change.
+
 Measured September 24, 2026, following Kyle's report of **29.88 s cold and
 3–4 s warm**. His earlier 41.72 s and latest 29.88 s differ by 28.4%; those are
 his observations, not controlled samples from this host. He attributes the
@@ -100,4 +109,5 @@ module; it does not claim a new full integration-suite run on Kyle's module.
 
 The [raw evidence](collections-qa-performance-data/kyle-latest/) includes every
 sample, the benchmark driver, source pins, complete configuration, and separate
-wcprof analyses. No code from these speculative opportunities was applied.
+wcprof analyses. No code from these speculative opportunities is included in
+this earlier comparison.

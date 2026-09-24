@@ -1,0 +1,141 @@
+[
+  {
+    "attempt": "cold",
+    "variant": "split",
+    "successful": false,
+    "result": {
+      "command": [
+        "/tmp/collections-perf/committed/dagger",
+        "--engine",
+        "container://dagger-engine.collections-split-cold-candidate",
+        "check",
+        "-l",
+        "--all"
+      ],
+      "cwd": "/tmp/collections-perf/ts-cache/split-imports/workspace",
+      "cpu_count": 8,
+      "jobs": 1,
+      "runs": [
+        {
+          "run": "run-0",
+          "seconds": 103.19935080013238,
+          "status": 1,
+          "load_average_before": [
+            6.6787109375,
+            9.2890625,
+            5.8720703125
+          ],
+          "load_average_after": [
+            3.24658203125,
+            7.81494140625,
+            5.74267578125
+          ],
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "profiled": false,
+      "elapsed_seconds": 103.20075272186659,
+      "commands_per_second": 0.0,
+      "median_seconds": 103.19935080013238,
+      "p95_seconds": 103.19935080013238,
+      "max_seconds": 103.19935080013238,
+      "failures": 1,
+      "distinct_outputs": 1
+    },
+    "failure_lines": [
+      "! failed to resolve image \"cgr.dev/chainguard/wolfi-base:latest@sha256:a8c9c2888304e62c133af76f520c9c9e6b3ce6f1a45e3eaa57f6639eb8053c90\" (platform: \"linux/amd64\"): unexpected status from HEAD request to https://cgr.dev/v2/chainguard/wolfi-base/manifests/sha256:a8c9c2888304e62c133af76f520c9c9e6b3ce6f1a45e3eaa57f6639eb8053c90: 500 Internal Server Error"
+    ]
+  },
+  {
+    "attempt": "cold",
+    "variant": "control",
+    "successful": true,
+    "result": {
+      "command": [
+        "/tmp/collections-perf/committed/dagger",
+        "--engine",
+        "container://dagger-engine.collections-split-cold-control",
+        "check",
+        "-l",
+        "--all"
+      ],
+      "cwd": "/tmp/collections-perf/kyle-latest/greetings-api",
+      "cpu_count": 8,
+      "jobs": 1,
+      "runs": [
+        {
+          "run": "run-0",
+          "seconds": 42.56582520483062,
+          "status": 0,
+          "load_average_before": [
+            4.859375,
+            9.27197265625,
+            5.68798828125
+          ],
+          "load_average_after": [
+            6.6787109375,
+            9.2890625,
+            5.8720703125
+          ],
+          "stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6"
+        }
+      ],
+      "profiled": false,
+      "elapsed_seconds": 42.56822224613279,
+      "commands_per_second": 0.023491702195546756,
+      "median_seconds": 42.56582520483062,
+      "p95_seconds": 42.56582520483062,
+      "max_seconds": 42.56582520483062,
+      "failures": 0,
+      "distinct_outputs": 1
+    },
+    "failure_lines": []
+  },
+  {
+    "attempt": "cold-retry",
+    "variant": "split",
+    "successful": false,
+    "result": {
+      "command": [
+        "/tmp/collections-perf/committed/dagger",
+        "--engine",
+        "container://dagger-engine.collections-split-cold-candidate-retry",
+        "check",
+        "-l",
+        "--all"
+      ],
+      "cwd": "/tmp/collections-perf/ts-cache/split-imports/workspace",
+      "cpu_count": 8,
+      "jobs": 1,
+      "runs": [
+        {
+          "run": "run-0",
+          "seconds": 41.378315720008686,
+          "status": 1,
+          "load_average_before": [
+            2.1005859375,
+            6.44873046875,
+            5.42333984375
+          ],
+          "load_average_after": [
+            4.45068359375,
+            6.55322265625,
+            5.50439453125
+          ],
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ],
+      "profiled": false,
+      "elapsed_seconds": 41.379746094113216,
+      "commands_per_second": 0.0,
+      "median_seconds": 41.378315720008686,
+      "p95_seconds": 41.378315720008686,
+      "max_seconds": 41.378315720008686,
+      "failures": 1,
+      "distinct_outputs": 1
+    },
+    "failure_lines": [
+      "! failed to resolve image \"cgr.dev/chainguard/wolfi-base:latest@sha256:a8c9c2888304e62c133af76f520c9c9e6b3ce6f1a45e3eaa57f6639eb8053c90\" (platform: \"linux/amd64\"): unexpected status from HEAD request to https://cgr.dev/v2/chainguard/wolfi-base/manifests/sha256:a8c9c2888304e62c133af76f520c9c9e6b3ce6f1a45e3eaa57f6639eb8053c90: 500 Internal Server Error"
+    ]
+  }
+]
