@@ -57,6 +57,7 @@ func EntrypointModuleTypes(
 		true, /* inert attachables */
 		nil,
 		moduleContext,
+		true, // Entry points may declare their own types, independently of the called module.
 		runEntrypointDir,
 		func(ctx context.Context, env dang.ValueScope) ([]byte, error) {
 			entrypointName, err := findModuleEntrypoint(env)
@@ -149,6 +150,7 @@ func (r *entrypointRuntime) Call(
 		true, /* inert attachables */
 		fnCall,
 		moduleContext,
+		true, // Preserve entrypoint declaration metadata independently of native calls.
 		runEntrypointDir,
 		func(ctx context.Context, env dang.ValueScope) ([]byte, error) {
 			entrypointName, err := findModuleEntrypoint(env)

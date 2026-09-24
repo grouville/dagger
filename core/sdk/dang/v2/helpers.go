@@ -22,6 +22,7 @@ import (
 	dangshared "github.com/dagger/dagger/core/sdk/dang/shared"
 	"github.com/dagger/dagger/dagql"
 	"github.com/dagger/dagger/engine"
+	"github.com/dagger/dagger/engine/wcprof"
 	telemetry "github.com/dagger/otel-go"
 	"github.com/vito/dang/v2/pkg/dang"
 	"github.com/vito/dang/v2/pkg/hm"
@@ -51,7 +52,11 @@ func (r *runtime) eval(
 	fnCall *core.FunctionCall,
 	moduleContext dagql.ObjectResult[*core.Module],
 ) ([]byte, error) {
-	return evalDangSource(ctx, query, r.modSource, schemaFile, nestedClientMetadata, inertAttachables, fnCall, moduleContext, func(ctx context.Context, modSrcDir string) (dang.ValueScope, error) {
+	// When the runtime schema includes the module's own types, ordinary calls
+	// need neither the self-type placeholders nor registration-only directives.
+	// Preserve the metadata passes for registration and older runtime schemas.
+	collectMetadata := fnCall.ParentName == "" || !moduleContext.Self().IncludeSelfInDeps
+	return evalDangSource(ctx, query, r.modSource, schemaFile, nestedClientMetadata, inertAttachables, fnCall, moduleContext, collectMetadata, func(ctx context.Context, modSrcDir string) (dang.ValueScope, error) {
 		return dang.RunDir(ctx, modSrcDir, false)
 	}, func(ctx context.Context, env dang.ValueScope) ([]byte, error) {
 		if fnCall.ParentName == "" {
@@ -74,7 +79,10 @@ func (r *runtime) eval(
 			return nil, err
 		}
 
-		if flushErr := query.Server.FlushSessionTelemetry(ctx); flushErr != nil {
+		flushCtx, flushOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.flushTelemetry", wcprof.OpOpts{})
+		flushErr := query.Server.FlushSessionTelemetry(flushCtx)
+		flushOp.EndErr(flushErr)
+		if flushErr != nil {
 			slog.Debug("failed to flush telemetry after Dang eval", "error", flushErr)
 		}
 
@@ -91,6 +99,7 @@ func evalDangSource(
 	inertAttachables bool,
 	fnCall *core.FunctionCall,
 	moduleContext dagql.ObjectResult[*core.Module],
+	registerTypes bool,
 	runSource dangSourceRunner,
 	withEnv func(context.Context, dang.ValueScope) ([]byte, error),
 ) ([]byte, error) {
@@ -101,7 +110,10 @@ func evalDangSource(
 			return nil, fmt.Errorf("open schema file: %w", err)
 		}
 		defer f.Close()
-		if err := json.NewDecoder(f).Decode(&intro); err != nil {
+		_, decodeOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.decodeSchema", wcprof.OpOpts{})
+		err = json.NewDecoder(f).Decode(&intro)
+		decodeOp.EndErr(err)
+		if err != nil {
 			return nil, fmt.Errorf("decode schema: %w", err)
 		}
 
@@ -144,16 +156,28 @@ func evalDangSource(
 			// for its declared types. At runtime the served schema already
 			// includes the module's own types (Module.IncludeSelfInDeps), so
 			// this is a no-op then.
-			ensureModuleSelfTypes(intro.Schema, modSource.Self(), modSrcDir)
+			if registerTypes {
+				_, selfTypesOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.selfTypes", wcprof.OpOpts{})
+				ensureModuleSelfTypes(intro.Schema, modSource.Self(), modSrcDir)
+				selfTypesOp.End(wcprof.OutcomeOK)
+			}
 
-			env, err = runSource(ctx, modSrcDir)
+			sourceCtx, sourceOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.runSource", wcprof.OpOpts{})
+			env, err = runSource(sourceCtx, modSrcDir)
+			sourceOp.EndErr(err)
 			if err != nil {
 				if isDangSourceError(err) {
 					return reportDangSourceError(stdio.Stderr, err)
 				}
 				return fmt.Errorf("run dir: %w", err)
 			}
-			return retainDangObjectDirectives(ctx, env, modSrcDir)
+			if registerTypes {
+				directiveCtx, directiveOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.objectDirectives", wcprof.OpOpts{})
+				err = retainDangObjectDirectives(directiveCtx, env, modSrcDir)
+				directiveOp.EndErr(err)
+				return err
+			}
+			return nil
 		})
 		if err != nil {
 			if errors.As(err, new(*dangSourceError)) {
@@ -164,7 +188,10 @@ func evalDangSource(
 			return nil, fmt.Errorf("mount source: %w", err)
 		}
 
-		return withEnv(ctx, env)
+		invokeCtx, invokeOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.invoke", wcprof.OpOpts{})
+		out, err := withEnv(invokeCtx, env)
+		invokeOp.EndErr(err)
+		return out, err
 	})
 }
 
