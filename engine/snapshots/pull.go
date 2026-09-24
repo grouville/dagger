@@ -9,6 +9,7 @@ import (
 	"github.com/containerd/containerd/v2/core/diff"
 	"github.com/containerd/containerd/v2/core/leases"
 	cerrdefs "github.com/containerd/errdefs"
+	"github.com/dagger/dagger/engine/wcprof"
 	"github.com/dagger/dagger/internal/buildkit/client"
 	"github.com/dagger/dagger/internal/buildkit/identity"
 	"github.com/dagger/dagger/internal/buildkit/util/bklog"
@@ -146,7 +147,10 @@ func (cm *snapshotManager) importLayer(
 	provider content.Provider,
 	opts ImportImageOpts,
 	chainMode bool,
-) (ImmutableRef, error) {
+) (_ ImmutableRef, rerr error) {
+	ctx, layerOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "image.importLayer", wcprof.OpOpts{Ident: desc.Digest.String()})
+	defer func() { layerOp.EndErr(rerr) }()
+
 	diffID, err := diffIDFromDescriptor(desc)
 	if err != nil {
 		return nil, err
@@ -158,7 +162,9 @@ func (cm *snapshotManager) importLayer(
 	}
 
 	lockKey := importedLayerDiffLockKey(parentSnapshotID, diffID)
+	lockOp := wcprof.BeginWaitIdent(ctx, "image.importLayer.lock", wcprof.WaitReasonLock)
 	unlock, err := cm.importLayerLocker.acquire(ctx, lockKey)
+	lockOp.End()
 	if err != nil {
 		return nil, err
 	}
@@ -218,14 +224,16 @@ func (cm *snapshotManager) importLayer(
 		}
 	}
 
+	prepareCtx, prepareOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "image.prepareSnapshot", wcprof.OpOpts{Ident: desc.Digest.String()})
 	mut, err := cm.New(
-		ctx,
+		prepareCtx,
 		parent,
 		nil,
 		WithRecordType(opts.RecordType),
 		WithDescription(fmt.Sprintf("import snapshot layer %s", desc.Digest)),
 		WithImageRef(opts.ImageRef),
 	)
+	prepareOp.EndErr(err)
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +259,10 @@ func (cm *snapshotManager) importLayer(
 			unpack.Update(read)
 		}))
 	}
-	if _, err := cm.Applier.Apply(ctx, desc, mounts, applyOpts...); err != nil {
+	applyCtx, applyOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "image.applyLayer", wcprof.OpOpts{Ident: desc.Digest.String()})
+	_, err = cm.Applier.Apply(applyCtx, desc, mounts, applyOpts...)
+	applyOp.EndErr(err)
+	if err != nil {
 		_ = unmount()
 		return nil, chainError(ctx, chainMode, desc, "apply", err)
 	}
@@ -265,7 +276,9 @@ func (cm *snapshotManager) importLayer(
 		return nil, err
 	}
 
-	ref, err := mut.Commit(ctx)
+	commitCtx, commitOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "image.commitSnapshot", wcprof.OpOpts{Ident: desc.Digest.String()})
+	ref, err := mut.Commit(commitCtx)
+	commitOp.EndErr(err)
 	if err != nil {
 		return nil, err
 	}
