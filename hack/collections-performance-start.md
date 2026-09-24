@@ -3,8 +3,10 @@
 The engine/CLI branch is
 [`grouville/dagger:perf/collections-discovery`](https://github.com/grouville/dagger/tree/perf/collections-discovery),
 based on collections PR #14221 at `175dca038268639231c21323cd7aaa1d746617dd`.
-The engine/CLI source ends at `6e6bdfb16a`; later commits contain benchmark
-tooling, reports, and experimental patches. This is a source branch, not a
+The original engine/CLI performance stack ends at `6e6bdfb16a`. Commit
+`1c4e948204` also migrates the bundled TypeScript runtime to committed Go
+bindings, removing its first-use regeneration. Other later commits contain
+tooling, reports and experimental patches. This is a source branch, not a
 published CLI release or engine image.
 
 ## What a normal build includes
@@ -15,6 +17,9 @@ published CLI release or engine image.
   within the same caller/session authority.
 * The existing module-config, schema-digest, and shutdown improvements from
   PRs #14179, #14180, #14182, and #14183.
+* The TypeScript SDK manifest migration described in the
+  [cold-start investigation](collections-cold-performance.md). Rebuild the SDK
+  payload; changing only the engine executable will not apply it.
 
 The experimental Dang syntax cache and TypeScript SDK bundle changes are
 **not enabled by a normal build**. Their patches and validation are in the

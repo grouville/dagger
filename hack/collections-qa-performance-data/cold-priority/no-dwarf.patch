@@ -1,0 +1,10 @@
+--- a/core/sdk/go_sdk.go
++++ b/core/sdk/go_sdk.go
+@@ -333,6 +333,7 @@
+ 					Name: "args",
+ 					Value: dagql.ArrayInput[dagql.String]{
+ 						"go", "build",
++						"-gcflags=./...=-dwarf=false",
+ 						"-ldflags", "-s -w", // strip DWARF debug symbols to save a few MBs of space
+ 						"-o", goSDKRuntimePath,
+ 						".",

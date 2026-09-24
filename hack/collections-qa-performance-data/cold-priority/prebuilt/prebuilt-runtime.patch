@@ -1,0 +1,153 @@
+--- a/core/schema/modulesource.go
++++ b/core/schema/modulesource.go
+@@ -3319,12 +3319,14 @@
+ 	src := mod.Source.Value
+ 	modName := src.Self().ModuleName
+ 
+-	runtime, err := runtimeImpl.Runtime(ctx, mod.Deps, src)
+-	if err != nil {
+-		return nil, fmt.Errorf("failed to get module runtime: %w", err)
+-	}
+-	if ctr, ok := runtime.AsContainer(); ok {
+-		mod.Runtime = dagql.NonNull(ctr)
++	if !mod.Runtime.Valid {
++		runtime, err := runtimeImpl.Runtime(ctx, mod.Deps, src)
++		if err != nil {
++			return nil, fmt.Errorf("failed to get module runtime: %w", err)
++		}
++		if ctr, ok := runtime.AsContainer(); ok {
++			mod.Runtime = dagql.NonNull(ctr)
++		}
+ 	}
+ 
+ 	ctx, span := core.Tracer(ctx).Start(ctx, "asModule getModDef", telemetry.Internal())
+@@ -3552,6 +3554,10 @@
+ 	ctx context.Context,
+ 	src dagql.ObjectResult[*core.ModuleSource],
+ 	args struct {
++		// Experimental engine-packaged module runtime. Its identity participates
++		// in the call and module variant, and its result is retained by Module.
++		PrebuiltRuntime dagql.Optional[dagql.ID[*core.Container]] `internal:"true"`
++
+ 		// This internal-only flag allows us to force SDK modules to enable default function
+ 		// caching even when they are on older modules, which ensures they don't see a regression
+ 		// right after function caching is enabled. It can be removed after SDKs have been updated
+@@ -3698,6 +3704,19 @@
+ 		}
+ 		mod.WorkspaceConfig = wsConfig
+ 		mod.DefaultsFromDotEnv = args.LegacyDefaultsFromDotEnv
++	}
++
++	if args.PrebuiltRuntime.Valid {
++		runtime, err := args.PrebuiltRuntime.Value.Load(ctx, dag)
++		if err != nil {
++			return inst, fmt.Errorf("load prebuilt runtime: %w", err)
++		}
++		runtimeDigest, err := runtime.ContentPreferredDigest(ctx)
++		if err != nil {
++			return inst, err
++		}
++		mod.Runtime = dagql.NonNull(runtime)
++		mod.AsModuleVariantDigest = hashutil.HashStrings(mod.AsModuleVariantDigest, "prebuiltRuntime", runtimeDigest.String()).String()
+ 	}
+ 
+ 	// Initialize module based on SDK presence
+--- a/core/sdk/loader.go
++++ b/core/sdk/loader.go
+@@ -231,6 +231,39 @@
+ 		return nil, fmt.Errorf("failed to import full sdk source for sdk %s from engine container filesystem: %w", sdk.Source, err)
+ 	}
+ 
++	asModuleArgs := []dagql.NamedInput{{Name: "forceDefaultFunctionCaching", Value: dagql.Opt(dagql.Boolean(true))}}
++	if sdk.Source == "typescript" {
++		const binaryPath = "bin/typescript-sdk-runtime"
++		var present dagql.Boolean
++		if err := dag.Select(ctx, fullSDKDir, &present, dagql.Selector{Field: "exists", Args: []dagql.NamedInput{{Name: "path", Value: dagql.String(binaryPath)}}}); err != nil {
++			return nil, err
++		}
++		if present {
++			var binary dagql.ObjectResult[*core.File]
++			if err := dag.Select(ctx, fullSDKDir, &binary, dagql.Selector{Field: "file", Args: []dagql.NamedInput{{Name: "path", Value: dagql.String(binaryPath)}}}); err != nil {
++				return nil, err
++			}
++			binaryID, err := binary.ID()
++			if err != nil {
++				return nil, err
++			}
++			var runtime dagql.ObjectResult[*core.Container]
++			if err := dag.Select(ctx, dag.Root(), &runtime,
++				dagql.Selector{Field: "container"},
++				dagql.Selector{Field: "withFile", Args: []dagql.NamedInput{{Name: "path", Value: dagql.String("/runtime")}, {Name: "source", Value: dagql.NewID[*core.File](binaryID)}, {Name: "permissions", Value: dagql.Opt(dagql.Int(0755))}}},
++				dagql.Selector{Field: "withWorkdir", Args: []dagql.NamedInput{{Name: "path", Value: dagql.String(RuntimeWorkdirPath)}}},
++				dagql.Selector{Field: "withEntrypoint", Args: []dagql.NamedInput{{Name: "args", Value: dagql.ArrayInput[dagql.String]{"/runtime"}}}},
++			); err != nil {
++				return nil, err
++			}
++			runtimeID, err := runtime.ID()
++			if err != nil {
++				return nil, err
++			}
++			asModuleArgs = append(asModuleArgs, dagql.NamedInput{Name: "prebuiltRuntime", Value: dagql.Opt(dagql.NewID[*core.Container](runtimeID))})
++		}
++	}
++
+ 	var sdkMod dagql.ObjectResult[*core.Module]
+ 	err = dag.Select(ctx, fullSDKDir, &sdkMod,
+ 		dagql.Selector{
+@@ -244,9 +277,7 @@
+ 		},
+ 		dagql.Selector{
+ 			Field: "asModule",
+-			Args: []dagql.NamedInput{
+-				{Name: "forceDefaultFunctionCaching", Value: dagql.Opt(dagql.Boolean(true))},
+-			},
++			Args:  asModuleArgs,
+ 		},
+ 	)
+ 	if err != nil {
+--- a/core/sdk/utils.go
++++ b/core/sdk/utils.go
+@@ -47,6 +47,15 @@
+ 	if err != nil {
+ 		return inst, fmt.Errorf("failed to get module source implementation digest for sdk operation %q: %w", op, err)
+ 	}
++	// A packaged executable is a separate input from the module source tree.
++	// Include its structural/content identity, never its engine-local handle.
++	if mod.Runtime.Valid {
++		runtimeDigest, err := mod.Runtime.Value.ContentPreferredDigest(ctx)
++		if err != nil {
++			return inst, fmt.Errorf("scope runtime identity: %w", err)
++		}
++		sourceImplementationDigest = hashutil.HashStrings(sourceImplementationDigest.String(), "runtime", runtimeDigest.String())
++	}
+ 	scopedMod := mod.Clone()
+ 	scopedModInst, err := dagql.NewObjectResultForCall(scopedMod, dag, &dagql.ResultCall{
+ 		Kind:        dagql.ResultCallKindSynthetic,
+--- a/.dagger/modules/engine-dev/build/sdk.go
++++ b/.dagger/modules/engine-dev/build/sdk.go
+@@ -134,6 +134,17 @@
+ const TypescriptSDKTSXVersion = "4.15.6"
+ 
+ func (build *Builder) typescriptSDKContent(ctx context.Context) (*sdkContent, error) {
++	// The SDK's own Go program is fixed for this engine build. Ship it with
++	// the same content-addressed SDK source instead of rebuilding it per cache.
++	runtimeBinary := dag.Container().
++		From(consts.GolangImage).
++		With(build.goPlatformEnv).
++		WithEnvVariable("CGO_ENABLED", "0").
++		WithDirectory("/src", build.source.Directory("sdk/typescript/runtime")).
++		WithWorkdir("/src").
++		WithExec([]string{"go", "build", "-buildvcs=false", "-ldflags", "-s -w", "-o", "/typescript-sdk-runtime", "."}).
++		File("/typescript-sdk-runtime")
++
+ 	tsxNodeModule := dag.Container(dagger.ContainerOpts{Platform: build.platform}).
+ 		From(tsdistconsts.DefaultNodeImageRef).
+ 		WithExec([]string{"npm", "install", "-g", fmt.Sprintf("tsx@%s", TypescriptSDKTSXVersion)}).
+@@ -185,6 +196,7 @@
+ 		// runtime if only typescript library is used (by default)
+ 		WithDirectory("/typescript-library", bunBuilderCtr.Directory("/src/node_modules/typescript")).
+ 		WithFile("/bin/ts-introspector", bunBuilderCtr.File("/bin/ts-introspector")).
++		WithFile("/bin/typescript-sdk-runtime", runtimeBinary).
+ 		WithDirectory("/tsx_module", tsxNodeModule).
+ 		WithDirectory("/bundled_lib", bunBuilderCtr.Directory("/out-node")).
+ 		AsTarball(dagger.ContainerAsTarballOpts{
