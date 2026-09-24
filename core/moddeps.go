@@ -11,6 +11,7 @@ import (
 	"github.com/dagger/dagger/dagql"
 	"github.com/dagger/dagger/dagql/call"
 	"github.com/dagger/dagger/engine"
+	"github.com/dagger/dagger/engine/wcprof"
 )
 
 const ModuleName = "daggercore"
@@ -47,6 +48,36 @@ type SchemaBuilder struct {
 	lazilyLoadedServer *dagql.Server
 	loadSchemaErr      error
 	loadSchemaLock     sync.Mutex
+
+	// Only WithRoot may reuse preparation. Mutations and ownership clones
+	// deliberately discard it. The prepared functions still capture the same
+	// attached module results; this is never a cache keyed by module name.
+	forkSource        *SchemaBuilder
+	loadedSchemaScope schemaPreparationScope
+}
+
+type schemaPreparationScope struct {
+	authority *engine.ClientScopeAuthority
+	sessionID string
+	clientID  string
+}
+
+func currentSchemaPreparationScope(ctx context.Context) schemaPreparationScope {
+	clientScope, ok := engine.ClientScopeFromContext(ctx)
+	if !ok || clientScope.SessionAuthority() == nil {
+		return schemaPreparationScope{}
+	}
+	query, err := CurrentQuery(ctx)
+	if err != nil || query == nil || query.Server == nil {
+		return schemaPreparationScope{}
+	}
+	// Default expansion uses this ancestor's host environment. A schema
+	// prepared for another caller or session cannot supply those defaults.
+	md, err := query.NonModuleParentClientMetadata(ctx)
+	if err != nil || md == nil || md.SessionID != clientScope.SessionID() || md.ClientID == "" {
+		return schemaPreparationScope{}
+	}
+	return schemaPreparationScope{clientScope.SessionAuthority(), md.SessionID, md.ClientID}
 }
 
 func NewSchemaBuilder(root *Query, mods []Mod) *SchemaBuilder {
@@ -73,6 +104,7 @@ func (b *SchemaBuilder) Clone() *SchemaBuilder {
 func (b *SchemaBuilder) WithRoot(root *Query) *SchemaBuilder {
 	cp := b.Clone()
 	cp.root = root
+	cp.forkSource = b
 	return cp
 }
 
@@ -234,10 +266,30 @@ func (b *SchemaBuilder) lazilyLoadSchema(ctx context.Context) (loadedSchema *dag
 	if b.loadSchemaErr != nil {
 		return nil, b.loadSchemaErr
 	}
+	scope := currentSchemaPreparationScope(ctx)
 	defer func() {
 		b.lazilyLoadedServer = loadedSchema
 		b.loadSchemaErr = rerr
+		b.loadedSchemaScope = scope
 	}()
+	if source := b.forkSource; source != nil && scope != (schemaPreparationScope{}) {
+		source.loadSchemaLock.Lock()
+		prepared := source.lazilyLoadedServer
+		sameScope := source.loadedSchemaScope == scope
+		source.loadSchemaLock.Unlock()
+		// Entrypoint schemas have a separate canonical server and proxy
+		// closures. Keep their existing construction path for now.
+		if prepared != nil && sameScope && prepared.Canonical() == prepared {
+			_, op := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "schema.forkPrepared", wcprof.OpOpts{})
+			forked, err := prepared.Fork(ctx, b.root)
+			op.EndErr(err)
+			if err != nil {
+				return nil, fmt.Errorf("fork prepared module schema: %w", err)
+			}
+			InstallCoreSchemaLoaders(forked)
+			return forked, nil
+		}
+	}
 
 	var nonEntrypoints, entrypoints []modDepEntry
 	for _, e := range b.entries {

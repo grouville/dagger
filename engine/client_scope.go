@@ -165,6 +165,16 @@ func (scope ClientScope) ClientID() string  { return scope.clientID }
 
 func (scope ClientScope) Lease() *ClientLifecycleLease { return scope.lease }
 
+// SessionAuthority returns the session's opaque identity while this scope is
+// held. Retaining this token does not retain the client or authorize execution;
+// execution still requires a held scope. Unbound scopes have no authority.
+func (scope ClientScope) SessionAuthority() *ClientScopeAuthority {
+	if !scope.lease.Held() {
+		return nil
+	}
+	return scope.lease.authority
+}
+
 // Metadata returns an independent copy of the scope's sealed metadata.
 func (scope ClientScope) Metadata() (*ClientMetadata, error) {
 	if len(scope.metadata) == 0 {
