@@ -591,7 +591,15 @@ func (fn *ModuleFunction) UserDefault(ctx context.Context, argName string) (*Use
 		}
 	}
 
-	// PATH B: existing .env pipeline (completely unchanged)
+	// An absent or empty .env cannot supply a default. Avoid acquiring and
+	// copying the parent client's metadata for every argument during schema
+	// installation. Workspace constructor settings above still take priority.
+	if src := fn.mod.Self().GetSource(); src == nil || src.UserDefaults == nil ||
+		(len(src.UserDefaults.Environ) == 0 && len(src.UserDefaults.Context) == 0) {
+		return nil, false, nil
+	}
+
+	// PATH B: .env pipeline
 	// We need access to the main client's context for resolving system env variables
 	// (otherwise we may resolve them in the module container's context)
 	// so we upgrade the context to the main client.
