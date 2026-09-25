@@ -1,0 +1,40 @@
+{
+  "run": {
+    "label": "cold",
+    "engine": "dagger-engine.collections-complete-fsync-2",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-complete-fsync-2",
+      "--profile",
+      "check",
+      "-l",
+      "--all"
+    ],
+    "cwd": "/tmp/collections-perf/normal-baseline/greetings-split",
+    "seconds": 50.1406941851601,
+    "status": 0,
+    "correct": true,
+    "profiled": true,
+    "stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+    "sample_seconds": 50.156469051,
+    "host_io_full_seconds": 0.124731,
+    "engine_io_full_seconds": 0.038846,
+    "engine_io": {
+      "259:1": {
+        "rbytes": 1966080,
+        "wbytes": 1716121600,
+        "rios": 480,
+        "wios": 52061,
+        "dbytes": 0,
+        "dios": 0
+      }
+    },
+    "swap_in_bytes": 12288,
+    "swap_out_bytes": 0
+  },
+  "calls": 130,
+  "sum_seconds": 0.390303,
+  "max_seconds": 0.040314,
+  "important": "strace disturbed execution; this run had low I/O pressure and does not establish fsync duration on the slow disk runs."
+}

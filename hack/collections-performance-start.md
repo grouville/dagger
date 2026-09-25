@@ -1,5 +1,11 @@
 # Try the collections discovery changes
 
+**Latest measured update:** [the post-rebase investigation](collections-post-rebase-performance.md)
+compares the preserved historical build, rebased baseline and a new Cloud
+batching change: 2.363 / 2.867 / 2.662 s warm medians on the full prototype
+stack. Cold runs still split between about 27 and 45–48 s with disk pressure.
+The older timings elsewhere on this page predate that comparison.
+
 **2026-09-25:** the branch has been rebased onto `main` at `d8f1f0d6d2`.
 This includes the merged engine-side Cloud telemetry split (#14303) and
 Cloud reachability probe (#14341). The timings below predate that rebase;
@@ -43,6 +49,10 @@ published CLI release or engine image.
   resolvers for every module. The [artifact schema investigation](collections-artifact-schema-performance.md)
   measures a further 2.572 → 2.301 s on the experimental stack, with eight
   alternating pairs, real edits and focused integration coverage.
+* Cloud payload exports use batches of 512 while local client DB batches stay
+  at 128. The [post-rebase comparison](collections-post-rebase-performance.md)
+  measures 2.867 → 2.662 s on the experimental stack and explains the remaining
+  sequential engine/CLI telemetry shutdown waits.
 * Start the first analytics upload during command execution. The
   [CLI shutdown investigation](collections-cli-shutdown-performance.md) measures
   754 → 512 ms for a minimal core query; the full listing stays around 2.29 s.

@@ -1,0 +1,76 @@
+--- a/engine/telemetry/cloud_exporters.go
++++ b/engine/telemetry/cloud_exporters.go
+@@ -3,6 +3,7 @@
+ import (
+ 	"context"
+ 	"encoding/base64"
++	"errors"
+ 	"fmt"
+ 	"net/http"
+ 	"net/url"
+@@ -88,6 +89,14 @@
+ 	if err != nil {
+ 		return nil, nil, nil, fmt.Errorf("configure cloud logging: %w", err)
+ 	}
++	payloadSequencer := newExportSequencer()
++	payloadExporter, err := otlploghttp.New(ctx,
++		otlploghttp.WithEndpointURL(cloudEndpoint.JoinPath("v1", "logs").String()),
++		otlploghttp.WithHeaders(headers),
++		otlploghttp.WithHTTPClient(httpClient(payloadSequencer)))
++	if err != nil {
++		return nil, nil, nil, fmt.Errorf("configure cloud call payloads: %w", err)
++	}
+ 	metricExporter, err := otlpmetrichttp.New(ctx,
+ 		otlpmetrichttp.WithEndpointURL(cloudEndpoint.JoinPath("v1", "metrics").String()),
+ 		otlpmetrichttp.WithHeaders(headers),
+@@ -97,7 +106,10 @@
+ 	}
+ 
+ 	return NewSpanHeartbeater(&sequencedSpanExporter{sequencer: spanSequencer, exporter: spanExporter}),
+-		&sequencedLogExporter{sequencer: logSequencer, exporter: logExporter},
++		&splitCloudLogExporter{
++			Exporter: &sequencedLogExporter{sequencer: logSequencer, exporter: logExporter},
++			payload:  &sequencedLogExporter{sequencer: payloadSequencer, exporter: payloadExporter},
++		},
+ 		&sequencedMetricExporter{sequencer: metricSequencer, exporter: metricExporter},
+ 		nil
+ }
+@@ -287,3 +299,14 @@
+ 	token.SetAuthHeader(authorized)
+ 	return t.base.RoundTrip(authorized)
+ }
++
++// Prototype: independent writers share credentials/transport, not Export calls.
++type splitCloudLogExporter struct {
++	sdklog.Exporter
++	payload sdklog.Exporter
++}
++
++func (e *splitCloudLogExporter) PayloadExporter() sdklog.Exporter { return e.payload }
++func (e *splitCloudLogExporter) Shutdown(ctx context.Context) error {
++	return errors.Join(e.payload.Shutdown(ctx), e.Exporter.Shutdown(ctx))
++}
+--- a/engine/server/session_cloud_telemetry.go
++++ b/engine/server/session_cloud_telemetry.go
+@@ -759,13 +759,19 @@
+ }
+ 
+ func newCloudLogPipeline(exporter sdklog.Exporter) *cloudLogPipeline {
+-	exporter = newSerialLogExporter(exporter)
++	var payloadExporter sdklog.Exporter
++	if split, ok := exporter.(interface{ PayloadExporter() sdklog.Exporter }); ok {
++		payloadExporter = split.PayloadExporter()
++	} else {
++		exporter = newSerialLogExporter(exporter)
++		payloadExporter = exporter
++	}
+ 	records := sdklog.NewBatchProcessor(exporter, sdklog.WithExportInterval(telemetry.NearlyImmediate))
+ 	return &cloudLogPipeline{
+ 		// Match the ordinary Cloud log batch limit. The smaller client DB
+ 		// limit bounds local persistence work; applying it to HTTP exports
+ 		// multiplies serialized network round trips during a recipe burst.
+-		payloads: enginetel.NewCallPayloadBatchProcessor(exporter,
++		payloads: enginetel.NewCallPayloadBatchProcessor(payloadExporter,
+ 			enginetel.WithCallPayloadExportMaxBatchSize(512)),
+ 		records: records,
+ 		others:  enginetel.WithoutCallPayloads(records),
