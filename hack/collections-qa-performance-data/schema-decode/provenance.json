@@ -1,0 +1,52 @@
+{
+  "source_base_commit": "820a59db85",
+  "control_engine_code_commit": "4f8f48d39a",
+  "candidate_engine_code_commit": "5f7989b041",
+  "application_commit": "14d684fccf75a137de96f3f0c7eb8c6dafef2d3e",
+  "go_module_commit": "1784ff37eb3dd1aacab7aaff91b1d86e311cc8de",
+  "expected_stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+  "build_command": "CGO_ENABLED=0 go build -buildvcs=false -modfile=/tmp/collections-perf/rebuilt-prototypes/engine.mod -overlay=/tmp/collections-perf/schema-decode/overlay.json -o /tmp/collections-perf/schema-decode/engine ./cmd/engine",
+  "helper_overlay": "Read core/sdk/dang/v2/helpers.go at candidate commit, replace the two dang.ParseFile calls with dang.ParseFileCached, as hack/build-collections-prototypes.py does. Keep the other three existing prebuilt TypeScript SDK overlay files.",
+  "external_files": [
+    {
+      "path": "/tmp/collections-perf/schema-decode/engine",
+      "bytes": 218072359,
+      "sha256": "d9aeedd5ff74c0d0fb35d60adf365239f1d3a198d9b386bda54c8b29bb37b889"
+    },
+    {
+      "path": "/tmp/collections-perf/warm-next/engine",
+      "bytes": 218030406,
+      "sha256": "e9623910ea6f7d87a744471a983a09d680eeee67a0896a0a944f98a808f21144"
+    },
+    {
+      "path": "/tmp/collections-perf/committed/dagger",
+      "bytes": 106726949,
+      "sha256": "deb48016e32485c7f0f409a7bd41a665776baedd130b6edbea25e7eddafa3a77"
+    },
+    {
+      "path": "/tmp/collections-perf/schema-decode/control-wcprof/runs.wcprof",
+      "bytes": 3014732,
+      "sha256": "80699d1ab34a10ddb6e84a1f3efa94781f749c1814baa220e26e3c2ab938e883"
+    },
+    {
+      "path": "/tmp/collections-perf/schema-decode/candidate-wcprof/runs.wcprof",
+      "bytes": 3013267,
+      "sha256": "462dbd35b73a69bdad5187fb5253ab2c8bf2835a78457cfb851bee45fc1b4aa6"
+    },
+    {
+      "path": "/tmp/collections-perf/schema-decode/helpers.go",
+      "bytes": 52930,
+      "sha256": "2d2c13c373859fd458a4c018026bee36835ced68735d34f2c58402c3cf5a5b6b"
+    },
+    {
+      "path": "/tmp/collections-perf/rebuilt-prototypes/engine.mod",
+      "bytes": 18180,
+      "sha256": "df1be204c2b1c43368e9a9822cc44a4f459eb991d4ac3850d88528513dad2a3d"
+    },
+    {
+      "path": "/tmp/collections-perf/prebuilt-ts-sdk/manifest.json",
+      "bytes": 460,
+      "sha256": "845ea9da51b7bd99139f69ca3fe82db7f6c38633421b4799218e87e1d4bcef31"
+    }
+  ]
+}

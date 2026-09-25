@@ -27,6 +27,10 @@ published CLI release or engine image.
   cache. The [warm Git investigation](collections-warm-git-performance.md)
   demonstrates the duplicate request removal, with full-command timings still
   too affected by host contention to establish a stable speedup.
+* One Dang introspection decode per schema File per session, with independent
+  copies for evaluations. The [schema decode investigation](collections-schema-decode-performance.md)
+  measures 2.987 → 2.827 s on the experimental stack and validates edits and
+  runtime calls; this is an incremental gain over the preceding stack.
 
 The [cold variance and distributed-cache analysis](collections-cold-cache-analysis.md)
 separates host disk pressure from code changes and explains which cold work a
