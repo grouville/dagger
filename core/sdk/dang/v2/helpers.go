@@ -104,17 +104,9 @@ func evalDangSource(
 	withEnv func(context.Context, dang.ValueScope) ([]byte, error),
 ) ([]byte, error) {
 	return dangshared.WithNestedClientServer(ctx, query, nestedClientMetadata, inertAttachables, fnCall, moduleContext, func(ctx context.Context, gqlClient graphql.Client) ([]byte, error) {
-		var intro introspection.Response
-		f, err := schemaFile.Self().Open(ctx, dagql.ObjectResult[*core.File]{Result: schemaFile})
+		intro, err := loadDangSchema(ctx, schemaFile)
 		if err != nil {
-			return nil, fmt.Errorf("open schema file: %w", err)
-		}
-		defer f.Close()
-		_, decodeOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.decodeSchema", wcprof.OpOpts{})
-		err = json.NewDecoder(f).Decode(&intro)
-		decodeOp.EndErr(err)
-		if err != nil {
-			return nil, fmt.Errorf("decode schema: %w", err)
+			return nil, err
 		}
 
 		ctx = dang.ContextWithImportConfigs(ctx, dang.ImportConfig{
