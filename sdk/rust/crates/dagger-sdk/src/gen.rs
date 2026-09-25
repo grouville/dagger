@@ -6060,7 +6060,16 @@ impl Container {
             graphql_client: self.graphql_client.clone(),
         }
     }
-    /// EXPERIMENTAL API! Subject to change/removal at any time.
+    /// Configures all GPUs available on the host to be accessible to this container.
+    /// This currently works with NVIDIA devices only, and requires the engine to run with GPU support enabled.
+    pub fn with_gpu(&self) -> Container {
+        let query = self.selection.select("withGPU");
+        Container {
+            proc: self.proc.clone(),
+            selection: query,
+            graphql_client: self.graphql_client.clone(),
+        }
+    }
     /// Configures the provided list of devices to be accessible to this container.
     /// This currently works for Nvidia devices only.
     ///
@@ -6082,7 +6091,6 @@ impl Container {
             graphql_client: self.graphql_client.clone(),
         }
     }
-    /// EXPERIMENTAL API! Subject to change/removal at any time.
     /// Configures all available GPUs on the host to be accessible to this container.
     /// This currently works for Nvidia devices only.
     pub fn experimental_with_all_gp_us(&self) -> Container {

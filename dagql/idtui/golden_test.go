@@ -277,7 +277,13 @@ entrypoint = true
 		{Function: "fail-multi", Fail: true},
 		{Name: "fail-multi-noexpand", Function: "fail-multi", Fail: true, NoExpand: true},
 		{Name: "test-summary-check", Function: "test-summary", Check: true, NoExpand: true, Fail: true, DBTest: testSummaryDB, OutputTest: testSummaryOutput},
-		{Name: "test-summary-call", Function: "test-summary", NoExpand: true, Fail: true, DBTest: testSummaryDB, OutputTest: testSummaryOutput},
+		// A direct call returns the Check outcome; only `dagger check` turns a
+		// failed assertion into a command error. Read pass to assert the failure
+		// without putting an unstable Check ID in the golden output.
+		{Name: "test-summary-call", Function: "test-summary", Args: []string{"pass"}, NoExpand: true, DBTest: testSummaryDB, OutputTest: func(t *testctx.T, out string) {
+			testSummaryOutput(t, out)
+			require.Contains(t, out, "\nfalse\n")
+		}},
 
 		// Used to be marked as flaky
 		{Function: "cached-execs"},
