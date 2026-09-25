@@ -31,6 +31,10 @@ published CLI release or engine image.
   copies for evaluations. The [schema decode investigation](collections-schema-decode-performance.md)
   measures 2.987 → 2.827 s on the experimental stack and validates edits and
   runtime calls; this is an incremental gain over the preceding stack.
+* Artifact trees fork the prepared core schema instead of reinstalling core
+  resolvers for every module. The [artifact schema investigation](collections-artifact-schema-performance.md)
+  measures a further 2.572 → 2.301 s on the experimental stack, with eight
+  alternating pairs, real edits and focused integration coverage.
 
 The [cold variance and distributed-cache analysis](collections-cold-cache-analysis.md)
 separates host disk pressure from code changes and explains which cold work a

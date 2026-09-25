@@ -1,0 +1,14 @@
+dag+check://dagger-go-sdk/generate/stale                                             # staleness check: re-generate modules and clients managed by the Go SDK
+dag+check://dagger-typescript-sdk/generate/stale                                     # staleness check: re-generate modules and clients managed by the TypeScript SDK
+dag+check://eslint/lint                                                              # Lint the source.
+--go-module=.dagger/modules/backend dag+check://go/modules/generate/stale            # staleness check: run go generate in this module
+--go-module=.dagger/modules/greetings dag+check://go/modules/generate/stale          # staleness check: run go generate in this module
+--go-module=. dag+check://go/modules/generate/stale                                  # staleness check: run go generate in this module
+--go-module=. --go-test=TestE2ERandomGreeting dag+check://go/modules/tests/run       # Run this test.
+--go-module=. --go-test=TestE2EGreetingByLanguage dag+check://go/modules/tests/run   # Run this test.
+--go-module=. --go-test=TestE2EUnknownLanguage dag+check://go/modules/tests/run      # Run this test.
+--go-module=. --go-test=TestE2ECORS dag+check://go/modules/tests/run                 # Run this test.
+--go-module=. --go-test=TestPerfRenamed dag+check://go/modules/tests/run             # Run this test.
+--go-module=. --go-test=TestFormatResponse dag+check://go/modules/tests/run          # Run this test.
+dag+check://golangci-lint/lint-all                                                   # Run golangci-lint in every selected Go module.
+dag+check://playwright/test                                                          # Run the Playwright test suite, sharded across `shards` parallel containers.

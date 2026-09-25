@@ -1,0 +1,157 @@
+Total: 7.40s
+ROUTINE ======================== github.com/dagger/dagger/engine/client.(*Client).Close in /home/dagger/dag/engine/client/client.go
+         0     4.76ms (flat, cum) 0.064% of Total
+         .          .    845:	return err
+         .          .    846:}
+         .          .    847:
+         .          .    848:func (c *Client) Close() (rerr error) {
+         .          .    849:	// shutdown happens outside of c.closeMu, since it requires a connection
+         .     1.53ms    850:	shutdownErr := c.shutdownServer()
+         .          .    851:	if shutdownErr != nil {
+         .          .    852:		rerr = errors.Join(rerr, fmt.Errorf("shutdown: %w", shutdownErr))
+         .          .    853:	} else if c.telemetry != nil {
+         .          .    854:		// A successful /shutdown has flushed the session's telemetry and
+         .          .    855:		// marked this client's streams as terminating; the server ends them
+         .          .    856:		// once it has sent everything. Drain them now, before internalCancel
+         .          .    857:		// closes the connections from our side, or the final spans (including
+         .          .    858:		// the error that ended the run) never reach the frontend.
+         .          .    859:		//
+         .          .    860:		// Telemetry transport failures are logged rather than returned: the
+         .          .    861:		// run's own work has already completed, and callers join Close errors
+         .          .    862:		// into the run's exit status.
+         .          .    863:		ctx, cancel := context.WithTimeout(context.WithoutCancel(c.internalCtx), clientShutdownTimeout())
+         .          .    864:		drained := make(chan error, 1)
+         .          .    865:		go func() { drained <- c.telemetry.Wait() }()
+         .    94.78us    866:		select {
+         .          .    867:		case err := <-drained:
+         .          .    868:			if err != nil {
+         .          .    869:				slog.Warn("telemetry drain failed after shutdown", "err", err)
+         .          .    870:			}
+         .          .    871:		case <-ctx.Done():
+         .          .    872:			slog.Warn("telemetry drain timed out after shutdown", "timeout", clientShutdownTimeout())
+         .          .    873:		}
+         .          .    874:		cancel()
+         .          .    875:	}
+         .          .    876:
+         .          .    877:	c.closeMu.Lock()
+         .          .    878:	defer c.closeMu.Unlock()
+         .          .    879:
+         .          .    880:	select {
+         .          .    881:	case <-c.closeCtx.Done():
+         .          .    882:		// already closed
+         .          .    883:		return nil
+         .          .    884:	default:
+         .          .    885:	}
+         .          .    886:
+         .          .    887:	c.closeRequests(errors.New("Client.Close"))
+         .          .    888:
+         .          .    889:	if c.internalCancel != nil {
+         .          .    890:		c.internalCancel(errors.New("Client.Close"))
+         .          .    891:	}
+         .          .    892:
+         .          .    893:	if c.daggerClient != nil {
+         .          .    894:		c.eg.Go(c.daggerClient.Close)
+         .          .    895:	}
+         .          .    896:
+         .          .    897:	if c.httpClient != nil {
+         .          .    898:		c.eg.Go(c.httpClient.Close)
+         .          .    899:	}
+         .          .    900:
+         .          .    901:	if c.sessionSrv != nil {
+         .          .    902:		c.eg.Go(func() error {
+         .          .    903:			c.sessionSrv.Stop()
+         .          .    904:			return nil
+         .          .    905:		})
+         .          .    906:		for _, attachable := range c.sessionSrv.Attachables {
+         .          .    907:			closeable, ok := attachable.(io.Closer)
+         .          .    908:			if !ok {
+         .          .    909:				continue
+         .          .    910:			}
+         .          .    911:			c.eg.Go(func() error {
+         .          .    912:				return closeable.Close()
+         .          .    913:			})
+         .          .    914:		}
+         .          .    915:	}
+         .          .    916:	if c.bkClient != nil {
+         .          .    917:		c.eg.Go(c.bkClient.Close)
+         .          .    918:	}
+         .     3.13ms    919:	if err := c.eg.Wait(); err != nil {
+         .          .    920:		rerr = errors.Join(rerr, err)
+         .          .    921:	}
+         .          .    922:
+         .          .    923:	// Wait for telemetry to finish draining. Transport errors are logged, not
+         .          .    924:	// returned, for the same reason as the post-shutdown drain above.
+ROUTINE ======================== github.com/dagger/dagger/engine/client.(*Client).Close.func1 in /home/dagger/dag/engine/client/client.go
+         0    82.62us (flat, cum) 0.0011% of Total
+         .          .    860:		// Telemetry transport failures are logged rather than returned: the
+         .          .    861:		// run's own work has already completed, and callers join Close errors
+         .          .    862:		// into the run's exit status.
+         .          .    863:		ctx, cancel := context.WithTimeout(context.WithoutCancel(c.internalCtx), clientShutdownTimeout())
+         .          .    864:		drained := make(chan error, 1)
+         .    82.62us    865:		go func() { drained <- c.telemetry.Wait() }()
+         .          .    866:		select {
+         .          .    867:		case err := <-drained:
+         .          .    868:			if err != nil {
+         .          .    869:				slog.Warn("telemetry drain failed after shutdown", "err", err)
+         .          .    870:			}
+ROUTINE ======================== github.com/dagger/dagger/engine/client.(*Client).withClientCloseCancel.func1 in /home/dagger/dag/engine/client/client.go
+         0    89.57ms (flat, cum)  1.21% of Total
+         .          .   1340:		return nil, nil, errors.New("client closed")
+         .          .   1341:	default:
+         .          .   1342:	}
+         .          .   1343:	ctx, cancel := context.WithCancelCause(ctx)
+         .          .   1344:	go func() {
+         .    89.57ms   1345:		select {
+         .          .   1346:		case <-c.closeCtx.Done():
+         .          .   1347:			cancel(fmt.Errorf("client closed: %w", context.Cause(c.closeCtx)))
+         .          .   1348:		case <-ctx.Done():
+         .          .   1349:		}
+         .          .   1350:	}()
+ROUTINE ======================== github.com/dagger/dagger/engine/client.(*httpClient).Close in /home/dagger/dag/engine/client/client.go
+         0     3.06ms (flat, cum) 0.041% of Total
+         .          .   1798:
+         .          .   1799:	return c.inner.Do(req)
+         .          .   1800:}
+         .          .   1801:
+         .          .   1802:func (c *httpClient) Close() error {
+         .     3.06ms   1803:	c.inner.CloseIdleConnections()
+         .          .   1804:	return nil
+         .          .   1805:}
+         .          .   1806:
+         .          .   1807:func EngineConn(engineClient *Client) DirectConn {
+         .          .   1808:	return engineClient.httpClient.Do
+ROUTINE ======================== github.com/dagger/dagger/internal/buildkit/client.(*Client).Close in /home/dagger/dag/internal/buildkit/client/client.go
+         0     2.61ms (flat, cum) 0.035% of Total
+         .          .    214:		c.conn.ResetConnectBackoff()
+         .          .    215:	}
+         .          .    216:}
+         .          .    217:
+         .          .    218:func (c *Client) Close() error {
+         .     2.61ms    219:	return c.conn.Close()
+         .          .    220:}
+         .          .    221:
+         .          .    222:type withDialer struct {
+         .          .    223:	dialer func(context.Context, string) (net.Conn, error)
+         .          .    224:}
+ROUTINE ======================== github.com/dagger/otel-go.Close in /home/dagger/go/pkg/mod/github.com/dagger/otel-go@v1.43.1-0.20260917165636-2bca4f5622cf/init.go
+         0   311.81ms (flat, cum)  4.21% of Total
+         .          .    484:func Close() {
+         .          .    485:	ctx := closeCtx
+         .          .    486:	flushCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+         .          .    487:	defer cancel()
+         .          .    488:	if tracerProvider != nil {
+         .   311.79ms    489:		if err := tracerProvider.Shutdown(flushCtx); err != nil {
+         .          .    490:			slog.Error("failed to shut down tracer provider", "error", err)
+         .          .    491:		}
+         .          .    492:	}
+         .          .    493:	if loggerProvider := LoggerProvider(ctx); loggerProvider != nil {
+         .    12.03us    494:		if err := loggerProvider.Shutdown(flushCtx); err != nil {
+         .          .    495:			slog.Error("failed to shut down logger provider", "error", err)
+         .          .    496:		}
+         .          .    497:	}
+         .          .    498:	if meterProvider := MeterProvider(ctx); meterProvider != nil {
+         .     7.42us    499:		if err := meterProvider.Shutdown(flushCtx); err != nil {
+         .          .    500:			slog.Error("failed to shut down meter provider", "error", err)
+         .          .    501:		}
+         .          .    502:	}
+         .          .    503:}
