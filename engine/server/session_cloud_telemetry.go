@@ -762,9 +762,13 @@ func newCloudLogPipeline(exporter sdklog.Exporter) *cloudLogPipeline {
 	exporter = newSerialLogExporter(exporter)
 	records := sdklog.NewBatchProcessor(exporter, sdklog.WithExportInterval(telemetry.NearlyImmediate))
 	return &cloudLogPipeline{
-		payloads: enginetel.NewCallPayloadBatchProcessor(exporter),
-		records:  records,
-		others:   enginetel.WithoutCallPayloads(records),
+		// Match the ordinary Cloud log batch limit. The smaller client DB
+		// limit bounds local persistence work; applying it to HTTP exports
+		// multiplies serialized network round trips during a recipe burst.
+		payloads: enginetel.NewCallPayloadBatchProcessor(exporter,
+			enginetel.WithCallPayloadExportMaxBatchSize(512)),
+		records: records,
+		others:  enginetel.WithoutCallPayloads(records),
 	}
 }
 

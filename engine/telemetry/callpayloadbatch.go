@@ -58,7 +58,8 @@ const (
 // context; when that ends, it cancels the export in flight and returns only
 // once the worker has stopped, so the caller may shut the exporter down.
 type CallPayloadBatchProcessor struct {
-	exporter sdklog.Exporter
+	exporter           sdklog.Exporter
+	maxExportBatchSize int
 
 	// ctx ends the worker's own exports (the coalesced and retried ones);
 	// Shutdown cancels it when its own context ends.
@@ -81,18 +82,38 @@ type callPayloadBatchRequest struct {
 	done chan error
 }
 
-func NewCallPayloadBatchProcessor(exporter sdklog.Exporter) *CallPayloadBatchProcessor {
+// CallPayloadBatchOption configures the payload export path independently of
+// the ordinary log queue.
+type CallPayloadBatchOption func(*CallPayloadBatchProcessor)
+
+// WithCallPayloadExportMaxBatchSize bounds the number of payload records in
+// each export. Nonpositive values are ignored.
+// Network exporters can use larger batches to amortize request round trips
+// without changing local persistence batches or the lossless ingress queue.
+func WithCallPayloadExportMaxBatchSize(size int) CallPayloadBatchOption {
+	return func(processor *CallPayloadBatchProcessor) {
+		if size > 0 {
+			processor.maxExportBatchSize = size
+		}
+	}
+}
+
+func NewCallPayloadBatchProcessor(exporter sdklog.Exporter, opts ...CallPayloadBatchOption) *CallPayloadBatchProcessor {
 	ctx, cancel := context.WithCancel(context.Background())
 	processor := &CallPayloadBatchProcessor{
-		exporter: exporter,
-		ctx:      ctx,
-		cancel:   cancel,
-		queue:    make([]sdklog.Record, 0, LogExportMaxBatchSize),
-		wake:     make(chan struct{}, 1),
-		flush:    make(chan callPayloadBatchRequest),
-		shutdown: make(chan callPayloadBatchRequest, 1),
-		done:     make(chan struct{}),
+		exporter:           exporter,
+		maxExportBatchSize: LogExportMaxBatchSize,
+		ctx:                ctx,
+		cancel:             cancel,
+		wake:               make(chan struct{}, 1),
+		flush:              make(chan callPayloadBatchRequest),
+		shutdown:           make(chan callPayloadBatchRequest, 1),
+		done:               make(chan struct{}),
 	}
+	for _, opt := range opts {
+		opt(processor)
+	}
+	processor.queue = make([]sdklog.Record, 0, processor.maxExportBatchSize)
 	go processor.run()
 	return processor
 }
@@ -305,7 +326,7 @@ func (processor *CallPayloadBatchProcessor) exportPass(ctx context.Context) (ret
 	processor.mu.Unlock()
 
 	for len(queued) > 0 {
-		batchSize := min(len(queued), LogExportMaxBatchSize)
+		batchSize := min(len(queued), processor.maxExportBatchSize)
 		batch := queued[:batchSize]
 		exportErr := processor.exporter.Export(ctx, batch)
 		if exportErr == nil {

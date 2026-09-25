@@ -272,12 +272,19 @@ func TestCallPayloadBatchProcessorFiltersAndDrainsQueue(t *testing.T) {
 
 	// Keep the coalescing timer from firing partway through emission when
 	// the host is loaded: this test asserts batching of a fully queued closure.
-	synctest.Test(t, testCallPayloadBatchProcessorFiltersAndDrainsQueue)
+	for _, size := range []int{0, -1, 1, LogExportMaxBatchSize, 512} {
+		t.Run(strconv.Itoa(size), func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) { testCallPayloadBatchProcessorFiltersAndDrainsQueue(t, size) })
+		})
+	}
 }
 
-func testCallPayloadBatchProcessorFiltersAndDrainsQueue(t *testing.T) {
+func testCallPayloadBatchProcessorFiltersAndDrainsQueue(t *testing.T, size int) {
 	exp := &countingLogExporter{}
-	proc := NewCallPayloadBatchProcessor(exp)
+	proc := NewCallPayloadBatchProcessor(exp, WithCallPayloadExportMaxBatchSize(size))
+	if size <= 0 {
+		size = LogExportMaxBatchSize
+	}
 	provider := sdklog.NewLoggerProvider(sdklog.WithProcessor(proc))
 
 	var ordinary sdklog.Record
@@ -288,7 +295,7 @@ func testCallPayloadBatchProcessorFiltersAndDrainsQueue(t *testing.T) {
 	payload.SetBody(logapi.BytesValue([]byte("payload")))
 	payload.AddAttributes(logapi.String(otelgo.ContentTypeAttr, telemetryattrs.CallPayloadContentType))
 	logger := provider.Logger("test.core")
-	const records = 2*LogExportMaxBatchSize + 1
+	records := 2*size + 1
 	for range records {
 		logger.Emit(t.Context(), payload)
 	}
@@ -391,16 +398,20 @@ func TestCallPayloadBatchProcessorRetriesFailedBatchInOrder(t *testing.T) {
 
 	// Batch boundaries and retry attempts must not depend on wall-clock
 	// pauses while the initial records are being emitted.
-	synctest.Test(t, testCallPayloadBatchProcessorRetriesFailedBatchInOrder)
+	for _, size := range []int{LogExportMaxBatchSize, 512} {
+		t.Run(strconv.Itoa(size), func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) { testCallPayloadBatchProcessorRetriesFailedBatchInOrder(t, size) })
+		})
+	}
 }
 
-func testCallPayloadBatchProcessorRetriesFailedBatchInOrder(t *testing.T) {
+func testCallPayloadBatchProcessorRetriesFailedBatchInOrder(t *testing.T, size int) {
 	exp := &flakyLogExporter{failures: 2}
-	proc := NewCallPayloadBatchProcessor(exp)
+	proc := NewCallPayloadBatchProcessor(exp, WithCallPayloadExportMaxBatchSize(size))
 	provider := sdklog.NewLoggerProvider(sdklog.WithProcessor(proc))
 	logger := provider.Logger("test.core")
 
-	const first = LogExportMaxBatchSize + 1
+	first := size + 1
 	for i := range first {
 		logger.Emit(t.Context(), payloadRecordWithBody(strconv.Itoa(i)))
 	}
@@ -424,7 +435,7 @@ func testCallPayloadBatchProcessorRetriesFailedBatchInOrder(t *testing.T) {
 	}
 	want = append(want, "late")
 	require.Equal(t, want, bodies, "retries must preserve emission order and never duplicate")
-	require.Equal(t, []int{LogExportMaxBatchSize, 2}, batches)
+	require.Equal(t, []int{size, 2}, batches)
 
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
