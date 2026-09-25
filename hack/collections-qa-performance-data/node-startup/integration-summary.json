@@ -1,0 +1,14 @@
+{
+  "command": "env -u SSH_AUTH_SOCK DAGGER_ENGINE=container://dagger-engine.collections-tsx-node-cache _EXPERIMENTAL_DAGGER_RUNNER_HOST=container://dagger-engine.collections-tsx-node-cache _EXPERIMENTAL_DAGGER_CLI_BIN=/tmp/collections-perf/committed/dagger DAGGER_SRC_ROOT=/home/dagger/dag /tmp/collections-perf/half-second/integration.test -test.run ^TestTypescript/(TestSyntaxSupport|TestTelemetryImport|TestExecErrorSurfacing)$ -test.parallel=1 -test.timeout=4m -test.v",
+  "cwd": "/home/dagger/dag/core/integration",
+  "passed": [
+    "--- PASS: TestTypescript (0.00s)",
+    "--- PASS: TestTypescript/TestExecErrorSurfacing (20.65s)",
+    "--- PASS: TestTypescript/TestTelemetryImport (0.46s)",
+    "--- PASS: TestTypescript/TestTelemetryImport/introspects_telemetry_import (8.05s)",
+    "--- PASS: TestTypescript/TestSyntaxSupport (0.63s)",
+    "--- PASS: TestTypescript/TestSyntaxSupport/singleQuoteDefaultArgHello(msg:_string_=_'world'):_string (11.83s)",
+    "--- PASS: TestTypescript/TestSyntaxSupport/doubleQuotesDefaultArgHello(msg:_string_=_\"world\"):_string (9.83s)"
+  ],
+  "failed": false
+}

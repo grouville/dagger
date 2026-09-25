@@ -36,6 +36,12 @@ The [cold variance and distributed-cache analysis](collections-cold-cache-analys
 separates host disk pressure from code changes and explains which cold work a
 compatible remote result could avoid. The measured runs do not use Cloud caching.
 
+The [Node startup-cache investigation](collections-node-startup-performance.md)
+adds a separate loader/compiler-cache prototype: 2.905 → 2.586 s in a direct
+five-pair comparison on greetings-api, with edit/runtime validation. Its patch
+is archived for review and is not enabled by a normal build. The 500 ms goal
+remains unmet; the report identifies the remaining sequential boundaries.
+
 The experimental Dang syntax cache and TypeScript SDK bundle changes are
 **not enabled by a normal build**. Their patches and validation are in the
 [syntax-cache report](collections-syntax-cache-performance.md) and

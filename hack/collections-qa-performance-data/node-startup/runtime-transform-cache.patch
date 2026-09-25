@@ -1,0 +1,26 @@
+--- a/sdk/typescript/runtime/runtime_node.go
++++ b/sdk/typescript/runtime/runtime_node.go
+@@ -130,8 +130,10 @@
+ 		// Merge source code directory with current directory
+ 		WithDirectory(".", n.cfg.wrappedSourceCodeDirectory()).
+ 		WithMountedFile(entrypointPath, generatedEntrypoint).
++		WithEnvVariable("TSX_TSCONFIG_PATH", n.cfg.tsConfigPath()).
++		WithMountedCache("/tmp/tsx-0", dag.CacheVolume("mod-tsx-transforms-"+n.cfg.runtimeVersion)).
+ 		WithEntrypoint([]string{
+-			"tsx", "--no-deprecation", "--tsconfig", n.cfg.tsConfigPath(), entrypointPath,
++			"node", "--import", "/usr/local/lib/node_modules/tsx/dist/loader.mjs", "--no-deprecation", entrypointPath,
+ 		})
+ 
+ 	if n.cfg.debug {
+@@ -178,8 +180,10 @@
+ 		}).
+ 		// Make @dagger.io/dagger resolve to the committed bindings.
+ 		WithMountedDirectory("node_modules/@dagger.io/dagger", n.cfg.source.Directory(GenDir)).
++		WithEnvVariable("TSX_TSCONFIG_PATH", n.cfg.tsConfigPath()).
++		WithMountedCache("/tmp/tsx-0", dag.CacheVolume("mod-tsx-transforms-"+n.cfg.runtimeVersion)).
+ 		WithEntrypoint([]string{
+-			"tsx", "--no-deprecation", "--tsconfig", n.cfg.tsConfigPath(), entrypointPath,
++			"node", "--import", "/usr/local/lib/node_modules/tsx/dist/loader.mjs", "--no-deprecation", entrypointPath,
+ 		})
+ 
+ 	if n.cfg.debug {

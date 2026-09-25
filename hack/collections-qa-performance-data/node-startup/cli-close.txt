@@ -1,0 +1,23 @@
+Total: 92.48s
+ROUTINE ======================== github.com/dagger/otel-go.Close in /home/dagger/go/pkg/mod/github.com/dagger/otel-go@v1.43.1-0.20260917165636-2bca4f5622cf/init.go
+         0   320.36ms (flat, cum)  0.35% of Total
+         .          .    484:func Close() {
+         .          .    485:	ctx := closeCtx
+         .          .    486:	flushCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+         .          .    487:	defer cancel()
+         .          .    488:	if tracerProvider != nil {
+         .   320.34ms    489:		if err := tracerProvider.Shutdown(flushCtx); err != nil {
+         .          .    490:			slog.Error("failed to shut down tracer provider", "error", err)
+         .          .    491:		}
+         .          .    492:	}
+         .          .    493:	if loggerProvider := LoggerProvider(ctx); loggerProvider != nil {
+         .    12.10us    494:		if err := loggerProvider.Shutdown(flushCtx); err != nil {
+         .          .    495:			slog.Error("failed to shut down logger provider", "error", err)
+         .          .    496:		}
+         .          .    497:	}
+         .          .    498:	if meterProvider := MeterProvider(ctx); meterProvider != nil {
+         .     7.42us    499:		if err := meterProvider.Shutdown(flushCtx); err != nil {
+         .          .    500:			slog.Error("failed to shut down meter provider", "error", err)
+         .          .    501:		}
+         .          .    502:	}
+         .          .    503:}
