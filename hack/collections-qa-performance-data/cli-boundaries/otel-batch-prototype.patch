@@ -1,0 +1,27 @@
+--- a/trace/batch_span_processor.go
++++ b/trace/batch_span_processor.go
+@@ -326,6 +326,24 @@
+ 		case <-bsp.stopCh:
+ 			return
+ 		case <-bsp.timer.C:
++			// An export can outlast the timer. Include spans already queued
++			// while it was in flight instead of sending a nearly empty batch.
++			// Bound the work so producers cannot postpone an export forever.
++			bsp.batchMutex.Lock()
++			drainReady:
++			for i := len(bsp.batch); i < bsp.o.MaxExportBatchSize; i++ {
++				select {
++				case sd := <-bsp.queue:
++					if ffs, ok := sd.(forceFlushSpan); ok {
++						close(ffs.flushed)
++						continue
++					}
++					bsp.batch = append(bsp.batch, sd)
++				default:
++					break drainReady
++				}
++			}
++			bsp.batchMutex.Unlock()
+ 			if err := bsp.exportSpans(ctx); err != nil {
+ 				otel.Handle(err)
+ 			}

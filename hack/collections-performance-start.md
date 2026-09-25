@@ -35,6 +35,11 @@ published CLI release or engine image.
   resolvers for every module. The [artifact schema investigation](collections-artifact-schema-performance.md)
   measures a further 2.572 → 2.301 s on the experimental stack, with eight
   alternating pairs, real edits and focused integration coverage.
+* Start the first analytics upload during command execution. The
+  [CLI shutdown investigation](collections-cli-shutdown-performance.md) measures
+  754 → 512 ms for a minimal core query; the full listing stays around 2.29 s.
+  It also examines Cloud ingestion and records transport experiments that did
+  not improve the listing.
 
 The [cold variance and distributed-cache analysis](collections-cold-cache-analysis.md)
 separates host disk pressure from code changes and explains which cold work a
