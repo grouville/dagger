@@ -23,6 +23,10 @@ published CLI release or engine image.
 * Finer image-import profiling. The [Go SDK import investigation](collections-go-import-performance.md)
   explains why trimming compiler test files was not adopted: it loses layer reuse
   with the application's Go image.
+* Reuse of the public Git probe's refs within the existing session metadata
+  cache. The [warm Git investigation](collections-warm-git-performance.md)
+  demonstrates the duplicate request removal, with full-command timings still
+  too affected by host contention to establish a stable speedup.
 
 The [cold variance and distributed-cache analysis](collections-cold-cache-analysis.md)
 separates host disk pressure from code changes and explains which cold work a
