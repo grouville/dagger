@@ -1,0 +1,108 @@
+Rebase validation, 2026-09-25
+
+Old tip: c2d178e06ec39976ce03ed2744e544500d8c7841
+New main: d8f1f0d6d2b7bec54c4841bcc0e6da3e031fb1bd
+Replayed tip: a334cb6203d5ac7e3727e77901a8c02f57d35a72
+CLI: /tmp/collections-perf/rebase-main/dagger
+Engine: /tmp/collections-perf/rebase-main/engine
+Dedicated engine: dagger-engine.collections-main-rebase
+Base image: localhost/dagger-engine.collections-perf:latest
+Fresh state volume; existing base-image SDK payloads, no prototype overrides.
+Go builds used CGO_ENABLED=0 and -buildvcs=false.
+Broken SSH_AUTH_SOCK was omitted for engine integration commands.
+
+Commands (all results below are correctness checks, not latency benchmarks):
+
+CGO_ENABLED=1 go test -p 2 ./analytics ./engine/telemetry ./engine/client ./engine/server ./internal/cmd/dagger ./core -run 'Test(FirstEvent|TrackerClose|DoNotTrack|SequencedMetrics|ExportSequenc|Cloud|SessionPublishesTelemetryToCloud|SessionCloudTelemetryFlushIsBounded|ScaleOutTelemetryFollowsTheSession|TelemetryStreamsConfirmCloudPublishing|PostedTelemetryReachesCloudOnce|CallPayloadReachesCloudOnce|UnreachableCloudURLLeavesTheClientForwarding|EngineTelemetry|ArtifactSchemaForkViewAndIsolation|ArtifactCollection|Prepared|SchemaJSONFileSelector)' -count=1
+
+The first CLI subprocess tests picked up stale PATH dagger. Corrected rerun:
+_EXPERIMENTAL_DAGGER_CLI_BIN=/tmp/collections-perf/rebase-main/dagger CGO_ENABLED=1 go test ./internal/cmd/dagger -run 'Test(EngineTelemetry|CloudChecksOnUnauthenticated|CloudLogin|CloudSignup|CloudEngineUnauth$)' -count=1
+
+CGO_ENABLED=1 go test ./core/schema -run 'Test(BaseSchemaAllowlist|GPU|NestingSchemaVersions|WorkspaceAddressViews)' -count=1
+
+Integration binary built with go test -c ./core/integration; run in core/integration:
+DAGGER_ENGINE=container://dagger-engine.collections-main-rebase _EXPERIMENTAL_DAGGER_RUNNER_HOST=container://dagger-engine.collections-main-rebase _EXPERIMENTAL_DAGGER_CLI_BIN=/tmp/collections-perf/rebase-main/dagger DAGGER_SRC_ROOT=/home/dagger/dag /tmp/collections-perf/rebase-main/integration.test -test.run '^Test(Artifacts|Collections)/(TestValueAfterDiscoveringSessionEnds|TestWorkspaceEdits|TestModuleBoundary|TestCoreSelection|TestCheckCachePolicy|TestExplicitEntrypoint|TestCommandListSchemaPaths|TestBatchReplacement|TestCheckSelection|TestEnumKeys)$' -test.parallel=1 -test.timeout=10m -test.v
+
+TUI binary built with go test -c ./dagql/idtui; run in dagql/idtui (NOT repo root):
+DAGGER_ENGINE=container://dagger-engine.collections-main-rebase _EXPERIMENTAL_DAGGER_RUNNER_HOST=container://dagger-engine.collections-main-rebase _EXPERIMENTAL_DAGGER_CLI_BIN=/tmp/collections-perf/rebase-main/dagger /tmp/collections-perf/rebase-main/idtui.test -test.run '^TestTelemetry$/^TestGolden$/^test-summary-(call|check)$' -test.parallel=1 -test.timeout=10m -test.v
+
+Schema generation: go run ./cmd/introspect schema; go run ./cmd/introspect introspect.
+Rust generation: dagger-bootstrap generate <introspection> --output <gen.rs>, rustfmt, cargo fix --locked -p dagger-sdk --lib --allow-dirty --allow-staged.
+
+Result excerpts:
+
+focused-tests.log
+ok  	github.com/dagger/dagger/analytics	0.016s
+ok  	github.com/dagger/dagger/engine/telemetry	2.973s
+ok  	github.com/dagger/dagger/engine/client	1.015s
+ok  	github.com/dagger/dagger/engine/server	1.258s
+ok  	github.com/dagger/dagger/core	0.182s
+
+cli-tests.log
+ok  	github.com/dagger/dagger/internal/cmd/dagger	3.110s
+
+schema-final.log
+ok  	github.com/dagger/dagger/core/schema	4.363s
+
+integration.log
+--- PASS: TestArtifacts (0.00s)
+    --- PASS: TestArtifacts/TestCheckCachePolicy (44.83s)
+    --- PASS: TestArtifacts/TestModuleBoundary (1.86s)
+    --- PASS: TestArtifacts/TestWorkspaceEdits (2.95s)
+    --- PASS: TestArtifacts/TestValueAfterDiscoveringSessionEnds (1.21s)
+    --- PASS: TestArtifacts/TestExplicitEntrypoint (1.12s)
+    --- PASS: TestArtifacts/TestCoreSelection (0.00s)
+        --- PASS: TestArtifacts/TestCoreSelection/local (1.24s)
+        --- PASS: TestArtifacts/TestCoreSelection/remote (16.45s)
+--- PASS: TestCollections (0.00s)
+    --- PASS: TestCollections/TestEnumKeys (8.93s)
+    --- PASS: TestCollections/TestBatchReplacement (0.73s)
+        --- PASS: TestCollections/TestBatchReplacement/selected_checks (4.95s)
+        --- PASS: TestCollections/TestBatchReplacement/batch_only (0.10s)
+        --- PASS: TestCollections/TestBatchReplacement/CLI_query_and_flags (3.73s)
+        --- PASS: TestCollections/TestBatchReplacement/direct_item (0.20s)
+        --- PASS: TestCollections/TestBatchReplacement/generator_stale_check (0.11s)
+        --- PASS: TestCollections/TestBatchReplacement/generator (0.02s)
+        --- PASS: TestCollections/TestBatchReplacement/saved_batch_result (0.03s)
+        --- PASS: TestCollections/TestBatchReplacement/combined_checks (0.23s)
+        --- PASS: TestCollections/TestBatchReplacement/fallback (0.02s)
+        --- PASS: TestCollections/TestBatchReplacement/empty_filter (0.01s)
+        --- PASS: TestCollections/TestBatchReplacement/no_matches (0.01s)
+        --- PASS: TestCollections/TestBatchReplacement/nested_parents (0.47s)
+        --- PASS: TestCollections/TestBatchReplacement/union (0.11s)
+        --- PASS: TestCollections/TestBatchReplacement/exclusion (0.01s)
+        --- PASS: TestCollections/TestBatchReplacement/numeric_keys (0.19s)
+    --- PASS: TestCollections/TestCommandListSchemaPaths (0.61s)
+        --- PASS: TestCollections/TestCommandListSchemaPaths/check (4.94s)
+        --- PASS: TestCollections/TestCommandListSchemaPaths/agent (0.82s)
+        --- PASS: TestCollections/TestCommandListSchemaPaths/key_filters_still_resolve_keys (0.51s)
+        --- PASS: TestCollections/TestCommandListSchemaPaths/empty_collection (1.11s)
+        --- PASS: TestCollections/TestCommandListSchemaPaths/up (0.82s)
+        --- PASS: TestCollections/TestCommandListSchemaPaths/shell (0.83s)
+        --- PASS: TestCollections/TestCommandListSchemaPaths/generate (0.79s)
+    --- PASS: TestCollections/TestCheckSelection (8.12s)
+        --- PASS: TestCollections/TestCheckSelection/query (1.08s)
+        --- PASS: TestCollections/TestCheckSelection/separate_addresses (1.00s)
+        --- PASS: TestCollections/TestCheckSelection/grouped (1.49s)
+        --- PASS: TestCollections/TestCheckSelection/shell_flags_leave_unrelated_collections_deferred (0.78s)
+        --- PASS: TestCollections/TestCheckSelection/qualified_flag (0.76s)
+        --- PASS: TestCollections/TestCheckSelection/query_and_flag (0.81s)
+        --- PASS: TestCollections/TestCheckSelection/dimension_flag (0.80s)
+PASS
+
+golden-final.log
+--- PASS: TestTelemetry (4.70s)
+    --- PASS: TestTelemetry/TestGolden (4.70s)
+        --- PASS: TestTelemetry/TestGolden/test-summary-check (2.27s)
+        --- PASS: TestTelemetry/TestGolden/test-summary-call (2.42s)
+PASS
+
+Raw logs retained locally under /tmp/collections-perf/rebase-main; not committed (large fixture/schema output).
+SHA-256 of local validation logs:
+0c4b8f2253dd98ddc06301e75227251f185ef908969c58c274345f30200d68a0  focused-tests.log
+a6f9e6d54f2efbfb8ec2ca499d75172cc5e254bc680a88f83d778211f235c6ec  cli-tests.log
+dec28cba0ee4287472d323732143b83458c1979e7599ac1735f8948f2dcdc2f7  schema-final.log
+b88a53f48ddf22d2524e8708189fe67925dad6fff3a6e7315fc0b7989edd2b3f  integration.log
+733ad36e9249c565185bf232a88a57ccaa0ec6e3762a33f4edf33fb1e14387cd  golden-final.log
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  build-cli.log
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  build-engine.log

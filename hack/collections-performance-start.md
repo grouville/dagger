@@ -1,5 +1,13 @@
 # Try the collections discovery changes
 
+**2026-09-25:** the branch has been rebased onto `main` at `d8f1f0d6d2`.
+This includes the merged engine-side Cloud telemetry split (#14303) and
+Cloud reachability probe (#14341). The timings below predate that rebase;
+they are not measurements of the new base. See the
+[rebase validation](collections-main-rebase.md) before comparing shutdown costs.
+Commit IDs in earlier reports identify the original measured builds and remain
+unchanged in those reports, even though the branch history was replayed.
+
 The engine/CLI branch is
 [`grouville/dagger:perf/collections-discovery`](https://github.com/grouville/dagger/tree/perf/collections-discovery),
 based on collections PR #14221 at `175dca038268639231c21323cd7aaa1d746617dd`.
