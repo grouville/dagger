@@ -8,6 +8,12 @@ a separate durable telemetry relay reaches **1.649 s**, with delivery continuing
 after exit. These prototypes are not enabled by a normal branch build. The
 500 ms goal remains unmet. Cold samples still vary with measured disk stalls.
 
+The subsequent authorized forty-command relay test confirms a **2.189 → 1.634 s**
+CLI median, but produces **1.89× HTTP requests** with nearly unchanged body bytes.
+Ten back-to-back async commands accumulate 314 pending batches and take longer
+to finish remote delivery. The relay is a latency-handoff proof, not a sustainable
+throughput improvement; the review includes the counters and next batching design.
+
 The preceding [post-rebase investigation](collections-post-rebase-performance.md)
 compares the historical build, rebased baseline and Cloud batching change:
 2.363 / 2.867 / 2.662 s warm medians. Historical comparisons remain separate;

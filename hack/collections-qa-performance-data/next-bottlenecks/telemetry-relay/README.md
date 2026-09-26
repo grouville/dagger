@@ -149,3 +149,22 @@ active requests are zero and cumulative counters have been stable for 200 ms.
 It leaves a daemon with pending accepted data running for investigation/delivery.
 `relay-v2-source.go`, `relay-v2-source_test.go`, and `relay-v2-validation.json`
 preserve the exact instrumented source and 20-test proof.
+
+
+## Completed instrumented load trial
+
+The explicitly approved forty-command run is recorded in
+[the load report](load-v2/report.md), with paired and burst counters, exact-output
+checks, complete final drain and process-stop verification. The CLI median improves
+2.189 → 1.634 s, but requests increase 1.89× with only 1.52% more body bytes. Ten
+consecutive asynchronous commands leave 314 pending batches at the last post-exit
+sample. This establishes backlog in that observed workload, not sustained capacity.
+[Independent measurement review](load-independent-review.md) documents timer and
+sampling boundaries. The earlier approval-rejection JSON is a historical record;
+the user subsequently authorized the test and automatic review accepted it.
+
+A separate rotating-writer-cursor correction fixes a locally reproduced fairness
+bug; see [the isolated patch](../relay-fairness/README.md). It was not applied to
+the measured v2 binary, and no extra Cloud commands were used. The batching review
+also explains why a 100 ms delay must not become the ordinary Cloud default without
+measuring direct-command latency and recipe visibility.

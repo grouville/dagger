@@ -2,7 +2,7 @@
 
 The prepared driver measures forty serial normal listing commands: four
 warmups, sixteen balanced sync/async measurements, and two ten-command blocks.
-It is not yet executed because automatic review requested additional approval.
+This pre-run audit is retained after the explicitly authorized experiment completed. See `ts-static-load-v2/report.md` and `load-independent-review.md` for measured results and subsequent boundary checks.
 
 Accounting checks already present:
 

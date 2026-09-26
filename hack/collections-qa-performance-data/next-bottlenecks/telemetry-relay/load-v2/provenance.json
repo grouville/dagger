@@ -1,0 +1,28 @@
+{
+  "engine": "dagger-engine.collections-disk-abba-2",
+  "workspace": "/tmp/collections-perf/sdk-edit-audit/ts-static/greetings",
+  "cli": "/tmp/collections-perf/rebase-main/dagger",
+  "cli_sha256": "aea19ce8b7849905113c388b353b6a686aca6a55fbb0fe714f406a5bb8d2356d",
+  "relay_sha256": "c8bd428bd08c2ad2d6fc36ff90469a8e75f4a5a7e5deb5aad258112868593ae5",
+  "relay_source_sha256": "e84947c852c45aa911b490f993ec80fde7696b48e79c9389f995b149d5c20af9",
+  "relay_tests_sha256": "51452265740534b6ce940ecc91431c6968c06e5b2d92e0f5576ee34b25abc4a6",
+  "driver_sha256": "e771bbf69737d0bc2066f642594aa906c2deed0d797da8a51ee69b2fd4c63b33",
+  "fixture_sha256": {
+    "main_test.go": "5605ebadd175eb2e6836f77dcda6006b2ba1accee404c034d85a61f64578958f",
+    "main.go": "108029a457668cec1724f9905460a83178882b601df4775380eecde9d78ce86c",
+    ".dagger/modules/backend/main.go": "b48381bc9a5bf07c22e645da2f664415a3399abc3b639809691e602366b5c06c",
+    ".dagger/modules/frontend/.dagger-static-types/main.dang": "8cb8c0990fa1432e9efdd077453fc776b5a49c62711daf7843da417f6e29d9fa",
+    ".dagger/modules/frontend/.dagger-static-types/manifest.json": "98768c709707bd940efaaa02fbc83adc471dcbbdf6fcb821ef72966bafbe7f58"
+  },
+  "argv": [
+    "check",
+    "-l",
+    "--all"
+  ],
+  "telemetry": true,
+  "pairs": 8,
+  "burst_commands_per_mode": 10,
+  "timing": "complete CLI through exit; final upstream drain separate",
+  "burst_note": "No Cloud drain or intentional sleep between commands; local stats read and output bookkeeping remain between commands. Interval exports can belong to earlier commands; only final block totals have exact per-command averages.",
+  "pair_note": "Balanced alternating sync/async order, full drain between isolated commands; two warm-up pairs excluded."
+}

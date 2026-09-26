@@ -1,0 +1,120 @@
+{
+  "commands": 40,
+  "phase_counts": {
+    "pair": 20,
+    "burst": 20
+  },
+  "warmup_commands": 4,
+  "measured_pair_commands": 16,
+  "mode_counts": {
+    "sync": 20,
+    "async": 20
+  },
+  "all_exact_expected_outputs": true,
+  "expected_stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+  "all_drained_delta_accounting_valid": true,
+  "all_final_errors_zero": true,
+  "all_final_pending_and_active_zero": true,
+  "final_async_accepted": 1864,
+  "final_async_delivered": 1864,
+  "final_all_mode_export_requests": 2852,
+  "final_all_mode_completed_2xx": 2852,
+  "sync_export_requests": 988,
+  "final_stats": {
+    "Accepted": 1864,
+    "Delivered": 1864,
+    "Retries": 0,
+    "Pending": 0,
+    "Bytes": 0,
+    "Failed": 0,
+    "StorageErrors": 0,
+    "CleanupPending": 0,
+    "Tombstones": 1864,
+    "Recovered": 0,
+    "RecoveredBytes": 0,
+    "LastStatus": 201,
+    "PersistNS": 5774846338,
+    "DeliverNS": 186195066007,
+    "OldestPendingNS": 0,
+    "ExportRequests": 2852,
+    "ExportRequestBytes": 89718409,
+    "ExportResponseBytes": 0,
+    "Export2xx": 2852,
+    "Export4xx": 0,
+    "Export5xx": 0,
+    "ExportOther": 0,
+    "ExportErrors": 0,
+    "ExportDurationNS": 296071778894,
+    "ExportHeaderNS": 296021788990,
+    "ExportGetConnNS": 70457630,
+    "ExportConnectNS": 284940711,
+    "ExportTLSNS": 326887316,
+    "ExportReused": 2851,
+    "ExportActive": 0,
+    "ExportPeak": 5,
+    "TraceRequests": 718,
+    "TraceRequestBytes": 50933153,
+    "LogRequests": 1574,
+    "LogRequestBytes": 26599390,
+    "MetricRequests": 560,
+    "MetricRequestBytes": 12185866,
+    "QueueStarts": 1864,
+    "QueueWaitNS": 5069744598493,
+    "PayloadReadNS": 1435520172
+  },
+  "owned_relay_stopped": true,
+  "benchmark_driver_exit_status": 0,
+  "source_provenance": {
+    "engine": "dagger-engine.collections-disk-abba-2",
+    "workspace": "/tmp/collections-perf/sdk-edit-audit/ts-static/greetings",
+    "cli": "/tmp/collections-perf/rebase-main/dagger",
+    "cli_sha256": "aea19ce8b7849905113c388b353b6a686aca6a55fbb0fe714f406a5bb8d2356d",
+    "relay_sha256": "c8bd428bd08c2ad2d6fc36ff90469a8e75f4a5a7e5deb5aad258112868593ae5",
+    "relay_source_sha256": "e84947c852c45aa911b490f993ec80fde7696b48e79c9389f995b149d5c20af9",
+    "relay_tests_sha256": "51452265740534b6ce940ecc91431c6968c06e5b2d92e0f5576ee34b25abc4a6",
+    "driver_sha256": "e771bbf69737d0bc2066f642594aa906c2deed0d797da8a51ee69b2fd4c63b33",
+    "fixture_sha256": {
+      "main_test.go": "5605ebadd175eb2e6836f77dcda6006b2ba1accee404c034d85a61f64578958f",
+      "main.go": "108029a457668cec1724f9905460a83178882b601df4775380eecde9d78ce86c",
+      ".dagger/modules/backend/main.go": "b48381bc9a5bf07c22e645da2f664415a3399abc3b639809691e602366b5c06c",
+      ".dagger/modules/frontend/.dagger-static-types/main.dang": "8cb8c0990fa1432e9efdd077453fc776b5a49c62711daf7843da417f6e29d9fa",
+      ".dagger/modules/frontend/.dagger-static-types/manifest.json": "98768c709707bd940efaaa02fbc83adc471dcbbdf6fcb821ef72966bafbe7f58"
+    },
+    "argv": [
+      "check",
+      "-l",
+      "--all"
+    ],
+    "telemetry": true,
+    "pairs": 8,
+    "burst_commands_per_mode": 10,
+    "timing": "complete CLI through exit; final upstream drain separate",
+    "burst_note": "No Cloud drain or intentional sleep between commands; local stats read and output bookkeeping remain between commands. Interval exports can belong to earlier commands; only final block totals have exact per-command averages.",
+    "pair_note": "Balanced alternating sync/async order, full drain between isolated commands; two warm-up pairs excluded."
+  },
+  "timing_limitations": [
+    "relay_at_exit is a post-exit HTTP stats sample, not the exact exit instant",
+    "additional observed drain wait starts inside drained() after stats/output bookkeeping and subtracts200ms; not literal exit-to-acceptance",
+    "full block boundary includes stats/bookkeeping and a200ms stable-zero interval",
+    "burst order fixed sync then async; ten commands do not establish steady-state behavior"
+  ],
+  "engine_preflight": {
+    "sha256": "a1b41acdd93b65fd0a3baf3078f70ef51ab1293a0c5526f473e60c57cc875cf5",
+    "verified_before_launch": true,
+    "method": "docker exec dagger-engine.collections-disk-abba-2 sha256sum /usr/local/bin/dagger-engine; checked against frozen TS-static expected hash in successful preflight tool call"
+  },
+  "postrun_fixture_hashes": {
+    "timing": "read-only after completed experiment; these are not claimed as pre-run hashes",
+    "sha256": {
+      "dagger.toml": "fa3e76ed17cd120a0e5b5655a27a63a7dd7bae05a63dc43ea391fcac6991e3ad",
+      "dagger.lock": "c2d3062b2f0e3463cc2bab1a85cebfe5a394ec79545c8a99b9b2979b1d4ca81c"
+    },
+    "prior_engine_fixture_manifest": "/tmp/collections-perf/sdk-edit-audit/ts-static/engine-manifest.json"
+  },
+  "snapshot_invariants": {
+    "snapshot_count": 100,
+    "pending_equals_accepted_minus_delivered_plus_cleanup": true,
+    "unfinished_exports_equal_active": true
+  },
+  "independent_review": "/tmp/collections-perf/telemetry-relay/load-independent-review.md"
+}

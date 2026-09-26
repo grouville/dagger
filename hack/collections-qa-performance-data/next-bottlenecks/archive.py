@@ -10,6 +10,7 @@ DEST = Path('/home/dagger/dag/hack/collections-qa-performance-data/next-bottlene
 DEST.mkdir(exist_ok=True)
 copied = []
 compressed = {}
+source_copies = {}
 
 
 def copy(source, target):
@@ -20,6 +21,14 @@ def copy(source, target):
     if source.stat().st_size > 4 * 1024 * 1024:
         raise ValueError('large artifact requires a separate digest: ' + str(source))
     target.parent.mkdir(parents=True, exist_ok=True)
+    if target.suffix == '.go':
+        # These are frozen evidence copies, not packages in Dagger's Go module.
+        go_target = target
+        target = target.with_suffix(target.suffix + '.txt')
+        source_copies[str(target.relative_to(DEST))] = str(go_target.relative_to(DEST))
+        if go_target.exists():
+            assert go_target.read_bytes() == source.read_bytes()
+            go_target.unlink()
     if source.name == 'samples.json' and source.stat().st_size > 256 * 1024:
         data = source.read_bytes()
         plain_target = target
@@ -132,10 +141,19 @@ files('telemetry-relay/ts-static-trial-2', ['before-crash.json', 'crash-disk-cou
 files('telemetry-relay/ts-static-trial-2/measurements', ['provenance.json', 'results.json', 'summary.json',
     'async-shutdown.txt', 'direct-shutdown.txt', 'sync-shutdown.txt',
     'async-wcprof.txt', 'direct-wcprof.txt', 'sync-wcprof.txt'], 'telemetry-relay/trial-2/measurements')
+files('telemetry-relay/ts-static-load-v2', ['report.md', 'verification.json', 'process-stop-check.json',
+    'provenance.json', 'results.json', 'paired-summary.json', 'burst-summary.json'], 'telemetry-relay/load-v2')
+files('telemetry-relay', ['load-independent-review.md'], 'telemetry-relay')
+files('sdk-edit-audit/cloud-coalescing', ['correctness-review.md'], 'cloud-coalescing')
+files('relay-fairness', ['README.md', 'fairness.patch', 'source-manifest.json', 'fairness_test.go',
+    'control-test.log', 'candidate-test.log', 'race-test.log', 'main.go', 'main_test.go',
+    'control.go.txt', 'control-overlay.json'], 'relay-fairness')
+
 copy('archive-next-bottlenecks.py', 'archive.py')
 (DEST / 'archive-manifest.json').write_text(json.dumps({
     'files': {name: hashlib.sha256((DEST / name).read_bytes()).hexdigest() for name in sorted(copied)},
     'compressed_sources': compressed,
+    'go_source_copies': source_copies,
     'excludes': ['private telemetry spool', 'credentials', 'large binaries', 'raw binary profiles'],
 }, indent=2) + '\n')
 print(json.dumps({'archived_files': len(copied)}))

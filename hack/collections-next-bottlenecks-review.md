@@ -109,6 +109,7 @@ or compare small differences between separate series as if they were paired.
 | Dang directive retention and discarded schema-function work, eight warm pairs | 2.5197 s | 2.5236 s | Semantics tests pass; full-command latency is flat. Do not claim a wall-time gain. |
 | TypeScript static registration proof, eight warm pairs | 2.6433 s | 2.1319 s | Real gain; fixture-only implementation must become a generic SDK generator feature. |
 | Durable local telemetry handoff, eight triples on that TS prototype | Direct: 2.1430 s; synchronous relay: 2.1388 s | Async relay: 1.6487 s | About 494 ms less CLI wait; delivery continues after exit. Prototype only. |
+| Instrumented relay follow-up, eight balanced pairs | Sync: 2.1887 s, 49 requests | Async: 1.6345 s, 94.5 requests | 554 ms faster CLI exit, 1.93× requests; ten-command async block accumulates backlog. |
 | Application edit → paired check, five alternating pairs | 11.446 s | 3.559 s | 68.9% less with standard compiler/download cache mounts on the actual backend builder. |
 | Same backend cache change, unchanged warm checks | 2.242 s | 2.226 s | Effectively unchanged: immutable results already hit. |
 | CLI source-prefix shortcut plus workspace reuse, eight triples | 2.351 s | 2.410 s | No full-command gain established. Commit workspace reuse for the proved redundant catalog removal; leave prefix prototype separate. |
@@ -280,21 +281,76 @@ Separate synchronization profiles put engine shutdown wait at 453 ms direct,
 decomposition of the medians. They locate the removed wait at the expected
 delivery boundary.
 
-However, the async queue takes another **3.147 s median after CLI exit** to
-drain to successful upstream responses. Each trial drains before the next
-command; this is not yet a sustained developer-loop/backlog result. Cloud HTTP
+However, the async queue has another **3.147 s median observed drain wait** after
+the CLI exits. The harness begins that wait after its post-exit stats read; it
+is not an exact exit-to-reception timestamp. Each trial drains before the next
+command; this first series does not measure a sustained developer-loop backlog. Cloud HTTP
 acceptance is measured, not completed search/index visibility. Credential
 refresh, daemon lifecycle, failure reporting and throughput remain production
 requirements. Raw spool contents and credentials are never archived.
 
 A second relay binary adds integer request/byte, signal, connection and queue-age
-counters; twenty race-tested cases pass. Its prepared follow-up uses eight
-balanced pairs and ten consecutive commands per mode without inter-command
-drain. That live follow-up has **not run**: automatic approval review rejected
-the launch for insufficient explicit authorization of Cloud telemetry and engine
-side effects. Read-only checks confirmed the same task-owned engine, fixture,
-original Cloud endpoint and payload types as the earlier approved trial. An
-explicit user approval request is pending. No sustained-load result is claimed.
+counters; twenty race-tested cases pass. After explicit user approval, its
+forty-command follow-up completed: four warmups, eight balanced sync/async pairs,
+then ten consecutive commands per mode without an inter-command Cloud drain.
+The engine, fixture, CLI and original Cloud destination remain the same as in
+the preceding trial. All forty outputs match; no extra CLI calls were made.
+
+| Eight isolated pairs, medians | Synchronous relay | Durable asynchronous relay |
+| --- | ---: | ---: |
+| Complete new CLI process | 2.1887 s | 1.6345 s |
+| HTTP export requests per command | 49 | 94.5 |
+| Encoded request-body bytes per command | 2,228,274 | 2,262,939 |
+| Log requests per command | 19 | 60 |
+| Additional observed drain wait | 0.321 s | 3.962 s |
+
+The CLI saves **554 ms (25.3%)**, while requests increase **1.93×** and encoded
+body bytes increase only 1.6%. Most additional calls are log requests. The source
+mechanism is consistent with these counters: rapid durable acknowledgement
+removes the accumulation time provided by an in-flight remote HTTP request.
+This is measured request amplification, not a proportional increase in useful
+telemetry. Request-body bytes exclude headers and transport overhead.
+
+| One ten-command block per mode | Synchronous | Asynchronous |
+| --- | ---: | ---: |
+| Time through the last CLI exit | 23.260 s | 16.387 s |
+| Additional observed drain wait | 0.426 s | 9.753 s |
+| Whole block through drained/stable observation | 23.890 s | 26.348 s |
+| Final post-exit sample: pending requests | 0 | 314 |
+| Final post-exit sample: pending spool bytes | 0 | 9,856,241 |
+| Oldest pending request in that sample | 0 | 6.738 s |
+
+The async post-exit queue samples are **65, 97, 124, 151, 177, 204, 228, 253,
+284, 314**. Delivery catches up only after the commands stop. In this block,
+earlier CLI completion therefore comes with later completion of remote delivery.
+The synchronous block ran first; a single block per mode is order-confounded
+and ten commands do not establish steady-state capacity. Growing pending count
+and age do establish backlog over this observed serial developer loop.
+
+The harness's `relay_at_exit` is sampled after process exit and a local stats
+request; it is not an instantaneous exit snapshot. Its drain-wait timer starts
+after that bookkeeping and subtracts a 200 ms stability window. The complete
+block duration includes bookkeeping and that final window, and is the stronger
+end-to-end boundary. Neither measurement establishes Cloud UI/search visibility.
+Synchronous `Pending=0` describes the absence of a durable queue, not absence
+of active HTTP exports: its post-exit snapshots can still contain 1–2 requests
+in flight. The actual last-CLI-exit to drained/stable observation is 0.630 s
+synchronous and 9.961 s asynchronous, including the observation window.
+
+Connections were reused for every request in both measured burst blocks, with
+zero new TCP/TLS setup recorded. Request-to-response-header time averages about
+114 ms synchronous and 98 ms asynchronous. Setup is not the dominant observed
+cost; these client counters cannot separate network RTT from server processing.
+Parallel request-duration sums must not be added to CLI wall time.
+
+Finally, **1,864 asynchronously accepted requests were delivered**, the queue
+and pending bytes reached zero, and all recorded HTTP responses succeeded.
+There were no retries, terminal/storage/transport errors or partial-rejection
+errors. The owned relay was stopped after drain. Counter equality establishes
+the measured handoff/delivery accounting, not global exactly-once delivery.
+The [complete follow-up and raw counters](collections-qa-performance-data/next-bottlenecks/telemetry-relay/load-v2/report.md)
+supersede the earlier approval-blocked status; this packet-spooling prototype
+is still not a sustainable production solution at the observed offered load.
 
 A local, deterministic experiment does validate one possible source of request
 amplification. The payload processor normally coalesces for 5 ms; a fast local
@@ -310,6 +366,24 @@ latency. Cloud payload visibility can be delayed another 95 ms, and a wider
 window could move work into the final synchronous flush. The
 [coalescing prototype](collections-qa-performance-data/next-bottlenecks/cloud-coalescing/README.md)
 remains isolated until live comparison and Cloud UX validation justify enabling it.
+
+The follow-up source review also shows why a universal 100 ms default is not
+justified: a short direct-to-Cloud command can lose useful overlap and defer its
+only request into final shutdown. A durable queue of records in the engine can
+instead form bounded remote batches after local durable acceptance, while the
+current packet spool preserves its already-small requests. That architecture
+still needs persisted acknowledgement cursors, GC pins, credentials and producer
+completion; it is not a detached goroutine or an existing durability guarantee.
+See the [delivery and batching review](collections-qa-performance-data/next-bottlenecks/cloud-coalescing/correctness-review.md).
+
+Independent local tests found another prototype defect: always selecting from
+the start of the writer list can starve later writers. A separate rotating-cursor
+patch fixes selection fairness while preserving each writer's FIFO and the
+four-worker limit. The frozen measured version fails the gated regression; the
+candidate passes the full fake-transport suite and three race-enabled repetitions
+of the fairness tests. This [isolated correction](collections-qa-performance-data/next-bottlenecks/relay-fairness/README.md)
+does not change the measured binary or prove that it fixes request amplification
+or capacity. No additional live Cloud calls were made for it.
 
 ### Cold disk variability: deferred writes are not eliminated writes
 
@@ -530,5 +604,8 @@ records hashes for explicit small source, test and numeric evidence files.
 Large I/O sample JSON files use deterministic gzip; the manifest also records
 their uncompressed size and hash, preserving every sample without bloating
 the source diff. Load them with `gzip.open(path)` or decompress before analysis.
+Frozen Go source copies end in `.go.txt` so they do not become packages under
+the repository's Go module. The manifest records their original filenames;
+remove the final `.txt` when reconstructing an isolated reproduction directory.
 Binary profiles and engine executables stay in the lab with recorded provenance;
 telemetry payloads, spool contents and credentials are excluded from publication.

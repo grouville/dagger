@@ -1,0 +1,144 @@
+package main
+
+import (
+	"fmt"
+	"net/http"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+)
+
+type scheduledRequest struct {
+	sequence string
+	release  chan struct{}
+}
+
+func nextScheduled(t *testing.T, started <-chan scheduledRequest) scheduledRequest {
+	t.Helper()
+	select {
+	case req := <-started:
+		return req
+	case <-time.After(3 * time.Second):
+		t.Fatal("fake transport did not start the expected request")
+		return scheduledRequest{}
+	}
+}
+
+// Keep an earlier writer ready while a later writer waits. The later writer
+// must get the next available worker, without first draining the earlier one.
+func TestReadyWriterGetsBoundedTurn(t *testing.T) {
+	started := make(chan scheduledRequest, 16)
+	free := make(chan struct{})
+	defer close(free)
+	r := makeRelay(t, func(req *http.Request) (*http.Response, error) {
+		s := scheduledRequest{sequence: req.Header.Get("X-Dagger-Export"), release: make(chan struct{})}
+		started <- s
+		select {
+		case <-s.release:
+		case <-free:
+		case <-req.Context().Done():
+			return nil, req.Context().Err()
+		}
+		return response(200), nil
+	})
+	for _, seq := range []string{"early/1", "early/2", "early/3", "late/1"} {
+		enqueue(t, r, seq)
+	}
+	r.start(1)
+	first := nextScheduled(t, started)
+	if first.sequence != "early/1" {
+		t.Fatalf("first writer=%s", first.sequence)
+	}
+	// Replenish the early writer while its first request is still active.
+	enqueue(t, r, "early/4")
+	close(first.release)
+	second := nextScheduled(t, started)
+	if second.sequence != "late/1" {
+		t.Fatalf("later ready writer starved behind %s; expected late/1 while early remains queued", second.sequence)
+	}
+	close(second.release)
+	for _, want := range []string{"early/2", "early/3", "early/4"} {
+		next := nextScheduled(t, started)
+		if next.sequence != want {
+			t.Fatalf("per-writer order=%s want %s", next.sequence, want)
+		}
+		close(next.release)
+	}
+	waitFor(t, r, func(s stats) bool { return s.Pending == 0 && s.Delivered == 5 })
+}
+
+func TestRotatingSchedulerPreservesFourWorkerBoundAndFIFO(t *testing.T) {
+	var inFlight, peak atomic.Int32
+	var mu sync.Mutex
+	active := map[string]bool{}
+	previous := map[string]int{}
+	var violations []string
+	gate := make(chan struct{})
+	started := make(chan struct{}, 64)
+	r := makeRelay(t, func(req *http.Request) (*http.Response, error) {
+		seq := req.Header.Get("X-Dagger-Export")
+		parts := strings.Split(seq, "/")
+		number, _ := strconv.Atoi(parts[1])
+		name := parts[0]
+		mu.Lock()
+		if active[name] || number != previous[name]+1 {
+			violations = append(violations, "concurrent or reordered "+seq)
+		}
+		active[name] = true
+		previous[name] = number
+		mu.Unlock()
+		n := inFlight.Add(1)
+		for old := peak.Load(); n > old; old = peak.Load() {
+			if peak.CompareAndSwap(old, n) {
+				break
+			}
+		}
+		started <- struct{}{}
+		select {
+		case <-gate:
+		case <-req.Context().Done():
+		}
+		inFlight.Add(-1)
+		mu.Lock()
+		delete(active, name)
+		mu.Unlock()
+		if err := req.Context().Err(); err != nil {
+			return nil, err
+		}
+		return response(200), nil
+	})
+	for writer := range 9 {
+		for seq := 1; seq <= 3; seq++ {
+			enqueue(t, r, fmt.Sprintf("writer%d/%d", writer, seq))
+		}
+	}
+	r.start(4)
+	for range 4 {
+		select {
+		case <-started:
+		case <-time.After(3 * time.Second):
+			t.Fatal("four ready writers did not start")
+		}
+	}
+	if n := inFlight.Load(); n != 4 {
+		t.Fatalf("active=%d want4", n)
+	}
+	close(gate)
+	waitFor(t, r, func(s stats) bool { return s.Pending == 0 && s.Delivered == 27 })
+	if n := peak.Load(); n != 4 {
+		t.Fatalf("worker peak=%d want4", n)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(violations) > 0 {
+		t.Fatalf("writer ordering violations:%v", violations)
+	}
+	for writer := range 9 {
+		if n := previous[fmt.Sprintf("writer%d", writer)]; n != 3 {
+			t.Fatalf("writer%d ended at%d", writer, n)
+		}
+	}
+}

@@ -75,3 +75,21 @@ The next comparison should record requests, payload bytes, signal type,
 successful responses, queue growth and final delivery time across ten commands
 without waiting for Cloud between commands. Faster command completion with an
 ever-growing queue is not a sustainable throughput improvement.
+
+
+## Update after the authorized instrumented trial
+
+The forty-command follow-up now measures amplification: eight isolated commands
+per mode produce 396 synchronous versus 750 asynchronous HTTP requests, with only
+1.52% more encoded body bytes. Logs account for most of the increase. The ten-command
+async block grows from 65 to 314 pending requests at successive post-exit samples;
+all eventually deliver. Source and timing boundaries are in `load-v2/report.md`.
+The approximate response-header wait is 98–114 ms/request on fully reused connections;
+client counters cannot separate network RTT from server processing.
+
+This supports batching committed records at delivery, rather than retaining every
+small HTTP packet as the durable unit forever. The separate coalescing review
+shows a direct-to-Cloud latency counterexample for a universal 100 ms timer. Keep
+any experimental transport-specific setting explicit; do not infer durable
+acceptance from a localhost URL or successful status alone. Cursor/pin/authentication
+and final-producer contracts above remain required.
