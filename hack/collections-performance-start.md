@@ -1,5 +1,18 @@
 # Try the collections discovery changes
 
+**Fresh-edit fix:** [preserving pending file producers](collections-lazy-source-performance.md)
+removes an unnecessary backend build during discovery. Three matched local pairs
+improve edit-to-list completion **9.806 → 1.602 s**; with ordinary production Cloud,
+the separate edit series improves **10.294 → 2.371 s**. The implementation uses
+Dagger's existing lazy-copy operation. These absolute timings use the experimental
+SDK stack; the generic engine fix is independent of it. Actual consuming checks
+still owe compilation, and 500 ms remains unmet.
+
+The [279-command allocation matrix](collections-allocation-matrix.md) covers
+listing, checks, calls, generation, service readiness and exports. It supports a
+separate per-pass interface-signature reuse change, without establishing a broad
+wall-time gain. Cold diagnostics remain separate from warm and new-content edits.
+
 **Receiver comparison:** [real local and production API measurements](collections-local-receiver-performance.md)
 give **1.721 s locally versus 2.064 s with production Cloud** for the mixed-SDK
 listing across five matched warm pairs. The initial local-only experiment also
@@ -53,6 +66,12 @@ published CLI release or engine image.
 
 ## What a normal build includes
 
+* `Container.withFile` preserves a pending source even when its destination is
+  already ready. Metadata-only flows no longer force the source producer; actual
+  filesystem/service consumers still do. Restored lazy dependencies are covered.
+* Interface reconciliation obtains each consulted interface's visible fields
+  once per pass/view, preserving version and recursive conformance semantics.
+  This removes redundant signature allocation; the full-command gain is mixed.
 * One CLI listing session, bulk metadata loading, and complete buffered output.
 * Reuse the command's pinned workspace for selection, flags and listing output
   (`0b6a16f400`). One redundant catalog execution disappears; a full-command

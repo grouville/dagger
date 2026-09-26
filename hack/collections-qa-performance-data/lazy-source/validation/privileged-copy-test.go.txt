@@ -1,0 +1,166 @@
+package schema
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"syscall"
+	"testing"
+
+	"github.com/dagger/dagger/core"
+	"github.com/dagger/dagger/dagql"
+	"github.com/dagger/dagger/dagql/call"
+	bkcache "github.com/dagger/dagger/engine/snapshots"
+	"github.com/dagger/dagger/engine/snapshots/testutil"
+	"github.com/stretchr/testify/require"
+)
+
+const withFileSourceSession = "withfile-source"
+
+func withFileSourceServer(t *testing.T, store *testutil.Store, db string) (context.Context, *dagql.Cache, *dagql.Server) {
+	t.Helper()
+	ctx, cache, srv := scratchTestCache(t, store, db, withFileSourceSession)
+	srv.InstallObject(dagql.NewClass[*core.Container](srv))
+	srv.InstallObject(dagql.NewClass[*core.File](srv))
+	srv.InstallObject(dagql.NewClass[*core.Service](srv))
+	dagql.Fields[*core.Query]{
+		dagql.Func("readyContainer", func(context.Context, *core.Query, struct{}) (*core.Container, error) {
+			ctr := core.NewContainer(core.Platform{OS: "linux", Architecture: "arm64"})
+			ctr.Config.WorkingDir = "/work"
+			ctr.Config.User = fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())
+			ctr.Config.Env = []string{"DEST=out"}
+			ctr.Config.Entrypoint = []string{"echo"}
+			return ctr, nil
+		}).IsPersistable(),
+		dagql.Func("sourceFile", func(_ context.Context, _ *core.Query, args struct {
+			Fail bool `default:"false"`
+		}) (*core.File, error) {
+			name := "source.txt"
+			if args.Fail {
+				name = "invalid/name"
+			}
+			file := &core.File{Platform: core.Platform{OS: "linux", Architecture: "arm64"}, File: new(core.LazyAccessor[string, *core.File]), Snapshot: new(core.LazyAccessor[bkcache.ImmutableRef, *core.File])}
+			file.Lazy = &core.FileBlobLazy{LazyState: core.NewLazyState(), Filename: name, Contents: []byte("source bytes"), Permissions: 0640}
+			return file, nil
+		}).IsPersistable(),
+	}.Install(srv)
+	cs := &containerSchema{}
+	dagql.Fields[*core.Container]{dagql.NodeFunc("withFile", cs.withFile).IsPersistable(), dagql.NodeFunc("file", cs.file).IsPersistable(), dagql.NodeFunc("rootfs", cs.rootfs).IsPersistable(), dagql.NodeFunc("asService", (&serviceSchema{}).containerAsService).IsPersistable()}.Install(srv)
+	dagql.Fields[*core.Directory]{dagql.NodeFunc("file", (&directorySchema{}).file).IsPersistable()}.Install(srv)
+	return ctx, cache, srv
+}
+
+func withFileSourceSelect(t *testing.T, ctx context.Context, srv *dagql.Server, fail bool) (dagql.ObjectResult[*core.Container], dagql.ObjectResult[*core.File]) {
+	t.Helper()
+	var parent dagql.ObjectResult[*core.Container]
+	var source dagql.ObjectResult[*core.File]
+	require.NoError(t, srv.Select(ctx, srv.Root(), &parent, dagql.Selector{Field: "readyContainer"}))
+	require.False(t, dagql.HasPendingLazyEvaluation(parent), "the regression requires a fully ready destination")
+	require.NoError(t, srv.Select(ctx, srv.Root(), &source, dagql.Selector{Field: "sourceFile", Args: []dagql.NamedInput{{Name: "fail", Value: dagql.Boolean(fail)}}}))
+	require.True(t, dagql.HasPendingLazyEvaluation(source))
+	return parent, source
+}
+
+func withFileSourceCopy(t *testing.T, ctx context.Context, srv *dagql.Server, parent dagql.ObjectResult[*core.Container], source dagql.ObjectResult[*core.File], extra ...dagql.NamedInput) dagql.ObjectResult[*core.Container] {
+	t.Helper()
+	id, err := source.ID()
+	require.NoError(t, err)
+	args := []dagql.NamedInput{{Name: "path", Value: dagql.String("$DEST/result")}, {Name: "expand", Value: dagql.Boolean(true)}, {Name: "source", Value: dagql.NewID[*core.File](id)}, {Name: "permissions", Value: dagql.Opt(dagql.Int(0600))}}
+	var child dagql.ObjectResult[*core.Container]
+	require.NoError(t, srv.Select(ctx, parent, &child, dagql.Selector{Field: "withFile", Args: append(args, extra...)}))
+	return child
+}
+
+func TestContainerWithFilePreservesPendingSource(t *testing.T) {
+	for _, ready := range []bool{false, true} {
+		for _, inherit := range []bool{false, true} {
+			t.Run(fmt.Sprintf("source-ready=%v/inherit-owner=%v", ready, inherit), func(t *testing.T) {
+				store := testutil.NewStore(t)
+				ctx, cache, srv := withFileSourceServer(t, store, "")
+				parent, source := withFileSourceSelect(t, ctx, srv, false)
+				if ready {
+					require.NoError(t, cache.Evaluate(ctx, source))
+					require.False(t, dagql.HasPendingLazyEvaluation(source))
+				}
+				owner := fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())
+				arg := dagql.NamedInput{Name: "owner", Value: dagql.String(owner)}
+				if inherit {
+					arg = dagql.NamedInput{Name: "inheritOwner", Value: dagql.Boolean(true)}
+				}
+				child := withFileSourceCopy(t, ctx, srv, parent, source, arg)
+				if ready {
+					require.Nil(t, child.Self().Lazy, "ready sources retain the existing fast path")
+				} else {
+					op, ok := child.Self().Lazy.(*core.ContainerWithFileLazy)
+					require.True(t, ok)
+					require.Equal(t, "out/result", op.Path)
+					require.Equal(t, 0600, *op.Permissions)
+					require.Equal(t, owner, op.Owner)
+					require.True(t, dagql.HasPendingLazyEvaluation(source), "construction must not demand source bytes")
+				}
+				require.NoError(t, cache.EvaluateParts(ctx, child, core.ContainerPartMetadata))
+				var service dagql.ObjectResult[*core.Service]
+				require.NoError(t, srv.Select(ctx, child, &service, dagql.Selector{Field: "asService"}))
+				require.Equal(t, []string{"echo"}, service.Self().Args)
+				if !ready {
+					require.True(t, dagql.HasPendingLazyEvaluation(source), "metadata and Service recipes do not consume copied bytes")
+				}
+				var file dagql.ObjectResult[*core.File]
+				require.NoError(t, srv.Select(ctx, child, &file, dagql.Selector{Field: "file", Args: []dagql.NamedInput{{Name: "path", Value: dagql.String("out/result")}}}))
+				require.Equal(t, []byte("source bytes"), demandedFileContents(t, ctx, file))
+				require.False(t, dagql.HasPendingLazyEvaluation(source))
+				snapshot, err := file.Self().Snapshot.GetOrEval(ctx, file.Result)
+				require.NoError(t, err)
+				path, err := file.Self().File.GetOrEval(ctx, file.Result)
+				require.NoError(t, err)
+				stat, err := os.Stat(filepath.Join(testutil.Root(t, snapshot), path))
+				require.NoError(t, err)
+				require.Equal(t, os.FileMode(0600), stat.Mode().Perm())
+				sys := stat.Sys().(*syscall.Stat_t)
+				require.EqualValues(t, os.Getuid(), sys.Uid)
+				require.EqualValues(t, os.Getgid(), sys.Gid)
+				require.NoError(t, cache.EvaluateParts(ctx, child, core.ContainerPartFS))
+				require.Equal(t, "/work", parent.Self().Config.WorkingDir)
+				parentFS, set := parent.Self().FS.Peek()
+				require.True(t, !set || parentFS == nil, "copy must not change the parent scratch filesystem")
+			})
+		}
+	}
+}
+
+func TestContainerWithFileDefersSourceFailure(t *testing.T) {
+	store := testutil.NewStore(t)
+	ctx, cache, srv := withFileSourceServer(t, store, "")
+	parent, source := withFileSourceSelect(t, ctx, srv, true)
+	child := withFileSourceCopy(t, ctx, srv, parent, source)
+	require.NoError(t, cache.EvaluateParts(ctx, child, core.ContainerPartMetadata))
+	var service dagql.ObjectResult[*core.Service]
+	require.NoError(t, srv.Select(ctx, child, &service, dagql.Selector{Field: "asService"}))
+	require.True(t, dagql.HasPendingLazyEvaluation(source))
+	err := cache.EvaluateParts(ctx, child, core.ContainerPartFS)
+	require.ErrorContains(t, err, "must not contain a directory")
+}
+
+func TestContainerWithFilePendingSourcePersistence(t *testing.T) {
+	store := testutil.NewStore(t)
+	db := filepath.Join(t.TempDir(), "cache.db")
+	ctx, cache, srv := withFileSourceServer(t, store, db)
+	parent, source := withFileSourceSelect(t, ctx, srv, false)
+	child := withFileSourceCopy(t, ctx, srv, parent, source)
+	record, err := cache.CapturePersistedRecord(ctx, child)
+	require.NoError(t, err)
+	require.True(t, dagql.HasPendingLazyEvaluation(source), "capture must not force the pending source")
+	require.NoError(t, cache.ReleaseSession(ctx, withFileSourceSession))
+	require.NoError(t, cache.Close(ctx))
+	store.Reload(t)
+	ctx, cache, srv = withFileSourceServer(t, store, db)
+	restored, err := cache.LoadResultByResultID(ctx, withFileSourceSession, srv, record.ResultID)
+	require.NoError(t, err)
+	child = restored.(dagql.ObjectResult[*core.Container])
+	require.NoError(t, cache.EvaluateParts(ctx, child, core.ContainerPartMetadata))
+	require.True(t, dagql.HasPendingLazyEvaluation(child))
+	var file dagql.ObjectResult[*core.File]
+	require.NoError(t, srv.Select(ctx, child, &file, dagql.Selector{Field: "file", View: call.View(""), Args: []dagql.NamedInput{{Name: "path", Value: dagql.String("out/result")}}}))
+	require.Equal(t, []byte("source bytes"), demandedFileContents(t, ctx, file))
+}

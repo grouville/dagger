@@ -1,0 +1,269 @@
+--- a/dagql/interfaces.go
++++ b/dagql/interfaces.go
+@@ -225,19 +225,7 @@
+ 	if len(checkers) > 0 {
+ 		checker = checkers[0]
+ 	}
+-	for _, ifaceField := range iface.FieldSpecs(view) {
+-		objField, ok := obj.FieldSpec(ifaceField.Name, view)
+-		if !ok {
+-			return false
+-		}
+-		if !typeCompatible(ifaceField.Type.Type(), objField.Type.Type(), checker) {
+-			return false
+-		}
+-		if !argsCompatible(ifaceField.Args, objField.Args, view, checker) {
+-			return false
+-		}
+-	}
+-	return true
++	return interfaceFieldsSatisfiedBy(iface.FieldSpecs(view), obj, view, checker)
+ }
+ 
+ // SatisfiedByInterface returns true if the given interface structurally satisfies
+@@ -251,15 +239,24 @@
+ 	if len(checkers) > 0 {
+ 		checker = checkers[0]
+ 	}
+-	for _, ifaceField := range iface.FieldSpecs(view) {
+-		otherField, ok := other.FieldSpec(ifaceField.Name, view)
++	return interfaceFieldsSatisfiedBy(iface.FieldSpecs(view), other, view, checker)
++}
++
++// interfaceFieldsSatisfiedBy checks one snapshot of an interface's visible
++// fields. Reconciliation reuses this snapshot for every candidate in its pass;
++// standalone callers still obtain a fresh snapshot for the requested view.
++func interfaceFieldsSatisfiedBy(fields []FieldSpec, obj interface {
++	FieldSpec(string, call.View) (FieldSpec, bool)
++}, view call.View, checker ImplementsChecker) bool {
++	for _, ifaceField := range fields {
++		objField, ok := obj.FieldSpec(ifaceField.Name, view)
+ 		if !ok {
+ 			return false
+ 		}
+-		if !typeCompatible(ifaceField.Type.Type(), otherField.Type.Type(), checker) {
+-			return false
+-		}
+-		if !argsCompatible(ifaceField.Args, otherField.Args, view, checker) {
++		if !typeCompatible(ifaceField.Type.Type(), objField.Type.Type(), checker) {
++			return false
++		}
++		if !argsCompatible(ifaceField.Args, objField.Args, view, checker) {
+ 			return false
+ 		}
+ 	}
+--- a/dagql/server.go
++++ b/dagql/server.go
+@@ -666,6 +666,23 @@
+ 		return
+ 	}
+ 
++	// Reuse each interface's visible fields across candidate pairs and fixed-
++	// point iterations. Materialize a snapshot only when a pair needs checking;
++	// explicit/permanent relationships need no field work. This map belongs to
++	// this reconciliation pass and is never retained across passes or views.
++	var fields map[string][]FieldSpec
++	getFields := func(name string, iface *Interface) []FieldSpec {
++		if specs, ok := fields[name]; ok {
++			return specs
++		}
++		specs := iface.FieldSpecs(view)
++		if fields == nil {
++			fields = make(map[string][]FieldSpec, len(s.interfaces))
++		}
++		fields[name] = specs
++		return specs
++	}
++
+ 	rels := interfaceRelationSet{}
+ 	permanent := interfaceRelationSet{}
+ 
+@@ -736,7 +753,7 @@
+ 				if !rels.has(objName, ifaceName) || permanent.has(objName, ifaceName) {
+ 					return
+ 				}
+-				if !iface.Satisfies(obj, view, checker) {
++				if !interfaceFieldsSatisfiedBy(getFields(ifaceName, iface), obj, view, checker) {
+ 					changed = rels.del(objName, ifaceName) || changed
+ 				}
+ 			})
+@@ -747,7 +764,7 @@
+ 				if typeName == ifaceName || !rels.has(typeName, ifaceName) || permanent.has(typeName, ifaceName) {
+ 					return
+ 				}
+-				if !iface.SatisfiedByInterface(typ, view, checker) {
++				if !interfaceFieldsSatisfiedBy(getFields(ifaceName, iface), typ, view, checker) {
+ 					changed = rels.del(typeName, ifaceName) || changed
+ 				}
+ 			})
+--- /dev/null
++++ b/dagql/interface_signatures_test.go
+@@ -0,0 +1,168 @@
++package dagql
++
++import (
++	"fmt"
++	"sync"
++	"testing"
++
++	"github.com/dagger/dagger/dagql/call"
++	"github.com/stretchr/testify/require"
++	"github.com/vektah/gqlparser/v2/ast"
++)
++
++type reconcileSignatureType string
++
++func (t reconcileSignatureType) Type() *ast.Type {
++	return &ast.Type{NamedType: string(t), NonNull: true}
++}
++
++func signatureServer() *Server {
++	return &Server{objects: map[string]ObjectType{}, interfaces: map[string]*Interface{}, installLock: new(sync.RWMutex), schemaLock: new(sync.Mutex)}
++}
++func signatureClass(s *Server, name string, fields ...FieldSpec) Class[reconcileSignatureType] {
++	c := NewClass(s, ClassOpts[reconcileSignatureType]{Typed: reconcileSignatureType(name), NoIDs: true})
++	for _, f := range fields {
++		c.Extend(f, nil)
++	}
++	s.objects[name] = c
++	return c
++}
++func signatureInterface(s *Server, name string, fields ...InterfaceFieldSpec) *Interface {
++	iface := NewInterface(name, "")
++	for _, f := range fields {
++		iface.AddField(f)
++	}
++	s.interfaces[name] = iface
++	return iface
++}
++func reconcileSignatures(s *Server, view call.View) {
++	s.installLock.Lock()
++	defer s.installLock.Unlock()
++	s.reconcileInterfaceImplsLocked(view)
++}
++
++func TestReconcileSignatureSnapshotViewsAndVersions(t *testing.T) {
++	for _, view := range []call.View{"", "future"} {
++		t.Run(string(view), func(t *testing.T) {
++			s := signatureServer()
++			signatureClass(s, "Text", FieldSpec{Name: "value", Type: String("")})
++			signatureClass(s, "Number", FieldSpec{Name: "value", Type: Int(0)})
++			iface := signatureInterface(s, "Value",
++				InterfaceFieldSpec{FieldSpec: FieldSpec{Name: "value", Type: Boolean(false)}},
++				InterfaceFieldSpec{FieldSpec: FieldSpec{Name: "value", Type: String("")}},
++				InterfaceFieldSpec{FieldSpec: FieldSpec{Name: "value", Type: Int(0)}, MinVersion: "future"},
++			)
++			empty := signatureInterface(s, "Empty")
++			reconcileSignatures(s, view)
++			require.Equal(t, view == "", iface.HasImplementor("Text"))
++			require.Equal(t, view == "future", iface.HasImplementor("Number"))
++			require.True(t, empty.HasImplementor("Text"))
++			require.True(t, empty.HasImplementor("Number"))
++		})
++	}
++}
++
++func TestReconcileSignatureSnapshotDoesNotSurvivePass(t *testing.T) {
++	s := signatureServer()
++	signatureClass(s, "Text", FieldSpec{Name: "value", Type: String("")})
++	iface := signatureInterface(s, "Value", InterfaceFieldSpec{FieldSpec: FieldSpec{Name: "value", Type: Int(0)}})
++	reconcileSignatures(s, "")
++	require.False(t, iface.HasImplementor("Text"))
++	// A later schema installation can change a declaration. The next pass must
++	// take a fresh signature rather than reuse the previous view's snapshot.
++	iface.AddField(InterfaceFieldSpec{FieldSpec: FieldSpec{Name: "value", Type: String("")}})
++	reconcileSignatures(s, "")
++	require.True(t, iface.HasImplementor("Text"))
++}
++
++func TestReconcileSignatureSnapshotRecursiveAndPermanent(t *testing.T) {
++	s := signatureServer()
++	self := signatureInterface(s, "Selfer", InterfaceFieldSpec{FieldSpec: FieldSpec{Name: "self", Type: reconcileSignatureType("Selfer")}})
++	signatureClass(s, "Good", FieldSpec{Name: "self", Type: reconcileSignatureType("Good")})
++	// A→Z appears valid in the initially optimistic relation set, but Z lacks
++	// self. Removing Z→Selfer must also remove A→Selfer in a later sweep.
++	signatureClass(s, "A", FieldSpec{Name: "self", Type: reconcileSignatureType("Z")})
++	signatureClass(s, "Z")
++	explicit := signatureClass(s, "Declared")
++	explicit.ImplementInterfaceUnchecked(self)
++	other := signatureInterface(s, "Other", InterfaceFieldSpec{FieldSpec: FieldSpec{Name: "self", Type: reconcileSignatureType("Other")}})
++	declaredIface := signatureInterface(s, "DeclaredInterface")
++	declaredIface.ImplementInterface(self)
++	reconcileSignatures(s, "")
++	require.True(t, self.HasImplementor("Good"))
++	require.False(t, self.HasImplementor("A"))
++	require.False(t, self.HasImplementor("Z"))
++	require.True(t, self.HasImplementor("Declared"), "explicit object conformance remains authoritative")
++	require.True(t, self.HasImplementor("DeclaredInterface"), "explicit interface conformance remains authoritative")
++	require.True(t, self.HasImplementor("Other") || other.HasImplementor("Selfer"), "mutually recursive interface compatibility survives without a declaration cycle")
++}
++
++func BenchmarkReconcileSignatureSnapshot(b *testing.B) {
++	for _, count := range []int{10, 100, 1000} {
++		b.Run(fmt.Sprintf("objects=%d/interfaces=8/fields=4", count), func(b *testing.B) {
++			s := signatureServer()
++			classes := make([]Class[reconcileSignatureType], count)
++			for i := range count {
++				name := fmt.Sprintf("Object%04d", i)
++				fields := []FieldSpec{{Name: "self", Type: reconcileSignatureType(name)}}
++				for f := range 3 {
++					fields = append(fields, FieldSpec{Name: fmt.Sprintf("field%d", f), Type: String("")})
++				}
++				classes[i] = signatureClass(s, name, fields...)
++			}
++			for i := range 8 {
++				name := fmt.Sprintf("Interface%d", i)
++				fields := []InterfaceFieldSpec{{FieldSpec: FieldSpec{Name: "self", Type: reconcileSignatureType(name)}}}
++				for f := range 3 {
++					fields = append(fields, InterfaceFieldSpec{FieldSpec: FieldSpec{Name: fmt.Sprintf("field%d", f), Type: String("")}})
++				}
++				signatureInterface(s, name, fields...)
++			}
++			b.ReportAllocs()
++			b.ResetTimer()
++			for range b.N {
++				// Repeat a genuinely dirty reconciliation, not a permanent-pair fast path.
++				// Reset cost is included identically for both source variants.
++				for _, c := range classes {
++					clear(c.interfaces)
++				}
++				for _, iface := range s.interfaces {
++					clear(iface.interfaces)
++					clear(iface.implementors)
++				}
++				reconcileSignatures(s, "")
++			}
++		})
++	}
++}
++
++func BenchmarkReconcileSignaturePermanent(b *testing.B) {
++	for _, mode := range []string{"all", "mostly"} {
++		b.Run(mode+"/objects=100/interfaces=1/fields=4", func(b *testing.B) {
++			s := signatureServer()
++			iface := signatureInterface(s, "Signature")
++			var fields []FieldSpec
++			for f := range 4 {
++				spec := FieldSpec{Name: fmt.Sprintf("field%d", f), Type: String("")}
++				fields = append(fields, spec)
++				iface.AddField(InterfaceFieldSpec{FieldSpec: spec})
++			}
++			classes := make([]Class[reconcileSignatureType], 100)
++			for i := range 100 {
++				classes[i] = signatureClass(s, fmt.Sprintf("Object%04d", i), fields...)
++			}
++			reconcileSignatures(s, "")
++			b.ReportAllocs()
++			b.ResetTimer()
++			for range b.N {
++				if mode == "mostly" {
++					// A later install introduced one unresolved object, while all existing
++					// object/interface relationships remain proven.
++					clear(classes[len(classes)-1].interfaces)
++					delete(iface.implementors, classes[len(classes)-1].TypeName())
++				}
++				reconcileSignatures(s, "")
++			}
++		})
++	}
++}

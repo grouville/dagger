@@ -1,0 +1,83 @@
+{
+  "base": {
+    "path": "/home/dagger/dag/core/schema/container.go",
+    "sha256": "124b7687cd41ab2b4d28ded31cf03a1dd637e964414182e8c590e2c35d70f397"
+  },
+  "candidate": {
+    "path": "/tmp/collections-perf/sdk-edit-audit/withfile-source-lazy/container.go",
+    "sha256": "3830c6713a88236b64c8004c221afbf2731035dca4f6f67010397a9d857359fd"
+  },
+  "baseline_frozen_overlay": "../metadata-build-v1/combined-overlay.json",
+  "scope": "withFile source-aware lazy branch only; no deferred default implementation",
+  "tests": {
+    "path": "/tmp/collections-perf/sdk-edit-audit/withfile-source-lazy/container_source_lazy_test.go",
+    "sha256": "9f9f70dcd4818881838118b69f363d66007f83acce7067c0476062db1223f099"
+  },
+  "unit": {
+    "command": [
+      "docker",
+      "exec",
+      "-e",
+      "GOMAXPROCS=4",
+      "dagger-engine.collections-alloc2-interface",
+      "/tmp/collections-withfile-source-lazy/schema.test",
+      "-test.run=^TestContainerWithFile(PreservesPendingSource|DefersSourceFailure|PendingSourcePersistence)$",
+      "-test.v",
+      "-test.count=1"
+    ],
+    "container_id": "b8e4b74823ac0ce23cd02d9b131a204ee035b13ad18a5fd0ccc2bb4b0d166ba0",
+    "seconds": 0.7659867398906499,
+    "status": 0,
+    "binary_sha256": "0a2e69b3b453caab92c89392cfe789985f3e6752c323e196141444a4d7a746d6"
+  },
+  "race": {
+    "command": [
+      "docker",
+      "exec",
+      "-e",
+      "GOMAXPROCS=4",
+      "dagger-engine.collections-alloc2-interface",
+      "/tmp/collections-withfile-source-lazy/schema-race.test",
+      "-test.run=^(TestContainerWithFile(PreservesPendingSource|DefersSourceFailure|PendingSourcePersistence)|TestBuiltinMetadataConsumersStopOnFailure)$",
+      "-test.v",
+      "-test.count=1"
+    ],
+    "container_id": "b8e4b74823ac0ce23cd02d9b131a204ee035b13ad18a5fd0ccc2bb4b0d166ba0",
+    "seconds": 2.364130093017593,
+    "status": 0,
+    "binary_sha256": "259218e22db9d507f85bd0aa97f0ee91abf022caa1694d5bbad1f17397471f62"
+  },
+  "build_commands": [
+    [
+      "go",
+      "test",
+      "-mod=readonly",
+      "-overlay=/tmp/collections-perf/sdk-edit-audit/withfile-source-lazy/test-overlay.json",
+      "-c",
+      "-o",
+      "/tmp/collections-perf/sdk-edit-audit/withfile-source-lazy/schema.test",
+      "./core/schema"
+    ],
+    [
+      "go",
+      "test",
+      "-race",
+      "-mod=readonly",
+      "-overlay=/tmp/collections-perf/sdk-edit-audit/withfile-source-lazy/test-overlay.json",
+      "-c",
+      "-o",
+      "/tmp/collections-perf/sdk-edit-audit/withfile-source-lazy/schema-race.test",
+      "./core/schema"
+    ]
+  ],
+  "build_environment": {
+    "GOMAXPROCS": "4",
+    "ordinary_binary_CGO_ENABLED": "0",
+    "race_binary_CGO_ENABLED": "default (enabled)"
+  },
+  "baseline_regression": {
+    "outcome": "expected failure at withFile construction, before filesystem demand",
+    "test": "TestContainerWithFileDefersSourceFailure",
+    "log": "baseline-regression.log"
+  }
+}

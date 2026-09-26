@@ -1,0 +1,190 @@
+--- a/pkg/dang/parse_cache.go
++++ b/pkg/dang/parse_cache.go
+@@ -99,6 +99,21 @@
+ 		if remaining < 0 {
+ 			return reflect.Value{}, fmt.Errorf("syntax exceeds clone budget")
+ 		}
++		// The caller copies this value into its own destination with Set. Scalars
++		// and nil references carry no mutable object to clone, so allocating a
++		// temporary addressable box for them only creates garbage. Do not extend
++		// this to non-nil pointers, interfaces, slices, maps or structs: inference
++		// mutates those nodes and every evaluation must own its syntax graph.
++		switch src.Kind() {
++		case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
++			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
++			reflect.Float32, reflect.Float64, reflect.String:
++			return src, nil
++		case reflect.Pointer, reflect.Interface, reflect.Slice, reflect.Map:
++			if src.IsNil() {
++				return src, nil
++			}
++		}
+ 		dst := reflect.New(src.Type()).Elem()
+ 		switch src.Kind() {
+ 		case reflect.Pointer:
+--- /dev/null
++++ b/pkg/dang/parse_cache_leaves_test.go
+@@ -0,0 +1,163 @@
++package dang
++
++import (
++	"fmt"
++	"reflect"
++	"strings"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++// Node is embedded solely to place a reflection probe in a FileBlock. No
++// evaluator method is called: the separate cache tests run real inference.
++type cloneLeavesProbe struct {
++	Node
++	Text      string
++	Flag      bool
++	Number    int64
++	Unsigned  uint64
++	Fraction  float64
++	Loc       *SourceLocation
++	Next      *cloneLeavesProbe
++	List      []Node
++	NilList   []Node
++	Values    map[string]*cloneLeavesProbe
++	NilValues map[string]*cloneLeavesProbe
++	Dynamic   any
++	private   int
++}
++type cloneLeavesUnsupportedFunction struct {
++	Node
++	Function func()
++}
++type cloneLeavesUnsupportedChannel struct {
++	Node
++	Channel chan int
++}
++
++func TestCloneSyntaxLeavesPreserveIsolationAndAliases(t *testing.T) {
++	loc := &SourceLocation{Filename: "template", Line: 2, Column: 3, Length: 5, End: &SourcePosition{Line: 4, Column: 7}}
++	probe := &cloneLeavesProbe{Text: "original", Flag: true, Number: -4, Unsigned: 9, Fraction: 1.25, Loc: loc}
++	probe.Next = probe
++	probe.List = []Node{probe}
++	probe.Values = map[string]*cloneLeavesProbe{"self": probe}
++	probe.Dynamic = probe
++	template := &FileBlock{Forms: []Node{probe, probe}, Loc: loc, Inline: true}
++	first, err := cloneSyntax(template, "first.dang")
++	require.NoError(t, err)
++	second, err := cloneSyntax(template, "second.dang")
++	require.NoError(t, err)
++	a := first.Forms[0].(*cloneLeavesProbe)
++	b := second.Forms[0].(*cloneLeavesProbe)
++	require.NotSame(t, probe, a)
++	require.NotSame(t, a, b)
++	require.Same(t, a, first.Forms[1])
++	require.Same(t, a, a.Next)
++	require.Same(t, a, a.List[0])
++	require.Same(t, a, a.Values["self"])
++	require.Same(t, a, a.Dynamic)
++	require.Same(t, first.Loc, a.Loc)
++	require.NotSame(t, template.Loc, first.Loc)
++	require.NotSame(t, template.Loc.End, first.Loc.End)
++	require.Equal(t, "first.dang", first.Loc.Filename)
++	require.Equal(t, "second.dang", second.Loc.Filename)
++	require.Equal(t, "template", template.Loc.Filename)
++	require.Equal(t, template.Loc.Line, first.Loc.Line)
++	require.Equal(t, template.Loc.Column, first.Loc.Column)
++	require.Equal(t, template.Loc.Length, first.Loc.Length)
++	require.Equal(t, template.Loc.End, first.Loc.End)
++	require.True(t, first.Inline)
++	require.True(t, a.Flag)
++	require.Equal(t, probe.Number, a.Number)
++	require.Equal(t, probe.Unsigned, a.Unsigned)
++	require.Equal(t, probe.Fraction, a.Fraction)
++	require.Nil(t, a.NilList)
++	require.Nil(t, a.NilValues)
++	a.Text = "changed"
++	a.List[0] = nil
++	a.Values["self"] = nil
++	a.Loc.End.Line = 99
++	require.Equal(t, "original", probe.Text)
++	require.Equal(t, "original", b.Text)
++	require.Same(t, probe, probe.List[0])
++	require.Same(t, b, b.List[0])
++	require.Same(t, probe, probe.Values["self"])
++	require.Same(t, b, b.Values["self"])
++	require.Equal(t, 4, template.Loc.End.Line)
++	require.Equal(t, 4, b.Loc.End.Line)
++}
++
++func TestCloneSyntaxLeavesPreserveTypedNilAndEmpty(t *testing.T) {
++	var nilProbe *cloneLeavesProbe
++	probe := &cloneLeavesProbe{List: make([]Node, 0, 4), Values: map[string]*cloneLeavesProbe{}, Dynamic: nilProbe}
++	template := &FileBlock{Forms: []Node{nilProbe, nil, probe}}
++	cloned, err := cloneSyntax(template, "fixture.dang")
++	require.NoError(t, err)
++	require.Equal(t, reflect.TypeOf(nilProbe), reflect.TypeOf(cloned.Forms[0]))
++	require.True(t, reflect.ValueOf(cloned.Forms[0]).IsNil())
++	require.Nil(t, cloned.Forms[1])
++	got := cloned.Forms[2].(*cloneLeavesProbe)
++	require.NotNil(t, got.List)
++	require.Empty(t, got.List)
++	require.NotNil(t, got.Values)
++	require.Empty(t, got.Values)
++	require.Equal(t, reflect.TypeOf(nilProbe), reflect.TypeOf(got.Dynamic))
++	require.True(t, reflect.ValueOf(got.Dynamic).IsNil())
++	got.Values["new"] = got
++	require.Empty(t, probe.Values)
++}
++
++func TestCloneSyntaxLeavesKeepRejectionBoundaries(t *testing.T) {
++	for _, tc := range []struct {
++		name string
++		node Node
++		want string
++	}{
++		{"runtime state", &cloneLeavesProbe{private: 1}, "nonzero private syntax field"},
++		{"unsupported function", &cloneLeavesUnsupportedFunction{Function: func() {}}, "unsupported syntax function"},
++		{"unsupported nil kind", &cloneLeavesUnsupportedChannel{}, "unsupported syntax value"},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			_, err := cloneSyntax(&FileBlock{Forms: []Node{tc.node}}, "fixture.dang")
++			require.ErrorContains(t, err, tc.want)
++		})
++	}
++	// A zero unexported field still passes; a nil function keeps the previous
++	// policy while non-nil functions must pass the existing explicit type check.
++	_, err := cloneSyntax(&FileBlock{Forms: []Node{&cloneLeavesUnsupportedFunction{}}}, "fixture.dang")
++	require.NoError(t, err)
++}
++
++func TestCloneSyntaxLeavesKeepCloneBudget(t *testing.T) {
++	// Nil values are cheap after this change but still consume traversal budget.
++	// A forged/template tree must not bypass the existing size guard.
++	_, err := cloneSyntax(&FileBlock{Forms: make([]Node, 262144)}, "fixture.dang")
++	require.ErrorContains(t, err, "syntax exceeds clone budget")
++}
++
++func BenchmarkCloneSyntaxLeaves(b *testing.B) {
++	for _, n := range []int{16, 128, 1024} {
++		b.Run(fmt.Sprintf("declarations=%d", n), func(b *testing.B) {
++			var source strings.Builder
++			for i := range n {
++				fmt.Fprintf(&source, "pub answer%d: Int! = %d + 2\n", i, i)
++			}
++			parsed, err := Parse("template.dang", []byte(source.String()), GlobalStore("filePath", "template.dang"))
++			if err != nil {
++				b.Fatal(err)
++			}
++			template := parsed.(*FileBlock)
++			if _, err := cloneSyntax(template, "invocation.dang"); err != nil {
++				b.Fatal(err)
++			}
++			b.ReportAllocs()
++			b.ResetTimer()
++			for range b.N {
++				if _, err := cloneSyntax(template, "invocation.dang"); err != nil {
++					b.Fatal(err)
++				}
++			}
++		})
++	}
++}

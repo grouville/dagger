@@ -1,0 +1,122 @@
+{
+  "startedUTC": "2026-09-26T08:09:14.221475+00:00",
+  "sourceSHA256": {
+    "core/schema/container.go": "3830c6713a88236b64c8004c221afbf2731035dca4f6f67010397a9d857359fd",
+    "core/schema/container_source_lazy_test.go": "50e718120f878f9f9bd9e754ad2e48887cd3969efdaa6f171e908c9daaaeb505",
+    "dagql/interfaces.go": "1c265883ae09a557d552e0b198de960f35578686819aee0dd1665ce9785240b2",
+    "dagql/server.go": "e27eb9b289e1818a7b4b51cfe7b105ed34d87205bad31601cf1a909bd43871b7",
+    "dagql/interface_signatures_test.go": "11430b377917ab674e3e72a0590bd59088e168eae1254e1c66fa417eedf1e040"
+  },
+  "baselineSourceSHA256": "124b7687cd41ab2b4d28ded31cf03a1dd637e964414182e8c590e2c35d70f397",
+  "commands": [
+    {
+      "label": "baseline-expected-failure",
+      "argv": [
+        "go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/sdk-edit-audit/withfile-source-lazy/upstream-v1/baseline-test-overlay.json",
+        "./core/schema",
+        "-run",
+        "^TestContainerWithFileDefersSourceFailure$",
+        "-count=1"
+      ],
+      "log": "/tmp/collections-perf/sdk-edit-audit/withfile-source-lazy/upstream-v1/applied-validation-v2/baseline-expected-failure.jsonl",
+      "startedUTC": "2026-09-26T08:09:14.221514+00:00",
+      "exitCode": 1,
+      "seconds": 20.455789959989488,
+      "failedTests": [
+        "TestContainerWithFileDefersSourceFailure",
+        "TestContainerWithFileDefersSourceFailure/new",
+        "TestContainerWithFileDefersSourceFailure/restored"
+      ],
+      "expectedFailureConfirmed": true,
+      "accepted": true
+    },
+    {
+      "label": "schema-unit",
+      "argv": [
+        "go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "./core/schema",
+        "-run",
+        "^(TestContainerWithFileDefersSourceFailure|TestBuiltinMetadataConsumersStopOnFailure)$",
+        "-count=1"
+      ],
+      "log": "/tmp/collections-perf/sdk-edit-audit/withfile-source-lazy/upstream-v1/applied-validation-v2/schema-unit.jsonl",
+      "startedUTC": "2026-09-26T08:09:34.678078+00:00",
+      "exitCode": 0,
+      "seconds": 19.70346842217259,
+      "failedTests": [],
+      "passedTests": 37,
+      "accepted": true
+    },
+    {
+      "label": "schema-race",
+      "argv": [
+        "go",
+        "test",
+        "-race",
+        "-json",
+        "-mod=readonly",
+        "./core/schema",
+        "-run",
+        "^(TestContainerWithFileDefersSourceFailure|TestBuiltinMetadataConsumersStopOnFailure)$",
+        "-count=1"
+      ],
+      "log": "/tmp/collections-perf/sdk-edit-audit/withfile-source-lazy/upstream-v1/applied-validation-v2/schema-race.jsonl",
+      "startedUTC": "2026-09-26T08:09:54.387884+00:00",
+      "exitCode": 0,
+      "seconds": 89.71193408011459,
+      "failedTests": [],
+      "passedTests": 37,
+      "accepted": true
+    },
+    {
+      "label": "interfaces-unit",
+      "argv": [
+        "go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "./dagql",
+        "-run",
+        "^(TestReconcileSignatureSnapshot.*|TestInterfaces|TestViewsFilterInterfacesWithHiddenFields|TestInterfaceFieldDeclarationOrder)$",
+        "-count=1"
+      ],
+      "log": "/tmp/collections-perf/sdk-edit-audit/withfile-source-lazy/upstream-v1/applied-validation-v2/interfaces-unit.jsonl",
+      "startedUTC": "2026-09-26T08:11:24.101279+00:00",
+      "exitCode": 0,
+      "seconds": 23.912155956029892,
+      "failedTests": [],
+      "passedTests": 27,
+      "accepted": true
+    },
+    {
+      "label": "interfaces-race",
+      "argv": [
+        "go",
+        "test",
+        "-race",
+        "-json",
+        "-mod=readonly",
+        "./dagql",
+        "-run",
+        "^(TestReconcileSignatureSnapshot.*|TestInterfaces|TestViewsFilterInterfacesWithHiddenFields|TestInterfaceFieldDeclarationOrder)$",
+        "-count=1"
+      ],
+      "log": "/tmp/collections-perf/sdk-edit-audit/withfile-source-lazy/upstream-v1/applied-validation-v2/interfaces-race.jsonl",
+      "startedUTC": "2026-09-26T08:11:48.014268+00:00",
+      "exitCode": 0,
+      "seconds": 42.46179714309983,
+      "failedTests": [],
+      "passedTests": 27,
+      "accepted": true
+    }
+  ],
+  "status": "passed",
+  "finishedUTC": "2026-09-26T08:12:30.482914+00:00"
+}

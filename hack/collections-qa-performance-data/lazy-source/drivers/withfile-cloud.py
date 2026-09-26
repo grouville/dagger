@@ -1,0 +1,88 @@
+"""Seventeen ordinary, authorized Cloud commands; raw output stays private."""
+from pathlib import Path
+import json,os,re,shutil,signal,statistics,subprocess,threading,time
+import experiment as x
+
+lab=Path(__file__).resolve().parent
+state=json.loads((lab/'withfile-v1/prepared.json').read_text())
+assert (lab/'withfile-v1/summary.json').is_file(),'finish local correctness first'
+out=lab/'withfile-cloud-v1'
+resume=out.exists()
+if not resume:
+    out.mkdir(mode=0o700)
+    (out/'driver.py.txt').write_bytes(Path(__file__).read_bytes())
+else:
+    assert not (out/'summary.json').exists()
+    (out/'corrected-driver.py.txt').write_bytes(Path(__file__).read_bytes())
+app=lab/'greetings'
+assert x.fixture_hashes(app)==state['input_sha256']
+assert x.sha(x.CLI)==state['cli_sha256']
+for v in ('base','candidate'):x.start(state[v])
+original=(app/'main.go').read_bytes()
+env={k:os.environ[k] for k in ('PATH','HOME','USER','LOGNAME','TMPDIR','DAGGER_CLOUD_TOKEN','XDG_CONFIG_HOME') if k in os.environ}
+env.update(DO_NOT_TRACK='1',DAGGER_NO_UPDATE_CHECK='1',GIT_TERMINAL_PROMPT='0',DAGGER_CLOUD_URL='https://api.dagger.cloud')
+nonce=hex(time.time_ns())[2:];rows=[]
+core_expected=(lab/'local-v1/warm-0-core-combined/stdout.txt').read_bytes()
+assert core_expected.strip()==b'v1.0.0-beta.15+74d8b418'
+if resume:
+    rows=json.loads((out/'results.json').read_text())
+    assert len(rows)==1 and rows[0]['phase']=='auth-control' and rows[0]['exit_code']==0 and rows[0]['cloud_link_visible']
+    assert (out/'auth-control-0-core-candidate/stdout.txt').read_bytes()==core_expected
+    rows[0]['correct']=True;x.write(out/'results.json',rows)
+    x.write(out/'harness-correction.json',{'reason':'auth smoke succeeded, but expected-version assertion omitted the normal VCS build suffix; match captured control version exactly','smoke_repeated':False,'new_commands_max':16,'driver_sha256':x.sha(__file__)})
+else:
+    x.write(out/'provenance.json',{'state':state,'flows':{k:x.FLOWS[k] for k in ('core','expanded','execute')},'endpoint':'https://api.dagger.cloud','commands_max':17,'authorization':'existing 220-command matrix allowance; 7 previously used','nonce':nonce,'driver_sha256':x.sha(__file__),'boundary':'fresh CLI spawn through blocking waitpid; no profiler; inherited normal login; no credential-file reads by harness','auth_control':'one core command must print normal Cloud link; listing does not request printed links'})
+def run(v,flow,phase,index):
+    assert len(rows)<17
+    assert shutil.disk_usage(lab).free>16*1024**3
+    dest=out/f'{phase}-{index}-{flow}-{v}';dest.mkdir()
+    cmd=[str(x.CLI),'--engine','container://'+state[v]['name']]+x.FLOWS[flow]
+    done=threading.Event();obs={}
+    with (dest/'stdout.txt').open('wb') as stdout,(dest/'stderr.txt').open('wb') as stderr:
+        begin=time.monotonic();wall=time.time_ns()
+        proc=subprocess.Popen(cmd,cwd=app,env=env,stdout=stdout,stderr=stderr,start_new_session=True)
+        def wait():
+            obs['status']=proc.wait();obs['time']=time.monotonic();done.set()
+        worker=threading.Thread(target=wait,daemon=True);worker.start()
+        try:
+            if not done.wait(240):raise TimeoutError(dest.name)
+        finally:
+            if not done.is_set():
+                proc.send_signal(signal.SIGINT)
+                if not done.wait(10):os.killpg(proc.pid,signal.SIGKILL)
+            worker.join(timeout=15);assert not worker.is_alive()
+    stdout=(dest/'stdout.txt').read_bytes();stderr=(dest/'stderr.txt').read_bytes()
+    text=re.sub(rb'\x1b\[[0-9;]*m',b'',stdout+stderr)
+    row={'variant':v,'flow':flow,'phase':phase,'index':index,'seconds':obs['time']-begin,'started_unix_ns':wall,'exit_code':obs['status'],'main_sha256':x.sha(app/'main.go'),'stdout_sha256':x.sha(dest/'stdout.txt'),'cloud_link_visible':bool(re.search(rb'https://[^\s]*dagger.cloud/',text))}
+    rows.append(row);x.write(out/'results.json',rows)
+    assert obs['status']==0,('command failed; see private logs',dest.name)
+    if flow=='core':
+        assert row['cloud_link_visible'],('normal Cloud trace link absent from auth control',dest.name)
+        assert stdout==core_expected
+    elif flow=='expanded':
+        norm=lambda b:sorted(tuple(t.strip() for t in l.split(b'#',1)) for l in b.splitlines() if l.strip())
+        assert norm(stdout)==norm(x.WANT)
+    else:assert re.search(rb'\b1 passed\b',text) and b'dag://go/modules/tests/run?go-module=.&go-test=TestFormatResponse' in text
+    row['correct']=True;x.write(out/'results.json',rows);print(json.dumps(row),flush=True);time.sleep(.3)
+try:
+    if not resume:run('candidate','core','auth-control',0)
+    for v in ('base','candidate'):run(v,'expanded','setup',0)
+    for i in range(3):
+        for v in (('base','candidate') if i%2==0 else ('candidate','base')):run(v,'expanded','warm',i)
+    for i in range(3):
+        (app/'main.go').write_bytes(original+f'\n// withfile Cloud {nonce} fresh listing {i}\n'.encode())
+        for v in (('base','candidate') if i%2==0 else ('candidate','base')):run(v,'expanded','main-edit',i)
+    (app/'main.go').write_bytes(original+f'\n// withfile Cloud {nonce} fresh execution\n'.encode())
+    for v in ('base','candidate'):run(v,'execute','main-edit',0)
+finally:
+    (app/'main.go').write_bytes(original)
+    assert x.fixture_hashes(app)==state['input_sha256']
+    x.write(out/'restoration.json',{'full_fixture_restored':True,'commands_attempted':len(rows)})
+summary=[]
+for phase,flow in sorted({(r['phase'],r['flow']) for r in rows}):
+    item={'phase':phase,'flow':flow}
+    for v in ('base','candidate'):
+        vals=[r['seconds'] for r in rows if r['phase']==phase and r['flow']==flow and r['variant']==v]
+        item[v]={'n':len(vals),'samples':vals,'median_seconds':statistics.median(vals) if vals else None}
+    summary.append(item)
+x.write(out/'summary.json',summary)

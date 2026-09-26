@@ -1,0 +1,12 @@
+--- a/core/schema/container.go
++++ b/core/schema/container.go
+@@ -3823,7 +3823,8 @@
+ 	if err != nil {
+ 		return inst, err
+ 	}
+-	if parentPendingLazy {
++	// A ready destination must not force a source whose bytes are still lazy.
++	if parentPendingLazy || dagql.HasPendingLazyEvaluation(file) {
+ 		ctr.Lazy = &core.ContainerWithFileLazy{
+ 			LazyState:   core.NewLazyState(),
+ 			Parent:      parent,

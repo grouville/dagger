@@ -1,0 +1,139 @@
+"""Focused matched comparison for source-aware Container.withFile laziness.
+
+Control is the frozen combined engine; only the new candidate is created here.
+Every edited input contains a fresh per-trial nonce, identical between variants.
+"""
+from pathlib import Path
+import argparse, hashlib, json, os, re, shutil, signal, statistics, subprocess, threading, time
+import experiment as x
+
+lab=Path(__file__).resolve().parent
+p=argparse.ArgumentParser();p.add_argument('action',choices=('prepare','run'));p.add_argument('--binary');a=p.parse_args()
+manifest=json.loads((lab/'prepared.json').read_text())
+out=lab/'withfile-v1'
+if a.action=='prepare':
+    assert shutil.disk_usage(lab).free>16*1024**3,'benchmark free-space floor reached'
+    assert a.binary and not out.exists();out.mkdir(mode=0o700)
+    binary=Path(a.binary);name='dagger-engine.collections-alloc2-lazyfile';port=6287
+    for kind in ('container','volume'):
+        assert subprocess.run(['docker',kind,'inspect',name],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode!=0
+    x.capture(['docker','volume','create','--label','dagger.perf.owner='+x.OWNER,name])
+    cid=x.capture(['docker','create','--name',name,'--label','dagger.perf.owner='+x.OWNER,'--privileged','-p',f'127.0.0.1:{port}:6060','-v',name+':/var/lib/dagger',
+        '-e','DAGGER_TYPESCRIPT_SDK_MANIFEST_DIGEST=sha256:2a8f755cfe5322aeeee861f646c58d6b796a585d2794db47b5b71ba14f6f3fef',
+        '-e','_DAGGER_TEST_REMOTE_CACHE_FIXTURE_ROOT=',manifest['image'],'--debugaddr=0.0.0.0:6060'])
+    state={'base':manifest['containers']['combined'],'candidate':{'name':name,'id':cid,'port':port,'sha256':x.sha(binary)},'cli_sha256':manifest['cli_sha256'],'source_hashes':manifest['source_hashes'],'input_sha256':manifest['fixture_hashes_excluding_git_and_node_modules']}
+    x.write(out/'prepared.json',state)
+    x.capture(['docker','cp',str(binary),name+':/usr/local/bin/dagger-engine'])
+    for path,digest in manifest['blobs'].items():
+        assert x.sha(path)==digest
+        x.capture(['docker','cp',path,name+':/usr/local/share/dagger/content/blobs/sha256/'+Path(path).name])
+    print(json.dumps({'prepared':name,'started':False}));raise SystemExit()
+
+assert not (out/'results.json').exists(),'never mix timing trials'
+state=json.loads((out/'prepared.json').read_text())
+(out/'driver.py.txt').write_bytes(Path(__file__).read_bytes())
+for v in ('base','candidate'):x.start(state[v])
+assert x.sha(x.CLI)==state['cli_sha256']
+app=lab/'greetings';assert x.source_hashes(app)==state['source_hashes']
+assert x.fixture_hashes(app)==state['input_sha256'],'full fixture changed before comparison'
+original={n:(app/n).read_bytes() for n in state['source_hashes']}
+original['e2e_test.go']=(app/'e2e_test.go').read_bytes()
+nonce=hex(time.time_ns())[2:]
+env={k:os.environ[k] for k in ('PATH','HOME','USER','LOGNAME','TMPDIR') if k in os.environ}
+env.update(XDG_CONFIG_HOME=str(lab/'empty-config'),DO_NOT_TRACK='1',DAGGER_NO_UPDATE_CHECK='1',GIT_TERMINAL_PROMPT='0')
+flows={k:x.FLOWS[k] for k in ('expanded','filtered','execute')}
+flows['e2e']=['check','--generated=false','go/modules/tests/run','--go-module=.','--go-test=TestE2ERandomGreeting']
+rows=[]
+x.write(out/'provenance.json',{'engines':state,'flows':flows,'nonce':nonce,'telemetry':'Cloud/OTLP disabled, empty CLI config','setup':'base retains prior warm volume; candidate gets fresh volume; setup calls excluded from warm pairs','edits':'new nonce in every edit family and iteration; same bytes given to both variants; direct edit-to-command, no pre-listing','boundary':'fresh CLI through blocking waitpid; profiler only on separate rows','driver_sha256':x.sha(__file__)})
+
+def run(v,flow,phase,index,want=None,profile=False,fail=False):
+    assert shutil.disk_usage(lab).free>16*1024**3,'benchmark free-space floor reached'
+    item=state[v];dest=out/f'{phase}-{index}-{flow}-{v}';dest.mkdir()
+    if profile:
+        try:(dest/'prior.wcprof').write_bytes(x.get(item['port'],'/debug/wcprof/dump?flush=true'))
+        except x.HTTPError as e:
+            if e.code!=503:raise
+    args=[str(x.CLI),'--engine','container://'+item['name']]+(['--profile'] if profile else [])+flows[flow]
+    finished=threading.Event();obs={}
+    with (dest/'stdout.txt').open('wb') as stdout,(dest/'stderr.txt').open('wb') as stderr:
+        begin=time.monotonic();wall=time.time_ns();proc=subprocess.Popen(args,cwd=app,env=env,stdout=stdout,stderr=stderr,start_new_session=True)
+        def waiter():
+            obs['status']=proc.wait();obs['time']=time.monotonic();obs['wall']=time.time_ns();finished.set()
+        worker=threading.Thread(target=waiter,daemon=True);worker.start()
+        try:
+            if not finished.wait(240):raise TimeoutError(dest.name)
+        finally:
+            if not finished.is_set():
+                proc.send_signal(signal.SIGINT)
+                if not finished.wait(10):os.killpg(proc.pid,signal.SIGKILL)
+            worker.join(timeout=15);assert not worker.is_alive()
+    stdout=(dest/'stdout.txt').read_bytes();stderr=(dest/'stderr.txt').read_bytes();text=re.sub(rb'\x1b\[[0-9;]*m',b'',stdout+stderr)
+    if fail:
+        assert obs['status']!=0 and b'GREETINGS_API_URL not set' in text,('missing base did not fail the strict E2E',dest.name)
+    else:assert obs['status']==0,('inspect private output',dest.name)
+    if fail:pass
+    elif flow=='expanded':
+        normalize=lambda b:sorted(tuple(t.strip() for t in line.split(b'#',1)) for line in b.splitlines() if line.strip())
+        assert normalize(stdout)==normalize(x.WANT if want is None else want),('listing mismatch',dest.name)
+    elif flow=='filtered':assert stdout==x.FILTERED
+    else:
+        test='TestE2ERandomGreeting' if flow=='e2e' else 'TestFormatResponse'
+        assert re.search(rb'\b1 passed\b',text) and f'dag://go/modules/tests/run?go-module=.&go-test={test}'.encode() in text,('check identity/status',dest.name)
+        if flow=='e2e':assert not re.search(rb'\bSKIP(?:PED)?\b',text,re.I),'E2E skip is not successful service validation'
+    row={'variant':v,'flow':flow,'phase':phase,'index':index,'profile':profile,'seconds':obs['time']-begin,'started_unix_ns':wall,'exited_unix_ns':obs['wall'],'exit_code':obs['status'],'stdout_sha256':x.sha(dest/'stdout.txt'),'main_sha256':x.sha(app/'main.go'),'test_sha256':x.sha(app/'main_test.go'),'e2e_sha256':x.sha(app/'e2e_test.go'),'expected_failure':fail,'correct':True}
+    rows.append(row);x.write(out/'results.json',rows);print(json.dumps(row),flush=True)
+    time.sleep(.3)
+    if profile:(dest/'run.wcprof').write_bytes(x.get(item['port'],'/debug/wcprof/dump?flush=true'))
+
+try:
+    for v in ('base','candidate'):
+        for flow in flows:run(v,flow,'setup',0)
+    for index in range(5):
+        order=('base','candidate') if index%2==0 else ('candidate','base')
+        for flow in ('expanded','filtered','execute'):
+            for v in order:run(v,flow,'warm',index)
+    for index in range(3):
+        order=('base','candidate') if index%2==0 else ('candidate','base')
+        for flow in ('expanded','execute'):
+            (app/'main.go').write_bytes(original['main.go']+f'\n// withfile {nonce} edit {flow} {index}\n'.encode())
+            for v in order:run(v,flow,'main-edit',index)
+        (app/'main.go').write_bytes(original['main.go'])
+        marker=f'TestFormatResponseLazyFile{nonce}N{index}'.encode()
+        assert original['main_test.go'].count(b'TestFormatResponse(')==1
+        (app/'main_test.go').write_bytes(original['main_test.go'].replace(b'TestFormatResponse(',marker+b'('))
+        want=x.WANT.replace(b'TestFormatResponse ',marker+b' ');assert want!=x.WANT
+        for v in order:run(v,'expanded','test-rename',index,want)
+        (app/'main_test.go').write_bytes(original['main_test.go'])
+    # Each E2E starts with a fresh app input; actual HTTP test must execute.
+    assert original['e2e_test.go'].count(b't.Skip(')==1
+    request=b'\tresp, err := client.Do(req)\n\tassert.NilError(t, err)\n'
+    assert original['e2e_test.go'].count(request)==1
+    strict=original['e2e_test.go'].replace(b't.Skip(',b't.Fatal(').replace(request,request+f'\tassert.Equal(t, resp.Header.Get("X-Dagger-Perf-Revision"), "{nonce}", "fresh HTTP sentinel mismatch")\n'.encode())
+    (app/'e2e_test.go').write_bytes(strict)
+    header=b'\t\tw.Header().Set("Content-Type", "application/json")'
+    assert original['main.go'].count(header)==2
+    live=original['main.go'].replace(header,header+f'\n\t\tw.Header().Set("X-Dagger-Perf-Revision", "{nonce}")'.encode())
+    (app/'main.go').write_bytes(live)
+    for v in ('base','candidate'):run(v,'e2e','correctness-service',0)
+    setting=b'base = "dag://backend/go-test-base"'
+    assert original['dagger.toml'].count(setting)==1
+    (app/'dagger.toml').write_bytes(original['dagger.toml'].replace(setting,b'# base deliberately omitted for the negative E2E control'))
+    run('candidate','e2e','correctness-missing-base',0,fail=True)
+    (app/'dagger.toml').write_bytes(original['dagger.toml'])
+    (app/'e2e_test.go').write_bytes(original['e2e_test.go'])
+    for flow in ('expanded','execute'):
+        (app/'main.go').write_bytes(original['main.go']+f'\n// withfile {nonce} profile {flow}\n'.encode())
+        for v in ('base','candidate'):run(v,flow,'profile',0,profile=True)
+finally:
+    for n,b in original.items():(app/n).write_bytes(b)
+    assert x.source_hashes(app)==state['source_hashes']
+    assert x.fixture_hashes(app)==state['input_sha256'],'full fixture not restored'
+    x.write(out/'restoration.json',{'source_restored':True,'full_fixture_restored':True,'e2e_source_sha256':x.sha(app/'e2e_test.go')})
+summary=[]
+for phase,flow in sorted({(r['phase'],r['flow']) for r in rows if not r['profile']}):
+    item={'phase':phase,'flow':flow}
+    for v in ('base','candidate'):
+        vals=[r['seconds'] for r in rows if r['phase']==phase and r['flow']==flow and r['variant']==v]
+        item[v]={'n':len(vals),'samples':vals,'median_seconds':statistics.median(vals) if vals else None}
+    summary.append(item)
+x.write(out/'summary.json',summary)
