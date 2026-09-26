@@ -213,6 +213,9 @@ for name in (git_audit / 'archive-allowlist.txt').read_text().splitlines():
     assert Path(name).name == name
     copy('sdk-edit-audit/git-advertisement-audit/' + name, 'git-advertisement-audit/' + name)
 
+# Explicit reviewed numeric allowlist only; never copy the private API harness or state.
+copy('local-cloud-api/shareable-summary.json', 'local-receiver/summary.json')
+
 copy('archive-next-bottlenecks.py', 'archive.py')
 (DEST / 'archive-manifest.json').write_text(json.dumps({
     'files': {name: hashlib.sha256((DEST / name).read_bytes()).hexdigest() for name in sorted(copied)},

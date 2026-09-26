@@ -1,0 +1,606 @@
+{
+  "scope": "Real local token-authenticated OTLP handlers and Postgres/ClickHouse; full Cloud app and remote network excluded",
+  "production_cloud_commands": 0,
+  "commands": 24,
+  "warmups": 6,
+  "paired_samples_per_flow_per_mode": 3,
+  "profiles_separate": 2,
+  "cli_sha256": "c5b8dd92adf66f061cceed037cbb4bd32844dfb5071e0fb17020b0fc29f88fce",
+  "engine_sha256": "a1b41acdd93b65fd0a3baf3078f70ef51ab1293a0c5526f473e60c57cc875cf5",
+  "engine_stack": "retained experimental Dang/TypeScript stack; not normal branch-build timing",
+  "cli_boundary": "process spawn to dedicated blocking waitpid observation",
+  "separation": "250ms observed receiver quiet outside CLI timer, bounded10s; not proof of complete asynchronous drainage",
+  "fixture_source_sha256": {
+    "main.go": "108029a457668cec1724f9905460a83178882b601df4775380eecde9d78ce86c",
+    "main_test.go": "5605ebadd175eb2e6836f77dcda6006b2ba1accee404c034d85a61f64578958f",
+    "dagger.toml": "fa3e76ed17cd120a0e5b5655a27a63a7dd7bae05a63dc43ea391fcac6991e3ad"
+  },
+  "results": {
+    "core": {
+      "disabled": {
+        "n": 3,
+        "median_seconds": 0.37729767709970474,
+        "samples": [
+          0.370424180990085,
+          0.38385882205329835,
+          0.37729767709970474
+        ]
+      },
+      "local-api": {
+        "n": 3,
+        "median_seconds": 0.37756851804442704,
+        "samples": [
+          0.36580818914808333,
+          0.37756851804442704,
+          0.4043990939389914
+        ]
+      }
+    },
+    "workspace": {
+      "disabled": {
+        "n": 3,
+        "median_seconds": 0.2324827250558883,
+        "samples": [
+          0.22630496392957866,
+          0.23432455980218947,
+          0.2324827250558883
+        ]
+      },
+      "local-api": {
+        "n": 3,
+        "median_seconds": 0.23686480894684792,
+        "samples": [
+          0.24707606411539018,
+          0.23686480894684792,
+          0.2289919590111822
+        ]
+      }
+    },
+    "expanded": {
+      "disabled": {
+        "n": 3,
+        "median_seconds": 1.4444955128710717,
+        "samples": [
+          1.4444955128710717,
+          1.4284649521578103,
+          1.9034344230312854
+        ]
+      },
+      "local-api": {
+        "n": 3,
+        "median_seconds": 1.5734137480612844,
+        "samples": [
+          1.7949775229208171,
+          1.558013278990984,
+          1.5734137480612844
+        ]
+      }
+    }
+  },
+  "samples": [
+    {
+      "index": 0,
+      "phase": "warmup",
+      "flow": "core",
+      "mode": "disabled",
+      "seconds": 0.3848369449842721,
+      "exit_code": 0,
+      "started_unix_ns": 1790404459507715883,
+      "exited_unix_ns": 1790404459892555296,
+      "stdout_sha256": "7d05d5bfeaf10af2c4035b721979328a222c5265c687086ec2e6d9c832c23516",
+      "stderr_bytes": 342,
+      "post_exit_observer_quiet_seconds": 0.25566303404048085,
+      "receiver_requests": 0,
+      "receiver_post_requests": 0,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0
+    },
+    {
+      "index": 1,
+      "phase": "warmup",
+      "flow": "core",
+      "mode": "local-api",
+      "seconds": 0.4205645020119846,
+      "exit_code": 0,
+      "started_unix_ns": 1790404460153352269,
+      "exited_unix_ns": 1790404460573919472,
+      "stdout_sha256": "7d05d5bfeaf10af2c4035b721979328a222c5265c687086ec2e6d9c832c23516",
+      "stderr_bytes": 365,
+      "post_exit_observer_quiet_seconds": 0.30035749496892095,
+      "receiver_requests": 9,
+      "receiver_post_requests": 9,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0.006487442
+    },
+    {
+      "index": 2,
+      "phase": "warmup",
+      "flow": "workspace",
+      "mode": "disabled",
+      "seconds": 0.32431712793186307,
+      "exit_code": 0,
+      "started_unix_ns": 1790404460879769846,
+      "exited_unix_ns": 1790404461204089651,
+      "stdout_sha256": "97e436742ffdd3831dac1968cb85fffaa6f10d4aefa56dce11a2576899bff0cd",
+      "stderr_bytes": 0,
+      "post_exit_observer_quiet_seconds": 0.27461003605276346,
+      "receiver_requests": 0,
+      "receiver_post_requests": 0,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0
+    },
+    {
+      "index": 3,
+      "phase": "warmup",
+      "flow": "workspace",
+      "mode": "local-api",
+      "seconds": 0.2359517312142998,
+      "exit_code": 0,
+      "started_unix_ns": 1790404461484000352,
+      "exited_unix_ns": 1790404461719955796,
+      "stdout_sha256": "97e436742ffdd3831dac1968cb85fffaa6f10d4aefa56dce11a2576899bff0cd",
+      "stderr_bytes": 0,
+      "post_exit_observer_quiet_seconds": 0.27372055500745773,
+      "receiver_requests": 6,
+      "receiver_post_requests": 6,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0.006023792
+    },
+    {
+      "index": 4,
+      "phase": "warmup",
+      "flow": "expanded",
+      "mode": "disabled",
+      "seconds": 1.9287010710686445,
+      "exit_code": 0,
+      "started_unix_ns": 1790404461999369622,
+      "exited_unix_ns": 1790404463928073781,
+      "stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+      "stderr_bytes": 0,
+      "post_exit_observer_quiet_seconds": 0.2549374960362911,
+      "receiver_requests": 0,
+      "receiver_post_requests": 0,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0
+    },
+    {
+      "index": 5,
+      "phase": "warmup",
+      "flow": "expanded",
+      "mode": "local-api",
+      "seconds": 2.0199138440657407,
+      "exit_code": 0,
+      "started_unix_ns": 1790404464188507938,
+      "exited_unix_ns": 1790404466208424248,
+      "stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+      "stderr_bytes": 0,
+      "post_exit_observer_quiet_seconds": 0.2814129760954529,
+      "receiver_requests": 100,
+      "receiver_post_requests": 100,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0.02515315
+    },
+    {
+      "index": 6,
+      "phase": "pair-0",
+      "flow": "core",
+      "mode": "disabled",
+      "seconds": 0.370424180990085,
+      "exit_code": 0,
+      "started_unix_ns": 1790404466494673111,
+      "exited_unix_ns": 1790404466865099597,
+      "stdout_sha256": "7d05d5bfeaf10af2c4035b721979328a222c5265c687086ec2e6d9c832c23516",
+      "stderr_bytes": 342,
+      "post_exit_observer_quiet_seconds": 0.27596389898099005,
+      "receiver_requests": 0,
+      "receiver_post_requests": 0,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0
+    },
+    {
+      "index": 7,
+      "phase": "pair-0",
+      "flow": "core",
+      "mode": "local-api",
+      "seconds": 0.36580818914808333,
+      "exit_code": 0,
+      "started_unix_ns": 1790404467143706404,
+      "exited_unix_ns": 1790404467509515799,
+      "stdout_sha256": "7d05d5bfeaf10af2c4035b721979328a222c5265c687086ec2e6d9c832c23516",
+      "stderr_bytes": 365,
+      "post_exit_observer_quiet_seconds": 0.3004436930641532,
+      "receiver_requests": 8,
+      "receiver_post_requests": 8,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0.007394467
+    },
+    {
+      "index": 8,
+      "phase": "pair-0",
+      "flow": "workspace",
+      "mode": "disabled",
+      "seconds": 0.22630496392957866,
+      "exit_code": 0,
+      "started_unix_ns": 1790404467813937508,
+      "exited_unix_ns": 1790404468040244376,
+      "stdout_sha256": "97e436742ffdd3831dac1968cb85fffaa6f10d4aefa56dce11a2576899bff0cd",
+      "stderr_bytes": 0,
+      "post_exit_observer_quiet_seconds": 0.2630443510133773,
+      "receiver_requests": 0,
+      "receiver_post_requests": 0,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0
+    },
+    {
+      "index": 9,
+      "phase": "pair-0",
+      "flow": "workspace",
+      "mode": "local-api",
+      "seconds": 0.24707606411539018,
+      "exit_code": 0,
+      "started_unix_ns": 1790404468312760259,
+      "exited_unix_ns": 1790404468559839088,
+      "stdout_sha256": "97e436742ffdd3831dac1968cb85fffaa6f10d4aefa56dce11a2576899bff0cd",
+      "stderr_bytes": 0,
+      "post_exit_observer_quiet_seconds": 0.2569981880951673,
+      "receiver_requests": 6,
+      "receiver_post_requests": 6,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0.007190815
+    },
+    {
+      "index": 10,
+      "phase": "pair-0",
+      "flow": "expanded",
+      "mode": "disabled",
+      "seconds": 1.4444955128710717,
+      "exit_code": 0,
+      "started_unix_ns": 1790404468819634387,
+      "exited_unix_ns": 1790404470264131368,
+      "stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+      "stderr_bytes": 0,
+      "post_exit_observer_quiet_seconds": 0.2581476408522576,
+      "receiver_requests": 0,
+      "receiver_post_requests": 0,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0
+    },
+    {
+      "index": 11,
+      "phase": "pair-0",
+      "flow": "expanded",
+      "mode": "local-api",
+      "seconds": 1.7949775229208171,
+      "exit_code": 0,
+      "started_unix_ns": 1790404470529956771,
+      "exited_unix_ns": 1790404472324936867,
+      "stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+      "stderr_bytes": 0,
+      "post_exit_observer_quiet_seconds": 0.38442121888510883,
+      "receiver_requests": 93,
+      "receiver_post_requests": 93,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0.028181561
+    },
+    {
+      "index": 12,
+      "phase": "pair-1",
+      "flow": "core",
+      "mode": "local-api",
+      "seconds": 0.37756851804442704,
+      "exit_code": 0,
+      "started_unix_ns": 1790404472712260948,
+      "exited_unix_ns": 1790404473089831399,
+      "stdout_sha256": "7d05d5bfeaf10af2c4035b721979328a222c5265c687086ec2e6d9c832c23516",
+      "stderr_bytes": 365,
+      "post_exit_observer_quiet_seconds": 0.2853847830556333,
+      "receiver_requests": 8,
+      "receiver_post_requests": 8,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0.006478005
+    },
+    {
+      "index": 13,
+      "phase": "pair-1",
+      "flow": "core",
+      "mode": "disabled",
+      "seconds": 0.38385882205329835,
+      "exit_code": 0,
+      "started_unix_ns": 1790404473384414979,
+      "exited_unix_ns": 1790404473768277057,
+      "stdout_sha256": "7d05d5bfeaf10af2c4035b721979328a222c5265c687086ec2e6d9c832c23516",
+      "stderr_bytes": 342,
+      "post_exit_observer_quiet_seconds": 0.25387337408028543,
+      "receiver_requests": 0,
+      "receiver_post_requests": 0,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0
+    },
+    {
+      "index": 14,
+      "phase": "pair-1",
+      "flow": "workspace",
+      "mode": "local-api",
+      "seconds": 0.23686480894684792,
+      "exit_code": 0,
+      "started_unix_ns": 1790404474025871570,
+      "exited_unix_ns": 1790404474262737890,
+      "stdout_sha256": "97e436742ffdd3831dac1968cb85fffaa6f10d4aefa56dce11a2576899bff0cd",
+      "stderr_bytes": 0,
+      "post_exit_observer_quiet_seconds": 0.25461158785037696,
+      "receiver_requests": 6,
+      "receiver_post_requests": 6,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0.006672724
+    },
+    {
+      "index": 15,
+      "phase": "pair-1",
+      "flow": "workspace",
+      "mode": "disabled",
+      "seconds": 0.23432455980218947,
+      "exit_code": 0,
+      "started_unix_ns": 1790404474521117796,
+      "exited_unix_ns": 1790404474755443966,
+      "stdout_sha256": "97e436742ffdd3831dac1968cb85fffaa6f10d4aefa56dce11a2576899bff0cd",
+      "stderr_bytes": 0,
+      "post_exit_observer_quiet_seconds": 0.27233184804208577,
+      "receiver_requests": 0,
+      "receiver_post_requests": 0,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0
+    },
+    {
+      "index": 16,
+      "phase": "pair-1",
+      "flow": "expanded",
+      "mode": "local-api",
+      "seconds": 1.558013278990984,
+      "exit_code": 0,
+      "started_unix_ns": 1790404475034078893,
+      "exited_unix_ns": 1790404476592094822,
+      "stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+      "stderr_bytes": 0,
+      "post_exit_observer_quiet_seconds": 0.3032521770801395,
+      "receiver_requests": 93,
+      "receiver_post_requests": 93,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0.023023328
+    },
+    {
+      "index": 17,
+      "phase": "pair-1",
+      "flow": "expanded",
+      "mode": "disabled",
+      "seconds": 1.4284649521578103,
+      "exit_code": 0,
+      "started_unix_ns": 1790404476901701542,
+      "exited_unix_ns": 1790404478330168457,
+      "stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+      "stderr_bytes": 0,
+      "post_exit_observer_quiet_seconds": 0.27449344703927636,
+      "receiver_requests": 0,
+      "receiver_post_requests": 0,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0
+    },
+    {
+      "index": 18,
+      "phase": "pair-2",
+      "flow": "core",
+      "mode": "disabled",
+      "seconds": 0.37729767709970474,
+      "exit_code": 0,
+      "started_unix_ns": 1790404478617555243,
+      "exited_unix_ns": 1790404478994855605,
+      "stdout_sha256": "7d05d5bfeaf10af2c4035b721979328a222c5265c687086ec2e6d9c832c23516",
+      "stderr_bytes": 342,
+      "post_exit_observer_quiet_seconds": 0.2704545061569661,
+      "receiver_requests": 0,
+      "receiver_post_requests": 0,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0
+    },
+    {
+      "index": 19,
+      "phase": "pair-2",
+      "flow": "core",
+      "mode": "local-api",
+      "seconds": 0.4043990939389914,
+      "exit_code": 0,
+      "started_unix_ns": 1790404479277471994,
+      "exited_unix_ns": 1790404479681873891,
+      "stdout_sha256": "7d05d5bfeaf10af2c4035b721979328a222c5265c687086ec2e6d9c832c23516",
+      "stderr_bytes": 365,
+      "post_exit_observer_quiet_seconds": 0.28786623710766435,
+      "receiver_requests": 8,
+      "receiver_post_requests": 8,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0.006042793
+    },
+    {
+      "index": 20,
+      "phase": "pair-2",
+      "flow": "workspace",
+      "mode": "disabled",
+      "seconds": 0.2324827250558883,
+      "exit_code": 0,
+      "started_unix_ns": 1790404479982883126,
+      "exited_unix_ns": 1790404480215368857,
+      "stdout_sha256": "97e436742ffdd3831dac1968cb85fffaa6f10d4aefa56dce11a2576899bff0cd",
+      "stderr_bytes": 0,
+      "post_exit_observer_quiet_seconds": 0.27585307601839304,
+      "receiver_requests": 0,
+      "receiver_post_requests": 0,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0
+    },
+    {
+      "index": 21,
+      "phase": "pair-2",
+      "flow": "workspace",
+      "mode": "local-api",
+      "seconds": 0.2289919590111822,
+      "exit_code": 0,
+      "started_unix_ns": 1790404480505292200,
+      "exited_unix_ns": 1790404480734286524,
+      "stdout_sha256": "97e436742ffdd3831dac1968cb85fffaa6f10d4aefa56dce11a2576899bff0cd",
+      "stderr_bytes": 0,
+      "post_exit_observer_quiet_seconds": 0.2608215000946075,
+      "receiver_requests": 6,
+      "receiver_post_requests": 6,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0.006855803
+    },
+    {
+      "index": 22,
+      "phase": "pair-2",
+      "flow": "expanded",
+      "mode": "disabled",
+      "seconds": 1.9034344230312854,
+      "exit_code": 0,
+      "started_unix_ns": 1790404481001514829,
+      "exited_unix_ns": 1790404482904950790,
+      "stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+      "stderr_bytes": 0,
+      "post_exit_observer_quiet_seconds": 0.2744280179031193,
+      "receiver_requests": 0,
+      "receiver_post_requests": 0,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0
+    },
+    {
+      "index": 23,
+      "phase": "pair-2",
+      "flow": "expanded",
+      "mode": "local-api",
+      "seconds": 1.5734137480612844,
+      "exit_code": 0,
+      "started_unix_ns": 1790404483192251054,
+      "exited_unix_ns": 1790404484765667424,
+      "stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+      "stderr_bytes": 0,
+      "post_exit_observer_quiet_seconds": 0.3071200849954039,
+      "receiver_requests": 90,
+      "receiver_post_requests": 90,
+      "unauthenticated_probe_responses": 0,
+      "receiver_max_handler_seconds": 0.025161452
+    }
+  ],
+  "receiver": {
+    "http_post_201": 433,
+    "observer_dropped": 0,
+    "handlers": {
+      "/v1/logs": {
+        "requests": 257,
+        "median_seconds": 0.003576413,
+        "p95_nearest_lower_seconds": 0.007243086,
+        "max_seconds": 0.012772198,
+        "declared_body_bytes": 2735015
+      },
+      "/v1/metrics": {
+        "requests": 56,
+        "median_seconds": 0.004238700999999999,
+        "p95_nearest_lower_seconds": 0.006691707,
+        "max_seconds": 0.007748757,
+        "declared_body_bytes": 1268624
+      },
+      "/v1/traces": {
+        "requests": 120,
+        "median_seconds": 0.0068370565,
+        "p95_nearest_lower_seconds": 0.023023328,
+        "max_seconds": 0.028181561,
+        "declared_body_bytes": 5277469
+      }
+    }
+  },
+  "synthetic_validation": {
+    "requests_total": 4,
+    "trace_rows": 1,
+    "log_rows": 1,
+    "structural_payload_exact": true,
+    "visible_after_last_http_accept_seconds": 0.145477696,
+    "visibility_poll_ms": 50
+  },
+  "readback": {
+    "counts": {
+      "/v1/traces": {
+        "accepted_http_requests": 120,
+        "unique_recorded_export_keys": 120,
+        "repeated_key_requests": 0,
+        "accepted_without_export_key": 0,
+        "zero_declared_body_requests": 0,
+        "visible_export_keys": 114,
+        "visible_rows": 13438,
+        "visible_content_type_tagged_nonstring_call_payload_rows": 0,
+        "not_visible_or_empty_filtered_or_replaced_keys": 6
+      },
+      "/v1/logs": {
+        "accepted_http_requests": 257,
+        "unique_recorded_export_keys": 257,
+        "repeated_key_requests": 0,
+        "accepted_without_export_key": 0,
+        "zero_declared_body_requests": 0,
+        "visible_export_keys": 257,
+        "visible_rows": 7556,
+        "visible_content_type_tagged_nonstring_call_payload_rows": 5684,
+        "not_visible_or_empty_filtered_or_replaced_keys": 0
+      }
+    },
+    "metric_gauges_org_total_not_attributable": 8064,
+    "limitations": [
+      "Readback starts after recorded CLI/HTTP completion; elapsed time is not acceptance-to-visibility latency.",
+      "HEAD /v1/traces 401 is expected for the CLI reachability probe; every POST still requires 201.",
+      "Missing keys are ambiguous: empty batches, receiver filtering, ReplacingMergeTree update replacement or delayed/lost data.",
+      "Raw row totals may include repeated span updates; they are not unique spans or workload completeness.",
+      "Metrics have no writer/sequence columns; their org-wide gauge total is not attributable to this HTTP interval.",
+      "Call-payload counts require the real content-type log attribute and nonempty BodyRaw; bytes-kind/protobuf semantics and complete fidelity are not decoded here.",
+      "No persistence/durability, post-response task completion or full Cloud deployment claim."
+    ]
+  },
+  "late_export_validation": {
+    "rows": 1,
+    "completion_carrier_rows": 1,
+    "only_session_complete_carrier": true
+  },
+  "wcprof": {
+    "core": {
+      "open_operations": 0,
+      "dropped_events": 0,
+      "cli_seconds": 0.4020925001241267,
+      "op_count": 21489,
+      "earliest_op_start_offset_ms": 156.784117,
+      "latest_op_end_offset_ms": 378.305106,
+      "ops_started_before_cli": 0,
+      "ops_ended_after_cli": 0,
+      "runtime_count": 0,
+      "runtime_sum_ms": 0.0,
+      "runtime_union_ms": 0.0
+    },
+    "expanded": {
+      "open_operations": 0,
+      "dropped_events": 0,
+      "cli_seconds": 2.1321634599007666,
+      "op_count": 19307,
+      "earliest_op_start_offset_ms": 128.068387,
+      "latest_op_end_offset_ms": 2087.203413,
+      "ops_started_before_cli": 0,
+      "ops_ended_after_cli": 0,
+      "runtime_count": 6,
+      "runtime_sum_ms": 549.242561,
+      "runtime_union_ms": 448.750185
+    }
+  },
+  "cleanup": {
+    "task_api_and_databases_stopped": true,
+    "engine_original_networks_restored": true,
+    "volumes_deleted": 0
+  },
+  "excluded": [
+    "private API source and harness",
+    "token and generated credentials",
+    "raw request records and telemetry bodies",
+    "raw profiles",
+    "calibration attempts from timing comparisons"
+  ]
+}

@@ -1,5 +1,10 @@
 # Try the collections discovery changes
 
+**Local receiver experiment:** [real API ingestion without production load](collections-local-receiver-performance.md)
+measures core calls at 378 ms, workspace navigation at 237 ms and the mixed-SDK
+listing at 1.57 s with local telemetry. These are warm experimental-stack
+results, separate from production network behavior and cold starts.
+
 **Broader UX coverage:** [the command and export investigation](collections-ux-performance.md)
 adds real check, generate, service, module-call and file-write measurements.
 It found an unnecessary whole-destination scan after sparse exports and removes
