@@ -4,10 +4,11 @@ import (
 	"context"
 	"hash"
 	"io"
-	gofs "io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -69,18 +70,79 @@ func (dw *DiskWriter) Wait(ctx context.Context) error {
 	if err := dw.eg.Wait(); err != nil {
 		return err
 	}
-	return filepath.WalkDir(dw.dest, func(path string, d gofs.DirEntry, prevErr error) error {
-		if prevErr != nil {
-			return prevErr
-		}
-		if !d.IsDir() {
-			return nil
-		}
-		if mtime, ok := dw.dirModTimes[path]; ok {
-			return chtimes(path, mtime)
-		}
+	return restoreDirectoryTimes(dw.dest, dw.dirModTimes, os.Lstat, chtimes)
+}
+
+// restoreDirectoryTimes finalizes only directories created by this transfer.
+// Walking the whole destination would make a sparse merge depend on unrelated
+// files (including directories the caller cannot read). Check the relevant
+// ancestors instead: a directory may have been deleted or replaced with a file
+// or symlink after its timestamp was recorded, and must then be skipped.
+func restoreDirectoryTimes(dest string, times map[string]int64, lstat func(string) (os.FileInfo, error), setTimes func(string, int64) error) error {
+	if len(times) == 0 {
 		return nil
-	})
+	}
+	dest = filepath.Clean(dest)
+	paths := make([]string, 0, len(times))
+	for p := range times {
+		if p != filepath.Clean(p) {
+			return &os.PathError{Op: "restore directory time", Path: p, Err: syscall.EINVAL}
+		}
+		rel, err := filepath.Rel(dest, p)
+		if err != nil {
+			return err
+		}
+		if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return &os.PathError{Op: "restore directory time", Path: p, Err: syscall.EINVAL}
+		}
+		paths = append(paths, p)
+	}
+	// Match WalkDir's deterministic parent-before-child order without reading
+	// siblings. ComparePath sorts separators before ordinary path characters.
+	slices.SortFunc(paths, ComparePath)
+
+	checked := make(map[string]bool)
+	var isDirectory func(string) (bool, error)
+	isDirectory = func(rel string) (bool, error) {
+		if ok, seen := checked[rel]; seen {
+			return ok, nil
+		}
+		if rel != "." {
+			ok, err := isDirectory(filepath.Dir(rel))
+			if err != nil || !ok {
+				if err == nil {
+					checked[rel] = false
+				}
+				return false, err
+			}
+		}
+		fi, err := lstat(filepath.Join(dest, rel))
+		if err != nil {
+			if rel != "." && os.IsNotExist(err) {
+				checked[rel] = false
+				return false, nil
+			}
+			return false, err
+		}
+		checked[rel] = fi.IsDir()
+		return fi.IsDir(), nil
+	}
+	for _, p := range paths {
+		rel, err := filepath.Rel(dest, p)
+		if err != nil {
+			return err
+		}
+		ok, err := isDirectory(rel)
+		if err != nil {
+			return err
+		}
+		if ok {
+			if err := setTimes(p, times[p]); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 //nolint:gocyclo
