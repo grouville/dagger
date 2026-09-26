@@ -1,6 +1,5 @@
 {
   "scope": "Real local token-authenticated OTLP handlers and Postgres/ClickHouse; full Cloud app and remote network excluded",
-  "production_cloud_commands": 0,
   "commands": 24,
   "warmups": 6,
   "paired_samples_per_flow_per_mode": 3,
@@ -602,5 +601,217 @@
     "raw request records and telemetry bodies",
     "raw profiles",
     "calibration attempts from timing comparisons"
-  ]
+  ],
+  "initial_local_matrix_production_commands": 0,
+  "matched_production_comparison": {
+    "local": {
+      "n": 5,
+      "median_seconds": 1.7207245079334825,
+      "min_seconds": 1.593090906040743,
+      "max_seconds": 2.3141229040920734,
+      "samples": [
+        1.6152007060591131,
+        1.593090906040743,
+        2.080663919914514,
+        2.3141229040920734,
+        1.7207245079334825
+      ]
+    },
+    "production": {
+      "n": 5,
+      "median_seconds": 2.0644770639482886,
+      "min_seconds": 1.9496999820694327,
+      "max_seconds": 2.261397257214412,
+      "samples": [
+        2.1813910380005836,
+        1.9496999820694327,
+        1.9631827750708908,
+        2.0644770639482886,
+        2.261397257214412
+      ]
+    },
+    "paired_production_minus_local_seconds": [
+      0.5661903319414705,
+      0.35660907602868974,
+      -0.11748114484362304,
+      -0.24964584014378488,
+      0.5406727492809296
+    ],
+    "paired_median_gap_seconds": 0.35660907602868974,
+    "source_preserved": true,
+    "actual_production_commands": 7,
+    "command": "dagger check -l --all",
+    "cli_sha256": "c5b8dd92adf66f061cceed037cbb4bd32844dfb5071e0fb17020b0fc29f88fce",
+    "engine_sha256": "a1b41acdd93b65fd0a3baf3078f70ef51ab1293a0c5526f473e60c57cc875cf5",
+    "samples": [
+      {
+        "index": 0,
+        "phase": "auth-smoke",
+        "mode": "production",
+        "seconds": 2.338218183023855,
+        "exit_code": 0,
+        "started_unix_ns": 1790405689810352956,
+        "exited_unix_ns": 1790405692148575133,
+        "stdout_sha256": "7d05d5bfeaf10af2c4035b721979328a222c5265c687086ec2e6d9c832c23516",
+        "stderr_bytes": 352,
+        "local_post_requests": 0
+      },
+      {
+        "index": 1,
+        "phase": "warmup",
+        "mode": "local",
+        "seconds": 2.0942795800510794,
+        "exit_code": 0,
+        "started_unix_ns": 1790405693417289838,
+        "exited_unix_ns": 1790405695511572469,
+        "stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+        "stderr_bytes": 0,
+        "local_post_requests": 102
+      },
+      {
+        "index": 2,
+        "phase": "warmup",
+        "mode": "production",
+        "seconds": 2.3784917811863124,
+        "exit_code": 0,
+        "started_unix_ns": 1790405696773785614,
+        "exited_unix_ns": 1790405699152282018,
+        "stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+        "stderr_bytes": 0,
+        "local_post_requests": 0
+      },
+      {
+        "index": 3,
+        "phase": "pair-0",
+        "mode": "local",
+        "seconds": 1.6152007060591131,
+        "exit_code": 0,
+        "started_unix_ns": 1790405700415358480,
+        "exited_unix_ns": 1790405702030562031,
+        "stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+        "stderr_bytes": 0,
+        "local_post_requests": 89
+      },
+      {
+        "index": 4,
+        "phase": "pair-0",
+        "mode": "production",
+        "seconds": 2.1813910380005836,
+        "exit_code": 0,
+        "started_unix_ns": 1790405703301447117,
+        "exited_unix_ns": 1790405705482841110,
+        "stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+        "stderr_bytes": 0,
+        "local_post_requests": 0
+      },
+      {
+        "index": 5,
+        "phase": "pair-1",
+        "mode": "production",
+        "seconds": 1.9496999820694327,
+        "exit_code": 0,
+        "started_unix_ns": 1790405706754196115,
+        "exited_unix_ns": 1790405708703899344,
+        "stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+        "stderr_bytes": 0,
+        "local_post_requests": 0
+      },
+      {
+        "index": 6,
+        "phase": "pair-1",
+        "mode": "local",
+        "seconds": 1.593090906040743,
+        "exit_code": 0,
+        "started_unix_ns": 1790405709978619014,
+        "exited_unix_ns": 1790405711571712491,
+        "stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+        "stderr_bytes": 0,
+        "local_post_requests": 88
+      },
+      {
+        "index": 7,
+        "phase": "pair-2",
+        "mode": "local",
+        "seconds": 2.080663919914514,
+        "exit_code": 0,
+        "started_unix_ns": 1790405712841420479,
+        "exited_unix_ns": 1790405714922086150,
+        "stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+        "stderr_bytes": 0,
+        "local_post_requests": 102
+      },
+      {
+        "index": 8,
+        "phase": "pair-2",
+        "mode": "production",
+        "seconds": 1.9631827750708908,
+        "exit_code": 0,
+        "started_unix_ns": 1790405716210703314,
+        "exited_unix_ns": 1790405718173888709,
+        "stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+        "stderr_bytes": 0,
+        "local_post_requests": 0
+      },
+      {
+        "index": 9,
+        "phase": "pair-3",
+        "mode": "production",
+        "seconds": 2.0644770639482886,
+        "exit_code": 0,
+        "started_unix_ns": 1790405719464358259,
+        "exited_unix_ns": 1790405721528839878,
+        "stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+        "stderr_bytes": 0,
+        "local_post_requests": 0
+      },
+      {
+        "index": 10,
+        "phase": "pair-3",
+        "mode": "local",
+        "seconds": 2.3141229040920734,
+        "exit_code": 0,
+        "started_unix_ns": 1790405722808464847,
+        "exited_unix_ns": 1790405725122590272,
+        "stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+        "stderr_bytes": 0,
+        "local_post_requests": 103
+      },
+      {
+        "index": 11,
+        "phase": "pair-4",
+        "mode": "local",
+        "seconds": 1.7207245079334825,
+        "exit_code": 0,
+        "started_unix_ns": 1790405726392745059,
+        "exited_unix_ns": 1790405728113472511,
+        "stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+        "stderr_bytes": 0,
+        "local_post_requests": 94
+      },
+      {
+        "index": 12,
+        "phase": "pair-4",
+        "mode": "production",
+        "seconds": 2.261397257214412,
+        "exit_code": 0,
+        "started_unix_ns": 1790405729390930214,
+        "exited_unix_ns": 1790405731652330894,
+        "stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+        "stderr_bytes": 0,
+        "local_post_requests": 0
+      }
+    ],
+    "difference_of_medians_seconds": 0.34375255601480603,
+    "local_slower_pairs": 2,
+    "production_goal_gap_seconds": 1.5644770639482886,
+    "telemetry_warning_error_messages": 0,
+    "rate_limit_warnings": 0,
+    "limitations": [
+      "Warm experimental engine/SDK stack, five alternating pairs, not a cold or released-engine result.",
+      "Production normal CLI login; local newly generated token and empty auth configuration.",
+      "Includes network, TLS, authentication and deployment differences; not isolated receiver CPU.",
+      "Engine log classification found no telemetry WARN/ERROR messages; this is not a server delivery or durability proof.",
+      "One second between commands plus 250 ms observed local quiet outside CLI timer; no global-drain proof."
+    ]
+  }
 }

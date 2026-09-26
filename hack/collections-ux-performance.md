@@ -241,13 +241,15 @@ must establish counts before changing ownership or durability. See the
   stays about 1.59 s and the queue still grows. Synchronous forwarding shows
   no latency gain. Keep the window change experimental; do not enable it
   globally or describe it as solved telemetry throughput.
-* The newly authorized production Cloud matrix has not been run. A
-  [local receiver experiment](collections-local-receiver-performance.md)
+* A [local receiver experiment](collections-local-receiver-performance.md)
   completed 24 commands using the real ingestion handlers and isolated
   Postgres/ClickHouse: core calls take 378 ms, workspace navigation 237 ms,
   and the mixed-SDK listing 1.57 s with local export enabled. All 433 POSTs
   were accepted. HTTP acceptance, observed database rows and full durability
-  remain different boundaries; this is not a production capacity test.
+  remain different boundaries; this is not a production capacity test. A later
+  five-pair comparison gives **1.721 s local versus 2.064 s production** for
+  the same listing, with seven ordinary production commands in total. The full
+  broader UX matrix has not yet been repeated against production Cloud.
 * Reusing the greetings backend constructor removes a 91–96 ms constructor
   execution on a warm hit, but five whole-listing pairs do not establish a
   latency improvement. Source edits still invalidate it. Do not claim the

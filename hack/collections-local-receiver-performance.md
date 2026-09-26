@@ -1,7 +1,8 @@
 # Measure telemetry against a local Cloud receiver
 
-The intensive receiver experiment ran locally. **No command in this new matrix
-sent telemetry to production Cloud.** One CLI command can produce many exports:
+The initial 24-command receiver experiment ran locally, with **no telemetry sent
+to production Cloud**. A subsequent matched comparison used seven ordinary
+production commands; its results are below. One CLI command can produce many exports:
 the three measured greetings-api listings sent 90, 93 and 93 POSTs each.
 Command count alone is therefore a poor load limit.
 
@@ -57,6 +58,44 @@ durations are not an additive CPU or latency budget. In the listing capture,
 six runtimes overlap across 449 ms of a 1.96 s engine interval; reducing runtime
 startup alone would still leave other work.
 
+## Matched local versus production comparison
+
+A separate series alternates five warm pairs of the exact same
+`dagger check -l --all` command on the same greetings-api copy, CLI binary and
+retained engine. It uses the unchanged local receiver binary and the real
+`https://api.dagger.cloud` endpoint. No builds or competing benchmark runs occur
+during the series. Exact 14-row output and preserved source hashes pass for
+every listing.
+
+| Endpoint | Median | Minimum–maximum | Samples |
+| --- | ---: | ---: | ---: |
+| Real local ingestion | 1.721 s | 1.593–2.314 s | 5 |
+| Production Cloud | 2.064 s | 1.950–2.261 s | 5 |
+
+The observed median difference is **344 ms, or 16.7% of production time**.
+The median paired difference is 357 ms. Local was slower in two pairs, so this
+is a noisy matched estimate, not a guaranteed saving. Use these paired-series
+numbers to compare endpoints; the earlier local-only median of 1.57 s came
+from a different series.
+
+The comparison includes one initial production core call verifying normal
+Cloud authentication, two listing warmups, and ten measured listings. That
+is **seven production commands**, paced with at least one second between
+commands, plus six local commands. Listing diagnostics remain empty as in the
+normal UX. The owned engine's corresponding log window contains no telemetry
+warnings/errors or rate-limit warnings; this is not server-side delivery proof.
+
+Production uses the normal existing CLI login. Local mode uses an empty CLI
+configuration and its generated organization token. Analytics and update checks
+are disabled on both sides. The observed difference therefore combines network,
+TLS, authentication and receiver/deployment behavior; it does not isolate WAN
+latency or server CPU. These are warm experimental-stack timings, not cold-start
+results or timings from a released engine.
+
+The actual target remains **2.064 s to 0.500 s in production**: about **1.56 s
+still to remove**. Moving the receiver nearby is useful for isolating costs,
+but the local result itself remains more than a second above the target.
+
 ## Acceptance, stored data and limits
 
 The measured interval contains 433 POSTs: 120 trace, 257 log and 56 metric
@@ -96,8 +135,8 @@ Core calls and workspace navigation can finish below 500 ms while using the
 real local ingestion path. The mixed-SDK listing remains about 1.5 s even with
 nearby ingestion, so eliminating remote export latency alone will not reach
 the target. Continue reducing module/schema work and allocation, while testing
-batching or asynchronous handoff locally. A small separate production check
-will still be needed to measure real network behavior.
+batching or asynchronous handoff locally. The matched production check above
+provides the current real-endpoint baseline for validating further changes.
 
 These are warm results on the retained experimental SDK stack. They do not
 change the previous cold-start findings or predict Kyle's machine timings.

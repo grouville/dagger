@@ -1,9 +1,10 @@
 # Try the collections discovery changes
 
-**Local receiver experiment:** [real API ingestion without production load](collections-local-receiver-performance.md)
-measures core calls at 378 ms, workspace navigation at 237 ms and the mixed-SDK
-listing at 1.57 s with local telemetry. These are warm experimental-stack
-results, separate from production network behavior and cold starts.
+**Receiver comparison:** [real local and production API measurements](collections-local-receiver-performance.md)
+give **1.721 s locally versus 2.064 s with production Cloud** for the mixed-SDK
+listing across five matched warm pairs. The initial local-only experiment also
+measures core calls at 378 ms and workspace navigation at 237 ms. These use the
+retained experimental SDK stack; no new cold-start claim follows.
 
 **Broader UX coverage:** [the command and export investigation](collections-ux-performance.md)
 adds real check, generate, service, module-call and file-write measurements.
