@@ -30,15 +30,41 @@ func listedArtifactIDs(items []listedArtifact) []string {
 
 func listedArtifactKeys(items []listedArtifact) []dagaddress.Pair {
 	var keys []dagaddress.Pair
+	var seen map[dagaddress.Pair]struct{}
 	for _, item := range items {
 		for _, key := range item.DimensionKeys {
 			pair := dagaddress.Pair{Dimension: key.Dimension, Key: key.Key, HasKey: true}
-			if !slices.Contains(keys, pair) {
-				keys = append(keys, pair)
+			if seen == nil {
+				if slices.Contains(keys, pair) {
+					continue
+				}
+				// Small rows need no index. Bound the scan for large collections
+				// while preserving the first occurrence of every dimension/key.
+				if len(keys) >= 8 {
+					seen = make(map[dagaddress.Pair]struct{}, 16)
+					for _, previous := range keys {
+						seen[previous] = struct{}{}
+					}
+				}
+			} else if _, exists := seen[pair]; exists {
+				continue
 			}
+			if seen != nil {
+				seen[pair] = struct{}{}
+			}
+			keys = append(keys, pair)
 		}
 	}
 	return keys
+}
+
+func hasListedArtifactKeys(items []listedArtifact) bool {
+	for _, item := range items {
+		if len(item.DimensionKeys) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func listArtifactSelection(ctx context.Context, dag *dagger.Client, ws *dagger.Workspace, selection *dagger.Artifacts, cmd *cobra.Command) error {
@@ -59,7 +85,7 @@ func listArtifactSelection(ctx context.Context, dag *dagger.Client, ws *dagger.W
 	}
 	var allArtifacts, targets *dagger.Artifacts
 	names := map[string]string{}
-	if len(listedArtifactKeys(items)) > 0 {
+	if hasListedArtifactKeys(items) {
 		// Formatting needs global dimension aliases, including dimensions absent
 		// from this selection. Reuse its workspace so this unfiltered discovery
 		// shares the same root and any already-loaded artifact tree.
