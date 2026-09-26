@@ -41,7 +41,7 @@ func listedArtifactKeys(items []listedArtifact) []dagaddress.Pair {
 	return keys
 }
 
-func listArtifactSelection(ctx context.Context, dag *dagger.Client, selection *dagger.Artifacts, cmd *cobra.Command) error {
+func listArtifactSelection(ctx context.Context, dag *dagger.Client, ws *dagger.Workspace, selection *dagger.Artifacts, cmd *cobra.Command) error {
 	ctx, span := Tracer().Start(ctx, "list artifacts", telemetry.Encapsulate())
 	defer span.End()
 	absolute, _ := cmd.Flags().GetBool("absolute")
@@ -60,9 +60,10 @@ func listArtifactSelection(ctx context.Context, dag *dagger.Client, selection *d
 	var allArtifacts, targets *dagger.Artifacts
 	names := map[string]string{}
 	if len(listedArtifactKeys(items)) > 0 {
-		// Resolve discovery once. Every formatting query must use this same set,
-		// since currentWorkspace has a new identity on each call.
-		id, err := dag.CurrentWorkspace().Artifacts().ID(ctx)
+		// Formatting needs global dimension aliases, including dimensions absent
+		// from this selection. Reuse its workspace so this unfiltered discovery
+		// shares the same root and any already-loaded artifact tree.
+		id, err := ws.Artifacts().ID(ctx)
 		if err != nil {
 			return err
 		}

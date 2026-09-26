@@ -48,13 +48,13 @@ var upCmd = &cobra.Command{
 			func(ctx context.Context, engineClient *client.Client) error {
 				dag := engineClient.Dagger()
 				ws := dag.CurrentWorkspace()
-				all, err := commandArtifactsWithFlags(ctx, dag, ws, cmd, args, true)
+				all, ws, err := commandArtifactsWithFlags(ctx, dag, ws, cmd, args, true)
 				if err != nil {
 					return err
 				}
 				services := all.FilterUpCommand()
 				if upListMode {
-					return listArtifactSelection(ctx, dag, services, cmd)
+					return listArtifactSelection(ctx, dag, ws, services, cmd)
 				}
 				return runServices(ctx, dag, services, cmd)
 			},

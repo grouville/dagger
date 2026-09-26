@@ -65,13 +65,6 @@ func commandArtifacts(ctx context.Context, dag *dagger.Client, ws *dagger.Worksp
 	if err != nil {
 		return nil, err
 	}
-	// currentWorkspace has a new identity on each call. Resolve it once so
-	// address selections from this command can share a collection batch.
-	workspaceID, err := ws.ID(ctx)
-	if err != nil {
-		return nil, err
-	}
-	ws = dagger.Ref[*dagger.Workspace](dag, workspaceID)
 	all := ws.Artifacts(dagger.WorkspaceArtifactsOpts{Include: artifactPaths(parsed)})
 	if strict {
 		failures, err := artifactLoadFailures(ctx, dag, all)
@@ -161,28 +154,36 @@ func isArtifactCommand(cmd *cobra.Command) bool {
 	return false
 }
 
-func commandArtifactsWithFlags(ctx context.Context, dag *dagger.Client, ws *dagger.Workspace, cmd *cobra.Command, addresses []string, strict bool) (*dagger.Artifacts, error) {
+func commandArtifactsWithFlags(ctx context.Context, dag *dagger.Client, ws *dagger.Workspace, cmd *cobra.Command, addresses []string, strict bool) (*dagger.Artifacts, *dagger.Workspace, error) {
+	// Pin the live workspace once for selection, flag validation, and output
+	// formatting. Re-reading currentWorkspace creates another discovery root.
+	workspaceID, err := ws.ID(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	ws = dagger.Ref[*dagger.Workspace](dag, workspaceID)
 	keys, err := artifactKeyFlags(cmd)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if len(keys) > 0 {
 		parsed, err := parseArtifactAddresses(addresses)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		defs, err := artifactDimensions(ctx, dag, ws.Artifacts(dagger.WorkspaceArtifactsOpts{Include: artifactPaths(parsed)}))
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if err := validateArtifactDimensionFlags(cmd, defs); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if err := bindArtifactDimensions(keys, defs); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
-	return commandArtifacts(ctx, dag, ws, addresses, strict, keys...)
+	selected, err := commandArtifacts(ctx, dag, ws, addresses, strict, keys...)
+	return selected, ws, err
 }
 
 func commandArtifactTargets(dag *dagger.Client, cmd *cobra.Command, artifacts *dagger.Artifacts) (*dagger.Artifacts, error) {

@@ -79,13 +79,13 @@ func runTerminalCommand(cmd *cobra.Command, args []string) error {
 		params,
 		func(ctx context.Context, engineClient *client.Client) error {
 			dag := engineClient.Dagger()
-			all, err := commandArtifactsWithFlags(ctx, dag, dag.CurrentWorkspace(), cmd, args, true)
+			all, ws, err := commandArtifactsWithFlags(ctx, dag, dag.CurrentWorkspace(), cmd, args, true)
 			if err != nil {
 				return err
 			}
 			terminals := all.FilterTypes([]string{"Container", "Directory"})
 			if terminalListMode {
-				return listArtifactSelection(ctx, dag, terminals, cmd)
+				return listArtifactSelection(ctx, dag, ws, terminals, cmd)
 			}
 			target, err := selectShellArtifact(ctx, dag, terminals)
 			if err != nil {

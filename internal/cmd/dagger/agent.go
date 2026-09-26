@@ -165,7 +165,7 @@ func composeAgents(ctx context.Context, dag *dagger.Client, include []string, cm
 	if err != nil {
 		return "", err
 	}
-	all, err := commandArtifactsWithFlags(ctx, dag, workspace, cmd, include, true)
+	all, _, err := commandArtifactsWithFlags(ctx, dag, workspace, cmd, include, true)
 	if err != nil {
 		return "", err
 	}
@@ -237,9 +237,9 @@ func snapshotWorkspace(ctx context.Context, dag *dagger.Client) (*dagger.Workspa
 }
 
 func listAgents(ctx context.Context, dag *dagger.Client, include []string, cmd *cobra.Command) error {
-	all, err := commandArtifactsWithFlags(ctx, dag, dag.CurrentWorkspace(), cmd, include, true)
+	all, ws, err := commandArtifactsWithFlags(ctx, dag, dag.CurrentWorkspace(), cmd, include, true)
 	if err != nil {
 		return err
 	}
-	return listArtifactSelection(ctx, dag, all.FilterAgentCommand(), cmd)
+	return listArtifactSelection(ctx, dag, ws, all.FilterAgentCommand(), cmd)
 }

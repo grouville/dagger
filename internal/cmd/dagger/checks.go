@@ -56,7 +56,7 @@ func runChecksCommand(cmd *cobra.Command, args []string) error {
 		func(ctx context.Context, engineClient *client.Client) error {
 			dag := engineClient.Dagger()
 			ws := dag.CurrentWorkspace()
-			artifacts, err := commandArtifactsWithFlags(ctx, dag, ws, cmd, args, false)
+			artifacts, ws, err := commandArtifactsWithFlags(ctx, dag, ws, cmd, args, false)
 			if err != nil {
 				return err
 			}
@@ -65,7 +65,7 @@ func runChecksCommand(cmd *cobra.Command, args []string) error {
 				return err
 			}
 			if checksListMode {
-				return listArtifactSelection(ctx, dag, checks, cmd)
+				return listArtifactSelection(ctx, dag, ws, checks, cmd)
 			}
 			return runChecks(ctx, dag, checks, cmd, args)
 		},

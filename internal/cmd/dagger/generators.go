@@ -60,13 +60,13 @@ var generateCmd = &cobra.Command{
 				slog.SetDefault(slog.SpanLogger(ctx, InstrumentationLibrary))
 				dag := engineClient.Dagger()
 				ws := dag.CurrentWorkspace()
-				all, err := commandArtifactsWithFlags(ctx, dag, ws, cmd, args, generateRequireLoad)
+				all, ws, err := commandArtifactsWithFlags(ctx, dag, ws, cmd, args, generateRequireLoad)
 				if err != nil {
 					return err
 				}
 				generators := all.FilterGenerateCommand()
 				if generateListMode {
-					return listArtifactSelection(ctx, dag, generators, cmd)
+					return listArtifactSelection(ctx, dag, ws, generators, cmd)
 				}
 				Frontend.SetPrimary(dagui.SpanID{SpanID: span.SpanContext().SpanID()})
 				failures, err := artifactLoadFailures(ctx, dag, all)
