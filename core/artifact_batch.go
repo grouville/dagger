@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/dagger/dagger/dagql"
+	"github.com/dagger/dagger/engine/wcprof"
 )
 
 func artifactBatchDirective(node *ModTreeNode) string {
@@ -20,10 +21,14 @@ func artifactBatchDirective(node *ModTreeNode) string {
 // Batch replaces selected item checks and generators with matching collection
 // operations. Expand must run first: its keys are already intersected with each
 // collection, including each distinct parent in nested collections.
-func (a *Artifacts) Batch(ctx context.Context) ([]*Artifact, error) {
+func (a *Artifacts) Batch(ctx context.Context) (_ []*Artifact, rerr error) {
+	ctx, op := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "artifact.batch", wcprof.OpOpts{})
+	defer func() { op.EndErr(rerr) }()
+
 	type batchGroup struct {
 		artifact *Artifact
 		receiver *ModTreeNode
+		keys     map[string]struct{}
 	}
 	groups := map[string]batchGroup{}
 	servers := map[uint64]*dagql.Server{}
@@ -91,13 +96,33 @@ func (a *Artifacts) Batch(ctx context.Context) ([]*Artifact, error) {
 		}
 		group, exists := groups[identity]
 		if !exists {
-			group = batchGroup{planned, item}
+			group = batchGroup{
+				artifact: planned,
+				receiver: item,
+			}
 			groups[identity] = group
 			result = append(result, planned)
-		} else if !slices.Contains(group.receiver.CollectionKeys, key) {
-			group.receiver.CollectionKeys = append(group.receiver.CollectionKeys, key)
 		} else {
-			continue
+			// Avoid a map allocation for small groups. Bound the scan so large
+			// batches still take expected linear time to deduplicate their keys.
+			if group.keys == nil {
+				if slices.Contains(group.receiver.CollectionKeys, key) {
+					continue
+				}
+				if len(group.receiver.CollectionKeys) >= 8 {
+					group.keys = make(map[string]struct{}, 16)
+					for _, previous := range group.receiver.CollectionKeys {
+						group.keys[previous] = struct{}{}
+					}
+					groups[identity] = group
+				}
+			} else if _, exists := group.keys[key]; exists {
+				continue
+			}
+			if group.keys != nil {
+				group.keys[key] = struct{}{}
+			}
+			group.receiver.CollectionKeys = append(group.receiver.CollectionKeys, key)
 		}
 		group.artifact.DimensionKeys = append(group.artifact.DimensionKeys, &ArtifactDimensionKey{Dimension: item.CollectionDimension.Identifier, Key: key})
 	}
