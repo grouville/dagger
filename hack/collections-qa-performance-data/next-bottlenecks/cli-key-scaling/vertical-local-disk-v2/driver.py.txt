@@ -1,0 +1,133 @@
+"""Actual check/generate/up and module calls; no application build in this fixture."""
+from pathlib import Path
+import argparse, hashlib, json, os, re, shutil, signal, socket, statistics, subprocess, time, urllib.error, urllib.request
+
+lab=Path(__file__).resolve().parent
+p=argparse.ArgumentParser();p.add_argument('--run',action='store_true');p.add_argument('--pairs',type=int,default=3)
+p.add_argument('--local-only',action='store_true');p.add_argument('--trial',default='vertical')
+p.add_argument('--baseline-cli',default=str(lab/'dagger-baseline'));p.add_argument('--candidate-cli',default=str(lab/'dagger-candidate'))
+p.add_argument('--git-workspace',action='store_true',help='Use a real isolated Git project; keep non-Git behavior as a separate fixture')
+args=p.parse_args()
+flows={'check':['check','--generated=false','verify'], 'generate':['-y','generate','render'], 'up':['up','web'], 'call':['-m','./module','api','call','read'], 'export':['-m','core','api','call','host','file','--path','input.txt','export','--path','./exported.txt']}
+if not args.run:print(json.dumps({'status':'prepared, not run','flows':flows},indent=2));raise SystemExit()
+assert '/' not in args.trial and args.trial not in ('','.','..')
+out=lab/args.trial;out.mkdir(exist_ok=False)
+(out/'driver.py.txt').write_text(Path(__file__).read_text())
+ws=out/'workspace';ws.mkdir();shutil.copytree(lab/'vertical-fixture',ws/'module')
+with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
+(ws/'dagger.toml').write_text(f'[modules.perf-flows]\nsource = "./module"\nentrypoint = true\n\n[ports."{port}"]\nbackendService = "web"\nbackendPort = 8080\n')
+if args.git_workspace:
+    (ws/'input.txt').write_text('warm\n')
+    subprocess.run(['git','init','--quiet'],cwd=ws,check=True)
+    subprocess.run(['git','add','dagger.toml','input.txt','module'],cwd=ws,check=True)
+    subprocess.run(['git','-c','user.name=Dagger performance fixture','-c','user.email=perf-fixture@localhost','-c','commit.gpgsign=false','-c','core.hooksPath=/dev/null','commit','--quiet','-m','Initial synthetic performance fixture'],cwd=ws,check=True)
+engine='dagger-engine.collections-disk-abba-2'
+env=dict(os.environ)
+for key in ('SSH_AUTH_SOCK','CPUPROFILE','DAGGER_CLOUD_URL','DAGGER_SESSION_PORT','DAGGER_SESSION_TOKEN','DAGGER_PERF_TIMELINE'):env.pop(key,None)
+if args.local_only:
+    config=out/'empty-config';config.mkdir(mode=0o700)
+    for key in list(env):
+        if key.startswith(('OTEL_','DAGGER_SESSION_','DAGGER_CLOUD_')) or key in ('DAGGER_CLOUD_TOKEN','DAGGER_CONFIG','DAGGER_CLOUD_AUTH_URL','TRACEPARENT','TRACESTATE','BAGGAGE','_EXPERIMENTAL_DAGGER_CACHE_CONFIG','_EXPERIMENTAL_DAGGER_CACHE_IMPORT_CONFIG','_EXPERIMENTAL_DAGGER_CACHE_EXPORT_CONFIG','_EXPERIMENTAL_DAGGER_CHECKS_SCALE_OUT'):env.pop(key,None)
+    env.update(XDG_CONFIG_HOME=str(config),DO_NOT_TRACK='1',DAGGER_NO_UPDATE_CHECK='1')
+telemetry_mode='local only: empty credentials, no Cloud/OTLP exporters or analytics' if args.local_only else 'normal direct Cloud'
+clis={'baseline':args.baseline_cli,'candidate':args.candidate_cli}
+rows=[]
+def psi():return int(Path('/proc/pressure/io').read_text().splitlines()[1].rsplit('=',1)[1])
+def dump(path):
+    try:
+        with urllib.request.urlopen('http://127.0.0.1:6172/debug/wcprof/dump?flush=true',timeout=20) as f:path.write_bytes(f.read())
+    except urllib.error.HTTPError as e:
+        if e.code!=503:raise
+def run(variant,flow,label,marker,profile=False,fail=False):
+    dest=out/label;dest.mkdir(parents=True,exist_ok=False)
+    input_file=ws/'input.txt'
+    if not input_file.exists() or input_file.read_text()!=marker:input_file.write_text(marker)
+    # Ordinary user input changes invalidate only through Dagger's existing rules.
+    operation=flows[flow]
+    cmd=[clis[variant],'--engine','container://'+engine]+(['--profile'] if profile else [])+operation
+    if profile:dump(dest/'prior.wcprof')
+    output=ws/('exported.txt' if flow=='export' else 'generated.txt')
+    # Warm file content can be cached, but each export must actually create a file.
+    if flow=='export':output.unlink(missing_ok=True)
+    already_current=flow in ('generate','export') and output.exists() and output.read_text()==marker
+    before=psi();wall_start=time.time_ns();start=time.monotonic();ready=None;stop=None;file_visible=None
+    with (dest/'stdout.txt').open('wb') as stdout,(dest/'stderr.txt').open('wb') as stderr:
+        process=subprocess.Popen(cmd,cwd=ws,env=env,stdout=stdout,stderr=stderr,start_new_session=True)
+        try:
+            if flow in ('generate','export') and not already_current:
+                while time.monotonic()-start<180:
+                    try:
+                        if output.read_bytes()==marker.encode():file_visible=time.monotonic();break
+                    except FileNotFoundError:pass
+                    if process.poll() is not None:break
+                    time.sleep(.005)
+            if flow=='up':
+                while time.monotonic()-start<180:
+                    if process.poll() is not None:raise RuntimeError('up exited before HTTP readiness: '+(dest/'stderr.txt').read_text()[-2000:])
+                    try:
+                        with urllib.request.urlopen(f'http://127.0.0.1:{port}/',timeout=.1) as response:body=response.read()
+                        if body==marker.encode():ready=time.monotonic();break
+                    except (urllib.error.URLError,TimeoutError,ConnectionError):pass
+                    time.sleep(.005)
+                if ready is None:raise RuntimeError('HTTP readiness timeout')
+                stop=time.monotonic();process.send_signal(signal.SIGINT)
+            status=process.wait(timeout=180)
+        finally:
+            if process.poll() is None:
+                process.send_signal(signal.SIGINT)
+                try:process.wait(timeout=30)
+                except subprocess.TimeoutExpired:os.killpg(process.pid,signal.SIGKILL);process.wait()
+    elapsed=time.monotonic()-start;wall_exit=time.time_ns();after=psi()
+    text=(dest/'stdout.txt').read_text(errors='replace')+(dest/'stderr.txt').read_text(errors='replace')
+    if fail:assert status!=0 and 'perf-flows correctness sentinel' in text,(label,status,text[-2000:])
+    else:
+        # main.go returns 2 for context cancellation; runServices can return nil.
+        allowed={0,2} if flow=='up' and ready is not None and stop is not None else {0}
+        assert status in allowed,(label,status,text[-2000:])
+        if flow in ('generate','export'):assert output.read_text()==marker,(label,'wrong written file')
+        if flow=='call':assert (dest/'stdout.txt').read_text()==marker,(label,'wrong module result')
+        if flow=='check':assert re.search(r'\b1 passed\b',re.sub(r'\x1b\[[0-9;]*m','',text)),text[-2000:]
+        if flow=='up':
+            # The foreground command must release its tunnel after cancellation.
+            deadline=time.monotonic()+3
+            while True:
+                try:
+                    with socket.create_connection(('127.0.0.1',port),timeout=.1):pass
+                except OSError:break
+                if time.monotonic()>deadline:raise RuntimeError('up left a listening tunnel after CLI exit')
+                time.sleep(.02)
+    row={'variant':variant,'flow':flow,'label':label,'profile':profile,'seconds':elapsed,'command':cmd,'correct':True,'exit_code':status,'expected_failure':fail,'io_full_stall_seconds':(after-before)/1e6,'telemetry_mode':telemetry_mode}
+    if flow in ('generate','export'):
+        row.update({'file_already_current_at_start':already_current,'file_visible_seconds':file_visible-start if file_visible else None,'file_visibility_poll_interval_ms':5})
+    if ready is not None:row.update({'http_ready_seconds':ready-start,'cancel_to_exit_seconds':elapsed-(stop-start),'readiness_poll_interval_ms':5})
+    if profile:row.update({'started_unix_ns':wall_start,'exited_unix_ns':wall_exit});dump(dest/'run.wcprof')
+    rows.append(row);(out/'results.json').write_text(json.dumps(rows,indent=2)+'\n');print(json.dumps(row),flush=True)
+
+(out/'provenance.json').write_text(json.dumps({'engine':engine,'cli_build':json.loads((lab/'build-provenance.json').read_text()),'selected_cli_paths':clis,'selected_cli_sha256':{key:hashlib.sha256(Path(value).read_bytes()).hexdigest() for key,value in clis.items()},'git_workspace':args.git_workspace,'fixture_source':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in (lab/'vertical-fixture').iterdir()},'driver_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),'boundary':'retained experimental engine; first run is setup, not a fresh-volume cold claim; full new CLI','telemetry_mode':telemetry_mode,'flows':flows,'up_measurement':'HTTP body readiness, then SIGINT and cleanup; wall time includes an intentionally cancelled long-lived service'},indent=2)+'\n')
+for flow in flows:
+    for variant in ('baseline','candidate'):run(variant,flow,'warmup/'+flow+'-'+variant,'warm\n')
+for i in range(args.pairs):
+    for flow in flows:
+        for variant in (('baseline','candidate') if i%2==0 else ('candidate','baseline')):
+            run(variant,flow,f'warm/{i}-{flow}-{variant}','warm\n')
+for i in range(args.pairs):
+    for flow in flows:
+        for variant in (('baseline','candidate') if i%2==0 else ('candidate','baseline')):
+            # Each measured edit has unique content; never prewarm via a listing.
+            run(variant,flow,f'edit/{i}-{flow}-{variant}',f'{i}-{flow}-{variant}\n')
+for variant in ('baseline','candidate'):
+    run(variant,'check','correctness/fail-'+variant,'fail\n',fail=True)
+    run(variant,'check','correctness/restore-'+variant,'restored\n')
+for flow in flows:run('candidate',flow,'profile/'+flow,'profile-'+flow+'\n',profile=True)
+summary=[]
+for phase in ('warm','edit'):
+    for flow in flows:
+        row={'phase':phase,'flow':flow}
+        for variant in ('baseline','candidate'):
+            selected=[r for r in rows if r['flow']==flow and r['variant']==variant and r['label'].startswith(phase+'/')]
+            metric='http_ready_seconds' if flow=='up' else 'seconds'
+            row[variant]={'metric':metric,'median':statistics.median(r[metric] for r in selected),'samples':[r[metric] for r in selected]}
+            written=[r['file_visible_seconds'] for r in selected if r.get('file_visible_seconds') is not None]
+            if written:row[variant]['file_visible_median_seconds']=statistics.median(written)
+        summary.append(row)
+(out/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')

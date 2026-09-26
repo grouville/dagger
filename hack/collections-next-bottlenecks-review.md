@@ -8,6 +8,14 @@ The investigation also covers actual check execution: first execution, reuse of
 a warm result, and source edits that must change the result. Those are separate
 workloads; a faster listing alone does not demonstrate faster tests.
 
+The follow-up [command and export investigation](collections-ux-performance.md)
+extends coverage to actual generators, HTTP services, module calls and host
+writes. It removes a whole-destination timestamp walk after sparse exports and
+a separate quadratic CLI key-union path. Its local-only diagnostic matrix is
+explicitly separated from the normal Cloud-enabled measurements below. A
+cancelled-session transport fix also preserves ordinary workspace lock writes,
+reducing edit-to-HTTP readiness from 1.35 s to 444 ms in the native fixture.
+
 The retained changes still remove necessary, independently identifiable costs.
 Current SDK and remote-cache work does not make them redundant. However, the
 fastest recorded absolute timings require the experimental SDK stack; they

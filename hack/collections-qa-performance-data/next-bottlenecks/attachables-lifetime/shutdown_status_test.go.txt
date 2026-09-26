@@ -1,0 +1,39 @@
+package client
+
+import (
+	"context"
+	"io"
+	"net/http"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+func TestShutdownServerReportsHTTPFailure(t *testing.T) {
+	for _, code := range []int{http.StatusOK, http.StatusNoContent, http.StatusUnauthorized, http.StatusInternalServerError} {
+		t.Run(http.StatusText(code), func(t *testing.T) {
+			body := &shutdownObservedBody{Reader: strings.NewReader("flush workspace locks: export unavailable")}
+			c := &Client{internalCtx: context.Background(), httpClient: &httpClient{inner: &http.Client{
+				Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+					return &http.Response{StatusCode: code, Body: body, Header: http.Header{}, Request: req}, nil
+				}),
+			}}}
+			err := c.shutdownServer()
+			if code >= 400 {
+				require.ErrorContains(t, err, "shutdown returned HTTP")
+				require.ErrorContains(t, err, "flush workspace locks: export unavailable")
+			} else {
+				require.NoError(t, err)
+			}
+			require.True(t, body.closed)
+		})
+	}
+}
+
+type shutdownObservedBody struct {
+	io.Reader
+	closed bool
+}
+
+func (b *shutdownObservedBody) Close() error { b.closed = true; return nil }

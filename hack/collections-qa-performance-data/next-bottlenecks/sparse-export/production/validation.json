@@ -1,0 +1,61 @@
+{
+  "revision": "dc5c450f70dfd365ef7d2f822644d917aaccac8e",
+  "commands": [
+    {
+      "label": "unit",
+      "command": [
+        "go",
+        "test",
+        "-modfile=/tmp/collections-perf/post-rebase-io/build.mod",
+        "-buildvcs=false",
+        "-overlay=/tmp/collections-perf/sparse-export/production/overlay.json",
+        "./internal/fsutil",
+        "-count=1",
+        "-v"
+      ],
+      "exit_code": 0,
+      "seconds": 0.5055566509254277
+    },
+    {
+      "label": "race",
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "-modfile=/tmp/collections-perf/post-rebase-io/build.mod",
+        "-buildvcs=false",
+        "-overlay=/tmp/collections-perf/sparse-export/production/overlay.json",
+        "./internal/fsutil",
+        "-run=^TestSparse",
+        "-count=1"
+      ],
+      "exit_code": 0,
+      "seconds": 1.894930925918743
+    },
+    {
+      "label": "cli",
+      "command": [
+        "go",
+        "build",
+        "-modfile=/tmp/collections-perf/post-rebase-io/build.mod",
+        "-buildvcs=false",
+        "-overlay=/tmp/collections-perf/sparse-export/production/overlay.json",
+        "-o",
+        "/tmp/collections-perf/sparse-export/production/dagger-production",
+        "./cmd/dagger"
+      ],
+      "exit_code": 0,
+      "seconds": 5.988420463865623
+    }
+  ],
+  "sha256": {
+    "diskwriter.go": "71f2f2bf841fe7b2428dbab2bf108ba8e1c7b2d6d607c7ac6846fa97c220f096",
+    "diskwriter_test.go": "4aec21d5dc8654a4038e791db875f272954ec9c85f3790e3bac92cbb85bd66ed",
+    "diskwriter_benchmark_test.go": "ec8c99bb6e2da9b664c529b3abdb3ab17d83c7ba694349fdbdd2565b74247152",
+    "overlay.json": "1469c8bc5f103b6206f5f5c7434146bee46145b15935a26d556ba63b1044fbd8",
+    "validate.py": "f0a4fa68c19a9609da9113837171bccc6e5677491175c47b3f43a7a21a24e524",
+    "dagger-production": "0c841d64a3aad06b082ad9bb0beb618f6d07e86e8ce83008e5621e7b878e86bb"
+  },
+  "formatter_sha256": "7ebc265dff821644d82e61721262f3e1c6585ae1cde6d66472f56fb3efbb58ff",
+  "windows_native_test": "skipped on Linux; runtime Windows semantics remain unexecuted"
+}

@@ -1,0 +1,1187 @@
+[
+  {
+    "flow": "up",
+    "profile": "/tmp/collections-perf/cli-key-scaling/service-lifetime-ab-v1/profile/baseline/run.wcprof",
+    "cli_seconds_profiled": 1.404084542999044,
+    "clock_basis": "same-host UNIX clock; engine profiler has a monotonic epoch anchored to UNIX time; separate diagnostic captures, not unprofiled latency samples",
+    "ops": 419,
+    "dropped_events": 0,
+    "first_engine_op_from_cli_ms": 165.809496,
+    "last_engine_op_to_exit_ms": 24.287564,
+    "operations_starting_before_cli": 0,
+    "operations_finishing_after_cli": 0,
+    "first_verify_producer_from_cli_ms": null,
+    "first_check_sync_from_cli_ms": null,
+    "first_dang_invoke_nested_in_check_sync_from_cli_ms": null,
+    "selected_call_outcomes": {
+      "executed": 6,
+      "hit": 2
+    },
+    "interpretation": "A missing call_exec or fresh process can be a legitimate result cache hit. A projected Void @check producer creates Check; evaluation and author invocation occur later. Nested intervals are not additive. Time after the last recorded op includes unrecorded work and must not be assigned wholly to telemetry.",
+    "boundaries": [
+      {
+        "op_id": 421545,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 165.82156,
+        "duration_ms": 7.470133,
+        "end_to_cli_exit_ms": 1230.795062
+      },
+      {
+        "op_id": 421546,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 173.294052,
+        "duration_ms": 0.002506,
+        "end_to_cli_exit_ms": 1230.790197
+      },
+      {
+        "op_id": 421547,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 173.296973,
+        "duration_ms": 0.34925,
+        "end_to_cli_exit_ms": 1230.440532
+      },
+      {
+        "op_id": 421554,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 176.653355,
+        "duration_ms": 0.001042,
+        "end_to_cli_exit_ms": 1227.432358
+      },
+      {
+        "op_id": 421555,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 176.654801,
+        "duration_ms": 0.001234,
+        "end_to_cli_exit_ms": 1227.43072
+      },
+      {
+        "op_id": 421556,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 176.656326,
+        "duration_ms": 0.001314,
+        "end_to_cli_exit_ms": 1227.429115
+      },
+      {
+        "op_id": 421559,
+        "class": "Workspace.artifacts",
+        "kind": "call",
+        "outcome": "executed",
+        "start_from_cli_ms": 177.571791,
+        "duration_ms": 59.113482,
+        "end_to_cli_exit_ms": 1167.401482
+      },
+      {
+        "op_id": 421560,
+        "class": "Workspace.artifacts",
+        "kind": "call_exec",
+        "outcome": "ok",
+        "start_from_cli_ms": 177.580954,
+        "duration_ms": 59.02419,
+        "end_to_cli_exit_ms": 1167.481611
+      },
+      {
+        "op_id": 421564,
+        "class": "Host.directory",
+        "kind": "call",
+        "outcome": "executed",
+        "start_from_cli_ms": 184.617975,
+        "duration_ms": 22.177866,
+        "end_to_cli_exit_ms": 1197.290914
+      },
+      {
+        "op_id": 421565,
+        "class": "Host.directory",
+        "kind": "call_exec",
+        "outcome": "ok",
+        "start_from_cli_ms": 184.629956,
+        "duration_ms": 21.806093,
+        "end_to_cli_exit_ms": 1197.650706
+      },
+      {
+        "op_id": 421587,
+        "class": "dang.invoke",
+        "kind": "internal",
+        "outcome": "ok",
+        "start_from_cli_ms": 232.825417,
+        "duration_ms": 1.403078,
+        "end_to_cli_exit_ms": 1169.85826,
+        "ancestor_operations": [
+          {
+            "op_id": 421574,
+            "class": "ModuleSource.asModule",
+            "kind": "call_exec"
+          },
+          {
+            "op_id": 421573,
+            "class": "ModuleSource.asModule",
+            "kind": "call"
+          },
+          {
+            "op_id": 421560,
+            "class": "Workspace.artifacts",
+            "kind": "call_exec"
+          },
+          {
+            "op_id": 421559,
+            "class": "Workspace.artifacts",
+            "kind": "call"
+          }
+        ],
+        "inside_check_sync": false,
+        "boundary_note": "Interpreter callback invocation; includes dispatch. This is not a timestamp of the first authored source instruction. A verify call can merely construct Check."
+      },
+      {
+        "op_id": 421722,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 237.70845,
+        "duration_ms": 0.001152,
+        "end_to_cli_exit_ms": 1166.377153
+      },
+      {
+        "op_id": 421723,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 237.710461,
+        "duration_ms": 0.000707,
+        "end_to_cli_exit_ms": 1166.375587
+      },
+      {
+        "op_id": 421724,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 237.711494,
+        "duration_ms": 0.687467,
+        "end_to_cli_exit_ms": 1165.687794
+      },
+      {
+        "op_id": 421759,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 242.848484,
+        "duration_ms": 0.001201,
+        "end_to_cli_exit_ms": 1161.23707
+      },
+      {
+        "op_id": 421760,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 242.850113,
+        "duration_ms": 0.001167,
+        "end_to_cli_exit_ms": 1161.235475
+      },
+      {
+        "op_id": 421761,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 242.851579,
+        "duration_ms": 0.001523,
+        "end_to_cli_exit_ms": 1161.233653
+      },
+      {
+        "op_id": 421765,
+        "class": "Workspace.artifacts",
+        "kind": "call",
+        "outcome": "hit",
+        "start_from_cli_ms": 243.998455,
+        "duration_ms": 0.010265,
+        "end_to_cli_exit_ms": 1160.078035
+      },
+      {
+        "op_id": 421771,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 245.675781,
+        "duration_ms": 0.000867,
+        "end_to_cli_exit_ms": 1158.410107
+      },
+      {
+        "op_id": 421772,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 245.67775,
+        "duration_ms": 0.001177,
+        "end_to_cli_exit_ms": 1158.407828
+      },
+      {
+        "op_id": 421773,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 245.679259,
+        "duration_ms": 0.001319,
+        "end_to_cli_exit_ms": 1158.406177
+      },
+      {
+        "op_id": 421779,
+        "class": "Artifacts.__evaluationItems",
+        "kind": "call",
+        "outcome": "executed",
+        "start_from_cli_ms": 247.10242,
+        "duration_ms": 0.188386,
+        "end_to_cli_exit_ms": 1156.795949
+      },
+      {
+        "op_id": 421780,
+        "class": "Artifacts.__evaluationItems",
+        "kind": "call_exec",
+        "outcome": "ok",
+        "start_from_cli_ms": 247.109338,
+        "duration_ms": 0.094653,
+        "end_to_cli_exit_ms": 1156.882764
+      },
+      {
+        "op_id": 421801,
+        "class": "perf-flows:PerfFlows.web",
+        "kind": "call",
+        "outcome": "executed",
+        "start_from_cli_ms": 249.243161,
+        "duration_ms": 757.21078,
+        "end_to_cli_exit_ms": 397.632814
+      },
+      {
+        "op_id": 421802,
+        "class": "perf-flows:PerfFlows.web",
+        "kind": "call_exec",
+        "outcome": "ok",
+        "start_from_cli_ms": 249.252657,
+        "duration_ms": 756.978878,
+        "end_to_cli_exit_ms": 397.85522
+      },
+      {
+        "op_id": 421819,
+        "class": "dang.invoke",
+        "kind": "internal",
+        "outcome": "ok",
+        "start_from_cli_ms": 270.289262,
+        "duration_ms": 735.343548,
+        "end_to_cli_exit_ms": 398.453945,
+        "ancestor_operations": [
+          {
+            "op_id": 421802,
+            "class": "perf-flows:PerfFlows.web",
+            "kind": "call_exec"
+          },
+          {
+            "op_id": 421801,
+            "class": "perf-flows:PerfFlows.web",
+            "kind": "call"
+          },
+          {
+            "op_id": 421785,
+            "class": "Artifact.value",
+            "kind": "call"
+          },
+          {
+            "op_id": 421778,
+            "class": "Artifacts.values",
+            "kind": "call_exec"
+          },
+          {
+            "op_id": 421777,
+            "class": "Artifacts.values",
+            "kind": "call"
+          }
+        ],
+        "inside_check_sync": false,
+        "boundary_note": "Interpreter callback invocation; includes dispatch. This is not a timestamp of the first authored source instruction. A verify call can merely construct Check."
+      },
+      {
+        "op_id": 421821,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 271.791964,
+        "duration_ms": 0.00198,
+        "end_to_cli_exit_ms": 1132.292811
+      },
+      {
+        "op_id": 421822,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 271.794499,
+        "duration_ms": 0.001569,
+        "end_to_cli_exit_ms": 1132.290687
+      },
+      {
+        "op_id": 421823,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 271.796327,
+        "duration_ms": 0.178549,
+        "end_to_cli_exit_ms": 1132.111879
+      },
+      {
+        "op_id": 421831,
+        "class": "Host.directory",
+        "kind": "call",
+        "outcome": "executed",
+        "start_from_cli_ms": 274.696429,
+        "duration_ms": 14.535058,
+        "end_to_cli_exit_ms": 1114.855268
+      },
+      {
+        "op_id": 421832,
+        "class": "Host.directory",
+        "kind": "call_exec",
+        "outcome": "ok",
+        "start_from_cli_ms": 274.704074,
+        "duration_ms": 14.208495,
+        "end_to_cli_exit_ms": 1115.174186
+      },
+      {
+        "op_id": 421844,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 294.041433,
+        "duration_ms": 0.001114,
+        "end_to_cli_exit_ms": 1110.044208
+      },
+      {
+        "op_id": 421845,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 294.043034,
+        "duration_ms": 0.00118,
+        "end_to_cli_exit_ms": 1110.042541
+      },
+      {
+        "op_id": 421846,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 294.044513,
+        "duration_ms": 0.001247,
+        "end_to_cli_exit_ms": 1110.040995
+      },
+      {
+        "op_id": 421854,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 294.835337,
+        "duration_ms": 0.001143,
+        "end_to_cli_exit_ms": 1109.250275
+      },
+      {
+        "op_id": 421855,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 294.836891,
+        "duration_ms": 0.000725,
+        "end_to_cli_exit_ms": 1109.249139
+      },
+      {
+        "op_id": 421856,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 294.837949,
+        "duration_ms": 0.001322,
+        "end_to_cli_exit_ms": 1109.247484
+      },
+      {
+        "op_id": 421859,
+        "class": "Container.from",
+        "kind": "call",
+        "outcome": "executed",
+        "start_from_cli_ms": 295.11813,
+        "duration_ms": 682.362825,
+        "end_to_cli_exit_ms": 426.6058
+      },
+      {
+        "op_id": 421860,
+        "class": "Container.from",
+        "kind": "call_exec",
+        "outcome": "ok",
+        "start_from_cli_ms": 295.126817,
+        "duration_ms": 682.196295,
+        "end_to_cli_exit_ms": 426.763643
+      },
+      {
+        "op_id": 421861,
+        "class": "Container.from",
+        "kind": "call",
+        "outcome": "hit",
+        "start_from_cli_ms": 977.190916,
+        "duration_ms": 0.073364,
+        "end_to_cli_exit_ms": 426.822475
+      },
+      {
+        "op_id": 421904,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 1010.549791,
+        "duration_ms": 0.001584,
+        "end_to_cli_exit_ms": 393.53538
+      },
+      {
+        "op_id": 421905,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 1010.552088,
+        "duration_ms": 0.002268,
+        "end_to_cli_exit_ms": 393.532399
+      },
+      {
+        "op_id": 421906,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 1010.55497,
+        "duration_ms": 0.002436,
+        "end_to_cli_exit_ms": 393.529349
+      },
+      {
+        "op_id": 421913,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 1014.810294,
+        "duration_ms": 0.001779,
+        "end_to_cli_exit_ms": 389.274682
+      },
+      {
+        "op_id": 421914,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 1014.813439,
+        "duration_ms": 0.001954,
+        "end_to_cli_exit_ms": 389.271362
+      },
+      {
+        "op_id": 421915,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 1014.815909,
+        "duration_ms": 0.002255,
+        "end_to_cli_exit_ms": 389.268591
+      },
+      {
+        "op_id": 421921,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 1017.749089,
+        "duration_ms": 0.001703,
+        "end_to_cli_exit_ms": 386.335963
+      },
+      {
+        "op_id": 421922,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 1017.7514,
+        "duration_ms": 0.001361,
+        "end_to_cli_exit_ms": 386.333994
+      },
+      {
+        "op_id": 421923,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 1017.753179,
+        "duration_ms": 0.002052,
+        "end_to_cli_exit_ms": 386.331524
+      },
+      {
+        "op_id": 421930,
+        "class": "service.start",
+        "kind": "service_start",
+        "outcome": "ok",
+        "start_from_cli_ms": 1019.741189,
+        "duration_ms": 193.540427,
+        "end_to_cli_exit_ms": 190.805139
+      },
+      {
+        "op_id": 421931,
+        "class": "service.start",
+        "kind": "service_start",
+        "outcome": "ok",
+        "start_from_cli_ms": 1019.789401,
+        "duration_ms": 190.608485,
+        "end_to_cli_exit_ms": 193.688869
+      },
+      {
+        "op_id": 421933,
+        "class": "exec.setupNetwork",
+        "kind": "exec_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 1022.746773,
+        "duration_ms": 75.789302,
+        "end_to_cli_exit_ms": 305.55068
+      },
+      {
+        "op_id": 421962,
+        "class": "exec.processRun",
+        "kind": "exec_phase",
+        "outcome": "error",
+        "start_from_cli_ms": 1101.251249,
+        "duration_ms": 141.725868,
+        "end_to_cli_exit_ms": 161.109638
+      },
+      {
+        "op_id": 421950,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 1216.946746,
+        "duration_ms": 0.004809,
+        "end_to_cli_exit_ms": 187.1352
+      },
+      {
+        "op_id": 421951,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 1216.953781,
+        "duration_ms": 0.004909,
+        "end_to_cli_exit_ms": 187.128065
+      },
+      {
+        "op_id": 421952,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 1216.96028,
+        "duration_ms": 0.007398,
+        "end_to_cli_exit_ms": 187.119077
+      }
+    ]
+  },
+  {
+    "flow": "up",
+    "profile": "/tmp/collections-perf/cli-key-scaling/service-lifetime-ab-v1/profile/candidate/run.wcprof",
+    "cli_seconds_profiled": 0.6035730538424104,
+    "clock_basis": "same-host UNIX clock; engine profiler has a monotonic epoch anchored to UNIX time; separate diagnostic captures, not unprofiled latency samples",
+    "ops": 413,
+    "dropped_events": 0,
+    "first_engine_op_from_cli_ms": 152.319677,
+    "last_engine_op_to_exit_ms": 14.085589,
+    "operations_starting_before_cli": 0,
+    "operations_finishing_after_cli": 0,
+    "first_verify_producer_from_cli_ms": null,
+    "first_check_sync_from_cli_ms": null,
+    "first_dang_invoke_nested_in_check_sync_from_cli_ms": null,
+    "selected_call_outcomes": {
+      "executed": 6,
+      "hit": 2
+    },
+    "interpretation": "A missing call_exec or fresh process can be a legitimate result cache hit. A projected Void @check producer creates Check; evaluation and author invocation occur later. Nested intervals are not additive. Time after the last recorded op includes unrecorded work and must not be assigned wholly to telemetry.",
+    "boundaries": [
+      {
+        "op_id": 421964,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 152.335387,
+        "duration_ms": 8.052872,
+        "end_to_cli_exit_ms": 443.18789
+      },
+      {
+        "op_id": 421965,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 160.390738,
+        "duration_ms": 0.002934,
+        "end_to_cli_exit_ms": 443.182477
+      },
+      {
+        "op_id": 421966,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 160.394272,
+        "duration_ms": 0.38926,
+        "end_to_cli_exit_ms": 442.792617
+      },
+      {
+        "op_id": 421973,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 164.450963,
+        "duration_ms": 0.00151,
+        "end_to_cli_exit_ms": 439.123676
+      },
+      {
+        "op_id": 421974,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 164.453024,
+        "duration_ms": 0.001183,
+        "end_to_cli_exit_ms": 439.121942
+      },
+      {
+        "op_id": 421975,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 164.454636,
+        "duration_ms": 0.001678,
+        "end_to_cli_exit_ms": 439.119835
+      },
+      {
+        "op_id": 421978,
+        "class": "Workspace.artifacts",
+        "kind": "call",
+        "outcome": "executed",
+        "start_from_cli_ms": 165.477077,
+        "duration_ms": 57.442479,
+        "end_to_cli_exit_ms": 380.656593
+      },
+      {
+        "op_id": 421979,
+        "class": "Workspace.artifacts",
+        "kind": "call_exec",
+        "outcome": "ok",
+        "start_from_cli_ms": 165.486999,
+        "duration_ms": 57.340066,
+        "end_to_cli_exit_ms": 380.749084
+      },
+      {
+        "op_id": 421983,
+        "class": "Host.directory",
+        "kind": "call",
+        "outcome": "executed",
+        "start_from_cli_ms": 172.467442,
+        "duration_ms": 14.979876,
+        "end_to_cli_exit_ms": 416.128831
+      },
+      {
+        "op_id": 421984,
+        "class": "Host.directory",
+        "kind": "call_exec",
+        "outcome": "ok",
+        "start_from_cli_ms": 172.480337,
+        "duration_ms": 14.578284,
+        "end_to_cli_exit_ms": 416.517528
+      },
+      {
+        "op_id": 422006,
+        "class": "dang.invoke",
+        "kind": "internal",
+        "outcome": "ok",
+        "start_from_cli_ms": 218.821347,
+        "duration_ms": 1.357718,
+        "end_to_cli_exit_ms": 383.397084,
+        "ancestor_operations": [
+          {
+            "op_id": 421993,
+            "class": "ModuleSource.asModule",
+            "kind": "call_exec"
+          },
+          {
+            "op_id": 421992,
+            "class": "ModuleSource.asModule",
+            "kind": "call"
+          },
+          {
+            "op_id": 421979,
+            "class": "Workspace.artifacts",
+            "kind": "call_exec"
+          },
+          {
+            "op_id": 421978,
+            "class": "Workspace.artifacts",
+            "kind": "call"
+          }
+        ],
+        "inside_check_sync": false,
+        "boundary_note": "Interpreter callback invocation; includes dispatch. This is not a timestamp of the first authored source instruction. A verify call can merely construct Check."
+      },
+      {
+        "op_id": 422141,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 223.925618,
+        "duration_ms": 0.000849,
+        "end_to_cli_exit_ms": 379.649682
+      },
+      {
+        "op_id": 422142,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 223.926774,
+        "duration_ms": 0.000958,
+        "end_to_cli_exit_ms": 379.648417
+      },
+      {
+        "op_id": 422143,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 223.928138,
+        "duration_ms": 0.913013,
+        "end_to_cli_exit_ms": 378.734998
+      },
+      {
+        "op_id": 422178,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 229.481393,
+        "duration_ms": 0.001338,
+        "end_to_cli_exit_ms": 374.093418
+      },
+      {
+        "op_id": 422179,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 229.483617,
+        "duration_ms": 0.001397,
+        "end_to_cli_exit_ms": 374.091135
+      },
+      {
+        "op_id": 422180,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 229.485403,
+        "duration_ms": 0.001033,
+        "end_to_cli_exit_ms": 374.089713
+      },
+      {
+        "op_id": 422184,
+        "class": "Workspace.artifacts",
+        "kind": "call",
+        "outcome": "hit",
+        "start_from_cli_ms": 230.380343,
+        "duration_ms": 0.00968,
+        "end_to_cli_exit_ms": 373.186126
+      },
+      {
+        "op_id": 422190,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 232.182201,
+        "duration_ms": 0.000994,
+        "end_to_cli_exit_ms": 371.392954
+      },
+      {
+        "op_id": 422191,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 232.184365,
+        "duration_ms": 0.001015,
+        "end_to_cli_exit_ms": 371.390769
+      },
+      {
+        "op_id": 422192,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 232.18574,
+        "duration_ms": 0.001323,
+        "end_to_cli_exit_ms": 371.389086
+      },
+      {
+        "op_id": 422198,
+        "class": "Artifacts.__evaluationItems",
+        "kind": "call",
+        "outcome": "executed",
+        "start_from_cli_ms": 233.64127,
+        "duration_ms": 0.165187,
+        "end_to_cli_exit_ms": 369.769692
+      },
+      {
+        "op_id": 422199,
+        "class": "Artifacts.__evaluationItems",
+        "kind": "call_exec",
+        "outcome": "ok",
+        "start_from_cli_ms": 233.653349,
+        "duration_ms": 0.067105,
+        "end_to_cli_exit_ms": 369.855695
+      },
+      {
+        "op_id": 422220,
+        "class": "perf-flows:PerfFlows.web",
+        "kind": "call",
+        "outcome": "executed",
+        "start_from_cli_ms": 235.345702,
+        "duration_ms": 52.990113,
+        "end_to_cli_exit_ms": 315.240334
+      },
+      {
+        "op_id": 422221,
+        "class": "perf-flows:PerfFlows.web",
+        "kind": "call_exec",
+        "outcome": "ok",
+        "start_from_cli_ms": 235.35681,
+        "duration_ms": 52.729125,
+        "end_to_cli_exit_ms": 315.490214
+      },
+      {
+        "op_id": 422238,
+        "class": "dang.invoke",
+        "kind": "internal",
+        "outcome": "ok",
+        "start_from_cli_ms": 260.883365,
+        "duration_ms": 26.948451,
+        "end_to_cli_exit_ms": 315.744333,
+        "ancestor_operations": [
+          {
+            "op_id": 422221,
+            "class": "perf-flows:PerfFlows.web",
+            "kind": "call_exec"
+          },
+          {
+            "op_id": 422220,
+            "class": "perf-flows:PerfFlows.web",
+            "kind": "call"
+          },
+          {
+            "op_id": 422204,
+            "class": "Artifact.value",
+            "kind": "call"
+          },
+          {
+            "op_id": 422197,
+            "class": "Artifacts.values",
+            "kind": "call_exec"
+          },
+          {
+            "op_id": 422196,
+            "class": "Artifacts.values",
+            "kind": "call"
+          }
+        ],
+        "inside_check_sync": false,
+        "boundary_note": "Interpreter callback invocation; includes dispatch. This is not a timestamp of the first authored source instruction. A verify call can merely construct Check."
+      },
+      {
+        "op_id": 422240,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 262.341587,
+        "duration_ms": 0.002995,
+        "end_to_cli_exit_ms": 341.231567
+      },
+      {
+        "op_id": 422241,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 262.345352,
+        "duration_ms": 0.001222,
+        "end_to_cli_exit_ms": 341.229575
+      },
+      {
+        "op_id": 422242,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 262.347151,
+        "duration_ms": 0.260232,
+        "end_to_cli_exit_ms": 340.968766
+      },
+      {
+        "op_id": 422250,
+        "class": "Host.directory",
+        "kind": "call",
+        "outcome": "executed",
+        "start_from_cli_ms": 265.61538,
+        "duration_ms": 14.216384,
+        "end_to_cli_exit_ms": 323.744385
+      },
+      {
+        "op_id": 422251,
+        "class": "Host.directory",
+        "kind": "call_exec",
+        "outcome": "ok",
+        "start_from_cli_ms": 265.622584,
+        "duration_ms": 13.872568,
+        "end_to_cli_exit_ms": 324.080997
+      },
+      {
+        "op_id": 422263,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 285.139375,
+        "duration_ms": 0.001052,
+        "end_to_cli_exit_ms": 318.435722
+      },
+      {
+        "op_id": 422264,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 285.141199,
+        "duration_ms": 0.001122,
+        "end_to_cli_exit_ms": 318.433828
+      },
+      {
+        "op_id": 422265,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 285.142764,
+        "duration_ms": 0.001385,
+        "end_to_cli_exit_ms": 318.432
+      },
+      {
+        "op_id": 422271,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 285.73481,
+        "duration_ms": 0.000599,
+        "end_to_cli_exit_ms": 317.84074
+      },
+      {
+        "op_id": 422272,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 285.735632,
+        "duration_ms": 0.000676,
+        "end_to_cli_exit_ms": 317.839841
+      },
+      {
+        "op_id": 422273,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 285.736487,
+        "duration_ms": 0.000752,
+        "end_to_cli_exit_ms": 317.83891
+      },
+      {
+        "op_id": 422276,
+        "class": "Container.from",
+        "kind": "call",
+        "outcome": "executed",
+        "start_from_cli_ms": 286.005763,
+        "duration_ms": 1.126224,
+        "end_to_cli_exit_ms": 316.444162
+      },
+      {
+        "op_id": 422277,
+        "class": "Container.from",
+        "kind": "call_exec",
+        "outcome": "ok",
+        "start_from_cli_ms": 286.013659,
+        "duration_ms": 0.96834,
+        "end_to_cli_exit_ms": 316.59415
+      },
+      {
+        "op_id": 422278,
+        "class": "Container.from",
+        "kind": "call",
+        "outcome": "hit",
+        "start_from_cli_ms": 286.897463,
+        "duration_ms": 0.047187,
+        "end_to_cli_exit_ms": 316.631499
+      },
+      {
+        "op_id": 422306,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 290.039837,
+        "duration_ms": 0.000837,
+        "end_to_cli_exit_ms": 313.535475
+      },
+      {
+        "op_id": 422307,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 290.041256,
+        "duration_ms": 0.00107,
+        "end_to_cli_exit_ms": 313.533823
+      },
+      {
+        "op_id": 422308,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 290.043306,
+        "duration_ms": 0.001288,
+        "end_to_cli_exit_ms": 313.531555
+      },
+      {
+        "op_id": 422315,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 291.98669,
+        "duration_ms": 0.00147,
+        "end_to_cli_exit_ms": 311.587989
+      },
+      {
+        "op_id": 422316,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 291.988657,
+        "duration_ms": 0.001551,
+        "end_to_cli_exit_ms": 311.585941
+      },
+      {
+        "op_id": 422317,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 291.990667,
+        "duration_ms": 0.001202,
+        "end_to_cli_exit_ms": 311.58428
+      },
+      {
+        "op_id": 422323,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 293.722791,
+        "duration_ms": 0.001436,
+        "end_to_cli_exit_ms": 309.851922
+      },
+      {
+        "op_id": 422324,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 293.724541,
+        "duration_ms": 0.000738,
+        "end_to_cli_exit_ms": 309.85087
+      },
+      {
+        "op_id": 422325,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 293.725695,
+        "duration_ms": 0.001151,
+        "end_to_cli_exit_ms": 309.849303
+      },
+      {
+        "op_id": 422332,
+        "class": "service.start",
+        "kind": "service_start",
+        "outcome": "ok",
+        "start_from_cli_ms": 294.913097,
+        "duration_ms": 177.4357,
+        "end_to_cli_exit_ms": 131.227352
+      },
+      {
+        "op_id": 422333,
+        "class": "service.start",
+        "kind": "service_start",
+        "outcome": "ok",
+        "start_from_cli_ms": 294.943085,
+        "duration_ms": 175.978465,
+        "end_to_cli_exit_ms": 132.654599
+      },
+      {
+        "op_id": 422335,
+        "class": "exec.setupNetwork",
+        "kind": "exec_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 296.890834,
+        "duration_ms": 44.352606,
+        "end_to_cli_exit_ms": 262.332709
+      },
+      {
+        "op_id": 422375,
+        "class": "exec.processRun",
+        "kind": "exec_phase",
+        "outcome": "error",
+        "start_from_cli_ms": 342.949366,
+        "duration_ms": 148.018484,
+        "end_to_cli_exit_ms": 112.608299
+      },
+      {
+        "op_id": 422352,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 474.124066,
+        "duration_ms": 0.001903,
+        "end_to_cli_exit_ms": 129.45018
+      },
+      {
+        "op_id": 422353,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 474.127042,
+        "duration_ms": 0.00201,
+        "end_to_cli_exit_ms": 129.447097
+      },
+      {
+        "op_id": 422354,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 474.129818,
+        "duration_ms": 0.002688,
+        "end_to_cli_exit_ms": 129.443643
+      },
+      {
+        "op_id": 422366,
+        "class": "session.workspaceLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 479.977685,
+        "duration_ms": 0.002958,
+        "end_to_cli_exit_ms": 123.595506
+      },
+      {
+        "op_id": 422367,
+        "class": "session.modulesLoad",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 479.982116,
+        "duration_ms": 0.002137,
+        "end_to_cli_exit_ms": 123.591896
+      },
+      {
+        "op_id": 422368,
+        "class": "session.schemaBuild",
+        "kind": "session_phase",
+        "outcome": "ok",
+        "start_from_cli_ms": 479.985109,
+        "duration_ms": 0.003311,
+        "end_to_cli_exit_ms": 123.587729
+      }
+    ]
+  }
+]

@@ -1,0 +1,17 @@
+--- a/engine/client/client.go
++++ b/engine/client/client.go
+@@ -1393,6 +1393,14 @@
+ 		return fmt.Errorf("do shutdown: %w", err)
+ 	}
+ 
++	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
++		defer resp.Body.Close()
++		body, readErr := io.ReadAll(io.LimitReader(resp.Body, 4<<10))
++		if readErr != nil {
++			return fmt.Errorf("shutdown returned HTTP %d: read response: %w", resp.StatusCode, readErr)
++		}
++		return fmt.Errorf("shutdown returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
++	}
+ 	return resp.Body.Close()
+ }
+ 

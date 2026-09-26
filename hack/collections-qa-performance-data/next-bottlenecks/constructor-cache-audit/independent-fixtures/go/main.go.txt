@@ -1,0 +1,36 @@
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"ctor-marker/internal/dagger"
+)
+
+type CtorMarker struct {
+	Source *dagger.Directory
+}
+
+func New(
+	// +defaultPath="/"
+	// +ignore=[".git", "ignored.txt"]
+	source *dagger.Directory,
+) *CtorMarker {
+	return &CtorMarker{Source: source}
+}
+
+func (m *CtorMarker) Read(ctx context.Context) (string, error) {
+	return m.Source.File("marker.txt").Contents(ctx)
+}
+
+// +check
+func (m *CtorMarker) Verify(ctx context.Context) error {
+	value, err := m.Read(ctx)
+	if err != nil {
+		return err
+	}
+	if value != "pass" {
+		return fmt.Errorf("marker mismatch: %q", value)
+	}
+	return nil
+}

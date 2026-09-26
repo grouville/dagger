@@ -1,0 +1,116 @@
+package templates
+
+import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+// Exercise the emitted Go code, rather than a duplicate of its decoder. The
+// temporary module uses only the standard library and never calls Dagger.
+func TestGeneratedDispatchJSONMap(t *testing.T) {
+	source, err := (&v2Module{}).renderDispatchSource("fixture", "example.com/dispatchfixture")
+	require.NoError(t, err)
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "cmd", "dispatch"), 0o700))
+	files := map[string][]byte{
+		"go.mod": []byte("module example.com/dispatchfixture\n\ngo 1.23.0\n"),
+		"module.go": []byte(`package dispatchfixture
+import (
+    "context"
+    "encoding/json"
+)
+func DaggerDispatch(ctx context.Context, receiver []byte, receiverType, fnName string, args map[string][]byte) (any, error) {
+    values := make(map[string]json.RawMessage, len(args))
+    for name, value := range args { values[name] = value }
+    return struct {
+        Receiver json.RawMessage
+        ReceiverType string
+        FnName string
+        Args map[string]json.RawMessage
+    }{receiver, receiverType, fnName, values}, nil
+}
+`),
+		"cmd/dispatch/main.go":      source,
+		"cmd/dispatch/main_test.go": []byte(generatedDispatchJSONMapTests),
+	}
+	for path, data := range files {
+		require.NoError(t, os.WriteFile(filepath.Join(root, path), data, 0o600))
+	}
+	cmd := exec.Command("go", "test", "-count=1", "./cmd/dispatch")
+	cmd.Dir = root
+	cmd.Env = append(os.Environ(), "GOWORK=off", "GOPROXY=off", "GOTOOLCHAIN=local")
+	output, err := cmd.CombinedOutput()
+	require.NoError(t, err, "%s", output)
+}
+
+const generatedDispatchJSONMapTests = `package main
+import (
+    "bytes"
+    "context"
+    "encoding/json"
+    "strings"
+    "testing"
+)
+
+type result struct {
+    Receiver json.RawMessage
+    ReceiverType string
+    FnName string
+    Args map[string]json.RawMessage
+}
+
+func TestEngineCallJSONMap(t *testing.T) {
+    // A float64 intermediary would corrupt the integer; stringifying nested
+    // JSON would change both objects and arrays; omitting null loses presence.
+    request := "{\"receiverType\":\"Fixture\",\"receiverValue\":{\"n\":9007199254740993},\"fnName\":\"Run\",\"fnArgs\":{\"large\":9007199254740993,\"nested\":{\"items\":[1,true,null]},\"text\":\"hello \\\"world\\\"\",\"nothing\":null,\"falseValue\":false,\"empty\":[]}}"
+    var output bytes.Buffer
+    if err := engineCall(context.Background(), strings.NewReader(request), &output); err != nil { t.Fatal(err) }
+    var got result
+    if err := json.Unmarshal(output.Bytes(), &got); err != nil { t.Fatal(err) }
+    if got.ReceiverType != "Fixture" || got.FnName != "Run" { t.Fatalf("wrong dispatch identity: %+v", got) }
+    if string(got.Receiver) != "{\"n\":9007199254740993}" { t.Fatalf("receiver changed: %s", got.Receiver) }
+    want := map[string]string{
+        "large": "9007199254740993",
+        "nested": "{\"items\":[1,true,null]}",
+        "text": "\"hello \\\"world\\\"\"",
+        "nothing": "null",
+        "falseValue": "false",
+        "empty": "[]",
+    }
+    if len(got.Args) != len(want) { t.Fatalf("wrong argument count: %s", output.Bytes()) }
+    for name, value := range want {
+        if string(got.Args[name]) != value { t.Errorf("%s: got %s, want %s", name, got.Args[name], value) }
+    }
+    if _, exists := got.Args["omitted"]; exists { t.Fatal("unexpected omitted argument") }
+}
+
+func TestEngineCallRejectsLegacyArrayAndTrailingData(t *testing.T) {
+    for _, request := range []string{
+        "{\"fnArgs\":[{\"name\":\"x\",\"value\":1}]}",
+        "{\"fnArgs\":{}} {}",
+        "{\"fnArgs\":{}} broken",
+    } {
+        var output bytes.Buffer
+        if err := engineCall(context.Background(), strings.NewReader(request), &output); err == nil { t.Fatalf("accepted invalid request %s", request) }
+        if output.Len() != 0 { t.Fatalf("wrote output for invalid request %s", request) }
+    }
+}
+
+func TestDeveloperCallRetainsDefaultsAndNull(t *testing.T) {
+    functions = []functionSpec{{Name: "echo", Receiver: "Fixture", FnName: "Echo", Args: map[string]argumentSpec{
+        "name": {Required: true, Encoding: "string"},
+        "count": {Default: "2", Encoding: "json"},
+        "optional": {Encoding: "json"},
+    }}}
+    var output bytes.Buffer
+    if err := developerCall(context.Background(), []string{"echo", "--name", "hello world", "--optional", "null"}, &output); err != nil { t.Fatal(err) }
+    var got result
+    if err := json.Unmarshal(output.Bytes(), &got); err != nil { t.Fatal(err) }
+    if string(got.Args["name"]) != "\"hello world\"" || string(got.Args["count"]) != "2" || string(got.Args["optional"]) != "null" { t.Fatalf("developer arguments changed: %s", output.Bytes()) }
+    if err := developerCall(context.Background(), []string{"echo"}, &output); err == nil { t.Fatal("accepted missing required argument") }
+}
+`

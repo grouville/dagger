@@ -1,0 +1,981 @@
+--- a/.dagger/modules/backend/dagger-module.toml
++++ b/.dagger/modules/backend/dagger-module.toml
+@@ -1,6 +1,6 @@
+ name = "backend"
+ engineVersion = "v1.0.0-0"
+-disableDefaultFunctionCaching = true
++disableDefaultFunctionCaching = false
+ 
+ [runtime]
+   source = "go"
+--- a/.dagger/modules/backend/main.go
++++ b/.dagger/modules/backend/main.go
+@@ -34,6 +34,7 @@
+ }
+ 
+ // Build the backend
++// +cache="session"
+ func (b *Backend) Build(
+ 	// +optional
+ 	arch string,
+@@ -49,6 +50,7 @@
+ }
+ 
+ // Return the compiled backend binary for a particular architecture
++// +cache="session"
+ func (b *Backend) Binary(
+ 	// +optional
+ 	arch string,
+@@ -58,6 +60,7 @@
+ }
+ 
+ // Get a container ready to run the backend
++// +cache="session"
+ func (b *Backend) Container(
+ 	// +optional
+ 	arch string,
+@@ -77,6 +80,7 @@
+ // Get a Service to run the backend
+ //
+ // +up
++// +cache="session"
+ func (b *Backend) Serve() *dagger.Service {
+ 	return b.Container(runtime.GOARCH).AsService(dagger.ContainerAsServiceOpts{UseEntrypoint: true})
+ }
+@@ -97,6 +101,7 @@
+ // The image matches the toolchain's own default rather than the version in
+ // go.mod. It has to: this base also builds the toolchain's helper binaries,
+ // whose go.mod requires 1.26, so an older image fails before any test runs.
++// +cache="session"
+ func (b *Backend) GoTestBase() *dagger.Container {
+ 	return dag.Container().
+ 		From("golang:1.26-alpine").
+--- a/.dagger/modules/backend/dagger.gen.go
++++ b/.dagger/modules/backend/dagger.gen.go
+@@ -279,30 +279,35 @@
+ 						dag.Function("Binary",
+ 							dag.TypeDef().WithObject("File")).
+ 							WithDescription("Return the compiled backend binary for a particular architecture").
+-							WithSourceMap(dag.SourceMap("main.go", 48, 1)).
+-							WithArg("arch", dag.TypeDef().WithKind(dagger.TypeDefKindStringKind).WithOptional(true), dagger.FunctionWithArgOpts{SourceMap: dag.SourceMap("main.go", 50, 2)})).
++							WithCachePolicy(dagger.FunctionCachePolicyPerSession).
++							WithSourceMap(dag.SourceMap("main.go", 54, 1)).
++							WithArg("arch", dag.TypeDef().WithKind(dagger.TypeDefKindStringKind).WithOptional(true), dagger.FunctionWithArgOpts{SourceMap: dag.SourceMap("main.go", 56, 2)})).
+ 					WithFunction(
+ 						dag.Function("Build",
+ 							dag.TypeDef().WithObject("Directory")).
+ 							WithDescription("Build the backend").
+-							WithSourceMap(dag.SourceMap("main.go", 33, 1)).
+-							WithArg("arch", dag.TypeDef().WithKind(dagger.TypeDefKindStringKind).WithOptional(true), dagger.FunctionWithArgOpts{SourceMap: dag.SourceMap("main.go", 35, 2)})).
++							WithCachePolicy(dagger.FunctionCachePolicyPerSession).
++							WithSourceMap(dag.SourceMap("main.go", 38, 1)).
++							WithArg("arch", dag.TypeDef().WithKind(dagger.TypeDefKindStringKind).WithOptional(true), dagger.FunctionWithArgOpts{SourceMap: dag.SourceMap("main.go", 40, 2)})).
+ 					WithFunction(
+ 						dag.Function("Container",
+ 							dag.TypeDef().WithObject("Container")).
+ 							WithDescription("Get a container ready to run the backend").
+-							WithSourceMap(dag.SourceMap("main.go", 57, 1)).
+-							WithArg("arch", dag.TypeDef().WithKind(dagger.TypeDefKindStringKind).WithOptional(true), dagger.FunctionWithArgOpts{SourceMap: dag.SourceMap("main.go", 59, 2)})).
++							WithCachePolicy(dagger.FunctionCachePolicyPerSession).
++							WithSourceMap(dag.SourceMap("main.go", 64, 1)).
++							WithArg("arch", dag.TypeDef().WithKind(dagger.TypeDefKindStringKind).WithOptional(true), dagger.FunctionWithArgOpts{SourceMap: dag.SourceMap("main.go", 66, 2)})).
+ 					WithFunction(
+ 						dag.Function("GoTestBase",
+ 							dag.TypeDef().WithObject("Container")).
+ 							WithDescription("A Go container with the backend API running as a bound service, for the go\nmodule's `base` setting (dagger.toml: [modules.go.settings] base =\n\"backend:go-test-base\").\n\nThe e2e tests in e2e_test.go need a server to talk to, which the go\ntoolchain has no way to start. Handing it a base container with the service\nalready bound lets its own test check run them; without this they skip, and\na skip reports the same as a pass.\n\nDeliberately no workdir, source mount or cache mounts: the go module adds its\nown on top. This is only an image plus a service and the address to reach it.\nThe binding survives into every command the toolchain derives from this.\n\nThe image matches the toolchain's own default rather than the version in\ngo.mod. It has to: this base also builds the toolchain's helper binaries,\nwhose go.mod requires 1.26, so an older image fails before any test runs.").
+-							WithSourceMap(dag.SourceMap("main.go", 96, 1))).
++							WithCachePolicy(dagger.FunctionCachePolicyPerSession).
++							WithSourceMap(dag.SourceMap("main.go", 105, 1))).
+ 					WithFunction(
+ 						dag.Function("Serve",
+ 							dag.TypeDef().WithObject("Service")).
+ 							WithDescription("Get a Service to run the backend").
+-							WithSourceMap(dag.SourceMap("main.go", 76, 1)).
++							WithCachePolicy(dagger.FunctionCachePolicyPerSession).
++							WithSourceMap(dag.SourceMap("main.go", 84, 1)).
+ 							WithUp()).
+ 					WithField("Source", dag.TypeDef().WithObject("Directory"), dagger.TypeDefWithFieldOpts{SourceMap: dag.SourceMap("main.go", 10, 2)}).
+ 					WithConstructor(
+--- a/.dagger/modules/backend/internal/dagger/dagger.gen.go
++++ b/.dagger/modules/backend/internal/dagger/dagger.gen.go
+@@ -977,6 +977,123 @@
+ 	}
+ }
+ 
++// An agent function that can modify a conversation.
++type AgentMiddleware struct {
++	query *querybuilder.Selection
++
++	description *string
++	id          *ID
++	name        *string
++}
++
++func (r *AgentMiddleware) WithGraphQLQuery(q *querybuilder.Selection) *AgentMiddleware {
++	return &AgentMiddleware{
++		query: q,
++	}
++}
++
++// The agent function's description.
++func (r *AgentMiddleware) Description(ctx context.Context) (string, error) {
++	if r.description != nil {
++		return *r.description, nil
++	}
++	q := r.query.Select("description")
++
++	var response string
++
++	q = q.Bind(&response)
++	return response, q.Execute(ctx)
++}
++
++// A unique identifier for this AgentMiddleware.
++func (r *AgentMiddleware) ID(ctx context.Context) (ID, error) {
++	if r.id != nil {
++		return *r.id, nil
++	}
++	q := r.query.Select("id")
++
++	var response ID
++
++	q = q.Bind(&response)
++	return response, q.Execute(ctx)
++}
++
++// XXX_GraphQLType is an internal function. It returns the native GraphQL type name
++func (r *AgentMiddleware) XXX_GraphQLType() string {
++	return "AgentMiddleware"
++}
++
++// XXX_GraphQLIDType is an internal function. It returns the native GraphQL type name for the ID of this object
++func (r *AgentMiddleware) XXX_GraphQLIDType() string {
++	return "ID"
++}
++
++// XXX_GraphQLID is an internal function. It returns the underlying type ID
++func (r *AgentMiddleware) XXX_GraphQLID(ctx context.Context) (string, error) {
++	id, err := r.ID(ctx)
++	if err != nil {
++		return "", err
++	}
++	return string(id), nil
++}
++
++func (r *AgentMiddleware) MarshalJSON() ([]byte, error) {
++	id, err := r.ID(marshalCtx)
++	if err != nil {
++		return nil, err
++	}
++	return json.Marshal(id)
++}
++func (r *AgentMiddleware) UnmarshalJSON(bs []byte) error {
++	var id string
++	err := json.Unmarshal(bs, &id)
++	if err != nil {
++		return err
++	}
++	*r = AgentMiddleware{query: selectNode(dag.query, id, "AgentMiddleware")}
++	return nil
++}
++
++// The agent function's name.
++func (r *AgentMiddleware) Name(ctx context.Context) (string, error) {
++	if r.name != nil {
++		return *r.name, nil
++	}
++	q := r.query.Select("name")
++
++	var response string
++
++	q = q.Bind(&response)
++	return response, q.Execute(ctx)
++}
++
++// The module that defines the agent function.
++func (r *AgentMiddleware) OriginalModule() *Module {
++	q := r.query.Select("originalModule")
++
++	return &Module{
++		query: q,
++	}
++}
++
++// The agent function's path within its module.
++func (r *AgentMiddleware) Path(ctx context.Context) ([]string, error) {
++	q := r.query.Select("path")
++
++	var response []string
++
++	q = q.Bind(&response)
++	return response, q.Execute(ctx)
++}
++
++// AsNode returns this AgentMiddleware as a Node.
++// This is a local type conversion — no GraphQL call.
++func (r *AgentMiddleware) AsNode() Node {
++	return &NodeClient{
++		query: r.query,
++	}
++}
++
+ // One workspace value with a complete path and all required dimension keys. Reading metadata does not evaluate the value. Different addresses remain distinct even if they return the same object.
+ type Artifact struct {
+ 	query *querybuilder.Selection
+@@ -1729,6 +1846,138 @@
+ 	}
+ }
+ 
++// Convert the selection to agent middleware without running the functions. Fail if any artifact is not an agent middleware.
++func (r *Artifacts) AsAgentMiddlewares(ctx context.Context) ([]AgentMiddleware, error) {
++	q := r.query.Select("asAgentMiddlewares")
++
++	q = q.Select("id")
++
++	type asAgentMiddlewares struct {
++		Id ID
++	}
++
++	convert := func(fields []asAgentMiddlewares) []AgentMiddleware {
++		out := []AgentMiddleware{}
++
++		for i := range fields {
++			val := AgentMiddleware{id: &fields[i].Id}
++			val.query = selectNode(q.Root(), fields[i].Id, "AgentMiddleware")
++			out = append(out, val)
++		}
++
++		return out
++	}
++	var response []asAgentMiddlewares
++
++	q = q.Bind(&response)
++
++	err := q.Execute(ctx)
++	if err != nil {
++		return nil, err
++	}
++
++	return convert(response), nil
++}
++
++// Convert the selection to Changesets. Fail if any artifact is not a Changeset. Does not apply command filters.
++func (r *Artifacts) AsChangesets(ctx context.Context) ([]Changeset, error) {
++	q := r.query.Select("asChangesets")
++
++	q = q.Select("id")
++
++	type asChangesets struct {
++		Id ID
++	}
++
++	convert := func(fields []asChangesets) []Changeset {
++		out := []Changeset{}
++
++		for i := range fields {
++			val := Changeset{id: &fields[i].Id}
++			val.query = selectNode(q.Root(), fields[i].Id, "Changeset")
++			out = append(out, val)
++		}
++
++		return out
++	}
++	var response []asChangesets
++
++	q = q.Bind(&response)
++
++	err := q.Execute(ctx)
++	if err != nil {
++		return nil, err
++	}
++
++	return convert(response), nil
++}
++
++// Convert the selection to Checks. Fail if any artifact is not a Check. Does not apply command filters or run the checks.
++func (r *Artifacts) AsChecks(ctx context.Context) ([]Check, error) {
++	q := r.query.Select("asChecks")
++
++	q = q.Select("id")
++
++	type asChecks struct {
++		Id ID
++	}
++
++	convert := func(fields []asChecks) []Check {
++		out := []Check{}
++
++		for i := range fields {
++			val := Check{id: &fields[i].Id}
++			val.query = selectNode(q.Root(), fields[i].Id, "Check")
++			out = append(out, val)
++		}
++
++		return out
++	}
++	var response []asChecks
++
++	q = q.Bind(&response)
++
++	err := q.Execute(ctx)
++	if err != nil {
++		return nil, err
++	}
++
++	return convert(response), nil
++}
++
++// Convert the selection to Services. Fail if any artifact is not a Service. Does not apply command filters or start the services.
++func (r *Artifacts) AsServices(ctx context.Context) ([]Service, error) {
++	q := r.query.Select("asServices")
++
++	q = q.Select("id")
++
++	type asServices struct {
++		Id ID
++	}
++
++	convert := func(fields []asServices) []Service {
++		out := []Service{}
++
++		for i := range fields {
++			val := Service{id: &fields[i].Id}
++			val.query = selectNode(q.Root(), fields[i].Id, "Service")
++			out = append(out, val)
++		}
++
++		return out
++	}
++	var response []asServices
++
++	q = q.Bind(&response)
++
++	err := q.Execute(ctx)
++	if err != nil {
++		return nil, err
++	}
++
++	return convert(response), nil
++}
++
+ // List dimensions on the selected schema paths, including empty collections. Does not read runtime values.
+ func (r *Artifacts) DimensionDefinitions(ctx context.Context) ([]ArtifactDimension, error) {
+ 	q := r.query.Select("dimensionDefinitions")
+@@ -1751,6 +2000,40 @@
+ 		return out
+ 	}
+ 	var response []dimensionDefinitions
++
++	q = q.Bind(&response)
++
++	err := q.Execute(ctx)
++	if err != nil {
++		return nil, err
++	}
++
++	return convert(response), nil
++}
++
++// List collection items represented in this selection for the given dimension. Preserve parent keys and remove duplicate item addresses. Does not evaluate item values.
++func (r *Artifacts) DimensionItems(ctx context.Context, dimension string) ([]Artifact, error) {
++	q := r.query.Select("dimensionItems")
++	q = q.Arg("dimension", dimension)
++
++	q = q.Select("id")
++
++	type dimensionItems struct {
++		Id ID
++	}
++
++	convert := func(fields []dimensionItems) []Artifact {
++		out := []Artifact{}
++
++		for i := range fields {
++			val := Artifact{id: &fields[i].Id}
++			val.query = selectNode(q.Root(), fields[i].Id, "Artifact")
++			out = append(out, val)
++		}
++
++		return out
++	}
++	var response []dimensionItems
+ 
+ 	q = q.Bind(&response)
+ 
+@@ -2057,6 +2340,8 @@
+ type ArtifactsPathDefinitionsOpts struct {
+ 	// Prefix each address with the workspace's Git address and commit.
+ 	Absolute bool
++	// Include the artifact type in each address scheme.
++	TypeAssertion bool
+ }
+ 
+ // List selected schema paths, including empty collections. Does not read runtime values or resolve dimension-key filters.
+@@ -2066,6 +2351,10 @@
+ 		// `absolute` optional argument
+ 		if !querybuilder.IsZeroValue(opts[i].Absolute) {
+ 			q = q.Arg("absolute", opts[i].Absolute)
++		}
++		// `typeAssertion` optional argument
++		if !querybuilder.IsZeroValue(opts[i].TypeAssertion) {
++			q = q.Arg("typeAssertion", opts[i].TypeAssertion)
+ 		}
+ 	}
+ 
+@@ -3116,6 +3405,161 @@
+ // AsNode returns this CollectionTypeDef as a Node.
+ // This is a local type conversion — no GraphQL call.
+ func (r *CollectionTypeDef) AsNode() Node {
++	return &NodeClient{
++		query: r.query,
++	}
++}
++
++// A command's arguments and execution settings.
++type Command struct {
++	query *querybuilder.Selection
++
++	id                       *ID
++	insecureRootCapabilities *bool
++	privilegedNesting        *bool
++	workdir                  *string
++}
++
++func (r *Command) WithGraphQLQuery(q *querybuilder.Selection) *Command {
++	return &Command{
++		query: q,
++	}
++}
++
++// The command arguments.
++func (r *Command) Args(ctx context.Context) ([]string, error) {
++	q := r.query.Select("args")
++
++	var response []string
++
++	q = q.Bind(&response)
++	return response, q.Execute(ctx)
++}
++
++// Environment variable overrides. Other variables come from the container.
++func (r *Command) Env(ctx context.Context) ([]EnvVariable, error) {
++	q := r.query.Select("env")
++
++	q = q.Select("id")
++
++	type env struct {
++		Id ID
++	}
++
++	convert := func(fields []env) []EnvVariable {
++		out := []EnvVariable{}
++
++		for i := range fields {
++			val := EnvVariable{id: &fields[i].Id}
++			val.query = selectNode(q.Root(), fields[i].Id, "EnvVariable")
++			out = append(out, val)
++		}
++
++		return out
++	}
++	var response []env
++
++	q = q.Bind(&response)
++
++	err := q.Execute(ctx)
++	if err != nil {
++		return nil, err
++	}
++
++	return convert(response), nil
++}
++
++// A unique identifier for this Command.
++func (r *Command) ID(ctx context.Context) (ID, error) {
++	if r.id != nil {
++		return *r.id, nil
++	}
++	q := r.query.Select("id")
++
++	var response ID
++
++	q = q.Bind(&response)
++	return response, q.Execute(ctx)
++}
++
++// XXX_GraphQLType is an internal function. It returns the native GraphQL type name
++func (r *Command) XXX_GraphQLType() string {
++	return "Command"
++}
++
++// XXX_GraphQLIDType is an internal function. It returns the native GraphQL type name for the ID of this object
++func (r *Command) XXX_GraphQLIDType() string {
++	return "ID"
++}
++
++// XXX_GraphQLID is an internal function. It returns the underlying type ID
++func (r *Command) XXX_GraphQLID(ctx context.Context) (string, error) {
++	id, err := r.ID(ctx)
++	if err != nil {
++		return "", err
++	}
++	return string(id), nil
++}
++
++func (r *Command) MarshalJSON() ([]byte, error) {
++	id, err := r.ID(marshalCtx)
++	if err != nil {
++		return nil, err
++	}
++	return json.Marshal(id)
++}
++func (r *Command) UnmarshalJSON(bs []byte) error {
++	var id string
++	err := json.Unmarshal(bs, &id)
++	if err != nil {
++		return err
++	}
++	*r = Command{query: selectNode(dag.query, id, "Command")}
++	return nil
++}
++
++// Whether the command has all root capabilities.
++func (r *Command) InsecureRootCapabilities(ctx context.Context) (bool, error) {
++	if r.insecureRootCapabilities != nil {
++		return *r.insecureRootCapabilities, nil
++	}
++	q := r.query.Select("insecureRootCapabilities")
++
++	var response bool
++
++	q = q.Bind(&response)
++	return response, q.Execute(ctx)
++}
++
++// Whether the command has access to Dagger.
++func (r *Command) PrivilegedNesting(ctx context.Context) (bool, error) {
++	if r.privilegedNesting != nil {
++		return *r.privilegedNesting, nil
++	}
++	q := r.query.Select("privilegedNesting")
++
++	var response bool
++
++	q = q.Bind(&response)
++	return response, q.Execute(ctx)
++}
++
++// Working directory override. If unset, use the container's working directory.
++func (r *Command) Workdir(ctx context.Context) (string, error) {
++	if r.workdir != nil {
++		return *r.workdir, nil
++	}
++	q := r.query.Select("workdir")
++
++	var response string
++
++	q = q.Bind(&response)
++	return response, q.Execute(ctx)
++}
++
++// AsNode returns this Command as a Node.
++// This is a local type conversion — no GraphQL call.
++func (r *Command) AsNode() Node {
+ 	return &NodeClient{
+ 		query: r.query,
+ 	}
+@@ -3166,7 +3610,10 @@
+ 	Args []string
+ 	// If the container has an entrypoint, prepend it to the args.
+ 	UseEntrypoint bool
+-	// Provides Dagger access to the executed command.
++	// Disable Dagger API access for the executed command. By default, commands can connect to the current Dagger engine.
++	DisableDaggerInDagger bool
++
++	// Deprecated: Commands can access Dagger by default. Use "disableDaggerInDagger" to opt out.
+ 	ExperimentalPrivilegedNesting bool
+ 	// Execute the command with all root capabilities. This is similar to running a command with "sudo" or executing "docker run" with the "--privileged" flag. Containerization does not provide any security guarantees when using this option. It should only be used when absolutely necessary and only with trusted commands.
+ 	InsecureRootCapabilities bool
+@@ -3191,6 +3638,10 @@
+ 		// `useEntrypoint` optional argument
+ 		if !querybuilder.IsZeroValue(opts[i].UseEntrypoint) {
+ 			q = q.Arg("useEntrypoint", opts[i].UseEntrypoint)
++		}
++		// `disableDaggerInDagger` optional argument
++		if !querybuilder.IsZeroValue(opts[i].DisableDaggerInDagger) {
++			q = q.Arg("disableDaggerInDagger", opts[i].DisableDaggerInDagger)
+ 		}
+ 		// `experimentalPrivilegedNesting` optional argument
+ 		if !querybuilder.IsZeroValue(opts[i].ExperimentalPrivilegedNesting) {
+@@ -3432,11 +3883,11 @@
+ 	return response, q.Execute(ctx)
+ }
+ 
+-// EXPERIMENTAL API! Subject to change/removal at any time.
+-//
+ // Configures all available GPUs on the host to be accessible to this container.
+ //
+ // This currently works for Nvidia devices only.
++//
++// Deprecated: Use "withGPU" instead.
+ func (r *Container) ExperimentalWithAllGPUs() *Container {
+ 	q := r.query.Select("experimentalWithAllGPUs")
+ 
+@@ -3445,11 +3896,11 @@
+ 	}
+ }
+ 
+-// EXPERIMENTAL API! Subject to change/removal at any time.
+-//
+ // Configures the provided list of devices to be accessible to this container.
+ //
+ // This currently works for Nvidia devices only.
++//
++// Deprecated: Use "withGPU" instead, which exposes all GPUs available on the host.
+ func (r *Container) ExperimentalWithGPU(devices []string) *Container {
+ 	q := r.query.Select("experimentalWithGPU")
+ 	q = q.Arg("devices", devices)
+@@ -3956,6 +4407,27 @@
+ 	}
+ }
+ 
++// ContainerShellOpts contains options for Container.Shell
++type ContainerShellOpts struct {
++	// Return the batch command instead of the interactive command.
++	Batch bool
++}
++
++// Return the configured shell command. Defaults to ["sh"].
++func (r *Container) Shell(opts ...ContainerShellOpts) *Command {
++	q := r.query.Select("shell")
++	for i := len(opts) - 1; i >= 0; i-- {
++		// `batch` optional argument
++		if !querybuilder.IsZeroValue(opts[i].Batch) {
++			q = q.Arg("batch", opts[i].Batch)
++		}
++	}
++
++	return &Command{
++		query: q,
++	}
++}
++
+ // ContainerStatOpts contains options for Container.Stat
+ type ContainerStatOpts struct {
+ 	// If specified, do not follow symlinks.
+@@ -4035,7 +4507,10 @@
+ type ContainerTerminalOpts struct {
+ 	// If set, override the container's default terminal command and invoke these command arguments instead.
+ 	Cmd []string
+-	// Provides Dagger access to the executed command.
++	// Disable Dagger API access for the executed command. By default, commands can connect to the current Dagger engine.
++	DisableDaggerInDagger bool
++
++	// Deprecated: Commands can access Dagger by default. Use "disableDaggerInDagger" to opt out.
+ 	ExperimentalPrivilegedNesting bool
+ 	// Execute the command with all root capabilities. This is similar to running a command with "sudo" or executing "docker run" with the "--privileged" flag. Containerization does not provide any security guarantees when using this option. It should only be used when absolutely necessary and only with trusted commands.
+ 	InsecureRootCapabilities bool
+@@ -4048,6 +4523,10 @@
+ 		// `cmd` optional argument
+ 		if !querybuilder.IsZeroValue(opts[i].Cmd) {
+ 			q = q.Arg("cmd", opts[i].Cmd)
++		}
++		// `disableDaggerInDagger` optional argument
++		if !querybuilder.IsZeroValue(opts[i].DisableDaggerInDagger) {
++			q = q.Arg("disableDaggerInDagger", opts[i].DisableDaggerInDagger)
+ 		}
+ 		// `experimentalPrivilegedNesting` optional argument
+ 		if !querybuilder.IsZeroValue(opts[i].ExperimentalPrivilegedNesting) {
+@@ -4078,7 +4557,10 @@
+ 	Args []string
+ 	// If the container has an entrypoint, prepend it to the args.
+ 	UseEntrypoint bool
+-	// Provides Dagger access to the executed command.
++	// Disable Dagger API access for the executed command. By default, commands can connect to the current Dagger engine.
++	DisableDaggerInDagger bool
++
++	// Deprecated: Commands can access Dagger by default. Use "disableDaggerInDagger" to opt out.
+ 	ExperimentalPrivilegedNesting bool
+ 	// Execute the command with all root capabilities. This is similar to running a command with "sudo" or executing "docker run" with the "--privileged" flag. Containerization does not provide any security guarantees when using this option. It should only be used when absolutely necessary and only with trusted commands.
+ 	InsecureRootCapabilities bool
+@@ -4115,6 +4597,10 @@
+ 		if !querybuilder.IsZeroValue(opts[i].UseEntrypoint) {
+ 			q = q.Arg("useEntrypoint", opts[i].UseEntrypoint)
+ 		}
++		// `disableDaggerInDagger` optional argument
++		if !querybuilder.IsZeroValue(opts[i].DisableDaggerInDagger) {
++			q = q.Arg("disableDaggerInDagger", opts[i].DisableDaggerInDagger)
++		}
+ 		// `experimentalPrivilegedNesting` optional argument
+ 		if !querybuilder.IsZeroValue(opts[i].ExperimentalPrivilegedNesting) {
+ 			q = q.Arg("experimentalPrivilegedNesting", opts[i].ExperimentalPrivilegedNesting)
+@@ -4172,16 +4658,25 @@
+ 
+ // ContainerWithDefaultTerminalCmdOpts contains options for Container.WithDefaultTerminalCmd
+ type ContainerWithDefaultTerminalCmdOpts struct {
+-	// Provides Dagger access to the executed command.
++	// Disable Dagger API access for the executed command. By default, commands can connect to the current Dagger engine.
++	DisableDaggerInDagger bool
++
++	// Deprecated: Commands can access Dagger by default. Use "disableDaggerInDagger" to opt out.
+ 	ExperimentalPrivilegedNesting bool
+ 	// Execute the command with all root capabilities. This is similar to running a command with "sudo" or executing "docker run" with the "--privileged" flag. Containerization does not provide any security guarantees when using this option. It should only be used when absolutely necessary and only with trusted commands.
+ 	InsecureRootCapabilities bool
+ }
+ 
+ // Set the default command to invoke for the container's terminal API.
++//
++// Deprecated: Use withShell.
+ func (r *Container) WithDefaultTerminalCmd(args []string, opts ...ContainerWithDefaultTerminalCmdOpts) *Container {
+ 	q := r.query.Select("withDefaultTerminalCmd")
+ 	for i := len(opts) - 1; i >= 0; i-- {
++		// `disableDaggerInDagger` optional argument
++		if !querybuilder.IsZeroValue(opts[i].DisableDaggerInDagger) {
++			q = q.Arg("disableDaggerInDagger", opts[i].DisableDaggerInDagger)
++		}
+ 		// `experimentalPrivilegedNesting` optional argument
+ 		if !querybuilder.IsZeroValue(opts[i].ExperimentalPrivilegedNesting) {
+ 			q = q.Arg("experimentalPrivilegedNesting", opts[i].ExperimentalPrivilegedNesting)
+@@ -4396,7 +4891,10 @@
+ 	//
+ 	// Default: SUCCESS
+ 	Expect ReturnType
+-	// Provides Dagger access to the executed command.
++	// Disable Dagger API access for the executed command. By default, commands can connect to the current Dagger engine.
++	DisableDaggerInDagger bool
++
++	// Deprecated: Commands can access Dagger by default. Use "disableDaggerInDagger" to opt out.
+ 	ExperimentalPrivilegedNesting bool
+ 	// Execute the command with all root capabilities. Like --privileged in Docker
+ 	//
+@@ -4437,6 +4935,10 @@
+ 		// `expect` optional argument
+ 		if !querybuilder.IsZeroValue(opts[i].Expect) {
+ 			q = q.Arg("expect", opts[i].Expect)
++		}
++		// `disableDaggerInDagger` optional argument
++		if !querybuilder.IsZeroValue(opts[i].DisableDaggerInDagger) {
++			q = q.Arg("disableDaggerInDagger", opts[i].DisableDaggerInDagger)
+ 		}
+ 		// `experimentalPrivilegedNesting` optional argument
+ 		if !querybuilder.IsZeroValue(opts[i].ExperimentalPrivilegedNesting) {
+@@ -4589,6 +5091,17 @@
+ 	}
+ 	q = q.Arg("path", path)
+ 	q = q.Arg("sources", sources)
++
++	return &Container{
++		query: q,
++	}
++}
++
++// Configures all GPUs available on the host to be accessible to this container.
++//
++// This currently works with NVIDIA devices only, and requires the engine to run with GPU support enabled.
++func (r *Container) WithGPU() *Container {
++	q := r.query.Select("withGPU")
+ 
+ 	return &Container{
+ 		query: q,
+@@ -4927,6 +5440,47 @@
+ 	}
+ }
+ 
++// ContainerWithRunOpts contains options for Container.WithRun
++type ContainerWithRunOpts struct {
++	// Override the batch shell arguments. Example: ["bash", "-c"].
++	Shell []string
++	// Override whether the shell is denied Dagger API access. Omit to use the configured shell setting.
++	DisableDaggerInDagger bool
++
++	// Deprecated: Commands can access Dagger by default. Use "disableDaggerInDagger" to opt out.
++	ExperimentalPrivilegedNesting bool
++	// Override whether the shell has all root capabilities.
++	InsecureRootCapabilities bool
++}
++
++// Execute a script with the configured batch shell and return the modified container.
++func (r *Container) WithRun(command string, opts ...ContainerWithRunOpts) *Container {
++	q := r.query.Select("withRun")
++	for i := len(opts) - 1; i >= 0; i-- {
++		// `shell` optional argument
++		if !querybuilder.IsZeroValue(opts[i].Shell) {
++			q = q.Arg("shell", opts[i].Shell)
++		}
++		// `disableDaggerInDagger` optional argument
++		if !querybuilder.IsZeroValue(opts[i].DisableDaggerInDagger) {
++			q = q.Arg("disableDaggerInDagger", opts[i].DisableDaggerInDagger)
++		}
++		// `experimentalPrivilegedNesting` optional argument
++		if !querybuilder.IsZeroValue(opts[i].ExperimentalPrivilegedNesting) {
++			q = q.Arg("experimentalPrivilegedNesting", opts[i].ExperimentalPrivilegedNesting)
++		}
++		// `insecureRootCapabilities` optional argument
++		if !querybuilder.IsZeroValue(opts[i].InsecureRootCapabilities) {
++			q = q.Arg("insecureRootCapabilities", opts[i].InsecureRootCapabilities)
++		}
++	}
++	q = q.Arg("command", command)
++
++	return &Container{
++		query: q,
++	}
++}
++
+ // Set a new environment variable, using a secret value
+ func (r *Container) WithSecretVariable(name string, secret *Secret) *Container {
+ 	assertNotNil("secret", secret)
+@@ -4951,6 +5505,47 @@
+ 	q := r.query.Select("withServiceBinding")
+ 	q = q.Arg("alias", alias)
+ 	q = q.Arg("service", service)
++
++	return &Container{
++		query: q,
++	}
++}
++
++// ContainerWithShellOpts contains options for Container.WithShell
++type ContainerWithShellOpts struct {
++	// Command arguments for batch use. The script is appended as one argument. Defaults to interactive followed by "-c".
++	Batch []string
++	// Disable Dagger API access for the executed command. By default, commands can connect to the current Dagger engine.
++	DisableDaggerInDagger bool
++
++	// Deprecated: Commands can access Dagger by default. Use "disableDaggerInDagger" to opt out.
++	ExperimentalPrivilegedNesting bool
++	// Give the shell all root capabilities. Use only with trusted commands.
++	InsecureRootCapabilities bool
++}
++
++// Set the shell used by terminal() and withRun().
++func (r *Container) WithShell(interactive []string, opts ...ContainerWithShellOpts) *Container {
++	q := r.query.Select("withShell")
++	for i := len(opts) - 1; i >= 0; i-- {
++		// `batch` optional argument
++		if !querybuilder.IsZeroValue(opts[i].Batch) {
++			q = q.Arg("batch", opts[i].Batch)
++		}
++		// `disableDaggerInDagger` optional argument
++		if !querybuilder.IsZeroValue(opts[i].DisableDaggerInDagger) {
++			q = q.Arg("disableDaggerInDagger", opts[i].DisableDaggerInDagger)
++		}
++		// `experimentalPrivilegedNesting` optional argument
++		if !querybuilder.IsZeroValue(opts[i].ExperimentalPrivilegedNesting) {
++			q = q.Arg("experimentalPrivilegedNesting", opts[i].ExperimentalPrivilegedNesting)
++		}
++		// `insecureRootCapabilities` optional argument
++		if !querybuilder.IsZeroValue(opts[i].InsecureRootCapabilities) {
++			q = q.Arg("insecureRootCapabilities", opts[i].InsecureRootCapabilities)
++		}
++	}
++	q = q.Arg("interactive", interactive)
+ 
+ 	return &Container{
+ 		query: q,
+@@ -6271,7 +6866,10 @@
+ 	Container *Container
+ 	// If set, override the container's default terminal command and invoke these command arguments instead.
+ 	Cmd []string
+-	// Provides Dagger access to the executed command.
++	// Disable Dagger API access for the executed command. By default, commands can connect to the current Dagger engine.
++	DisableDaggerInDagger bool
++
++	// Deprecated: Commands can access Dagger by default. Use "disableDaggerInDagger" to opt out.
+ 	ExperimentalPrivilegedNesting bool
+ 	// Execute the command with all root capabilities. This is similar to running a command with "sudo" or executing "docker run" with the "--privileged" flag. Containerization does not provide any security guarantees when using this option. It should only be used when absolutely necessary and only with trusted commands.
+ 	InsecureRootCapabilities bool
+@@ -6288,6 +6886,10 @@
+ 		// `cmd` optional argument
+ 		if !querybuilder.IsZeroValue(opts[i].Cmd) {
+ 			q = q.Arg("cmd", opts[i].Cmd)
++		}
++		// `disableDaggerInDagger` optional argument
++		if !querybuilder.IsZeroValue(opts[i].DisableDaggerInDagger) {
++			q = q.Arg("disableDaggerInDagger", opts[i].DisableDaggerInDagger)
+ 		}
+ 		// `experimentalPrivilegedNesting` optional argument
+ 		if !querybuilder.IsZeroValue(opts[i].ExperimentalPrivilegedNesting) {
+@@ -11294,6 +11896,16 @@
+ 	}
+ }
+ 
++// Run agent middleware in list order, passing this conversation through each function. Retain existing contributions.
++func (r *LLM) Compose(agents []*AgentMiddleware) *LLM {
++	q := r.query.Select("compose")
++	q = q.Arg("agents", agents)
++
++	return &LLM{
++		query: q,
++	}
++}
++
+ // estimated number of tokens currently occupying the context window; unlike tokenUsage this is not cumulative over the session
+ func (r *LLM) ContextTokens(ctx context.Context) (int, error) {
+ 	if r.contextTokens != nil {
+@@ -11528,6 +12140,20 @@
+ 
+ 	q = q.Bind(&response)
+ 	return response, q.Execute(ctx)
++}
++
++// Run agent middleware in list order, replacing their modules' contributions and preserving compatible tool state.
++//
++// Clear each selected module's contributions once before execution. Retain unowned contributions and contributions from other modules. Keep this LLM's workspace.
++//
++// A change to a tool binding's version resets its state. Removed bindings, changed identities, and incompatible state are errors.
++func (r *LLM) Recompose(agents []*AgentMiddleware) *LLM {
++	q := r.query.Select("recompose")
++	q = q.Arg("agents", agents)
++
++	return &LLM{
++		query: q,
++	}
+ }
+ 
+ // The skills visible to the model, exactly as the ListSkills tool serves them: engine-embedded skills, skills installed with withSkills, and skills discovered in the workspace.
+@@ -11913,6 +12539,8 @@
+ type LLMWithToolsOpts struct {
+ 	// Method names to exclude from the toolset (e.g. constructors, entrypoints).
+ 	Except []string
++	// Version of this binding's state contract. Recomposition preserves compatible state when the version is unchanged and resets to the newly bound object's defaults when it differs. Change this when the state layout changes incompatibly. Same-type tool returns retain the version. Module identity and ownership checks still apply.
++	Version int
+ }
+ 
+ // Expose an object's methods as tools. Every eligible method of the bound object becomes a tool; a tool that returns this object's own type replaces it as the new state. Repeatable to bind several objects.
+@@ -11922,6 +12550,10 @@
+ 		// `except` optional argument
+ 		if !querybuilder.IsZeroValue(opts[i].Except) {
+ 			q = q.Arg("except", opts[i].Except)
++		}
++		// `version` optional argument
++		if !querybuilder.IsZeroValue(opts[i].Version) {
++			q = q.Arg("version", opts[i].Version)
+ 		}
+ 	}
+ 	q = q.Arg("object", object)
+@@ -17676,17 +18308,19 @@
+ 
+ // WorkspaceExportOpts contains options for Workspace.Export
+ type WorkspaceExportOpts struct {
+-	// Destination checkout path on the calling client. Relative paths start at the client's working directory. Omit to apply a local workspace's overlay changes at its host root.
++	// Destination checkout path on the calling client. Relative paths start at the client's working directory. Omit to use the calling client's current local workspace root.
+ 	Path string
+-	// Earlier workspace state to compare against. With path, this must be a previously exported frozen source workspace.
++	// Earlier workspace state to compare against. For Git integration, live inputs are snapshotted at export time; use a snapshot to retain the baseline of a previous export.
+ 	From *Workspace
+ }
+ 
+ // Write this workspace's commits and pending changes to a checkout on the calling client.
+ //
+-// With path, accept a frozen source, integrate divergent commits by cherry-picking, preserve unrelated checkout edits, and refuse conflicts. The source is unchanged. Pass from to save only work since an earlier source value, including previously saved pending edits that are now committed.
+-//
+-// Without path, apply a local workspace's overlay changes at its host root. Pass from to apply only changes since an earlier local workspace state. Export paths are relative to the workspace root regardless of its working directory. Like Directory.export, this writes only to the client making the call, never the source's client.
++// Path selects the destination; omitting it uses the calling client's current local workspace root, including when exporting a snapshot or committed workspace. Exported file paths are relative to the workspace root regardless of its working directory. This writes only to the client making the call, never the source's client.
++//
++// A live workspace exported to its own checkout applies only its overlay edits, without capturing the whole checkout. This also applies with an explicit path. Pass from with the same live base to apply only changes since that overlay state.
++//
++// Other exports integrate divergent commits by cherry-picking, preserve unrelated checkout edits, and refuse conflicts. Live inputs are snapshotted automatically; capturing untracked source files requires interactive approval. Stable inputs retain their baseline. Pass from to save only work since an earlier source value, including previously saved pending edits that are now committed.
+ func (r *Workspace) Export(ctx context.Context, opts ...WorkspaceExportOpts) error {
+ 	if r.export != nil {
+ 		return nil

@@ -1,0 +1,158 @@
+{
+  "boundary": "fresh process through exit; retained static-TS engine, no cold claim",
+  "engine": "dagger-engine.collections-disk-abba-2",
+  "telemetry_mode": "local-only empty credentials; no Cloud or OTLP exporters or analytics",
+  "selected_cli_paths": {
+    "baseline": "/tmp/collections-perf/cli-key-scaling/dagger-baseline",
+    "candidate": "/tmp/collections-perf/sparse-export/production/dagger-production"
+  },
+  "selected_cli_sha256": {
+    "baseline": "3ce20fa55226bcb72155e47dbd99c8aa17b86da7799a4495976910fe92f6ce97",
+    "candidate": "0c841d64a3aad06b082ad9bb0beb618f6d07e86e8ce83008e5621e7b878e86bb"
+  },
+  "driver_sha256": "1a94a880910625effa3c02a63767d77245b43545ceafd8364aada123766e34ed",
+  "source": "/tmp/collections-perf/sdk-edit-audit/ts-static/greetings",
+  "source_hashes": {
+    "main.go": "108029a457668cec1724f9905460a83178882b601df4775380eecde9d78ce86c",
+    "main_test.go": "5605ebadd175eb2e6836f77dcda6006b2ba1accee404c034d85a61f64578958f",
+    "dagger.toml": "fa3e76ed17cd120a0e5b5655a27a63a7dd7bae05a63dc43ea391fcac6991e3ad"
+  },
+  "cli_build": {
+    "root_revision": "b35f20de73face2e07e837d29483abe127c3f8e5",
+    "commands": [
+      {
+        "variant": "baseline",
+        "kind": "test",
+        "command": [
+          "go",
+          "test",
+          "-c",
+          "-modfile=/tmp/collections-perf/post-rebase-io/build.mod",
+          "-buildvcs=false",
+          "-overlay=/tmp/collections-perf/cli-key-scaling/baseline-overlay.json",
+          "-o",
+          "/tmp/collections-perf/cli-key-scaling/baseline.test",
+          "./internal/cmd/dagger"
+        ]
+      },
+      {
+        "variant": "baseline",
+        "kind": "cli",
+        "command": [
+          "go",
+          "build",
+          "-modfile=/tmp/collections-perf/post-rebase-io/build.mod",
+          "-buildvcs=false",
+          "-overlay=/tmp/collections-perf/cli-key-scaling/baseline-overlay.json",
+          "-o",
+          "/tmp/collections-perf/cli-key-scaling/dagger-baseline",
+          "./cmd/dagger"
+        ]
+      },
+      {
+        "variant": "candidate",
+        "kind": "test",
+        "command": [
+          "go",
+          "test",
+          "-c",
+          "-modfile=/tmp/collections-perf/post-rebase-io/build.mod",
+          "-buildvcs=false",
+          "-o",
+          "/tmp/collections-perf/cli-key-scaling/candidate.test",
+          "./internal/cmd/dagger"
+        ]
+      },
+      {
+        "variant": "candidate",
+        "kind": "cli",
+        "command": [
+          "go",
+          "build",
+          "-modfile=/tmp/collections-perf/post-rebase-io/build.mod",
+          "-buildvcs=false",
+          "-o",
+          "/tmp/collections-perf/cli-key-scaling/dagger-candidate",
+          "./cmd/dagger"
+        ]
+      }
+    ],
+    "sha256": {
+      "artifact_list_baseline.go": "ec20a0b367e64572ca5b3f88c3273eb84714a9b78815134c6a80a514d6a458e7",
+      "baseline-overlay.json": "dd0dd74dc9fed5ed1c3c04fffc5f4003313748581f5927c2aa1af0ff0339c05b",
+      "baseline.test": "bfbbfafea42d75bc5c3715c92acf1827fe2bf6e84699dd61d8c345d7e37973ee",
+      "candidate.test": "d7135217ff12b0892990dc271671e62f06c3cfaaf38e90cb72bf2020fc20652d",
+      "dagger-baseline": "3ce20fa55226bcb72155e47dbd99c8aa17b86da7799a4495976910fe92f6ce97",
+      "dagger-candidate": "a6d28fa0b5801861c8aa7f9f4f59f3ee4d843cc4bf7c186860cd6f11fb300ff6"
+    },
+    "candidate_source_sha256": "7ebc265dff821644d82e61721262f3e1c6585ae1cde6d66472f56fb3efbb58ff",
+    "tests_source_sha256": "d62e680437fc3f7b7aabf773832b0ba1fd7229d7f35a3aa74178521583bcef0f"
+  },
+  "flows": {
+    "overview": [
+      "list"
+    ],
+    "static-checks": [
+      "check",
+      "-l"
+    ],
+    "expanded-checks": [
+      "check",
+      "-l",
+      "--all"
+    ],
+    "filtered-checks": [
+      "check",
+      "-l",
+      "--all",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestFormatResponse"
+    ],
+    "type-checks": [
+      "list",
+      "checks",
+      "go/modules/tests/run",
+      "-f",
+      "link"
+    ],
+    "modules": [
+      "list",
+      "go-modules",
+      "-f",
+      "link"
+    ],
+    "tests": [
+      "list",
+      "go-tests",
+      "-f",
+      "link"
+    ],
+    "check-help": [
+      "check",
+      "go/modules/tests/run",
+      "--help"
+    ],
+    "generators": [
+      "generate",
+      "-l",
+      "--all"
+    ],
+    "services": [
+      "up",
+      "-l",
+      "--all"
+    ],
+    "workspace-files": [
+      "ws",
+      "ls"
+    ],
+    "execute-single": [
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestFormatResponse"
+    ]
+  }
+}

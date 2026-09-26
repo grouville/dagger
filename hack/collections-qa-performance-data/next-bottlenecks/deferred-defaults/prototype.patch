@@ -1,0 +1,1075 @@
+--- /dev/null
++++ b/core/container_deferred.go
+@@ -0,0 +1,611 @@
++package core
++
++import (
++	"bytes"
++	"context"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"sort"
++	"sync"
++
++	"github.com/dagger/dagger/dagql"
++	"github.com/dagger/dagger/engine"
++	telemetry "github.com/dagger/otel-go"
++	"go.opentelemetry.io/otel/attribute"
++)
++
++var errUnsealedPreparedFilesystemInput = errors.New("prepared filesystem input has no content identity")
++var errLivePreparedWorkspaceInput = errors.New("prepared function reads a live workspace")
++
++// PreparedContainerDefault freezes contextual argument objects before any module
++// constructor/body runs. References are separate graph edges, never path strings
++// or opaque engine IDs embedded in JSON. This prototype supports direct fields.
++type PreparedContainerDefault struct {
++	Module     dagql.ObjectResult[*Module]
++	Workspace  dagql.ObjectResult[*Workspace]
++	Function   string
++	Bindings   JSON
++	References []dagql.AnyResult
++}
++
++type frozenContainerArguments struct {
++	Constructor map[string]any `json:"constructor"`
++	Function    map[string]any `json:"function"`
++	CacheScope  []string       `json:"cacheScope,omitempty"`
++	SessionID   string         `json:"sessionID,omitempty"`
++}
++
++func PrepareContainerDefault(ctx context.Context, artifact *Artifact) (_ *PreparedContainerDefault, supported bool, rerr error) {
++	node := artifact.Node
++	if artifact.Workspace.Self() == nil {
++		return nil, false, nil
++	}
++	if node == nil || node.Parent == nil || node.CollectionDimension != nil || node.RootValue != nil {
++		return nil, false, nil
++	}
++	root := node.Parent
++	if root.RootValue != nil || root.Module.Self() == nil {
++		return nil, false, nil
++	}
++	if parent := root.Parent; parent != nil && (parent.Module.Self() != nil || parent.RootValue != nil || parent.Type.Self() != nil) {
++		return nil, false, nil
++	}
++	obj := root.ObjectType()
++	if obj == nil {
++		return nil, false, nil
++	}
++	function, ok := obj.FunctionByName(node.Name)
++	if !ok || function == nil || artifact.TypeName != "Container" {
++		return nil, false, nil
++	}
++	// TTL would require a bounded lifetime on the prepared shell itself. Keep
++	// that case eager until an expiry-preserving plan representation is tested.
++	if function.CacheTTLSeconds.Valid {
++		return nil, false, nil
++	}
++	ctx, span := Tracer(ctx).Start(ctx, "prepare configured Container default", telemetry.Internal())
++	defer func() {
++		span.SetAttributes(attribute.Bool("dagger.prepared_container.supported", supported))
++		telemetry.EndWithCause(span, &rerr)
++	}()
++	p := &PreparedContainerDefault{Module: root.Module, Workspace: artifact.Workspace, Function: node.Name}
++	var ctor *Function
++	if obj.Constructor.Valid {
++		ctor = obj.Constructor.Value.Self()
++		if ctor.CacheTTLSeconds.Valid {
++			return nil, false, nil
++		}
++	}
++	// Decide before resolving any defaults. Otherwise an unsupported later
++	// argument could cause an earlier Never-cache object default to execute once
++	// during preparation and again in the ordinary eager fallback.
++	for _, candidate := range []*Function{ctor, function} {
++		supported, err := p.canPrepareArguments(ctx, obj, candidate)
++		if err != nil {
++			return nil, true, err
++		}
++		if !supported {
++			return nil, false, nil
++		}
++	}
++	bindings := frozenContainerArguments{}
++	srv, err := dagqlServerForModule(ctx, p.Module)
++	if err != nil {
++		return nil, true, err
++	}
++	bindings.Constructor, err = p.freezeArguments(ctx, srv, obj, ctor, &bindings.CacheScope)
++	if err != nil {
++		if errors.Is(err, errUnsealedPreparedFilesystemInput) || errors.Is(err, errLivePreparedWorkspaceInput) {
++			return nil, false, nil
++		}
++		return nil, true, err
++	}
++	bindings.Function, err = p.freezeArguments(ctx, srv, obj, function, &bindings.CacheScope)
++	if err != nil {
++		if errors.Is(err, errUnsealedPreparedFilesystemInput) || errors.Is(err, errLivePreparedWorkspaceInput) {
++			return nil, false, nil
++		}
++		return nil, true, err
++	}
++	if !p.Workspace.Self().IsValueWorkspace() || len(bindings.CacheScope) > 0 {
++		md, err := engine.ClientMetadataFromContext(ctx)
++		if err != nil {
++			return nil, true, err
++		}
++		if md.SessionID == "" {
++			return nil, true, fmt.Errorf("prepared container requires a session scope")
++		}
++		bindings.SessionID = md.SessionID
++	}
++	raw, err := json.Marshal(bindings)
++	p.Bindings = JSON(raw)
++	return p, true, err
++}
++
++func (p *PreparedContainerDefault) canPrepareArguments(ctx context.Context, obj *ObjectTypeDef, metadata *Function) (bool, error) {
++	if metadata == nil {
++		return true, nil
++	}
++	// UserDefault only reads these metadata fields; it does not need runtime
++	// argument converters or a served schema.
++	fn := &ModuleFunction{mod: p.Module, objDef: obj, metadata: metadata}
++	for _, result := range metadata.Args {
++		arg := result.Self()
++		typ := arg.TypeDef.Self()
++		element := typ
++		for element.Kind == TypeDefKindList {
++			element = element.AsList.Value.Self().ElementTypeDef.Self()
++		}
++		if element.Kind != TypeDefKindObject && element.Kind != TypeDefKindInterface {
++			continue
++		}
++		_, configured, err := fn.UserDefault(ctx, arg.Name)
++		if err != nil {
++			return false, err
++		}
++		if configured || arg.IsWorkspace() || arg.DefaultValue != nil {
++			return false, nil
++		}
++		if arg.isContextual() {
++			if typ.Kind != TypeDefKindObject || typ.AsObject.Value.Self().Name != "Directory" || arg.DefaultPath == "" {
++				return false, nil
++			}
++		}
++	}
++	return true, nil
++}
++
++func (p *PreparedContainerDefault) freezeArguments(ctx context.Context, srv *dagql.Server, obj *ObjectTypeDef, metadata *Function, scope *[]string) (map[string]any, error) {
++	values := map[string]any{}
++	if metadata == nil {
++		return values, nil
++	}
++	fn, err := NewModFunction(ctx, p.Module, obj, metadata)
++	if err != nil {
++		return nil, err
++	}
++	inputArgs := map[string]dagql.Input{}
++	req := &dagql.CallRequest{ResultCall: &dagql.ResultCall{}}
++	initial, err := boundWorkspaceArgs(ctx, srv, metadata)
++	if err != nil {
++		return nil, err
++	}
++	for _, arg := range initial {
++		inputArgs[arg.Name] = arg.Value
++		if err := req.SetArgInput(ctx, arg.Name, arg.Value, false); err != nil {
++			return nil, err
++		}
++	}
++	if err := fn.DynamicInputsForCall(ctx, nil, inputArgs, srv.View, req); err != nil {
++		return nil, err
++	}
++	// Primitive workspace/.env overrides must be frozen too; module authored
++	// defaults remain in immutable function metadata and follow the normal SDK path.
++	for _, argRes := range metadata.Args {
++		arg := argRes.Self()
++		if _, set := inputArgs[arg.Name]; set {
++			continue
++		}
++		ud, exists, err := fn.UserDefault(ctx, arg.Name)
++		if err != nil {
++			return nil, err
++		}
++		if !exists && arg.isContextual() && arg.TypeDef.Self().Optional {
++			value, err := arg.TypeDef.Self().ToInput().Decoder().DecodeInput(nil)
++			if err != nil {
++				return nil, err
++			}
++			inputArgs[arg.Name] = value
++			continue
++		}
++		if exists {
++			if ud.IsObject() {
++				return nil, fmt.Errorf("unbound object default %q", arg.Name)
++			}
++			value, err := ud.UserDefaultPrimitive.DagqlInput()
++			if err != nil {
++				return nil, err
++			}
++			inputArgs[arg.Name] = value
++		}
++	}
++	names := make([]string, 0, len(inputArgs))
++	for name := range inputArgs {
++		names = append(names, name)
++	}
++	sort.Strings(names)
++	for _, name := range names {
++		arg, ok := metadata.LookupArg(name)
++		if !ok {
++			return nil, fmt.Errorf("unknown prepared argument %q", name)
++		}
++		raw := inputArgs[name].ToLiteral().ToInput()
++		v, err := p.freezeValue(ctx, srv, arg.Self().TypeDef.Self(), raw)
++		if err != nil {
++			return nil, err
++		}
++		values[name] = v
++	}
++	for _, implicit := range fn.cacheImplicitInputs() {
++		v, err := implicit.Resolver(ctx, inputArgs)
++		if err != nil {
++			return nil, err
++		}
++		*scope = append(*scope, implicit.Name+":"+fmt.Sprint(v.ToLiteral().ToInput()))
++	}
++	return values, nil
++}
++
++func (p *PreparedContainerDefault) freezeValue(ctx context.Context, srv *dagql.Server, typ *TypeDef, raw any) (any, error) {
++	if raw == nil {
++		return nil, nil
++	}
++	if typ.Kind == TypeDefKindList {
++		items, ok := raw.([]any)
++		if !ok {
++			return nil, fmt.Errorf("prepared list is %T", raw)
++		}
++		out := make([]any, len(items))
++		for i, item := range items {
++			v, err := p.freezeValue(ctx, srv, typ.AsList.Value.Self().ElementTypeDef.Self(), item)
++			if err != nil {
++				return nil, err
++			}
++			out[i] = v
++		}
++		return out, nil
++	}
++	if typ.Kind != TypeDefKindObject && typ.Kind != TypeDefKindInterface {
++		return raw, nil
++	}
++	input, err := (dagql.AnyID{}).DecodeInput(raw)
++	if err != nil {
++		return nil, err
++	}
++	id, err := input.(dagql.IDType).ID()
++	if err != nil {
++		return nil, err
++	}
++	value, err := srv.Load(ctx, id)
++	if err != nil {
++		return nil, err
++	}
++	// Preserve ordinary laziness for filesystem recipes. A handle alone is
++	// insufficient to freeze a live source, while forcing arbitrary recipes here
++	// could run a container just to prepare an unused input. Narrow this prototype
++	// to filesystem values whose content identity was already resolved by the
++	// ordinary argument loader (notably Directory defaultPath).
++	switch object := value.(type) {
++	case dagql.ObjectResult[*Workspace]:
++		if !object.Self().IsValueWorkspace() {
++			return nil, errLivePreparedWorkspaceInput
++		}
++	case dagql.ObjectResult[*Directory], dagql.ObjectResult[*File]:
++		frame, err := value.ResultCall()
++		if err != nil {
++			return nil, err
++		}
++		if frame.ContentDigest() == "" {
++			return nil, errUnsealedPreparedFilesystemInput
++		}
++	}
++
++	index := len(p.References)
++	p.References = append(p.References, value)
++	return map[string]any{"ref": index}, nil
++}
++
++// ContainerDeferredDefaultLazy is an ordinary lazy Container. Its metadata
++// operation runs the frozen module path; each snapshot part delegates separately.
++// Merely passing its ID to an SDK does not execute either module function.
++type ContainerDeferredDefaultLazy struct {
++	LazyState
++	Plan     PreparedContainerDefault
++	parentMu sync.RWMutex
++	Parent   dagql.ObjectResult[*Container]
++	owner    dagql.AnyResult
++}
++
++func NewPreparedDefaultContainer(plan PreparedContainerDefault, platform Platform) *Container {
++	ctr := NewContainer(platform)
++	// A proxy may carry env, mounts and service bindings; it is never a scratch
++	// container whose state can be discarded when applying From.
++	ctr.fromContentDigestSafe = false
++	ctr.Lazy = &ContainerDeferredDefaultLazy{LazyState: NewLazyState(), Plan: plan}
++	return ctr
++}
++func (container *Container) InitializeResultReference(self dagql.AnyResult) {
++	operation := container.lazyOpForRouting()
++	if restore, ok := operation.(*ContainerRestoreLazy); ok {
++		operation = restore.recipe
++	}
++	if lazy, ok := operation.(*ContainerDeferredDefaultLazy); ok {
++		lazy.parentMu.Lock()
++		if lazy.owner == nil {
++			lazy.owner = self
++		}
++		lazy.parentMu.Unlock()
++	}
++}
++func (lazy *ContainerDeferredDefaultLazy) ContainerLazyParent() dagql.ObjectResult[*Container] {
++	lazy.parentMu.RLock()
++	defer lazy.parentMu.RUnlock()
++	return lazy.Parent
++}
++func (lazy *ContainerDeferredDefaultLazy) ContainerLazyGroups(_ context.Context, ctr *Container, parts []dagql.PartKey) ([]dagql.LazyGroupKey, error) {
++	return templateAContainerGroups(ctr, parts)
++}
++func (lazy *ContainerDeferredDefaultLazy) Evaluate(ctx context.Context, ctr *Container) error {
++	return ctr.evaluateAllLazyGroups(ctx, lazy)
++}
++func (lazy *ContainerDeferredDefaultLazy) EvaluateContainerGroup(ctx context.Context, ctr *Container, group dagql.LazyGroupKey) error {
++	return lazy.EvaluateGroup(ctx, "Container.deferredDefault", group, func(ctx context.Context) error {
++		if group != ContainerLazyGroupMetadata {
++			return delegateContainerPart(ctx, ctr, lazy.ContainerLazyParent(), dagql.PartKey(group))
++		}
++		parent, err := lazy.Plan.Evaluate(ctx)
++		if err != nil {
++			return err
++		}
++		cache, err := dagql.EngineCache(ctx)
++		if err != nil {
++			return err
++		}
++		lazy.parentMu.RLock()
++		owner := lazy.owner
++		lazy.parentMu.RUnlock()
++		if owner == nil {
++			return fmt.Errorf("deferred container has no published owner")
++		}
++		if err := cache.AddExplicitDependency(ctx, owner, parent, "deferred container target"); err != nil {
++			return err
++		}
++		if err := materializeContainerMetadataFromParent(ctx, ctr, parent); err != nil {
++			return err
++		}
++		lazy.parentMu.Lock()
++		lazy.Parent = parent
++		lazy.parentMu.Unlock()
++		return nil
++	})
++}
++
++func (p *PreparedContainerDefault) Evaluate(ctx context.Context) (dagql.ObjectResult[*Container], error) {
++	var result dagql.ObjectResult[*Container]
++	bindings, err := decodeFrozenContainerArguments(p.Bindings)
++	if err != nil {
++		return result, err
++	}
++	if err := bindings.checkSession(ctx); err != nil {
++		return result, err
++	}
++	if !p.Workspace.Self().IsValueWorkspace() && bindings.SessionID == "" {
++		return result, fmt.Errorf("live workspace prepared container is missing its session scope")
++	}
++	ctx, err = WorkspaceClientContext(ctx, p.Workspace.Self())
++	if err != nil {
++		return result, err
++	}
++	ctx = WorkspaceToContext(ctx, p.Workspace)
++	srv, err := dagqlServerForModule(ctx, p.Module)
++	if err != nil {
++		return result, err
++	}
++	objRes, ok := p.Module.Self().mainObjectTypeDefResult()
++	if !ok {
++		return result, fmt.Errorf("prepared module has no main object")
++	}
++	obj := objRes.Self().AsObject.Value.Self()
++	var ctor *Function
++	if obj.Constructor.Valid {
++		ctor = obj.Constructor.Value.Self()
++	}
++	constructorArgs, err := p.thawArguments(ctor, bindings.Constructor)
++	if err != nil {
++		return result, err
++	}
++	function, ok := obj.FunctionByName(p.Function)
++	if !ok {
++		return result, fmt.Errorf("prepared function %q is missing", p.Function)
++	}
++	functionArgs, err := p.thawArguments(function, bindings.Function)
++	if err != nil {
++		return result, err
++	}
++	err = srv.Select(ctx, srv.Root(), &result, dagql.Selector{Field: gqlFieldName(p.Module.Self().Name()), Args: constructorArgs}, dagql.Selector{Field: p.Function, Args: functionArgs})
++	return result, err
++}
++func (p *PreparedContainerDefault) thawArguments(fn *Function, values map[string]any) ([]dagql.NamedInput, error) {
++	names := make([]string, 0, len(values))
++	for name := range values {
++		names = append(names, name)
++	}
++	sort.Strings(names)
++	var inputs []dagql.NamedInput
++	for _, name := range names {
++		arg, ok := fn.LookupArg(name)
++		if !ok {
++			return nil, fmt.Errorf("prepared argument %q is missing", name)
++		}
++		raw, err := p.thawValue(arg.Self().TypeDef.Self(), values[name])
++		if err != nil {
++			return nil, err
++		}
++		value, err := arg.Self().TypeDef.Self().ToInput().Decoder().DecodeInput(raw)
++		if err != nil {
++			return nil, err
++		}
++		inputs = append(inputs, dagql.NamedInput{Name: name, Value: value})
++	}
++	return inputs, nil
++}
++func (p *PreparedContainerDefault) thawValue(typ *TypeDef, raw any) (any, error) {
++	if raw == nil {
++		return nil, nil
++	}
++	if typ.Kind == TypeDefKindList {
++		items, ok := raw.([]any)
++		if !ok {
++			return nil, fmt.Errorf("prepared list is %T", raw)
++		}
++		for i, v := range items {
++			decoded, err := p.thawValue(typ.AsList.Value.Self().ElementTypeDef.Self(), v)
++			if err != nil {
++				return nil, err
++			}
++			items[i] = decoded
++		}
++		return items, nil
++	}
++	if typ.Kind != TypeDefKindObject && typ.Kind != TypeDefKindInterface {
++		return raw, nil
++	}
++	ref, ok := raw.(map[string]any)
++	if !ok {
++		return nil, fmt.Errorf("prepared object reference is %T", raw)
++	}
++	n, ok := ref["ref"].(json.Number)
++	if !ok {
++		return nil, fmt.Errorf("invalid prepared object reference")
++	}
++	index, err := n.Int64()
++	if err != nil || index < 0 || index >= int64(len(p.References)) {
++		return nil, fmt.Errorf("invalid prepared object reference")
++	}
++	id, err := p.References[index].ID()
++	if err != nil {
++		return nil, err
++	}
++	return id.Encode()
++}
++
++func (lazy *ContainerDeferredDefaultLazy) AttachDependencies(ctx context.Context, attach func(dagql.AnyResult) (dagql.AnyResult, error)) ([]dagql.AnyResult, error) {
++	var deps []dagql.AnyResult
++	mod, err := attach(lazy.Plan.Module)
++	if err != nil {
++		return nil, err
++	}
++	lazy.Plan.Module = mod.(dagql.ObjectResult[*Module])
++	deps = append(deps, mod)
++	ws, err := attach(lazy.Plan.Workspace)
++	if err != nil {
++		return nil, err
++	}
++	lazy.Plan.Workspace = ws.(dagql.ObjectResult[*Workspace])
++	deps = append(deps, ws)
++	for i, ref := range lazy.Plan.References {
++		attached, err := attach(ref)
++		if err != nil {
++			return nil, err
++		}
++		lazy.Plan.References[i] = attached
++		deps = append(deps, attached)
++	}
++	lazy.parentMu.Lock()
++	defer lazy.parentMu.Unlock()
++	if lazy.Parent.Self() != nil {
++		parent, err := attach(lazy.Parent)
++		if err != nil {
++			return nil, err
++		}
++		lazy.Parent = parent.(dagql.ObjectResult[*Container])
++		deps = append(deps, parent)
++	}
++	return deps, nil
++}
++
++type persistedContainerDefault struct {
++	Module     uint64   `json:"moduleResultID"`
++	Workspace  uint64   `json:"workspaceResultID"`
++	Parent     uint64   `json:"parentResultID,omitempty"`
++	Function   string   `json:"function"`
++	Bindings   JSON     `json:"bindings"`
++	References []uint64 `json:"referenceResultIDs,omitempty"`
++}
++
++func (lazy *ContainerDeferredDefaultLazy) EncodePersisted(ctx context.Context, enc *dagql.PersistEncodeContext) (json.RawMessage, error) {
++	p := persistedContainerDefault{Function: lazy.Plan.Function, Bindings: lazy.Plan.Bindings}
++	var err error
++	p.Module, err = encodePersistedObjectRef(enc, lazy.Plan.Module, "deferred module")
++	if err != nil {
++		return nil, err
++	}
++	p.Workspace, err = encodePersistedObjectRef(enc, lazy.Plan.Workspace, "deferred workspace")
++	if err != nil {
++		return nil, err
++	}
++	for _, r := range lazy.Plan.References {
++		id, err := encodePersistedObjectRef(enc, r, "deferred input")
++		if err != nil {
++			return nil, err
++		}
++		p.References = append(p.References, id)
++	}
++	parent := lazy.ContainerLazyParent()
++	if parent.Self() != nil {
++		p.Parent, err = encodePersistedObjectRef(enc, parent, "deferred target")
++		if err != nil {
++			return nil, err
++		}
++	}
++	return json.Marshal(p)
++}
++func decodeContainerDefault(ctx context.Context, dec *dagql.PersistDecodeContext, raw json.RawMessage) (Lazy[*Container], error) {
++	var p persistedContainerDefault
++	if err := json.Unmarshal(raw, &p); err != nil {
++		return nil, err
++	}
++	if p.Module == 0 || p.Workspace == 0 || p.Function == "" {
++		return nil, fmt.Errorf("incomplete prepared container recipe")
++	}
++	if _, err := decodeFrozenContainerArguments(p.Bindings); err != nil {
++		return nil, fmt.Errorf("decode prepared argument bindings: %w", err)
++	}
++	lazy := &ContainerDeferredDefaultLazy{LazyState: NewLazyState(), Plan: PreparedContainerDefault{Function: p.Function, Bindings: p.Bindings}}
++	var err error
++	lazy.Plan.Module, err = loadPersistedObjectResultByResultID[*Module](ctx, dec, p.Module, "deferred module")
++	if err != nil {
++		return nil, err
++	}
++	lazy.Plan.Workspace, err = loadPersistedObjectResultByResultID[*Workspace](ctx, dec, p.Workspace, "deferred workspace")
++	if err != nil {
++		return nil, err
++	}
++	lazy.Parent, err = loadPersistedObjectResultByResultID[*Container](ctx, dec, p.Parent, "deferred target")
++	if err != nil {
++		return nil, err
++	}
++	for _, id := range p.References {
++		r, err := loadPersistedResultByResultID(ctx, dec, id, "deferred input")
++		if err != nil {
++			return nil, err
++		}
++		lazy.Plan.References = append(lazy.Plan.References, r)
++	}
++	return lazy, nil
++}
++
++func decodeFrozenContainerArguments(raw JSON) (frozenContainerArguments, error) {
++	var value frozenContainerArguments
++	dec := json.NewDecoder(bytes.NewReader(raw))
++	dec.UseNumber()
++	err := dec.Decode(&value)
++	return value, err
++}
++
++var _ LazyContainerParts = (*ContainerDeferredDefaultLazy)(nil)
++
++func (bindings frozenContainerArguments) checkSession(ctx context.Context) error {
++	if bindings.SessionID == "" {
++		return nil
++	}
++	md, err := engine.ClientMetadataFromContext(ctx)
++	if err != nil {
++		return err
++	}
++	if md.SessionID != bindings.SessionID {
++		return fmt.Errorf("prepared container belongs to a different session")
++	}
++	return nil
++}
+--- /dev/null
++++ b/core/schema/container_deferred.go
+@@ -0,0 +1,192 @@
++package schema
++
++import (
++	"context"
++	"encoding/json"
++	"fmt"
++	"slices"
++	"strings"
++
++	"github.com/dagger/dagger/core"
++	"github.com/dagger/dagger/core/dagaddress"
++	"github.com/dagger/dagger/dagql"
++	"github.com/dagger/dagger/engine"
++)
++
++type preparedDefaultContainerArgs struct {
++	Module     dagql.ID[*core.Module]
++	Workspace  dagql.ID[*core.Workspace]
++	Function   string
++	Bindings   core.JSON
++	References dagql.ArrayInput[dagql.AnyID]
++}
++
++func installDeferredContainerDefault(srv *dagql.Server) {
++	field := dagql.FuncWithDynamicInputs("__preparedDefaultContainer", preparedDefaultContainer, func(ctx context.Context, _ dagql.ObjectResult[*core.Query], args preparedDefaultContainerArgs, req *dagql.CallRequest) error {
++		// Conservatively keep scoped plans session-local; normal call identity still
++		// retains the same explicit scope value in the frozen argument recipe.
++		var bindings struct {
++			CacheScope []string `json:"cacheScope"`
++			SessionID  string   `json:"sessionID"`
++		}
++		if err := json.Unmarshal(args.Bindings, &bindings); err != nil {
++			return err
++		}
++		// A live workspace contains an originating client ID, not a portable
++		// authority grant. Pending plans may persist only when all context is
++		// engine-owned; wider persistence needs an explicit rebinding design.
++		srv, err := core.CurrentDagqlServer(ctx)
++		if err != nil {
++			return err
++		}
++		ws, err := args.Workspace.Load(ctx, srv)
++		if err != nil {
++			return err
++		}
++		if bindings.SessionID != "" {
++			md, err := engine.ClientMetadataFromContext(ctx)
++			if err != nil {
++				return err
++			}
++			if md.SessionID != bindings.SessionID {
++				return fmt.Errorf("prepared container belongs to a different session")
++			}
++		} else if !ws.Self().IsValueWorkspace() {
++			return fmt.Errorf("live workspace prepared container is missing its session scope")
++		}
++		req.IsPersistable = bindings.SessionID == "" && len(bindings.CacheScope) == 0 && ws.Self().IsValueWorkspace()
++		return nil
++	}).WithInput(dagql.ImplicitInput{
++		Name: dagql.PerSessionInput.Name,
++		Resolver: func(ctx context.Context, args map[string]dagql.Input) (dagql.Input, error) {
++			var bindings struct {
++				SessionID string `json:"sessionID"`
++			}
++			raw, ok := args["bindings"].(core.JSON)
++			if !ok {
++				return nil, fmt.Errorf("missing prepared container bindings")
++			}
++			if err := json.Unmarshal(raw, &bindings); err != nil {
++				return nil, err
++			}
++			if bindings.SessionID == "" {
++				return dagql.String(""), nil
++			}
++			return dagql.PerSessionInput.Resolver(ctx, args)
++		},
++	}).
++		NotReplayable("Prepared contextual defaults retain the original workspace authority").
++		Args(dagql.Arg("module").Internal(), dagql.Arg("workspace").Internal(), dagql.Arg("function").Internal(), dagql.Arg("bindings").Internal().Sensitive(), dagql.Arg("references").Internal().Sensitive())
++	field.Spec.TTL = core.MaxFunctionCacheTTLSeconds
++	dagql.Fields[*core.Query]{field}.Install(srv)
++	dagql.Fields[*core.Address]{dagql.NodeFunc("__deferredContainer", deferredDefaultContainer).WithInput(dagql.PerCallInput)}.Install(srv)
++}
++
++func preparedDefaultContainer(ctx context.Context, query *core.Query, args preparedDefaultContainerArgs) (*core.Container, error) {
++	srv, err := core.CurrentDagqlServer(ctx)
++	if err != nil {
++		return nil, err
++	}
++	mod, err := args.Module.Load(ctx, srv)
++	if err != nil {
++		return nil, err
++	}
++	ws, err := args.Workspace.Load(ctx, srv)
++	if err != nil {
++		return nil, err
++	}
++	plan := core.PreparedContainerDefault{Module: mod, Workspace: ws, Function: args.Function, Bindings: args.Bindings}
++	for _, id := range args.References {
++		raw, err := id.ID()
++		if err != nil {
++			return nil, err
++		}
++		ref, err := srv.Load(ctx, raw)
++		if err != nil {
++			return nil, err
++		}
++		plan.References = append(plan.References, ref)
++	}
++	return core.NewPreparedDefaultContainer(plan, query.Platform()), nil
++}
++
++func deferredDefaultContainer(ctx context.Context, address dagql.ObjectResult[*core.Address], _ struct{}) (dagql.ObjectResult[*core.Container], error) {
++	var result dagql.ObjectResult[*core.Container]
++	addr := address.Self()
++	ws := addr.BoundWorkspace
++	if !dagaddress.IsAddress(addr.Value) {
++		return (&addressSchema{}).container(ctx, address, struct{}{})
++	}
++	if ws.Self() == nil {
++		return result, fmt.Errorf("resolve %q: a DAG address needs a workspace; use Workspace.resolve", addr.Value)
++	}
++	parsed, err := dagaddress.Parse(addr.Value)
++	if err != nil {
++		return result, err
++	}
++	ctx, err = withWorkspaceClientContext(ctx, ws.Self())
++	if err != nil {
++		return result, err
++	}
++	ctx = core.WorkspaceToContext(ctx, ws)
++	artifact, err := resolveWorkspaceArtifact(ctx, ws, parsed, addr.Value)
++	if err != nil {
++		return result, err
++	}
++	if err := artifact.AssertType(parsed.Types); err != nil {
++		return result, fmt.Errorf("resolve %q: %w", addr.Value, err)
++	}
++	if artifact.TypeName != "Container" {
++		return result, fmt.Errorf("resolve %q: artifact is a %s, not a Container", addr.Value, artifact.TypeName)
++	}
++	normalized, err := artifact.URI(core.ArtifactURIOpts{DimensionKeys: true})
++	if err != nil {
++		return result, err
++	}
++	chain, _ := ctx.Value(moduleRefCycleKey{}).([]string)
++	if slices.Contains(chain, normalized) {
++		return result, fmt.Errorf("module reference cycle detected: %s -> %s", strings.Join(chain, " -> "), normalized)
++	}
++	newChain := append(slices.Clone(chain), normalized)
++	ctx = context.WithValue(ctx, moduleRefCycleKey{}, newChain)
++	plan, supported, err := core.PrepareContainerDefault(ctx, artifact)
++	if err != nil {
++		return result, fmt.Errorf("prepare %q: %w", addr.Value, err)
++	}
++	if !supported {
++		err := artifact.Evaluate(ctx, &result)
++		if err != nil {
++			return result, fmt.Errorf("resolve %q: %w", addr.Value, err)
++		}
++		return result, nil
++	}
++	modID, err := plan.Module.ID()
++	if err != nil {
++		return result, err
++	}
++	wsID, err := plan.Workspace.ID()
++	if err != nil {
++		return result, err
++	}
++	refs := make(dagql.ArrayInput[dagql.AnyID], 0, len(plan.References))
++	for _, ref := range plan.References {
++		id, err := ref.ID()
++		if err != nil {
++			return result, err
++		}
++		refs = append(refs, dagql.NewAnyID(id))
++	}
++	srv, err := core.CurrentDagqlServer(ctx)
++	if err != nil {
++		return result, err
++	}
++	srv = srv.Canonical()
++	err = srv.Select(ctx, srv.Root(), &result, dagql.Selector{Field: "__preparedDefaultContainer", Args: []dagql.NamedInput{
++		{Name: "module", Value: dagql.NewID[*core.Module](modID)},
++		{Name: "workspace", Value: dagql.NewID[*core.Workspace](wsID)},
++		{Name: "function", Value: dagql.String(plan.Function)},
++		{Name: "bindings", Value: plan.Bindings},
++		{Name: "references", Value: refs},
++	}})
++	return result, err
++}
+--- a/core/modfunc.go
++++ b/core/modfunc.go
+@@ -474,10 +474,14 @@
+ 		if err != nil {
+ 			return nil, ud.errorf(err, "resolve address")
+ 		}
++		field := gqlFieldName(typename)
++		if typename == "Container" {
++			field = "__deferredContainer"
++		}
+ 		var result dagql.AnyObjectResult
+ 		if err := srv.Select(mainCtx, addr, &result,
+ 			dagql.Selector{
+-				Field: gqlFieldName(typename),
++				Field: field,
+ 			},
+ 		); err != nil {
+ 			return nil, ud.errorf(err, "resolve object (%q)", typename)
+--- a/core/schema/address.go
++++ b/core/schema/address.go
+@@ -318,6 +318,7 @@
+ var _ SchemaResolvers = &addressSchema{}
+ 
+ func (s *addressSchema) Install(srv *dagql.Server) {
++	defer installDeferredContainerDefault(srv)
+ 	dagql.Fields[*core.Query]{
+ 		dagql.Func("address", s.legacyAddress).
+ 			View(BeforeVersion("v1.0.0-0")).
+--- a/core/container.go
++++ b/core/container.go
+@@ -1184,13 +1184,14 @@
+ 
+ func (container *Container) AttachDependencyResultsKinds(
+ 	ctx context.Context,
+-	_ dagql.AnyResult,
++	self dagql.AnyResult,
+ 	attach func(dagql.AnyResult) (dagql.AnyResult, error),
+ ) ([]dagql.DependencyResult, error) {
+ 	if container == nil {
+ 		return nil, nil
+ 	}
+ 
++	container.InitializeResultReference(self)
+ 	container.lazyOpMu.Lock()
+ 	lazy := container.Lazy
+ 	container.lazyOpMu.Unlock()
+@@ -4517,6 +4518,8 @@
+ 	payload json.RawMessage,
+ ) (Lazy[*Container], error) {
+ 	switch call.Field {
++	case "__preparedDefaultContainer":
++		return decodeContainerDefault(ctx, dec, payload)
+ 	case "_builtinContainer":
+ 		return decodeContainerBuiltinLazy(payload)
+ 
+--- a/core/persisted_visitors.go
++++ b/core/persisted_visitors.go
+@@ -285,6 +285,18 @@
+ // recipe payload keyed by the recorded call field, mirroring
+ // decodePersistedContainerRecipe.
+ var persistedContainerRecipeVisitors = map[string]persistedLazyVisitor{
++	"__preparedDefaultContainer": persistedLazyStructVisitor(func(p *persistedContainerDefault, w *persistedRefWalker) error {
++		if err := w.child("moduleResultID", &p.Module); err != nil {
++			return err
++		}
++		if err := w.child("workspaceResultID", &p.Workspace); err != nil {
++			return err
++		}
++		if err := w.child("parentResultID", &p.Parent); err != nil {
++			return err
++		}
++		return w.children("referenceResultIDs", p.References)
++	}),
+ 	"_builtinContainer": persistedLazyStructVisitor(func(p *persistedContainerBuiltinLazy, _ *persistedRefWalker) error { return p.validate() }),
+ 
+ 	"withEntrypoint":            parentOnly(func(p *persistedContainerWithEntrypointLazy) *uint64 { return &p.ParentResultID }),
+--- /dev/null
++++ b/core/container_deferred_test.go
+@@ -0,0 +1,187 @@
++package core
++
++import (
++	"encoding/json"
++	"strings"
++	"testing"
++
++	"github.com/dagger/dagger/dagql"
++	"github.com/dagger/dagger/engine"
++	digest "github.com/opencontainers/go-digest"
++	"github.com/stretchr/testify/require"
++)
++
++func TestPreparedContainerReferencesAndNumbers(t *testing.T) {
++	env := newPersistedFamiliesTestEnv(t, "prepared-inputs")
++	ctx, cache, srv := env.open(t)
++	source := env.directory(t, ctx, cache, srv, "input", "input-snapshot")
++	source, err := source.WithContentDigest(ctx, digest.FromString("frozen-input"))
++	require.NoError(t, err)
++	sourceID, err := source.ID()
++	require.NoError(t, err)
++	object := &TypeDef{Kind: TypeDefKindObject}
++	list := &TypeDef{Kind: TypeDefKindList, AsList: dagql.NonNull(defaultTestObject(t, &ListTypeDef{ElementTypeDef: defaultTestObject(t, object)}))}
++	p := &PreparedContainerDefault{}
++	frozen, err := p.freezeValue(ctx, srv, list, []any{dagql.NewID[*Directory](sourceID).ToLiteral().ToInput(), nil})
++	require.NoError(t, err)
++	raw, err := json.Marshal(frozenContainerArguments{Constructor: map[string]any{"sources": frozen, "count": json.Number("9007199254740993")}})
++	require.NoError(t, err)
++	encodedID, err := sourceID.Encode()
++	require.NoError(t, err)
++	require.NotContains(t, string(raw), encodedID, "runtime handles must be explicit dependency edges, not hidden JSON")
++	require.Len(t, p.References, 1)
++	decoded, err := decodeFrozenContainerArguments(raw)
++	require.NoError(t, err)
++	require.Equal(t, json.Number("9007199254740993"), decoded.Constructor["count"], "JSON roundtrip must not round large integer arguments")
++	thawed, err := p.thawValue(list, decoded.Constructor["sources"])
++	require.NoError(t, err)
++	require.Equal(t, []any{encodedID, nil}, thawed)
++	for _, bad := range []string{`null`, `-1`, `1`, `0.5`, `"0"`, `9007199254740993`} {
++		t.Run(bad, func(t *testing.T) {
++			data, err := decodeFrozenContainerArguments(JSON(`{"constructor":{"x":{"ref":` + bad + `}}}`))
++			require.NoError(t, err)
++			_, err = p.thawValue(object, data.Constructor["x"])
++			require.ErrorContains(t, err, "invalid prepared object reference")
++		})
++	}
++}
++
++func TestPreparedContainerRetainsReferencesWithoutEvaluation(t *testing.T) {
++	env := newPersistedFamiliesTestEnv(t, "prepared-persist")
++	ctx, cache, srv := env.open(t)
++	module := env.attach(t, ctx, cache, srv, "producer", &Module{NameField: "producer", OriginalName: "Producer", Deps: NewSchemaBuilder(nil, nil)}).(dagql.ObjectResult[*Module])
++	source := env.directory(t, ctx, cache, srv, "source", "source-snapshot")
++	ws := env.attach(t, ctx, cache, srv, "workspace", &Workspace{rootfs: source, Address: "file:///ws", Cwd: "/"}).(dagql.ObjectResult[*Workspace])
++	plan := PreparedContainerDefault{Module: module, Workspace: ws, Function: "missingSentinel", Bindings: JSON(`{"constructor":{"source":{"ref":0}},"function":{}}`), References: []dagql.AnyResult{source}}
++	ctr := NewPreparedDefaultContainer(plan, Platform{OS: "linux", Architecture: "amd64"})
++	require.False(t, ctr.CanUseFromContentDigest(), "unknown deferred state is not scratch")
++	attached := env.attach(t, ctx, cache, srv, "__preparedDefaultContainer", ctr)
++	lazy := ctr.Lazy.(*ContainerDeferredDefaultLazy)
++	require.NotNil(t, lazy.owner)
++	require.False(t, lazy.GroupConsumed(ContainerLazyGroupMetadata))
++	require.True(t, dagql.HasPendingLazyEvaluation(attached))
++	// The deliberately missing module function makes eager body evaluation fail;
++	// publishing/capturing/relocating an unused prepared value must not invoke it.
++	rec, err := cache.CapturePersistedRecord(ctx, attached)
++	require.NoError(t, err)
++	require.False(t, lazy.GroupConsumed(ContainerLazyGroupMetadata))
++	var payload persistedContainerPayload
++	require.NoError(t, json.Unmarshal(rec.Envelope.ObjectJSON, &payload))
++	require.False(t, payload.Metadata.Consumed)
++	moduleID := persistedRowID(t, cache, module)
++	sourceRow := persistedRowID(t, cache, source)
++	wsID := persistedRowID(t, cache, ws)
++	reloc := &relocationVisitor{mapping: map[uint64]uint64{rec.ResultID: rec.ResultID, moduleID: moduleID + 10000, sourceRow: sourceRow + 10000, wsID: wsID + 10000}}
++	moved, err := dagql.VisitEncodedReferences(rec, reloc.visit)
++	require.NoError(t, err)
++	var movedPayload persistedContainerPayload
++	require.NoError(t, json.Unmarshal(moved.Envelope.ObjectJSON, &movedPayload))
++	var recipe persistedContainerDefault
++	require.NoError(t, json.Unmarshal(movedPayload.LazyJSON, &recipe))
++	require.Equal(t, moduleID+10000, recipe.Module)
++	require.Equal(t, wsID+10000, recipe.Workspace)
++	require.Equal(t, []uint64{sourceRow + 10000}, recipe.References)
++	require.JSONEq(t, string(plan.Bindings), string(recipe.Bindings), "slot binding JSON contains no relocatable runtime handles")
++	expected := map[string]uint64{"objectJSON.lazyJSON.moduleResultID": moduleID, "objectJSON.lazyJSON.workspaceResultID": wsID, "objectJSON.lazyJSON.referenceResultIDs[0]": sourceRow}
++	for path, row := range reloc.childIDs() {
++		if strings.HasPrefix(path, "objectJSON.lazyJSON.") {
++			require.Equal(t, expected[path], row)
++			delete(expected, path)
++		}
++	}
++	require.Empty(t, expected)
++	ctx, cache, srv = env.restart(t, ctx, cache)
++	loaded, err := cache.LoadResultByResultID(ctx, env.session, srv, rec.ResultID)
++	require.NoError(t, err)
++	restored, ok := dagql.UnwrapAs[*Container](loaded)
++	require.True(t, ok)
++	restoredLazy, ok := restored.Lazy.(*ContainerDeferredDefaultLazy)
++	require.True(t, ok)
++	require.NotNil(t, restoredLazy.owner, "pending recipe must reconnect its published owner after cache restart")
++	require.False(t, restoredLazy.GroupConsumed(ContainerLazyGroupMetadata))
++	require.Len(t, restoredLazy.Plan.References, 1)
++	require.False(t, restored.CanUseFromContentDigest())
++}
++
++func TestPreparedContainerRestoredOwner(t *testing.T) {
++	lazy := &ContainerDeferredDefaultLazy{LazyState: NewLazyState()}
++	ctr := NewContainer(Platform{})
++	ctr.Lazy = &ContainerRestoreLazy{LazyState: &lazy.LazyState, recipe: lazy}
++	owner := defaultTestObject(t, ctr)
++	ctr.InitializeResultReference(owner)
++	require.Same(t, ctr, lazy.owner.Unwrap())
++}
++
++func TestPreparedContainerRejectsDifferentSessionBeforeResolvingWorkspace(t *testing.T) {
++	bindings := frozenContainerArguments{SessionID: "owner-session"}
++	raw, err := json.Marshal(bindings)
++	require.NoError(t, err)
++	plan := PreparedContainerDefault{Bindings: raw}
++	// There is deliberately no workspace, module, query or client transport.
++	// A cross-session force must be rejected before touching any of them.
++	ctx := engine.ContextWithClientMetadata(t.Context(), &engine.ClientMetadata{ClientID: "other-client", SessionID: "other-session"})
++	_, err = plan.Evaluate(ctx)
++	require.ErrorContains(t, err, "different session")
++	nested := engine.ContextWithClientMetadata(t.Context(), &engine.ClientMetadata{ClientID: "nested-module", SessionID: "owner-session"})
++	require.NoError(t, bindings.checkSession(nested), "an authorized nested SDK caller stays in the same session")
++	require.Error(t, bindings.checkSession(t.Context()))
++}
++
++func TestPreparedContainerDoesNotForceUnsealedFilesystemInput(t *testing.T) {
++	env := newPersistedFamiliesTestEnv(t, "unsealed-input")
++	ctx, cache, srv := env.open(t)
++	op := &containerPartsTestDirectorySourceOp{LazyState: NewLazyState()}
++	source := &Directory{Lazy: op, Dir: new(LazyAccessor[string, *Directory])}
++	attached := env.attach(t, ctx, cache, srv, "unsealed-directory", source)
++	id, err := attached.ID()
++	require.NoError(t, err)
++	encoded, err := id.Encode()
++	require.NoError(t, err)
++	p := &PreparedContainerDefault{}
++	_, err = p.freezeValue(ctx, srv, &TypeDef{Kind: TypeDefKindObject}, encoded)
++	require.ErrorIs(t, err, errUnsealedPreparedFilesystemInput)
++	require.EqualValues(t, 0, op.runs.Load(), "planning an unused configured input must not run arbitrary lazy producers")
++	require.Empty(t, p.References)
++}
++
++func TestPreparedContainerFallsBackForLiveWorkspaceFunctionInput(t *testing.T) {
++	env := newPersistedFamiliesTestEnv(t, "live-workspace-input")
++	ctx, cache, srv := env.open(t)
++	ws := env.attach(t, ctx, cache, srv, "live-workspace", &Workspace{ClientID: "source-client", Cwd: "/", hostPath: "/checkout"})
++	id, err := ws.ID()
++	require.NoError(t, err)
++	encoded, err := id.Encode()
++	require.NoError(t, err)
++	plan := &PreparedContainerDefault{}
++	_, err = plan.freezeValue(ctx, srv, &TypeDef{Kind: TypeDefKindObject}, encoded)
++	require.ErrorIs(t, err, errLivePreparedWorkspaceInput)
++	require.Empty(t, plan.References)
++}
++
++func TestPreparedContainerPreflightRejectsUnsupportedDefaultsWithoutResolving(t *testing.T) {
++	objectType := func(name string) dagql.ObjectResult[*TypeDef] {
++		return defaultTestObject(t, &TypeDef{Kind: TypeDefKindObject, AsObject: dagql.NonNull(defaultTestObject(t, &ObjectTypeDef{Name: name, OriginalName: name}))})
++	}
++	mod := &Module{NameField: "producer", OriginalName: "Producer", WorkspaceConfig: map[string]any{"file": "dag://expensive/file"}}
++	plan := PreparedContainerDefault{Module: defaultTestObject(t, mod)}
++	obj := &ObjectTypeDef{Name: "Producer", OriginalName: "Producer"}
++	// No query/cache/server: rejecting configured object defaults must be a
++	// metadata decision, before address resolution or runtime invocation.
++	for _, tc := range []struct {
++		name string
++		arg  *FunctionArg
++		want bool
++	}{
++		{"directory defaultPath", &FunctionArg{Name: "source", OriginalName: "source", TypeDef: objectType("Directory"), DefaultPath: "/"}, true},
++		{"file defaultPath", &FunctionArg{Name: "source", OriginalName: "source", TypeDef: objectType("File"), DefaultPath: "/x"}, false},
++		{"workspace", &FunctionArg{Name: "ws", OriginalName: "ws", TypeDef: objectType("Workspace")}, false},
++		{"configured object", &FunctionArg{Name: "file", OriginalName: "file", TypeDef: objectType("File")}, false},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			fn := &Function{Args: dagql.ObjectResultArray[*FunctionArg]{defaultTestObject(t, tc.arg)}}
++			ok, err := plan.canPrepareArguments(t.Context(), obj, fn)
++			require.NoError(t, err)
++			require.Equal(t, tc.want, ok)
++		})
++	}
++}

@@ -1,0 +1,21 @@
+fix: keep host attachables alive through cancelled command shutdown
+
+Cancelling a command stopped its host attachables before Client.Close asked
+the engine to flush workspace locks. For example, repeated `dagger up`
+could lose the OCI digest resolved during the run and resolve the image
+tag again on every invocation.
+
+Run ordinary and engine-to-engine attachables under the existing client
+lifetime instead. Keep them available until shutdown finishes, then stop
+them through Close; initialization failure also cancels that lifetime.
+
+Add regressions using the actual session setup paths, HTTP upgrade and
+gRPC over net.Pipe. They check that host calls remain available during
+shutdown after command cancellation, and that cleanup terminates the
+transport. Both paths fail before the fix and pass with the race detector.
+
+A retained-engine service fixture now persists its ordinary OCI lock after
+SIGINT. Warm HTTP readiness improved from 1.265 s to 0.476 s median and
+real-edit readiness from 1.354 s to 0.444 s (three pairs each). Full CLI
+exit including intentional cancellation remains about 0.59 s; no initial
+cold-start improvement is claimed.

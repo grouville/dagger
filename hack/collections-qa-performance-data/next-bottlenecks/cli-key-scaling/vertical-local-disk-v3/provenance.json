@@ -1,0 +1,127 @@
+{
+  "engine": "dagger-engine.collections-disk-abba-2",
+  "cli_build": {
+    "root_revision": "b35f20de73face2e07e837d29483abe127c3f8e5",
+    "commands": [
+      {
+        "variant": "baseline",
+        "kind": "test",
+        "command": [
+          "go",
+          "test",
+          "-c",
+          "-modfile=/tmp/collections-perf/post-rebase-io/build.mod",
+          "-buildvcs=false",
+          "-overlay=/tmp/collections-perf/cli-key-scaling/baseline-overlay.json",
+          "-o",
+          "/tmp/collections-perf/cli-key-scaling/baseline.test",
+          "./internal/cmd/dagger"
+        ]
+      },
+      {
+        "variant": "baseline",
+        "kind": "cli",
+        "command": [
+          "go",
+          "build",
+          "-modfile=/tmp/collections-perf/post-rebase-io/build.mod",
+          "-buildvcs=false",
+          "-overlay=/tmp/collections-perf/cli-key-scaling/baseline-overlay.json",
+          "-o",
+          "/tmp/collections-perf/cli-key-scaling/dagger-baseline",
+          "./cmd/dagger"
+        ]
+      },
+      {
+        "variant": "candidate",
+        "kind": "test",
+        "command": [
+          "go",
+          "test",
+          "-c",
+          "-modfile=/tmp/collections-perf/post-rebase-io/build.mod",
+          "-buildvcs=false",
+          "-o",
+          "/tmp/collections-perf/cli-key-scaling/candidate.test",
+          "./internal/cmd/dagger"
+        ]
+      },
+      {
+        "variant": "candidate",
+        "kind": "cli",
+        "command": [
+          "go",
+          "build",
+          "-modfile=/tmp/collections-perf/post-rebase-io/build.mod",
+          "-buildvcs=false",
+          "-o",
+          "/tmp/collections-perf/cli-key-scaling/dagger-candidate",
+          "./cmd/dagger"
+        ]
+      }
+    ],
+    "sha256": {
+      "artifact_list_baseline.go": "ec20a0b367e64572ca5b3f88c3273eb84714a9b78815134c6a80a514d6a458e7",
+      "baseline-overlay.json": "dd0dd74dc9fed5ed1c3c04fffc5f4003313748581f5927c2aa1af0ff0339c05b",
+      "baseline.test": "bfbbfafea42d75bc5c3715c92acf1827fe2bf6e84699dd61d8c345d7e37973ee",
+      "candidate.test": "d7135217ff12b0892990dc271671e62f06c3cfaaf38e90cb72bf2020fc20652d",
+      "dagger-baseline": "3ce20fa55226bcb72155e47dbd99c8aa17b86da7799a4495976910fe92f6ce97",
+      "dagger-candidate": "a6d28fa0b5801861c8aa7f9f4f59f3ee4d843cc4bf7c186860cd6f11fb300ff6"
+    },
+    "candidate_source_sha256": "7ebc265dff821644d82e61721262f3e1c6585ae1cde6d66472f56fb3efbb58ff",
+    "tests_source_sha256": "d62e680437fc3f7b7aabf773832b0ba1fd7229d7f35a3aa74178521583bcef0f"
+  },
+  "selected_cli_paths": {
+    "baseline": "/tmp/collections-perf/cli-key-scaling/dagger-candidate",
+    "candidate": "/tmp/collections-perf/sparse-export/production/dagger-production"
+  },
+  "selected_cli_sha256": {
+    "baseline": "a6d28fa0b5801861c8aa7f9f4f59f3ee4d843cc4bf7c186860cd6f11fb300ff6",
+    "candidate": "0c841d64a3aad06b082ad9bb0beb618f6d07e86e8ce83008e5621e7b878e86bb"
+  },
+  "git_workspace": true,
+  "fixture_source": {
+    "main.dang": "34a2ea6acd0e7e34a0f42fb1384c09ce572d2761959b44aafa67d0ba91c21449",
+    "dagger.json": "4b9b6a134a853cc731e2c57e72165de6e6611c9d4dcb6977f93c047a1b65cff6"
+  },
+  "driver_sha256": "cb0cd89d7e35ce71e8cdb851646e714d883f7bf2996657893541dc99f9abd2c8",
+  "boundary": "retained experimental engine; first run is setup, not a fresh-volume cold claim; full new CLI",
+  "telemetry_mode": "local only: empty credentials, no Cloud/OTLP exporters or analytics",
+  "flows": {
+    "check": [
+      "check",
+      "--generated=false",
+      "verify"
+    ],
+    "generate": [
+      "-y",
+      "generate",
+      "render"
+    ],
+    "up": [
+      "up",
+      "web"
+    ],
+    "call": [
+      "-m",
+      "./module",
+      "api",
+      "call",
+      "read"
+    ],
+    "export": [
+      "-m",
+      "core",
+      "api",
+      "call",
+      "host",
+      "file",
+      "--path",
+      "input.txt",
+      "export",
+      "--path",
+      "./exported.txt"
+    ]
+  },
+  "up_measurement": "HTTP body readiness, then SIGINT and cleanup; wall time includes an intentionally cancelled long-lived service"
+}

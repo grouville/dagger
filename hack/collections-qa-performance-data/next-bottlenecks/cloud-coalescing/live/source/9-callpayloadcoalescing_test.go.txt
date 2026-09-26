@@ -1,0 +1,181 @@
+package telemetry
+
+import (
+	"testing"
+	"testing/synctest"
+	"time"
+
+	"github.com/stretchr/testify/require"
+	sdklog "go.opentelemetry.io/otel/sdk/log"
+)
+
+func TestCallPayloadConfiguredDelayCoalesces(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		exp := &flakyLogExporter{}
+		proc := NewCallPayloadBatchProcessor(exp, WithCallPayloadExportDelay(100*time.Millisecond))
+		logger := sdklog.NewLoggerProvider(sdklog.WithProcessor(proc)).Logger("test.core")
+		start := time.Now()
+		logger.Emit(t.Context(), payloadRecordWithBody("first"))
+		synctest.Wait()
+		time.Sleep(5 * time.Millisecond)
+		synctest.Wait()
+		n, _, _ := exp.stats()
+		require.Zero(t, n, "the Cloud window must not use the local 5ms delay")
+		logger.Emit(t.Context(), payloadRecordWithBody("second"))
+		time.Sleep(94 * time.Millisecond)
+		synctest.Wait()
+		n, _, _ = exp.stats()
+		require.Zero(t, n)
+		time.Sleep(time.Millisecond)
+		synctest.Wait()
+		n, bodies, batches := exp.stats()
+		require.Equal(t, 1, n)
+		require.Equal(t, []string{"first", "second"}, bodies)
+		require.Equal(t, []int{2}, batches)
+		require.Equal(t, 100*time.Millisecond, time.Since(start))
+		require.NoError(t, proc.Shutdown(t.Context()))
+	})
+}
+
+func TestCallPayloadConfiguredDelayRecoalesces(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		exp := &blockingLogExporter{started: make(chan struct{}), release: make(chan struct{})}
+		proc := NewCallPayloadBatchProcessor(exp, WithCallPayloadExportDelay(100*time.Millisecond))
+		logger := sdklog.NewLoggerProvider(sdklog.WithProcessor(proc)).Logger("test.core")
+		logger.Emit(t.Context(), payloadRecordWithBody("first"))
+		<-exp.started
+		logger.Emit(t.Context(), payloadRecordWithBody("second"))
+		close(exp.release)
+		synctest.Wait()
+		time.Sleep(5 * time.Millisecond)
+		synctest.Wait()
+		_, batches := exp.stats()
+		require.Equal(t, []int{1}, batches)
+		logger.Emit(t.Context(), payloadRecordWithBody("third"))
+		time.Sleep(95 * time.Millisecond)
+		synctest.Wait()
+		_, batches = exp.stats()
+		require.Equal(t, []int{1, 2}, batches)
+		require.NoError(t, proc.Shutdown(t.Context()))
+	})
+}
+
+func TestCallPayloadConfiguredDelayExplicitDrain(t *testing.T) {
+	for _, shutdown := range []bool{false, true} {
+		name := "flush"
+		if shutdown {
+			name = "shutdown"
+		}
+		t.Run(name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				exp := &flakyLogExporter{}
+				proc := NewCallPayloadBatchProcessor(exp, WithCallPayloadExportDelay(time.Hour), WithCallPayloadExportMaxBatchSize(2))
+				logger := sdklog.NewLoggerProvider(sdklog.WithProcessor(proc)).Logger("test.core")
+				for _, s := range []string{"first", "second", "third"} {
+					logger.Emit(t.Context(), payloadRecordWithBody(s))
+				}
+				synctest.Wait()
+				start := time.Now()
+				if shutdown {
+					require.NoError(t, proc.Shutdown(t.Context()))
+				} else {
+					require.NoError(t, proc.ForceFlush(t.Context()))
+				}
+				n, bodies, batches := exp.stats()
+				require.Equal(t, 2, n)
+				require.Equal(t, []string{"first", "second", "third"}, bodies)
+				require.Equal(t, []int{2, 1}, batches)
+				require.Zero(t, time.Since(start), "explicit draining must bypass coalescing")
+				require.NoError(t, proc.Shutdown(t.Context()))
+			})
+		})
+	}
+}
+
+func TestCallPayloadConfiguredDelayPreservesRetry(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		exp := &flakyLogExporter{failures: 1}
+		proc := NewCallPayloadBatchProcessor(exp, WithCallPayloadExportDelay(100*time.Millisecond))
+		logger := sdklog.NewLoggerProvider(sdklog.WithProcessor(proc)).Logger("test.core")
+		logger.Emit(t.Context(), payloadRecordWithBody("first"))
+		synctest.Wait()
+		time.Sleep(100 * time.Millisecond)
+		synctest.Wait()
+		n, _, _ := exp.stats()
+		require.Equal(t, 1, n)
+		logger.Emit(t.Context(), payloadRecordWithBody("second"))
+		synctest.Wait()
+		time.Sleep(49 * time.Millisecond)
+		synctest.Wait()
+		n, _, _ = exp.stats()
+		require.Equal(t, 1, n)
+		time.Sleep(time.Millisecond)
+		synctest.Wait()
+		n, bodies, batches := exp.stats()
+		require.Equal(t, 2, n, "retry must use 50ms backoff, not the 100ms coalescing interval")
+		require.Equal(t, []string{"first", "second"}, bodies)
+		require.Equal(t, []int{2}, batches)
+		require.NoError(t, proc.Shutdown(t.Context()))
+	})
+}
+
+func TestCallPayloadConfiguredDelayDefaultAndInvalid(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		opts []CallPayloadBatchOption
+	}{
+		{name: "default"}, {name: "zero", opts: []CallPayloadBatchOption{WithCallPayloadExportDelay(0)}},
+		{name: "negative", opts: []CallPayloadBatchOption{WithCallPayloadExportDelay(-time.Second)}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				exp := &flakyLogExporter{}
+				proc := NewCallPayloadBatchProcessor(exp, tc.opts...)
+				logger := sdklog.NewLoggerProvider(sdklog.WithProcessor(proc)).Logger("test.core")
+				logger.Emit(t.Context(), payloadRecordWithBody("first"))
+				synctest.Wait()
+				time.Sleep(4 * time.Millisecond)
+				synctest.Wait()
+				n, _, _ := exp.stats()
+				require.Zero(t, n)
+				time.Sleep(time.Millisecond)
+				synctest.Wait()
+				n, _, _ = exp.stats()
+				require.Equal(t, 1, n)
+				require.NoError(t, proc.Shutdown(t.Context()))
+			})
+		})
+	}
+}
+
+// This is a bounded fake-transport workload, not a Cloud or user latency claim.
+// It captures why fast local acceptance can need a wider coalescing window.
+func TestCallPayloadConfiguredDelayRequestCount(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		delay        time.Duration
+		wantRequests int
+	}{
+		{"local", 5 * time.Millisecond, 40},
+		{"cloud", 100 * time.Millisecond, 4},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				exp := &flakyLogExporter{}
+				proc := NewCallPayloadBatchProcessor(exp, WithCallPayloadExportDelay(tc.delay))
+				logger := sdklog.NewLoggerProvider(sdklog.WithProcessor(proc)).Logger("test.core")
+				for range 40 {
+					logger.Emit(t.Context(), payloadRecordWithBody("payload"))
+					synctest.Wait()
+					time.Sleep(11 * time.Millisecond)
+				}
+				require.NoError(t, proc.ForceFlush(t.Context()))
+				n, bodies, _ := exp.stats()
+				require.Len(t, bodies, 40)
+				require.Equal(t, tc.wantRequests, n)
+				t.Logf("40 records, 11ms arrival spacing, instant fake exporter: %d requests with %s coalescing", n, tc.delay)
+				require.NoError(t, proc.Shutdown(t.Context()))
+			})
+		})
+	}
+}

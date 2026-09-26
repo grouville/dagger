@@ -1,0 +1,32 @@
+2026/09/25 22:27:38 INFO discarding dagql cache without persistence hasSQLDB=true hasPersistDB=true
+2026/09/25 22:27:38 INFO starting dagql cache close hasSQLDB=true hasPersistDB=true
+2026/09/25 22:27:38 INFO marking dagql cache clean shutdown
+2026/09/25 22:27:38 WARN successfully marked clean shutdown in persistence metadata
+2026/09/25 22:27:38 INFO completed dagql cache close successfully
+2026/09/25 22:27:38 INFO discarding dagql cache without persistence hasSQLDB=true hasPersistDB=true
+2026/09/25 22:27:38 INFO discarding dagql cache without persistence hasSQLDB=true hasPersistDB=true
+--- FAIL: TestPreparedContainerDoesNotForceUnsealedFilesystemInput (0.01s)
+panic: call.ID.NewLiteralID is not valid for handle-form IDs [recovered, repanicked]
+
+goroutine 105 [running]:
+testing.tRunner.func1.2({0x3c3ed60, 0x392f7585c9d0})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/testing/testing.go:1974 +0x232
+testing.tRunner.func1()
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/testing/testing.go:1977 +0x349
+panic({0x3c3ed60?, 0x392f7585c9d0?})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/panic.go:860 +0x13a
+github.com/dagger/dagger/dagql/call.(*ID).mustBeRecipe(...)
+	/home/dagger/dag/dagql/call/id.go:114
+github.com/dagger/dagger/dagql/call.NewLiteralID(0x0?)
+	/home/dagger/dag/dagql/call/literal.go:78 +0xa5
+github.com/dagger/dagger/dagql.AnyID.ToLiteral({0x4c25ac8?})
+	/home/dagger/dag/dagql/types.go:1076 +0x6b
+github.com/dagger/dagger/core.TestPreparedContainerDoesNotForceUnsealedFilesystemInput(0x392f755f9208)
+	/home/dagger/dag/core/container_deferred_test.go:139 +0x1c9
+testing.tRunner(0x392f755f9208, 0x4bc2b98)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/testing/testing.go:2036 +0xea
+created by testing.(*T).Run in goroutine 1
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/testing/testing.go:2101 +0x4c5
+FAIL	github.com/dagger/dagger/core	0.059s
+ok  	github.com/dagger/dagger/core/schema	0.029s [no tests to run]
+FAIL

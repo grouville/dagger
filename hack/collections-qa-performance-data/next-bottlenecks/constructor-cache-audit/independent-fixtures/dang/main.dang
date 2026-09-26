@@ -1,0 +1,24 @@
+type CtorMarker {
+  source: Directory!
+
+  new(
+    source: Directory!
+      @defaultPath(path: "/")
+      @ignorePatterns(patterns: [".git", "ignored.txt"]),
+  ) {
+    self.source = source
+    self
+  }
+
+  read: String! {
+    source.file("marker.txt").contents
+  }
+
+  verify: Void @check {
+    let value = read
+    if (value != "pass") {
+      raise "marker mismatch: " + value
+    }
+    null
+  }
+}

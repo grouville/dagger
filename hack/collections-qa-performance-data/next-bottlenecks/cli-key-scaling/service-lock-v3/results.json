@@ -1,0 +1,446 @@
+[
+  {
+    "variant": "production",
+    "flow": "image-ref",
+    "label": "finite/core-image-ref",
+    "command": [
+      "/tmp/collections-perf/sparse-export/production/dagger-production",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "-m",
+      "core",
+      "api",
+      "call",
+      "container",
+      "from",
+      "--address",
+      "busybox:1.37",
+      "image-ref"
+    ],
+    "profile": false,
+    "correct": true,
+    "exit_code": 0,
+    "seconds": 1.1167847691103816,
+    "started_unix_ns": 1790401018528042383,
+    "exited_unix_ns": 1790401019644830824,
+    "stdout_bytes": 102,
+    "stdout_sha256": "e742b035e5a2267b732ee8d70dd5d2d7735f2ede0134b31c3597c2e277b577a1",
+    "locks_before": [
+      {
+        "scope_path": "dagger.lock",
+        "exists": false
+      },
+      {
+        "scope_path": ".dagger/lock",
+        "exists": false
+      },
+      {
+        "scope_path": "module/dagger.lock",
+        "exists": false
+      },
+      {
+        "scope_path": "module/.dagger/lock",
+        "exists": false
+      }
+    ],
+    "locks_after": [
+      {
+        "scope_path": "dagger.lock",
+        "exists": true,
+        "bytes": 357,
+        "sha256": "122e072c5e8d04f592fc87a767c1fdb3cd8a20d2abe2caf897be7d1291f1d627",
+        "total_entries": 1,
+        "busybox_oci_entries": [
+          {
+            "namespace": "",
+            "operation": "oci-sha",
+            "inputs": [
+              "docker.io/library/busybox:1.37"
+            ],
+            "digest": "sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e"
+          }
+        ]
+      },
+      {
+        "scope_path": ".dagger/lock",
+        "exists": false
+      },
+      {
+        "scope_path": "module/dagger.lock",
+        "exists": false
+      },
+      {
+        "scope_path": "module/.dagger/lock",
+        "exists": false
+      }
+    ],
+    "telemetry_mode": "local only: empty credentials, no Cloud/OTLP exporters or analytics",
+    "exit_observation": "dedicated blocking waitpid thread; includes observer scheduling",
+    "resolved_image_ref": "docker.io/library/busybox:1.37@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e"
+  },
+  {
+    "variant": "production",
+    "flow": "up",
+    "label": "repeated/up-0",
+    "command": [
+      "/tmp/collections-perf/sparse-export/production/dagger-production",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "up",
+      "web"
+    ],
+    "profile": false,
+    "correct": true,
+    "exit_code": 0,
+    "seconds": 0.5396600810345262,
+    "started_unix_ns": 1790401019649962511,
+    "exited_unix_ns": 1790401020189624660,
+    "stdout_bytes": 0,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "locks_before": [
+      {
+        "scope_path": "dagger.lock",
+        "exists": true,
+        "bytes": 357,
+        "sha256": "122e072c5e8d04f592fc87a767c1fdb3cd8a20d2abe2caf897be7d1291f1d627",
+        "total_entries": 1,
+        "busybox_oci_entries": [
+          {
+            "namespace": "",
+            "operation": "oci-sha",
+            "inputs": [
+              "docker.io/library/busybox:1.37"
+            ],
+            "digest": "sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e"
+          }
+        ]
+      },
+      {
+        "scope_path": ".dagger/lock",
+        "exists": false
+      },
+      {
+        "scope_path": "module/dagger.lock",
+        "exists": false
+      },
+      {
+        "scope_path": "module/.dagger/lock",
+        "exists": false
+      }
+    ],
+    "locks_after": [
+      {
+        "scope_path": "dagger.lock",
+        "exists": true,
+        "bytes": 357,
+        "sha256": "122e072c5e8d04f592fc87a767c1fdb3cd8a20d2abe2caf897be7d1291f1d627",
+        "total_entries": 1,
+        "busybox_oci_entries": [
+          {
+            "namespace": "",
+            "operation": "oci-sha",
+            "inputs": [
+              "docker.io/library/busybox:1.37"
+            ],
+            "digest": "sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e"
+          }
+        ]
+      },
+      {
+        "scope_path": ".dagger/lock",
+        "exists": false
+      },
+      {
+        "scope_path": "module/dagger.lock",
+        "exists": false
+      },
+      {
+        "scope_path": "module/.dagger/lock",
+        "exists": false
+      }
+    ],
+    "telemetry_mode": "local only: empty credentials, no Cloud/OTLP exporters or analytics",
+    "exit_observation": "dedicated blocking waitpid thread; includes observer scheduling",
+    "http_ready_seconds": 0.46879544318653643,
+    "cancel_to_exit_seconds": 0.07086422084830701,
+    "readiness_poll_interval_ms": 5,
+    "readiness_request_timeout_ms": 100,
+    "expected_http_bytes": 15,
+    "expected_http_sha256": "c3042367944d5cb574402b87d5c81b471274464dd02e4a96213a93b99b7d2fb4",
+    "tunnel_closed_after_exit": true
+  },
+  {
+    "variant": "production",
+    "flow": "up",
+    "label": "repeated/up-1",
+    "command": [
+      "/tmp/collections-perf/sparse-export/production/dagger-production",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "up",
+      "web"
+    ],
+    "profile": false,
+    "correct": true,
+    "exit_code": 0,
+    "seconds": 0.5453362560365349,
+    "started_unix_ns": 1790401020191171925,
+    "exited_unix_ns": 1790401020736509561,
+    "stdout_bytes": 0,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "locks_before": [
+      {
+        "scope_path": "dagger.lock",
+        "exists": true,
+        "bytes": 357,
+        "sha256": "122e072c5e8d04f592fc87a767c1fdb3cd8a20d2abe2caf897be7d1291f1d627",
+        "total_entries": 1,
+        "busybox_oci_entries": [
+          {
+            "namespace": "",
+            "operation": "oci-sha",
+            "inputs": [
+              "docker.io/library/busybox:1.37"
+            ],
+            "digest": "sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e"
+          }
+        ]
+      },
+      {
+        "scope_path": ".dagger/lock",
+        "exists": false
+      },
+      {
+        "scope_path": "module/dagger.lock",
+        "exists": false
+      },
+      {
+        "scope_path": "module/.dagger/lock",
+        "exists": false
+      }
+    ],
+    "locks_after": [
+      {
+        "scope_path": "dagger.lock",
+        "exists": true,
+        "bytes": 357,
+        "sha256": "122e072c5e8d04f592fc87a767c1fdb3cd8a20d2abe2caf897be7d1291f1d627",
+        "total_entries": 1,
+        "busybox_oci_entries": [
+          {
+            "namespace": "",
+            "operation": "oci-sha",
+            "inputs": [
+              "docker.io/library/busybox:1.37"
+            ],
+            "digest": "sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e"
+          }
+        ]
+      },
+      {
+        "scope_path": ".dagger/lock",
+        "exists": false
+      },
+      {
+        "scope_path": "module/dagger.lock",
+        "exists": false
+      },
+      {
+        "scope_path": "module/.dagger/lock",
+        "exists": false
+      }
+    ],
+    "telemetry_mode": "local only: empty credentials, no Cloud/OTLP exporters or analytics",
+    "exit_observation": "dedicated blocking waitpid thread; includes observer scheduling",
+    "http_ready_seconds": 0.43011595611460507,
+    "cancel_to_exit_seconds": 0.11521809198893607,
+    "readiness_poll_interval_ms": 5,
+    "readiness_request_timeout_ms": 100,
+    "expected_http_bytes": 15,
+    "expected_http_sha256": "c3042367944d5cb574402b87d5c81b471274464dd02e4a96213a93b99b7d2fb4",
+    "tunnel_closed_after_exit": true
+  },
+  {
+    "variant": "production",
+    "flow": "up",
+    "label": "repeated/up-2",
+    "command": [
+      "/tmp/collections-perf/sparse-export/production/dagger-production",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "up",
+      "web"
+    ],
+    "profile": false,
+    "correct": true,
+    "exit_code": 0,
+    "seconds": 0.578674138057977,
+    "started_unix_ns": 1790401020738358678,
+    "exited_unix_ns": 1790401021317035430,
+    "stdout_bytes": 0,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "locks_before": [
+      {
+        "scope_path": "dagger.lock",
+        "exists": true,
+        "bytes": 357,
+        "sha256": "122e072c5e8d04f592fc87a767c1fdb3cd8a20d2abe2caf897be7d1291f1d627",
+        "total_entries": 1,
+        "busybox_oci_entries": [
+          {
+            "namespace": "",
+            "operation": "oci-sha",
+            "inputs": [
+              "docker.io/library/busybox:1.37"
+            ],
+            "digest": "sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e"
+          }
+        ]
+      },
+      {
+        "scope_path": ".dagger/lock",
+        "exists": false
+      },
+      {
+        "scope_path": "module/dagger.lock",
+        "exists": false
+      },
+      {
+        "scope_path": "module/.dagger/lock",
+        "exists": false
+      }
+    ],
+    "locks_after": [
+      {
+        "scope_path": "dagger.lock",
+        "exists": true,
+        "bytes": 357,
+        "sha256": "122e072c5e8d04f592fc87a767c1fdb3cd8a20d2abe2caf897be7d1291f1d627",
+        "total_entries": 1,
+        "busybox_oci_entries": [
+          {
+            "namespace": "",
+            "operation": "oci-sha",
+            "inputs": [
+              "docker.io/library/busybox:1.37"
+            ],
+            "digest": "sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e"
+          }
+        ]
+      },
+      {
+        "scope_path": ".dagger/lock",
+        "exists": false
+      },
+      {
+        "scope_path": "module/dagger.lock",
+        "exists": false
+      },
+      {
+        "scope_path": "module/.dagger/lock",
+        "exists": false
+      }
+    ],
+    "telemetry_mode": "local only: empty credentials, no Cloud/OTLP exporters or analytics",
+    "exit_observation": "dedicated blocking waitpid thread; includes observer scheduling",
+    "http_ready_seconds": 0.4552141788881272,
+    "cancel_to_exit_seconds": 0.12345751211978495,
+    "readiness_poll_interval_ms": 5,
+    "readiness_request_timeout_ms": 100,
+    "expected_http_bytes": 15,
+    "expected_http_sha256": "c3042367944d5cb574402b87d5c81b471274464dd02e4a96213a93b99b7d2fb4",
+    "tunnel_closed_after_exit": true
+  },
+  {
+    "variant": "production",
+    "flow": "up",
+    "label": "profile/up",
+    "command": [
+      "/tmp/collections-perf/sparse-export/production/dagger-production",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "--profile",
+      "up",
+      "web"
+    ],
+    "profile": true,
+    "correct": true,
+    "exit_code": 0,
+    "seconds": 0.5124644960742444,
+    "started_unix_ns": 1790401021324304265,
+    "exited_unix_ns": 1790401021836770729,
+    "stdout_bytes": 0,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "locks_before": [
+      {
+        "scope_path": "dagger.lock",
+        "exists": true,
+        "bytes": 357,
+        "sha256": "122e072c5e8d04f592fc87a767c1fdb3cd8a20d2abe2caf897be7d1291f1d627",
+        "total_entries": 1,
+        "busybox_oci_entries": [
+          {
+            "namespace": "",
+            "operation": "oci-sha",
+            "inputs": [
+              "docker.io/library/busybox:1.37"
+            ],
+            "digest": "sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e"
+          }
+        ]
+      },
+      {
+        "scope_path": ".dagger/lock",
+        "exists": false
+      },
+      {
+        "scope_path": "module/dagger.lock",
+        "exists": false
+      },
+      {
+        "scope_path": "module/.dagger/lock",
+        "exists": false
+      }
+    ],
+    "locks_after": [
+      {
+        "scope_path": "dagger.lock",
+        "exists": true,
+        "bytes": 357,
+        "sha256": "122e072c5e8d04f592fc87a767c1fdb3cd8a20d2abe2caf897be7d1291f1d627",
+        "total_entries": 1,
+        "busybox_oci_entries": [
+          {
+            "namespace": "",
+            "operation": "oci-sha",
+            "inputs": [
+              "docker.io/library/busybox:1.37"
+            ],
+            "digest": "sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e"
+          }
+        ]
+      },
+      {
+        "scope_path": ".dagger/lock",
+        "exists": false
+      },
+      {
+        "scope_path": "module/dagger.lock",
+        "exists": false
+      },
+      {
+        "scope_path": "module/.dagger/lock",
+        "exists": false
+      }
+    ],
+    "telemetry_mode": "local only: empty credentials, no Cloud/OTLP exporters or analytics",
+    "exit_observation": "dedicated blocking waitpid thread; includes observer scheduling",
+    "http_ready_seconds": 0.41029737889766693,
+    "cancel_to_exit_seconds": 0.10216572904027998,
+    "readiness_poll_interval_ms": 5,
+    "readiness_request_timeout_ms": 100,
+    "expected_http_bytes": 15,
+    "expected_http_sha256": "c3042367944d5cb574402b87d5c81b471274464dd02e4a96213a93b99b7d2fb4",
+    "tunnel_closed_after_exit": true
+  }
+]

@@ -1,0 +1,130 @@
+=== RUN   TestCallPayloadConfiguredDelayCoalesces
+--- PASS: TestCallPayloadConfiguredDelayCoalesces (0.00s)
+=== RUN   TestCallPayloadConfiguredDelayRecoalesces
+--- PASS: TestCallPayloadConfiguredDelayRecoalesces (0.00s)
+=== RUN   TestCallPayloadConfiguredDelayExplicitDrain
+=== RUN   TestCallPayloadConfiguredDelayExplicitDrain/flush
+=== RUN   TestCallPayloadConfiguredDelayExplicitDrain/shutdown
+--- PASS: TestCallPayloadConfiguredDelayExplicitDrain (0.00s)
+    --- PASS: TestCallPayloadConfiguredDelayExplicitDrain/flush (0.00s)
+    --- PASS: TestCallPayloadConfiguredDelayExplicitDrain/shutdown (0.00s)
+=== RUN   TestCallPayloadConfiguredDelayPreservesRetry
+1999/12/31 16:00:00 client db unavailable
+--- PASS: TestCallPayloadConfiguredDelayPreservesRetry (0.00s)
+=== RUN   TestCallPayloadConfiguredDelayDefaultAndInvalid
+=== RUN   TestCallPayloadConfiguredDelayDefaultAndInvalid/default
+=== RUN   TestCallPayloadConfiguredDelayDefaultAndInvalid/zero
+=== RUN   TestCallPayloadConfiguredDelayDefaultAndInvalid/negative
+--- PASS: TestCallPayloadConfiguredDelayDefaultAndInvalid (0.00s)
+    --- PASS: TestCallPayloadConfiguredDelayDefaultAndInvalid/default (0.00s)
+    --- PASS: TestCallPayloadConfiguredDelayDefaultAndInvalid/zero (0.00s)
+    --- PASS: TestCallPayloadConfiguredDelayDefaultAndInvalid/negative (0.00s)
+=== RUN   TestCallPayloadConfiguredDelayRequestCount
+=== RUN   TestCallPayloadConfiguredDelayRequestCount/local
+    callpayloadcoalescing_test.go:176: 40 records, 11ms arrival spacing, instant fake exporter: 40 requests with 5ms coalescing
+=== RUN   TestCallPayloadConfiguredDelayRequestCount/cloud
+    callpayloadcoalescing_test.go:176: 40 records, 11ms arrival spacing, instant fake exporter: 4 requests with 100ms coalescing
+--- PASS: TestCallPayloadConfiguredDelayRequestCount (0.00s)
+    --- PASS: TestCallPayloadConfiguredDelayRequestCount/local (0.00s)
+    --- PASS: TestCallPayloadConfiguredDelayRequestCount/cloud (0.00s)
+=== RUN   TestCallPayloadBatchProcessorFastPathRecordShape
+=== PAUSE TestCallPayloadBatchProcessorFastPathRecordShape
+=== RUN   TestCallPayloadBatchProcessorFiltersAndDrainsQueue
+=== PAUSE TestCallPayloadBatchProcessorFiltersAndDrainsQueue
+=== RUN   TestCallPayloadBatchProcessorRetriesFailedBatchInOrder
+=== PAUSE TestCallPayloadBatchProcessorRetriesFailedBatchInOrder
+=== RUN   TestCallPayloadBatchProcessorDropsBatchAfterMaxAttempts
+=== PAUSE TestCallPayloadBatchProcessorDropsBatchAfterMaxAttempts
+=== RUN   TestCallPayloadDigestsForDropReport
+=== PAUSE TestCallPayloadDigestsForDropReport
+=== RUN   TestCallPayloadRetryDelayBackoff
+=== PAUSE TestCallPayloadRetryDelayBackoff
+=== RUN   TestCallPayloadBatchProcessorRecoalescesBetweenPasses
+=== PAUSE TestCallPayloadBatchProcessorRecoalescesBetweenPasses
+=== RUN   TestCallPayloadBatchProcessorLosslessWhileExporterBlocked
+=== PAUSE TestCallPayloadBatchProcessorLosslessWhileExporterBlocked
+=== RUN   TestCallPayloadBatchProcessorShutdownRetriesWithinItsContext
+=== PAUSE TestCallPayloadBatchProcessorShutdownRetriesWithinItsContext
+=== RUN   TestCallPayloadBatchProcessorShutdownEndsActiveExport
+=== PAUSE TestCallPayloadBatchProcessorShutdownEndsActiveExport
+=== RUN   TestCallPayloadBatchProcessorShutdownEndsFlushExport
+=== PAUSE TestCallPayloadBatchProcessorShutdownEndsFlushExport
+=== CONT  TestCallPayloadBatchProcessorFastPathRecordShape
+=== CONT  TestCallPayloadBatchProcessorRecoalescesBetweenPasses
+=== RUN   TestCallPayloadBatchProcessorFastPathRecordShape/valid_raw_payload
+=== RUN   TestCallPayloadBatchProcessorFastPathRecordShape/other_content_type
+=== CONT  TestCallPayloadBatchProcessorShutdownRetriesWithinItsContext
+=== CONT  TestCallPayloadBatchProcessorLosslessWhileExporterBlocked
+=== CONT  TestCallPayloadBatchProcessorShutdownEndsFlushExport
+=== CONT  TestCallPayloadBatchProcessorDropsBatchAfterMaxAttempts
+--- PASS: TestCallPayloadBatchProcessorRecoalescesBetweenPasses (0.00s)
+=== CONT  TestCallPayloadBatchProcessorRetriesFailedBatchInOrder
+=== RUN   TestCallPayloadBatchProcessorRetriesFailedBatchInOrder/128
+--- PASS: TestCallPayloadBatchProcessorShutdownEndsFlushExport (0.00s)
+=== CONT  TestCallPayloadBatchProcessorShutdownEndsActiveExport
+=== CONT  TestCallPayloadBatchProcessorFiltersAndDrainsQueue
+=== RUN   TestCallPayloadBatchProcessorFiltersAndDrainsQueue/0
+2026/09/25 21:31:45 WARN dropping call payload records after repeated export failures records=1 attempts=8 digests=[?] err="client db unavailable"
+--- PASS: TestCallPayloadBatchProcessorDropsBatchAfterMaxAttempts (0.00s)
+=== CONT  TestCallPayloadDigestsForDropReport
+--- PASS: TestCallPayloadDigestsForDropReport (0.00s)
+=== CONT  TestCallPayloadRetryDelayBackoff
+--- PASS: TestCallPayloadRetryDelayBackoff (0.00s)
+=== RUN   TestCallPayloadBatchProcessorFastPathRecordShape/wrong_content_type_kind
+=== RUN   TestCallPayloadBatchProcessorFastPathRecordShape/missing_content_type
+1999/12/31 16:00:00 client db unavailable
+1999/12/31 16:00:00 client db unavailable
+=== RUN   TestCallPayloadBatchProcessorFastPathRecordShape/wrong_body_kind
+=== RUN   TestCallPayloadBatchProcessorRetriesFailedBatchInOrder/512
+--- PASS: TestCallPayloadBatchProcessorFastPathRecordShape (0.00s)
+    --- PASS: TestCallPayloadBatchProcessorFastPathRecordShape/valid_raw_payload (0.00s)
+    --- PASS: TestCallPayloadBatchProcessorFastPathRecordShape/other_content_type (0.00s)
+    --- PASS: TestCallPayloadBatchProcessorFastPathRecordShape/wrong_content_type_kind (0.00s)
+    --- PASS: TestCallPayloadBatchProcessorFastPathRecordShape/missing_content_type (0.00s)
+    --- PASS: TestCallPayloadBatchProcessorFastPathRecordShape/wrong_body_kind (0.00s)
+=== RUN   TestCallPayloadBatchProcessorFiltersAndDrainsQueue/-1
+=== RUN   TestCallPayloadBatchProcessorFiltersAndDrainsQueue/1
+=== RUN   TestCallPayloadBatchProcessorFiltersAndDrainsQueue/128
+1999/12/31 16:00:00 client db unavailable
+1999/12/31 16:00:00 client db unavailable
+=== RUN   TestCallPayloadBatchProcessorFiltersAndDrainsQueue/512
+--- PASS: TestCallPayloadBatchProcessorRetriesFailedBatchInOrder (0.00s)
+    --- PASS: TestCallPayloadBatchProcessorRetriesFailedBatchInOrder/128 (0.00s)
+    --- PASS: TestCallPayloadBatchProcessorRetriesFailedBatchInOrder/512 (0.00s)
+--- PASS: TestCallPayloadBatchProcessorFiltersAndDrainsQueue (0.01s)
+    --- PASS: TestCallPayloadBatchProcessorFiltersAndDrainsQueue/0 (0.00s)
+    --- PASS: TestCallPayloadBatchProcessorFiltersAndDrainsQueue/-1 (0.00s)
+    --- PASS: TestCallPayloadBatchProcessorFiltersAndDrainsQueue/1 (0.00s)
+    --- PASS: TestCallPayloadBatchProcessorFiltersAndDrainsQueue/128 (0.00s)
+    --- PASS: TestCallPayloadBatchProcessorFiltersAndDrainsQueue/512 (0.00s)
+--- PASS: TestCallPayloadBatchProcessorLosslessWhileExporterBlocked (0.03s)
+--- PASS: TestCallPayloadBatchProcessorShutdownRetriesWithinItsContext (0.15s)
+2026/09/25 21:31:45 context canceled
+--- PASS: TestCallPayloadBatchProcessorShutdownEndsActiveExport (0.21s)
+PASS
+ok  	github.com/dagger/dagger/engine/telemetry	0.216s
+=== RUN   TestCallPayloadReachesCloudOnce
+=== PAUSE TestCallPayloadReachesCloudOnce
+=== RUN   TestCloudCoalescingKeepsQueuedClaimsThroughFinalShutdown
+--- PASS: TestCloudCoalescingKeepsQueuedClaimsThroughFinalShutdown (0.00s)
+=== RUN   TestCloudCoalescingQueuedClaimKeepsRetryOwnership
+1999/12/31 16:00:00 cloud unavailable
+--- PASS: TestCloudCoalescingQueuedClaimKeepsRetryOwnership (0.00s)
+=== RUN   TestCallPayloadDeliveryStore
+=== PAUSE TestCallPayloadDeliveryStore
+=== RUN   TestCallPayloadWriteOwnershipAndRelease
+=== PAUSE TestCallPayloadWriteOwnershipAndRelease
+=== RUN   TestCallPayloadClaimsConcurrentOverlappingRoutes
+=== PAUSE TestCallPayloadClaimsConcurrentOverlappingRoutes
+=== CONT  TestCallPayloadReachesCloudOnce
+=== CONT  TestCallPayloadWriteOwnershipAndRelease
+=== CONT  TestCallPayloadDeliveryStore
+=== CONT  TestCallPayloadClaimsConcurrentOverlappingRoutes
+--- PASS: TestCallPayloadWriteOwnershipAndRelease (0.00s)
+--- PASS: TestCallPayloadDeliveryStore (0.00s)
+--- PASS: TestCallPayloadClaimsConcurrentOverlappingRoutes (0.00s)
+2026/09/25 21:32:18 WARN skipping malformed call payload record log=1 err="proto: cannot parse invalid wire-format data"
+2026/09/25 21:32:18 WARN skipping malformed call payload record log=1 err="proto: cannot parse invalid wire-format data"
+--- PASS: TestCallPayloadReachesCloudOnce (0.01s)
+PASS
+ok  	github.com/dagger/dagger/engine/server	0.041s

@@ -1,0 +1,56 @@
+--- a/engine/client/client.go
++++ b/engine/client/client.go
+@@ -670,18 +670,7 @@
+ 		return fmt.Errorf("connect session attachables: %w", err)
+ 	}
+ 
+-	c.eg.Go(func() error {
+-		ctx, cancel, err := c.withClientCloseCancel(ctx)
+-		if err != nil {
+-			return err
+-		}
+-		go func() {
+-			<-ctx.Done()
+-			cancel(errors.New("startSession context done"))
+-		}()
+-		c.sessionSrv.Run(ctx)
+-		return nil
+-	})
++	c.runSessionAttachables()
+ 
+ 	c.httpClient = c.newHTTPClient()
+ 	return nil
+@@ -733,21 +722,25 @@
+ 		return fmt.Errorf("connect session attachables: %w", err)
+ 	}
+ 
++	c.runSessionAttachables()
++
++	c.httpClient = c.newHTTPClient()
++	return nil
++}
++
++// runSessionAttachables keeps host services available through shutdown. A
++// cancelled command still needs them to persist workspace locks and finish
++// other cleanup; Close stops them after the engine acknowledges shutdown.
++func (c *Client) runSessionAttachables() {
+ 	c.eg.Go(func() error {
+-		ctx, cancel, err := c.withClientCloseCancel(ctx)
++		ctx, cancel, err := c.withClientCloseCancel(c.internalCtx)
+ 		if err != nil {
+ 			return err
+ 		}
+-		go func() {
+-			<-ctx.Done()
+-			cancel(errors.New("startSession context done"))
+-		}()
++		defer cancel(errors.New("session attachables stopped"))
+ 		c.sessionSrv.Run(ctx)
+ 		return nil
+ 	})
+-
+-	c.httpClient = c.newHTTPClient()
+-	return nil
+ }
+ 
+ func ConnectSessionAttachables(

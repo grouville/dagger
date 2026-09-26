@@ -1,5 +1,14 @@
 # Try the collections discovery changes
 
+**Broader UX coverage:** [the command and export investigation](collections-ux-performance.md)
+adds real check, generate, service, module-call and file-write measurements.
+It found an unnecessary whole-destination scan after sparse exports and removes
+quadratic key collection in large command listings. Preserving host access
+through service cancellation also lets the normal workspace lock persist:
+edit-to-HTTP readiness improves from 1.35 s to 444 ms in the independent fixture.
+Local-only diagnostic
+timings are kept separate from normal Cloud-enabled measurements.
+
 **Latest measured update:** [the next-bottleneck review](collections-next-bottlenecks-review.md)
 adds real execution after an application edit: **11.446 → 3.559 s**, five pairs,
 using ordinary compiler cache volumes in the backend module. On the experimental
@@ -46,6 +55,17 @@ published CLI release or engine image.
 * Request-local indexed batch-key deduplication (`627f60eb28`), retaining order
   and a small-group fast path. At 10,000 keys the isolated benchmark improves
   172 → 16 ms; this is not a greetings-api listing claim.
+* CLI listing key collection also uses ordered indexing (`dc5c450f70`). The
+  actual formatter improves 415.5 → 60.0 ms at 10,000 elements; small greetings
+  listings remain approximately 0.17 ms in this engine-free benchmark.
+* Sparse file reception finalizes only recorded directories and their ancestors,
+  avoiding a second walk of unrelated destination files after the write. This
+  preserves merge, timestamps and asynchronous completion; see the UX report
+  for the permission regression and bounded scaling measurements.
+* Host attachables survive command cancellation until client shutdown completes
+  (`868ae5b616`), allowing normal workspace lock updates to reach disk. This
+  avoids repeated tag resolution on subsequent service starts; it does not
+  accelerate the first empty-lock image lookup.
 * Less repeated module installation and metadata work; prepared schemas reused
   within the same caller/session authority.
 * The existing module-config, schema-digest, and shutdown improvements from

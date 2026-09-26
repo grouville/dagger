@@ -1,0 +1,31 @@
+type PerfFlows {
+  """Read an ordinary project input through the module API."""
+  pub read(ws: Workspace!): String! {
+    ws.file("input.txt").contents
+  }
+
+  """Validate an ordinary project input."""
+  pub verify(ws: Workspace!): Void @check {
+    if (ws.file("input.txt").contents == "fail\n") {
+      raise "perf-flows correctness sentinel"
+    }
+    null
+  }
+
+  """Generate a file from an ordinary project input."""
+  pub render(ws: Workspace!): Changeset! @generate {
+    let source = ws.directory(".")
+    source.withNewFile("generated.txt", source.file("input.txt").contents).changes(source)
+  }
+
+  """Serve an ordinary project input over HTTP."""
+  pub web(ws: Workspace!): Service! @up {
+    container
+      .from("busybox:1.37")
+      .withDirectory("/www", directory.withNewFile("index.html", ws.file("input.txt").contents))
+      .withWorkdir("/www")
+      .withExposedPort(8080)
+      .withDefaultArgs(["httpd", "-f", "-p", "8080"])
+      .asService
+  }
+}

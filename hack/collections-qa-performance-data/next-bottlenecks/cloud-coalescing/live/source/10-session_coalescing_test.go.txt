@@ -1,0 +1,67 @@
+package server
+
+import (
+	"testing"
+	"testing/synctest"
+	"time"
+
+	"github.com/stretchr/testify/require"
+)
+
+// This supplements the processor tests with Cloud's separate once-per-digest
+// wrapper and its first-flush/final-shutdown lifecycle. It uses a fake exporter.
+func TestCloudCoalescingKeepsQueuedClaimsThroughFinalShutdown(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		exporter := newCloudLogTestExporter(false)
+		pipeline := newCloudPayloadOnce(newCloudLogPipeline(exporter))
+		logger := cloudTestLogger(pipeline)
+		logger.Emit(t.Context(), cloudPayloadRecordValue("xxh3:root"))
+		logger.Emit(t.Context(), cloudPayloadRecordValue("xxh3:root"))
+		synctest.Wait()
+		time.Sleep(5 * time.Millisecond)
+		synctest.Wait()
+		payloads, _ := exporter.received()
+		require.Empty(t, payloads, "Cloud's wider window holds one queued copy")
+
+		start := time.Now()
+		require.NoError(t, pipeline.ForceFlush(t.Context()))
+		require.Zero(t, time.Since(start), "first flush bypasses the Cloud timer")
+		payloads, _ = exporter.received()
+		require.Equal(t, []string{"xxh3:root"}, payloads)
+
+		// Session cleanup can emit after its first Cloud flush. A duplicate
+		// still stays suppressed, but a new payload must survive until the
+		// final telemetry barrier and drain even before its timer is due.
+		logger.Emit(t.Context(), cloudPayloadRecordValue("xxh3:root"))
+		logger.Emit(t.Context(), cloudPayloadRecordValue("xxh3:cleanup"))
+		synctest.Wait()
+		require.NoError(t, pipeline.Shutdown(t.Context()))
+		require.Zero(t, time.Since(start))
+		payloads, _ = exporter.received()
+		require.Equal(t, []string{"xxh3:root", "xxh3:cleanup"}, payloads)
+	})
+}
+
+func TestCloudCoalescingQueuedClaimKeepsRetryOwnership(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		exporter := newCloudLogTestExporter(false)
+		exporter.failPayloads = 1
+		pipeline := newCloudPayloadOnce(newCloudLogPipeline(exporter))
+		logger := cloudTestLogger(pipeline)
+		logger.Emit(t.Context(), cloudPayloadRecordValue("xxh3:retried"))
+		synctest.Wait()
+		time.Sleep(100 * time.Millisecond)
+		synctest.Wait()
+		payloads, _ := exporter.received()
+		require.Empty(t, payloads)
+
+		// The duplicate cannot repair delivery because Cloud marks seen at
+		// enqueue time; the original queued payload must retain retry duty.
+		logger.Emit(t.Context(), cloudPayloadRecordValue("xxh3:retried"))
+		time.Sleep(50 * time.Millisecond)
+		synctest.Wait()
+		payloads, _ = exporter.received()
+		require.Equal(t, []string{"xxh3:retried"}, payloads)
+		require.NoError(t, pipeline.Shutdown(t.Context()))
+	})
+}

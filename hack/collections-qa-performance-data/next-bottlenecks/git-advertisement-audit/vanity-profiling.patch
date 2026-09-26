@@ -1,0 +1,170 @@
+--- a/core/modulerefs_redirect.go
++++ b/core/modulerefs_redirect.go
+@@ -13,6 +13,9 @@
+ 	"github.com/dagger/dagger/dagql"
+ 	"github.com/dagger/dagger/engine"
+ 	"github.com/dagger/dagger/engine/slog"
++	"github.com/dagger/dagger/engine/wcprof"
++	telemetry "github.com/dagger/otel-go"
++	"go.opentelemetry.io/otel/attribute"
+ )
+ 
+ const (
+@@ -46,13 +49,27 @@
+ // ResolveDaggerGetRedirect resolves a dagger-get vanity URL for any Git-backed
+ // source consumer, including both modules and workspaces. It first consults the
+ // workspace lockfile, then falls back to the session-cached HTTP probe.
+-func ResolveDaggerGetRedirect(ctx context.Context, refString string) (string, error) {
++func ResolveDaggerGetRedirect(ctx context.Context, refString string) (_ string, rerr error) {
++	ctx, op := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "module.resolveDaggerGetRedirect", wcprof.OpOpts{})
++	defer func() { op.EndErr(rerr) }()
++	ctx, span := Tracer(ctx).Start(ctx, "resolve module vanity source", telemetry.Internal())
++	resolutionPath := "unclassified"
++	defer func() {
++		span.SetAttributes(attribute.String("dagger.source_resolution.path", resolutionPath))
++		var spanErr error
++		if rerr != nil {
++			spanErr = fmt.Errorf("module source resolution failed")
++		}
++		telemetry.EndWithCause(span, &spanErr)
++	}()
+ 	if !daggerGetEligible(refString) {
++		resolutionPath = "ineligible"
+ 		return refString, nil
+ 	}
+ 
+ 	sourceURL, version, err := splitSourceURLVersion(refString)
+ 	if err != nil {
++		resolutionPath = "invalid_ref"
+ 		return refString, nil //nolint:nilerr // deliberate: unparseable refs fall back to the original ref
+ 	}
+ 
+@@ -79,6 +96,7 @@
+ 			workspace.LockOperationVanityURL,
+ 			lockInputs,
+ 		); ok {
++			resolutionPath = "lock_hit"
+ 			return sourceURLWithVersion(resolvedURL, version), nil
+ 		}
+ 		if !lockOverridden && queryErr == nil {
+@@ -97,6 +115,7 @@
+ 	cache, cacheErr := dagql.EngineCache(ctx)
+ 	clientMetadata, mdErr := engine.ClientMetadataFromContext(ctx)
+ 	if cacheErr != nil || mdErr != nil {
++		resolutionPath = "no_session"
+ 		return refString, nil //nolint:nilerr // deliberate: no session infrastructure means no probe, keep parsing network-free
+ 	}
+ 
+@@ -113,11 +132,17 @@
+ 	)
+ 	var resolvedRef string
+ 	if err != nil {
++		resolutionPath = "session_cache_error_fallback"
+ 		slog.Debug("dagger-get redirect cache error; probing directly", "ref", refString, "error", err)
+ 		resolvedRef = daggerGetProbe(ctx, sourceURL)
+ 	} else if resolved, ok := res.Value().(string); ok && resolved != "" {
++		resolutionPath = "session_cache_miss"
++		if res.HitCache() {
++			resolutionPath = "session_cache_hit"
++		}
+ 		resolvedRef = resolved
+ 	} else {
++		resolutionPath = "invalid_cache_value"
+ 		resolvedRef = sourceURL
+ 	}
+ 
+@@ -213,6 +238,23 @@
+ // daggerGetProbe performs the actual single-hop redirect probe and returns the
+ // resolved ref, or the original ref on any non-redirect outcome.
+ func daggerGetProbe(ctx context.Context, refString string) string {
++	ctx, op := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "module.daggerGetProbe", wcprof.OpOpts{})
++	ctx, span := Tracer(ctx).Start(ctx, "probe module vanity source", telemetry.Internal())
++	probeOutcome := "unclassified"
++	statusCode := 0
++	var probeErr error
++	defer func() {
++		span.SetAttributes(
++			attribute.String("dagger.source_resolution.probe_outcome", probeOutcome),
++			attribute.Int("http.response.status_code", statusCode),
++		)
++		op.EndErr(probeErr)
++		var spanErr error
++		if probeErr != nil {
++			spanErr = fmt.Errorf("module vanity probe failed: %s", probeOutcome)
++		}
++		telemetry.EndWithCause(span, &spanErr)
++	}()
+ 	// Module refs spell versions with "@" (and historically "#"); normalize so
+ 	// url.Parse doesn't treat a version as a URL fragment.
+ 	normalized := strings.Replace(refString, "#", "@", 1)
+@@ -222,6 +264,7 @@
+ 
+ 	u, err := url.Parse(normalized)
+ 	if err != nil {
++		probeOutcome, probeErr = "invalid_ref", err
+ 		return refString
+ 	}
+ 
+@@ -238,26 +281,34 @@
+ 
+ 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, probe.String(), nil)
+ 	if err != nil {
+-		return refString
+-	}
+-	resp, err := daggerGetClient.Do(req)
+-	if err != nil {
++		probeOutcome, probeErr = "invalid_request", err
++		return refString
++	}
++	httpCtx, httpOp := wcprof.BeginOp(ctx, wcprof.OpKindIO, "module.daggerGetHTTP", wcprof.OpOpts{WorkType: wcprof.WorkTypeExternal})
++	resp, err := daggerGetClient.Do(req.WithContext(httpCtx))
++	httpOp.EndErr(err)
++	if err != nil {
++		probeOutcome, probeErr = "transport_error", err
+ 		slog.Debug("dagger-get probe failed; using original ref", "url", probe.String(), "error", err)
+ 		return refString
+ 	}
+ 	defer resp.Body.Close()
++	statusCode = resp.StatusCode
+ 
+ 	if resp.StatusCode < http.StatusMultipleChoices || resp.StatusCode >= http.StatusBadRequest {
+ 		// Not a 3xx: no redirect configured for this ref.
++		probeOutcome = "http_non_redirect"
+ 		return refString
+ 	}
+ 
+ 	loc := resp.Header.Get("Location")
+ 	if loc == "" {
++		probeOutcome = "redirect_without_location"
+ 		return refString
+ 	}
+ 	locURL, err := url.Parse(loc)
+ 	if err != nil || locURL.Scheme != "https" || locURL.Host == "" {
++		probeOutcome = "invalid_redirect_location"
+ 		slog.Debug("dagger-get redirect ignored: Location is not an absolute https URL",
+ 			"ref", refString, "location", loc)
+ 		return refString
+@@ -270,6 +321,7 @@
+ 	// proof of intent: a host opting in preserves the query (standard
+ 	// path+query passthrough redirects do), while auth-wall redirects drop it.
+ 	if locURL.Query().Get(daggerGetQueryParam) != "1" {
++		probeOutcome = "redirect_not_opted_in"
+ 		slog.Debug("dagger-get redirect ignored: Location does not echo the dagger-get marker",
+ 			"ref", refString, "location", loc)
+ 		return refString
+@@ -282,6 +334,7 @@
+ 	// ref/identity. Only honor redirects that point somewhere genuinely
+ 	// different.
+ 	if canonicalRepoKey(u) == canonicalRepoKey(locURL) {
++		probeOutcome = "same_repo_canonicalization"
+ 		slog.Debug("dagger-get redirect ignored: same-repo canonicalization",
+ 			"ref", refString, "location", loc)
+ 		return refString
+@@ -293,6 +346,7 @@
+ 	locURL.RawQuery = q.Encode()
+ 
+ 	resolved := sourceURLWithVersion(locURL.String(), version)
++	probeOutcome = "redirect"
+ 	slog.Debug("dagger-get redirect resolved", "from", refString, "to", resolved)
+ 	return resolved
+ }

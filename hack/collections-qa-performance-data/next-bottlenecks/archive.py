@@ -149,6 +149,70 @@ files('relay-fairness', ['README.md', 'fairness.patch', 'source-manifest.json', 
     'control-test.log', 'candidate-test.log', 'race-test.log', 'main.go', 'main_test.go',
     'control.go.txt', 'control-overlay.json'], 'relay-fairness')
 
+# New UX evidence: manifests are explicit source/statistic allowlists, never spools.
+def from_allowlist(relative, target):
+    manifest = json.loads((LAB / relative).read_text())
+    root = Path(manifest.get('root', manifest.get('base', str((LAB / relative).parent))))
+    assert root.is_relative_to(LAB)
+    for entry in manifest['files']:
+        name = entry['path'] if isinstance(entry, dict) else entry
+        if Path(name).is_absolute():
+            name = str(Path(name).relative_to(root))
+        path = root / name
+        assert path.is_relative_to(root) and '..' not in Path(name).parts
+        digest = entry.get('sha256') if isinstance(entry, dict) else manifest.get('sha256', {}).get(name)
+        if digest:
+            assert hashlib.sha256(path.read_bytes()).hexdigest() == digest, str(path)
+        copy(str(path.relative_to(LAB)), target + '/' + name)
+    copy(relative, target + '/source-allowlist.json')
+
+from_allowlist('sdk-edit-audit/cloud-coalescing/live/archive-allowlist.json', 'cloud-coalescing/live')
+copy('sdk-edit-audit/cloud-coalescing/live/upstream-pr-refresh.json', 'upstream-pr-refresh.json')
+from_allowlist('warm-audit/constructor-cache-audit/archive-manifest.json', 'constructor-cache-audit')
+from_allowlist('warm-audit/go-sdk-pr36-adapter/archive-manifest.json', 'go-sdk-pr36-adapter')
+from_allowlist('sparse-export/archive-allowlist.json', 'sparse-export')
+files('sparse-export', ['replay.py', 'no-git-replay/result.json', 'no-git-replay/stdout.txt', 'no-git-replay/stderr.txt'], 'sparse-export')
+files('cli-key-scaling', ['report.md', 'build.py', 'measure.py', 'build-provenance.json', 'results.json', 'summary.json', 'independent-review.md', 'vertical.py', 'ux.py', 'analyze_phases.py', 'local-only-source-audit.md'], 'cli-key-scaling')
+files('cli-key-scaling/vertical-fixture', ['main.dang', 'dagger.json'], 'cli-key-scaling/vertical-fixture')
+for trial in ['vertical-local-disk-v2', 'vertical-local-disk-v3']:
+    names = ['driver.py.txt', 'results.json', 'summary.json', 'provenance.json', 'phase-summary.json']
+    if trial.endswith('v2'): names += ['measurement-caveats.json']
+    files('cli-key-scaling/' + trial, names, 'cli-key-scaling/' + trial)
+    for variant in ['baseline', 'candidate']:
+        for outcome in ['fail', 'restore']:
+            files('cli-key-scaling/' + trial + '/correctness/' + outcome + '-' + variant, ['stdout.txt', 'stderr.txt'], 'cli-key-scaling/' + trial + '/correctness/' + outcome + '-' + variant)
+
+files('sparse-export', ['final-review.md'], 'sparse-export')
+files('cli-key-scaling', ['baseline-tests.log', 'candidate-tests.log', 'baseline-overlay.json', 'artifact_list_baseline.go', 'vertical-methodology-review.md', 'service-lock.py', 'service-lock-source-audit.md', 'service-lock-source-provenance.json', 'service-lock-write.py', 'service-lock-web-finite.py', 'filtered-followup.py', 'filtered-followup-original-v1.py', 'filtered-followup-plan.md'], 'cli-key-scaling')
+for pair in range(6):
+    for variant in ['baseline', 'candidate']:
+        files('cli-key-scaling', [f'{pair:02d}-{variant}.log'], 'cli-key-scaling')
+files('cli-key-scaling/ux-local-production-v2', ['driver.py.txt', 'results.json', 'summary.json', 'provenance.json', 'restoration.json', 'phase-summary.json', 'profile/expanded-checks/analysis.txt'], 'cli-key-scaling/ux-local-production-v2')
+for case in ['comment', 'rename', 'add', 'restore']:
+    for variant in ['baseline', 'candidate']:
+        files('cli-key-scaling/ux-local-production-v2/edits/edit-' + case + '-' + variant, ['stdout.txt'], 'cli-key-scaling/ux-local-production-v2/edits/edit-' + case + '-' + variant)
+for trial in ['service-lock-v3', 'service-lock-write-v1', 'service-lock-web-finite-v1']:
+    files('cli-key-scaling/' + trial, ['driver.py.txt', 'provenance.json', 'results.json'], 'cli-key-scaling/' + trial)
+files('cli-key-scaling/service-lock-v3', ['preserved-inputs.json', 'phase-summary.json'], 'cli-key-scaling/service-lock-v3')
+for trial in ['service-lock-write-v1', 'service-lock-web-finite-v1']:
+    files('cli-key-scaling/' + trial, ['source-preserved.json'], 'cli-key-scaling/' + trial)
+for trial in ['filtered-followup-v1', 'filtered-identical-memstats-v1']:
+    files('cli-key-scaling/' + trial, ['driver.py.txt', 'provenance.json', 'results.json', 'summary.json', 'source-verification.json'], 'cli-key-scaling/' + trial)
+files('cli-key-scaling/filtered-followup-v1', ['analysis.md'], 'cli-key-scaling/filtered-followup-v1')
+files('deferred-defaults', ['prototype.patch', 'source-manifest.json', 'STATUS.md', 'prepare_fixtures.py', 'test_fixtures.py', 'unit.log', 'unit-scoped.log', 'unit-final.log', 'unit-final-before-fixture-fix.log'], 'deferred-defaults')
+files('sdk-edit-audit/git-advertisement-audit', ['review.md', 'saved-profile-git-summary.json', 'vanity-profiling.patch', 'vanity-manifest.json', 'vanity-overlay.json'], 'git-advertisement-audit')
+files('snapshot-sparse-flush', ['report.md', 'team-notes.md'], 'snapshot-sparse-flush')
+
+from_allowlist('attachables-lifetime/archive-manifest.json', 'attachables-lifetime')
+files('cli-key-scaling', ['service-lifetime-ab.py', 'filtered-engine-allocation.py'], 'cli-key-scaling')
+files('cli-key-scaling/service-lifetime-ab-v1', ['driver.py.txt', 'provenance.json', 'results.json', 'summary.json', 'source-preserved.json', 'phase-summary.json'], 'cli-key-scaling/service-lifetime-ab-v1')
+files('cli-key-scaling/filtered-identical-memstats-v1', ['analysis.md'], 'cli-key-scaling/filtered-identical-memstats-v1')
+from_allowlist('cli-key-scaling/filtered-engine-allocation-v1/archive-allowlist.json', 'cli-key-scaling/filtered-engine-allocation-v1')
+git_audit = LAB / 'sdk-edit-audit/git-advertisement-audit'
+for name in (git_audit / 'archive-allowlist.txt').read_text().splitlines():
+    assert Path(name).name == name
+    copy('sdk-edit-audit/git-advertisement-audit/' + name, 'git-advertisement-audit/' + name)
+
 copy('archive-next-bottlenecks.py', 'archive.py')
 (DEST / 'archive-manifest.json').write_text(json.dumps({
     'files': {name: hashlib.sha256((DEST / name).read_bytes()).hexdigest() for name in sorted(copied)},

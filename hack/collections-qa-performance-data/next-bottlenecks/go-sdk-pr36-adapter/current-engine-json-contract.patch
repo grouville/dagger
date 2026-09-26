@@ -1,0 +1,320 @@
+--- a/.dagger/modules/e2e/main.dang
++++ b/.dagger/modules/e2e/main.dang
+@@ -388,7 +388,7 @@
+     let engineResult = compiled
+       .withExec(
+         ["/usr/local/bin/dispatch", "engine-call"],
+-        stdin: "{\"receiverType\":\"GenerateApp\",\"receiverValue\":{\"Prefix\":\"Hi\"},\"fnName\":\"Greet\",\"fnArgs\":[{\"name\":\"name\",\"value\":\"World\"}]}",
++        stdin: "{\"receiverType\":\"GenerateApp\",\"receiverValue\":{\"Prefix\":\"Hi\"},\"fnName\":\"Greet\",\"fnArgs\":{\"name\":\"World\"}}",
+       )
+       .stdout
+       .trimSuffix("\n")
+@@ -397,7 +397,7 @@
+     let listResult = compiled
+       .withExec(
+         ["/usr/local/bin/dispatch", "engine-call"],
+-        stdin: "{\"receiverType\":\"GenerateApp\",\"receiverValue\":{},\"fnName\":\"Repeat\",\"fnArgs\":[{\"name\":\"value\",\"value\":\"x\"},{\"name\":\"count\",\"value\":2}]}",
++        stdin: "{\"receiverType\":\"GenerateApp\",\"receiverValue\":{},\"fnName\":\"Repeat\",\"fnArgs\":{\"value\":\"x\",\"count\":2}}",
+       )
+       .stdout
+       .trimSuffix("\n")
+@@ -406,7 +406,7 @@
+     let optionalResult = compiled
+       .withExec(
+         ["/usr/local/bin/dispatch", "engine-call"],
+-        stdin: "{\"receiverType\":\"GenerateApp\",\"receiverValue\":{},\"fnName\":\"Optional\",\"fnArgs\":[{\"name\":\"value\",\"value\":null}]}",
++        stdin: "{\"receiverType\":\"GenerateApp\",\"receiverValue\":{},\"fnName\":\"Optional\",\"fnArgs\":{\"value\":null}}",
+       )
+       .stdout
+       .trimSuffix("\n")
+@@ -437,7 +437,7 @@
+     let daggerResult = nestedDispatch
+       .withExec(
+         ["/usr/local/bin/dispatch", "engine-call"],
+-        stdin: "{\"receiverType\":\"GenerateApp\",\"receiverValue\":{},\"fnName\":\"DaggerEcho\",\"fnArgs\":[{\"name\":\"value\",\"value\":\"nested\"}]}",
++        stdin: "{\"receiverType\":\"GenerateApp\",\"receiverValue\":{},\"fnName\":\"DaggerEcho\",\"fnArgs\":{\"value\":\"nested\"}}",
+         experimentalPrivilegedNesting: true,
+       )
+       .stdout
+@@ -447,7 +447,7 @@
+     let containerResult = nestedDispatch
+       .withExec(
+         ["/usr/local/bin/dispatch", "engine-call"],
+-        stdin: "{\"receiverType\":\"GenerateApp\",\"receiverValue\":{},\"fnName\":\"Container\",\"fnArgs\":[{\"name\":\"value\",\"value\":\"resource\"}]}",
++        stdin: "{\"receiverType\":\"GenerateApp\",\"receiverValue\":{},\"fnName\":\"Container\",\"fnArgs\":{\"value\":\"resource\"}}",
+         experimentalPrivilegedNesting: true,
+       )
+       .stdout
+@@ -457,7 +457,7 @@
+     let readContainerResult = nestedDispatch
+       .withExec(
+         ["/usr/local/bin/dispatch", "engine-call"],
+-        stdin: "{\"receiverType\":\"GenerateApp\",\"receiverValue\":{},\"fnName\":\"ReadContainer\",\"fnArgs\":[{\"name\":\"container\",\"value\":" + containerResult + "}]}",
++        stdin: "{\"receiverType\":\"GenerateApp\",\"receiverValue\":{},\"fnName\":\"ReadContainer\",\"fnArgs\":{\"container\":" + containerResult + "}}",
+         experimentalPrivilegedNesting: true,
+       )
+       .stdout
+--- a/helpers/codegen/generator/gogenerator/templates/v2.go
++++ b/helpers/codegen/generator/gogenerator/templates/v2.go
+@@ -316,17 +316,16 @@
+     receiverType: String!,
+     receiverValue: JSON,
+     fnName: String!,
+-    fnArgs: [FunctionCallArgValue!]!,
++    fnArgs: JSON!,
+   ): JSON! {
+-    let args = fnArgs.reduce([]) { values, arg =>
+-      values + [{{ name: arg.name, value: arg.value }}]
+-    }
+-    let request = JSON.encode({{
+-      receiverType: receiverType,
+-      receiverValue: receiverValue,
+-      fnName: fnName,
+-      fnArgs: args,
+-    }})
++    # JSON scalars contain encoded JSON text. Encoding the scalar again would
++    # turn argument objects and receiver state into JSON strings.
++    let receiverJSON: String! = if (receiverValue == null) { "null" } else { receiverValue }
++    let argsJSON: String! = fnArgs
++    let request = ("{\"receiverType\":" + JSON.encode(receiverType)
++      + ",\"receiverValue\":" + receiverJSON
++      + ",\"fnName\":" + JSON.encode(fnName)
++      + ",\"fnArgs\":" + argsJSON + "}")
+     let result = container
+       .from("alpine:3.22")
+       .withFile("/usr/local/bin/dispatch", dispatch(workspace), permissions: 755)
+@@ -336,7 +335,7 @@
+         experimentalPrivilegedNesting: true,
+       )
+       .stdout
+-    JSON.decode(result)
++    result :: JSON!
+   }
+ }
+ `)
+@@ -643,16 +642,11 @@
+ 	module %q
+ )
+ 
+-type callArg struct {
+-	Name string `+"`json:\"name\"`"+`
+-	Value json.RawMessage `+"`json:\"value\"`"+`
+-}
+-
+ type callRequest struct {
+ 	ReceiverType string `+"`json:\"receiverType,omitempty\"`"+`
+ 	ReceiverValue json.RawMessage `+"`json:\"receiverValue,omitempty\"`"+`
+ 	FnName string `+"`json:\"fnName\"`"+`
+-	FnArgs []callArg `+"`json:\"fnArgs,omitempty\"`"+`
++	FnArgs map[string]json.RawMessage `+"`json:\"fnArgs,omitempty\"`"+`
+ }
+ 
+ type argumentSpec struct { Required bool; Default string; Encoding string }
+@@ -696,7 +690,7 @@
+ 
+ func dispatch(ctx context.Context, req callRequest) (any, error) {
+ 	args := make(map[string][]byte, len(req.FnArgs))
+-	for _, arg := range req.FnArgs { args[arg.Name] = arg.Value }
++	for name, value := range req.FnArgs { args[name] = value }
+ 	return module.DaggerDispatch(ctx, req.ReceiverValue, req.ReceiverType, req.FnName, args)
+ }
+ 
+@@ -725,11 +719,7 @@
+ 		if arg.Default != "" { values[name] = json.RawMessage(arg.Default); continue }
+ 		if arg.Required { return fmt.Errorf("required argument --%%s is not set", name) }
+ 	}
+-	names := make([]string, 0, len(values))
+-	for name := range values { names = append(names, name) }
+-	sort.Strings(names)
+-	req := callRequest{ReceiverType: spec.Receiver, ReceiverValue: receiver, FnName: spec.FnName}
+-	for _, name := range names { req.FnArgs = append(req.FnArgs, callArg{Name: name, Value: values[name]}) }
++	req := callRequest{ReceiverType: spec.Receiver, ReceiverValue: receiver, FnName: spec.FnName, FnArgs: values}
+ 	result, err := dispatch(ctx, req)
+ 	if err != nil { return err }
+ 	encoded, err := json.Marshal(result)
+--- a/helpers/codegen/generator/gogenerator/templates/v2_test.go
++++ b/helpers/codegen/generator/gogenerator/templates/v2_test.go
+@@ -52,6 +52,11 @@
+ 	text := string(source)
+ 	require.Contains(t, text, "type Entrypoint implements ModuleEntrypoint")
+ 	require.Contains(t, text, "receiverType: String!")
++	require.Contains(t, text, "fnArgs: JSON!")
++	require.Contains(t, text, "let argsJSON: String! = fnArgs")
++	require.Contains(t, text, "result :: JSON!")
++	require.NotContains(t, text, "JSON.decode(result)")
++	require.NotContains(t, text, "FunctionCallArgValue")
+ 	require.NotContains(t, text, "pub main(")
+ 	require.Contains(t, text, `workspace.findUp("go.mod")`)
+ 	require.Contains(t, text, `.withWorkdir("/workspace/modules/hello")`)
+--- /dev/null
++++ b/helpers/codegen/generator/gogenerator/templates/v2_transport_test.go
+@@ -0,0 +1,116 @@
++package templates
++
++import (
++	"os"
++	"os/exec"
++	"path/filepath"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++// Exercise the emitted Go code, rather than a duplicate of its decoder. The
++// temporary module uses only the standard library and never calls Dagger.
++func TestGeneratedDispatchJSONMap(t *testing.T) {
++	source, err := (&v2Module{}).renderDispatchSource("fixture", "example.com/dispatchfixture")
++	require.NoError(t, err)
++	root := t.TempDir()
++	require.NoError(t, os.MkdirAll(filepath.Join(root, "cmd", "dispatch"), 0o700))
++	files := map[string][]byte{
++		"go.mod": []byte("module example.com/dispatchfixture\n\ngo 1.23.0\n"),
++		"module.go": []byte(`package dispatchfixture
++import (
++    "context"
++    "encoding/json"
++)
++func DaggerDispatch(ctx context.Context, receiver []byte, receiverType, fnName string, args map[string][]byte) (any, error) {
++    values := make(map[string]json.RawMessage, len(args))
++    for name, value := range args { values[name] = value }
++    return struct {
++        Receiver json.RawMessage
++        ReceiverType string
++        FnName string
++        Args map[string]json.RawMessage
++    }{receiver, receiverType, fnName, values}, nil
++}
++`),
++		"cmd/dispatch/main.go":      source,
++		"cmd/dispatch/main_test.go": []byte(generatedDispatchJSONMapTests),
++	}
++	for path, data := range files {
++		require.NoError(t, os.WriteFile(filepath.Join(root, path), data, 0o600))
++	}
++	cmd := exec.Command("go", "test", "-count=1", "./cmd/dispatch")
++	cmd.Dir = root
++	cmd.Env = append(os.Environ(), "GOWORK=off", "GOPROXY=off", "GOTOOLCHAIN=local")
++	output, err := cmd.CombinedOutput()
++	require.NoError(t, err, "%s", output)
++}
++
++const generatedDispatchJSONMapTests = `package main
++import (
++    "bytes"
++    "context"
++    "encoding/json"
++    "strings"
++    "testing"
++)
++
++type result struct {
++    Receiver json.RawMessage
++    ReceiverType string
++    FnName string
++    Args map[string]json.RawMessage
++}
++
++func TestEngineCallJSONMap(t *testing.T) {
++    // A float64 intermediary would corrupt the integer; stringifying nested
++    // JSON would change both objects and arrays; omitting null loses presence.
++    request := "{\"receiverType\":\"Fixture\",\"receiverValue\":{\"n\":9007199254740993},\"fnName\":\"Run\",\"fnArgs\":{\"large\":9007199254740993,\"nested\":{\"items\":[1,true,null]},\"text\":\"hello \\\"world\\\"\",\"nothing\":null,\"falseValue\":false,\"empty\":[]}}"
++    var output bytes.Buffer
++    if err := engineCall(context.Background(), strings.NewReader(request), &output); err != nil { t.Fatal(err) }
++    var got result
++    if err := json.Unmarshal(output.Bytes(), &got); err != nil { t.Fatal(err) }
++    if got.ReceiverType != "Fixture" || got.FnName != "Run" { t.Fatalf("wrong dispatch identity: %+v", got) }
++    if string(got.Receiver) != "{\"n\":9007199254740993}" { t.Fatalf("receiver changed: %s", got.Receiver) }
++    want := map[string]string{
++        "large": "9007199254740993",
++        "nested": "{\"items\":[1,true,null]}",
++        "text": "\"hello \\\"world\\\"\"",
++        "nothing": "null",
++        "falseValue": "false",
++        "empty": "[]",
++    }
++    if len(got.Args) != len(want) { t.Fatalf("wrong argument count: %s", output.Bytes()) }
++    for name, value := range want {
++        if string(got.Args[name]) != value { t.Errorf("%s: got %s, want %s", name, got.Args[name], value) }
++    }
++    if _, exists := got.Args["omitted"]; exists { t.Fatal("unexpected omitted argument") }
++}
++
++func TestEngineCallRejectsLegacyArrayAndTrailingData(t *testing.T) {
++    for _, request := range []string{
++        "{\"fnArgs\":[{\"name\":\"x\",\"value\":1}]}",
++        "{\"fnArgs\":{}} {}",
++        "{\"fnArgs\":{}} broken",
++    } {
++        var output bytes.Buffer
++        if err := engineCall(context.Background(), strings.NewReader(request), &output); err == nil { t.Fatalf("accepted invalid request %s", request) }
++        if output.Len() != 0 { t.Fatalf("wrote output for invalid request %s", request) }
++    }
++}
++
++func TestDeveloperCallRetainsDefaultsAndNull(t *testing.T) {
++    functions = []functionSpec{{Name: "echo", Receiver: "Fixture", FnName: "Echo", Args: map[string]argumentSpec{
++        "name": {Required: true, Encoding: "string"},
++        "count": {Default: "2", Encoding: "json"},
++        "optional": {Encoding: "json"},
++    }}}
++    var output bytes.Buffer
++    if err := developerCall(context.Background(), []string{"echo", "--name", "hello world", "--optional", "null"}, &output); err != nil { t.Fatal(err) }
++    var got result
++    if err := json.Unmarshal(output.Bytes(), &got); err != nil { t.Fatal(err) }
++    if string(got.Args["name"]) != "\"hello world\"" || string(got.Args["count"]) != "2" || string(got.Args["optional"]) != "null" { t.Fatalf("developer arguments changed: %s", output.Bytes()) }
++    if err := developerCall(context.Background(), []string{"echo"}, &output); err == nil { t.Fatal("accepted missing required argument") }
++}
++`
+--- a/helpers/entrypoint-contract/contract.go
++++ b/helpers/entrypoint-contract/contract.go
+@@ -19,14 +19,14 @@
+     receiverType: String!,
+     receiverValue: JSON,
+     fnName: String!,
+-    fnArgs: [FunctionCallArgValue!]!,
++    fnArgs: JSON!,
+   ): JSON!
+ }
+ `
+ 
+ // Check type-checks a generated Dang entrypoint against the manifest-v2
+-// interface and the selected Dagger schema. It is a userland stand-in for the
+-// future built-in Dang entrypoint loader.
++// interface and the selected Dagger schema. Keep this interface in sync with
++// the engine's built-in Dang entrypoint loader.
+ func Check(ctx context.Context, entrypointDir, schemaPath string) error {
+ 	schema, err := loadSchema(schemaPath)
+ 	if err != nil {
+--- a/helpers/entrypoint-contract/contract_test.go
++++ b/helpers/entrypoint-contract/contract_test.go
+@@ -4,6 +4,7 @@
+ 	"context"
+ 	"os"
+ 	"path/filepath"
++	"strings"
+ 	"testing"
+ 
+ 	"github.com/stretchr/testify/require"
+@@ -16,7 +17,7 @@
+     receiverType: String!,
+     receiverValue: JSON,
+     fnName: String!,
+-    fnArgs: [FunctionCallArgValue!]!,
++    fnArgs: JSON!,
+   ): JSON! {
+     JSON.decode("null")
+   }
+@@ -43,3 +44,13 @@
+ 	err := Check(context.Background(), dir, filepath.Join("..", "codegen", "introspection", "testdata", "schema.json"))
+ 	require.ErrorContains(t, err, "does not satisfy ModuleEntrypoint")
+ }
++
++// The old list-shaped contract cannot be used with the current engine, which
++// supplies one JSON object keyed by the original argument names.
++func TestCheckRejectsLegacyArgumentList(t *testing.T) {
++	dir := t.TempDir()
++	legacy := strings.Replace(validEntrypoint, "fnArgs: JSON!", "fnArgs: [FunctionCallArgValue!]!", 1)
++	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.dang"), []byte(legacy), 0o600))
++	err := Check(context.Background(), dir, filepath.Join("..", "codegen", "introspection", "testdata", "schema.json"))
++	require.ErrorContains(t, err, "does not satisfy ModuleEntrypoint")
++}

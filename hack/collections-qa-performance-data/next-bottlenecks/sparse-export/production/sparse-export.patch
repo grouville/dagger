@@ -1,0 +1,508 @@
+--- a/internal/fsutil/diskwriter.go
++++ b/internal/fsutil/diskwriter.go
+@@ -4,10 +4,11 @@
+ 	"context"
+ 	"hash"
+ 	"io"
+-	gofs "io/fs"
+ 	"os"
+ 	"path/filepath"
++	"slices"
+ 	"strconv"
++	"strings"
+ 	"sync"
+ 	"syscall"
+ 	"time"
+@@ -69,18 +70,79 @@
+ 	if err := dw.eg.Wait(); err != nil {
+ 		return err
+ 	}
+-	return filepath.WalkDir(dw.dest, func(path string, d gofs.DirEntry, prevErr error) error {
+-		if prevErr != nil {
+-			return prevErr
++	return restoreDirectoryTimes(dw.dest, dw.dirModTimes, os.Lstat, chtimes)
++}
++
++// restoreDirectoryTimes finalizes only directories created by this transfer.
++// Walking the whole destination would make a sparse merge depend on unrelated
++// files (including directories the caller cannot read). Check the relevant
++// ancestors instead: a directory may have been deleted or replaced with a file
++// or symlink after its timestamp was recorded, and must then be skipped.
++func restoreDirectoryTimes(dest string, times map[string]int64, lstat func(string) (os.FileInfo, error), setTimes func(string, int64) error) error {
++	if len(times) == 0 {
++		return nil
++	}
++	dest = filepath.Clean(dest)
++	paths := make([]string, 0, len(times))
++	for p := range times {
++		if p != filepath.Clean(p) {
++			return &os.PathError{Op: "restore directory time", Path: p, Err: syscall.EINVAL}
+ 		}
+-		if !d.IsDir() {
+-			return nil
++		rel, err := filepath.Rel(dest, p)
++		if err != nil {
++			return err
+ 		}
+-		if mtime, ok := dw.dirModTimes[path]; ok {
+-			return chtimes(path, mtime)
++		if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
++			return &os.PathError{Op: "restore directory time", Path: p, Err: syscall.EINVAL}
+ 		}
+-		return nil
+-	})
++		paths = append(paths, p)
++	}
++	// Match WalkDir's deterministic parent-before-child order without reading
++	// siblings. ComparePath sorts separators before ordinary path characters.
++	slices.SortFunc(paths, ComparePath)
++
++	checked := make(map[string]bool)
++	var isDirectory func(string) (bool, error)
++	isDirectory = func(rel string) (bool, error) {
++		if ok, seen := checked[rel]; seen {
++			return ok, nil
++		}
++		if rel != "." {
++			ok, err := isDirectory(filepath.Dir(rel))
++			if err != nil || !ok {
++				if err == nil {
++					checked[rel] = false
++				}
++				return false, err
++			}
++		}
++		fi, err := lstat(filepath.Join(dest, rel))
++		if err != nil {
++			if rel != "." && os.IsNotExist(err) {
++				checked[rel] = false
++				return false, nil
++			}
++			return false, err
++		}
++		checked[rel] = fi.IsDir()
++		return fi.IsDir(), nil
++	}
++	for _, p := range paths {
++		rel, err := filepath.Rel(dest, p)
++		if err != nil {
++			return err
++		}
++		ok, err := isDirectory(rel)
++		if err != nil {
++			return err
++		}
++		if ok {
++			if err := setTimes(p, times[p]); err != nil {
++				return err
++			}
++		}
++	}
++	return nil
+ }
+ 
+ //nolint:gocyclo
+--- /dev/null
++++ b/internal/fsutil/diskwriter_test.go
+@@ -0,0 +1,296 @@
++package fsutil
++
++import (
++	"context"
++	"errors"
++	"io"
++	"os"
++	"path/filepath"
++	"runtime"
++	"testing"
++	"time"
++
++	"github.com/dagger/dagger/internal/fsutil/types"
++	"github.com/stretchr/testify/require"
++)
++
++func TestSparseDirectoryTimesOnlyVisitsRecordedAncestors(t *testing.T) {
++	root := t.TempDir()
++	changed := filepath.Join(root, "generated", "nested")
++	require.NoError(t, os.MkdirAll(changed, 0755))
++	unrelated := filepath.Join(root, "unrelated", "deep", "unreadable")
++	require.NoError(t, os.MkdirAll(unrelated, 0755))
++	require.NoError(t, os.Chmod(filepath.Join(root, "unrelated"), 0))
++	t.Cleanup(func() { _ = os.Chmod(filepath.Join(root, "unrelated"), 0755) })
++	var visited, updated []string
++	// The seam asserts the scope even when tests run as root and mode 000 is
++	// readable. Any access outside these three paths fails this test.
++	permitted := map[string]bool{root: true, filepath.Dir(changed): true, changed: true}
++	err := restoreDirectoryTimes(root, map[string]int64{changed: 123}, func(p string) (os.FileInfo, error) {
++		require.True(t, permitted[p], "unrelated path visited: %s", p)
++		visited = append(visited, p)
++		return os.Lstat(p)
++	}, func(p string, _ int64) error { updated = append(updated, p); return nil })
++	require.NoError(t, err)
++	require.Equal(t, []string{root, filepath.Dir(changed), changed}, visited)
++	require.Equal(t, []string{changed}, updated)
++	// A transfer that creates no directories needs no final filesystem work.
++	require.NoError(t, restoreDirectoryTimes(root, nil, func(p string) (os.FileInfo, error) {
++		t.Fatalf("empty finalization visited %q", p)
++		return nil, nil
++	}, nil))
++}
++
++func TestSparseDirectoryTimesSkipsDeletedAndReplacedSubtrees(t *testing.T) {
++	for _, replacement := range []string{"deleted", "file", "symlink"} {
++		t.Run(replacement, func(t *testing.T) {
++			root, outside := t.TempDir(), t.TempDir()
++			parent := filepath.Join(root, "parent")
++			nested := filepath.Join(parent, "nested")
++			require.NoError(t, os.MkdirAll(nested, 0755))
++			outsideChild := filepath.Join(outside, "nested")
++			require.NoError(t, os.MkdirAll(outsideChild, 0755))
++			marker := time.Unix(1234, 0)
++			require.NoError(t, os.Chtimes(outsideChild, marker, marker))
++			require.NoError(t, os.RemoveAll(parent))
++			switch replacement {
++			case "file":
++				require.NoError(t, os.WriteFile(parent, []byte("independent"), 0644))
++			case "symlink":
++				require.NoError(t, os.Symlink(outside, parent))
++			}
++			var visited []string
++			err := restoreDirectoryTimes(root, map[string]int64{parent: 7, nested: 8}, func(p string) (os.FileInfo, error) {
++				visited = append(visited, p)
++				return os.Lstat(p)
++			}, func(p string, _ int64) error { t.Fatalf("updated replaced path %q", p); return nil })
++			require.NoError(t, err)
++			require.Equal(t, []string{root, parent}, visited)
++			got, err := os.Stat(outsideChild)
++			require.NoError(t, err)
++			require.Equal(t, marker, got.ModTime())
++		})
++	}
++}
++
++func TestSparseDirectoryTimesRootSymlinkAndRelevantErrors(t *testing.T) {
++	root, outside := t.TempDir(), t.TempDir()
++	link := filepath.Join(root, "link")
++	require.NoError(t, os.Symlink(outside, link))
++	require.NoError(t, restoreDirectoryTimes(link, map[string]int64{filepath.Join(link, "child"): 9}, os.Lstat,
++		func(p string, _ int64) error { t.Fatalf("followed root symlink %q", p); return nil }))
++	expected := &os.PathError{Op: "lstat", Path: filepath.Join(root, "relevant"), Err: os.ErrPermission}
++	err := restoreDirectoryTimes(root, map[string]int64{expected.Path: 9}, func(p string) (os.FileInfo, error) {
++		if p == expected.Path {
++			return nil, expected
++		}
++		return os.Lstat(p)
++	}, chtimes)
++	require.ErrorIs(t, err, os.ErrPermission)
++	require.True(t, errors.Is(err, expected))
++	require.ErrorIs(t, restoreDirectoryTimes(root, map[string]int64{root: 9}, os.Lstat,
++		func(string, int64) error { return os.ErrPermission }), os.ErrPermission)
++	for _, p := range []string{root + "-prefix-collision", filepath.Join(root, "..", "outside")} {
++		require.Error(t, restoreDirectoryTimes(root, map[string]int64{p: 9},
++			func(string) (os.FileInfo, error) { t.Fatal("read escaped path"); return nil, nil }, chtimes))
++	}
++}
++
++func TestSparseDirectoryTimesPreservesWalkOrderAndSharedAncestors(t *testing.T) {
++	root := t.TempDir()
++	names := []string{"a", "a/z", "a-/b", "a-/c", "b"}
++	times := make(map[string]int64)
++	for _, name := range names {
++		p := filepath.Join(root, filepath.FromSlash(name))
++		require.NoError(t, os.MkdirAll(p, 0755))
++		times[p] = 9
++	}
++	var updated []string
++	visited := make(map[string]int)
++	require.NoError(t, restoreDirectoryTimes(root, times, func(p string) (os.FileInfo, error) {
++		visited[p]++
++		return os.Lstat(p)
++	}, func(p string, _ int64) error {
++		rel, err := filepath.Rel(root, p)
++		require.NoError(t, err)
++		updated = append(updated, filepath.ToSlash(rel))
++		return nil
++	}))
++	require.Equal(t, names, updated)
++	for p, count := range visited {
++		require.Equal(t, 1, count, p)
++	}
++	// Relative destination spelling remains supported without absolute-path conversion.
++	workdir, err := os.Getwd()
++	require.NoError(t, err)
++	relroot, err := filepath.Rel(workdir, root)
++	require.NoError(t, err)
++	p := filepath.Join(relroot, "a")
++	require.NoError(t, restoreDirectoryTimes(relroot, map[string]int64{p: 9}, os.Lstat, chtimes))
++}
++
++func TestSparseDiskWriterWaitsForDataAndRestoresDirectoryTimes(t *testing.T) {
++	root := t.TempDir()
++	started, release := make(chan struct{}), make(chan struct{})
++	dw, err := NewDiskWriter(t.Context(), root, DiskWriterOpt{AsyncDataCb: func(_ context.Context, _ string, w io.WriteCloser) error {
++		close(started)
++		<-release
++		_, err := io.WriteString(w, "generated data")
++		closeErr := w.Close()
++		return errors.Join(err, closeErr)
++	}})
++	require.NoError(t, err)
++	timestamp := time.Unix(1700000000, 123456700)
++	for _, p := range []string{"parent", "parent/child"} {
++		st := &types.Stat{Path: p, Mode: uint32(os.ModeDir | 0755), ModTime: timestamp.UnixNano(), Uid: uint32(os.Getuid()), Gid: uint32(os.Getgid())}
++		require.NoError(t, dw.HandleChange(ChangeKindAdd, filepath.FromSlash(p), &StatInfo{st}, nil))
++	}
++	st := &types.Stat{Path: "parent/child/file", Mode: 0755, ModTime: timestamp.UnixNano(), Uid: uint32(os.Getuid()), Gid: uint32(os.Getgid())}
++	require.NoError(t, dw.HandleChange(ChangeKindAdd, filepath.FromSlash(st.Path), &StatInfo{st}, nil))
++	<-started
++	done := make(chan error, 1)
++	go func() { done <- dw.Wait(t.Context()) }()
++	select {
++	case err := <-done:
++		t.Fatalf("returned before data completion: %v", err)
++	default:
++	}
++	close(release)
++	require.NoError(t, <-done)
++	data, err := os.ReadFile(filepath.Join(root, "parent", "child", "file"))
++	require.NoError(t, err)
++	require.Equal(t, "generated data", string(data))
++	for _, p := range []string{"parent", "parent/child", "parent/child/file"} {
++		fi, err := os.Stat(filepath.Join(root, filepath.FromSlash(p)))
++		require.NoError(t, err)
++		require.Equal(t, timestamp.UnixNano(), fi.ModTime().UnixNano(), p)
++		if runtime.GOOS != "windows" {
++			require.Equal(t, os.FileMode(0755), fi.Mode().Perm(), p)
++		}
++	}
++}
++
++type sparsePacketStream struct {
++	ctx context.Context
++	in  <-chan []byte
++	out chan<- []byte
++}
++
++func (s sparsePacketStream) Context() context.Context { return s.ctx }
++func (s sparsePacketStream) SendMsg(m interface{}) error {
++	data, err := m.(*types.Packet).Marshal()
++	if err != nil {
++		return err
++	}
++	select {
++	case s.out <- data:
++		return nil
++	case <-s.ctx.Done():
++		return s.ctx.Err()
++	}
++}
++func (s sparsePacketStream) RecvMsg(m interface{}) error {
++	select {
++	case data, ok := <-s.in:
++		if !ok {
++			return io.EOF
++		}
++		return m.(*types.Packet).Unmarshal(data)
++	case <-s.ctx.Done():
++		return s.ctx.Err()
++	}
++}
++
++func TestSparseReceiveMergePreservesUnchangedAndNonMergeDeletes(t *testing.T) {
++	for _, merge := range []bool{true, false} {
++		t.Run(map[bool]string{true: "merge", false: "replace"}[merge], func(t *testing.T) {
++			source, dest := t.TempDir(), t.TempDir()
++			require.NoError(t, os.Mkdir(filepath.Join(source, "generated"), 0755))
++			require.NoError(t, os.WriteFile(filepath.Join(source, "generated", "file"), []byte("new"), 0755))
++			require.NoError(t, os.Symlink("file", filepath.Join(source, "generated", "link")))
++			require.NoError(t, os.Link(filepath.Join(source, "generated", "file"), filepath.Join(source, "generated", "hardlink")))
++			require.NoError(t, os.WriteFile(filepath.Join(dest, "untouched"), []byte("user edit"), 0644))
++			require.NoError(t, os.Mkdir(filepath.Join(dest, "generated"), 0755))
++			require.NoError(t, os.WriteFile(filepath.Join(dest, "generated", "file"), []byte("old"), 0644))
++			fs, err := NewFS(source)
++			require.NoError(t, err)
++			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
++			defer cancel()
++			toSender, toReceiver := make(chan []byte, 128), make(chan []byte, 128)
++			sent := make(chan error, 1)
++			go func() { sent <- Send(ctx, sparsePacketStream{ctx, toSender, toReceiver}, fs, nil); close(toReceiver) }()
++			err = Receive(ctx, sparsePacketStream{ctx, toReceiver, toSender}, dest, ReceiveOpt{Merge: merge})
++			require.NoError(t, err)
++			require.NoError(t, <-sent)
++			data, err := os.ReadFile(filepath.Join(dest, "generated", "file"))
++			require.NoError(t, err)
++			require.Equal(t, "new", string(data))
++			data, err = os.ReadFile(filepath.Join(dest, "generated", "link"))
++			require.NoError(t, err)
++			require.Equal(t, "new", string(data))
++			first, err := os.Stat(filepath.Join(dest, "generated", "file"))
++			require.NoError(t, err)
++			second, err := os.Stat(filepath.Join(dest, "generated", "hardlink"))
++			require.NoError(t, err)
++			require.True(t, os.SameFile(first, second))
++			data, err = os.ReadFile(filepath.Join(dest, "untouched"))
++			if merge {
++				require.NoError(t, err)
++				require.Equal(t, "user edit", string(data))
++			} else {
++				require.ErrorIs(t, err, os.ErrNotExist)
++			}
++		})
++	}
++}
++
++func TestSparseExportIndependentPermissions(t *testing.T) {
++	root := t.TempDir()
++	forbidden := filepath.Join(root, "unrelated")
++	if err := os.Mkdir(forbidden, 0755); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.WriteFile(filepath.Join(forbidden, "private"), []byte("not part of transfer"), 0644); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.Chmod(forbidden, 0); err != nil {
++		t.Fatal(err)
++	}
++	t.Cleanup(func() { _ = os.Chmod(forbidden, 0755) })
++	dw, err := NewDiskWriter(t.Context(), root, DiskWriterOpt{SyncDataCb: func(_ context.Context, _ string, w io.WriteCloser) error {
++		_, err := io.WriteString(w, "expected generated output")
++		return err
++	}})
++	if err != nil {
++		t.Fatal(err)
++	}
++	st := &types.Stat{Mode: 0644, ModTime: time.Unix(1700000000, 0).UnixNano(), Uid: uint32(os.Getuid()), Gid: uint32(os.Getgid())}
++	if err := dw.HandleChange(ChangeKindAdd, "generated.txt", &StatInfo{st}, nil); err != nil {
++		t.Fatal(err)
++	}
++	if err := dw.Wait(t.Context()); err != nil {
++		t.Fatal(err)
++	}
++	data, err := os.ReadFile(filepath.Join(root, "generated.txt"))
++	if err != nil || string(data) != "expected generated output" {
++		t.Fatalf("bad exported bytes: %v", err)
++	}
++}
++
++func TestSparseDirectoryTimesWindowsRootSpelling(t *testing.T) {
++	if runtime.GOOS != "windows" {
++		t.Skip("Windows path and volume semantics")
++	}
++	const root = `C:\root`
++	const recorded = `c:\root\child`
++	var visited, updated []string
++	err := restoreDirectoryTimes(root, map[string]int64{recorded: 9}, func(p string) (os.FileInfo, error) {
++		visited = append(visited, p)
++		return &StatInfo{&types.Stat{Mode: uint32(os.ModeDir | 0755)}}, nil
++	}, func(p string, _ int64) error { updated = append(updated, p); return nil })
++	require.NoError(t, err)
++	require.Equal(t, []string{root, root + `\child`}, visited)
++	require.Equal(t, []string{recorded}, updated)
++	require.Error(t, restoreDirectoryTimes(root, map[string]int64{`D:\elsewhere`: 9},
++		func(string) (os.FileInfo, error) { t.Fatal("read a different volume"); return nil, nil }, chtimes))
++}
+--- /dev/null
++++ b/internal/fsutil/diskwriter_benchmark_test.go
+@@ -0,0 +1,102 @@
++package fsutil
++
++import (
++	"context"
++	"fmt"
++	"io"
++	"os"
++	"path/filepath"
++	"testing"
++	"time"
++
++	"github.com/dagger/dagger/internal/fsutil/types"
++)
++
++func BenchmarkSparseExportApply(b *testing.B) {
++	for _, unrelated := range []int{0, 1000, 10000} {
++		b.Run(fmt.Sprintf("Unrelated%d", unrelated), func(b *testing.B) {
++			root := b.TempDir()
++			if err := os.MkdirAll(filepath.Join(root, "unrelated"), 0755); err != nil {
++				b.Fatal(err)
++			}
++			for i := 0; i < unrelated; i++ {
++				if err := os.WriteFile(filepath.Join(root, "unrelated", fmt.Sprintf("file-%05d", i)), nil, 0644); err != nil {
++					b.Fatal(err)
++				}
++			}
++			for _, writes := range []int{1, 16} {
++				b.Run(fmt.Sprintf("Write%d", writes), func(b *testing.B) {
++					paths := make([]string, writes)
++					for i := range paths {
++						paths[i] = fmt.Sprintf("generated-%d", i)
++					}
++					st := &types.Stat{Mode: 0644, ModTime: time.Unix(1700000000, 0).UnixNano(), Uid: uint32(os.Getuid()), Gid: uint32(os.Getgid())}
++					b.ReportAllocs()
++					b.ResetTimer()
++					for b.Loop() {
++						dw, err := NewDiskWriter(context.Background(), root, DiskWriterOpt{SyncDataCb: func(_ context.Context, _ string, w io.WriteCloser) error {
++							_, err := io.WriteString(w, "tiny generated content\n")
++							return err
++						}})
++						if err != nil {
++							b.Fatal(err)
++						}
++						for _, p := range paths {
++							if err := dw.HandleChange(ChangeKindAdd, p, &StatInfo{st}, nil); err != nil {
++								b.Fatal(err)
++							}
++						}
++						if err := dw.Wait(context.Background()); err != nil {
++							b.Fatal(err)
++						}
++					}
++					b.StopTimer()
++					for _, p := range paths {
++						data, err := os.ReadFile(filepath.Join(root, p))
++						if err != nil || string(data) != "tiny generated content\n" {
++							b.Fatalf("bad exported bytes: %v", err)
++						}
++					}
++				})
++			}
++		})
++	}
++}
++
++func BenchmarkSparseDirectoryFinalization(b *testing.B) {
++	for _, unrelated := range []int{0, 1000, 10000} {
++		b.Run(fmt.Sprintf("Unrelated%d", unrelated), func(b *testing.B) {
++			root := b.TempDir()
++			if err := os.MkdirAll(filepath.Join(root, "unrelated"), 0755); err != nil {
++				b.Fatal(err)
++			}
++			for i := 0; i < unrelated; i++ {
++				if err := os.WriteFile(filepath.Join(root, "unrelated", fmt.Sprintf("file-%05d", i)), nil, 0644); err != nil {
++					b.Fatal(err)
++				}
++			}
++			for _, dirs := range []int{1, 16} {
++				b.Run(fmt.Sprintf("Touched%d", dirs), func(b *testing.B) {
++					dw, err := NewDiskWriter(context.Background(), root, DiskWriterOpt{SyncDataCb: func(context.Context, string, io.WriteCloser) error { return nil }})
++					if err != nil {
++						b.Fatal(err)
++					}
++					for i := 0; i < dirs; i++ {
++						p := filepath.Join(root, "generated", fmt.Sprintf("dir-%d", i))
++						if err := os.MkdirAll(p, 0755); err != nil {
++							b.Fatal(err)
++						}
++						dw.dirModTimes[p] = time.Unix(1700000000, 0).UnixNano()
++					}
++					b.ReportAllocs()
++					b.ResetTimer()
++					for b.Loop() {
++						if err := dw.Wait(context.Background()); err != nil {
++							b.Fatal(err)
++						}
++					}
++				})
++			}
++		})
++	}
++}

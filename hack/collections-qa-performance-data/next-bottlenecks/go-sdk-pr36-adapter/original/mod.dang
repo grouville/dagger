@@ -1,0 +1,122 @@
+"""
+A Dagger module that uses the Go SDK.
+"""
+type Mod {
+  """
+  Workspace-root-relative path of this module root — the module's stable
+  identity, independent of where the client is invoked from.
+  """
+  rootPath: String!
+
+  """
+  Workspace containing this module.
+  """
+  let ws: Workspace!
+
+  """
+  Marker filename that skips generate when found at or above this module root.
+  """
+  let skipGenerateFilename: String!
+
+  """
+  Build the self-hosted manifest-v2 module generator.
+
+  The helper imports the SDK's existing client generator through a local Go
+  module replacement. The module analyzer is the hardened engine Go analyzer.
+  """
+  let moduleCodegenBuilder: Container! {
+    container
+      .from("golang:1.26-alpine")
+      .withoutEntrypoint
+      .withExec(["apk", "add", "--no-cache", "build-base"])
+      .withMountedCache("/go/pkg/mod", cacheVolume("go-sdk-v2-codegen-mod"))
+      .withMountedCache("/root/.cache/go-build", cacheVolume("go-sdk-v2-codegen-build"))
+      .withDirectory("/helpers", currentModule.source.directory("helpers"))
+      .withWorkdir("/helpers/entrypoint-contract")
+      .withExec(["go", "build", "-o", "/usr/local/bin/entrypoint-contract", "."])
+      .withWorkdir("/helpers/module-codegen")
+      .withExec(["go", "build", "-o", "/usr/local/bin/module-codegen", "."])
+  }
+
+  """
+  This module root relative to the client's current location: "." when the cwd is
+  the module itself, "sub/mod" for a module beneath it, ".." for an enclosing one.
+  A cwd-relative view of rootPath, so listings read the way a shell user would.
+  """
+  path: String! {
+    let cwd = ws.cwd.trimPrefix("/").trimSuffix("/")
+    if (rootPath == cwd) {
+      "."
+    } else if (cwd == "") {
+      rootPath
+    } else if (rootPath.trimPrefix(cwd + "/") != rootPath) {
+      rootPath.trimPrefix(cwd + "/")
+    } else if (rootPath == "." or cwd.trimPrefix(rootPath + "/") != cwd) {
+      let rootDepth = if (rootPath == ".") { 0 } else { rootPath.split("/").length }
+      cwd.split("/").dropFirst(rootDepth).map { segment => ".." }.join("/")
+    } else {
+      rootPath
+    }
+  }
+
+  """
+  Whether this module or an ancestor contains the configured generate skip marker.
+  """
+  skipGenerate(ws: Workspace!): Boolean! {
+    hasMarker(ws, skipGenerateFilename)
+  }
+
+  """
+  Whether this module root or an ancestor contains a marker filename.
+  """
+  let hasMarker(ws: Workspace!, filename: String!): Boolean! {
+    let markerPath = ws.findUp(name: filename, from: rootPath)
+    markerPath != null
+  }
+
+  """
+  Generate this module.
+  If the generate skip marker is present, the changeset is empty.
+  """
+  generate(ws: Workspace!): Changeset! {
+    if (skipGenerate(ws)) {
+      ws.changes(ws)
+    } else {
+      # Stage the local dependency closure so this module's codegen sees
+      # up-to-date dependency bindings. It is only an input to resolving the
+      # module source, never the diff baseline, so the dependencies' codegen
+      # does not ride along.
+      let stagedWs = ws.withChanges(
+        ws.moduleSource("/" + rootPath).generateLocalDependencies(ws),
+      )
+      let moduleSource = stagedWs.moduleSource("/" + rootPath)
+      let generated = moduleCodegenBuilder
+        .withDirectory("/workspace", ws.directory("/"))
+        .withFile("/schema.json", moduleSource.introspectionSchemaJSON)
+        .withExec([
+          "module-codegen",
+          "--module-root", "/workspace/" + rootPath,
+          "--module-name", moduleSource.moduleOriginalName,
+          "--introspection-json-path", "/schema.json",
+          "--schema-version", moduleSource.engineVersion,
+          "--dagger-version", moduleSource.engineVersion,
+          "--go-image", "golang:1.26-alpine",
+          "--remove-legacy-manifest",
+        ])
+        .withExec([
+          "entrypoint-contract",
+          "--entrypoint-dir", "/workspace/" + rootPath + "/internal/dagger/entrypoint",
+          "--introspection-json-path", "/schema.json",
+        ])
+        .directory("/workspace")
+
+      # The helper updates only SDK-owned generated files, the Go dependency
+      # lock files, and the manifest. Diff against the original workspace so
+      # dependency staging does not become part of this module's changeset.
+      ws
+        .withDirectory("/", generated)
+        .withNewDirectory("/" + rootPath, generated.directory(rootPath))
+        .changes(ws)
+    }
+  }
+}

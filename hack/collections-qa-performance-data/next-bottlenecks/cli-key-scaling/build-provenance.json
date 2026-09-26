@@ -1,0 +1,71 @@
+{
+  "root_revision": "b35f20de73face2e07e837d29483abe127c3f8e5",
+  "commands": [
+    {
+      "variant": "baseline",
+      "kind": "test",
+      "command": [
+        "go",
+        "test",
+        "-c",
+        "-modfile=/tmp/collections-perf/post-rebase-io/build.mod",
+        "-buildvcs=false",
+        "-overlay=/tmp/collections-perf/cli-key-scaling/baseline-overlay.json",
+        "-o",
+        "/tmp/collections-perf/cli-key-scaling/baseline.test",
+        "./internal/cmd/dagger"
+      ]
+    },
+    {
+      "variant": "baseline",
+      "kind": "cli",
+      "command": [
+        "go",
+        "build",
+        "-modfile=/tmp/collections-perf/post-rebase-io/build.mod",
+        "-buildvcs=false",
+        "-overlay=/tmp/collections-perf/cli-key-scaling/baseline-overlay.json",
+        "-o",
+        "/tmp/collections-perf/cli-key-scaling/dagger-baseline",
+        "./cmd/dagger"
+      ]
+    },
+    {
+      "variant": "candidate",
+      "kind": "test",
+      "command": [
+        "go",
+        "test",
+        "-c",
+        "-modfile=/tmp/collections-perf/post-rebase-io/build.mod",
+        "-buildvcs=false",
+        "-o",
+        "/tmp/collections-perf/cli-key-scaling/candidate.test",
+        "./internal/cmd/dagger"
+      ]
+    },
+    {
+      "variant": "candidate",
+      "kind": "cli",
+      "command": [
+        "go",
+        "build",
+        "-modfile=/tmp/collections-perf/post-rebase-io/build.mod",
+        "-buildvcs=false",
+        "-o",
+        "/tmp/collections-perf/cli-key-scaling/dagger-candidate",
+        "./cmd/dagger"
+      ]
+    }
+  ],
+  "sha256": {
+    "artifact_list_baseline.go": "ec20a0b367e64572ca5b3f88c3273eb84714a9b78815134c6a80a514d6a458e7",
+    "baseline-overlay.json": "dd0dd74dc9fed5ed1c3c04fffc5f4003313748581f5927c2aa1af0ff0339c05b",
+    "baseline.test": "bfbbfafea42d75bc5c3715c92acf1827fe2bf6e84699dd61d8c345d7e37973ee",
+    "candidate.test": "d7135217ff12b0892990dc271671e62f06c3cfaaf38e90cb72bf2020fc20652d",
+    "dagger-baseline": "3ce20fa55226bcb72155e47dbd99c8aa17b86da7799a4495976910fe92f6ce97",
+    "dagger-candidate": "a6d28fa0b5801861c8aa7f9f4f59f3ee4d843cc4bf7c186860cd6f11fb300ff6"
+  },
+  "candidate_source_sha256": "7ebc265dff821644d82e61721262f3e1c6585ae1cde6d66472f56fb3efbb58ff",
+  "tests_source_sha256": "d62e680437fc3f7b7aabf773832b0ba1fd7229d7f35a3aa74178521583bcef0f"
+}

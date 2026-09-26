@@ -1,0 +1,118 @@
+{
+  "root_revision": "dc5c450f70dfd365ef7d2f822644d917aaccac8e",
+  "commands": [
+    {
+      "label": "baseline-unit-build",
+      "command": [
+        "go",
+        "test",
+        "-c",
+        "-modfile=/tmp/collections-perf/post-rebase-io/build.mod",
+        "-buildvcs=false",
+        "-overlay=/tmp/collections-perf/sparse-export/baseline-overlay.json",
+        "-o",
+        "/tmp/collections-perf/sparse-export/baseline.test",
+        "./internal/fsutil"
+      ],
+      "exit_code": 0,
+      "seconds": 0.5611295029520988
+    },
+    {
+      "label": "candidate-unit-build",
+      "command": [
+        "go",
+        "test",
+        "-c",
+        "-modfile=/tmp/collections-perf/post-rebase-io/build.mod",
+        "-buildvcs=false",
+        "-overlay=/tmp/collections-perf/sparse-export/candidate-overlay.json",
+        "-o",
+        "/tmp/collections-perf/sparse-export/candidate.test",
+        "./internal/fsutil"
+      ],
+      "exit_code": 0,
+      "seconds": 0.5843251571059227
+    },
+    {
+      "label": "baseline-permission-regression",
+      "command": [
+        "/tmp/collections-perf/sparse-export/baseline.test",
+        "-test.run=^TestSparseExportIndependentPermissions$",
+        "-test.v"
+      ],
+      "exit_code": 1,
+      "seconds": 0.0026752420235425234
+    },
+    {
+      "label": "candidate-tests",
+      "command": [
+        "/tmp/collections-perf/sparse-export/candidate.test",
+        "-test.run=TestSparse|TestFilter",
+        "-test.v"
+      ],
+      "exit_code": 0,
+      "seconds": 0.008689120877534151
+    },
+    {
+      "label": "candidate-race",
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "-modfile=/tmp/collections-perf/post-rebase-io/build.mod",
+        "-buildvcs=false",
+        "-overlay=/tmp/collections-perf/sparse-export/candidate-overlay.json",
+        "./internal/fsutil",
+        "-run=^TestSparse",
+        "-count=1"
+      ],
+      "exit_code": 0,
+      "seconds": 1.9568943069316447
+    },
+    {
+      "label": "cli-disk-only-build",
+      "command": [
+        "go",
+        "build",
+        "-modfile=/tmp/collections-perf/post-rebase-io/build.mod",
+        "-buildvcs=false",
+        "-overlay=/tmp/collections-perf/sparse-export/cli-disk-only-overlay.json",
+        "-o",
+        "/tmp/collections-perf/sparse-export/dagger-disk-only",
+        "./cmd/dagger"
+      ],
+      "exit_code": 0,
+      "seconds": 9.64303884585388
+    },
+    {
+      "label": "cli-key-and-disk-build",
+      "command": [
+        "go",
+        "build",
+        "-modfile=/tmp/collections-perf/post-rebase-io/build.mod",
+        "-buildvcs=false",
+        "-overlay=/tmp/collections-perf/sparse-export/cli-key-and-disk-overlay.json",
+        "-o",
+        "/tmp/collections-perf/sparse-export/dagger-key-and-disk",
+        "./cmd/dagger"
+      ],
+      "exit_code": 0,
+      "seconds": 4.7938532589469105
+    }
+  ],
+  "sha256": {
+    "diskwriter.go": "cd137ef0b90288860e22b3dae32f0a740999a2929ec0913c5766d078ea366ea1",
+    "diskwriter-baseline.go": "f0834f1b0196e8dac64d62313ef603d8d28c4c79f7a4225c08abea62c2af9f72",
+    "artifact_list-current.go": "7ebc265dff821644d82e61721262f3e1c6585ae1cde6d66472f56fb3efbb58ff",
+    "sparse_export_test.go": "e3183ede717824b1f62e22a18f2211292e22e33f528c00fe47fbcb21acb5c758",
+    "sparse_export_benchmark_test.go": "bd74c11fb378852ff41338e3e0c23e9bbe4a634fdeb9fa2faabe88ee91db33c4",
+    "baseline-overlay.json": "18213c894b94f14415854fed4ff4bec0872a52730807df9db18dc1571237bf56",
+    "candidate-overlay.json": "b2034d755bc52ad8a7c29adeb060034974dbadee4ac06ddb40fa45384f448b3b",
+    "cli-disk-only-overlay.json": "5fa1fa3211fadc24c7ca9fff74d192084126857e6926b140e50192bb8df941e7",
+    "cli-key-and-disk-overlay.json": "7ebae06856d02b998260aa5f45a55145028bb51e46756a2c22b35935ad3b9fc3",
+    "dagger-disk-only": "70b77019ae006d9582d7891795c87228c1a24a0aad973fbab452bbc55ab91592",
+    "dagger-key-and-disk": "42c9f5310e251670da6ffcb3dc07c3acbe1bd01cb0473acaedb23ba19eb5bfd5",
+    "baseline.test": "55bd40c211fc6292ca15d56f87a0629fbde7a22d25601f1250260795680e0779",
+    "candidate.test": "752aaf44ade9e31dcc591eb992e93f3962254ce2d78d686e0e36765d0fc6f2ec"
+  }
+}

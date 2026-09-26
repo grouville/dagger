@@ -1,0 +1,14 @@
+{
+  "status": "failed setup attempt; excluded from performance results",
+  "variant": "control",
+  "command": [
+    "/tmp/collections-perf/rebase-main/dagger",
+    "--engine", "container://dagger-engine.collections-disk-abba-2",
+    "-y", "generate", "dagger-go-sdk/generate"
+  ],
+  "exit_code": 1,
+  "reported_command_seconds": 32.3,
+  "error": "failed to load module dependencies: static TS metadata stale: changed input sdk/client.gen.ts; automatic regeneration is not implemented in this prototype",
+  "interpretation": "The experimental frozen TS metadata guard correctly rejects a regenerated client during greetings dependency loading. Do not bypass it or classify this setup failure as constructor-cache performance.",
+  "next_setup": "Run normal Go SDK generation with only the backend scope temporarily selected, restoring original dagger.toml before any correctness or timing command. Backend public signatures are unchanged."
+}

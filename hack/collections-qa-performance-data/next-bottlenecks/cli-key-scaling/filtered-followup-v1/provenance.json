@@ -1,0 +1,43 @@
+{
+  "mode": "local-only; Cloud/OTLP/analytics disabled",
+  "cli_commands": 20,
+  "warmups": 2,
+  "measured_alternating_pairs": 8,
+  "separate_profiled_commands": 2,
+  "operation": [
+    "check",
+    "-l",
+    "--all",
+    "go/modules/tests/run",
+    "--go-module=.",
+    "--go-test=TestFormatResponse"
+  ],
+  "workspace": "/tmp/collections-perf/cli-key-scaling/ux-local-production-v2/greetings",
+  "engine": "dagger-engine.collections-disk-abba-2",
+  "engine_proof": {
+    "name": "dagger-engine.collections-disk-abba-2",
+    "id": "e7457765f81a0dde504642bdd20304d48f045d995853e3dcdd2a5c3f85ad3abc",
+    "image_id": "sha256:b00e366e582ab98f0e4a7907163f338b6be3bfa13b10f3ad6bac3d699cd25a07",
+    "sha256": "a1b41acdd93b65fd0a3baf3078f70ef51ab1293a0c5526f473e60c57cc875cf5"
+  },
+  "prior_trial": "/tmp/collections-perf/cli-key-scaling/ux-local-production-v2",
+  "selected_cli_paths": {
+    "baseline": "/tmp/collections-perf/cli-key-scaling/dagger-baseline",
+    "candidate": "/tmp/collections-perf/sparse-export/production/dagger-production"
+  },
+  "selected_cli_sha256": {
+    "baseline": "3ce20fa55226bcb72155e47dbd99c8aa17b86da7799a4495976910fe92f6ce97",
+    "candidate": "0c841d64a3aad06b082ad9bb0beb618f6d07e86e8ce83008e5621e7b878e86bb"
+  },
+  "source_before": {
+    "main.go": "108029a457668cec1724f9905460a83178882b601df4775380eecde9d78ce86c",
+    "main_test.go": "5605ebadd175eb2e6836f77dcda6006b2ba1accee404c034d85a61f64578958f",
+    "dagger.toml": "fa3e76ed17cd120a0e5b5655a27a63a7dd7bae05a63dc43ea391fcac6991e3ad",
+    "dagger.lock": "c2d3062b2f0e3463cc2bab1a85cebfe5a394ec79545c8a99b9b2979b1d4ca81c"
+  },
+  "empty_config_reused": "/tmp/collections-perf/cli-key-scaling/ux-local-production-v2/empty-config",
+  "driver_sha256": "4c2bd8aabfa199bc1ecb7a5b4260cd8570c07bbe94698939a956a6d4d0f27dd3",
+  "expected_stdout_sha256": "d970362779286df20ff90dd031cc2914a35166ee6de3db4431d3660e3e2088dc",
+  "measurement": "new CLI spawn through blocking waitpid observation; no profiler on measured pairs; outputs persisted after exit",
+  "profile_boundary": "separate --profile plus CLI CPUPROFILE/runtime trace; their wall times excluded from comparison"
+}
