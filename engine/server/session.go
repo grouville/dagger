@@ -673,9 +673,10 @@ func (client *clientRuntime) shutdownMetrics(ctx context.Context) error {
 		client.metricMu.Unlock()
 		return nil
 	}
-	var errs error
-	errs = errors.Join(errs, client.meterProvider.ForceFlush(ctx))
-	errs = errors.Join(errs, client.meterProvider.Shutdown(ctx))
+	// Each PeriodicReader performs its final collection and export in Shutdown.
+	// An immediately preceding ForceFlush collects the same readers again and
+	// adds another collection to the session Cloud queue.
+	err := client.meterProvider.Shutdown(ctx)
 	client.meterProvider = nil
 	client.metricExporter = nil
 	client.metricMu.Unlock()
@@ -684,7 +685,7 @@ func (client *clientRuntime) shutdownMetrics(ctx context.Context) error {
 	client.telemetryDebug.MeterProviders = 0
 	client.telemetryDebug.ConfiguredMetricReaders = 0
 	client.stateMu.Unlock()
-	return errs
+	return err
 }
 
 // shutdownTelemetry is the final session telemetry barrier. Callers must first
