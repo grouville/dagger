@@ -1,0 +1,439 @@
+--- /dev/null
++++ b/core/typedef_bulk.go
+@@ -0,0 +1,144 @@
++package core
++
++import (
++	"container/heap"
++
++	"github.com/dagger/dagger/dagql"
++)
++
++// WithFunctions is equivalent to applying WithFunction in input order. It
++// publishes an immutable final object while constructing its member slice once.
++// It does not retain a builder, index, or mutable cache on the returned object.
++func (obj *ObjectTypeDef) WithFunctions(functions dagql.ObjectResultArray[*Function]) *ObjectTypeDef {
++	if len(functions) == 1 {
++		return obj.WithFunction(functions[0])
++	}
++	obj = obj.Clone()
++	obj.Functions = replaceTypeDefFunctions(obj.Functions, functions)
++	return obj
++}
++
++func (iface *InterfaceTypeDef) WithFunctions(functions dagql.ObjectResultArray[*Function]) *InterfaceTypeDef {
++	if len(functions) == 1 {
++		return iface.WithFunction(functions[0])
++	}
++	iface = iface.Clone()
++	iface.Functions = replaceTypeDefFunctions(iface.Functions, functions)
++	return iface
++}
++
++// The historical rule is first matching slot, where either normalized Name or
++// nonempty OriginalName matches. A replacement can create alias collisions
++// with another slot. Two single-value maps would lose that first-slot behavior.
++// Indexed min-heaps preserve it, lazily removing invalidated index versions.
++// Unique appends are O(n); adversarial renaming is O(n log n), with O(n) space.
++func replaceTypeDefFunctions(out, functions dagql.ObjectResultArray[*Function]) dagql.ObjectResultArray[*Function] {
++	versions := make([]uint64, len(out), len(out)+len(functions))
++	names := newTypeDefMemberIndex(&versions)
++	originals := newTypeDefMemberIndex(&versions)
++	index := func(i int) {
++		fn := out[i].Self()
++		if fn == nil {
++			return
++		}
++		p := typeDefMemberPosition{index: i, version: versions[i]}
++		names.add(fn.Name, p)
++		if fn.OriginalName != "" {
++			originals.add(fn.OriginalName, p)
++		}
++	}
++	for i := range out {
++		index(i)
++	}
++	for _, res := range functions {
++		fn := res.Self()
++		slot := -1
++		if fn != nil {
++			slot = names.first(fn.Name)
++			if fn.OriginalName != "" {
++				other := originals.first(fn.OriginalName)
++				if other >= 0 && (slot < 0 || other < slot) {
++					slot = other
++				}
++			}
++		}
++		if slot < 0 {
++			out = append(out, res)
++			versions = append(versions, 0)
++			slot = len(out) - 1
++		} else {
++			out[slot] = res
++			versions[slot]++
++		}
++		index(slot)
++	}
++	return out
++}
++
++type typeDefMemberPosition struct {
++	index   int
++	version uint64
++}
++type typeDefMemberHeap []typeDefMemberPosition
++
++func (h typeDefMemberHeap) Len() int           { return len(h) }
++func (h typeDefMemberHeap) Less(i, j int) bool { return h[i].index < h[j].index }
++func (h typeDefMemberHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
++func (h *typeDefMemberHeap) Push(x any)        { *h = append(*h, x.(typeDefMemberPosition)) }
++func (h *typeDefMemberHeap) Pop() any {
++	old := *h
++	n := len(old)
++	x := old[n-1]
++	*h = old[:n-1]
++	return x
++}
++
++// Common unique names occupy only one map entry. A heap is allocated only for
++// real alias collisions; this keeps ordinary generated modules linear and avoids
++// two heap objects per function.
++type typeDefMemberIndex struct {
++	heads      map[string]typeDefMemberPosition
++	collisions map[string]*typeDefMemberHeap
++	versions   *[]uint64
++}
++
++func newTypeDefMemberIndex(versions *[]uint64) typeDefMemberIndex {
++	return typeDefMemberIndex{heads: map[string]typeDefMemberPosition{}, versions: versions}
++}
++func (x *typeDefMemberIndex) first(key string) int {
++	p, ok := x.heads[key]
++	if ok && (*x.versions)[p.index] == p.version {
++		return p.index
++	}
++	if h := x.collisions[key]; h != nil {
++		for h.Len() > 0 {
++			p = heap.Pop(h).(typeDefMemberPosition)
++			if (*x.versions)[p.index] == p.version {
++				x.heads[key] = p
++				return p.index
++			}
++		}
++	}
++	delete(x.heads, key)
++	return -1
++}
++func (x *typeDefMemberIndex) add(key string, p typeDefMemberPosition) {
++	if x.first(key) < 0 {
++		x.heads[key] = p
++		return
++	}
++	prior := x.heads[key]
++	if p.index < prior.index {
++		x.heads[key] = p
++		p = prior
++	}
++	if x.collisions == nil {
++		x.collisions = map[string]*typeDefMemberHeap{}
++	}
++	h := x.collisions[key]
++	if h == nil {
++		h = &typeDefMemberHeap{}
++		x.collisions[key] = h
++	}
++	heap.Push(h, p)
++}
+--- /dev/null
++++ b/core/typedef_bulk_test.go
+@@ -0,0 +1,106 @@
++package core
++
++import (
++	"fmt"
++	"math/rand"
++	"testing"
++
++	"github.com/dagger/dagger/dagql"
++)
++
++func bulkTestFunction(t testing.TB, name, original string) dagql.ObjectResult[*Function] {
++	t.Helper()
++	fn := &Function{Name: name, OriginalName: original, Description: "preserved metadata"}
++	r, err := dagql.NewResultForCall(fn, &dagql.ResultCall{})
++	if err != nil {
++		t.Fatal(err)
++	}
++	return dagql.ObjectResult[*Function]{Result: r}
++}
++func sameBulkFunctions(t testing.TB, a, b dagql.ObjectResultArray[*Function]) {
++	t.Helper()
++	if len(a) != len(b) {
++		t.Fatalf("different lengths %d/%d", len(a), len(b))
++	}
++	for i := range a {
++		if a[i].Self() != b[i].Self() {
++			t.Fatalf("different member at %d: %v/%v", i, a[i].Self(), b[i].Self())
++		}
++	}
++}
++func TestBulkTypeDefFunctionsReplacementAndOwnership(t *testing.T) {
++	original := &ObjectTypeDef{Functions: dagql.ObjectResultArray[*Function]{bulkTestFunction(t, "alpha", "A"), bulkTestFunction(t, "beta", "B")}}
++	saved := append(dagql.ObjectResultArray[*Function](nil), original.Functions...)
++	// First replacement creates a duplicate normalized name at an earlier slot.
++	// The next must choose that earlier slot even when OriginalName matches later.
++	additions := dagql.ObjectResultArray[*Function]{bulkTestFunction(t, "beta", "A"), bulkTestFunction(t, "beta", "B"), {}, bulkTestFunction(t, "alpha", "B"), bulkTestFunction(t, "beta", "A")}
++	expected := original
++	for _, fn := range additions {
++		expected = expected.WithFunction(fn)
++	}
++	got := original.WithFunctions(additions)
++	sameBulkFunctions(t, expected.Functions, got.Functions)
++	sameBulkFunctions(t, saved, original.Functions)
++	if got == original {
++		t.Fatal("mutated original object")
++	}
++	ifc := &InterfaceTypeDef{Functions: saved}
++	wantIface := ifc
++	for _, fn := range additions {
++		wantIface = wantIface.WithFunction(fn)
++	}
++	sameBulkFunctions(t, wantIface.Functions, ifc.WithFunctions(additions).Functions)
++	sameBulkFunctions(t, saved, ifc.Functions)
++}
++func TestBulkTypeDefFunctionsRandomizedSequentialEquivalence(t *testing.T) {
++	rng := rand.New(rand.NewSource(741))
++	for trial := 0; trial < 250; trial++ {
++		base := &ObjectTypeDef{}
++		// Existing duplicated slots are legal input and deliberately exercised.
++		for i := 0; i < 10; i++ {
++			base.Functions = append(base.Functions, bulkTestFunction(t, fmt.Sprint(rng.Intn(8)), fmt.Sprint(rng.Intn(8))))
++		}
++		additions := make(dagql.ObjectResultArray[*Function], 100)
++		for i := range additions {
++			if rng.Intn(12) != 0 {
++				original := fmt.Sprint(rng.Intn(12))
++				if rng.Intn(7) == 0 {
++					original = ""
++				}
++				additions[i] = bulkTestFunction(t, fmt.Sprint(rng.Intn(12)), original)
++			}
++		}
++		want := base
++		for _, fn := range additions {
++			want = want.WithFunction(fn)
++		}
++		sameBulkFunctions(t, want.Functions, base.WithFunctions(additions).Functions)
++	}
++}
++
++var bulkTypeDefSink *ObjectTypeDef
++
++func BenchmarkBulkTypeDefFunctions(b *testing.B) {
++	for _, n := range []int{1, 10, 100, 1000} {
++		inputs := make(dagql.ObjectResultArray[*Function], n)
++		for i := range inputs {
++			inputs[i] = bulkTestFunction(b, fmt.Sprintf("f%d", i), fmt.Sprintf("Original%d", i))
++		}
++		b.Run(fmt.Sprintf("sequential/%d", n), func(b *testing.B) {
++			b.ReportAllocs()
++			for b.Loop() {
++				obj := &ObjectTypeDef{}
++				for _, fn := range inputs {
++					obj = obj.WithFunction(fn)
++				}
++				bulkTypeDefSink = obj
++			}
++		})
++		b.Run(fmt.Sprintf("bulk/%d", n), func(b *testing.B) {
++			b.ReportAllocs()
++			for b.Loop() {
++				bulkTypeDefSink = (&ObjectTypeDef{}).WithFunctions(inputs)
++			}
++		})
++	}
++}
+--- /dev/null
++++ b/core/schema/typedef_bulk.go
+@@ -0,0 +1,43 @@
++package schema
++
++import (
++	"context"
++	"fmt"
++
++	"github.com/dagger/dagger/core"
++	"github.com/dagger/dagger/dagql"
++)
++
++type typeDefWithFunctionsArgs struct {
++	Functions dagql.ArrayInput[core.FunctionID]
++}
++
++func loadTypeDefBulkFunctions(ctx context.Context, ids dagql.ArrayInput[core.FunctionID]) (dagql.ObjectResultArray[*core.Function], error) {
++	dag, err := core.CurrentDagqlServer(ctx)
++	if err != nil {
++		return nil, fmt.Errorf("failed to get dag server: %w", err)
++	}
++	functions := make(dagql.ObjectResultArray[*core.Function], len(ids))
++	for i, id := range ids {
++		fn, err := id.Load(ctx, dag)
++		if err != nil {
++			return nil, fmt.Errorf("failed to decode function %d: %w", i, err)
++		}
++		functions[i] = fn
++	}
++	return functions, nil
++}
++func (s *moduleSchema) objectTypeDefWithFunctions(ctx context.Context, obj *core.ObjectTypeDef, args typeDefWithFunctionsArgs) (*core.ObjectTypeDef, error) {
++	functions, err := loadTypeDefBulkFunctions(ctx, args.Functions)
++	if err != nil {
++		return nil, err
++	}
++	return obj.WithFunctions(functions), nil
++}
++func (s *moduleSchema) interfaceTypeDefWithFunctions(ctx context.Context, iface *core.InterfaceTypeDef, args typeDefWithFunctionsArgs) (*core.InterfaceTypeDef, error) {
++	functions, err := loadTypeDefBulkFunctions(ctx, args.Functions)
++	if err != nil {
++		return nil, err
++	}
++	return iface.WithFunctions(functions), nil
++}
+--- /dev/null
++++ b/core/schema/typedef_bulk_test.go
+@@ -0,0 +1,84 @@
++package schema
++
++import (
++	"context"
++	"testing"
++
++	"github.com/dagger/dagger/core"
++	"github.com/dagger/dagger/dagql"
++	"github.com/dagger/dagger/engine"
++	"github.com/stretchr/testify/require"
++)
++
++func TestBulkFunctionsResolverMetadataOwnership(t *testing.T) {
++	ctx := t.Context()
++	cache, err := dagql.NewCache(ctx, "", nil, nil)
++	require.NoError(t, err)
++	t.Cleanup(func() { require.NoError(t, cache.Close(context.Background())) })
++	ctx = dagql.ContextWithCache(ctx, cache)
++	ctx = engine.ContextWithClientMetadata(ctx, &engine.ClientMetadata{ClientID: "bulk-producer", SessionID: "bulk-producer"})
++	server := &currentTypeDefsTestServer{}
++	root := core.NewRoot(server)
++	ctx = core.ContextWithQuery(ctx, root)
++	base, err := NewCoreSchemaBase(ctx, server)
++	require.NoError(t, err)
++	dag, err := base.Fork(ctx, root, "v1.0.0")
++	require.NoError(t, err)
++	server.dag = dag
++	var td dagql.ObjectResult[*core.TypeDef]
++	require.NoError(t, dag.Select(ctx, dag.Root(), &td, dagql.Selector{Field: "typeDef"}, dagql.Selector{Field: "withKind", Args: []dagql.NamedInput{{Name: "kind", Value: core.TypeDefKindString}}}))
++	typeID, err := core.ResultIDInput(td)
++	require.NoError(t, err)
++	ids := dagql.ArrayInput[core.FunctionID]{}
++	for _, name := range []string{"first", "second"} {
++		var fn dagql.ObjectResult[*core.Function]
++		require.NoError(t, dag.Select(ctx, dag.Root(), &fn,
++			dagql.Selector{Field: "function", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String(name)}, {Name: "returnType", Value: typeID}}},
++			dagql.Selector{Field: "withDescription", Args: []dagql.NamedInput{{Name: "description", Value: dagql.String("retained metadata")}}},
++			dagql.Selector{Field: "withArg", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("value")}, {Name: "typeDef", Value: typeID}, {Name: "defaultValue", Value: core.JSON(`"default"`)}}},
++		))
++		id, err := core.ResultIDInput(fn)
++		require.NoError(t, err)
++		ids = append(ids, id)
++	}
++	var obj dagql.ObjectResult[*core.ObjectTypeDef]
++	require.NoError(t, dag.Select(ctx, dag.Root(), &obj, dagql.Selector{Field: "__objectTypeDef", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("Example")}}}))
++	sequential := obj
++	for _, id := range ids {
++		require.NoError(t, dag.Select(ctx, sequential, &sequential, dagql.Selector{Field: "__withFunction", Args: []dagql.NamedInput{{Name: "function", Value: id}}}))
++	}
++	var bulk dagql.ObjectResult[*core.ObjectTypeDef]
++	require.NoError(t, dag.Select(ctx, obj, &bulk, dagql.Selector{Field: "__withFunctions", Args: []dagql.NamedInput{{Name: "functions", Value: ids}}}))
++	require.Empty(t, obj.Self().Functions)
++	require.Len(t, bulk.Self().Functions, 2)
++	for i, fn := range bulk.Self().Functions {
++		want, err := sequential.Self().Functions[i].ID()
++		require.NoError(t, err)
++		got, err := fn.ID()
++		require.NoError(t, err)
++		require.Equal(t, want.EngineResultID(), got.EngineResultID())
++		require.Equal(t, "retained metadata", fn.Self().Description)
++		require.JSONEq(t, `"default"`, string(fn.Self().Args[0].Self().DefaultValue))
++	}
++	// A final result must keep its function/argument/type graph alive after the
++	// input session ends, using the ordinary Dagger attachment/ownership path.
++	consumer := engine.ContextWithClientMetadata(ctx, &engine.ClientMetadata{ClientID: "bulk-consumer", SessionID: "bulk-consumer"})
++	bulkID, err := bulk.ID()
++	require.NoError(t, err)
++	held, err := dag.Load(consumer, bulkID)
++	require.NoError(t, err)
++	require.NoError(t, cache.ReleaseSession(ctx, "bulk-producer"))
++	typed, ok := held.(dagql.ObjectResult[*core.ObjectTypeDef])
++	require.True(t, ok)
++	for _, fn := range typed.Self().Functions {
++		id, err := fn.ID()
++		require.NoError(t, err)
++		loaded, err := dag.Load(consumer, id)
++		require.NoError(t, err)
++		require.Equal(t, "Function", loaded.Type().Name())
++		argID, err := fn.Self().Args[0].ID()
++		require.NoError(t, err)
++		_, err = dag.Load(consumer, argID)
++		require.NoError(t, err)
++	}
++}
+--- a/core/schema/module.go
++++ b/core/schema/module.go
+@@ -630,6 +630,7 @@
+ 		dagql.Func("__withSourceModuleName", s.objectTypeDefWithSourceModuleName),
+ 		dagql.Func("__withField", s.objectTypeDefWithField),
+ 		dagql.Func("__withFunction", s.objectTypeDefWithFunction),
++		dagql.Func("__withFunctions", s.objectTypeDefWithFunctions),
+ 		dagql.Func("__withConstructor", s.objectTypeDefWithConstructor),
+ 	}.Install(dag)
+ 	dagql.Fields[*core.InterfaceTypeDef]{
+@@ -639,6 +640,7 @@
+ 		dagql.Func("__withSourceMap", s.interfaceTypeDefWithSourceMap),
+ 		dagql.Func("__withSourceModuleName", s.interfaceTypeDefWithSourceModuleName),
+ 		dagql.Func("__withFunction", s.interfaceTypeDefWithFunction),
++		dagql.Func("__withFunctions", s.interfaceTypeDefWithFunctions),
+ 	}.Install(dag)
+ 	dagql.Fields[*core.InputTypeDef]{
+ 		dagql.Func("fields", s.inputTypeDefFields).
+--- a/core/module.go
++++ b/core/module.go
+@@ -1736,6 +1736,7 @@
+ 				}
+ 			}
+ 		}
++		var changedFunctionIDs dagql.ArrayInput[dagql.ID[*Function]]
+ 		for _, fn := range obj.Self().Functions {
+ 			updatedFn, err := namespaceFunction(fn)
+ 			if err != nil {
+@@ -1746,12 +1747,15 @@
+ 				if err != nil {
+ 					return typeDef, fmt.Errorf("namespace object function id: %w", err)
+ 				}
+-				if err := dag.Select(ctx, updatedObj, &updatedObj, dagql.Selector{
+-					Field: "__withFunction",
+-					Args:  []dagql.NamedInput{{Name: "function", Value: fnID}},
+-				}); err != nil {
+-					return typeDef, fmt.Errorf("namespace object function: %w", err)
+-				}
++				changedFunctionIDs = append(changedFunctionIDs, fnID)
++			}
++		}
++		if len(changedFunctionIDs) > 0 {
++			if err := dag.Select(ctx, updatedObj, &updatedObj, dagql.Selector{
++				Field: "__withFunctions",
++				Args:  []dagql.NamedInput{{Name: "functions", Value: changedFunctionIDs}},
++			}); err != nil {
++				return typeDef, fmt.Errorf("namespace object function: %w", err)
+ 			}
+ 		}
+ 		if obj.Self().Constructor.Valid {

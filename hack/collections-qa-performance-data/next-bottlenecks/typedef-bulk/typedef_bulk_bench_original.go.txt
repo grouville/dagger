@@ -1,0 +1,138 @@
+package core
+
+import (
+	"container/heap"
+
+	"github.com/dagger/dagger/dagql"
+)
+
+// WithFunctions is equivalent to applying WithFunction in input order. It
+// publishes an immutable final object while constructing its member slice once.
+// It does not retain a builder, index, or mutable cache on the returned object.
+func (obj *ObjectTypeDef) WithFunctions(functions dagql.ObjectResultArray[*Function]) *ObjectTypeDef {
+	obj = obj.Clone()
+	obj.Functions = replaceTypeDefFunctions(obj.Functions, functions)
+	return obj
+}
+
+func (iface *InterfaceTypeDef) WithFunctions(functions dagql.ObjectResultArray[*Function]) *InterfaceTypeDef {
+	iface = iface.Clone()
+	iface.Functions = replaceTypeDefFunctions(iface.Functions, functions)
+	return iface
+}
+
+// The historical rule is first matching slot, where either normalized Name or
+// nonempty OriginalName matches. A replacement can create alias collisions
+// with another slot. Two single-value maps would lose that first-slot behavior.
+// Indexed min-heaps preserve it, lazily removing invalidated index versions.
+// Unique appends are O(n); adversarial renaming is O(n log n), with O(n) space.
+func replaceTypeDefFunctions(out, functions dagql.ObjectResultArray[*Function]) dagql.ObjectResultArray[*Function] {
+	versions := make([]uint64, len(out), len(out)+len(functions))
+	names := newTypeDefMemberIndex(&versions)
+	originals := newTypeDefMemberIndex(&versions)
+	index := func(i int) {
+		fn := out[i].Self()
+		if fn == nil {
+			return
+		}
+		p := typeDefMemberPosition{index: i, version: versions[i]}
+		names.add(fn.Name, p)
+		if fn.OriginalName != "" {
+			originals.add(fn.OriginalName, p)
+		}
+	}
+	for i := range out {
+		index(i)
+	}
+	for _, res := range functions {
+		fn := res.Self()
+		slot := -1
+		if fn != nil {
+			slot = names.first(fn.Name)
+			if fn.OriginalName != "" {
+				other := originals.first(fn.OriginalName)
+				if other >= 0 && (slot < 0 || other < slot) {
+					slot = other
+				}
+			}
+		}
+		if slot < 0 {
+			out = append(out, res)
+			versions = append(versions, 0)
+			slot = len(out) - 1
+		} else {
+			out[slot] = res
+			versions[slot]++
+		}
+		index(slot)
+	}
+	return out
+}
+
+type typeDefMemberPosition struct {
+	index   int
+	version uint64
+}
+type typeDefMemberHeap []typeDefMemberPosition
+
+func (h typeDefMemberHeap) Len() int           { return len(h) }
+func (h typeDefMemberHeap) Less(i, j int) bool { return h[i].index < h[j].index }
+func (h typeDefMemberHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+func (h *typeDefMemberHeap) Push(x any)        { *h = append(*h, x.(typeDefMemberPosition)) }
+func (h *typeDefMemberHeap) Pop() any {
+	old := *h
+	n := len(old)
+	x := old[n-1]
+	*h = old[:n-1]
+	return x
+}
+
+// Common unique names occupy only one map entry. A heap is allocated only for
+// real alias collisions; this keeps ordinary generated modules linear and avoids
+// two heap objects per function.
+type typeDefMemberIndex struct {
+	heads      map[string]typeDefMemberPosition
+	collisions map[string]*typeDefMemberHeap
+	versions   *[]uint64
+}
+
+func newTypeDefMemberIndex(versions *[]uint64) typeDefMemberIndex {
+	return typeDefMemberIndex{heads: map[string]typeDefMemberPosition{}, versions: versions}
+}
+func (x *typeDefMemberIndex) first(key string) int {
+	p, ok := x.heads[key]
+	if ok && (*x.versions)[p.index] == p.version {
+		return p.index
+	}
+	if h := x.collisions[key]; h != nil {
+		for h.Len() > 0 {
+			p = heap.Pop(h).(typeDefMemberPosition)
+			if (*x.versions)[p.index] == p.version {
+				x.heads[key] = p
+				return p.index
+			}
+		}
+	}
+	delete(x.heads, key)
+	return -1
+}
+func (x *typeDefMemberIndex) add(key string, p typeDefMemberPosition) {
+	if x.first(key) < 0 {
+		x.heads[key] = p
+		return
+	}
+	prior := x.heads[key]
+	if p.index < prior.index {
+		x.heads[key] = p
+		p = prior
+	}
+	if x.collisions == nil {
+		x.collisions = map[string]*typeDefMemberHeap{}
+	}
+	h := x.collisions[key]
+	if h == nil {
+		h = &typeDefMemberHeap{}
+		x.collisions[key] = h
+	}
+	heap.Push(h, p)
+}

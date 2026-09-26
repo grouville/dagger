@@ -1,0 +1,219 @@
+--- a/core/schema/modulesource.go
++++ b/core/schema/modulesource.go
+@@ -4,6 +4,7 @@
+ 	"bytes"
+ 	"cmp"
+ 	"context"
++	"crypto/sha256"
+ 	"encoding/json"
+ 	"errors"
+ 	"fmt"
+@@ -17,6 +18,7 @@
+ 	"github.com/dagger/dagger/core/gitref"
+ 	"github.com/dagger/dagger/core/modules"
+ 	"github.com/dagger/dagger/core/sdk"
++	dangv2 "github.com/dagger/dagger/core/sdk/dang/v2"
+ 	"github.com/dagger/dagger/core/workspace"
+ 	"github.com/dagger/dagger/dagql"
+ 	"github.com/dagger/dagger/dagql/call"
+@@ -24,6 +26,7 @@
+ 	"github.com/dagger/dagger/engine/client/pathutil"
+ 	"github.com/dagger/dagger/engine/engineutil"
+ 	"github.com/dagger/dagger/engine/slog"
++	"github.com/dagger/dagger/engine/wcprof"
+ 	"github.com/dagger/dagger/util/hashutil"
+ 	telemetry "github.com/dagger/otel-go"
+ 	"golang.org/x/sync/errgroup"
+@@ -3213,7 +3216,13 @@
+ 	var initialized *core.Module
+ 
+ 	typeDefsImpl, typeDefsEnabled := src.Self().SDKImpl.AsModuleTypes()
+-	if typeDefsEnabled {
++	staticMod, staticUsed, err := s.prototypeStaticTypeScriptTypes(ctx, dag, mod)
++	if err != nil {
++		return nil, err
++	}
++	if staticUsed {
++		initialized = staticMod
++	} else if typeDefsEnabled {
+ 		resultInst, terr := typeDefsImpl.ModuleTypes(ctx, mod.Deps, src, mod)
+ 		switch {
+ 		case errors.Is(terr, core.ErrStaleSDKCapability):
+@@ -3227,7 +3236,7 @@
+ 			initialized = resultInst.Self()
+ 		}
+ 	}
+-	if !typeDefsEnabled {
++	if !typeDefsEnabled && !staticUsed {
+ 		initialized, err = s.moduleDefViaRuntime(ctx, dag, mod, runtimeImpl)
+ 		if err != nil {
+ 			return nil, err
+@@ -3319,12 +3328,14 @@
+ 	src := mod.Source.Value
+ 	modName := src.Self().ModuleName
+ 
+-	runtime, err := runtimeImpl.Runtime(ctx, mod.Deps, src)
+-	if err != nil {
+-		return nil, fmt.Errorf("failed to get module runtime: %w", err)
+-	}
+-	if ctr, ok := runtime.AsContainer(); ok {
+-		mod.Runtime = dagql.NonNull(ctr)
++	if !mod.Runtime.Valid {
++		runtime, err := runtimeImpl.Runtime(ctx, mod.Deps, src)
++		if err != nil {
++			return nil, fmt.Errorf("failed to get module runtime: %w", err)
++		}
++		if ctr, ok := runtime.AsContainer(); ok {
++			mod.Runtime = dagql.NonNull(ctr)
++		}
+ 	}
+ 
+ 	ctx, span := core.Tracer(ctx).Start(ctx, "asModule getModDef", telemetry.Internal())
+@@ -3552,6 +3563,10 @@
+ 	ctx context.Context,
+ 	src dagql.ObjectResult[*core.ModuleSource],
+ 	args struct {
++		// Experimental engine-packaged module runtime. Its identity participates
++		// in the call and module variant, and its result is retained by Module.
++		PrebuiltRuntime dagql.Optional[dagql.ID[*core.Container]] `internal:"true"`
++
+ 		// This internal-only flag allows us to force SDK modules to enable default function
+ 		// caching even when they are on older modules, which ensures they don't see a regression
+ 		// right after function caching is enabled. It can be removed after SDKs have been updated
+@@ -3698,6 +3713,19 @@
+ 		}
+ 		mod.WorkspaceConfig = wsConfig
+ 		mod.DefaultsFromDotEnv = args.LegacyDefaultsFromDotEnv
++	}
++
++	if args.PrebuiltRuntime.Valid {
++		runtime, err := args.PrebuiltRuntime.Value.Load(ctx, dag)
++		if err != nil {
++			return inst, fmt.Errorf("load prebuilt runtime: %w", err)
++		}
++		runtimeDigest, err := runtime.ContentPreferredDigest(ctx)
++		if err != nil {
++			return inst, err
++		}
++		mod.Runtime = dagql.NonNull(runtime)
++		mod.AsModuleVariantDigest = hashutil.HashStrings(mod.AsModuleVariantDigest, "prebuiltRuntime", runtimeDigest.String()).String()
+ 	}
+ 
+ 	// Initialize module based on SDK presence
+@@ -4145,3 +4173,116 @@
+ 	}
+ 	return "", fmt.Errorf("unable to find version %s", match)
+ }
++
++// prototypeStaticTypeScriptTypes is a generic, opt-in static metadata experiment.
++// It keeps original TypeScript calls and replaces registration only. No result
++// cache or cross-session authority is introduced. A source mismatch fails closed
++// until a real SDK generator can regenerate this metadata automatically.
++func (s *moduleSourceSchema) prototypeStaticTypeScriptTypes(ctx context.Context, dag *dagql.Server, mod *core.Module) (_ *core.Module, _ bool, rerr error) {
++	src := mod.Source.Value
++	if src.Self().SDK == nil || src.Self().SDK.Source != "typescript" {
++		return nil, false, nil
++	}
++	ctx, op := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "typescript.staticMetadata", wcprof.OpOpts{})
++	defer func() { op.EndErr(rerr) }()
++	var dir dagql.ObjectResult[*core.Directory]
++	if err := dag.Select(ctx, src, &dir, dagql.Selector{Field: "directory", Args: []dagql.NamedInput{{Name: "path", Value: dagql.String(".")}}}); err != nil {
++		return nil, false, err
++	}
++	const metadataDir = ".dagger-static-types"
++	paths, err := dir.Self().Glob(ctx, dir, "**/*")
++	if err != nil {
++		return nil, false, err
++	}
++	manifestPath := metadataDir + "/manifest.json"
++	if !slices.Contains(paths, manifestPath) {
++		return nil, false, nil
++	}
++	readFile := func(path string) ([]byte, error) {
++		var file dagql.ObjectResult[*core.File]
++		if err := dag.Select(ctx, dir, &file, dagql.Selector{Field: "file", Args: []dagql.NamedInput{{Name: "path", Value: dagql.String(path)}}}); err != nil {
++			return nil, err
++		}
++		return file.Self().Contents(ctx, file, nil, nil)
++	}
++	data, err := readFile(manifestPath)
++	if err != nil {
++		return nil, false, err
++	}
++	var manifest struct {
++		Version          string            `json:"version"`
++		ModuleName       string            `json:"moduleName"`
++		Description      string            `json:"description"`
++		Inputs           map[string]string `json:"inputs"`
++		EntrypointSHA256 string            `json:"entrypointSHA256"`
++	}
++	if err := json.Unmarshal(data, &manifest); err != nil {
++		return nil, false, fmt.Errorf("static TS metadata manifest: %w", err)
++	}
++	if manifest.Version != "ts-static-metadata-v1" || len(manifest.Inputs) == 0 {
++		return nil, false, fmt.Errorf("unsupported static TS metadata version")
++	}
++	if manifest.ModuleName != src.Self().ModuleOriginalName {
++		return nil, false, fmt.Errorf("static TS metadata module identity mismatch: got %q, expected %q", manifest.ModuleName, src.Self().ModuleOriginalName)
++	}
++	seen := make(map[string]bool, len(manifest.Inputs))
++	for _, path := range paths {
++		if strings.HasSuffix(path, "/") || strings.HasPrefix(path, "node_modules/") || strings.HasPrefix(path, ".git/") {
++			continue
++		}
++		if strings.HasPrefix(path, metadataDir+"/") {
++			if path != manifestPath && path != metadataDir+"/main.dang" && path != metadataDir+"/module.json" {
++				return nil, false, fmt.Errorf("static TS metadata stale: new metadata file %q", path)
++			}
++			continue
++		}
++		expected, ok := manifest.Inputs[path]
++		if !ok {
++			return nil, false, fmt.Errorf("static TS metadata stale: new input %q; automatic regeneration is not implemented in this prototype", path)
++		}
++		var digest dagql.String
++		if err := dag.Select(ctx, dir, &digest,
++			dagql.Selector{Field: "file", Args: []dagql.NamedInput{{Name: "path", Value: dagql.String(path)}}},
++			dagql.Selector{Field: "digest", Args: []dagql.NamedInput{{Name: "excludeMetadata", Value: dagql.Boolean(true)}}},
++		); err != nil {
++			return nil, false, err
++		}
++		if string(digest) != expected {
++			return nil, false, fmt.Errorf("static TS metadata stale: changed input %q; automatic regeneration is not implemented in this prototype", path)
++		}
++		seen[path] = true
++	}
++	for path := range manifest.Inputs {
++		if !seen[path] {
++			return nil, false, fmt.Errorf("static TS metadata stale: removed input %q", path)
++		}
++	}
++	entrypointData, err := readFile(metadataDir + "/main.dang")
++	if err != nil {
++		return nil, false, err
++	}
++	if fmt.Sprintf("%x", sha256.Sum256(entrypointData)) != manifest.EntrypointSHA256 {
++		return nil, false, fmt.Errorf("static TS metadata stale: changed generated TypeDefs")
++	}
++	// The sidecar uses the existing types driver. Its result belongs to the
++	// current module invocation; execution still uses src.SDKImpl.AsRuntime().
++	staticSource := src.Self().Clone()
++	staticSource.Entrypoint = &modules.ModuleEntrypointConfig{Kind: modules.ModuleEntrypointKindDang, Source: "./" + metadataDir}
++	staticSrc, err := dagql.NewObjectResultForCurrentCall(ctx, dag, staticSource)
++	if err != nil {
++		return nil, false, err
++	}
++	moduleContext, err := sdk.ScopeModuleForSDKOperation(ctx, mod, "prototypeStaticTypeScriptTypes", dag)
++	if err != nil {
++		return nil, false, err
++	}
++	typesCtx, typesOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "typescript.staticMetadata.evaluate", wcprof.OpOpts{})
++	inst, err := dangv2.EntrypointModuleTypes(typesCtx, mod.Deps, staticSrc, moduleContext)
++	typesOp.EndErr(err)
++	if err != nil {
++		return nil, false, fmt.Errorf("static TS metadata types: %w", err)
++	}
++	initialized := inst.Self().Clone()
++	initialized.Description = manifest.Description
++	return initialized, true, nil
++}

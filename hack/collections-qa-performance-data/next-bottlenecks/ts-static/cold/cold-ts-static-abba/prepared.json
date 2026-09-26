@@ -1,0 +1,59 @@
+{
+  "base_image": "sha256:29d31daa5bc3f342901c78601dce8ab7ab1371b121a59b775b47aa53b8357277",
+  "sdk_manifest": "sha256:2a8f755cfe5322aeeee861f646c58d6b796a585d2794db47b5b71ba14f6f3fef",
+  "binaries": {
+    "control": [
+      "/tmp/collections-perf/sdk-edit-audit/engine-combined",
+      "b4955e7056c1e646077a2e6a8a74d77e8a6763a31e921feeb792ce5d8274dcac"
+    ],
+    "static": [
+      "/tmp/collections-perf/sdk-edit-audit/ts-static/engine",
+      "a1b41acdd93b65fd0a3baf3078f70ef51ab1293a0c5526f473e60c57cc875cf5"
+    ]
+  },
+  "blobs_sha256": {
+    "/tmp/collections-perf/prebuilt-ts-sdk/blobs/423a85a02644774d5cf1f437a7b3be1a740baddbed9d9527fe7fa6f166f367bd": "423a85a02644774d5cf1f437a7b3be1a740baddbed9d9527fe7fa6f166f367bd",
+    "/tmp/collections-perf/prebuilt-ts-sdk/blobs/e0b4ffc34649759e908bb75b4fedc1dd4d872476c40429871b1a6a01931a380d": "e0b4ffc34649759e908bb75b4fedc1dd4d872476c40429871b1a6a01931a380d",
+    "/tmp/collections-perf/prebuilt-ts-sdk/blobs/49f3f66b9573d2f90c3222ffb0b6132f7dea7ead6fd45a47120068899128e8ee": "49f3f66b9573d2f90c3222ffb0b6132f7dea7ead6fd45a47120068899128e8ee",
+    "/tmp/collections-perf/half-second/node-compile/blobs/2a8f755cfe5322aeeee861f646c58d6b796a585d2794db47b5b71ba14f6f3fef": "2a8f755cfe5322aeeee861f646c58d6b796a585d2794db47b5b71ba14f6f3fef",
+    "/tmp/collections-perf/half-second/node-compile/blobs/a4da70f8c5962a44f9c53006838627370fb35f9d9bd005a68548be8cbb54125b": "a4da70f8c5962a44f9c53006838627370fb35f9d9bd005a68548be8cbb54125b",
+    "/tmp/collections-perf/half-second/node-compile/blobs/5ad995a6818257c1d504da0c28a2aecc391d8b1238a34c967c555fd0935a4f61": "5ad995a6818257c1d504da0c28a2aecc391d8b1238a34c967c555fd0935a4f61"
+  },
+  "input_sha256": {
+    "/tmp/collections-perf/rebase-main/dagger": "aea19ce8b7849905113c388b353b6a686aca6a55fbb0fe714f406a5bb8d2356d",
+    "/tmp/collections-perf/sdk-edit-audit/ts-static/greetings/main_test.go": "5605ebadd175eb2e6836f77dcda6006b2ba1accee404c034d85a61f64578958f",
+    "/tmp/collections-perf/sdk-edit-audit/ts-static/greetings/.dagger/modules/frontend/.dagger-static-types/main.dang": "8cb8c0990fa1432e9efdd077453fc776b5a49c62711daf7843da417f6e29d9fa",
+    "/tmp/collections-perf/sdk-edit-audit/ts-static/greetings/.dagger/modules/frontend/.dagger-static-types/manifest.json": "98768c709707bd940efaaa02fbc83adc471dcbbdf6fcb821ef72966bafbe7f58"
+  },
+  "order": [
+    "control",
+    "static",
+    "static",
+    "control"
+  ],
+  "workspace": "/tmp/collections-perf/sdk-edit-audit/ts-static/greetings",
+  "containers": [
+    {
+      "name": "dagger-engine.collections-cold-ts-static-abba-0",
+      "variant": "control",
+      "port": 6250
+    },
+    {
+      "name": "dagger-engine.collections-cold-ts-static-abba-1",
+      "variant": "static",
+      "port": 6251
+    },
+    {
+      "name": "dagger-engine.collections-cold-ts-static-abba-2",
+      "variant": "static",
+      "port": 6252
+    },
+    {
+      "name": "dagger-engine.collections-cold-ts-static-abba-3",
+      "variant": "control",
+      "port": 6253
+    }
+  ],
+  "cache": "ordinary engine has no injected remote-cache integration; fixture root forced empty; CLI upstream cache import/export env unset",
+  "timing": "ready task-owned engine, fresh Dagger volume; full new CLI process through exit; host page cache preserved; all container creation/binary/blob copies precede measured ABBA"
+}

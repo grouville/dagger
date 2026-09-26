@@ -1,0 +1,38 @@
+--- a/internal/fsutil/fs.go
++++ b/internal/fsutil/fs.go
+@@ -45,6 +45,9 @@
+ }
+ 
+ func (fs *fs) Walk(ctx context.Context, target string, fn gofs.WalkDirFunc) error {
++	// WalkDir emits cleaned descendants of the same root. Reuse its exact
++	// root prefix while keeping Rel behavior for root and unusual targets.
++	rootPrefix := strings.TrimSuffix(fs.root, string(filepath.Separator)) + string(filepath.Separator)
+ 	seenFiles := make(map[uint64]string)
+ 	return filepath.WalkDir(filepath.Join(fs.root, target), func(path string, dirEntry gofs.DirEntry, walkErr error) (retErr error) {
+ 		defer func() {
+@@ -54,7 +57,7 @@
+ 		}()
+ 
+ 		origpath := path
+-		path, err := filepath.Rel(fs.root, path)
++		path, err := relativeWalkPath(fs.root, rootPrefix, path)
+ 		if err != nil {
+ 			return err
+ 		}
+@@ -83,6 +86,16 @@
+ 		}
+ 		return nil
+ 	})
++}
++
++// relativeWalkPath receives the cleaned paths produced by filepath.WalkDir.
++// Exact lexical descendants need no general volume or component comparison.
++// Root itself, relative roots and unusual targets retain filepath.Rel behavior.
++func relativeWalkPath(root, rootPrefix, path string) (string, error) {
++	if relative, ok := strings.CutPrefix(path, rootPrefix); ok && relative != "" {
++		return relative, nil
++	}
++	return filepath.Rel(root, path)
+ }
+ 
+ func (fs *fs) Open(p string) (io.ReadCloser, error) {

@@ -1,0 +1,21 @@
+== TRACE ==  ✘ FAILED
+dagger --engine container://dagger-engine.collections-disk-abba-2 check --generated=false go/modules/tests/run --go-module=. --go-test=TestSelectGreeting --go-test=TestFormatResponse  2.4s
+! exit code 1
+! dag://go/modules/tests/run?go-module=.&go-test=TestSelectGreeting&go-test=TestFormatResponse: Go tests in .: exit code: 1
+
+== CHECKS ==  ✘ 1 failed
+✘ dag://go/modules/tests/run?go-module=.&go-test=TestSelectGreeting&go-test=TestFormatResponse 1.0s ERROR
+  == TESTS ==
+    ✘ github.com/kpenfound/greetings-api FAIL
+
+    ✘ github.com/kpenfound/greetings-api › TestFormatResponse FAIL
+              main_test.go:44: execution-perf-invalidation-sentinel
+
+    ✘ 1 failed
+    ✔ 1 passed
+
+== SERVICES ==
+✔ qrabv4neiv306.7mceo3ui59lrs.dagger.local exec /bin/greetings-api 0.9s EXITED span=c1a9380762e962ef
+
+== RUN LOCALLY ==
+dagger check "dag://go/modules/tests/run?go-module=.&go-test=TestSelectGreeting&go-test=TestFormatResponse"

@@ -1,0 +1,311 @@
+--- a/internal/cmd/dagger/artifact_execution.go
++++ b/internal/cmd/dagger/artifact_execution.go
+@@ -65,13 +65,6 @@
+ 	if err != nil {
+ 		return nil, err
+ 	}
+-	// currentWorkspace has a new identity on each call. Resolve it once so
+-	// address selections from this command can share a collection batch.
+-	workspaceID, err := ws.ID(ctx)
+-	if err != nil {
+-		return nil, err
+-	}
+-	ws = dagger.Ref[*dagger.Workspace](dag, workspaceID)
+ 	all := ws.Artifacts(dagger.WorkspaceArtifactsOpts{Include: artifactPaths(parsed)})
+ 	if strict {
+ 		failures, err := artifactLoadFailures(ctx, dag, all)
+@@ -161,28 +154,36 @@
+ 	return false
+ }
+ 
+-func commandArtifactsWithFlags(ctx context.Context, dag *dagger.Client, ws *dagger.Workspace, cmd *cobra.Command, addresses []string, strict bool) (*dagger.Artifacts, error) {
++func commandArtifactsWithFlags(ctx context.Context, dag *dagger.Client, ws *dagger.Workspace, cmd *cobra.Command, addresses []string, strict bool) (*dagger.Artifacts, *dagger.Workspace, error) {
++	// Pin the live workspace once for selection, flag validation, and output
++	// formatting. Re-reading currentWorkspace creates another discovery root.
++	workspaceID, err := ws.ID(ctx)
++	if err != nil {
++		return nil, nil, err
++	}
++	ws = dagger.Ref[*dagger.Workspace](dag, workspaceID)
+ 	keys, err := artifactKeyFlags(cmd)
+ 	if err != nil {
+-		return nil, err
++		return nil, nil, err
+ 	}
+ 	if len(keys) > 0 {
+ 		parsed, err := parseArtifactAddresses(addresses)
+ 		if err != nil {
+-			return nil, err
++			return nil, nil, err
+ 		}
+ 		defs, err := artifactDimensions(ctx, dag, ws.Artifacts(dagger.WorkspaceArtifactsOpts{Include: artifactPaths(parsed)}))
+ 		if err != nil {
+-			return nil, err
++			return nil, nil, err
+ 		}
+ 		if err := validateArtifactDimensionFlags(cmd, defs); err != nil {
+-			return nil, err
++			return nil, nil, err
+ 		}
+ 		if err := bindArtifactDimensions(keys, defs); err != nil {
+-			return nil, err
+-		}
+-	}
+-	return commandArtifacts(ctx, dag, ws, addresses, strict, keys...)
++			return nil, nil, err
++		}
++	}
++	selected, err := commandArtifacts(ctx, dag, ws, addresses, strict, keys...)
++	return selected, ws, err
+ }
+ 
+ func commandArtifactTargets(dag *dagger.Client, cmd *cobra.Command, artifacts *dagger.Artifacts) (*dagger.Artifacts, error) {
+--- a/internal/cmd/dagger/artifact_list.go
++++ b/internal/cmd/dagger/artifact_list.go
+@@ -41,7 +41,7 @@
+ 	return keys
+ }
+ 
+-func listArtifactSelection(ctx context.Context, dag *dagger.Client, selection *dagger.Artifacts, cmd *cobra.Command) error {
++func listArtifactSelection(ctx context.Context, dag *dagger.Client, ws *dagger.Workspace, selection *dagger.Artifacts, cmd *cobra.Command) error {
+ 	ctx, span := Tracer().Start(ctx, "list artifacts", telemetry.Encapsulate())
+ 	defer span.End()
+ 	absolute, _ := cmd.Flags().GetBool("absolute")
+@@ -60,9 +60,10 @@
+ 	var allArtifacts, targets *dagger.Artifacts
+ 	names := map[string]string{}
+ 	if len(listedArtifactKeys(items)) > 0 {
+-		// Resolve discovery once. Every formatting query must use this same set,
+-		// since currentWorkspace has a new identity on each call.
+-		id, err := dag.CurrentWorkspace().Artifacts().ID(ctx)
++		// Formatting needs global dimension aliases, including dimensions absent
++		// from this selection. Reuse its workspace so this unfiltered discovery
++		// shares the same root and any already-loaded artifact tree.
++		id, err := ws.Artifacts().ID(ctx)
+ 		if err != nil {
+ 			return err
+ 		}
+--- a/internal/cmd/dagger/checks.go
++++ b/internal/cmd/dagger/checks.go
+@@ -56,7 +56,7 @@
+ 		func(ctx context.Context, engineClient *client.Client) error {
+ 			dag := engineClient.Dagger()
+ 			ws := dag.CurrentWorkspace()
+-			artifacts, err := commandArtifactsWithFlags(ctx, dag, ws, cmd, args, false)
++			artifacts, ws, err := commandArtifactsWithFlags(ctx, dag, ws, cmd, args, false)
+ 			if err != nil {
+ 				return err
+ 			}
+@@ -65,7 +65,7 @@
+ 				return err
+ 			}
+ 			if checksListMode {
+-				return listArtifactSelection(ctx, dag, checks, cmd)
++				return listArtifactSelection(ctx, dag, ws, checks, cmd)
+ 			}
+ 			return runChecks(ctx, dag, checks, cmd, args)
+ 		},
+--- a/internal/cmd/dagger/up.go
++++ b/internal/cmd/dagger/up.go
+@@ -48,13 +48,13 @@
+ 			func(ctx context.Context, engineClient *client.Client) error {
+ 				dag := engineClient.Dagger()
+ 				ws := dag.CurrentWorkspace()
+-				all, err := commandArtifactsWithFlags(ctx, dag, ws, cmd, args, true)
++				all, ws, err := commandArtifactsWithFlags(ctx, dag, ws, cmd, args, true)
+ 				if err != nil {
+ 					return err
+ 				}
+ 				services := all.FilterUpCommand()
+ 				if upListMode {
+-					return listArtifactSelection(ctx, dag, services, cmd)
++					return listArtifactSelection(ctx, dag, ws, services, cmd)
+ 				}
+ 				return runServices(ctx, dag, services, cmd)
+ 			},
+--- a/internal/cmd/dagger/generators.go
++++ b/internal/cmd/dagger/generators.go
+@@ -60,13 +60,13 @@
+ 				slog.SetDefault(slog.SpanLogger(ctx, InstrumentationLibrary))
+ 				dag := engineClient.Dagger()
+ 				ws := dag.CurrentWorkspace()
+-				all, err := commandArtifactsWithFlags(ctx, dag, ws, cmd, args, generateRequireLoad)
++				all, ws, err := commandArtifactsWithFlags(ctx, dag, ws, cmd, args, generateRequireLoad)
+ 				if err != nil {
+ 					return err
+ 				}
+ 				generators := all.FilterGenerateCommand()
+ 				if generateListMode {
+-					return listArtifactSelection(ctx, dag, generators, cmd)
++					return listArtifactSelection(ctx, dag, ws, generators, cmd)
+ 				}
+ 				Frontend.SetPrimary(dagui.SpanID{SpanID: span.SpanContext().SpanID()})
+ 				failures, err := artifactLoadFailures(ctx, dag, all)
+--- a/internal/cmd/dagger/terminal.go
++++ b/internal/cmd/dagger/terminal.go
+@@ -79,13 +79,13 @@
+ 		params,
+ 		func(ctx context.Context, engineClient *client.Client) error {
+ 			dag := engineClient.Dagger()
+-			all, err := commandArtifactsWithFlags(ctx, dag, dag.CurrentWorkspace(), cmd, args, true)
++			all, ws, err := commandArtifactsWithFlags(ctx, dag, dag.CurrentWorkspace(), cmd, args, true)
+ 			if err != nil {
+ 				return err
+ 			}
+ 			terminals := all.FilterTypes([]string{"Container", "Directory"})
+ 			if terminalListMode {
+-				return listArtifactSelection(ctx, dag, terminals, cmd)
++				return listArtifactSelection(ctx, dag, ws, terminals, cmd)
+ 			}
+ 			target, err := selectShellArtifact(ctx, dag, terminals)
+ 			if err != nil {
+--- a/internal/cmd/dagger/agent.go
++++ b/internal/cmd/dagger/agent.go
+@@ -165,7 +165,7 @@
+ 	if err != nil {
+ 		return "", err
+ 	}
+-	all, err := commandArtifactsWithFlags(ctx, dag, workspace, cmd, include, true)
++	all, _, err := commandArtifactsWithFlags(ctx, dag, workspace, cmd, include, true)
+ 	if err != nil {
+ 		return "", err
+ 	}
+@@ -237,9 +237,9 @@
+ }
+ 
+ func listAgents(ctx context.Context, dag *dagger.Client, include []string, cmd *cobra.Command) error {
+-	all, err := commandArtifactsWithFlags(ctx, dag, dag.CurrentWorkspace(), cmd, include, true)
++	all, ws, err := commandArtifactsWithFlags(ctx, dag, dag.CurrentWorkspace(), cmd, include, true)
+ 	if err != nil {
+ 		return err
+ 	}
+-	return listArtifactSelection(ctx, dag, all.FilterAgentCommand(), cmd)
+-}
++	return listArtifactSelection(ctx, dag, ws, all.FilterAgentCommand(), cmd)
++}
+--- /dev/null
++++ b/internal/cmd/dagger/artifact_workspace_reuse_test.go
+@@ -0,0 +1,123 @@
++package daggercmd
++
++import (
++	"bytes"
++	"encoding/json"
++	"fmt"
++	"io"
++	"net/http"
++	"strings"
++	"testing"
++
++	"dagger.io/dagger"
++	"github.com/dagger/dagger/core/artifact"
++	"github.com/spf13/cobra"
++	"github.com/stretchr/testify/require"
++)
++
++func TestArtifactListReusesWorkspaceWithGlobalAliases(t *testing.T) {
++	// Different SDKs can contribute colliding names. Even a path-filtered
++	// listing must choose aliases that remain unambiguous in the full catalog.
++	globalDimensions := artifact.Dimensions{
++		{Identifier: "Go.modules", Name: "module", QualifiedName: "go-module"},
++		{Identifier: "GoModule.tests", Name: "test", QualifiedName: "go-test"},
++		{Identifier: "TypeScript.projects", Name: "module", QualifiedName: "ts-module"},
++		{Identifier: "Dang.tests", Name: "test", QualifiedName: "dang-test"},
++	}
++	for _, tc := range []struct {
++		name      string
++		addresses []string
++		path      string
++		keys      []struct{ Dimension, Key string }
++		flags     []string
++	}{
++		{
++			name:  "unfiltered nested collections",
++			path:  "go/modules/tests/run",
++			keys:  []struct{ Dimension, Key string }{{"Go.modules", "."}, {"GoModule.tests", "TestAlpha"}},
++			flags: []string{"--go-module=.", "--go-test=TestAlpha"},
++		},
++		{
++			name:      "filtered TypeScript collection",
++			addresses: []string{"ts/projects/check"}, path: "ts/projects/check",
++			keys:  []struct{ Dimension, Key string }{{"TypeScript.projects", "web"}},
++			flags: []string{"--ts-module=web"},
++		},
++		{
++			name:      "filtered Dang collection",
++			addresses: []string{"dang/tests/run"}, path: "dang/tests/run",
++			keys:  []struct{ Dimension, Key string }{{"Dang.tests", "smoke"}},
++			flags: []string{"--dang-test=smoke"},
++		},
++		{name: "no dimensions", addresses: []string{"lint"}, path: "lint"},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			items, err := json.Marshal([]listedArtifact{{URI: "dag+check://" + tc.path, Description: "Run check", DimensionKeys: tc.keys}})
++			require.NoError(t, err)
++			workspaceReads, globalCatalogReads, dimensionReads := 0, 0, 0
++			dag, err := dagger.Connect(t.Context(), dagger.WithConn(agentTestConn{do: func(req *http.Request) (*http.Response, error) {
++				var request dagger.Request
++				require.NoError(t, json.NewDecoder(req.Body).Decode(&request))
++				var data any
++				switch {
++				case strings.Contains(request.Query, "currentWorkspace"):
++					workspaceReads++
++					// A second effectful workspace read really has another identity.
++					data = map[string]any{"currentWorkspace": map[string]any{"id": fmt.Sprintf("workspace-%d", workspaceReads)}}
++				case strings.Contains(request.Query, "__itemsJSON"):
++					data = map[string]any{"node": map[string]any{"items": string(items)}}
++				case strings.Contains(request.Query, "dimensionDefinitions"):
++					dimensionReads++
++					require.Equal(t, "global-artifacts", request.Variables.(map[string]any)["id"], "aliases must use unfiltered definitions")
++					data = map[string]any{"node": map[string]any{"dimensionDefinitions": globalDimensions}}
++				case strings.Contains(request.Query, "node") && strings.Contains(request.Query, `"global-artifacts"`):
++					data = map[string]any{"node": map[string]any{"id": "global-artifacts"}}
++				case strings.Contains(request.Query, "artifacts"):
++					require.Contains(t, request.Query, `"workspace-1"`, "every projection must use the original workspace identity")
++					var fields any
++					if strings.Contains(request.Query, "filterCheckCommand") {
++						fields = map[string]any{"filterCheckCommand": map[string]any{"id": "selected-artifacts"}}
++					} else {
++						globalCatalogReads++
++						require.NotContains(t, request.Query, "include:", "formatting must request the global catalog")
++						fields = map[string]any{"id": "global-artifacts"}
++					}
++					data = map[string]any{"node": map[string]any{"artifacts": fields}}
++				default:
++					return nil, fmt.Errorf("unexpected query: %s", request.Query)
++				}
++				body, err := json.Marshal(map[string]any{"data": data})
++				require.NoError(t, err)
++				return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(bytes.NewReader(body))}, nil
++			}}))
++			require.NoError(t, err)
++			t.Cleanup(func() { require.NoError(t, dag.Close()) })
++			cmd := &cobra.Command{Use: "check"}
++			registerCommandArtifactFlags(cmd)
++			cmd.Flags().Bool("generated", true, "")
++			require.NoError(t, cmd.Flags().Set("all", "true"))
++			var stdout, stderr bytes.Buffer
++			cmd.SetOut(&stdout)
++			cmd.SetErr(&stderr)
++			selection, workspace, err := commandArtifactsWithFlags(t.Context(), dag, dag.CurrentWorkspace(), cmd, tc.addresses, false)
++			require.NoError(t, err)
++			err = listArtifactSelection(t.Context(), dag, workspace, selection.FilterCheckCommand(), cmd)
++			require.NoError(t, err)
++			require.Equal(t, 1, workspaceReads)
++			if len(tc.keys) > 0 {
++				require.Equal(t, 1, globalCatalogReads)
++				require.Equal(t, 1, dimensionReads)
++			} else {
++				require.Zero(t, globalCatalogReads)
++				require.Zero(t, dimensionReads)
++			}
++			for _, flag := range tc.flags {
++				require.Contains(t, stdout.String(), flag)
++			}
++			require.Contains(t, stdout.String(), "dag+check://"+tc.path)
++			require.NotContains(t, stdout.String(), "--module=")
++			require.NotContains(t, stdout.String(), "--test=")
++			require.Empty(t, stderr.String())
++		})
++	}
++}

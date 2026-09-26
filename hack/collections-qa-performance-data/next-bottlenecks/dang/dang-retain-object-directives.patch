@@ -1,0 +1,72 @@
+--- a/pkg/dang/fields.go
++++ b/pkg/dang/fields.go
+@@ -1150,6 +1150,12 @@
+ 			c.Inferred.SetTypeDocString(c.DocString)
+ 		}
+ 
++		// Retain object annotations on the type owned by this evaluation, as
++		// field annotations already are. Consumers need not parse source again.
++		if len(c.Directives) > 0 {
++			c.Inferred.SetDirectives("", c.Directives)
++		}
++
+ 		// Find explicit new() or derive constructor from fields
+ 		newDecl := c.findNewConstructor()
+ 		var constructorParams []*FieldDecl
+--- a/pkg/dang/env_test.go
++++ b/pkg/dang/env_test.go
+@@ -826,3 +826,54 @@
+ 	schema.QueryType.Name = "Query"
+ 	return schema
+ }
++
++func TestDirectoryObjectDirectivesRetained(t *testing.T) {
++	for name, run := range map[string]func(context.Context, string, bool) (ValueScope, error){"declare": DeclareDir, "run": RunDir} {
++		t.Run(name, func(t *testing.T) {
++			dir := t.TempDir()
++			require.NoError(t, os.WriteFile(filepath.Join(dir, "main.dang"), []byte(`
++directive @collection(key: String!) on OBJECT
++@collection(key: "name")
++type Inventory { value: String! = "one" }
++`), 0600))
++			first, err := run(t.Context(), dir, false)
++			require.NoError(t, err)
++			value, found := requireEvalGet(t, first, "Inventory")
++			require.True(t, found)
++			typ := value.(*ConstructorFunction).ObjectType
++			dirs := typ.GetDirectives("")
++			require.Len(t, dirs, 1)
++			require.Equal(t, "collection", dirs[0].Name)
++			require.Equal(t, "key", dirs[0].Args[0].Key)
++			second, err := run(t.Context(), dir, false)
++			require.NoError(t, err)
++			value2, found := requireEvalGet(t, second, "Inventory")
++			require.True(t, found)
++			typ2 := value2.(*ConstructorFunction).ObjectType
++			require.NotSame(t, typ, typ2)
++			require.NotSame(t, dirs[0], typ2.GetDirectives("")[0])
++			typ.SetDirectives("", nil)
++			require.Len(t, typ2.GetDirectives(""), 1)
++		})
++	}
++}
++
++func TestObjectDirectivesDoNotMutatePrelude(t *testing.T) {
++	before := ErrorType.GetDirectives("")
++	dir := t.TempDir()
++	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.dang"), []byte(`
++directive @marker on OBJECT
++@marker
++type Error { message: String! = "local" }
++`), 0600))
++	for _, run := range []func(context.Context, string, bool) (ValueScope, error){DeclareDir, RunDir} {
++		env, err := run(t.Context(), dir, false)
++		require.NoError(t, err)
++		value, found := requireEvalGet(t, env, "Error")
++		require.True(t, found)
++		typ := value.(*ConstructorFunction).ObjectType
++		require.NotSame(t, ErrorType, typ)
++		require.Len(t, typ.GetDirectives(""), 1)
++		require.Equal(t, before, ErrorType.GetDirectives(""))
++	}
++}

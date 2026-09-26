@@ -1,0 +1,52 @@
+--- a/.dagger/modules/backend/main.go
++++ b/.dagger/modules/backend/main.go
+@@ -34,6 +34,7 @@
+ }
+ 
+ // Build the backend
++// +cache="session"
+ func (b *Backend) Build(
+ 	// +optional
+ 	arch string,
+@@ -49,6 +50,7 @@
+ }
+ 
+ // Return the compiled backend binary for a particular architecture
++// +cache="session"
+ func (b *Backend) Binary(
+ 	// +optional
+ 	arch string,
+@@ -58,6 +60,7 @@
+ }
+ 
+ // Get a container ready to run the backend
++// +cache="session"
+ func (b *Backend) Container(
+ 	// +optional
+ 	arch string,
+@@ -77,6 +80,7 @@
+ // Get a Service to run the backend
+ //
+ // +up
++// +cache="session"
+ func (b *Backend) Serve() *dagger.Service {
+ 	return b.Container(runtime.GOARCH).AsService(dagger.ContainerAsServiceOpts{UseEntrypoint: true})
+ }
+@@ -97,6 +101,7 @@
+ // The image matches the toolchain's own default rather than the version in
+ // go.mod. It has to: this base also builds the toolchain's helper binaries,
+ // whose go.mod requires 1.26, so an older image fails before any test runs.
++// +cache="session"
+ func (b *Backend) GoTestBase() *dagger.Container {
+ 	return dag.Container().
+ 		From("golang:1.26-alpine").
+--- a/.dagger/modules/backend/dagger-module.toml
++++ b/.dagger/modules/backend/dagger-module.toml
+@@ -1,6 +1,6 @@
+ name = "backend"
+ engineVersion = "v1.0.0-0"
+-disableDefaultFunctionCaching = true
++disableDefaultFunctionCaching = false
+ 
+ [runtime]
+   source = "go"

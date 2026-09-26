@@ -1,0 +1,46 @@
+{
+  "clis": {
+    "baseline": {
+      "path": "/tmp/collections-perf/rebase-main/dagger",
+      "sha256": "aea19ce8b7849905113c388b353b6a686aca6a55fbb0fe714f406a5bb8d2356d"
+    },
+    "prefix": {
+      "path": "/tmp/collections-perf/warm-audit/list-workspace-reuse/dagger-prefix",
+      "sha256": "31412660f08eede91140f56d1ea13f871cccc9823490040ecbe148ed00e305a1"
+    },
+    "reuse": {
+      "path": "/tmp/collections-perf/warm-audit/list-workspace-reuse/dagger-prefix-reuse",
+      "sha256": "a29851ea6cbb1b6134702b28bd48921b389b46621efe678b285a46751144cc88"
+    }
+  },
+  "engine": "dagger-engine.collections-disk-abba-2",
+  "engine_manifest": [
+    {
+      "label": "control",
+      "name": "dagger-engine.collections-disk-abba-1",
+      "port": 6171,
+      "binary": "/tmp/collections-perf/sdk-edit-audit/engine-combined",
+      "sha256": "b4955e7056c1e646077a2e6a8a74d77e8a6763a31e921feeb792ce5d8274dcac",
+      "artifact_batch": "c12a34663b",
+      "stack": "combined Dang/prebuilt TS SDK/direct Node loader/SDK split imports/Node compile cache"
+    },
+    {
+      "label": "static",
+      "name": "dagger-engine.collections-disk-abba-2",
+      "port": 6172,
+      "binary": "/tmp/collections-perf/sdk-edit-audit/ts-static/engine",
+      "sha256": "a1b41acdd93b65fd0a3baf3078f70ef51ab1293a0c5526f473e60c57cc875cf5",
+      "artifact_batch": "c12a34663b",
+      "stack": "combined Dang/prebuilt TS SDK/direct Node loader/SDK split imports/Node compile cache"
+    }
+  ],
+  "workspace": "/tmp/collections-perf/sdk-edit-audit/ts-static/greetings",
+  "source_hashes": {
+    "main.go": "108029a457668cec1724f9905460a83178882b601df4775380eecde9d78ce86c",
+    "main_test.go": "5605ebadd175eb2e6836f77dcda6006b2ba1accee404c034d85a61f64578958f",
+    "dagger.toml": "fa3e76ed17cd120a0e5b5655a27a63a7dd7bae05a63dc43ea391fcac6991e3ad"
+  },
+  "expected_semantics_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+  "boundary": "fresh full CLI processes; direct ordinary Cloud telemetry; same retained static-TS engine; two warmups per CLI; eight matched triples; separate profiles and filtered correctness",
+  "root_cli_revision": "627f60eb28172ae8443a17a10c2b60f7c4d10df2"
+}

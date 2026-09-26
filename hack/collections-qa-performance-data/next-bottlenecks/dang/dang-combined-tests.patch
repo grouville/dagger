@@ -1,0 +1,92 @@
+--- a/pkg/dang/env_test.go
++++ b/pkg/dang/env_test.go
+@@ -826,3 +826,89 @@
+ 	schema.QueryType.Name = "Query"
+ 	return schema
+ }
++
++func TestDirectoryObjectDirectivesRetained(t *testing.T) {
++	for name, run := range map[string]func(context.Context, string, bool) (ValueScope, error){"declare": DeclareDir, "run": RunDir} {
++		t.Run(name, func(t *testing.T) {
++			dir := t.TempDir()
++			require.NoError(t, os.WriteFile(filepath.Join(dir, "main.dang"), []byte(`
++directive @collection(key: String!) on OBJECT
++@collection(key: "name")
++type Inventory { value: String! = "one" }
++`), 0600))
++			first, err := run(t.Context(), dir, false)
++			require.NoError(t, err)
++			value, found := requireEvalGet(t, first, "Inventory")
++			require.True(t, found)
++			typ := value.(*ConstructorFunction).ObjectType
++			dirs := typ.GetDirectives("")
++			require.Len(t, dirs, 1)
++			require.Equal(t, "collection", dirs[0].Name)
++			require.Equal(t, "key", dirs[0].Args[0].Key)
++			second, err := run(t.Context(), dir, false)
++			require.NoError(t, err)
++			value2, found := requireEvalGet(t, second, "Inventory")
++			require.True(t, found)
++			typ2 := value2.(*ConstructorFunction).ObjectType
++			require.NotSame(t, typ, typ2)
++			require.NotSame(t, dirs[0], typ2.GetDirectives("")[0])
++			typ.SetDirectives("", nil)
++			require.Len(t, typ2.GetDirectives(""), 1)
++		})
++	}
++}
++
++func TestObjectDirectivesDoNotMutatePrelude(t *testing.T) {
++	before := ErrorType.GetDirectives("")
++	dir := t.TempDir()
++	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.dang"), []byte(`
++directive @marker on OBJECT
++@marker
++type Error { message: String! = "local" }
++`), 0600))
++	for _, run := range []func(context.Context, string, bool) (ValueScope, error){DeclareDir, RunDir} {
++		env, err := run(t.Context(), dir, false)
++		require.NoError(t, err)
++		value, found := requireEvalGet(t, env, "Error")
++		require.True(t, found)
++		typ := value.(*ConstructorFunction).ObjectType
++		require.NotSame(t, ErrorType, typ)
++		require.Len(t, typ.GetDirectives(""), 1)
++		require.Equal(t, before, ErrorType.GetDirectives(""))
++	}
++}
++
++func TestPopulateSchemaFunctionsPreservesAllEntryKinds(t *testing.T) {
++	stringRef := &introspection.TypeRef{Kind: introspection.TypeKindScalar, Name: "String"}
++	schema := &introspection.Schema{Types: introspection.Types{
++		&introspection.Type{Name: "String", Kind: introspection.TypeKindScalar},
++		&introspection.Type{Name: "Query", Kind: introspection.TypeKindObject, Fields: []*introspection.Field{{Name: "thing", TypeRef: &introspection.TypeRef{Kind: introspection.TypeKindObject, Name: "Thing"}}}},
++		&introspection.Type{Name: "Thing", Kind: introspection.TypeKindObject, Fields: []*introspection.Field{{Name: "label", TypeRef: stringRef, Args: introspection.InputValues{{Name: "format", TypeRef: stringRef}}}}},
++		&introspection.Type{Name: "Mutation", Kind: introspection.TypeKindObject, Fields: []*introspection.Field{{Name: "rename", TypeRef: stringRef}}},
++		&introspection.Type{Name: "Choice", Kind: introspection.TypeKindEnum, EnumValues: []introspection.EnumValue{{Name: "ONE"}}},
++	}}
++	schema.QueryType.Name = "Query"
++	schema.MutationType = &struct {
++		Name string `json:"name,omitempty"`
++	}{Name: "Mutation"}
++	typ := TypeScopeFromSchema("Dagger", schema)
++	env := ValueScopeFromSchema(typ, nil, schema)
++	value, found := requireEvalGet(t, env, "thing")
++	require.True(t, found)
++	require.Equal(t, "Query", value.(GraphQLFunction).TypeName)
++	_, found = requireEvalGet(t, env, "label")
++	require.False(t, found, "object fields must never become top-level functions")
++	object := GraphQLValue{TypeName: "Thing", Schema: schema, TypeScope: typ}
++	method, err := object.SelectField(t.Context(), "label")
++	require.NoError(t, err)
++	require.Equal(t, []string{"format"}, method.(GraphQLFunction).ParameterNames())
++	mutation, found := requireEvalGet(t, env, "Mutation")
++	require.True(t, found)
++	rename, found := requireEvalGet(t, mutation.(*Object), "rename")
++	require.True(t, found)
++	require.True(t, rename.(GraphQLFunction).IsMutation)
++	choice, found := requireEvalGet(t, env, "Choice")
++	require.True(t, found)
++	_, found = requireEvalGet(t, choice.(*Object), "ONE")
++	require.True(t, found)
++}

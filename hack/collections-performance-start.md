@@ -1,10 +1,17 @@
 # Try the collections discovery changes
 
-**Latest measured update:** [the post-rebase investigation](collections-post-rebase-performance.md)
-compares the preserved historical build, rebased baseline and a new Cloud
-batching change: 2.363 / 2.867 / 2.662 s warm medians on the full prototype
-stack. Cold runs still split between about 27 and 45–48 s with disk pressure.
-The older timings elsewhere on this page predate that comparison.
+**Latest measured update:** [the next-bottleneck review](collections-next-bottlenecks-review.md)
+adds real execution after an application edit: **11.446 → 3.559 s**, five pairs,
+using ordinary compiler cache volumes in the backend module. On the experimental
+SDK stack, static TypeScript metadata improves warm listing **2.643 → 2.132 s**;
+a separate durable telemetry relay reaches **1.649 s**, with delivery continuing
+after exit. These prototypes are not enabled by a normal branch build. The
+500 ms goal remains unmet. Cold samples still vary with measured disk stalls.
+
+The preceding [post-rebase investigation](collections-post-rebase-performance.md)
+compares the historical build, rebased baseline and Cloud batching change:
+2.363 / 2.867 / 2.662 s warm medians. Historical comparisons remain separate;
+their improvements must not be added together.
 
 **2026-09-25:** the branch has been rebased onto `main` at `d8f1f0d6d2`.
 This includes the merged engine-side Cloud telemetry split (#14303) and
@@ -26,7 +33,13 @@ published CLI release or engine image.
 ## What a normal build includes
 
 * One CLI listing session, bulk metadata loading, and complete buffered output.
+* Reuse the command's pinned workspace for selection, flags and listing output
+  (`0b6a16f400`). One redundant catalog execution disappears; a full-command
+  timing gain has not been established.
 * Indexed artifact dimensions and collection receiver reuse within a request.
+* Request-local indexed batch-key deduplication (`627f60eb28`), retaining order
+  and a small-group fast path. At 10,000 keys the isolated benchmark improves
+  172 → 16 ms; this is not a greetings-api listing claim.
 * Less repeated module installation and metadata work; prepared schemas reused
   within the same caller/session authority.
 * The existing module-config, schema-digest, and shutdown improvements from
@@ -143,4 +156,7 @@ cache-reset procedure. Our control is built from the public PR source, not
 verified as his installed binary. An empty engine-cache volume with an
 already-ready engine is our cold boundary; host and upstream caches remain.
 Recent cold candidate runs failed on `cgr.dev` HTTP 500 and cannot establish a
-new cold speedup.
+new cold speedup in that historical series. The newer review records completed
+fresh-volume static-TS runs: a low-stall pair is 26.65 → 25.45 s, while other
+runs have substantial I/O stalls. Neither result reproduces Kyle's exact
+machine/cache boundary.

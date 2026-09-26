@@ -1,0 +1,79 @@
+--- a/engine/server/session_test.go
++++ b/engine/server/session_test.go
+@@ -5480,3 +5480,76 @@
+ 	// name, and that error needs the module loaded to be produced at all.
+ 	require.False(t, isCoreRootField("id"))
+ }
++
++// earlyHintsCheckpointWriter provides a deterministic schedule: once the
++// server announces local drain, the subscriber observes its terminal frame
++// before the still-live session worker finishes. No sleeps or engine required.
++type earlyHintsCheckpointWriter struct {
++ http.ResponseWriter
++ onEarlyHints func()
++}
++func (w earlyHintsCheckpointWriter) WriteHeader(status int) {
++ if status == http.StatusEarlyHints {
++  w.onEarlyHints()
++  return
++ }
++ w.ResponseWriter.WriteHeader(status)
++}
++
++func TestShutdownOverlapKeepsLateAcceptedWorkTelemetry(t *testing.T) {
++ srv, sess, client, _, requestScope := newNestedTransportTestFixture(t)
++ defer requestScope.Lease().Release()
++ srv.clientDBs = clientdb.NewDBs(t.TempDir())
++ ps := NewPubSub(srv)
++ sess.telemetryPubSub = ps
++ sess.services = core.NewServices()
++ sess.shutdownCh = make(chan struct{})
++ client.shutdownCh = make(chan struct{})
++ sess.closingCtx, sess.cancelClosing = context.WithCancelCause(t.Context())
++ defer sess.cancelClosing(nil)
++ // Only publisher identity is relevant to this protocol test. There are no
++ // providers or network calls; the flusher below represents the drain window.
++ sess.cloudSpanProcessor = boundedCloudSpanProcessor{}
++ sess.cloudLogProcessor = boundedCloudLogProcessor{}
++ sess.cloudMetrics = cleanupSpanMetricExporter{}
++ lateRecordReady := make(chan struct{})
++ acceptedWorkStillLive := make(chan bool, 1)
++ sess.cloudFlushers = []func(context.Context){func(context.Context) {
++  acceptedWorkStillLive <- requestScope.Lease().Held() && sess.closingCtx.Err() == nil
++  // An already accepted worker may finish and publish during the Cloud wait.
++  close(lateRecordReady)
++ }}
++ drained := false
++ delivered := 0
++ drainSubscriber := func() {
++  drained = true
++  req := httptest.NewRequest(http.MethodGet, "/v1/logs", nil)
++  req.Header.Set("Accept", enginetel.LiveContentType)
++  resp := httptest.NewRecorder()
++  err := ps.streamHandler(resp, req, client.clientRecord, func(_ context.Context, _ *clientdb.DB, since int64, _ int) (int64, proto.Message, int, error) {
++   if since != 0 { return since, nil, 0, nil }
++   select {
++   case <-lateRecordReady:
++    return 1, &collogspb.ExportLogsServiceRequest{ResourceLogs: []*otlplogsv1.ResourceLogs{{SchemaUrl: "accepted-work-final-record"}}}, 1, nil
++   default:
++    return since, nil, 0, nil
++   }
++  })
++  require.NoError(t, err)
++  sawTerminal := false
++  for resp.Body.Len() > 0 {
++   kind, _, _, err := enginetel.ReadLiveFrame(resp.Body)
++   require.NoError(t, err)
++   if kind == enginetel.LiveFrameData { delivered++ }
++   if kind == enginetel.LiveFrameTerminal { sawTerminal = true }
++  }
++  require.True(t, sawTerminal)
++ }
++ req := httptest.NewRequest(http.MethodPost, engine.ShutdownEndpoint, nil)
++ req.Header.Set("X-Dagger-Shutdown-Phase", "local-telemetry-flushed")
++ resp := earlyHintsCheckpointWriter{ResponseWriter: httptest.NewRecorder(), onEarlyHints: drainSubscriber}
++ require.NoError(t, srv.serveShutdown(resp, req, client))
++ require.True(t, <-acceptedWorkStillLive, "the record comes from work still allowed to run")
++ if !drained { drainSubscriber() }
++ require.Equal(t, 1, delivered, "the final accepted-work record must arrive before terminal")
++}

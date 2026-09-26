@@ -1,0 +1,934 @@
+[
+  {
+    "case": "single",
+    "label": "preflight/single",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestFormatResponse",
+      "-l",
+      "--all"
+    ],
+    "seconds": 5.435040988959372,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "95ff31959a6e88fb1838ae8c7253defea30ed48de2e85fdffe6ccba887c4e9d1",
+    "io_full_stall_seconds": 0.052121
+  },
+  {
+    "case": "pair",
+    "label": "preflight/pair",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestSelectGreeting",
+      "--go-test=TestFormatResponse",
+      "-l",
+      "--all"
+    ],
+    "seconds": 2.7732953887898475,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "a7bfd6310c2d02c137cdafa04c4e19c29bb330e6f5e3fb1d54a3b78dcbee0aa9",
+    "io_full_stall_seconds": 0.000728
+  },
+  {
+    "case": "full-module",
+    "label": "preflight/full-module",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "-l",
+      "--all"
+    ],
+    "seconds": 2.565940846921876,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "c7486098e48fc31c10d2a1fe60a15779b263c8f3cf84ca78f42679ad28cfd1de",
+    "io_full_stall_seconds": 0.001063
+  },
+  {
+    "case": "single",
+    "label": "first-execution/single",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 40.075348902028054,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.158889
+  },
+  {
+    "case": "pair",
+    "label": "first-execution/pair",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestSelectGreeting",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 3.3686865200288594,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.001533
+  },
+  {
+    "case": "full-module",
+    "label": "first-execution/full-module",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=."
+    ],
+    "seconds": 2.562987729208544,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.00326
+  },
+  {
+    "case": "single",
+    "label": "warmup/0-single",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.151568097062409,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 5e-06
+  },
+  {
+    "case": "pair",
+    "label": "warmup/0-pair",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestSelectGreeting",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.1726392628625035,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.007981
+  },
+  {
+    "case": "full-module",
+    "label": "warmup/0-full-module",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=."
+    ],
+    "seconds": 2.164580071112141,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.000496
+  },
+  {
+    "case": "single",
+    "label": "warmup/1-single",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.0507911171298474,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.005144
+  },
+  {
+    "case": "pair",
+    "label": "warmup/1-pair",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestSelectGreeting",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.1649422489572316,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.005062
+  },
+  {
+    "case": "full-module",
+    "label": "warmup/1-full-module",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=."
+    ],
+    "seconds": 2.149488128023222,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.000485
+  },
+  {
+    "case": "single",
+    "label": "warm/0-single",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.0367662080097944,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.001895
+  },
+  {
+    "case": "pair",
+    "label": "warm/0-pair",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestSelectGreeting",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.0573404890019447,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.001305
+  },
+  {
+    "case": "full-module",
+    "label": "warm/0-full-module",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=."
+    ],
+    "seconds": 2.055059852078557,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.000898
+  },
+  {
+    "case": "full-module",
+    "label": "warm/1-full-module",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=."
+    ],
+    "seconds": 2.134292939910665,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.008623
+  },
+  {
+    "case": "pair",
+    "label": "warm/1-pair",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestSelectGreeting",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.16301601100713,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.000728
+  },
+  {
+    "case": "single",
+    "label": "warm/1-single",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.1505755819380283,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.004577
+  },
+  {
+    "case": "single",
+    "label": "warm/2-single",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.1396134400274605,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.000599
+  },
+  {
+    "case": "pair",
+    "label": "warm/2-pair",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestSelectGreeting",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.9627874142024666,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.000868
+  },
+  {
+    "case": "full-module",
+    "label": "warm/2-full-module",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=."
+    ],
+    "seconds": 2.168858285062015,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.000732
+  },
+  {
+    "case": "full-module",
+    "label": "warm/3-full-module",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=."
+    ],
+    "seconds": 2.038233418017626,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.000944
+  },
+  {
+    "case": "pair",
+    "label": "warm/3-pair",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestSelectGreeting",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.0602560229599476,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 6e-06
+  },
+  {
+    "case": "single",
+    "label": "warm/3-single",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.256192543776706,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.002215
+  },
+  {
+    "case": "single",
+    "label": "warm/4-single",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.2454927139915526,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.000622
+  },
+  {
+    "case": "pair",
+    "label": "warm/4-pair",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestSelectGreeting",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.228335240855813,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.001303
+  },
+  {
+    "case": "full-module",
+    "label": "warm/4-full-module",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=."
+    ],
+    "seconds": 2.126345976954326,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.002853
+  },
+  {
+    "case": "full-module",
+    "label": "warm/5-full-module",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=."
+    ],
+    "seconds": 2.142420048825443,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.001368
+  },
+  {
+    "case": "pair",
+    "label": "warm/5-pair",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestSelectGreeting",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.125748923048377,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 2e-06
+  },
+  {
+    "case": "single",
+    "label": "warm/5-single",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.237857955042273,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.001125
+  },
+  {
+    "case": "single",
+    "label": "warm/6-single",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.149678607005626,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.003757
+  },
+  {
+    "case": "pair",
+    "label": "warm/6-pair",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestSelectGreeting",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.162632218794897,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 1e-05
+  },
+  {
+    "case": "full-module",
+    "label": "warm/6-full-module",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=."
+    ],
+    "seconds": 2.1516041308641434,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.0
+  },
+  {
+    "case": "full-module",
+    "label": "warm/7-full-module",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=."
+    ],
+    "seconds": 2.0413455311208963,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.008813
+  },
+  {
+    "case": "pair",
+    "label": "warm/7-pair",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestSelectGreeting",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.0529394010081887,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 2.6e-05
+  },
+  {
+    "case": "single",
+    "label": "warm/7-single",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.126079550012946,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.004268
+  },
+  {
+    "case": "single",
+    "label": "edits/production-comment",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 11.778336088871583,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.00906
+  },
+  {
+    "case": "single",
+    "label": "edits/production-restore",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.350285124965012,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 4e-06
+  },
+  {
+    "case": "single",
+    "label": "correctness/selected-fails",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 11.261331893038005,
+    "exit_code": 1,
+    "profile": false,
+    "expected_failure": true,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.005394
+  },
+  {
+    "case": "control",
+    "label": "correctness/unselected-failure-ignored",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestSelectGreeting"
+    ],
+    "seconds": 2.6648511590901762,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.000524
+  },
+  {
+    "case": "pair",
+    "label": "correctness/batch-propagates-failure",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestSelectGreeting",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.5613868259824812,
+    "exit_code": 1,
+    "profile": false,
+    "expected_failure": true,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.002484
+  },
+  {
+    "case": "single",
+    "label": "correctness/restored-passes",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.347332729957998,
+    "exit_code": 0,
+    "profile": false,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.001943
+  },
+  {
+    "case": "single",
+    "label": "profiles/warm-single",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "--profile",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.228935288032517,
+    "exit_code": 0,
+    "profile": true,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.001586
+  },
+  {
+    "case": "pair",
+    "label": "profiles/warm-pair",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "--profile",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestSelectGreeting",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 2.247879110975191,
+    "exit_code": 0,
+    "profile": true,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.005374
+  },
+  {
+    "case": "full-module",
+    "label": "profiles/warm-full-module",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "--profile",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=."
+    ],
+    "seconds": 2.141747527057305,
+    "exit_code": 0,
+    "profile": true,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 5e-06
+  },
+  {
+    "case": "pair",
+    "label": "profiles/edited-pair",
+    "command": [
+      "/tmp/collections-perf/rebase-main/dagger",
+      "--engine",
+      "container://dagger-engine.collections-disk-abba-2",
+      "--profile",
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestSelectGreeting",
+      "--go-test=TestFormatResponse"
+    ],
+    "seconds": 11.484676835127175,
+    "exit_code": 0,
+    "profile": true,
+    "expected_failure": false,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "io_full_stall_seconds": 0.010533
+  }
+]

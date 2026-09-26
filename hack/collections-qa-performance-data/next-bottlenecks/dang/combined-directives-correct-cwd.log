@@ -1,0 +1,865 @@
+=== RUN   TestDang
+=== PAUSE TestDang
+=== CONT  TestDang
+=== RUN   TestDang/TestDirectives
+=== PAUSE TestDang/TestDirectives
+=== CONT  TestDang/TestDirectives
+=== RUN   TestDang/TestDirectives/positional_defaultPath
+=== PAUSE TestDang/TestDirectives/positional_defaultPath
+=== RUN   TestDang/TestDirectives/named_defaultPath
+=== PAUSE TestDang/TestDirectives/named_defaultPath
+=== RUN   TestDang/TestDirectives/positional_ignorePatterns
+=== PAUSE TestDang/TestDirectives/positional_ignorePatterns
+=== RUN   TestDang/TestDirectives/named_ignorePatterns
+=== PAUSE TestDang/TestDirectives/named_ignorePatterns
+=== RUN   TestDang/TestDirectives/mixed_syntax
+=== PAUSE TestDang/TestDirectives/mixed_syntax
+=== RUN   TestDang/TestDirectives/cache_directive_with_enum_argument
+=== PAUSE TestDang/TestDirectives/cache_directive_with_enum_argument
+=== CONT  TestDang/TestDirectives/positional_defaultPath
+    testctx.go:198: Creating new Engine session... OK!
+    testctx.go:198: Establishing connection to Engine... OK!
+    testctx.go:198: 1   : dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a
+    testctx.go:198: 2   : ┆ connect
+    testctx.go:198: 2   : ┆ [0.0s] | cloud url=https://dagger.cloud/dagger/traces/e801254604bedd037118916a08604946
+    testctx.go:198: 3   : ┆ ┆ starting engine
+    testctx.go:198: 3   : ┆ ┆ starting engine DONE [0.0s]
+    testctx.go:198: 4   : ┆ ┆ connecting to engine
+    testctx.go:198: 4   : ┆ ┆ [0.0s] | 18:36:41 INF connected name=6c1c8136c625 client-version=v1.0.0-beta.15 server-version=v1.0.0-beta.15
+    testctx.go:198: 4   : ┆ ┆ connecting to engine DONE [0.0s]
+    testctx.go:198: 5   : ┆ ┆ starting session
+    testctx.go:198: 5   : ┆ ┆ starting session DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 6   : consuming /v1/traces
+    testctx.go:198: 6   : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 7   : consuming /v1/logs
+    testctx.go:198: 
+    testctx.go:198: 1   : dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a
+    testctx.go:198: 2   : ┆ connect DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 7   : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 8   : consuming /v1/metrics
+    testctx.go:198: 8   : consuming /v1/metrics DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 9   : host: Host!
+    testctx.go:198: 9   : host CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 10  : Host.file(path: "/tmp/collections-perf/rebase-main/dagger"): File!
+    testctx.go:198: 10  : Host.file DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 11  : Host.directory(path: "/home/dagger/dag/core/integration/testdata/modules/dang/test-directives"): Directory!
+    testctx.go:198: 11  : Host.directory DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 12  : container(platform: "linux/amd64"): Container!
+    testctx.go:198: 12  : container CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 13  : Container.from(address: "golang:1.26-alpine"): Container!
+    testctx.go:198: 13  : Container.from DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 14  : withExec apk add git
+    testctx.go:198: 14  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 15  : withExec git config --global user.email dagger@example.com
+    testctx.go:198: 15  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 16  : withExec git config --global user.name 'Dagger Tests'
+    testctx.go:198: 16  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 17  : Container.withMountedFile(
+    testctx.go:198: 17  : ┆ path: "/bin/dagger"
+    testctx.go:198: 17  : ┆ source: Host.file(path: "/tmp/collections-perf/rebase-main/dagger"): File!
+    testctx.go:198: 17  : ): Container!
+    testctx.go:198: 17  : Container.withMountedFile CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 18  : withWorkdir /work
+    testctx.go:198: 18  : Container.withWorkdir CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 19  : withExec git init
+    testctx.go:198: 19  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 20  : Container.withDirectory(
+    testctx.go:198: 20  : ┆ path: "testdata/modules/dang/test-directives"
+    testctx.go:198: 20  : ┆ source: Host.directory(path: "/home/dagger/dag/core/integration/testdata/modules/dang/test-directives"): Directory!
+    testctx.go:198: 20  : ): Container!
+    testctx.go:198: 20  : Container.withDirectory DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 21  : withWorkdir /work/testdata/modules/dang/test-directives
+    testctx.go:198: 21  : Container.withWorkdir DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger call with-positional-default-path (useEntrypoint: true)
+    testctx.go:198: 
+    testctx.go:198: 23  : Container.stdout: String!
+    testctx.go:198: 
+    testctx.go:198: 11  : Host.directory(path: "/home/dagger/dag/core/integration/testdata/modules/dang/test-directives"): Directory!
+    testctx.go:198: 24  : ┆ uploading /home/dagger/dag/core/integration/testdata/modules/dang/test-directives
+    testctx.go:198: 24  : ┆ uploading /home/dagger/dag/core/integration/testdata/modules/dang/test-directives DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger call with-positional-default-path (useEntrypoint: true)
+    testctx.go:198: 25  : ┆ with-positional-default-path
+    testctx.go:198: 25  : ┆ [0.0s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 25  : ┆ [0.0s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 26  : ┆ connect
+    testctx.go:198: 26  : ┆ connect DONE [0.0s]
+    testctx.go:198: 27  : ┆ load workspace: .
+    testctx.go:198: 28  : ┆ loading type definitions
+    testctx.go:198: 25  : ┆ with-positional-default-path
+    testctx.go:198: 25  : ┆ [0.0s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 25  : ┆ [0.0s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 
+    testctx.go:198: 29  : load module: test-directives
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger call with-positional-default-path (useEntrypoint: true)
+    testctx.go:198: 30  : ┆ testDirectives: TestDirectives!
+    testctx.go:198: 
+    testctx.go:198: 29  : load module: test-directives DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 31  : load SDK: dang
+    testctx.go:198: 31  : load SDK: dang DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 32  : uploading /work
+    testctx.go:198: 32  : uploading /work DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 33  : consuming /v1/traces
+    testctx.go:198: 33  : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 34  : consuming /v1/logs
+    testctx.go:198: 34  : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 35  : consuming /v1/metrics
+    testctx.go:198: 35  : consuming /v1/metrics DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger call with-positional-default-path (useEntrypoint: true)
+    testctx.go:198: 28  : ┆ loading type definitions DONE [0.3s]
+    testctx.go:198: 27  : ┆ load workspace: . DONE [0.3s]
+    testctx.go:198: 36  : ┆ parsing command line arguments
+    testctx.go:198: 36  : ┆ parsing command line arguments DONE [0.0s]
+    testctx.go:198: 30  : ┆ testDirectives DONE [0.0s]
+    testctx.go:198: 37  : ┆ TestDirectives.withPositionalDefaultPath(
+    testctx.go:198: 37  : ┆ ┆ source: Host.directory(path: "/work/testdata/modules/dang/test-directives/fixtures/default-positional", noCache: true): Directory!
+    testctx.go:198: 37  : ┆ ): [String!]!
+    testctx.go:198: 38  : ┆ ┆ Directory.entries: [String!]!
+    testctx.go:198: 38  : ┆ ┆ Directory.entries DONE [0.0s]
+    testctx.go:198: 37  : ┆ TestDirectives.withPositionalDefaultPath DONE [0.0s]
+    testctx.go:198: 25  : ┆ with-positional-default-path
+    testctx.go:198: 25  : ┆ [0.4s] | positional-default.txt
+    testctx.go:198: 25  : ┆ with-positional-default-path DONE [0.4s]
+    testctx.go:198: 22  : Container.withExec DONE [0.5s]
+    testctx.go:198: 
+    testctx.go:198: 23  : Container.stdout DONE [0.5s]
+    testctx.go:198: 
+    testctx.go:198: 1   : dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a DONE [1.0s]
+    testctx.go:198: 
+    testctx.go:198: 22  : Container.withExec DONE [0.5s]
+    testctx.go:198: 22  : [0.5s] | [32m✔[0m connect [2m0.0s[0m
+    testctx.go:198: 22  : [0.5s] | [32m✔[0m load workspace: . [2m0.3s[0m
+    testctx.go:198: 22  : [0.5s] |   [32m✔[0m [2muploading /work[0m [2m0.0s[0m [32;100m████████████[0m 1.9 kB
+    testctx.go:198: 22  : [0.5s] | [32m✔[0m parsing command line arguments [2m0.0s[0m
+    testctx.go:198: 22  : [0.5s] | 
+    testctx.go:198: 22  : [0.5s] | [32m✔[0m [1mtestDirectives[0m[2m: TestDirectives![0m [2m0.0s[0m
+    testctx.go:198: 22  : [0.5s] | [32m✔[0m .[1mwithPositionalDefaultPath[0m(
+    testctx.go:198: 22  : [0.5s] | [90;2m  [0m[90;2m┆ [0m[36msource:[0m Host.[1mdirectory[0m([36mpath: [0m[33m"/work/testdata/modules/dang/test-directives/fixtures/default-positional"[0m, [36mnoCache: [0m[31mtrue[0m)[2m: Directory![0m
+    testctx.go:198: 22  : [0.5s] | [90;2m  [0m[90;2m[0m)[2m: [String!]![0m [2m0.0s[0m
+    testctx.go:198: 22  : [0.5s] | 
+    testctx.go:198: 22  : [0.5s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 22  : [0.5s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 22  : [0.5s] | positional-default.txt
+    testctx.go:198: 
+=== CONT  TestDang/TestDirectives/named_ignorePatterns
+    testctx.go:198: Creating new Engine session... OK!
+    testctx.go:198: Establishing connection to Engine... OK!
+    testctx.go:198: 1   : dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a
+    testctx.go:198: 2   : ┆ connect
+    testctx.go:198: 2   : ┆ [0.0s] | cloud url=https://dagger.cloud/dagger/traces/e801254604bedd037118916a08604946
+    testctx.go:198: 3   : ┆ ┆ starting engine
+    testctx.go:198: 3   : ┆ ┆ starting engine DONE [0.0s]
+    testctx.go:198: 4   : ┆ ┆ connecting to engine
+    testctx.go:198: 4   : ┆ ┆ [0.0s] | 18:36:42 INF connected name=6c1c8136c625 client-version=v1.0.0-beta.15 server-version=v1.0.0-beta.15
+    testctx.go:198: 4   : ┆ ┆ connecting to engine DONE [0.0s]
+    testctx.go:198: 5   : ┆ ┆ starting session
+    testctx.go:198: 5   : ┆ ┆ starting session DONE [0.0s]
+    testctx.go:198: 2   : ┆ connect DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 6   : consuming /v1/traces
+    testctx.go:198: 6   : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 7   : consuming /v1/logs
+    testctx.go:198: 7   : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 8   : consuming /v1/metrics
+    testctx.go:198: 8   : consuming /v1/metrics DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 9   : host: Host!
+    testctx.go:198: 9   : host CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 10  : Host.directory(path: "/home/dagger/dag/core/integration/testdata/modules/dang/test-directives"): Directory!
+    testctx.go:198: 10  : Host.directory DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 11  : Host.file(path: "/tmp/collections-perf/rebase-main/dagger"): File!
+    testctx.go:198: 11  : Host.file DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 12  : container(platform: "linux/amd64"): Container!
+    testctx.go:198: 12  : container CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 13  : Container.from(address: "golang:1.26-alpine"): Container!
+    testctx.go:198: 13  : Container.from DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 14  : withExec apk add git
+    testctx.go:198: 14  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 15  : withExec git config --global user.email dagger@example.com
+    testctx.go:198: 15  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 16  : withExec git config --global user.name 'Dagger Tests'
+    testctx.go:198: 16  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 17  : Container.withMountedFile(
+    testctx.go:198: 17  : ┆ path: "/bin/dagger"
+    testctx.go:198: 17  : ┆ source: Host.file(path: "/tmp/collections-perf/rebase-main/dagger"): File!
+    testctx.go:198: 17  : ): Container!
+    testctx.go:198: 17  : Container.withMountedFile CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 18  : withWorkdir /work
+    testctx.go:198: 18  : Container.withWorkdir CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 19  : withExec git init
+    testctx.go:198: 19  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 20  : Container.withDirectory(
+    testctx.go:198: 20  : ┆ path: "testdata/modules/dang/test-directives"
+    testctx.go:198: 20  : ┆ source: Host.directory(path: "/home/dagger/dag/core/integration/testdata/modules/dang/test-directives"): Directory!
+    testctx.go:198: 20  : ): Container!
+    testctx.go:198: 20  : Container.withDirectory CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 21  : withWorkdir /work/testdata/modules/dang/test-directives
+    testctx.go:198: 21  : Container.withWorkdir CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger call with-named-ignore (useEntrypoint: true)
+    testctx.go:198: 
+    testctx.go:198: 23  : Container.stdout: String!
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger call with-named-ignore (useEntrypoint: true)
+    testctx.go:198: 24  : ┆ with-named-ignore
+    testctx.go:198: 24  : ┆ [0.0s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 24  : ┆ [0.0s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 25  : ┆ connect
+    testctx.go:198: 25  : ┆ connect DONE [0.0s]
+    testctx.go:198: 26  : ┆ load workspace: .
+    testctx.go:198: 27  : ┆ loading type definitions
+    testctx.go:198: 
+    testctx.go:198: 28  : load module: test-directives
+    testctx.go:198: 28  : load module: test-directives DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 29  : load SDK: dang
+    testctx.go:198: 29  : load SDK: dang DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 30  : uploading /work
+    testctx.go:198: 30  : uploading /work DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 31  : consuming /v1/traces
+    testctx.go:198: 31  : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 32  : consuming /v1/logs
+    testctx.go:198: 32  : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 33  : consuming /v1/metrics
+    testctx.go:198: 33  : consuming /v1/metrics DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger call with-named-ignore (useEntrypoint: true)
+    testctx.go:198: 34  : ┆ testDirectives: TestDirectives!
+    testctx.go:198: 34  : ┆ testDirectives CACHED [0.0s]
+    testctx.go:198: 35  : ┆ TestDirectives.withNamedIgnore(
+    testctx.go:198: 35  : ┆ ┆ source: Host.directory(path: "/work/testdata/modules/dang/test-directives/fixtures/ignore-named", exclude: ["*.tmp", "*.log"], noCache: true): Directory!
+    testctx.go:198: 35  : ┆ ): [String!]!
+    testctx.go:198: 36  : ┆ ┆ Directory.entries: [String!]!
+    testctx.go:198: 36  : ┆ ┆ Directory.entries DONE [0.0s]
+    testctx.go:198: 27  : ┆ loading type definitions DONE [0.2s]
+    testctx.go:198: 26  : ┆ load workspace: . DONE [0.2s]
+    testctx.go:198: 37  : ┆ parsing command line arguments
+    testctx.go:198: 37  : ┆ parsing command line arguments DONE [0.0s]
+    testctx.go:198: 35  : ┆ TestDirectives.withNamedIgnore DONE [0.0s]
+    testctx.go:198: 24  : ┆ with-named-ignore
+    testctx.go:198: 24  : ┆ [0.0s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 24  : ┆ [0.0s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 24  : ┆ [0.3s] | keep.txt
+    testctx.go:198: 24  : ┆ with-named-ignore DONE [0.3s]
+    testctx.go:198: 22  : withExec dagger call with-named-ignore (useEntrypoint: true)
+    testctx.go:198: 22  : [0.4s] | [32m✔[0m connect [2m0.0s[0m
+    testctx.go:198: 22  : [0.4s] | [32m✔[0m load workspace: . [2m0.2s[0m
+    testctx.go:198: 22  : [0.4s] |   [32m✔[0m [2muploading /work[0m [2m0.0s[0m [32;100m████████████[0m 1.9 kB
+    testctx.go:198: 22  : [0.4s] | [32m✔[0m parsing command line arguments [2m0.0s[0m
+    testctx.go:198: 22  : [0.4s] | 
+    testctx.go:198: 22  : [0.4s] | [34m$[0m [1mtestDirectives[0m[2m: TestDirectives![0m [2m0.0s[0m [34mCACHED[0m
+    testctx.go:198: 22  : [0.4s] | [32m✔[0m .[1mwithNamedIgnore[0m(
+    testctx.go:198: 22  : [0.4s] | [90;2m  [0m[90;2m┆ [0m[36msource:[0m Host.[1mdirectory[0m([36mpath: [0m[33m"/work/testdata/modules/dang/test-directives/fixtures/ignore-named"[0m, [36mexclude: [0m[[33m"*.tmp"[0m, [33m"*.log"[0m], [36mnoCache: [0m[31mtrue[0m)[2m: Directory![0m
+    testctx.go:198: 22  : [0.4s] | [90;2m  [0m[90;2m[0m)[2m: [String!]![0m [2m0.0s[0m
+    testctx.go:198: 22  : [0.4s] | 
+    testctx.go:198: 22  : [0.4s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 22  : [0.4s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 22  : [0.4s] | keep.txt
+    testctx.go:198: 22  : Container.withExec DONE [0.4s]
+    testctx.go:198: 
+    testctx.go:198: 23  : Container.stdout DONE [0.4s]
+    testctx.go:198: 
+    testctx.go:198: 1   : dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a DONE [0.8s]
+    testctx.go:198: 
+=== CONT  TestDang/TestDirectives/cache_directive_with_enum_argument
+    testctx.go:198: Creating new Engine session... OK!
+    testctx.go:198: Establishing connection to Engine... OK!
+    testctx.go:198: 1   : dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a
+    testctx.go:198: 2   : ┆ connect
+    testctx.go:198: 2   : ┆ [0.0s] | cloud url=https://dagger.cloud/dagger/traces/e801254604bedd037118916a08604946
+    testctx.go:198: 3   : ┆ ┆ starting engine
+    testctx.go:198: 3   : ┆ ┆ starting engine DONE [0.0s]
+    testctx.go:198: 4   : ┆ ┆ connecting to engine
+    testctx.go:198: 4   : ┆ ┆ [0.0s] | 18:36:43 INF connected name=6c1c8136c625 client-version=v1.0.0-beta.15 server-version=v1.0.0-beta.15
+    testctx.go:198: 4   : ┆ ┆ connecting to engine DONE [0.0s]
+    testctx.go:198: 5   : ┆ ┆ starting session
+    testctx.go:198: 5   : ┆ ┆ starting session DONE [0.0s]
+    testctx.go:198: 2   : ┆ connect DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 6   : consuming /v1/traces
+    testctx.go:198: 6   : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 7   : consuming /v1/logs
+    testctx.go:198: 7   : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 8   : consuming /v1/metrics
+    testctx.go:198: 8   : consuming /v1/metrics DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 9   : host: Host!
+    testctx.go:198: 9   : host CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 10  : Host.directory(path: "/home/dagger/dag/core/integration/testdata/modules/dang/test-directives"): Directory!
+    testctx.go:198: 10  : Host.directory DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 11  : Host.file(path: "/tmp/collections-perf/rebase-main/dagger"): File!
+    testctx.go:198: 11  : Host.file DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 12  : container(platform: "linux/amd64"): Container!
+    testctx.go:198: 12  : container CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 13  : Container.from(address: "golang:1.26-alpine"): Container!
+    testctx.go:198: 13  : Container.from DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 14  : withExec apk add git
+    testctx.go:198: 14  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 15  : withExec git config --global user.email dagger@example.com
+    testctx.go:198: 15  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 16  : withExec git config --global user.name 'Dagger Tests'
+    testctx.go:198: 16  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 17  : Container.withMountedFile(
+    testctx.go:198: 17  : ┆ path: "/bin/dagger"
+    testctx.go:198: 17  : ┆ source: Host.file(path: "/tmp/collections-perf/rebase-main/dagger"): File!
+    testctx.go:198: 17  : ): Container!
+    testctx.go:198: 17  : Container.withMountedFile CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 18  : withWorkdir /work
+    testctx.go:198: 18  : Container.withWorkdir CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 19  : withExec git init
+    testctx.go:198: 19  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 20  : Container.withDirectory(
+    testctx.go:198: 20  : ┆ path: "testdata/modules/dang/test-directives"
+    testctx.go:198: 20  : ┆ source: Host.directory(path: "/home/dagger/dag/core/integration/testdata/modules/dang/test-directives"): Directory!
+    testctx.go:198: 20  : ): Container!
+    testctx.go:198: 20  : Container.withDirectory CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 21  : withWorkdir /work/testdata/modules/dang/test-directives
+    testctx.go:198: 21  : Container.withWorkdir CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger call with-never-cache (useEntrypoint: true)
+    testctx.go:198: 
+    testctx.go:198: 23  : Container.stdout: String!
+    testctx.go:198: 
+    testctx.go:198: 24  : load module: test-directives
+    testctx.go:198: 24  : load module: test-directives DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 25  : load SDK: dang
+    testctx.go:198: 25  : load SDK: dang DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger call with-never-cache (useEntrypoint: true)
+    testctx.go:198: 26  : ┆ with-never-cache
+    testctx.go:198: 26  : ┆ [0.0s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 26  : ┆ [0.0s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 27  : ┆ connect
+    testctx.go:198: 27  : ┆ connect DONE [0.0s]
+    testctx.go:198: 28  : ┆ load workspace: .
+    testctx.go:198: 29  : ┆ loading type definitions
+    testctx.go:198: 
+    testctx.go:198: 30  : uploading /work
+    testctx.go:198: 30  : uploading /work DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 31  : consuming /v1/traces
+    testctx.go:198: 31  : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 32  : consuming /v1/logs
+    testctx.go:198: 32  : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 33  : consuming /v1/metrics
+    testctx.go:198: 33  : consuming /v1/metrics DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger call with-never-cache (useEntrypoint: true)
+    testctx.go:198: 29  : ┆ loading type definitions DONE [0.3s]
+    testctx.go:198: 28  : ┆ load workspace: . DONE [0.3s]
+    testctx.go:198: 34  : ┆ parsing command line arguments
+    testctx.go:198: 34  : ┆ parsing command line arguments DONE [0.0s]
+    testctx.go:198: 35  : ┆ testDirectives: TestDirectives!
+    testctx.go:198: 35  : ┆ testDirectives CACHED [0.0s]
+    testctx.go:198: 36  : ┆ TestDirectives.withNeverCache: String!
+    testctx.go:198: 36  : ┆ TestDirectives.withNeverCache DONE [0.0s]
+    testctx.go:198: 26  : ┆ with-never-cache
+    testctx.go:198: 26  : ┆ [0.0s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 26  : ┆ [0.0s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 26  : ┆ [0.3s] | never
+    testctx.go:198: 26  : ┆ with-never-cache DONE [0.3s]
+    testctx.go:198: 22  : withExec dagger call with-never-cache (useEntrypoint: true)
+    testctx.go:198: 22  : [0.4s] | [32m✔[0m connect [2m0.0s[0m
+    testctx.go:198: 22  : [0.4s] | [32m✔[0m load workspace: . [2m0.3s[0m
+    testctx.go:198: 22  : [0.4s] |   [32m✔[0m [2muploading /work[0m [2m0.0s[0m [32;100m████████████[0m 1.9 kB
+    testctx.go:198: 22  : [0.4s] | [32m✔[0m parsing command line arguments [2m0.0s[0m
+    testctx.go:198: 22  : [0.4s] | 
+    testctx.go:198: 22  : [0.4s] | [34m$[0m [1mtestDirectives[0m[2m: TestDirectives![0m [2m0.0s[0m [34mCACHED[0m
+    testctx.go:198: 22  : [0.4s] | [32m✔[0m .[1mwithNeverCache[0m[2m: String![0m [2m0.0s[0m
+    testctx.go:198: 22  : [0.4s] | 
+    testctx.go:198: 22  : [0.4s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 22  : [0.4s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 
+    testctx.go:198: 1   : dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a DONE [0.7s]
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger call with-never-cache (useEntrypoint: true)
+    testctx.go:198: 22  : [0.4s] | never
+    testctx.go:198: 22  : Container.withExec DONE [0.4s]
+    testctx.go:198: 
+    testctx.go:198: 23  : Container.stdout DONE [0.4s]
+    testctx.go:198: 
+=== CONT  TestDang/TestDirectives/mixed_syntax
+    testctx.go:198: Creating new Engine session... OK!
+    testctx.go:198: Establishing connection to Engine... OK!
+    testctx.go:198: 1   : dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a
+    testctx.go:198: 2   : ┆ connect
+    testctx.go:198: 2   : ┆ [0.0s] | cloud url=https://dagger.cloud/dagger/traces/e801254604bedd037118916a08604946
+    testctx.go:198: 3   : ┆ ┆ starting engine
+    testctx.go:198: 3   : ┆ ┆ starting engine DONE [0.0s]
+    testctx.go:198: 4   : ┆ ┆ connecting to engine
+    testctx.go:198: 4   : ┆ ┆ [0.0s] | 18:36:44 INF connected name=6c1c8136c625 client-version=v1.0.0-beta.15 server-version=v1.0.0-beta.15
+    testctx.go:198: 4   : ┆ ┆ connecting to engine DONE [0.0s]
+    testctx.go:198: 5   : ┆ ┆ starting session
+    testctx.go:198: 5   : ┆ ┆ starting session DONE [0.0s]
+    testctx.go:198: 2   : ┆ connect DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 6   : consuming /v1/traces
+    testctx.go:198: 6   : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 7   : consuming /v1/logs
+    testctx.go:198: 7   : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 8   : consuming /v1/metrics
+    testctx.go:198: 8   : consuming /v1/metrics DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 9   : host: Host!
+    testctx.go:198: 9   : host CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 10  : Host.directory(path: "/home/dagger/dag/core/integration/testdata/modules/dang/test-directives"): Directory!
+    testctx.go:198: 10  : Host.directory DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 11  : Host.file(path: "/tmp/collections-perf/rebase-main/dagger"): File!
+    testctx.go:198: 11  : Host.file DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 12  : container(platform: "linux/amd64"): Container!
+    testctx.go:198: 12  : container CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 13  : Container.from(address: "golang:1.26-alpine"): Container!
+    testctx.go:198: 13  : Container.from DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 14  : withExec apk add git
+    testctx.go:198: 14  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 15  : withExec git config --global user.email dagger@example.com
+    testctx.go:198: 15  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 16  : withExec git config --global user.name 'Dagger Tests'
+    testctx.go:198: 16  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 17  : Container.withMountedFile(
+    testctx.go:198: 17  : ┆ path: "/bin/dagger"
+    testctx.go:198: 17  : ┆ source: Host.file(path: "/tmp/collections-perf/rebase-main/dagger"): File!
+    testctx.go:198: 17  : ): Container!
+    testctx.go:198: 17  : Container.withMountedFile CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 18  : withWorkdir /work
+    testctx.go:198: 18  : Container.withWorkdir CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 19  : withExec git init
+    testctx.go:198: 19  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 20  : Container.withDirectory(
+    testctx.go:198: 20  : ┆ path: "testdata/modules/dang/test-directives"
+    testctx.go:198: 20  : ┆ source: Host.directory(path: "/home/dagger/dag/core/integration/testdata/modules/dang/test-directives"): Directory!
+    testctx.go:198: 20  : ): Container!
+    testctx.go:198: 20  : Container.withDirectory CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 21  : withWorkdir /work/testdata/modules/dang/test-directives
+    testctx.go:198: 21  : Container.withWorkdir CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger call with-mixed-syntax (useEntrypoint: true)
+    testctx.go:198: 
+    testctx.go:198: 23  : Container.stdout: String!
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger call with-mixed-syntax (useEntrypoint: true)
+    testctx.go:198: 24  : ┆ with-mixed-syntax
+    testctx.go:198: 24  : ┆ [0.0s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 24  : ┆ [0.0s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 25  : ┆ connect
+    testctx.go:198: 25  : ┆ connect DONE [0.0s]
+    testctx.go:198: 26  : ┆ load workspace: .
+    testctx.go:198: 27  : ┆ loading type definitions
+    testctx.go:198: 
+    testctx.go:198: 28  : load module: test-directives
+    testctx.go:198: 28  : load module: test-directives DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 29  : load SDK: dang
+    testctx.go:198: 29  : load SDK: dang DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 30  : uploading /work
+    testctx.go:198: 30  : uploading /work DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 31  : consuming /v1/traces
+    testctx.go:198: 31  : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 32  : consuming /v1/logs
+    testctx.go:198: 32  : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 33  : consuming /v1/metrics
+    testctx.go:198: 33  : consuming /v1/metrics DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger call with-mixed-syntax (useEntrypoint: true)
+    testctx.go:198: 34  : ┆ testDirectives: TestDirectives!
+    testctx.go:198: 34  : ┆ testDirectives CACHED [0.0s]
+    testctx.go:198: 27  : ┆ loading type definitions DONE [0.3s]
+    testctx.go:198: 26  : ┆ load workspace: . DONE [0.3s]
+    testctx.go:198: 35  : ┆ parsing command line arguments
+    testctx.go:198: 35  : ┆ parsing command line arguments DONE [0.0s]
+    testctx.go:198: 36  : ┆ TestDirectives.withMixedSyntax(
+    testctx.go:198: 36  : ┆ ┆ source: Host.directory(path: "/work/testdata/modules/dang/test-directives/fixtures/mixed", exclude: ["*.tmp"], noCache: true): Directory!
+    testctx.go:198: 36  : ┆ ): [String!]!
+    testctx.go:198: 37  : ┆ ┆ Directory.entries: [String!]!
+    testctx.go:198: 37  : ┆ ┆ Directory.entries DONE [0.0s]
+    testctx.go:198: 36  : ┆ TestDirectives.withMixedSyntax DONE [0.0s]
+    testctx.go:198: 24  : ┆ with-mixed-syntax
+    testctx.go:198: 24  : ┆ [0.0s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 24  : ┆ [0.0s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 24  : ┆ [0.3s] | keep.log
+    testctx.go:198: 24  : ┆ [0.3s] | keep.txt
+    testctx.go:198: 24  : ┆ with-mixed-syntax DONE [0.3s]
+    testctx.go:198: 22  : withExec dagger call with-mixed-syntax (useEntrypoint: true)
+    testctx.go:198: 22  : [0.4s] | [32m✔[0m connect [2m0.0s[0m
+    testctx.go:198: 22  : [0.4s] | [32m✔[0m load workspace: . [2m0.3s[0m
+    testctx.go:198: 22  : [0.4s] |   [32m✔[0m [2muploading /work[0m [2m0.0s[0m [32;100m████████████[0m 1.9 kB
+    testctx.go:198: 22  : [0.4s] | [32m✔[0m parsing command line arguments [2m0.0s[0m
+    testctx.go:198: 22  : [0.4s] | 
+    testctx.go:198: 22  : [0.4s] | [34m$[0m [1mtestDirectives[0m[2m: TestDirectives![0m [2m0.0s[0m [34mCACHED[0m
+    testctx.go:198: 22  : [0.4s] | [32m✔[0m .[1mwithMixedSyntax[0m(
+    testctx.go:198: 22  : [0.4s] | [90;2m  [0m[90;2m┆ [0m[36msource:[0m Host.[1mdirectory[0m([36mpath: [0m[33m"/work/testdata/modules/dang/test-directives/fixtures/mixed"[0m, [36mexclude: [0m[[33m"*.tmp"[0m], [36mnoCache: [0m[31mtrue[0m)[2m: Directory![0m
+    testctx.go:198: 22  : [0.4s] | [90;2m  [0m[90;2m[0m)[2m: [String!]![0m [2m0.0s[0m
+    testctx.go:198: 22  : [0.4s] | 
+    testctx.go:198: 22  : [0.4s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 22  : [0.4s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 22  : [0.4s] | keep.log
+    testctx.go:198: 22  : [0.4s] | keep.txt
+    testctx.go:198: 22  : Container.withExec DONE [0.4s]
+    testctx.go:198: 
+    testctx.go:198: 23  : Container.stdout DONE [0.4s]
+    testctx.go:198: 
+    testctx.go:198: 1   : dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a DONE [0.9s]
+    testctx.go:198: 
+=== CONT  TestDang/TestDirectives/positional_ignorePatterns
+    testctx.go:198: Creating new Engine session... OK!
+    testctx.go:198: Establishing connection to Engine... OK!
+    testctx.go:198: 1   : dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a
+    testctx.go:198: 2   : ┆ connect
+    testctx.go:198: 2   : ┆ [0.0s] | cloud url=https://dagger.cloud/dagger/traces/e801254604bedd037118916a08604946
+    testctx.go:198: 3   : ┆ ┆ starting engine
+    testctx.go:198: 3   : ┆ ┆ starting engine DONE [0.0s]
+    testctx.go:198: 4   : ┆ ┆ connecting to engine
+    testctx.go:198: 4   : ┆ ┆ [0.0s] | 18:36:45 INF connected name=6c1c8136c625 client-version=v1.0.0-beta.15 server-version=v1.0.0-beta.15
+    testctx.go:198: 4   : ┆ ┆ connecting to engine DONE [0.0s]
+    testctx.go:198: 5   : ┆ ┆ starting session
+    testctx.go:198: 5   : ┆ ┆ starting session DONE [0.0s]
+    testctx.go:198: 2   : ┆ connect DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 6   : consuming /v1/traces
+    testctx.go:198: 6   : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 7   : consuming /v1/logs
+    testctx.go:198: 7   : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 8   : consuming /v1/metrics
+    testctx.go:198: 8   : consuming /v1/metrics DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 9   : host: Host!
+    testctx.go:198: 9   : host CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 10  : Host.directory(path: "/home/dagger/dag/core/integration/testdata/modules/dang/test-directives"): Directory!
+    testctx.go:198: 10  : Host.directory DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 11  : Host.file(path: "/tmp/collections-perf/rebase-main/dagger"): File!
+    testctx.go:198: 11  : Host.file DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 12  : container(platform: "linux/amd64"): Container!
+    testctx.go:198: 12  : container CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 13  : Container.from(address: "golang:1.26-alpine"): Container!
+    testctx.go:198: 13  : Container.from DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 14  : withExec apk add git
+    testctx.go:198: 14  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 15  : withExec git config --global user.email dagger@example.com
+    testctx.go:198: 15  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 16  : withExec git config --global user.name 'Dagger Tests'
+    testctx.go:198: 16  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 17  : Container.withMountedFile(
+    testctx.go:198: 17  : ┆ path: "/bin/dagger"
+    testctx.go:198: 17  : ┆ source: Host.file(path: "/tmp/collections-perf/rebase-main/dagger"): File!
+    testctx.go:198: 17  : ): Container!
+    testctx.go:198: 17  : Container.withMountedFile CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 18  : withWorkdir /work
+    testctx.go:198: 18  : Container.withWorkdir CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 19  : withExec git init
+    testctx.go:198: 19  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 20  : Container.withDirectory(
+    testctx.go:198: 20  : ┆ path: "testdata/modules/dang/test-directives"
+    testctx.go:198: 20  : ┆ source: Host.directory(path: "/home/dagger/dag/core/integration/testdata/modules/dang/test-directives"): Directory!
+    testctx.go:198: 20  : ): Container!
+    testctx.go:198: 20  : Container.withDirectory CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 21  : withWorkdir /work/testdata/modules/dang/test-directives
+    testctx.go:198: 21  : Container.withWorkdir CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger call with-positional-ignore (useEntrypoint: true)
+    testctx.go:198: 
+    testctx.go:198: 23  : Container.stdout: String!
+    testctx.go:198: 
+    testctx.go:198: 24  : load module: test-directives
+    testctx.go:198: 24  : load module: test-directives DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 25  : load SDK: dang
+    testctx.go:198: 25  : load SDK: dang DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 26  : uploading /work
+    testctx.go:198: 26  : uploading /work DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger call with-positional-ignore (useEntrypoint: true)
+    testctx.go:198: 27  : ┆ with-positional-ignore
+    testctx.go:198: 27  : ┆ [0.0s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 27  : ┆ [0.0s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 28  : ┆ connect
+    testctx.go:198: 28  : ┆ connect DONE [0.0s]
+    testctx.go:198: 29  : ┆ load workspace: .
+    testctx.go:198: 30  : ┆ loading type definitions
+    testctx.go:198: 
+    testctx.go:198: 31  : consuming /v1/traces
+    testctx.go:198: 31  : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 32  : consuming /v1/logs
+    testctx.go:198: 32  : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 33  : consuming /v1/metrics
+    testctx.go:198: 33  : consuming /v1/metrics DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger call with-positional-ignore (useEntrypoint: true)
+    testctx.go:198: 27  : ┆ with-positional-ignore
+    testctx.go:198: 27  : ┆ [0.0s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 27  : ┆ [0.0s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 27  : ┆ [0.4s] | keep.txt
+    testctx.go:198: 22  : withExec dagger call with-positional-ignore (useEntrypoint: true)
+    testctx.go:198: 22  : [0.5s] | [32m✔[0m connect [2m0.0s[0m
+    testctx.go:198: 22  : [0.5s] | [32m✔[0m load workspace: . [2m0.3s[0m
+    testctx.go:198: 22  : [0.5s] |   [32m✔[0m [2muploading /work[0m [2m0.0s[0m [32;100m████████████[0m 1.9 kB
+    testctx.go:198: 22  : [0.5s] | [32m✔[0m parsing command line arguments [2m0.0s[0m
+    testctx.go:198: 22  : [0.5s] | 
+    testctx.go:198: 22  : [0.5s] | [34m$[0m [1mtestDirectives[0m[2m: TestDirectives![0m [2m0.0s[0m [34mCACHED[0m
+    testctx.go:198: 22  : [0.5s] | [32m✔[0m .[1mwithPositionalIgnore[0m(
+    testctx.go:198: 22  : [0.5s] | [90;2m  [0m[90;2m┆ [0m[36msource:[0m Host.[1mdirectory[0m([36mpath: [0m[33m"/work/testdata/modules/dang/test-directives/fixtures/ignore-named"[0m, [36mexclude: [0m[[33m"*.tmp"[0m, [33m"*.log"[0m], [36mnoCache: [0m[31mtrue[0m)[2m: Directory![0m
+    testctx.go:198: 22  : [0.5s] | [90;2m  [0m[90;2m[0m)[2m: [String!]![0m [2m0.0s[0m
+    testctx.go:198: 22  : [0.5s] | 
+    testctx.go:198: 22  : [0.5s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 22  : [0.5s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 22  : [0.5s] | keep.txt
+    testctx.go:198: 30  : ┆ loading type definitions DONE [0.3s]
+    testctx.go:198: 29  : ┆ load workspace: . DONE [0.3s]
+    testctx.go:198: 34  : ┆ parsing command line arguments
+    testctx.go:198: 34  : ┆ parsing command line arguments DONE [0.0s]
+    testctx.go:198: 35  : ┆ testDirectives: TestDirectives!
+    testctx.go:198: 35  : ┆ testDirectives CACHED [0.0s]
+    testctx.go:198: 36  : ┆ TestDirectives.withPositionalIgnore(
+    testctx.go:198: 36  : ┆ ┆ source: Host.directory(path: "/work/testdata/modules/dang/test-directives/fixtures/ignore-named", exclude: ["*.tmp", "*.log"], noCache: true): Directory!
+    testctx.go:198: 36  : ┆ ): [String!]!
+    testctx.go:198: 37  : ┆ ┆ Directory.entries: [String!]!
+    testctx.go:198: 37  : ┆ ┆ Directory.entries DONE [0.0s]
+    testctx.go:198: 36  : ┆ TestDirectives.withPositionalIgnore DONE [0.0s]
+    testctx.go:198: 27  : ┆ with-positional-ignore DONE [0.4s]
+    testctx.go:198: 22  : Container.withExec DONE [0.5s]
+    testctx.go:198: 
+    testctx.go:198: 23  : Container.stdout DONE [0.5s]
+    testctx.go:198: 
+    testctx.go:198: 1   : dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a DONE [0.9s]
+    testctx.go:198: 
+=== CONT  TestDang/TestDirectives/named_defaultPath
+    testctx.go:198: Creating new Engine session... OK!
+    testctx.go:198: Establishing connection to Engine... OK!
+    testctx.go:198: 1   : dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a
+    testctx.go:198: 2   : ┆ connect
+    testctx.go:198: 2   : ┆ [0.0s] | cloud url=https://dagger.cloud/dagger/traces/e801254604bedd037118916a08604946
+    testctx.go:198: 3   : ┆ ┆ starting engine
+    testctx.go:198: 3   : ┆ ┆ starting engine DONE [0.0s]
+    testctx.go:198: 4   : ┆ ┆ connecting to engine
+    testctx.go:198: 4   : ┆ ┆ [0.0s] | 18:36:46 INF connected name=6c1c8136c625 client-version=v1.0.0-beta.15 server-version=v1.0.0-beta.15
+    testctx.go:198: 4   : ┆ ┆ connecting to engine DONE [0.0s]
+    testctx.go:198: 5   : ┆ ┆ starting session
+    testctx.go:198: 5   : ┆ ┆ starting session DONE [0.1s]
+    testctx.go:198: 2   : ┆ connect DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 6   : consuming /v1/traces
+    testctx.go:198: 6   : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 7   : consuming /v1/logs
+    testctx.go:198: 7   : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 8   : consuming /v1/metrics
+    testctx.go:198: 8   : consuming /v1/metrics DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 9   : host: Host!
+    testctx.go:198: 9   : host CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 10  : Host.file(path: "/tmp/collections-perf/rebase-main/dagger"): File!
+    testctx.go:198: 10  : Host.file DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 11  : Host.directory(path: "/home/dagger/dag/core/integration/testdata/modules/dang/test-directives"): Directory!
+    testctx.go:198: 11  : Host.directory DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 12  : container(platform: "linux/amd64"): Container!
+    testctx.go:198: 12  : container CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 13  : Container.from(address: "golang:1.26-alpine"): Container!
+    testctx.go:198: 13  : Container.from DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 14  : withExec apk add git
+    testctx.go:198: 14  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 15  : withExec git config --global user.email dagger@example.com
+    testctx.go:198: 15  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 16  : withExec git config --global user.name 'Dagger Tests'
+    testctx.go:198: 16  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 17  : Container.withMountedFile(
+    testctx.go:198: 17  : ┆ path: "/bin/dagger"
+    testctx.go:198: 17  : ┆ source: Host.file(path: "/tmp/collections-perf/rebase-main/dagger"): File!
+    testctx.go:198: 17  : ): Container!
+    testctx.go:198: 17  : Container.withMountedFile CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 18  : withWorkdir /work
+    testctx.go:198: 18  : Container.withWorkdir CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 19  : withExec git init
+    testctx.go:198: 19  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 20  : Container.withDirectory(
+    testctx.go:198: 20  : ┆ path: "testdata/modules/dang/test-directives"
+    testctx.go:198: 20  : ┆ source: Host.directory(path: "/home/dagger/dag/core/integration/testdata/modules/dang/test-directives"): Directory!
+    testctx.go:198: 20  : ): Container!
+    testctx.go:198: 20  : Container.withDirectory CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 21  : withWorkdir /work/testdata/modules/dang/test-directives
+    testctx.go:198: 21  : Container.withWorkdir CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger call with-named-default-path (useEntrypoint: true)
+    testctx.go:198: 
+    testctx.go:198: 23  : Container.stdout: String!
+    testctx.go:198: 
+    testctx.go:198: 24  : load module: test-directives
+    testctx.go:198: 24  : load module: test-directives DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 25  : load SDK: dang
+    testctx.go:198: 25  : load SDK: dang DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger call with-named-default-path (useEntrypoint: true)
+    testctx.go:198: 26  : ┆ with-named-default-path
+    testctx.go:198: 26  : ┆ [0.0s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 26  : ┆ [0.0s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 27  : ┆ connect
+    testctx.go:198: 27  : ┆ connect DONE [0.0s]
+    testctx.go:198: 28  : ┆ load workspace: .
+    testctx.go:198: 29  : ┆ loading type definitions
+    testctx.go:198: 
+    testctx.go:198: 30  : uploading /work
+    testctx.go:198: 30  : uploading /work DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 31  : consuming /v1/traces
+    testctx.go:198: 31  : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 32  : consuming /v1/logs
+    testctx.go:198: 32  : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 33  : consuming /v1/metrics
+    testctx.go:198: 33  : consuming /v1/metrics DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger call with-named-default-path (useEntrypoint: true)
+    testctx.go:198: 29  : ┆ loading type definitions DONE [0.2s]
+    testctx.go:198: 28  : ┆ load workspace: . DONE [0.2s]
+    testctx.go:198: 34  : ┆ parsing command line arguments
+    testctx.go:198: 34  : ┆ parsing command line arguments DONE [0.0s]
+    testctx.go:198: 35  : ┆ testDirectives: TestDirectives!
+    testctx.go:198: 35  : ┆ testDirectives CACHED [0.0s]
+    testctx.go:198: 36  : ┆ TestDirectives.withNamedDefaultPath(
+    testctx.go:198: 36  : ┆ ┆ source: Host.directory(path: "/work/testdata/modules/dang/test-directives/fixtures/default-named", noCache: true): Directory!
+    testctx.go:198: 36  : ┆ ): [String!]!
+    testctx.go:198: 37  : ┆ ┆ Directory.entries: [String!]!
+    testctx.go:198: 37  : ┆ ┆ Directory.entries DONE [0.0s]
+    testctx.go:198: 36  : ┆ TestDirectives.withNamedDefaultPath DONE [0.0s]
+    testctx.go:198: 26  : ┆ with-named-default-path
+    testctx.go:198: 26  : ┆ [0.0s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 26  : ┆ [0.0s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 26  : ┆ [0.3s] | named-default.txt
+    testctx.go:198: 26  : ┆ with-named-default-path DONE [0.3s]
+    testctx.go:198: 22  : withExec dagger call with-named-default-path (useEntrypoint: true)
+    testctx.go:198: 22  : [0.4s] | named-default.txt
+    testctx.go:198: 22  : [0.4s] | [32m✔[0m connect [2m0.0s[0m
+    testctx.go:198: 22  : [0.4s] | [32m✔[0m load workspace: . [2m0.2s[0m
+    testctx.go:198: 22  : [0.4s] |   [32m✔[0m [2muploading /work[0m [2m0.0s[0m [32;100m████████████[0m 1.9 kB
+    testctx.go:198: 22  : [0.4s] | [32m✔[0m parsing command line arguments [2m0.0s[0m
+    testctx.go:198: 22  : [0.4s] | 
+    testctx.go:198: 22  : [0.4s] | [34m$[0m [1mtestDirectives[0m[2m: TestDirectives![0m [2m0.0s[0m [34mCACHED[0m
+    testctx.go:198: 22  : [0.4s] | [32m✔[0m .[1mwithNamedDefaultPath[0m(
+    testctx.go:198: 22  : [0.4s] | [90;2m  [0m[90;2m┆ [0m[36msource:[0m Host.[1mdirectory[0m([36mpath: [0m[33m"/work/testdata/modules/dang/test-directives/fixtures/default-named"[0m, [36mnoCache: [0m[31mtrue[0m)[2m: Directory![0m
+    testctx.go:198: 22  : [0.4s] | [90;2m  [0m[90;2m[0m)[2m: [String!]![0m [2m0.0s[0m
+    testctx.go:198: 22  : [0.4s] | 
+    testctx.go:198: 22  : [0.4s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 22  : [0.4s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 22  : Container.withExec DONE [0.4s]
+    testctx.go:198: 
+    testctx.go:198: 23  : Container.stdout DONE [0.4s]
+    testctx.go:198: 
+    testctx.go:198: 1   : dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a DONE [0.8s]
+    testctx.go:198: 
+--- PASS: TestDang (0.00s)
+    --- PASS: TestDang/TestDirectives (0.00s)
+        --- PASS: TestDang/TestDirectives/positional_defaultPath (1.21s)
+        --- PASS: TestDang/TestDirectives/named_ignorePatterns (0.93s)
+        --- PASS: TestDang/TestDirectives/cache_directive_with_enum_argument (0.97s)
+        --- PASS: TestDang/TestDirectives/mixed_syntax (1.06s)
+        --- PASS: TestDang/TestDirectives/positional_ignorePatterns (1.17s)
+        --- PASS: TestDang/TestDirectives/named_defaultPath (0.96s)
+PASS

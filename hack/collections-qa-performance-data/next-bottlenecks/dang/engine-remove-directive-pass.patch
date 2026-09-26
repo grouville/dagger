@@ -1,0 +1,58 @@
+--- a/core/sdk/dang/v2/helpers.go
++++ b/core/sdk/dang/v2/helpers.go
+@@ -163,12 +163,6 @@
+ 				}
+ 				return fmt.Errorf("run dir: %w", err)
+ 			}
+-			if registerTypes {
+-				directiveCtx, directiveOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.objectDirectives", wcprof.OpOpts{})
+-				err = retainDangObjectDirectives(directiveCtx, env, modSrcDir)
+-				directiveOp.EndErr(err)
+-				return err
+-			}
+ 			return nil
+ 		})
+ 		if err != nil {
+@@ -255,42 +249,6 @@
+ func reportDangSourceError(stderr io.Writer, err error) error {
+ 	fmt.Fprint(stderr, strings.TrimRight(err.Error(), "\n")+"\n")
+ 	return &dangSourceError{err: err}
+-}
+-
+-// Dang validates object directives but does not retain them on its runtime
+-// Type. Keep these declarations alongside the field directives for registration.
+-func retainDangObjectDirectives(ctx context.Context, env dang.ValueScope, dir string) error {
+-	entries, err := os.ReadDir(dir)
+-	if err != nil {
+-		return err
+-	}
+-	for _, entry := range entries {
+-		if entry.IsDir() || filepath.Ext(entry.Name()) != ".dang" {
+-			continue
+-		}
+-		root, err := dang.ParseFile(filepath.Join(dir, entry.Name()))
+-		if err != nil {
+-			return err
+-		}
+-		file, ok := root.(*dang.FileBlock)
+-		if !ok {
+-			continue
+-		}
+-		for _, form := range file.Forms {
+-			decl, ok := form.(*dang.ObjectDecl)
+-			if !ok || len(decl.Directives) == 0 {
+-				continue
+-			}
+-			value, found, err := env.Lookup(ctx, decl.Name.Name)
+-			if err != nil {
+-				return err
+-			}
+-			if constructor, ok := value.(*dang.ConstructorFunction); found && ok {
+-				constructor.ObjectType.SetDirectives("", decl.Directives)
+-			}
+-		}
+-	}
+-	return nil
+ }
+ 
+ // ensureModuleSelfTypes makes each of the module's own declared object,

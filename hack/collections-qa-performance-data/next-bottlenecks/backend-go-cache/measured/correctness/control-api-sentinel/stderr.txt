@@ -1,0 +1,20 @@
+== TRACE ==  ✘ FAILED
+dagger --engine container://dagger-engine.collections-disk-abba-2 check --generated=false go/modules/tests/run --go-module=. --go-test=TestE2EGreetingByLanguage  11.1s
+! exit code 1
+! dag://go/modules/tests/run?go-module=.&go-test=TestE2EGreetingByLanguage: Go tests in .: exit code: 1
+
+== CHECKS ==  ✘ 1 failed
+✘ dag://go/modules/tests/run?go-module=.&go-test=TestE2EGreetingByLanguage 1.5s ERROR
+  == TESTS ==
+    ✘ github.com/kpenfound/greetings-api FAIL
+
+    ✘ github.com/kpenfound/greetings-api › TestE2EGreetingByLanguage FAIL
+              e2e_test.go:91: assertion failed: Hello, World!-backend-cache-api-sentinel (string) != Hello, World! (g.Greeting string): GET /english
+
+    ✘ 1 failed
+
+== SERVICES ==
+✔ 7q7p380j99j5i.iqc9plvghmiog.dagger.local exec /bin/greetings-api 1.2s EXITED span=e040a59b6d3184a3
+
+== RUN LOCALLY ==
+dagger check "dag://go/modules/tests/run?go-module=.&go-test=TestE2EGreetingByLanguage"

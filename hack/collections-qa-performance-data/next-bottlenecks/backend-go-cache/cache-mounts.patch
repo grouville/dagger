@@ -1,0 +1,13 @@
+--- a/.dagger/modules/backend/main.go
++++ b/.dagger/modules/backend/main.go
+@@ -25,6 +25,10 @@
+ func (b *Backend) goBase() *dagger.Container {
+ 	return dag.Container().
+ 		From("golang:1.26-alpine").
++		WithMountedCache("/go/pkg/mod", dag.CacheVolume("backend-edit-20260925-go-mod")).
++		WithEnvVariable("GOMODCACHE", "/go/pkg/mod").
++		WithMountedCache("/root/.cache/go-build", dag.CacheVolume("backend-edit-20260925-go-build")).
++		WithEnvVariable("GOCACHE", "/root/.cache/go-build").
+ 		WithDirectory("/ws", b.Source).
+ 		WithWorkdir("/ws")
+ }

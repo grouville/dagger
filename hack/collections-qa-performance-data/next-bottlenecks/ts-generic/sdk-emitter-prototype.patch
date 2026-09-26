@@ -1,0 +1,585 @@
+--- /dev/null
++++ b/cmd/codegen/generator/typescript/templates/entrypoint_dang.go
+@@ -0,0 +1,273 @@
++package templates
++
++import (
++	"encoding/json"
++	"fmt"
++	"strings"
++)
++
++// RenderDangTypeDefinitions emits the body of ModuleEntrypoint.types from the
++// same analyzer model as the TypeScript registration entrypoint. It performs no
++// source scanning, runtime execution or caching. The SDK's shared entrypoint
++// owns the call() implementation; this function only emits static metadata.
++func RenderDangTypeDefinitions(module *TypedefModule) (string, error) {
++	if module == nil {
++		return "", fmt.Errorf("missing typedef module")
++	}
++	c := &dangMetadataEmitter{defaults: &entrypointFuncCtx{module: module}}
++	var body strings.Builder
++	var defs []string
++	for i, key := range sortedObjectKeys(module.Objects) {
++		obj := module.Objects[key]
++		if obj == nil {
++			return "", fmt.Errorf("nil object %q", key)
++		}
++		name := fmt.Sprintf("obj%d", i)
++		expr := "typeDef.withObject(" + jsString(obj.Name) + dangDescription(obj.Description) + dangOption("deprecated", obj.Deprecated) + dangLocation(obj.Location) + ")"
++		if obj.IsCollection {
++			expr += ".withCollection"
++		}
++		for _, key := range sortedFunctionKeys(obj.Methods) {
++			fn := obj.Methods[key]
++			if fn == nil {
++				return "", fmt.Errorf("nil function %q", key)
++			}
++			if fn.IsCollectionGet {
++				n := fn.Name
++				if fn.Alias != "" {
++					n = fn.Alias
++				}
++				expr += ".withCollectionGet(" + jsString(n) + ")"
++			}
++		}
++		fmt.Fprintf(&body, "let %s = %s\n", name, expr)
++		for _, key := range sortedFunctionKeys(obj.Methods) {
++			fn, err := c.function(obj.Methods[key])
++			if err != nil {
++				return "", err
++			}
++			fmt.Fprintf(&body, "  .withFunction(%s)\n", fn)
++		}
++		for _, key := range sortedPropertyKeys(obj.Properties) {
++			p := obj.Properties[key]
++			if p == nil {
++				return "", fmt.Errorf("nil property %q", key)
++			}
++			if !p.IsExposed {
++				continue
++			}
++			t, err := c.typeDef(p.Type)
++			if err != nil {
++				return "", err
++			}
++			fmt.Fprintf(&body, "  .withField(%s, %s%s%s%s)\n", jsString(propFieldName(p)), t, dangDescription(p.Description), dangOption("deprecated", p.Deprecated), dangLocation(p.Location))
++			if p.IsCollectionKeys {
++				fmt.Fprintf(&body, "  .withCollectionKeys(%s)\n", jsString(propFieldName(p)))
++			}
++			if p.IsCollectionDelta {
++				fmt.Fprintf(&body, "  .withCollectionDelta(%s)\n", jsString(propFieldName(p)))
++			}
++		}
++		if obj.Constructor != nil {
++			ctor := "function(\"\", " + name + ")"
++			for _, a := range obj.Constructor.Arguments {
++				v, err := c.arg(a)
++				if err != nil {
++					return "", err
++				}
++				ctor += v
++			}
++			fmt.Fprintf(&body, "let %sWithConstructor = %s.withConstructor(%s)\n", name, name, ctor)
++			name += "WithConstructor"
++		}
++		defs = append(defs, name)
++	}
++	for i, key := range sortedEnumKeys(module.Enums) {
++		e := module.Enums[key]
++		if e == nil {
++			return "", fmt.Errorf("nil enum %q", key)
++		}
++		name := fmt.Sprintf("enum%d", i)
++		fmt.Fprintf(&body, "let %s = typeDef.withEnum(%s%s%s)\n", name, jsString(e.Name), dangDescription(e.Description), dangLocation(e.Location))
++		for _, key := range sortedEnumValueKeys(e.Values) {
++			v := e.Values[key]
++			if v == nil {
++				return "", fmt.Errorf("nil enum value %q", key)
++			}
++			fmt.Fprintf(&body, "  .withEnumMember(%s, value: %s%s%s%s)\n", jsString(v.Name), jsString(v.Value), dangDescription(v.Description), dangOption("deprecated", v.Deprecated), dangLocation(v.Location))
++		}
++		defs = append(defs, name)
++	}
++	for i, key := range sortedInterfaceKeys(module.Interfaces) {
++		it := module.Interfaces[key]
++		if it == nil {
++			return "", fmt.Errorf("nil interface %q", key)
++		}
++		name := fmt.Sprintf("iface%d", i)
++		fmt.Fprintf(&body, "let %s = typeDef.withInterface(%s%s%s)\n", name, jsString(it.Name), dangDescription(it.Description), dangLocation(it.Location))
++		for _, key := range sortedFunctionKeys(it.Functions) {
++			v, err := c.function(it.Functions[key])
++			if err != nil {
++				return "", err
++			}
++			fmt.Fprintf(&body, "  .withFunction(%s)\n", v)
++		}
++		defs = append(defs, name)
++	}
++	fmt.Fprintf(&body, "[%s]\n", strings.Join(defs, ", "))
++	return body.String(), nil
++}
++
++type dangMetadataEmitter struct{ defaults *entrypointFuncCtx }
++
++func dangOption(key, value string) string {
++	if value == "" {
++		return ""
++	}
++	return ", " + key + ": " + jsString(value)
++}
++func dangDescription(value string) string { return dangOption("description", value) }
++func dangSourceMap(loc *TypedefLocation) string {
++	return fmt.Sprintf("sourceMap(%s, %d, %d)", jsString(loc.Filepath), loc.Line, loc.Column)
++}
++func dangLocation(loc *TypedefLocation) string {
++	if loc == nil {
++		return ""
++	}
++	return ", sourceMap: " + dangSourceMap(loc)
++}
++
++func (c *dangMetadataEmitter) typeDef(t *TypedefType) (string, error) {
++	if t == nil {
++		return "typeDef", nil
++	}
++	switch t.Kind {
++	case KindScalar:
++		return "typeDef.withScalar(" + jsString(t.Name) + ")", nil
++	case KindObject:
++		return "typeDef.withObject(" + jsString(t.Name) + ")", nil
++	case KindEnum:
++		return "typeDef.withEnum(" + jsString(t.Name) + ")", nil
++	case KindInterface:
++		return "typeDef.withInterface(" + jsString(t.Name) + ")", nil
++	case KindList:
++		e, err := c.typeDef(t.TypeDef)
++		if err != nil {
++			return "", err
++		}
++		return "typeDef.withListOf(" + e + ")", nil
++	case KindVoid:
++		return "typeDef.withKind(TypeDefKind.VOID_KIND).withOptional(true)", nil
++	case KindString, KindInteger, KindFloat, KindBoolean:
++		return "typeDef.withKind(TypeDefKind." + t.Kind + ")", nil
++	default:
++		return "", fmt.Errorf("unsupported TypeDef kind %q", t.Kind)
++	}
++}
++
++func (c *dangMetadataEmitter) arg(a *TypedefArgument) (string, error) {
++	if a == nil {
++		return "", fmt.Errorf("nil argument")
++	}
++	t, err := c.typeDef(a.Type)
++	if err != nil {
++		return "", err
++	}
++	if a.IsOptional {
++		t += ".withOptional(true)"
++	}
++	opts := dangDescription(a.Description) + dangOption("deprecated", a.Deprecated) + dangOption("defaultPath", a.DefaultPath) + dangOption("defaultAddress", a.DefaultAddress) + dangLocation(a.Location)
++	if len(a.Ignore) > 0 {
++		parts := make([]string, len(a.Ignore))
++		for i, p := range a.Ignore {
++			parts[i] = jsString(p)
++		}
++		opts += ", ignore: [" + strings.Join(parts, ", ") + "]"
++	}
++	if len(a.DefaultValue) > 0 {
++		// Share the existing TS emitter's enum/default normalization. The JSON
++		// scalar receives serialized JSON bytes, not an enum's runtime value.
++		value, ok := c.defaults.resolveDefaultValue(a)
++		if !ok {
++			if !a.IsOptional {
++				t += ".withOptional(true)"
++			}
++		} else {
++			b, err := json.Marshal(value)
++			if err != nil {
++				return "", err
++			}
++			opts += ", defaultValue: (" + jsString(string(b)) + " :: Dagger.JSON!)"
++		}
++	}
++	return ".withArg(" + jsString(a.Name) + ", " + t + opts + ")", nil
++}
++
++func (c *dangMetadataEmitter) function(f *TypedefFunction) (string, error) {
++	if f == nil {
++		return "", fmt.Errorf("nil function")
++	}
++	name := f.Name
++	if f.Alias != "" {
++		name = f.Alias
++	}
++	t, err := c.typeDef(f.ReturnType)
++	if err != nil {
++		return "", err
++	}
++	out := "function(" + jsString(name) + ", " + t + ")"
++	if f.Description != "" {
++		out += ".withDescription(" + jsString(f.Description) + ")"
++	}
++	if f.Location != nil {
++		out += ".withSourceMap(" + dangSourceMap(f.Location) + ")"
++	}
++	for _, a := range f.Arguments {
++		v, err := c.arg(a)
++		if err != nil {
++			return "", err
++		}
++		out += v
++	}
++	switch f.Cache {
++	case "", "default":
++	case "never":
++		out += ".withCachePolicy(FunctionCachePolicy.Never)"
++	case "session":
++		out += ".withCachePolicy(FunctionCachePolicy.PerSession)"
++	default:
++		out += ".withCachePolicy(FunctionCachePolicy.Default, timeToLive: " + jsString(f.Cache) + ")"
++	}
++	if f.Deprecated != "" {
++		out += ".withDeprecated(reason: " + jsString(f.Deprecated) + ")"
++	}
++	if f.IsCheck {
++		out += ".withCheck"
++	}
++	if f.IsGenerator {
++		out += ".withGenerator"
++	}
++	if f.IsUp {
++		out += ".withUp"
++	}
++	if f.IsAgent {
++		out += ".withAgent"
++	}
++	return out, nil
++}
++
++// RenderDangTypesEntrypoint wraps generated metadata for the existing engine's
++// ModuleEntrypoint.types driver. SDK runtime calls still use the generated TS
++// dispatch file; the engine overlay deliberately invokes this for types only.
++// The final upstream shared-entrypoint adapter must own its real call method.
++func RenderDangTypesEntrypoint(module *TypedefModule) (string, error) {
++	body, err := RenderDangTypeDefinitions(module)
++	if err != nil {
++		return "", err
++	}
++	return "# Generated from the same analyzer model as __dagger.entrypoint.ts.\n" +
++		"type Entrypoint implements ModuleEntrypoint {\n" +
++		"  pub types(workspace: Workspace!): [TypeDef!]! {\n" + body + "  }\n" +
++		"  pub call(workspace: Workspace!, receiverType: String!, receiverValue: JSON, fnName: String!, fnArgs: JSON!): JSON! {\n" +
++		"    raise \"metadata-only adapter: calls must use the TypeScript runtime\"\n  }\n}\n", nil
++}
+--- a/cmd/codegen/generator/typescript/entrypoint.go
++++ b/cmd/codegen/generator/typescript/entrypoint.go
+@@ -61,5 +61,25 @@
+ 		return nil, fmt.Errorf("write entrypoint to overlay: %w", err)
+ 	}
+ 
++	metadata, err := templates.RenderDangTypesEntrypoint(&module)
++	if err != nil {
++		return nil, fmt.Errorf("render static metadata: %w", err)
++	}
++	if err := mfs.MkdirAll(".dagger-static-types", 0o755); err != nil {
++		return nil, err
++	}
++	if err := mfs.WriteFile(".dagger-static-types/main.dang", []byte(metadata), 0o644); err != nil {
++		return nil, err
++	}
++	info, err := json.Marshal(struct {
++		Name        string `json:"name"`
++		Description string `json:"description"`
++	}{module.Name, module.Description})
++	if err != nil {
++		return nil, err
++	}
++	if err := mfs.WriteFile(".dagger-static-types/module.json", info, 0o644); err != nil {
++		return nil, err
++	}
+ 	return &generator.GeneratedState{Overlay: mfs}, nil
+ }
+--- a/sdk/typescript/runtime/introspector.go
++++ b/sdk/typescript/runtime/introspector.go
+@@ -36,6 +36,12 @@
+ // The split lets the emitter logic live in Go (alongside the rest of
+ // cmd/codegen) while keeping the TypeScript-specific introspection in TS.
+ func (i *Introspector) EmitEntrypoint(
++	moduleName string, sourceCode *dagger.Directory, clientBindings *dagger.Directory, sdkSourceDir *dagger.Directory,
++) *dagger.File {
++	return i.emitEntrypointArtifacts(moduleName, sourceCode, clientBindings, sdkSourceDir).File(EntrypointExecutableFile)
++}
++
++func (i *Introspector) emitEntrypointArtifacts(
+ 	moduleName string,
+ 
+ 	sourceCode *dagger.Directory,
+@@ -45,7 +51,7 @@
+ 	clientBindings *dagger.Directory,
+ 
+ 	sdkSourceDir *dagger.Directory,
+-) *dagger.File {
++) *dagger.Directory {
+ 	const typedefPath = "/work/typedef.json"
+ 
+ 	sdkPkg := dag.Directory().
+@@ -65,7 +71,7 @@
+ 
+ 	// Step 2: hand the typedef JSON to `cmd/codegen generate-entrypoint`.
+ 	const entrypointFile = "__dagger.entrypoint.ts"
+-	return dag.Container().
++	output := dag.Container().
+ 		From(tsdistconsts.DefaultBunImageRef).
+ 		WithMountedFile(codegenBinPath, sdkSourceDir.File("/codegen")).
+ 		WithMountedFile(typedefPath, withTypedef.File(typedefPath)).
+@@ -83,5 +89,6 @@
+ 		}, dagger.ContainerWithExecOpts{
+ 			ExperimentalPrivilegedNesting: true,
+ 		}).
+-		File("/work/" + entrypointFile)
++		Directory("/work")
++	return dag.Directory().WithDirectory(".", output, dagger.DirectoryWithDirectoryOpts{Include: []string{entrypointFile, ".dagger-static-types/**"}})
+ }
+--- a/sdk/typescript/runtime/main.go
++++ b/sdk/typescript/runtime/main.go
+@@ -127,19 +127,24 @@
+ 	// module root. The client bindings (`sdk/`, containing client.gen.ts and
+ 	// any per-dep <dep>.gen.ts files) were already emitted into the codegen
+ 	// overlay above; reuse the whole directory here so dep types resolve.
+-	entrypoint := NewIntrospector(t.SDKSourceDir).EmitEntrypoint(
++	entrypoint := NewIntrospector(t.SDKSourceDir).emitEntrypointArtifacts(
+ 		cfg.name,
+ 		codegen.Directory(SrcDir),
+ 		codegen.Directory(GenDir),
+ 		t.SDKSourceDir,
+ 	)
+-	codegen = codegen.WithFile(EntrypointExecutableFile, entrypoint)
++	codegen = codegen.WithDirectory(".", entrypoint)
++	codegen, err = sealStaticMetadata(ctx, codegen)
++	if err != nil {
++		return nil, fmt.Errorf("seal static metadata: %w", err)
++	}
+ 
+ 	return dag.GeneratedCode(
+ 		dag.Directory().WithDirectory(cfg.subPath, codegen),
+ 	).
+ 		WithVCSGeneratedPaths([]string{
+ 			GenDir + "/**",
++			".dagger-static-types/**",
+ 			EntrypointExecutableFile,
+ 		}).
+ 		WithVCSIgnoredPaths([]string{
+--- /dev/null
++++ b/sdk/typescript/runtime/static_metadata.go
+@@ -0,0 +1,60 @@
++package main
++
++import (
++	"context"
++	"crypto/sha256"
++	"encoding/json"
++	"fmt"
++	"strings"
++
++	"typescript-sdk/internal/dagger"
++)
++
++// Seal only during generation, after dispatch, client bindings and compiler
++// configuration have all been overlaid. Source/dispatch/metadata must be one
++// generation transaction; calling this on a subsequently edited tree would
++// incorrectly bless an old dispatch contract.
++func sealStaticMetadata(ctx context.Context, generated *dagger.Directory) (*dagger.Directory, error) {
++	const metadataDir = ".dagger-static-types"
++	infoText, err := generated.File(metadataDir + "/module.json").Contents(ctx)
++	if err != nil {
++		return nil, err
++	}
++	var info struct {
++		Name        string `json:"name"`
++		Description string `json:"description"`
++	}
++	if err := json.Unmarshal([]byte(infoText), &info); err != nil {
++		return nil, err
++	}
++	inputs := map[string]string{}
++	paths, err := generated.Glob(ctx, "**/*")
++	if err != nil {
++		return nil, err
++	}
++	for _, path := range paths {
++		if strings.HasSuffix(path, "/") || strings.HasPrefix(path, metadataDir+"/") || strings.HasPrefix(path, "node_modules/") || strings.HasPrefix(path, ".git/") {
++			continue
++		}
++		digest, err := generated.File(path).Digest(ctx, dagger.FileDigestOpts{ExcludeMetadata: true})
++		if err != nil {
++			return nil, fmt.Errorf("input %s: %w", path, err)
++		}
++		inputs[path] = digest
++	}
++	entrypoint, err := generated.File(metadataDir + "/main.dang").Contents(ctx)
++	if err != nil {
++		return nil, err
++	}
++	manifest, err := json.Marshal(struct {
++		Version          string            `json:"version"`
++		ModuleName       string            `json:"moduleName"`
++		Description      string            `json:"description"`
++		Inputs           map[string]string `json:"inputs"`
++		EntrypointSHA256 string            `json:"entrypointSHA256"`
++	}{"ts-static-metadata-v1", info.Name, info.Description, inputs, fmt.Sprintf("%x", sha256.Sum256([]byte(entrypoint)))})
++	if err != nil {
++		return nil, err
++	}
++	return generated.WithNewFile(metadataDir+"/manifest.json", string(manifest)), nil
++}
+--- /dev/null
++++ b/cmd/codegen/generator/typescript/templates/entrypoint_dang_test.go
+@@ -0,0 +1,145 @@
++package templates
++
++import (
++	"encoding/json"
++	"strings"
++	"testing"
++
++	"github.com/vito/dang/v2/pkg/dang"
++)
++
++// These models use the real analyzer JSON contract. They exercise metadata
++// emission independently of the engine; analyzer round-trip and engine schema
++// equivalence remain integration checks, not assertions of this unit suite.
++func staticFixture(t *testing.T, name string) *TypedefModule {
++	t.Helper()
++	var m TypedefModule
++	if err := json.Unmarshal([]byte(staticFixtures[name]), &m); err != nil {
++		t.Fatal(err)
++	}
++	return &m
++}
++
++func TestDangStaticMetadataFixtureContracts(t *testing.T) {
++	tests := []struct {
++		name         string
++		want, absent []string
++	}{
++		{"catalog", []string{
++			`withEnum("Mode"`, `withEnumMember("FAST", value: "fast"`,
++			`withInterface("Reporter"`, `withArg("reporter", typeDef.withInterface("Reporter").withOptional(true)`,
++			`defaultValue: ("\"FAST\"" :: Dagger.JSON!)`, `defaultValue: ("null" :: Dagger.JSON!)`,
++			`defaultPath: "/project"`, `defaultAddress: "dag://tool/source"`, `ignore: [".git", "dist/**"]`,
++			`withListOf(typeDef.withKind(TypeDefKind.STRING_KIND))`,
++			`.withCheck`, `.withGenerator`, `.withUp`, `.withAgent`,
++			`.withCachePolicy(FunctionCachePolicy.PerSession)`,
++			`.withCachePolicy(FunctionCachePolicy.Default, timeToLive: "5m")`,
++			`sourceMap("src/index.ts", 7, 1)`, `.withDeprecated(reason: "use lint")`,
++			`function("", obj0)`, `.withField("source"`,
++		}, []string{`.withField("secret"`, `function("lintImpl"`, `defaultValue: ("\"fast\""`}},
++		{"catalog-items", []string{
++			`withObject("CatalogItems").withCollection.withCollectionGet("lookup")`,
++			`withField("names", typeDef.withListOf(typeDef.withKind(TypeDefKind.STRING_KIND)))`,
++			`.withCollectionKeys("names")`, `.withCollectionDelta("selection")`,
++			`function("lookup", typeDef.withObject("Entry"))`,
++			`.withCachePolicy(FunctionCachePolicy.Never)`,
++			`typeDef.withKind(TypeDefKind.VOID_KIND).withOptional(true)`,
++			`typeDef.withScalar("JSON")`,
++		}, nil},
++	}
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			m := staticFixture(t, tt.name)
++			before, _ := json.Marshal(m)
++			source, err := RenderDangTypesEntrypoint(m)
++			if err != nil {
++				t.Fatal(err)
++			}
++			if _, err := dang.Parse(tt.name+".dang", []byte(source)); err != nil {
++				t.Fatalf("invalid emitted Dang: %v\n%s", err, source)
++			}
++			for _, want := range tt.want {
++				if !strings.Contains(source, want) {
++					t.Errorf("missing %q\n%s", want, source)
++				}
++			}
++			for _, bad := range tt.absent {
++				if strings.Contains(source, bad) {
++					t.Errorf("unexpected %q", bad)
++				}
++			}
++			again, err := RenderDangTypesEntrypoint(m)
++			if err != nil || again != source {
++				t.Fatal("nondeterministic emission", err)
++			}
++			after, _ := json.Marshal(m)
++			if string(before) != string(after) {
++				t.Fatal("emitter mutated analyzer output")
++			}
++		})
++	}
++}
++
++func TestDangStaticMetadataAPIEditChangesOutput(t *testing.T) {
++	m := staticFixture(t, "catalog")
++	before, err := RenderDangTypesEntrypoint(m)
++	if err != nil {
++		t.Fatal(err)
++	}
++	m.Objects["Catalog"].Methods["lintImpl"].Alias = "validate"
++	after, err := RenderDangTypesEntrypoint(m)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if before == after || !strings.Contains(after, `function("validate"`) || strings.Contains(after, `function("lint"`) {
++		t.Fatal("API alias edit not reflected")
++	}
++}
++
++func TestDangStaticMetadataRejectsUnrepresentableTypes(t *testing.T) {
++	m := staticFixture(t, "catalog")
++	m.Objects["Catalog"].Methods["lintImpl"].ReturnType = &TypedefType{Kind: KindInput}
++	if _, err := RenderDangTypesEntrypoint(m); err == nil {
++		t.Fatal("input object silently dropped")
++	}
++	if _, err := RenderDangTypesEntrypoint(nil); err == nil {
++		t.Fatal("nil module accepted")
++	}
++}
++
++func TestDangStaticMetadataUnresolvedDefaultMatchesDispatch(t *testing.T) {
++	m := staticFixture(t, "catalog")
++	a := &TypedefArgument{Name: "build", Type: &TypedefType{Kind: KindObject, Name: "Container"}, DefaultValue: json.RawMessage(`"dag.container()"`)}
++	old := (&entrypointFuncCtx{module: m}).renderArgCall(a)
++	got, err := (&dangMetadataEmitter{defaults: &entrypointFuncCtx{module: m}}).arg(a)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if !strings.Contains(old, "withOptional(true)") || !strings.Contains(got, "withOptional(true)") || strings.Contains(got, "defaultValue:") {
++		t.Fatalf("runtime default contract differs: %s / %s", old, got)
++	}
++}
++
++var staticFixtures = map[string]string{
++	"catalog": `{
++ "name":"catalog","description":"Catalog API",
++ "objects":{"Catalog":{"name":"Catalog","kind":"class","isExported":true,"description":"Catalog API","location":{"filepath":"src/index.ts","line":7,"column":1},
++  "constructor":{"name":"Catalog","arguments":[{"name":"source","type":{"kind":"OBJECT_KIND","name":"Directory"},"defaultPath":"/project","ignore":[".git","dist/**"]}]},
++  "properties":{"source":{"name":"source","isExposed":true,"type":{"kind":"OBJECT_KIND","name":"Directory"}},"secret":{"name":"secret","isExposed":false,"type":{"kind":"STRING_KIND"}}},
++  "methods":{
++   "lintImpl":{"name":"lintImpl","alias":"lint","isCheck":true,"cache":"session","deprecated":"use lint","returnType":{"kind":"VOID_KIND"},"arguments":[{"name":"mode","type":{"kind":"ENUM_KIND","name":"Mode"},"defaultValue":"fast"},{"name":"reporter","type":{"kind":"INTERFACE_KIND","name":"Reporter"},"isOptional":true},{"name":"labels","type":{"kind":"LIST_KIND","typeDef":{"kind":"STRING_KIND"}},"isOptional":true},{"name":"note","type":{"kind":"STRING_KIND"},"isNullable":true,"isOptional":true,"defaultValue":null}]},
++   "generate":{"name":"generate","isGenerator":true,"cache":"5m","returnType":{"kind":"OBJECT_KIND","name":"Directory"},"arguments":[{"name":"input","type":{"kind":"OBJECT_KIND","name":"Directory"},"defaultAddress":"dag://tool/source"}]},
++   "serve":{"name":"serve","isUp":true,"returnType":{"kind":"OBJECT_KIND","name":"Service"}},
++   "agent":{"name":"agent","isAgent":true,"returnType":{"kind":"OBJECT_KIND","name":"LLM"},"arguments":[{"name":"base","type":{"kind":"OBJECT_KIND","name":"LLM"}}]}
++  }}},
++ "enums":{"Mode":{"name":"Mode","values":{"FAST":{"name":"FAST","value":"fast"},"FULL":{"name":"FULL","value":"full"}}}},
++ "interfaces":{"Reporter":{"name":"Reporter","functions":{"report":{"name":"report","returnType":{"kind":"STRING_KIND"},"arguments":[{"name":"lines","type":{"kind":"LIST_KIND","typeDef":{"kind":"STRING_KIND"}}}]}}}}
++ }`,
++	"catalog-items": `{
++ "name":"catalog-items",
++ "objects":{
++  "CatalogItems":{"name":"CatalogItems","kind":"class","isCollection":true,"properties":{"names":{"name":"names","isExposed":true,"isCollectionKeys":true,"type":{"kind":"LIST_KIND","typeDef":{"kind":"STRING_KIND"}}},"selection":{"name":"selection","isExposed":true,"isCollectionDelta":true,"type":{"kind":"OBJECT_KIND","name":"CollectionDelta"}}},"methods":{"lookup":{"name":"lookup","isCollectionGet":true,"cache":"never","returnType":{"kind":"OBJECT_KIND","name":"Entry"},"arguments":[{"name":"name","type":{"kind":"STRING_KIND"}}]},"verify":{"name":"verify","isCheck":true,"returnType":{"kind":"VOID_KIND"}},"payload":{"name":"payload","returnType":{"kind":"SCALAR_KIND","name":"JSON"}}}},
++  "Entry":{"name":"Entry","kind":"class","properties":{"name":{"name":"name","isExposed":true,"type":{"kind":"STRING_KIND"}}},"constructor":{"name":"Entry","arguments":[{"name":"name","type":{"kind":"STRING_KIND"}}]}}
++ }
++ }`,
++}

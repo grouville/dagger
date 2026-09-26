@@ -1,0 +1,55 @@
+--- a/gomod/main.dang
++++ b/gomod/main.dang
+@@ -51,9 +51,10 @@
+   ): [GoMod!]! {
+     # Answered from the workspace directly rather than from the scan, so that
+     # listing modules never builds or runs the scanner.
++    let cwd = ws.cwd
+     ws
+       .findRoots(markers: ["go.mod"])
+-      .map { root => workspaceRootPath(ws, root) }
++      .map { root => resolveWorkspaceRootPath(cwd, root) }
+       .filter { modPath => at(modPath).isGoModule(ws) }
+       .filter { modPath => pathIncluded(ws, modPath, include, exclude) }
+       .map { modPath => at(modPath) }
+@@ -104,12 +105,7 @@
+   is workspace-root-relative.
+   """
+   workspaceRootPath(ws: Workspace!, cwdPath: String!): String! {
+-    let segments = cwdPath.split("/").filter { segment => segment != "" and segment != "." }
+-    let up = segments.filter { segment => segment == ".." }.length
+-    let down = segments.filter { segment => segment != ".." }
+-    let resolved = ws.cwd.split("/").filter { segment => segment != "" }.dropLast(up) + down
+-
+-    if (resolved.length == 0) { "." } else { resolved.join("/") }
++    resolveWorkspaceRootPath(ws.cwd, cwdPath)
+   }
+ 
+   let normalize(path: String!): String! {
+@@ -398,9 +394,10 @@
+   Module roots below this one.
+   """
+   nestedRoots(ws: Workspace!): [String!]! {
++    let cwd = ws.cwd
+     ws
+       .findRoots(start: "/" + subpath(""), markers: ["go.mod"])
+-      .map { root => gomod.workspaceRootPath(ws, root) }
++      .map { root => resolveWorkspaceRootPath(cwd, root) }
+       .filter { root => root != path }
+   }
+ 
+@@ -599,3 +596,14 @@
+     ws.directory("/", include: [subpath("testdata/**"), subpath("**/testdata/**")])
+   }
+ }
++
++# Pure path normalization stays local to this source file. A GraphQL self-call
++# would re-enter the module runtime just to split and join strings.
++let resolveWorkspaceRootPath(cwd: String!, cwdPath: String!): String! {
++  let segments = cwdPath.split("/").filter { segment => segment != "" and segment != "." }
++  let up = segments.filter { segment => segment == ".." }.length
++  let down = segments.filter { segment => segment != ".." }
++  let resolved = cwd.split("/").filter { segment => segment != "" }.dropLast(up) + down
++
++  if (resolved.length == 0) { "." } else { resolved.join("/") }
++}

@@ -1,0 +1,46 @@
+wcprof analysis
+===============
+
+ops: 21399  roots: 100  open at dump: 0  dropped events: 0
+trace span: 1.47s   makespan over roots: 1.47s
+
+simulated baseline makespan: 1.47s (drift vs actual: -0.0%)
+
+what-if: makespan saved if a class's self-time is scaled by factor f
+(ranked by saving at f=0.5; this is the bottleneck candidate list)
+
+class                                                   worktype       save@0     save@0.5     save@0.9
+call:Query.node                                         engine          791µs        395µs         79µs
+session_phase:session.query                             engine          357µs        178µs         35µs
+call:Module._implementationScoped                       engine           72µs         36µs          7µs
+session_phase:session.serveQuery                        engine            6µs          3µs        635ns
+session_phase:session.schemaBuild                       engine            1µs        559ns        112ns
+session_phase:session.workspaceLoad                     engine          572ns        286ns         58ns
+
+top classes by total self-time
+
+class                                                   worktype    count   total-self   total-wall   p50-self   p95-self   max-self outcomes
+internal:git.publicAdvertisement                        engine          7      894.6ms      894.6ms    121.6ms    190.1ms    190.1ms ok:7
+internal:dang.invoke                                    engine         23      857.1ms        1.42s     13.7ms    207.9ms    252.9ms ok:23
+exec_phase:runtime                                      user            6      697.3ms      697.3ms     95.2ms    211.1ms    211.1ms ok:6
+call_exec:Query.moduleSource                            engine         13      595.2ms        2.46s     65.6ms    108.4ms    108.4ms ok:13
+internal:dagql.publishResult                            engine       2075      416.7ms      416.7ms       54µs      377µs     38.4ms ok:2075
+call_exec:ModuleSource.asModule                         engine         16      401.7ms        4.01s     28.0ms     56.1ms     56.1ms ok:16
+internal:dang.runSource                                 engine         23      259.3ms      259.3ms      9.7ms     23.9ms     32.5ms ok:23
+session_phase:session.query                             engine        248      164.7ms        2.25s      197µs      3.5ms      5.0ms ok:248
+call_exec:Host.directory                                engine         10      156.2ms      156.5ms     16.3ms     18.9ms     18.9ms ok:10
+internal:typescript.staticMetadata                      engine          2      148.4ms      348.0ms     75.9ms     75.9ms     75.9ms ok:2
+call:ObjectTypeDef.__withFunction                       engine        287      130.2ms      137.9ms      103µs      524µs     38.5ms executed:187 hit:99 joined:1
+call_exec:Query.git                                     engine         16      124.0ms        1.69s      556µs    116.4ms    116.4ms ok:16
+internal:dang.decodeSchema                              engine          6      122.8ms      122.8ms     21.5ms     28.4ms     28.4ms ok:6
+internal:dang.selfTypes                                 engine         12      108.5ms      108.5ms      8.0ms     29.3ms     29.3ms ok:12
+call_exec:Address.container                             engine          4      106.6ms      339.7ms     26.9ms     27.2ms     27.2ms ok:4
+
+end-of-workload blocking chain (latest-finishing path)
+
+  session_phase session.serveQuery                                 dur=2.3ms      self=6µs        [1.47s..1.47s]
+  session_phase session.query                                      dur=2.3ms      self=357µs      [1.47s..1.47s]
+  call         ArtifactDimension.collectionType                   dur=550µs      self=359µs      [1.47s..1.47s]
+  call_exec    ArtifactDimension.collectionType                   dur=24µs       self=24µs       [1.47s..1.47s]
+  internal     dagql.publishResult                                dur=205µs      self=205µs      [1.47s..1.47s]
+

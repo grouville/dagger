@@ -1,0 +1,105 @@
+// prototypeStaticTypeScriptTypes is an intentionally fixture-gated experiment.
+// It keeps original TypeScript calls and replaces registration only. No result
+// cache or cross-session authority is introduced. A source mismatch fails closed
+// until a real SDK generator can regenerate this metadata automatically.
+func (s *moduleSourceSchema) prototypeStaticTypeScriptTypes(ctx context.Context, dag *dagql.Server, mod *core.Module) (_ *core.Module, _ bool, rerr error) {
+	src := mod.Source.Value
+	if src.Self().SDK == nil || src.Self().SDK.Source != "typescript" || src.Self().ModuleOriginalName != "frontend" {
+		return nil, false, nil
+	}
+	ctx, op := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "typescript.staticMetadata", wcprof.OpOpts{})
+	defer func() { op.EndErr(rerr) }()
+	var dir dagql.ObjectResult[*core.Directory]
+	if err := dag.Select(ctx, src, &dir, dagql.Selector{Field: "directory", Args: []dagql.NamedInput{{Name: "path", Value: dagql.String(".")}}}); err != nil {
+		return nil, false, err
+	}
+	const metadataDir = ".dagger-static-types"
+	paths, err := dir.Self().Glob(ctx, dir, "**/*")
+	if err != nil {
+		return nil, false, err
+	}
+	manifestPath := metadataDir + "/manifest.json"
+	if !slices.Contains(paths, manifestPath) {
+		return nil, false, nil
+	}
+	readFile := func(path string) ([]byte, error) {
+		var file dagql.ObjectResult[*core.File]
+		if err := dag.Select(ctx, dir, &file, dagql.Selector{Field: "file", Args: []dagql.NamedInput{{Name: "path", Value: dagql.String(path)}}}); err != nil {
+			return nil, err
+		}
+		return file.Self().Contents(ctx, file, nil, nil)
+	}
+	data, err := readFile(manifestPath)
+	if err != nil {
+		return nil, false, err
+	}
+	var manifest struct {
+		Version string `json:"version"`
+		Description string `json:"description"`
+		Inputs map[string]string `json:"inputs"`
+		EntrypointSHA256 string `json:"entrypointSHA256"`
+	}
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return nil, false, fmt.Errorf("static TS metadata manifest: %w", err)
+	}
+	if manifest.Version != "ts-static-frontend-v1" || len(manifest.Inputs) == 0 {
+		return nil, false, fmt.Errorf("unsupported static TS metadata fixture")
+	}
+	seen := make(map[string]bool, len(manifest.Inputs))
+	for _, path := range paths {
+		if strings.HasSuffix(path, "/") || strings.HasPrefix(path, "node_modules/") || strings.HasPrefix(path, ".git/") {
+			continue
+		}
+		if strings.HasPrefix(path, metadataDir+"/") {
+			if path != manifestPath && path != metadataDir+"/main.dang" {
+				return nil, false, fmt.Errorf("static TS metadata stale: new metadata file %q", path)
+			}
+			continue
+		}
+		expected, ok := manifest.Inputs[path]
+		if !ok {
+			return nil, false, fmt.Errorf("static TS metadata stale: new input %q; automatic regeneration is not implemented in this prototype", path)
+		}
+		data, err := readFile(path)
+		if err != nil {
+			return nil, false, err
+		}
+		if fmt.Sprintf("%x", sha256.Sum256(data)) != expected {
+			return nil, false, fmt.Errorf("static TS metadata stale: changed input %q; automatic regeneration is not implemented in this prototype", path)
+		}
+		seen[path] = true
+	}
+	for path := range manifest.Inputs {
+		if !seen[path] {
+			return nil, false, fmt.Errorf("static TS metadata stale: removed input %q", path)
+		}
+	}
+	entrypointData, err := readFile(metadataDir + "/main.dang")
+	if err != nil {
+		return nil, false, err
+	}
+	if fmt.Sprintf("%x", sha256.Sum256(entrypointData)) != manifest.EntrypointSHA256 {
+		return nil, false, fmt.Errorf("static TS metadata stale: changed generated TypeDefs")
+	}
+	// The sidecar uses the existing types driver. Its result belongs to the
+	// current module invocation; execution still uses src.SDKImpl.AsRuntime().
+	staticSource := src.Self().Clone()
+	staticSource.Entrypoint = &modules.ModuleEntrypointConfig{Kind: modules.ModuleEntrypointKindDang, Source: "./" + metadataDir}
+	staticSrc, err := dagql.NewObjectResultForCurrentCall(ctx, dag, staticSource)
+	if err != nil {
+		return nil, false, err
+	}
+	moduleContext, err := sdk.ScopeModuleForSDKOperation(ctx, mod, "prototypeStaticTypeScriptTypes", dag)
+	if err != nil {
+		return nil, false, err
+	}
+	typesCtx, typesOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "typescript.staticMetadata.evaluate", wcprof.OpOpts{})
+	inst, err := dangv2.EntrypointModuleTypes(typesCtx, mod.Deps, staticSrc, moduleContext)
+	typesOp.EndErr(err)
+	if err != nil {
+		return nil, false, fmt.Errorf("static TS metadata types: %w", err)
+	}
+	initialized := inst.Self().Clone()
+	initialized.Description = manifest.Description
+	return initialized, true, nil
+}

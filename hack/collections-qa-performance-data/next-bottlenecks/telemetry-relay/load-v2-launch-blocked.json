@@ -1,0 +1,33 @@
+{
+  "command": "python3 /tmp/collections-perf/telemetry-relay/run_load.py --engine dagger-engine.collections-disk-abba-2 --trial ts-static-load-v2 > /tmp/collections-perf/telemetry-relay/ts-static-load-v2.log 2>&1",
+  "cwd": "/home/dagger/dag",
+  "shell": "/bin/bash",
+  "sandbox_permissions": "require_escalated",
+  "justification": "Run the approved instrumented relay benchmark against the task-owned Dagger engine and existing Cloud destination, retaining telemetry until successful delivery and recording timings/counters only.",
+  "process_started": false,
+  "review_rejection_verbatim": "This action was rejected due to unacceptable risk.\nReason: The benchmark exports workspace-derived telemetry to Dagger Cloud and targets a shared engine, but the user did not explicitly authorize that payload and destination or this engine’s side effects.\nDo not bypass this rejection through a workaround or indirect execution. Continue with a safer alternative, or carry out checks to prove that the action is authorized or low risk before trying again. Complete unaffected work without asking for confirmation. Report anything that remains blocked, clarify why it was blocked by auto-review, inform the user of the risk and ask for approval.",
+  "missing_authorization_claimed_by_reviewer": [
+    "workspace-derived telemetry payload",
+    "Dagger Cloud destination",
+    "shared engine side effects"
+  ],
+  "checks_after_rejection": {
+    "same_prior_engine": "dagger-engine.collections-disk-abba-2",
+    "same_prior_workspace": "/tmp/collections-perf/sdk-edit-audit/ts-static/greetings",
+    "same_prior_cli": "/tmp/collections-perf/rebase-main/dagger",
+    "same_prior_command": [
+      "check",
+      "-l",
+      "--all"
+    ],
+    "target_matches_original_api_dagger_cloud": true,
+    "prior_provenance": "ts-static-trial-2/measurements/provenance.json",
+    "new_destination": false,
+    "new_payload_type": false,
+    "engine_start_stop_build_or_delete_commands": false,
+    "relay_diff": "integer/httptrace counters and payload-read timing only",
+    "new_experiment_load": "40 serial commands total; two10-command blocks omit inter-command remote drain so pending queue can grow, same four workers/128MiB cap and finaldrain required",
+    "no_spool_or_result_directory_created": true
+  },
+  "status": "No retry; parent assessing existing authorization evidence."
+}

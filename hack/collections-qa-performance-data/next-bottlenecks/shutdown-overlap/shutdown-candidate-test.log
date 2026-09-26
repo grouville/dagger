@@ -1,0 +1,18 @@
+2026/09/25 18:07:41 INFO client shutdown isMainClient=true sessionID=session clientID=parent mainClientID=parent
+2026/09/25 18:07:41 INFO main client is shutting down isMainClient=true sessionID=session clientID=parent mainClientID=parent
+2026/09/25 18:07:41 INFO shutdown drain phase done isMainClient=true sessionID=session clientID=parent mainClientID=parent phase="flush workspace locks" duration=1.337µs error=<nil>
+2026/09/25 18:07:41 INFO shutdown drain phase done isMainClient=true sessionID=session clientID=parent mainClientID=parent phase="stop session services" duration=804ns error=<nil>
+2026/09/25 18:07:41 INFO shutdown drain phase done isMainClient=true sessionID=session clientID=parent mainClientID=parent phase="flush session telemetry" duration=30.609µs error=<nil>
+2026/09/25 18:07:41 INFO shutdown drain phase done isMainClient=true sessionID=session clientID=parent mainClientID=parent phase="flush session Cloud telemetry" duration=1.576µs error=<nil>
+2026/09/25 18:07:41 INFO client shutdown done isMainClient=true sessionID=session clientID=parent mainClientID=parent duration=463.564µs error=<nil>
+--- FAIL: TestShutdownOverlapKeepsLateAcceptedWorkTelemetry (0.00s)
+    session_test.go:5563: 
+        	Error Trace:	/home/dagger/dag/engine/server/session_test.go:5563
+        	Error:      	Not equal: 
+        	            	expected: 1
+        	            	actual  : 0
+        	Test:       	TestShutdownOverlapKeepsLateAcceptedWorkTelemetry
+        	Messages:   	the final accepted-work record must arrive before terminal
+FAIL
+FAIL	github.com/dagger/dagger/engine/server	0.030s
+FAIL

@@ -1,0 +1,67 @@
+--- a/pkg/dang/eval.go
++++ b/pkg/dang/eval.go
+@@ -568,36 +568,37 @@
+ 			env.Bind(t.Name, constructor, PublicVisibility)
+ 		}
+ 
+-		for _, f := range t.Fields {
+-			ret, err := gqlFieldToTypeNode(typeScope, f)
+-			if err != nil {
+-				continue
+-			}
+-
+-			// This is a function - create a GraphQLFunction value
+-			args := NewRecordType("")
+-			for _, arg := range f.Args {
+-				argType, err := gqlInputToTypeNode(typeScope, arg)
++		// Only Query fields become top-level values. Object fields are resolved
++		// lazily by GraphQLValue.SelectField; mutation fields are installed below.
++		if t.Name == schema.QueryType.Name {
++			for _, f := range t.Fields {
++				ret, err := gqlFieldToTypeNode(typeScope, f)
+ 				if err != nil {
+ 					continue
+ 				}
+-				args.Add(arg.Name, hm.NewScheme(nil, argType))
+-			}
+-			fnType := hm.NewFnType(args, ret)
+-
+-			gqlFunc := GraphQLFunction{
+-				Name:       f.Name,
+-				TypeName:   t.Name,
+-				Field:      f,
+-				FnType:     fnType,
+-				Client:     client,
+-				Schema:     schema,
+-				TypeScope:  typeScope, // Pass the type environment
+-				QueryChain: nil,       // Top-level functions start with no query chain
+-			}
+-
+-			// Add to environment if it's from the Query type
+-			if t.Name == schema.QueryType.Name {
++
++				// This is a function - create a GraphQLFunction value
++				args := NewRecordType("")
++				for _, arg := range f.Args {
++					argType, err := gqlInputToTypeNode(typeScope, arg)
++					if err != nil {
++						continue
++					}
++					args.Add(arg.Name, hm.NewScheme(nil, argType))
++				}
++				fnType := hm.NewFnType(args, ret)
++
++				gqlFunc := GraphQLFunction{
++					Name:       f.Name,
++					TypeName:   t.Name,
++					Field:      f,
++					FnType:     fnType,
++					Client:     client,
++					Schema:     schema,
++					TypeScope:  typeScope, // Pass the type environment
++					QueryChain: nil,       // Top-level functions start with no query chain
++				}
++
+ 				env.Bind(f.Name, gqlFunc, PublicVisibility)
+ 			}
+ 		}

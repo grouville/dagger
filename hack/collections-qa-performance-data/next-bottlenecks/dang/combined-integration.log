@@ -1,0 +1,565 @@
+=== RUN   TestCollections
+=== PAUSE TestCollections
+=== CONT  TestCollections
+=== RUN   TestCollections/TestSDKs
+=== PAUSE TestCollections/TestSDKs
+=== CONT  TestCollections/TestSDKs
+=== RUN   TestCollections/TestSDKs/dang
+=== PAUSE TestCollections/TestSDKs/dang
+=== CONT  TestCollections/TestSDKs/dang
+    testctx.go:198: Creating new Engine session... OK!
+    testctx.go:198: Establishing connection to Engine... OK!
+    testctx.go:198: 1   : dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a
+    testctx.go:198: 2   : ┆ connect
+    testctx.go:198: 2   : ┆ [0.0s] | cloud url=https://dagger.cloud/dagger/traces/8f8fdf89156579018f14a0a7c51ceb93
+    testctx.go:198: 3   : ┆ ┆ starting engine
+    testctx.go:198: 3   : ┆ ┆ starting engine DONE [0.0s]
+    testctx.go:198: 4   : ┆ ┆ connecting to engine
+    testctx.go:198: 4   : ┆ ┆ [0.0s] | 18:34:59 INF connected name=6c1c8136c625 client-version=v1.0.0-beta.15 server-version=v1.0.0-beta.15
+    testctx.go:198: 4   : ┆ ┆ connecting to engine DONE [0.0s]
+    testctx.go:198: 5   : ┆ ┆ starting session
+    testctx.go:198: 5   : ┆ ┆ starting session DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 6   : consuming /v1/traces
+    testctx.go:198: 
+    testctx.go:198: 1   : dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a
+    testctx.go:198: 2   : ┆ connect DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 6   : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 7   : consuming /v1/logs
+    testctx.go:198: 7   : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 8   : consuming /v1/metrics
+    testctx.go:198: 8   : consuming /v1/metrics DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 9   : host: Host!
+    testctx.go:198: 9   : host CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 10  : Host.file(path: "/tmp/collections-perf/rebase-main/dagger"): File!
+    testctx.go:198: 
+    testctx.go:198: 11  : uploading /tmp/collections-perf/rebase-main
+    testctx.go:198: 
+    testctx.go:198: 10  : Host.file DONE [0.5s]
+    testctx.go:198: 
+    testctx.go:198: 12  : container(platform: "linux/amd64"): Container!
+    testctx.go:198: 12  : container CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 13  : Container.from(address: "golang:1.26-alpine"): Container!
+    testctx.go:198: 
+    testctx.go:198: 11  : uploading /tmp/collections-perf/rebase-main DONE [0.5s]
+    testctx.go:198: 
+    testctx.go:198: 14  : HTTP HEAD
+    testctx.go:198: 14  : HTTP HEAD DONE [0.3s]
+    testctx.go:198: 
+    testctx.go:198: 15  : HTTP GET
+    testctx.go:198: 15  : HTTP GET DONE [0.3s]
+    testctx.go:198: 
+    testctx.go:198: 16  : HTTP GET
+    testctx.go:198: 16  : HTTP GET DONE [0.3s]
+    testctx.go:198: 
+    testctx.go:198: 17  : HTTP GET
+    testctx.go:198: 
+    testctx.go:198: 18  : withExec apk add git
+    testctx.go:198: 
+    testctx.go:198: 19  : withExec git config --global user.email dagger@example.com
+    testctx.go:198: 
+    testctx.go:198: 20  : withExec git config --global user.name 'Dagger Tests'
+    testctx.go:198: 
+    testctx.go:198: 21  : Container.withMountedFile(
+    testctx.go:198: 21  : ┆ path: "/bin/dagger"
+    testctx.go:198: 21  : ┆ source: Host.file(path: "/tmp/collections-perf/rebase-main/dagger"): File!
+    testctx.go:198: 21  : ): Container!
+    testctx.go:198: 
+    testctx.go:198: 22  : withWorkdir /work
+    testctx.go:198: 
+    testctx.go:198: 23  : withExec git init
+    testctx.go:198: 
+    testctx.go:198: 24  : withNewFile dagger.json (contents: "{\"name\":\"test\",\"engineVersion\":\"v1.0.0\",\"sdk\":{\"source\":\"dang\"},\"source\":\".\"}")
+    testctx.go:198: 
+    testctx.go:198: 25  : withNewFile main.dang (
+    testctx.go:198: 25  : ┆ contents: "type Test {\n  items: Items! { Items(names: [\"b\", \"a\", \"c\"], prefix: \"item:\") }\n}\ntype Items @collection {\n  pub names: [String!]! @keys\n  pub selection: CollectionDelta @delta\n  pub prefix: String!\n  lookup(name: String!): Item! @get { Item(name: prefix + name) }\n  selected: [String!]! { names }\n  removed: [String!]! { selection!.removedKeys }\n  copy: Items! { self }\n  change(names: [String!]!): Items! {\n    self.names = names\n    self.selection = null\n    self\n  }\n  fresh: Items! { Items(names: [\"z\"], prefix: prefix) }\n  added: [String!]! { selection!.addedKeys }\n}\ntype Item { pub name: String! }\n"
+    testctx.go:198: 25  : )
+    testctx.go:198: 
+    testctx.go:198: 26  : withExec dagger query (stdin: "{ items {\n  keys\n  get(key: \"a\") { name }\n  batch { selected removed }\n  subset(keys: [\"c\", \"b\"]) {\n    keys\n    batch { selected removed copy { subset(keys: [\"c\"]) { batch { removed } } } }\n  }\n} }")
+    testctx.go:198: 
+    testctx.go:198: 27  : Container.stdout: String!
+    testctx.go:198: 
+    testctx.go:198: 28  : pulling golang:1.26-alpine
+    testctx.go:198: 
+    testctx.go:198: 17  : HTTP GET DONE [0.3s]
+    testctx.go:198: 
+    testctx.go:198: 29  : HTTP GET
+    testctx.go:198: 29  : HTTP GET DONE [0.3s]
+    testctx.go:198: 
+    testctx.go:198: 30  : HTTP GET
+    testctx.go:198: 30  : HTTP GET DONE [0.4s]
+    testctx.go:198: 
+    testctx.go:198: 31  : HTTP GET
+    testctx.go:198: 31  : HTTP GET DONE [0.4s]
+    testctx.go:198: 
+    testctx.go:198: 32  : HTTP GET
+    testctx.go:198: 32  : HTTP GET DONE [0.4s]
+    testctx.go:198: 
+    testctx.go:198: 33  : HTTP GET
+    testctx.go:198: 33  : HTTP GET DONE [0.4s]
+    testctx.go:198: 
+    testctx.go:198: 34  : HTTP GET
+    testctx.go:198: 
+    testctx.go:198: 35  : HTTP GET
+    testctx.go:198: 
+    testctx.go:198: 36  : HTTP GET
+    testctx.go:198: 
+    testctx.go:198: 34  : HTTP GET DONE [0.3s]
+    testctx.go:198: 
+    testctx.go:198: 36  : HTTP GET DONE [0.5s]
+    testctx.go:198: 
+    testctx.go:198: 28  : pulling golang:1.26-alpine DONE [2.2s]
+    testctx.go:198: 
+    testctx.go:198: 35  : HTTP GET DONE [1.7s]
+    testctx.go:198: 
+    testctx.go:198: 37  : unpacking golang:1.26-alpine
+    testctx.go:198: 
+    testctx.go:198: 13  : Container.from DONE [6.1s]
+    testctx.go:198: 
+    testctx.go:198: 37  : unpacking golang:1.26-alpine DONE [2.6s]
+    testctx.go:198: 
+    testctx.go:198: 18  : withExec apk add git
+    testctx.go:198: 18  : [5.3s] | ( 1/12) Installing brotli-libs (1.2.0-r1)
+    testctx.go:198: 18  : [5.3s] | ( 2/12) Installing c-ares (1.34.8-r0)
+    testctx.go:198: 18  : [5.3s] | ( 3/12) Installing libunistring (1.4.2-r0)
+    testctx.go:198: 18  : [5.4s] | ( 4/12) Installing libidn2 (2.3.8-r0)
+    testctx.go:198: 18  : [5.4s] | ( 5/12) Installing nghttp2-libs (1.69.0-r0)
+    testctx.go:198: 18  : [5.4s] | ( 6/12) Installing libpsl (0.21.5-r3)
+    testctx.go:198: 18  : [5.4s] | ( 7/12) Installing zstd-libs (1.5.7-r2)
+    testctx.go:198: 18  : [5.5s] | ( 8/12) Installing libcurl (8.22.0-r0)
+    testctx.go:198: 18  : [5.5s] | ( 9/12) Installing libexpat (2.8.5-r0)
+    testctx.go:198: 18  : [5.5s] | (10/12) Installing pcre2 (10.48-r0)
+    testctx.go:198: 18  : [5.5s] | (11/12) Installing git (2.54.0-r0)
+    testctx.go:198: 18  : [6.1s] | (12/12) Installing git-init-template (2.54.0-r0)
+    testctx.go:198: 18  : [6.1s] | Executing busybox-1.37.0-r31.trigger
+    testctx.go:198: 18  : [6.1s] | OK: 20.6 MiB in 29 packages
+    testctx.go:198: 18  : Container.withExec DONE [1.3s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 19  : Container.withExec DONE [0.1s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 20  : Container.withExec DONE [0.1s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 21  : Container.withMountedFile DONE [0.0s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 22  : Container.withWorkdir DONE [0.0s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 23  : Container.withExec DONE [0.1s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 24  : Container.withNewFile DONE [0.0s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 25  : Container.withNewFile DONE [0.0s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 23  : Container.withExec DONE [0.1s, waited on Container.from]
+    testctx.go:198: 23  : [6.4s] | hint: Using 'master' as the name for the initial branch. This default branch name
+    testctx.go:198: 23  : [6.4s] | hint: will change to "main" in Git 3.0. To configure the initial branch name
+    testctx.go:198: 23  : [6.4s] | hint: to use in all of your new repositories, which will suppress this warning,
+    testctx.go:198: 23  : [6.4s] | hint: call:
+    testctx.go:198: 23  : [6.4s] | hint:
+    testctx.go:198: 23  : [6.4s] | hint: 	git config --global init.defaultBranch <name>
+    testctx.go:198: 23  : [6.4s] | hint:
+    testctx.go:198: 23  : [6.4s] | hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+    testctx.go:198: 23  : [6.4s] | hint: 'development'. The just-created branch can be renamed via this command:
+    testctx.go:198: 23  : [6.4s] | hint:
+    testctx.go:198: 23  : [6.4s] | hint: 	git branch -m <name>
+    testctx.go:198: 23  : [6.4s] | hint:
+    testctx.go:198: 23  : [6.4s] | hint: Disable this message with "git config set advice.defaultBranchName false"
+    testctx.go:198: 23  : [6.4s] | Initialized empty Git repository in /work/.git/
+    testctx.go:198: 
+    testctx.go:198: 38  : load module: test
+    testctx.go:198: 38  : load module: test DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 39  : load SDK: dang
+    testctx.go:198: 39  : load SDK: dang DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 40  : uploading /work
+    testctx.go:198: 40  : uploading /work DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 26  : withExec dagger query (stdin: "{ items {\n  keys\n  get(key: \"a\") { name }\n  batch { selected removed }\n  subset(keys: [\"c\", \"b\"]) {\n    keys\n    batch { selected removed copy { subset(keys: [\"c\"]) { batch { removed } } } }\n  }\n} }")
+    testctx.go:198: 41  : ┆ dagger query
+    testctx.go:198: 41  : ┆ [0.0s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 41  : ┆ [0.0s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 41  : ┆ [0.0s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 41  : ┆ [0.0s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 41  : ┆ [0.1s] | {
+    testctx.go:198: 41  : ┆ [0.1s] |     "items": {
+    testctx.go:198: 41  : ┆ [0.1s] |         "batch": {
+    testctx.go:198: 41  : ┆ [0.1s] |             "removed": [],
+    testctx.go:198: 41  : ┆ [0.1s] |             "selected": [
+    testctx.go:198: 41  : ┆ [0.1s] |                 "b",
+    testctx.go:198: 41  : ┆ [0.1s] |                 "a",
+    testctx.go:198: 41  : ┆ [0.1s] |                 "c"
+    testctx.go:198: 41  : ┆ [0.1s] |             ]
+    testctx.go:198: 41  : ┆ [0.1s] |         },
+    testctx.go:198: 41  : ┆ [0.1s] |         "get": {
+    testctx.go:198: 41  : ┆ [0.1s] |             "name": "item:a"
+    testctx.go:198: 41  : ┆ [0.1s] |         },
+    testctx.go:198: 41  : ┆ [0.1s] |         "keys": [
+    testctx.go:198: 41  : ┆ [0.1s] |             "b",
+    testctx.go:198: 41  : ┆ [0.1s] |             "a",
+    testctx.go:198: 41  : ┆ [0.1s] |             "c"
+    testctx.go:198: 41  : ┆ [0.1s] |         ],
+    testctx.go:198: 41  : ┆ [0.1s] |         "subset": {
+    testctx.go:198: 41  : ┆ [0.1s] |             "batch": {
+    testctx.go:198: 41  : ┆ [0.1s] |                 "copy": {
+    testctx.go:198: 41  : ┆ [0.1s] |                     "subset": {
+    testctx.go:198: 41  : ┆ [0.1s] |                         "batch": {
+    testctx.go:198: 41  : ┆ [0.1s] |                             "removed": [
+    testctx.go:198: 41  : ┆ [0.1s] |                                 "b",
+    testctx.go:198: 41  : ┆ [0.1s] |                                 "a"
+    testctx.go:198: 41  : ┆ [0.1s] |                             ]
+    testctx.go:198: 41  : ┆ [0.1s] |                         }
+    testctx.go:198: 41  : ┆ [0.1s] |                     }
+    testctx.go:198: 41  : ┆ [0.1s] |                 },
+    testctx.go:198: 41  : ┆ [0.1s] |                 "removed": [
+    testctx.go:198: 41  : ┆ [0.1s] |                     "a"
+    testctx.go:198: 41  : ┆ [0.1s] |                 ],
+    testctx.go:198: 41  : ┆ [0.1s] |                 "selected": [
+    testctx.go:198: 41  : ┆ [0.1s] |                     "b",
+    testctx.go:198: 41  : ┆ [0.1s] |                     "c"
+    testctx.go:198: 41  : ┆ [0.1s] |                 ]
+    testctx.go:198: 41  : ┆ [0.1s] |             },
+    testctx.go:198: 41  : ┆ [0.1s] |             "keys": [
+    testctx.go:198: 41  : ┆ [0.1s] |                 "b",
+    testctx.go:198: 41  : ┆ [0.1s] |                 "c"
+    testctx.go:198: 41  : ┆ [0.1s] |             ]
+    testctx.go:198: 41  : ┆ [0.1s] |         }
+    testctx.go:198: 41  : ┆ [0.1s] |     }
+    testctx.go:198: 41  : ┆ [0.1s] | }
+    testctx.go:198: 42  : ┆ connect
+    testctx.go:198: 42  : ┆ connect DONE [0.0s]
+    testctx.go:198: 43  : ┆ test: Test!
+    testctx.go:198: 43  : ┆ test DONE [0.0s]
+    testctx.go:198: 44  : ┆ Test.items: TestItems!
+    testctx.go:198: 44  : ┆ Test.items DONE [0.0s]
+    testctx.go:198: 45  : ┆ TestItems.keys: [String!]!
+    testctx.go:198: 45  : ┆ TestItems.keys DONE [0.0s]
+    testctx.go:198: 46  : ┆ TestItems.get(key: "a"): TestItem!
+    testctx.go:198: 46  : ┆ TestItems.get DONE [0.0s]
+    testctx.go:198: 47  : ┆ TestItems.subset(keys: ["c", "b"]): TestItems!
+    testctx.go:198: 47  : ┆ TestItems.subset DONE [0.0s]
+    testctx.go:198: 48  : ┆ TestItems.batch: TestItems_Batch!
+    testctx.go:198: 48  : ┆ TestItems.batch DONE [0.0s]
+    testctx.go:198: 49  : ┆ TestItems_Batch.selected: [String!]!
+    testctx.go:198: 49  : ┆ TestItems_Batch.selected DONE [0.0s]
+    testctx.go:198: 50  : ┆ TestItems.keys: [String!]!
+    testctx.go:198: 50  : ┆ TestItems.keys DONE [0.0s]
+    testctx.go:198: 51  : ┆ TestItems.batch: TestItems_Batch!
+    testctx.go:198: 51  : ┆ TestItems.batch DONE [0.0s]
+    testctx.go:198: 52  : ┆ TestItems_Batch.removed: [String!]!
+    testctx.go:198: 52  : ┆ TestItems_Batch.removed DONE [0.0s]
+    testctx.go:198: 53  : ┆ TestItems_Batch.selected: [String!]!
+    testctx.go:198: 53  : ┆ TestItems_Batch.selected DONE [0.0s]
+    testctx.go:198: 54  : ┆ TestItems_Batch.removed: [String!]!
+    testctx.go:198: 54  : ┆ TestItems_Batch.removed DONE [0.0s]
+    testctx.go:198: 55  : ┆ TestItems_Batch.copy: TestItems!
+    testctx.go:198: 55  : ┆ TestItems_Batch.copy DONE [0.0s]
+    testctx.go:198: 56  : ┆ TestItems.subset(keys: ["c"]): TestItems!
+    testctx.go:198: 56  : ┆ TestItems.subset DONE [0.0s]
+    testctx.go:198: 57  : ┆ TestItems.batch: TestItems_Batch!
+    testctx.go:198: 57  : ┆ TestItems.batch DONE [0.0s]
+    testctx.go:198: 58  : ┆ TestItems_Batch.removed: [String!]!
+    testctx.go:198: 58  : ┆ TestItems_Batch.removed DONE [0.0s]
+    testctx.go:198: 41  : ┆ dagger query DONE [0.2s]
+    testctx.go:198: 
+    testctx.go:198: 59  : consuming /v1/traces
+    testctx.go:198: 59  : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 60  : consuming /v1/logs
+    testctx.go:198: 60  : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 61  : consuming /v1/metrics
+    testctx.go:198: 61  : consuming /v1/metrics DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 26  : Container.withExec DONE [0.5s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 27  : Container.stdout DONE [0.0s, waited on apk add git]
+    testctx.go:198: 
+    testctx.go:198: 62  : withExec dagger query (
+    testctx.go:198: 62  : ┆ stdin: "{ items {\n  batch { change(names: [\"c\", \"d\"]) {\n    keys\n    batch { added removed change(names: [\"c\", \"b\", \"a\"]) { batch { added removed } } }\n    subset(keys: [\"d\"]) { batch { added removed } }\n  } }\n  subset(keys: [\"c\"]) { batch {\n    change(names: [\"b\", \"c\", \"d\"]) { batch { added removed } }\n    fresh { keys batch { added removed } }\n  } }\n} }"
+    testctx.go:198: 62  : )
+    testctx.go:198: 
+    testctx.go:198: 63  : Container.stdout: String!
+    testctx.go:198: 
+    testctx.go:198: 64  : load module: test
+    testctx.go:198: 64  : load module: test DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 65  : test: Test!
+    testctx.go:198: 65  : test CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 66  : Test.items: TestItems!
+    testctx.go:198: 66  : Test.items CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 67  : TestItems.batch: TestItems_Batch!
+    testctx.go:198: 67  : TestItems.batch CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 68  : TestItems.subset(keys: ["c"]): TestItems!
+    testctx.go:198: 68  : TestItems.subset DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 69  : TestItems_Batch.change(names: ["c", "d"]): TestItems!
+    testctx.go:198: 
+    testctx.go:198: 26  : Container.withExec DONE [0.5s, waited on Container.from]
+    testctx.go:198: 26  : [6.9s] | {
+    testctx.go:198: 26  : [6.9s] |     "items": {
+    testctx.go:198: 26  : [6.9s] |         "batch": {
+    testctx.go:198: 26  : [6.9s] |             "removed": [],
+    testctx.go:198: 26  : [6.9s] |             "selected": [
+    testctx.go:198: 26  : [6.9s] |                 "b",
+    testctx.go:198: 26  : [6.9s] |                 "a",
+    testctx.go:198: 26  : [6.9s] |                 "c"
+    testctx.go:198: 26  : [6.9s] |             ]
+    testctx.go:198: 26  : [6.9s] |         },
+    testctx.go:198: 26  : [6.9s] |         "get": {
+    testctx.go:198: 26  : [6.9s] |             "name": "item:a"
+    testctx.go:198: 26  : [6.9s] |         },
+    testctx.go:198: 26  : [6.9s] |         "keys": [
+    testctx.go:198: 26  : [6.9s] |             "b",
+    testctx.go:198: 26  : [6.9s] |             "a",
+    testctx.go:198: 26  : [6.9s] |             "c"
+    testctx.go:198: 26  : [6.9s] |         ],
+    testctx.go:198: 26  : [6.9s] |         "subset": {
+    testctx.go:198: 26  : [6.9s] |             "batch": {
+    testctx.go:198: 26  : [6.9s] |                 "copy": {
+    testctx.go:198: 26  : [6.9s] |                     "subset": {
+    testctx.go:198: 26  : [6.9s] |                         "batch": {
+    testctx.go:198: 26  : [6.9s] |                             "removed": [
+    testctx.go:198: 26  : [6.9s] |                                 "b",
+    testctx.go:198: 26  : [6.9s] |                                 "a"
+    testctx.go:198: 26  : [6.9s] |                             ]
+    testctx.go:198: 26  : [6.9s] |                         }
+    testctx.go:198: 26  : [6.9s] |                     }
+    testctx.go:198: 26  : [6.9s] |                 },
+    testctx.go:198: 26  : [6.9s] |                 "removed": [
+    testctx.go:198: 26  : [6.9s] |                     "a"
+    testctx.go:198: 26  : [6.9s] |                 ],
+    testctx.go:198: 26  : [6.9s] |                 "selected": [
+    testctx.go:198: 26  : [6.9s] |                     "b",
+    testctx.go:198: 26  : [6.9s] |                     "c"
+    testctx.go:198: 26  : [6.9s] |                 ]
+    testctx.go:198: 26  : [6.9s] |             },
+    testctx.go:198: 26  : [6.9s] |             "keys": [
+    testctx.go:198: 26  : [6.9s] |                 "b",
+    testctx.go:198: 26  : [6.9s] |                 "c"
+    testctx.go:198: 26  : [6.9s] |             ]
+    testctx.go:198: 26  : [6.9s] |         }
+    testctx.go:198: 26  : [6.9s] |     }
+    testctx.go:198: 26  : [6.9s] | }
+    testctx.go:198: 26  : [6.9s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 26  : [6.9s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 
+    testctx.go:198: 62  : withExec dagger query (
+    testctx.go:198: 62  : ┆ stdin: "{ items {\n  batch { change(names: [\"c\", \"d\"]) {\n    keys\n    batch { added removed change(names: [\"c\", \"b\", \"a\"]) { batch { added removed } } }\n    subset(keys: [\"d\"]) { batch { added removed } }\n  } }\n  subset(keys: [\"c\"]) { batch {\n    change(names: [\"b\", \"c\", \"d\"]) { batch { added removed } }\n    fresh { keys batch { added removed } }\n  } }\n} }"
+    testctx.go:198: 62  : )
+    testctx.go:198: 70  : ┆ dagger query
+    testctx.go:198: 70  : ┆ [0.0s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 70  : ┆ [0.0s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 71  : ┆ connect
+    testctx.go:198: 71  : ┆ connect DONE [0.0s]
+    testctx.go:198: 69  : ┆ TestItems_Batch.change DONE [0.0s]
+    testctx.go:198: 72  : ┆ TestItems.batch: TestItems_Batch!
+    testctx.go:198: 72  : ┆ TestItems.batch DONE [0.0s]
+    testctx.go:198: 73  : ┆ TestItems_Batch.change(names: ["b", "c", "d"]): TestItems!
+    testctx.go:198: 73  : ┆ TestItems_Batch.change DONE [0.0s]
+    testctx.go:198: 74  : ┆ TestItems_Batch.fresh: TestItems!
+    testctx.go:198: 74  : ┆ TestItems_Batch.fresh DONE [0.0s]
+    testctx.go:198: 75  : ┆ TestItems.keys: [String!]!
+    testctx.go:198: 75  : ┆ TestItems.keys DONE [0.0s]
+    testctx.go:198: 76  : ┆ TestItems.batch: TestItems_Batch!
+    testctx.go:198: 76  : ┆ TestItems.batch DONE [0.0s]
+    testctx.go:198: 77  : ┆ TestItems.keys: [String!]!
+    testctx.go:198: 77  : ┆ TestItems.keys DONE [0.0s]
+    testctx.go:198: 78  : ┆ TestItems.batch: TestItems_Batch!
+    testctx.go:198: 78  : ┆ TestItems.batch DONE [0.0s]
+    testctx.go:198: 79  : ┆ TestItems.subset(keys: ["d"]): TestItems!
+    testctx.go:198: 79  : ┆ TestItems.subset DONE [0.0s]
+    testctx.go:198: 80  : ┆ TestItems_Batch.removed: [String!]!
+    testctx.go:198: 80  : ┆ TestItems_Batch.removed DONE [0.1s]
+    testctx.go:198: 81  : ┆ TestItems_Batch.added: [String!]!
+    testctx.go:198: 81  : ┆ TestItems_Batch.added DONE [0.0s]
+    testctx.go:198: 82  : ┆ TestItems.batch: TestItems_Batch!
+    testctx.go:198: 82  : ┆ TestItems.batch DONE [0.0s]
+    testctx.go:198: 83  : ┆ TestItems.batch: TestItems_Batch!
+    testctx.go:198: 83  : ┆ TestItems.batch DONE [0.0s]
+    testctx.go:198: 84  : ┆ TestItems_Batch.removed: [String!]!
+    testctx.go:198: 84  : ┆ TestItems_Batch.removed DONE [0.0s]
+    testctx.go:198: 85  : ┆ TestItems_Batch.change(names: ["c", "b", "a"]): TestItems!
+    testctx.go:198: 85  : ┆ TestItems_Batch.change DONE [0.0s]
+    testctx.go:198: 86  : ┆ TestItems_Batch.added: [String!]!
+    testctx.go:198: 86  : ┆ TestItems_Batch.added DONE [0.0s]
+    testctx.go:198: 87  : ┆ TestItems_Batch.added: [String!]!
+    testctx.go:198: 87  : ┆ TestItems_Batch.added DONE [0.1s]
+    testctx.go:198: 88  : ┆ TestItems_Batch.removed: [String!]!
+    testctx.go:198: 88  : ┆ TestItems_Batch.removed DONE [0.0s]
+    testctx.go:198: 89  : ┆ TestItems_Batch.added: [String!]!
+    testctx.go:198: 89  : ┆ TestItems_Batch.added DONE [0.1s]
+    testctx.go:198: 90  : ┆ TestItems_Batch.removed: [String!]!
+    testctx.go:198: 90  : ┆ TestItems_Batch.removed DONE [0.1s]
+    testctx.go:198: 91  : ┆ TestItems.batch: TestItems_Batch!
+    testctx.go:198: 91  : ┆ TestItems.batch DONE [0.0s]
+    testctx.go:198: 92  : ┆ TestItems_Batch.added: [String!]!
+    testctx.go:198: 92  : ┆ TestItems_Batch.added DONE [0.0s]
+    testctx.go:198: 93  : ┆ TestItems_Batch.removed: [String!]!
+    testctx.go:198: 93  : ┆ TestItems_Batch.removed DONE [0.0s]
+    testctx.go:198: 70  : ┆ dagger query DONE [0.1s]
+    testctx.go:198: 70  : ┆ [0.0s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 70  : ┆ [0.0s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 70  : ┆ [0.1s] | {
+    testctx.go:198: 70  : ┆ [0.1s] |     "items": {
+    testctx.go:198: 70  : ┆ [0.1s] |         "batch": {
+    testctx.go:198: 70  : ┆ [0.1s] |             "change": {
+    testctx.go:198: 70  : ┆ [0.1s] |                 "batch": {
+    testctx.go:198: 70  : ┆ [0.1s] |                     "added": [
+    testctx.go:198: 70  : ┆ [0.1s] |                         "d"
+    testctx.go:198: 70  : ┆ [0.1s] |                     ],
+    testctx.go:198: 70  : ┆ [0.1s] |                     "change": {
+    testctx.go:198: 70  : ┆ [0.1s] |                         "batch": {
+    testctx.go:198: 70  : ┆ [0.1s] |                             "added": [],
+    testctx.go:198: 70  : ┆ [0.1s] |                             "removed": []
+    testctx.go:198: 70  : ┆ [0.1s] |                         }
+    testctx.go:198: 70  : ┆ [0.1s] |                     },
+    testctx.go:198: 70  : ┆ [0.1s] |                     "removed": [
+    testctx.go:198: 70  : ┆ [0.1s] |                         "b",
+    testctx.go:198: 70  : ┆ [0.1s] |                         "a"
+    testctx.go:198: 70  : ┆ [0.1s] |                     ]
+    testctx.go:198: 70  : ┆ [0.1s] |                 },
+    testctx.go:198: 70  : ┆ [0.1s] |                 "keys": [
+    testctx.go:198: 70  : ┆ [0.1s] |                     "c",
+    testctx.go:198: 70  : ┆ [0.1s] |                     "d"
+    testctx.go:198: 70  : ┆ [0.1s] |                 ],
+    testctx.go:198: 70  : ┆ [0.1s] |                 "subset": {
+    testctx.go:198: 70  : ┆ [0.1s] |                     "batch": {
+    testctx.go:198: 70  : ┆ [0.1s] |                         "added": [
+    testctx.go:198: 70  : ┆ [0.1s] |                             "d"
+    testctx.go:198: 70  : ┆ [0.1s] |                         ],
+    testctx.go:198: 70  : ┆ [0.1s] |                         "removed": [
+    testctx.go:198: 70  : ┆ [0.1s] |                             "b",
+    testctx.go:198: 70  : ┆ [0.1s] |                             "a",
+    testctx.go:198: 70  : ┆ [0.1s] |                             "c"
+    testctx.go:198: 70  : ┆ [0.1s] |                         ]
+    testctx.go:198: 70  : ┆ [0.1s] |                     }
+    testctx.go:198: 70  : ┆ [0.1s] |                 }
+    testctx.go:198: 70  : ┆ [0.1s] |             }
+    testctx.go:198: 70  : ┆ [0.1s] |         },
+    testctx.go:198: 70  : ┆ [0.1s] |         "subset": {
+    testctx.go:198: 70  : ┆ [0.1s] |             "batch": {
+    testctx.go:198: 70  : ┆ [0.1s] |                 "change": {
+    testctx.go:198: 70  : ┆ [0.1s] |                     "batch": {
+    testctx.go:198: 70  : ┆ [0.1s] |                         "added": [
+    testctx.go:198: 70  : ┆ [0.1s] |                             "d"
+    testctx.go:198: 70  : ┆ [0.1s] |                         ],
+    testctx.go:198: 70  : ┆ [0.1s] |                         "removed": [
+    testctx.go:198: 70  : ┆ [0.1s] |                             "a"
+    testctx.go:198: 70  : ┆ [0.1s] |                         ]
+    testctx.go:198: 70  : ┆ [0.1s] |                     }
+    testctx.go:198: 70  : ┆ [0.1s] |                 },
+    testctx.go:198: 70  : ┆ [0.1s] |                 "fresh": {
+    testctx.go:198: 70  : ┆ [0.1s] |                     "batch": {
+    testctx.go:198: 70  : ┆ [0.1s] |                         "added": [],
+    testctx.go:198: 70  : ┆ [0.1s] |                         "removed": []
+    testctx.go:198: 70  : ┆ [0.1s] |                     },
+    testctx.go:198: 70  : ┆ [0.1s] |                     "keys": [
+    testctx.go:198: 70  : ┆ [0.1s] |                         "z"
+    testctx.go:198: 70  : ┆ [0.1s] |                     ]
+    testctx.go:198: 70  : ┆ [0.1s] |                 }
+    testctx.go:198: 70  : ┆ [0.1s] |             }
+    testctx.go:198: 70  : ┆ [0.1s] |         }
+    testctx.go:198: 70  : ┆ [0.1s] |     }
+    testctx.go:198: 70  : ┆ [0.1s] | }
+    testctx.go:198: 
+    testctx.go:198: 94  : load SDK: dang
+    testctx.go:198: 94  : load SDK: dang DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 95  : uploading /work
+    testctx.go:198: 95  : uploading /work DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 96  : consuming /v1/traces
+    testctx.go:198: 96  : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 97  : consuming /v1/logs
+    testctx.go:198: 97  : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 98  : consuming /v1/metrics
+    testctx.go:198: 98  : consuming /v1/metrics DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 62  : withExec dagger query (
+    testctx.go:198: 62  : ┆ stdin: "{ items {\n  batch { change(names: [\"c\", \"d\"]) {\n    keys\n    batch { added removed change(names: [\"c\", \"b\", \"a\"]) { batch { added removed } } }\n    subset(keys: [\"d\"]) { batch { added removed } }\n  } }\n  subset(keys: [\"c\"]) { batch {\n    change(names: [\"b\", \"c\", \"d\"]) { batch { added removed } }\n    fresh { keys batch { added removed } }\n  } }\n} }"
+    testctx.go:198: 62  : )
+    testctx.go:198: 62  : [0.3s] | {
+    testctx.go:198: 62  : [0.3s] |     "items": {
+    testctx.go:198: 62  : [0.3s] |         "batch": {
+    testctx.go:198: 62  : [0.3s] |             "change": {
+    testctx.go:198: 62  : [0.3s] |                 "batch": {
+    testctx.go:198: 62  : [0.3s] |                     "added": [
+    testctx.go:198: 62  : [0.3s] |                         "d"
+    testctx.go:198: 62  : [0.3s] |                     ],
+    testctx.go:198: 62  : [0.3s] |                     "change": {
+    testctx.go:198: 62  : [0.3s] |                         "batch": {
+    testctx.go:198: 62  : [0.3s] |                             "added": [],
+    testctx.go:198: 62  : [0.3s] |                             "removed": []
+    testctx.go:198: 62  : [0.3s] |                         }
+    testctx.go:198: 62  : [0.3s] |                     },
+    testctx.go:198: 62  : [0.3s] |                     "removed": [
+    testctx.go:198: 62  : [0.3s] |                         "b",
+    testctx.go:198: 62  : [0.3s] |                         "a"
+    testctx.go:198: 62  : [0.3s] |                     ]
+    testctx.go:198: 62  : [0.3s] |                 },
+    testctx.go:198: 62  : [0.3s] |                 "keys": [
+    testctx.go:198: 62  : [0.3s] |                     "c",
+    testctx.go:198: 62  : [0.3s] |                     "d"
+    testctx.go:198: 62  : [0.3s] |                 ],
+    testctx.go:198: 62  : [0.3s] |                 "subset": {
+    testctx.go:198: 62  : [0.3s] |                     "batch": {
+    testctx.go:198: 62  : [0.3s] |                         "added": [
+    testctx.go:198: 62  : [0.3s] |                             "d"
+    testctx.go:198: 62  : [0.3s] |                         ],
+    testctx.go:198: 62  : [0.3s] |                         "removed": [
+    testctx.go:198: 62  : [0.3s] |                             "b",
+    testctx.go:198: 62  : [0.3s] |                             "a",
+    testctx.go:198: 62  : [0.3s] |                             "c"
+    testctx.go:198: 62  : [0.3s] |                         ]
+    testctx.go:198: 62  : [0.3s] |                     }
+    testctx.go:198: 62  : [0.3s] |                 }
+    testctx.go:198: 62  : [0.3s] |             }
+    testctx.go:198: 62  : [0.3s] |         },
+    testctx.go:198: 62  : [0.3s] |         "subset": {
+    testctx.go:198: 62  : [0.3s] |             "batch": {
+    testctx.go:198: 62  : [0.3s] |                 "change": {
+    testctx.go:198: 62  : [0.3s] |                     "batch": {
+    testctx.go:198: 62  : [0.3s] |                         "added": [
+    testctx.go:198: 62  : [0.3s] |                             "d"
+    testctx.go:198: 62  : [0.3s] |                         ],
+    testctx.go:198: 62  : [0.3s] |                         "removed": [
+    testctx.go:198: 62  : [0.3s] |                             "a"
+    testctx.go:198: 62  : [0.3s] |                         ]
+    testctx.go:198: 62  : [0.3s] |                     }
+    testctx.go:198: 62  : [0.3s] |                 },
+    testctx.go:198: 62  : [0.3s] |                 "fresh": {
+    testctx.go:198: 62  : [0.3s] |                     "batch": {
+    testctx.go:198: 62  : [0.3s] |                         "added": [],
+    testctx.go:198: 62  : [0.3s] |                         "removed": []
+    testctx.go:198: 62  : [0.3s] |                     },
+    testctx.go:198: 62  : [0.3s] |                     "keys": [
+    testctx.go:198: 62  : [0.3s] |                         "z"
+    testctx.go:198: 62  : [0.3s] |                     ]
+    testctx.go:198: 62  : [0.3s] |                 }
+    testctx.go:198: 62  : [0.3s] |             }
+    testctx.go:198: 62  : [0.3s] |         }
+    testctx.go:198: 62  : [0.3s] |     }
+    testctx.go:198: 62  : [0.3s] | }
+    testctx.go:198: 62  : [0.3s] | No workspace config found, inferring from dagger.json.
+    testctx.go:198: 62  : [0.3s] | Run 'dagger workspace migrate' when ready. More info: https://docs.dagger.io/reference/upgrade-to-workspaces
+    testctx.go:198: 62  : Container.withExec DONE [0.3s]
+    testctx.go:198: 
+    testctx.go:198: 63  : Container.stdout DONE [0.3s]
+    testctx.go:198: 
+    testctx.go:198: 1   : dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a DONE [9.8s]
+    testctx.go:198: 
+--- PASS: TestCollections (0.00s)
+    --- PASS: TestCollections/TestSDKs (0.00s)
+        --- PASS: TestCollections/TestSDKs/dang (10.03s)
+PASS
