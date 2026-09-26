@@ -3823,7 +3823,8 @@ func (s *containerSchema) withFile(ctx context.Context, parent dagql.ObjectResul
 	if err != nil {
 		return inst, err
 	}
-	if parentPendingLazy {
+	// A ready destination must not force a source whose bytes are still lazy.
+	if parentPendingLazy || dagql.HasPendingLazyEvaluation(file) {
 		ctr.Lazy = &core.ContainerWithFileLazy{
 			LazyState:   core.NewLazyState(),
 			Parent:      parent,
