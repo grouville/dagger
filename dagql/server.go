@@ -666,6 +666,23 @@ func (s *Server) reconcileInterfaceImplsLocked(view call.View) {
 		return
 	}
 
+	// Reuse each interface's visible fields across candidate pairs and fixed-
+	// point iterations. Materialize a snapshot only when a pair needs checking;
+	// explicit/permanent relationships need no field work. This map belongs to
+	// this reconciliation pass and is never retained across passes or views.
+	var fields map[string][]FieldSpec
+	getFields := func(name string, iface *Interface) []FieldSpec {
+		if specs, ok := fields[name]; ok {
+			return specs
+		}
+		specs := iface.FieldSpecs(view)
+		if fields == nil {
+			fields = make(map[string][]FieldSpec, len(s.interfaces))
+		}
+		fields[name] = specs
+		return specs
+	}
+
 	rels := interfaceRelationSet{}
 	permanent := interfaceRelationSet{}
 
@@ -736,7 +753,7 @@ func (s *Server) reconcileInterfaceImplsLocked(view call.View) {
 				if !rels.has(objName, ifaceName) || permanent.has(objName, ifaceName) {
 					return
 				}
-				if !iface.Satisfies(obj, view, checker) {
+				if !interfaceFieldsSatisfiedBy(getFields(ifaceName, iface), obj, view, checker) {
 					changed = rels.del(objName, ifaceName) || changed
 				}
 			})
@@ -747,7 +764,7 @@ func (s *Server) reconcileInterfaceImplsLocked(view call.View) {
 				if typeName == ifaceName || !rels.has(typeName, ifaceName) || permanent.has(typeName, ifaceName) {
 					return
 				}
-				if !iface.SatisfiedByInterface(typ, view, checker) {
+				if !interfaceFieldsSatisfiedBy(getFields(ifaceName, iface), typ, view, checker) {
 					changed = rels.del(typeName, ifaceName) || changed
 				}
 			})

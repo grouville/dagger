@@ -225,19 +225,7 @@ func (iface *Interface) Satisfies(obj ObjectType, view call.View, checkers ...Im
 	if len(checkers) > 0 {
 		checker = checkers[0]
 	}
-	for _, ifaceField := range iface.FieldSpecs(view) {
-		objField, ok := obj.FieldSpec(ifaceField.Name, view)
-		if !ok {
-			return false
-		}
-		if !typeCompatible(ifaceField.Type.Type(), objField.Type.Type(), checker) {
-			return false
-		}
-		if !argsCompatible(ifaceField.Args, objField.Args, view, checker) {
-			return false
-		}
-	}
-	return true
+	return interfaceFieldsSatisfiedBy(iface.FieldSpecs(view), obj, view, checker)
 }
 
 // SatisfiedByInterface returns true if the given interface structurally satisfies
@@ -251,15 +239,24 @@ func (iface *Interface) SatisfiedByInterface(other *Interface, view call.View, c
 	if len(checkers) > 0 {
 		checker = checkers[0]
 	}
-	for _, ifaceField := range iface.FieldSpecs(view) {
-		otherField, ok := other.FieldSpec(ifaceField.Name, view)
+	return interfaceFieldsSatisfiedBy(iface.FieldSpecs(view), other, view, checker)
+}
+
+// interfaceFieldsSatisfiedBy checks one snapshot of an interface's visible
+// fields. Reconciliation reuses this snapshot for every candidate in its pass;
+// standalone callers still obtain a fresh snapshot for the requested view.
+func interfaceFieldsSatisfiedBy(fields []FieldSpec, obj interface {
+	FieldSpec(string, call.View) (FieldSpec, bool)
+}, view call.View, checker ImplementsChecker) bool {
+	for _, ifaceField := range fields {
+		objField, ok := obj.FieldSpec(ifaceField.Name, view)
 		if !ok {
 			return false
 		}
-		if !typeCompatible(ifaceField.Type.Type(), otherField.Type.Type(), checker) {
+		if !typeCompatible(ifaceField.Type.Type(), objField.Type.Type(), checker) {
 			return false
 		}
-		if !argsCompatible(ifaceField.Args, otherField.Args, view, checker) {
+		if !argsCompatible(ifaceField.Args, objField.Args, view, checker) {
 			return false
 		}
 	}
