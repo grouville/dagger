@@ -1,0 +1,29 @@
+from pathlib import Path
+import collections,hashlib,json
+H=Path(__file__).resolve().parent
+p=Path('/tmp/collections-perf/direct-unix-transport-v1/results-v1/53-5-diagnostic-checks-unix/run.wcprof.private')
+with p.open()as f:
+ h=json.loads(next(f));ops=[json.loads(l)for l in f if l.strip()]
+ops=[o for o in ops if o.get('e')=='op'];by={o['id']:o for o in ops};name=lambda o:h['strings'][o.get('c',0)]
+roots=[o for o in ops if name(o)=='Artifacts.__itemsJSON'and o['k']=='call_exec'];assert len(roots)==1;r=roots[0]
+children=collections.defaultdict(list)
+for o in ops:children[o.get('p')].append(o)
+stack=list(children[r['id']]);desc=[]
+while stack:
+ o=stack.pop();desc.append(o);stack.extend(children[o['id']])
+agg=collections.defaultdict(list)
+for o in desc:agg[(o['k'],name(o))].append(o)
+def stat(xs):return {'count':len(xs),'sum_ms':sum(o['d']-o['s']for o in xs)/1e6,'max_ms':max(o['d']-o['s']for o in xs)/1e6}
+top=[{'kind':k,'class':n,**stat(xs)}for(k,n),xs in agg.items()]
+top.sort(key=lambda x:x['sum_ms'],reverse=True)
+large=[]
+for o in sorted(desc,key=lambda o:o['s']):
+ if o['k']=='call_exec'and o['d']-o['s']>1e6:
+  chain=[];cur=by.get(o.get('p'))
+  while cur and cur['id']!=r['id']:
+   if cur['k']=='call_exec':chain.append(name(cur))
+   cur=by.get(cur.get('p'))
+  large.append({'class':name(o),'start_ms':(o['s']-r['s'])/1e6,'duration_ms':(o['d']-o['s'])/1e6,'call_ancestors':chain})
+result={'profile_sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'root_ms':(r['d']-r['s'])/1e6,'descendant_count':len(desc),'operation_class_aggregates':top,'calls_over_1ms':large,'warning':'Nested inclusive intervals overlap and must not be added; operation class names only, no source/user payloads or IDs.'}
+(H/'numeric.json').write_text(json.dumps(result,indent=2)+'\n')
+print(json.dumps({'root_ms':result['root_ms'],'descendants':len(desc),'top':top[:25],'calls_over_10ms':[c for c in large if c['duration_ms']>10]},indent=2))

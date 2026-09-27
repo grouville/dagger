@@ -1,0 +1,141 @@
+{
+  "source_head": "0d1c32e29f2f31cdb95f0b5f17f7daed7305bc87",
+  "script_sha256": "e21bc83ac4e7f85dca39fafbebe7c62f0dddffbc3e013e1b1b714a9803f0f952",
+  "source": {
+    "/home/dagger/dag/engine/client/drivers/container.go": "990ce4a905dbbea0e2ece84b716dc71c9ba637e68d2d5ca00a75a9a361949996",
+    "/home/dagger/dag/engine/client/client.go": "ee258323f792a93035fabeab2582258760b7ef2686e24b4bb5b018887f29f42a",
+    "/home/dagger/dag/engine/client/drivers/container_connect_test.go": "116269ff501edf10cc680c6ec82dd69d66aea445ae2563ff2bc1c54067a053d4",
+    "/home/dagger/dag/engine/client/drivers/container_create_test.go": "5722c76b46ae86caec62d12936735c7316d2635d22ad1314d5780a6773e5091c",
+    "/home/dagger/dag/go.mod": "67176883052394c928a27f1bbc74a263b50a99bf7272bda438bd9342eb71c483",
+    "/home/dagger/dag/go.sum": "05b34feba139701de20620f80fbb5cb54d95e05c3ba33004e80f73d75aaa8bc8"
+  },
+  "inputs": {
+    "container.go": "ec49a1f380d4e05813e1ef43b5c31a67ebe7ddb73a121ef0e37460a9d183cd71",
+    "container_perf_unix_test.go": "2bdf705c6aa17acb838cf2c42631df9464e1be1ca044c5c9950805ceb314b1bc",
+    "original-container.go.txt": "990ce4a905dbbea0e2ece84b716dc71c9ba637e68d2d5ca00a75a9a361949996",
+    "container-before-warm-context.go.txt": "699305a66e2e519be0d2439f6b8071a95e241dac051bc3ab265bf055228f89ca",
+    "prototype.patch": "470b107661fa00653fe36ff9a50f3a375f73b5f4441e2f995368c6a30c725126",
+    "production-overlay.json": "162d1d39d76cb6ba2107f8a68de564cfec710a08bf646e85b4191928e1b34791",
+    "test-overlay.json": "0b0f74dd78ae891585e1b1eb7aa81c0871a140139627d692a5be54ed4f23fc7d",
+    "baseline-overlay.json": "9970862d31d496f99e0586f81297a5f02117e9b19e131a2e77653178f254aa56",
+    "prefetch-context-witness-overlay.json": "64fcd8675669df9949966f192ee0aeab2eb65bd473fbdd0b0b37fae628756166",
+    "provenance.json": "0606dcf4a7146816c9b7fd58c8d9dffe3316e76a998262362d866b9cd7443bc1",
+    "validate.py": "e21bc83ac4e7f85dca39fafbebe7c62f0dddffbc3e013e1b1b714a9803f0f952"
+  },
+  "runs": [
+    {
+      "label": "baseline-witness",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/connector-unix-proof-v1/baseline-overlay.json",
+        "./engine/client/drivers",
+        "-run",
+        "^TestContainerPerfUnixExplicitDial$",
+        "-count=1",
+        "-timeout=45s"
+      ],
+      "exit_code": 1,
+      "seconds": 1.167559194844216,
+      "log_sha256": "bc242d60dffac6c2aca3367874f03af8d29a2d71a4270fe23d16e1f0b314bf69",
+      "passes": [],
+      "failures": [
+        "TestContainerPerfUnixExplicitDial"
+      ]
+    },
+    {
+      "label": "prefetch-context-witness",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/connector-unix-proof-v1/prefetch-context-witness-overlay.json",
+        "./engine/client/drivers",
+        "-run",
+        "^TestContainerPerfUnixWarmSurvivesDialCancellation$",
+        "-count=1",
+        "-timeout=45s"
+      ],
+      "exit_code": 1,
+      "seconds": 1.167099239071831,
+      "log_sha256": "5bd34cec2d3de755143ebb5a95337a2d1d26e7df44ba765be80c1eadbfcd0927",
+      "passes": [],
+      "failures": [
+        "TestContainerPerfUnixWarmSurvivesDialCancellation"
+      ]
+    },
+    {
+      "label": "candidate",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/connector-unix-proof-v1/test-overlay.json",
+        "./engine/client/drivers",
+        "-run",
+        "^(TestContainerPerfUnix.*|TestContainerConnector.*|TestImageDriverCreate.*)$",
+        "-count=1",
+        "-timeout=45s"
+      ],
+      "exit_code": 0,
+      "seconds": 1.2190201240591705,
+      "log_sha256": "45f2d859b2c0a095d9e9f386fccb906bfc947b0a40d4d40572f6200a61fd522a",
+      "passes": [
+        "TestContainerPerfUnixDefaultUnchanged",
+        "TestContainerPerfUnixPreservesDriver",
+        "TestContainerPerfUnixExplicitDial",
+        "TestContainerPerfUnixErrorsDoNotFallback/canceled",
+        "TestContainerPerfUnixErrorsDoNotFallback/missing",
+        "TestContainerPerfUnixErrorsDoNotFallback",
+        "TestContainerPerfUnixKeepsThreeWarmTunnels",
+        "TestContainerPerfUnixWarmSurvivesDialCancellation",
+        "TestImageDriverCreateEnablesLoopbackDebugListener",
+        "TestContainerConnectorKeepsTunnelAClientStoppedWaitingFor",
+        "TestImageDriverCreateStartsExistingEngineWithoutListing",
+        "TestContainerConnectorDoesNotWarmOnDeadTunnel",
+        "TestContainerConnectorWarmsTunnelsOnceEngineAnswers"
+      ],
+      "failures": []
+    },
+    {
+      "label": "candidate-race",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/connector-unix-proof-v1/test-overlay.json",
+        "-race",
+        "./engine/client/drivers",
+        "-run",
+        "^(TestContainerPerfUnix.*|TestContainerConnector.*|TestImageDriverCreate.*)$",
+        "-count=1",
+        "-timeout=45s"
+      ],
+      "exit_code": 0,
+      "seconds": 2.679746011039242,
+      "log_sha256": "b39adcbc2997237b71912ea47c6eb6d178cf4b5e12066bed2639922ab6e33b77",
+      "passes": [
+        "TestContainerPerfUnixDefaultUnchanged",
+        "TestContainerPerfUnixPreservesDriver",
+        "TestContainerPerfUnixExplicitDial",
+        "TestContainerPerfUnixErrorsDoNotFallback/canceled",
+        "TestContainerPerfUnixErrorsDoNotFallback/missing",
+        "TestContainerPerfUnixErrorsDoNotFallback",
+        "TestContainerPerfUnixKeepsThreeWarmTunnels",
+        "TestContainerPerfUnixWarmSurvivesDialCancellation",
+        "TestImageDriverCreateEnablesLoopbackDebugListener",
+        "TestImageDriverCreateStartsExistingEngineWithoutListing",
+        "TestContainerConnectorKeepsTunnelAClientStoppedWaitingFor",
+        "TestContainerConnectorDoesNotWarmOnDeadTunnel",
+        "TestContainerConnectorWarmsTunnelsOnceEngineAnswers"
+      ],
+      "failures": []
+    }
+  ],
+  "all_expected_results": true
+}

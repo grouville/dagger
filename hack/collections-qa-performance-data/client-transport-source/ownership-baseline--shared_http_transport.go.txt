@@ -1,0 +1,156 @@
+package client
+
+import (
+	"context"
+	"crypto/tls"
+	"errors"
+	"io"
+	"net"
+	"sync"
+
+	"golang.org/x/net/http2"
+)
+
+func (c *Client) sharedHTTPTransport() *clientHTTPTransport {
+	c.httpTransportOnce.Do(func() {
+		c.httpTransport = newClientHTTPTransport(c.internalCtx, c.dialContextNoClientClose)
+	})
+	return c.httpTransport
+}
+
+func (c *Client) cleanupFailedConnect(cause error) {
+	c.closeRequests(cause)
+	c.internalCancel(cause)
+	if c.telemetry != nil {
+		_ = c.telemetry.Wait()
+	}
+	c.sharedHTTPTransport().Close()
+}
+
+// The transport has one Client owner. HTTP wrappers retain separate request
+// headers and cancellation domains; neither wrapper owns a physical connection.
+// Tracking connections also covers active streams during failed initialization,
+// which CloseIdleConnections alone cannot close.
+type clientHTTPTransport struct {
+	transport *http2.Transport
+	lifetime  context.Context
+	cancel    context.CancelCauseFunc
+	dial      func(context.Context) (net.Conn, error)
+	mu        sync.Mutex
+	closed    bool
+	conns     map[*clientHTTPConn]struct{}
+}
+
+func newClientHTTPTransport(lifetime context.Context, dial func(context.Context) (net.Conn, error)) *clientHTTPTransport {
+	lifetime, cancel := context.WithCancelCause(lifetime)
+	t := &clientHTTPTransport{lifetime: lifetime, cancel: cancel, dial: dial, conns: make(map[*clientHTTPConn]struct{})}
+	t.transport = &http2.Transport{
+		AllowHTTP: true,
+		DialTLSContext: func(ctx context.Context, _, _ string, _ *tls.Config) (net.Conn, error) {
+			return t.connect(ctx)
+		},
+	}
+	return t
+}
+
+func (t *clientHTTPTransport) connect(ctx context.Context) (net.Conn, error) {
+	t.mu.Lock()
+	closed := t.closed
+	t.mu.Unlock()
+	if closed {
+		return nil, errors.New("client HTTP transport closed")
+	}
+	if t.lifetime.Err() != nil {
+		return nil, context.Cause(t.lifetime)
+	}
+
+	// Cancellation of the opening request must still interrupt establishment.
+	// Once handed to the pool, only the Client owns the connection lifetime.
+	dialCtx, cancel := context.WithCancelCause(context.WithoutCancel(ctx))
+	stopLifetime := context.AfterFunc(t.lifetime, func() { cancel(context.Cause(t.lifetime)) })
+	var dialMu sync.Mutex
+	dialing := true
+	stopRequest := context.AfterFunc(ctx, func() {
+		dialMu.Lock()
+		defer dialMu.Unlock()
+		if dialing {
+			cancel(context.Cause(ctx))
+		}
+	})
+	conn, err := t.dial(dialCtx)
+	dialMu.Lock()
+	dialing = false
+	dialMu.Unlock()
+	stopRequest()
+	if err == nil && dialCtx.Err() != nil {
+		err = context.Cause(dialCtx)
+		_ = conn.Close()
+	}
+	if err != nil {
+		stopLifetime()
+		cancel(err)
+		return nil, err
+	}
+
+	owned := &clientHTTPConn{Conn: conn, owner: t, release: func() {
+		stopLifetime()
+		cancel(context.Canceled)
+	}}
+	t.mu.Lock()
+	if t.closed {
+		t.mu.Unlock()
+		_ = owned.Close()
+		return nil, errors.New("client HTTP transport closed")
+	}
+	t.conns[owned] = struct{}{}
+	t.mu.Unlock()
+	return owned, nil
+}
+
+func (t *clientHTTPTransport) Close() {
+	t.mu.Lock()
+	if t.closed {
+		t.mu.Unlock()
+		return
+	}
+	t.closed = true
+	conns := make([]*clientHTTPConn, 0, len(t.conns))
+	for conn := range t.conns {
+		conns = append(conns, conn)
+	}
+	t.mu.Unlock()
+	t.cancel(errors.New("client HTTP transport closed"))
+	for _, conn := range conns {
+		_ = conn.Close()
+	}
+	t.transport.CloseIdleConnections()
+}
+
+type clientHTTPConn struct {
+	net.Conn
+	owner   *clientHTTPTransport
+	release func()
+	once    sync.Once
+	err     error
+}
+
+func (c *clientHTTPConn) Close() error {
+	c.once.Do(func() {
+		c.err = c.Conn.Close()
+		c.release()
+		c.owner.mu.Lock()
+		delete(c.owner.conns, c)
+		c.owner.mu.Unlock()
+	})
+	return c.err
+}
+
+type clientRequestBody struct {
+	io.ReadCloser
+	release func()
+}
+
+func (b *clientRequestBody) Close() error {
+	defer b.release()
+	return b.ReadCloser.Close()
+}

@@ -1,0 +1,503 @@
+// A bounded, anonymous HTTP/1.1 mechanism experiment. Not a Git client.
+package main
+
+import (
+	"bufio"
+	"bytes"
+	"context"
+	"crypto/tls"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"io"
+	"mime"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/go-git/go-git/v5/plumbing/protocol/packp"
+	"github.com/go-git/go-git/v5/plumbing/protocol/packp/capability"
+)
+
+const requestCap = 22
+const responseCap = 16 << 20
+const aggregateCap = 64 << 20
+const headerCap = 64 << 10
+
+var errBound = errors.New("bound")
+
+type item struct {
+	Phase    string `json:"phase"`
+	Repo     string `json:"repo"`
+	Protocol string `json:"protocol"`
+}
+type row struct {
+	Index             int    `json:"index"`
+	Item              item   `json:"request"`
+	Sent              bool   `json:"write_attempted"`
+	Reused            bool   `json:"reused_connection"`
+	Status            int    `json:"status"`
+	BodyBytes         int    `json:"body_bytes"`
+	Classification    string `json:"classification"`
+	Negotiated        string `json:"git_protocol"`
+	Framing           string `json:"framing"`
+	RequestNS         int64  `json:"request_ns"`
+	WriteNS           int64  `json:"write_ns"`
+	FirstByteNS       int64  `json:"first_response_byte_ns"`
+	BodyDoneNS        int64  `json:"body_done_ns"`
+	ParseNS           int64  `json:"parse_ns"`
+	WaitNS            int64  `json:"write_to_first_byte_ns"`
+	BodyReadNS        int64  `json:"first_byte_to_body_done_ns"`
+	FirstByteObserved bool   `json:"first_byte_observed"`
+	ServerClose       bool   `json:"server_close"`
+}
+type connectStats struct {
+	DNSNS int64  `json:"dns_ns"`
+	TCPNS int64  `json:"tcp_ns"`
+	TLSNS int64  `json:"tls_ns"`
+	Error string `json:"error_class,omitempty"`
+}
+type report struct {
+	Scope         string       `json:"scope"`
+	Cap           int          `json:"request_cap"`
+	CloudRequests int          `json:"cloud_requests"`
+	Connect       connectStats `json:"connect"`
+	Rows          []row        `json:"rows"`
+	Finished      bool         `json:"finished"`
+	Stop          string       `json:"stop_reason"`
+	Bytes         int          `json:"total_body_bytes"`
+}
+type observedConn struct {
+	net.Conn
+	first   time.Time
+	reading bool
+	budget  int64
+}
+
+func (c *observedConn) Read(p []byte) (int, error) {
+	if c.budget <= 0 {
+		return 0, errBound
+	}
+	if int64(len(p)) > c.budget {
+		p = p[:c.budget]
+	}
+	n, e := c.Conn.Read(p)
+	c.budget -= int64(n)
+	if n > 0 && c.reading && c.first.IsZero() {
+		c.first = time.Now()
+	}
+	return n, e
+}
+func schedule() []item {
+	rows := []item{{"primer", "go", "v0"}, {"primer", "go", "v2"}}
+	repos := []string{"eslint", "go", "go-sdk", "node", "playwright", "sdk-helpers", "typescript-sdk"}
+	orders := map[string][]string{}
+	for i, r := range repos {
+		order := []string{"v0", "v2"}
+		if i%2 != 0 {
+			order = []string{"v2", "v0"}
+		}
+		orders[r] = order
+		for _, p := range order {
+			rows = append(rows, item{"first_pair", r, p})
+		}
+	}
+	for _, r := range []string{"go", "go-sdk", "typescript-sdk"} {
+		o := orders[r]
+		rows = append(rows, item{"reverse_pair", r, o[1]}, item{"reverse_pair", r, o[0]})
+	}
+	return rows
+}
+func validItem(x item) bool {
+	for _, y := range schedule() {
+		if x.Repo == y.Repo && x.Protocol == y.Protocol {
+			return true
+		}
+	}
+	return false
+}
+
+// No net/http Transport or Client: there is no proxy, redirect, replay, cookie,
+// challenge or reconnect path. One counted req.Write is the only request write.
+func exchange(ctx context.Context, c *observedConn, br *bufio.Reader, x item, index, remaining int) row {
+	r := row{Index: index, Item: x, Reused: index > 0, Classification: "io_error"}
+	if !validItem(x) || index >= requestCap || remaining <= 0 {
+		r.Classification = "request_bound"
+		return r
+	}
+	if br.Buffered() != 0 {
+		r.Classification = "unexpected_buffered_response"
+		return r
+	}
+	start := time.Now()
+	deadline := start.Add(15 * time.Second)
+	if d, ok := ctx.Deadline(); ok && d.Before(deadline) {
+		deadline = d
+	}
+	if err := ctx.Err(); err != nil {
+		r.Classification = "canceled"
+		return r
+	}
+	if err := c.SetDeadline(deadline); err != nil {
+		return r
+	}
+	stop := context.AfterFunc(ctx, func() { _ = c.Close() })
+	defer stop()
+	u := &url.URL{Scheme: "https", Host: "github.com", Path: "/dagger/" + x.Repo + "/info/refs", RawQuery: "service=git-upload-pack"}
+	req := &http.Request{Method: http.MethodGet, URL: u, Host: u.Host, Proto: "HTTP/1.1", ProtoMajor: 1, ProtoMinor: 1, Header: make(http.Header)}
+	req.Header.Set("User-Agent", capability.DefaultAgent())
+	req.Header.Set("Accept", "*/*")
+	// Deliberately explicit for both arms; this is not engine HTTP/2 parity.
+	req.Header.Set("Accept-Encoding", "identity")
+	if x.Protocol == "v2" {
+		req.Header.Set("Git-Protocol", "version=2")
+	}
+	c.first = time.Time{}
+	c.reading = false
+	c.budget = headerCap
+	r.Sent = true
+	if err := req.Write(c); err != nil {
+		r.RequestNS = time.Since(start).Nanoseconds()
+		return r
+	}
+	written := time.Now()
+	r.WriteNS = written.Sub(start).Nanoseconds()
+	c.reading = true
+	res, err := http.ReadResponse(br, req)
+	if !c.first.IsZero() {
+		r.FirstByteObserved = true
+		r.FirstByteNS = c.first.Sub(start).Nanoseconds()
+		r.WaitNS = c.first.Sub(written).Nanoseconds()
+	}
+	if err != nil {
+		r.RequestNS = time.Since(start).Nanoseconds()
+		if errors.Is(err, errBound) {
+			r.Classification = "header_bound"
+		}
+		return r
+	}
+	safeBody := false
+	defer func() {
+		if !safeBody {
+			_ = c.Close()
+		}
+		_ = res.Body.Close()
+	}()
+	r.Status = res.StatusCode
+	r.ServerClose = res.Close
+	limit := responseCap
+	if remaining < limit {
+		limit = remaining
+	}
+	c.budget = int64(limit) + headerCap + 1
+	body, err := io.ReadAll(io.LimitReader(res.Body, int64(limit)+1))
+	safeBody = err == nil && len(body) <= limit
+	done := time.Now()
+	r.BodyBytes = len(body)
+	r.BodyDoneNS = done.Sub(start).Nanoseconds()
+	if r.FirstByteObserved {
+		r.BodyReadNS = done.Sub(c.first).Nanoseconds()
+	}
+	if err != nil {
+		r.Classification = "body_io_error"
+	} else if len(body) > limit {
+		r.Classification = "body_bound"
+	} else if res.ProtoMajor != 1 || res.ProtoMinor != 1 {
+		r.Classification = "unexpected_http_version"
+	} else if res.StatusCode != 200 {
+		r.Classification = "http_status"
+	} else {
+		kind, _, e := mime.ParseMediaType(res.Header.Get("Content-Type"))
+		if e != nil || kind != "application/x-git-upload-pack-advertisement" {
+			r.Classification = "not_git_content_type"
+		} else if enc := res.Header.Get("Content-Encoding"); enc != "" && enc != "identity" {
+			r.Classification = "unexpected_content_encoding"
+		} else {
+			parseStart := time.Now()
+			r.Framing = framingSummary(body)
+			r.Negotiated, r.Classification = parseAdvertisement(body)
+			r.ParseNS = time.Since(parseStart).Nanoseconds()
+		}
+	}
+	r.RequestNS = time.Since(start).Nanoseconds()
+	return r
+}
+
+// packetAt returns only complete data/flush packets, rejecting delimiter and
+// response-end packets where this advertisement expects data or flush.
+func packetAt(data []byte, pos int) ([]byte, bool, int, bool) {
+	if len(data)-pos < 4 {
+		return nil, false, pos, false
+	}
+	n, e := strconv.ParseUint(string(data[pos:pos+4]), 16, 16)
+	if e != nil {
+		return nil, false, pos, false
+	}
+	pos += 4
+	if n == 0 {
+		return nil, true, pos, true
+	}
+	if n < 4 || n > 65520 || int(n-4) > len(data)-pos {
+		return nil, false, pos, false
+	}
+	return data[pos : pos+int(n-4)], false, pos + int(n-4), true
+}
+func textPacket(p []byte) string { return strings.TrimSuffix(string(p), "\n") }
+
+// Match Git's HTTP client: an optional exact service header and its metadata
+// section are consumed before protocol-version detection.
+func withoutHTTPPrefix(data []byte) ([]byte, bool, bool) {
+	first, flush, pos, ok := packetAt(data, 0)
+	if !ok || flush {
+		return nil, false, false
+	}
+	if textPacket(first) != "# service=git-upload-pack" {
+		return data, false, true
+	}
+	for count := 0; count < 1024; count++ {
+		_, flush, next, ok := packetAt(data, pos)
+		if !ok {
+			return nil, true, false
+		}
+		pos = next
+		if flush {
+			return data[pos:], true, true
+		}
+	}
+	return nil, true, false
+}
+func framingSummary(data []byte) string {
+	rest, prefix, ok := withoutHTTPPrefix(data)
+	if !ok {
+		return "unknown"
+	}
+	first, flush, _, ok := packetAt(rest, 0)
+	if !ok || flush {
+		return "unknown"
+	}
+	if textPacket(first) != "version 2" {
+		if prefix {
+			return "service_prefix_other"
+		}
+		return "bare_other"
+	}
+	result := "v2_bare"
+	if prefix {
+		result = "v2_service_prefix"
+	}
+	if bytes.HasSuffix(first, []byte("\n")) {
+		return result + "_lf"
+	}
+	return result + "_no_lf"
+}
+func parseAdvertisement(data []byte) (string, string) {
+	rest, prefix, ok := withoutHTTPPrefix(data)
+	if !ok {
+		return "unknown", "invalid_git"
+	}
+	first, flush, _, valid := packetAt(rest, 0)
+	if valid && !flush && textPacket(first) == "version 2" {
+		return parseV2(rest)
+	}
+	if !prefix || !completeSection(rest) {
+		return "unknown", "invalid_git"
+	}
+	rd := bytes.NewReader(data)
+	a := packp.NewAdvRefs()
+	if err := a.Decode(rd); err != nil {
+		if errors.Is(err, packp.ErrEmptyAdvRefs) {
+			return "v0", "empty_v0"
+		}
+		return "unknown", "invalid_git"
+	}
+	if rd.Len() != 0 {
+		return "v0", "trailing_git_data"
+	}
+	if _, err := a.AllReferences(); err != nil {
+		return "v0", "invalid_git"
+	}
+	if a.IsEmpty() {
+		return "v0", "empty_v0"
+	}
+	return "v0", "valid"
+}
+func completeSection(data []byte) bool {
+	pos := 0
+	for {
+		_, flush, next, ok := packetAt(data, pos)
+		if !ok {
+			return false
+		}
+		pos = next
+		if flush {
+			return pos == len(data)
+		}
+	}
+}
+func parseV2(data []byte) (string, string) {
+	pos, count := 0, 0
+	command := false
+	for {
+		p, flush, next, ok := packetAt(data, pos)
+		if !ok {
+			return "v2", "invalid_git"
+		}
+		pos = next
+		if flush {
+			if pos != len(data) || count < 2 || !command {
+				return "v2", "invalid_git"
+			}
+			return "v2", "valid"
+		}
+		s := textPacket(p)
+		if count == 0 {
+			if s != "version 2" {
+				return "v2", "invalid_git"
+			}
+		} else {
+			if s == "" || strings.ContainsAny(s, "\x00\r\n") {
+				return "v2", "invalid_git"
+			}
+			key, _, _ := strings.Cut(s, "=")
+			if key == "" {
+				return "v2", "invalid_git"
+			}
+			for _, c := range key {
+				if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '_') {
+					return "v2", "invalid_git"
+				}
+			}
+			if key == "ls-refs" || key == "fetch" {
+				command = true
+			}
+		}
+		count++
+		if count > 1024 {
+			return "v2", "invalid_git"
+		}
+	}
+}
+func run(ctx context.Context, c net.Conn, items []item, hook func(report) error) (report, error) {
+	out := report{Scope: "Anonymous host HTTP/1.1 on one persistent TLS socket; no engine/HTTP2/admission parity claim", Cap: requestCap}
+	defer c.Close()
+	obs := &observedConn{Conn: c}
+	br := bufio.NewReader(obs)
+	for i, x := range items {
+		if i >= requestCap {
+			out.Stop = "request_bound"
+			break
+		}
+		r := exchange(ctx, obs, br, x, i, aggregateCap-out.Bytes)
+		out.Rows = append(out.Rows, r)
+		out.Bytes += r.BodyBytes
+		if r.Classification != "valid" {
+			out.Stop = r.Classification
+		} else if r.ServerClose {
+			out.Stop = "server_close"
+		}
+		if hook != nil {
+			if err := hook(out); err != nil {
+				return out, err
+			}
+		}
+		if out.Stop != "" {
+			break
+		}
+	}
+	out.Finished = len(out.Rows) == len(items) && len(items) <= requestCap && out.Stop == ""
+	if out.Finished {
+		out.Stop = "completed"
+	}
+	return out, nil
+}
+func dial(ctx context.Context) (net.Conn, connectStats, error) {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	var s connectStats
+	start := time.Now()
+	ips, err := net.DefaultResolver.LookupIPAddr(ctx, "github.com")
+	s.DNSNS = time.Since(start).Nanoseconds()
+	if err != nil {
+		s.Error = "dns_error"
+		return nil, s, err
+	}
+	// Pin one resolved IPv4 address for the entire run; no address retry/fallback.
+	var ip net.IP
+	for _, a := range ips {
+		if a.IP.To4() != nil {
+			ip = a.IP
+			break
+		}
+	}
+	if ip == nil {
+		s.Error = "no_ipv4"
+		return nil, s, errors.New("no ipv4")
+	}
+	start = time.Now()
+	conn, err := (&net.Dialer{Timeout: 15 * time.Second}).DialContext(ctx, "tcp4", net.JoinHostPort(ip.String(), "443"))
+	s.TCPNS = time.Since(start).Nanoseconds()
+	if err != nil {
+		s.Error = "tcp_error"
+		return nil, s, err
+	}
+	tc := tls.Client(conn, &tls.Config{ServerName: "github.com", MinVersion: tls.VersionTLS12, NextProtos: []string{"http/1.1"}})
+	start = time.Now()
+	err = tc.HandshakeContext(ctx)
+	s.TLSNS = time.Since(start).Nanoseconds()
+	if err != nil {
+		conn.Close()
+		s.Error = "tls_error"
+		return nil, s, err
+	}
+	return tc, s, nil
+}
+func main() {
+	live := flag.Bool("run", false, "execute the fixed 22 anonymous HTTP GET schedule")
+	outPath := flag.String("out", "", "new numeric JSON evidence file")
+	flag.Parse()
+	if !*live {
+		_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"execute": false, "request_cap": requestCap, "schedule": schedule(), "http": "1.1, one TLS socket, no replay/reconnect", "cloud_requests": 0})
+		return
+	}
+	if *outPath == "" {
+		fmt.Fprintln(os.Stderr, "new output path required")
+		os.Exit(2)
+	}
+	f, err := os.OpenFile(*outPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "output setup failed")
+		os.Exit(2)
+	}
+	f.Close()
+	// No inherited proxy, credentials or Git configuration is consulted by dial/run.
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	defer cancel()
+	save := func(r report) error {
+		data, e := json.MarshalIndent(r, "", "  ")
+		if e != nil {
+			return e
+		}
+		return os.WriteFile(*outPath, append(data, '\n'), 0600)
+	}
+	c, cs, err := dial(ctx)
+	if err != nil {
+		_ = save(report{Cap: requestCap, Connect: cs, Stop: cs.Error})
+		fmt.Fprintln(os.Stderr, "connection setup failed")
+		os.Exit(1)
+	}
+	result, err := run(ctx, c, schedule(), func(r report) error { r.Connect = cs; return save(r) })
+	result.Connect = cs
+	if e := save(result); e != nil {
+		fmt.Fprintln(os.Stderr, "evidence write failed")
+		os.Exit(1)
+	}
+	fmt.Printf("attempts=%d body_bytes=%d completed=%t stop=%s\n", len(result.Rows), result.Bytes, result.Finished, result.Stop)
+	if err != nil || !result.Finished {
+		os.Exit(1)
+	}
+}

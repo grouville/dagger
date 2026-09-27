@@ -1,0 +1,51 @@
+package server
+
+import (
+	"context"
+
+	"github.com/dagger/dagger/util/parallel"
+	"golang.org/x/sync/semaphore"
+)
+
+// moduleLoadPipeline retains a bounded number of whole jobs and bounds each
+// phase separately. The source permit is released before a job waits for its
+// module permit, allowing another source to start while registration proceeds.
+//
+// Both phases may perform expensive work: loading a source can initialize its
+// SDK. This raises the total in-flight top-level limit from 8 to at most 16;
+// it does not establish an engine-wide limit on nested SDK/dependency work.
+// Permits are intentionally acquired only by the top-level workspace batch.
+// Nested source/module loads must not reacquire this batch's permits.
+type moduleLoadPipeline struct {
+	sources *semaphore.Weighted
+	modules *semaphore.Weighted
+	window  int
+}
+
+func newModuleLoadPipeline(moduleCount int) *moduleLoadPipeline {
+	limit := moduleLoadParallelism(moduleCount)
+	return &moduleLoadPipeline{
+		sources: semaphore.NewWeighted(int64(limit)),
+		modules: semaphore.NewWeighted(int64(limit)),
+		window:  max(1, min(moduleCount, 2*limit)),
+	}
+}
+
+func (p *moduleLoadPipeline) jobs() parallel.Jobs {
+	// A single existing contextual span encloses both stages, including waits.
+	// Jobs.Run joins every job; errors are collected by input index by its caller.
+	return parallel.New().WithContextualTracer(true).WithLimit(p.window)
+}
+
+func runModuleLoadStage[T any](
+	ctx context.Context,
+	slots *semaphore.Weighted,
+	fn func(context.Context) (T, error),
+) (T, error) {
+	if err := slots.Acquire(ctx, 1); err != nil {
+		var zero T
+		return zero, err
+	}
+	defer slots.Release(1)
+	return fn(ctx)
+}

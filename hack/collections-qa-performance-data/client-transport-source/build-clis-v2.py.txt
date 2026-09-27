@@ -1,0 +1,91 @@
+"""Prepare/build two matched CLIs: common parent-metadata v2, sharing as sole delta.
+Default is dry-run. --prepare freezes sources/dependency pins only; --run compiles.
+"""
+from pathlib import Path
+import argparse,hashlib,json,os,re,shutil,subprocess,time
+HERE=Path(__file__).resolve().parent;ROOT=Path('/home/dagger/dag');BUILD=HERE/'builds-v2'
+PARENT=Path('/tmp/collections-perf/ancestor-request-v2')
+PREVIOUS=Path('/tmp/collections-perf/ancestor-request-v1/builds')
+GO='/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go'
+ENV={'CGO_ENABLED':'0','GOOS':'linux','GOARCH':'amd64','GOAMD64':'v1','GOMAXPROCS':'4','GOPROXY':'off','GOTOOLCHAIN':'local'}
+def sha(p):
+ h=hashlib.sha256()
+ with Path(p).open('rb')as f:
+  for b in iter(lambda:f.read(1024*1024),b''):h.update(b)
+ return h.hexdigest()
+def write(p,v):p.write_text(json.dumps(v,indent=2)+'\n')
+def git(*args):return subprocess.check_output(['git',*args],cwd=ROOT,text=True).strip()
+def source_guard(parent,tests):
+ changes=git('diff','--name-only').splitlines()
+ for name in changes:
+  if name.startswith('hack/'):continue
+  source=parent.get(str(ROOT/name))or tests.get(str(ROOT/name))
+  assert source and sha(ROOT/name)==sha(source),'unexpected source change: '+name
+ # Fresh production/test files are part of the same explicit overlay only.
+ for name in git('ls-files','--others','--exclude-standard').splitlines():
+  if name.startswith('hack/')or not name.endswith(('.go','.s','.c','.h','.syso')):continue
+  source=parent.get(str(ROOT/name))or tests.get(str(ROOT/name))
+  assert source and sha(ROOT/name)==sha(source),'unexpected untracked source: '+name
+ return changes
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('--prepare',action='store_true');p.add_argument('--run',action='store_true');a=p.parse_args()
+assert not (a.prepare and a.run)
+if not a.prepare and not a.run:
+ print(json.dumps({'execute':False,'prepare':'freeze parent-v2 and tested transport source; same original otel-go pin in both','builds':2,'target':'./cmd/dagger','engine_builds':0,'cloud_calls':0,'build_directory':str(BUILD)}));raise SystemExit
+if a.prepare:
+ assert not BUILD.exists()
+ validation=json.loads((HERE/'validation-v1/results.json').read_text());assert validation['all_expected_results']
+ for name,want in validation['candidate_hashes'].items():assert sha(HERE/name)==want,name
+ parent=json.loads((PARENT/'source-overlay.json').read_text())['Replace'];tests=json.loads((PARENT/'test-overlay.json').read_text())['Replace']
+ oracle=HERE/'parent_metadata_v3_test.go';assert sha(oracle)=='88844068ef25dc090a08ad49f03153eb7ac8606a3076feabb129c1e01c9af3db'
+ tests[str(ROOT/'internal/fsutil/parent_metadata_test.go')]=str(oracle)
+ changes=source_guard(parent,tests)
+ for path,want in validation['source'].items():assert sha(path)==want,path
+ BUILD.mkdir();inputs=BUILD/'inputs';inputs.mkdir()
+ baseline={};frozen_parent={};frozen_tests={};hashes={}
+ for index,(target,source)in enumerate(parent.items()):
+  dest=inputs/(f'parent-{index:02d}-'+Path(target).name);shutil.copyfile(source,dest);baseline[target]=str(dest);frozen_parent[target]=str(dest);hashes[str(dest)]=sha(dest)
+ for index,(target,source)in enumerate(tests.items()):
+  if target in parent:continue
+  dest=inputs/(f'parent-test-{index:02d}-'+Path(target).name);shutil.copyfile(source,dest);frozen_tests[target]=str(dest);hashes[str(dest)]=sha(dest)
+ for rel in ['engine/client/client.go','engine/client/drivers/container.go']:
+  dest=inputs/('baseline-'+rel.replace('/','-'));shutil.copyfile(ROOT/rel,dest);baseline[str(ROOT/rel)]=str(dest);hashes[str(dest)]=sha(dest)
+ candidate=dict(baseline)
+ for target,source in json.loads((HERE/'production-overlay.json').read_text())['Replace'].items():
+  dest=inputs/('candidate-'+Path(target).relative_to(ROOT).as_posix().replace('/','-'));shutil.copyfile(source,dest);candidate[target]=str(dest);hashes[str(dest)]=sha(dest)
+ for name,mapping in [('baseline',baseline),('candidate',candidate)]:
+  dest=BUILD/(name+'-overlay.json');write(dest,{'Replace':mapping});hashes[str(dest)]=sha(dest)
+ # Original otel-go source from the prior baseline, never the backported worker/flush overlay.
+ mod=(PREVIOUS/'cli.mod').read_text();match=re.search(r'^replace github.com/dagger/otel-go => (.+)$',mod,re.M);assert match
+ original_pin=Path(match[1]);pin=inputs/'otel-go-pinned';shutil.copytree(original_pin,pin)
+ mod=mod.replace(str(original_pin),str(pin));(BUILD/'cli.mod').write_text(mod);shutil.copyfile(PREVIOUS/'cli.sum',BUILD/'cli.sum')
+ for name in ['cli.mod','cli.sum']:hashes[str(BUILD/name)]=sha(BUILD/name)
+ external={str(path):sha(path)for path in pin.rglob('*')if path.is_file()}
+ original_external={str(path.relative_to(pin)):sha(original_pin/path.relative_to(pin))for path in pin.rglob('*')if path.is_file()}
+ assert all(sha(pin/relative)==want for relative,want in original_external.items())
+ commands={name:[GO,'build','-mod=readonly','-modfile='+str(BUILD/'cli.mod'),'-buildvcs=true','-overlay='+str(BUILD/(name+'-overlay.json')),'-o',str(BUILD/('dagger-'+name)),'./cmd/dagger']for name in ['baseline','candidate']}
+ recipe={'source_head':git('rev-parse','HEAD'),'source_tree':git('rev-parse','HEAD^{tree}'),'tracked_changes_at_prepare':changes,'common_parent_sources':frozen_parent,'common_parent_tests':frozen_tests,
+  'source_guards':validation['source'],'inputs':hashes,'external_sources':external,'external_original_sha256':original_external,
+  'environment':ENV,'commands':commands,'parent_overlay_sha256':sha(PARENT/'source-overlay.json'),'previous_cli_mod_sha256':sha(PREVIOUS/'cli.mod'),
+  'validation_sha256':sha(HERE/'validation-v1/results.json'),'script_sha256':sha(__file__),
+  'common_test_oracle':{'source':str(oracle),'sha256':sha(oracle),'description':'Test-only normalized Stat oracle v3; production remains exactly parent-v2.'},
+  'comparison':'Both freshly built CLIs include the same parent-metadata v2 source and unchanged original otel-go pin. Only per-Client shared HTTP2 transport, API cancellation/owned cleanup, and warm tunnel count differ. No queue-worker backport, early flush, core bulk, or engine change.',
+  'scope':'Source preparation only; no CLI build or runtime result yet.'}
+ write(BUILD/'build-recipe.json',recipe);print(json.dumps({'prepared':True,'recipe':str(BUILD/'build-recipe.json'),'recipe_sha256':sha(BUILD/'build-recipe.json')}));raise SystemExit
+recipe=json.loads((BUILD/'build-recipe.json').read_text())
+def guard():
+ assert git('rev-parse','HEAD')==recipe['source_head'],'HEAD changed; refreeze matched recipe rather than silently building'
+ source_guard(recipe['common_parent_sources'],recipe['common_parent_tests'])
+ for path,want in recipe['source_guards'].items():assert sha(path)==want,path
+ for path,want in (recipe['inputs']|recipe['external_sources']).items():assert sha(path)==want,path
+ assert sha(__file__)==recipe['script_sha256']
+guard();assert not (BUILD/'build-results.json').exists()
+results=[]
+for name,command in recipe['commands'].items():
+ guard();started=time.monotonic()
+ with (BUILD/('build-'+name+'.log')).open('w')as f:r=subprocess.run(command,cwd=ROOT,env=os.environ|recipe['environment'],stdout=f,stderr=subprocess.STDOUT,timeout=300)
+ row={'variant':name,'argv':command,'exit_code':r.returncode,'seconds':time.monotonic()-started}
+ if r.returncode==0:row.update(path=str(BUILD/('dagger-'+name)),sha256=sha(BUILD/('dagger-'+name)))
+ results.append(row);write(BUILD/'build-results.json',results);print(json.dumps(row),flush=True)
+ assert r.returncode==0
+ guard()
+write(BUILD/'runtime-builds.json',{'source_head':recipe['source_head'],'recipe_sha256':sha(BUILD/'build-recipe.json'),'variants':{r['variant']:{k:r[k]for k in ['path','sha256']}for r in results},'comparison':recipe['comparison'],'profiling':False,'cloud_calls':0})

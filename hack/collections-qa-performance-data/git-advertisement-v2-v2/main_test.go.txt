@@ -1,0 +1,249 @@
+package main
+
+import (
+	"bufio"
+	"bytes"
+	"context"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+)
+
+func pkt(s string) string { return fmt.Sprintf("%04x%s", len(s)+4, s) }
+func v0() string {
+	return pkt("# service=git-upload-pack\n") + "0000" + pkt(strings.Repeat("1", 40)+" HEAD\x00multi_ack symref=HEAD:refs/heads/main\n") + pkt(strings.Repeat("1", 40)+" refs/heads/main\n") + "0000"
+}
+func v2() string {
+	return pkt("version 2\n") + pkt("agent=git/local-test\n") + pkt("ls-refs=unborn\n") + pkt("fetch=shallow wait-for-done\n") + "0000"
+}
+func TestAdvertisementParsing(t *testing.T) {
+	for _, tc := range []struct{ name, data, protocol, class string }{
+		{"legacy", v0(), "v0", "valid"}, {"capabilities", v2(), "v2", "valid"}, {"empty-v0", pkt("# service=git-upload-pack\n") + "00000000", "v0", "empty_v0"},
+		{"v0-trailing", v0() + pkt("hidden") + "0000", "unknown", "invalid_git"}, {"truncated", v2()[:len(v2())-1], "v2", "invalid_git"}, {"trailing", v2() + "junk", "v2", "invalid_git"}, {"no-command", pkt("version 2\n") + pkt("agent=x\n") + "0000", "v2", "invalid_git"},
+		{"empty-capability", pkt("version 2\n") + pkt("=x\n") + pkt("fetch\n") + "0000", "v2", "invalid_git"}, {"html", "<html>login</html>", "unknown", "invalid_git"}, {"delimiter", pkt("version 2\n") + "0001", "v2", "invalid_git"}, {"nul", pkt("version 2\n") + pkt("fetch=\x00\n") + "0000", "v2", "invalid_git"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p, c := parseAdvertisement([]byte(tc.data))
+			if p != tc.protocol || c != tc.class {
+				t.Fatalf("got %s/%s, want %s/%s", p, c, tc.protocol, tc.class)
+			}
+		})
+	}
+}
+func TestAdvertisementHTTPPrefixAndOptionalLF(t *testing.T) {
+	for _, banner := range []bool{false, true} {
+		for _, lf := range []bool{false, true} {
+			t.Run(fmt.Sprintf("banner=%t/lf=%t", banner, lf), func(t *testing.T) {
+				eol := ""
+				if lf {
+					eol = "\n"
+				}
+				body := pkt("version 2"+eol) + pkt("agent=test"+eol) + pkt("Future-Cap=ignored"+eol) + pkt("fetch"+eol) + "0000"
+				if banner {
+					body = pkt("# service=git-upload-pack"+eol) + pkt("# optional header"+eol) + "0000" + body
+				}
+				protocol, class := parseAdvertisement([]byte(body))
+				if protocol != "v2" || class != "valid" {
+					t.Fatalf("rejected Git client-compatible form: %s/%s", protocol, class)
+				}
+				want := "v2_bare"
+				if banner {
+					want = "v2_service_prefix"
+				}
+				if lf {
+					want += "_lf"
+				} else {
+					want += "_no_lf"
+				}
+				if framingSummary([]byte(body)) != want {
+					t.Fatal("wrong fixed framing classification")
+				}
+			})
+		}
+	}
+	for _, body := range []string{
+		pkt("# service=git-receive-pack\n") + "0000" + v2(),
+		pkt("# service=git-upload-pack\n") + v2(),
+		pkt("# service=git-upload-pack\n") + "0000" + v2() + "0000",
+		pkt("version 2") + pkt("=x") + pkt("fetch") + "0000",
+	} {
+		if _, class := parseAdvertisement([]byte(body)); class == "valid" {
+			t.Fatal("accepted malformed/wrong service response")
+		}
+	}
+}
+func localConn(t *testing.T, h http.Handler) (net.Conn, *httptest.Server) {
+	t.Helper()
+	s := httptest.NewServer(h)
+	t.Cleanup(s.Close)
+	c, e := net.Dial("tcp", s.Listener.Addr().String())
+	if e != nil {
+		t.Fatal(e)
+	}
+	t.Cleanup(func() { c.Close() })
+	return c, s
+}
+func TestFixedScheduleWireAndReuse(t *testing.T) {
+	var seen atomic.Int32
+	var mu sync.Mutex
+	var peers []string
+	c, _ := localConn(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		i := int(seen.Add(1)) - 1
+		if i >= requestCap {
+			t.Error("request budget exceeded")
+			return
+		}
+		x := schedule()[i]
+		if r.Method != "GET" || r.Host != "github.com" || r.URL.Path != "/dagger/"+x.Repo+"/info/refs" || r.URL.RawQuery != "service=git-upload-pack" || r.Proto != "HTTP/1.1" {
+			t.Error("wire request differs")
+		}
+		if r.Header.Get("Authorization") != "" || r.Header.Get("Proxy-Authorization") != "" || r.Header.Get("Cookie") != "" || r.ContentLength != 0 || len(r.TransferEncoding) != 0 {
+			t.Error("credential/body leak")
+		}
+		if r.Header.Get("Accept") != "*/*" || r.Header.Get("Accept-Encoding") != "identity" || r.UserAgent() == "" {
+			t.Error("missing fixed headers")
+		}
+		if (r.Header.Get("Git-Protocol") == "version=2") != (x.Protocol == "v2") {
+			t.Error("protocol header differs")
+		}
+		mu.Lock()
+		peers = append(peers, r.RemoteAddr)
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/x-git-upload-pack-advertisement")
+		w.Header().Set("Set-Cookie", "never-send=local-test")
+		if x.Protocol == "v2" {
+			io.WriteString(w, pkt("# service=git-upload-pack")+"0000"+pkt("version 2")+pkt("fetch")+"0000")
+		} else {
+			io.WriteString(w, v0())
+		}
+	}))
+	got, e := run(context.Background(), c, schedule(), nil)
+	if e != nil || !got.Finished || len(got.Rows) != requestCap || int(seen.Load()) != requestCap {
+		t.Fatalf("incomplete: %v %+v", e, got)
+	}
+	for i, r := range got.Rows {
+		if !r.Sent || r.Reused != (i > 0) || !r.FirstByteObserved || r.BodyDoneNS < r.FirstByteNS || r.WaitNS < 0 {
+			t.Fatalf("bad timing/accounting row %d: %+v", i, r)
+		}
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	for _, p := range peers {
+		if p != peers[0] {
+			t.Fatal("did not reuse one socket")
+		}
+	}
+}
+func TestNoReplayRedirectAndFailureBounds(t *testing.T) {
+	for _, tc := range []struct {
+		name               string
+		status             int
+		ctype, body, class string
+		close              bool
+	}{
+		{"redirect", 302, "text/plain", "redirect", "http_status", false}, {"auth", 401, "text/plain", "auth", "http_status", false}, {"forbidden", 403, "text/plain", "forbidden", "http_status", false}, {"missing", 404, "text/plain", "missing", "http_status", false}, {"rate-limit", 429, "text/plain", "retry", "http_status", false}, {"server-error", 503, "text/plain", "retry", "http_status", false},
+		{"html", 200, "text/html", "<html>login</html>", "not_git_content_type", false}, {"close", 200, "application/x-git-upload-pack-advertisement", v0(), "server_close", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var n atomic.Int32
+			c, _ := localConn(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				n.Add(1)
+				w.Header().Set("Content-Type", tc.ctype)
+				w.Header().Set("Location", "https://uncontrolled.invalid/")
+				if tc.close {
+					w.Header().Set("Connection", "close")
+				}
+				w.WriteHeader(tc.status)
+				io.WriteString(w, tc.body)
+			}))
+			got, e := run(context.Background(), c, schedule(), nil)
+			if e != nil || got.Stop != tc.class || n.Load() != 1 || len(got.Rows) != 1 {
+				t.Fatalf("unexpected follow-up: %v %+v", e, got)
+			}
+		})
+	}
+	// Server closes after seeing a request but before sending a response. No retry.
+	var n atomic.Int32
+	c, _ := localConn(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n.Add(1)
+		conn, _, e := w.(http.Hijacker).Hijack()
+		if e == nil {
+			conn.Close()
+		}
+	}))
+	got, e := run(context.Background(), c, schedule(), nil)
+	if e != nil || n.Load() != 1 || len(got.Rows) != 1 || got.Finished {
+		t.Fatalf("replayed failed request: %+v %v", got, e)
+	}
+}
+func TestV0FallbackAndBodyTiming(t *testing.T) {
+	c, _ := localConn(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/x-git-upload-pack-advertisement")
+		w.WriteHeader(200)
+		w.(http.Flusher).Flush()
+		time.Sleep(20 * time.Millisecond)
+		io.WriteString(w, v0())
+	}))
+	got, e := run(context.Background(), c, []item{{"test", "go", "v2"}}, nil)
+	if e != nil || !got.Finished || got.Rows[0].Negotiated != "v0" || got.Rows[0].BodyReadNS <= 0 || got.Rows[0].FirstByteNS >= got.Rows[0].BodyDoneNS {
+		t.Fatalf("fallback/body attribution: %+v %v", got, e)
+	}
+}
+func TestResponseAndRequestCaps(t *testing.T) {
+	c, _ := localConn(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/x-git-upload-pack-advertisement")
+		io.Copy(w, bytes.NewReader(bytes.Repeat([]byte("x"), 2048)))
+	}))
+	obs := &observedConn{Conn: c}
+	r := exchange(context.Background(), obs, bufio.NewReader(obs), item{"test", "go", "v0"}, 0, 100)
+	if r.Classification != "body_bound" || r.BodyBytes != 101 {
+		t.Fatalf("body bound: %+v", r)
+	}
+	c2, _ := localConn(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { t.Error("over-budget request sent") }))
+	obs2 := &observedConn{Conn: c2}
+	r = exchange(context.Background(), obs2, bufio.NewReader(obs2), item{"test", "go", "v0"}, requestCap, 100)
+	if r.Sent || r.Classification != "request_bound" {
+		t.Fatal("cap not checked before write")
+	}
+}
+func TestCancellationAndHeaderBound(t *testing.T) {
+	t.Run("cancel", func(t *testing.T) {
+		started := make(chan struct{})
+		c, _ := localConn(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { close(started); <-r.Context().Done() }))
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan report, 1)
+		go func() { r, _ := run(ctx, c, schedule(), nil); done <- r }()
+		<-started
+		cancel()
+		select {
+		case r := <-done:
+			if len(r.Rows) != 1 || r.Finished {
+				t.Fatal("canceled run continued")
+			}
+		case <-time.After(time.Second):
+			t.Fatal("canceled run did not join")
+		}
+	})
+	t.Run("header", func(t *testing.T) {
+		c, _ := localConn(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			conn, buf, e := w.(http.Hijacker).Hijack()
+			if e != nil {
+				return
+			}
+			defer conn.Close()
+			buf.WriteString("HTTP/1.1 200 OK\r\nX-Huge: " + strings.Repeat("x", headerCap+1) + "\r\n\r\n")
+			buf.Flush()
+		}))
+		r, e := run(context.Background(), c, schedule(), nil)
+		if e != nil || r.Stop != "header_bound" || len(r.Rows) != 1 {
+			t.Fatalf("unbounded headers: %+v %v", r, e)
+		}
+	})
+}

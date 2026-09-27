@@ -1,0 +1,60 @@
+package engineutil
+
+import (
+	"context"
+	"reflect"
+	"testing"
+
+	"github.com/dagger/dagger/engine"
+	"github.com/dagger/dagger/engine/distconsts"
+	"github.com/dagger/dagger/internal/buildkit/executor"
+)
+
+func TestSplitInitMounts(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		nested bool
+		noInit bool
+	}{
+		{name: "ordinary"},
+		{name: "nested", nested: true},
+		{name: "no init", noInit: true},
+		{name: "no nested init", nested: true, noInit: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			originalArgs := []string{"sh", "-c", "exit 0"}
+			state := &execState{
+				procInfo: &executor.ProcessInfo{Meta: executor.Meta{Args: originalArgs}},
+				execMD:   &ExecutionMetadata{NoInit: tc.noInit},
+			}
+			if tc.nested {
+				state.nestedClientMetadata = &engine.ClientMetadata{ClientID: "test-only-nested"}
+			}
+			if err := (&Client{}).injectInit(context.Background(), state); err != nil {
+				t.Fatal(err)
+			}
+			if tc.noInit {
+				if len(state.mounts) != 0 || !reflect.DeepEqual(state.procInfo.Meta.Args, originalArgs) {
+					t.Fatal("NoInit must retain original argv and mount list")
+				}
+				return
+			}
+			if !reflect.DeepEqual(state.procInfo.Meta.Args, append([]string{"/.init"}, originalArgs...)) {
+				t.Fatalf("argv changed: %q", state.procInfo.Meta.Args)
+			}
+			if len(state.mounts) != 2 {
+				t.Fatalf("want two explicit mounts, got %d", len(state.mounts))
+			}
+			for i, want := range []struct{ source, destination string }{
+				{distconsts.DaggerInitLitePath, "/.init"},
+				{distconsts.DaggerInitPath, distconsts.DaggerSessionContainerPath},
+			} {
+				got := state.mounts[i]
+				bind, ok := got.Src.(hostBindMount)
+				if !ok || bind.srcPath != want.source || got.Dest != want.destination || !got.Readonly {
+					t.Fatalf("mount %d differs from explicit read-only contract", i)
+				}
+			}
+		})
+	}
+}

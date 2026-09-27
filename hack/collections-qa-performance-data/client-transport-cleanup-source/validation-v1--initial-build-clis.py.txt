@@ -1,0 +1,56 @@
+"""Freeze/build matched serial-v1 and joined-parallel-v2 CLIs at HEAD0d.
+Default is a dry run; --prepare only copies sources and pins, --run compiles.
+"""
+from pathlib import Path
+import argparse,hashlib,json,os,re,shutil,subprocess,time
+HERE=Path(__file__).resolve().parent;ROOT=Path('/home/dagger/dag');BUILD=HERE/'builds'
+PREVIOUS=HERE.parent/'prototype-v1';PINNED_HEAD='0d1c32e29f2f31cdb95f0b5f17f7daed7305bc87'
+GO='/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go'
+ENV={'CGO_ENABLED':'0','GOOS':'linux','GOARCH':'amd64','GOAMD64':'v1','GOMAXPROCS':'4','GOPROXY':'off','GOTOOLCHAIN':'local'}
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def write(p,v):p.write_text(json.dumps(v,indent=2)+'\n')
+def git(*args):return subprocess.check_output(['git',*args],cwd=ROOT,text=True).strip()
+def guard_tree():
+ assert git('rev-parse','HEAD')==PINNED_HEAD,'source HEAD changed; refreeze instead of mixing revisions'
+ for p in git('diff','--name-only').splitlines():assert p.startswith('hack/'),'unexpected source edit: '+p
+ for p in git('ls-files','--others','--exclude-standard').splitlines():
+  assert p.startswith('hack/')or not p.endswith(('.go','.s','.c','.h','.syso')),'untracked production source: '+p
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('--prepare',action='store_true');p.add_argument('--run',action='store_true');a=p.parse_args();assert not(a.prepare and a.run)
+if not(a.prepare or a.run):print(json.dumps({'execute':False,'builds':2,'engine_builds':0,'cloud_calls':0,'source_head':PINNED_HEAD,'comparison':'same shared HTTP2 transport, two warmed tunnels and fully joined cleanup; only serial vs concurrent scheduling changes'}));raise SystemExit
+if a.prepare:
+ guard_tree();assert not BUILD.exists()
+ validation=json.loads((HERE/'validation-v1/results.json').read_text());assert validation['all_expected_results']
+ for name,want in validation['candidate_hashes'].items():assert sha(HERE/name)==want,name
+ source=json.loads((HERE/'provenance.json').read_text())
+ for path,want in(source['source']|source['external']).items():assert sha(path)==want,path
+ BUILD.mkdir();inputs=BUILD/'inputs';inputs.mkdir();hashes={};overlays={}
+ for variant,overlay in [('baseline',PREVIOUS/'production-overlay.json'),('candidate',HERE/'production-overlay.json')]:
+  mapping={}
+  for target,source_path in json.loads(overlay.read_text())['Replace'].items():
+   dest=inputs/(variant+'-'+Path(target).relative_to(ROOT).as_posix().replace('/','-'));shutil.copyfile(source_path,dest);mapping[target]=str(dest);hashes[str(dest)]=sha(dest)
+  overlays[variant]=mapping;dest=BUILD/(variant+'-overlay.json');write(dest,{'Replace':mapping});hashes[str(dest)]=sha(dest)
+ assert overlays['baseline'].keys()==overlays['candidate'].keys()
+ changed=[target for target in overlays['baseline']if sha(overlays['baseline'][target])!=sha(overlays['candidate'][target])]
+ assert changed==[str(ROOT/'engine/client/client.go')],changed
+ mod=(PREVIOUS/'builds-v2/cli.mod').read_text();match=re.search(r'^replace github.com/dagger/otel-go => (.+)$',mod,re.M);assert match
+ old_pin=Path(match[1]);pin=inputs/'otel-go-pinned';shutil.copytree(old_pin,pin)
+ (BUILD/'cli.mod').write_text(mod.replace(str(old_pin),str(pin)));shutil.copyfile(PREVIOUS/'builds-v2/cli.sum',BUILD/'cli.sum')
+ for name in ['cli.mod','cli.sum']:hashes[str(BUILD/name)]=sha(BUILD/name)
+ external={str(path):sha(path)for path in pin.rglob('*')if path.is_file()}
+ assert all(sha(old_pin/path.relative_to(pin))==want for name,want in external.items()for path in [Path(name)])
+ commands={v:[GO,'build','-mod=readonly','-modfile='+str(BUILD/'cli.mod'),'-buildvcs=true','-overlay='+str(BUILD/(v+'-overlay.json')),'-o',str(BUILD/('dagger-'+v)),'./cmd/dagger']for v in ['baseline','candidate']}
+ recipe={'source_head':PINNED_HEAD,'source_tree':git('rev-parse','HEAD^{tree}'),'script_sha256':sha(__file__),'source_guards':source['source'],'inputs':hashes,'external_sources':external,'commands':commands,'environment':ENV,'validation_sha256':sha(HERE/'validation-v1/results.json'),'only_changed_source':changed,'comparison':'Both freshly built CLIs have the same shared per-Client HTTP2 transport, request cancellation, pending-dial ownership, two warm tunnels, parent metadata sources and original otel pin. Baseline joins physical owner serially after other cleanup; candidate schedules it in the existing joined error group. No other lifecycle wait is removed.','scope':'Matched source preparation only; no runtime result yet.'}
+ write(BUILD/'build-recipe.json',recipe);print(json.dumps({'prepared':True,'recipe':str(BUILD/'build-recipe.json'),'recipe_sha256':sha(BUILD/'build-recipe.json')}));raise SystemExit
+recipe=json.loads((BUILD/'build-recipe.json').read_text())
+def guard():
+ guard_tree()
+ for path,want in(recipe['source_guards']|recipe['inputs']|recipe['external_sources']).items():assert sha(path)==want,path
+ assert sha(__file__)==recipe['script_sha256']
+guard();assert not(BUILD/'build-results.json').exists();results=[]
+for variant,command in recipe['commands'].items():
+ guard();started=time.monotonic()
+ with(BUILD/('build-'+variant+'.log')).open('w')as f:run=subprocess.run(command,cwd=ROOT,env=os.environ|recipe['environment'],stdout=f,stderr=subprocess.STDOUT,timeout=300)
+ row={'variant':variant,'argv':command,'exit_code':run.returncode,'seconds':time.monotonic()-started}
+ if run.returncode==0:row.update(path=str(BUILD/('dagger-'+variant)),sha256=sha(BUILD/('dagger-'+variant)))
+ results.append(row);write(BUILD/'build-results.json',results);print(json.dumps(row),flush=True);assert run.returncode==0;guard()
+write(BUILD/'runtime-builds.json',{'source_head':PINNED_HEAD,'recipe_sha256':sha(BUILD/'build-recipe.json'),'variants':{r['variant']:{k:r[k]for k in ['path','sha256']}for r in results},'comparison':recipe['comparison'],'profiling':False,'cloud_calls':0})

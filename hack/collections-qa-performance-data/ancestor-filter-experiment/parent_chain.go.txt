@@ -1,0 +1,130 @@
+package fsutil
+
+import (
+	"context"
+	gofs "io/fs"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+// parentChainFilterFS avoids enumerating unrelated siblings for the precise
+// filter used to synchronize the parents of an imported host path. The normal
+// filter remains responsible for delayed parent emission and stat mapping.
+func parentChainFilterFS(base FS, opt *FilterOpt) FS {
+	host, ok := base.(*fs)
+	if !ok {
+		return base
+	}
+	target, ok := parentChainTarget(opt)
+	if !ok {
+		return base
+	}
+	return &parentChainFS{fs: host, target: target}
+}
+
+func parentChainTarget(opt *FilterOpt) (string, bool) {
+	if opt == nil || len(opt.IncludePatterns) != 1 || len(opt.ExcludePatterns) != 1 || opt.FollowPaths != nil {
+		return "", false
+	}
+	p := opt.IncludePatterns[0]
+	// Pattern matching accepts escaped/glob/negated/normalized paths. Leave
+	// those cases on its general traversal, including imports of root itself.
+	if p == "" || strings.TrimSpace(p) != p || strings.HasPrefix(p, "!") || strings.ContainsAny(p, `*?[]^\`) ||
+		!filepath.IsLocal(p) || filepath.Clean(p) == "." || filepath.ToSlash(filepath.Clean(p)) != p || opt.ExcludePatterns[0] != p+"/*" {
+		return "", false
+	}
+	return filepath.FromSlash(p), true
+}
+
+type parentChainFS struct {
+	*fs
+	target string
+}
+
+func (f *parentChainFS) Walk(ctx context.Context, target string, fn gofs.WalkDirFunc) error {
+	if target != "" && target != "." && target != string(filepath.Separator) {
+		return f.fs.Walk(ctx, target, fn)
+	}
+	if !parentChainSupported(ctx, f.root, f.target) {
+		return f.fs.Walk(ctx, target, fn)
+	}
+	return f.walk(ctx, fn, os.Lstat, readableDirectory)
+}
+
+// readableDirectory preserves the read-access check of directory enumeration
+// without loading or sorting its unrelated entries. Like filepath.WalkDir, a
+// read failure is reported after the callback for that directory.
+func readableDirectory(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	_ = f.Close()
+	return nil
+}
+
+func (f *parentChainFS) walk(ctx context.Context, fn gofs.WalkDirFunc, lstat func(string) (os.FileInfo, error), readable func(string) error) error {
+	// NewFS resolves the root when it is created; check it again per walk so a
+	// subsequently removed or symlink-replaced root is not followed. The normal
+	// fs.Walk skips its root callback, including errors at that root.
+	rootInfo, err := lstat(f.root)
+	if err != nil || !rootInfo.IsDir() {
+		return nil
+	}
+	if err := readable(f.root); err != nil {
+		return nil
+	}
+	seenFiles := make(map[uint64]string)
+	var rel string
+	for _, component := range strings.Split(f.target, string(filepath.Separator)) {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		rel = filepath.Join(rel, component)
+		full := filepath.Join(f.root, rel)
+		info, err := lstat(full)
+		if isNotExist(err) {
+			return nil
+		}
+		if err != nil {
+			return parentChainWalkError(fn(rel, nil, err))
+		}
+		entry := &DirEntryInfo{
+			path: rel, origpath: full, seenFiles: seenFiles,
+			entry: &parentChainEntry{path: full, info: info},
+		}
+		if err := fn(rel, entry, nil); err != nil {
+			return parentChainWalkError(err)
+		}
+		// In particular, do not follow a symlink encountered along the chain.
+		// The regular filter has not emitted parents unless this path matched.
+		if !info.IsDir() {
+			return nil
+		}
+		if err := readable(full); err != nil {
+			return parentChainWalkError(fn(rel, entry, err))
+		}
+	}
+	return nil
+}
+
+func parentChainWalkError(err error) error {
+	if err == filepath.SkipDir || err == filepath.SkipAll || isNotExist(err) {
+		return nil
+	}
+	return err
+}
+
+// os.ReadDir entries stat lazily, when the included descendant causes its
+// parents to be emitted. Retain that behavior instead of caching ancestor
+// metadata from the first traversal check.
+type parentChainEntry struct {
+	path string
+	info os.FileInfo
+}
+
+func (e *parentChainEntry) Name() string               { return e.info.Name() }
+func (e *parentChainEntry) IsDir() bool                { return e.info.IsDir() }
+func (e *parentChainEntry) Type() gofs.FileMode        { return e.info.Mode().Type() }
+func (e *parentChainEntry) Info() (os.FileInfo, error) { return os.Lstat(e.path) }

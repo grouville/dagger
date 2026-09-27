@@ -1,0 +1,11 @@
+{
+  "scope": "test oracle only; source-only prepared after v2 validation",
+  "reason": "mkstat adds execute bits and masks0755 on Windows, so raw os.Stat Mode is not the expected wire mode. Use fsutil.Stat normalized Mode.",
+  "source_sha256": "88844068ef25dc090a08ad49f03153eb7ac8606a3076feabb129c1e01c9af3db",
+  "prior_test_sha256": "ac41622cb44ab50715542f75ef54688b15538486c494812fbb47fff937eb0bd3",
+  "production_unchanged": true,
+  "status": "Nine focused normal groups passed using ordinary checkout dependencies; no production change from v2.",
+  "base": "ancestor-request-v2 exact production source and passed nine normal/race tests + Windows compile",
+  "path_review": "Protocol / accepted, native separator accepted, helper targets FromSlash, transmitted paths ToSlash, Windows Stat normalized mode oracle; symlink fixtures require OS support/privilege as existing fsutil tests do.",
+  "validation": "validation/results.json"
+}

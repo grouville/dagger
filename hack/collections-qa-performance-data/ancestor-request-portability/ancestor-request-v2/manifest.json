@@ -1,0 +1,23 @@
+{
+  "base": "ancestor-request-v1 measured candidate",
+  "status": "source prepared; not yet tested or measured",
+  "files": [
+    {
+      "path": "internal/fsutil/parent_metadata.go",
+      "original_sha256": "83ff2bda1f394599c5f0596048745086399da8ef1cfd12ac7b1174e708096754",
+      "candidate_sha256": "1e2cce7d3b85a3c028ebc070b4172f64b7a3356ac6e2f4d866265511702c6436"
+    },
+    {
+      "path": "internal/fsutil/parent_metadata_test.go",
+      "original_sha256": "57a90511bb295a796768b4af55ac35f19dfb69d182c8f432925b87d51b492421",
+      "candidate_sha256": "ac41622cb44ab50715542f75ef54688b15538486c494812fbb47fff937eb0bd3"
+    }
+  ],
+  "patch_sha256": "515a31f353474ec4fbff2b48611da318dbe0094ceb69048a73fa80dc3460bd9a",
+  "changes": [
+    "Accept protocol Walk root slash on Windows as on Unix; retain native separator root.",
+    "Protocol-root test plus rejection of nonroot Walk target.",
+    "Freshness witness uses changed mtime and host-native mode rather than Unix-only chmod semantics."
+  ],
+  "frozen_v1_unchanged": true
+}

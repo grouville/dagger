@@ -1,0 +1,169 @@
+package schema
+
+import (
+	"context"
+	"testing"
+
+	"github.com/dagger/dagger/core"
+	"github.com/dagger/dagger/dagql"
+	"github.com/dagger/dagger/dagql/call"
+	"github.com/dagger/dagger/engine"
+	"github.com/stretchr/testify/require"
+)
+
+func bulkAliasFixture(t *testing.T) (context.Context, *dagql.Server, func(string, string) core.FunctionID) {
+	t.Helper()
+	ctx := t.Context()
+	cache, err := dagql.NewCache(ctx, "", nil, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, cache.Close(context.Background())) })
+	ctx = dagql.ContextWithCache(ctx, cache)
+	ctx = engine.ContextWithClientMetadata(ctx, &engine.ClientMetadata{ClientID: "bulk-alias", SessionID: "bulk-alias"})
+	server := &currentTypeDefsTestServer{}
+	root := core.NewRoot(server)
+	ctx = core.ContextWithQuery(ctx, root)
+	base, err := NewCoreSchemaBase(ctx, server)
+	require.NoError(t, err)
+	dag, err := base.Fork(ctx, root, "v1.0.0")
+	require.NoError(t, err)
+	server.dag = dag
+	// The fixture deliberately separates normalized and original names. Real
+	// namespacing can produce these conflicting aliases; all values still use
+	// ordinary typed IDs, loading and DagQL result publication.
+	dagql.Fields[*core.Query]{
+		dagql.Func("__bulkAliasFunction", func(ctx context.Context, _ *core.Query, args struct {
+			Name         string
+			OriginalName string
+			ReturnType   core.TypeDefID
+		}) (*core.Function, error) {
+			srv, err := core.CurrentDagqlServer(ctx)
+			if err != nil {
+				return nil, err
+			}
+			ret, err := args.ReturnType.Load(ctx, srv)
+			if err != nil {
+				return nil, err
+			}
+			return &core.Function{Name: args.Name, OriginalName: args.OriginalName, ReturnType: ret}, nil
+		}),
+	}.Install(dag)
+	var td dagql.ObjectResult[*core.TypeDef]
+	require.NoError(t, dag.Select(ctx, dag.Root(), &td, dagql.Selector{Field: "typeDef"}, dagql.Selector{
+		Field: "withKind", Args: []dagql.NamedInput{{Name: "kind", Value: core.TypeDefKindString}},
+	}))
+	typeID, err := core.ResultIDInput(td)
+	require.NoError(t, err)
+	makeFn := func(name, original string) core.FunctionID {
+		t.Helper()
+		var fn dagql.ObjectResult[*core.Function]
+		require.NoError(t, dag.Select(ctx, dag.Root(), &fn, dagql.Selector{
+			Field: "__bulkAliasFunction", Args: []dagql.NamedInput{
+				{Name: "name", Value: dagql.String(name)},
+				{Name: "originalName", Value: dagql.String(original)},
+				{Name: "returnType", Value: typeID},
+			},
+		}))
+		id, err := core.ResultIDInput(fn)
+		require.NoError(t, err)
+		return id
+	}
+	return ctx, dag, makeFn
+}
+
+func bulkAliasIDs(t *testing.T, functions dagql.ObjectResultArray[*core.Function]) []string {
+	t.Helper()
+	ids := make([]string, len(functions))
+	for i, fn := range functions {
+		id, err := fn.ID()
+		require.NoError(t, err)
+		ids[i], err = id.Encode()
+		require.NoError(t, err)
+	}
+	return ids
+}
+
+func TestCoreBulkPublicationAliasReplacement(t *testing.T) {
+	for _, isInterface := range []bool{false, true} {
+		name := "object"
+		if isInterface {
+			name = "interface"
+		}
+		t.Run(name, func(t *testing.T) {
+			ctx, dag, makeFn := bulkAliasFixture(t)
+			initial := []core.FunctionID{makeFn("alpha", "A"), makeFn("beta", "B")}
+			// The first addition creates an earlier matching normalized name.
+			// The next must replace that earlier slot even though its original
+			// name matches a later slot. Also exercise empty original names.
+			additions := dagql.ArrayInput[core.FunctionID]{
+				makeFn("beta", "A"), makeFn("beta", "B"),
+				makeFn("alpha", "B"), makeFn("beta", "A"),
+				makeFn("gamma", ""), makeFn("gamma", ""),
+			}
+			if isInterface {
+				checkBulkAliasSelections[*core.InterfaceTypeDef](t, ctx, dag, "__interfaceTypeDef", initial, additions,
+					func(r dagql.ObjectResult[*core.InterfaceTypeDef]) dagql.ObjectResultArray[*core.Function] {
+						return r.Self().Functions
+					})
+			} else {
+				checkBulkAliasSelections[*core.ObjectTypeDef](t, ctx, dag, "__objectTypeDef", initial, additions,
+					func(r dagql.ObjectResult[*core.ObjectTypeDef]) dagql.ObjectResultArray[*core.Function] {
+						return r.Self().Functions
+					})
+			}
+		})
+	}
+}
+
+func checkBulkAliasSelections[T dagql.Typed](t *testing.T, ctx context.Context, dag *dagql.Server, field string, initial []core.FunctionID, additions dagql.ArrayInput[core.FunctionID], functions func(dagql.ObjectResult[T]) dagql.ObjectResultArray[*core.Function]) {
+	t.Helper()
+	var held dagql.ObjectResult[T]
+	require.NoError(t, dag.Select(ctx, dag.Root(), &held, dagql.Selector{Field: field, Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("AliasFixture")}}}))
+	for _, id := range initial {
+		require.NoError(t, dag.Select(ctx, held, &held, dagql.Selector{Field: "__withFunction", Args: []dagql.NamedInput{{Name: "function", Value: id}}}))
+	}
+	before := bulkAliasIDs(t, functions(held))
+	sequential := held
+	for _, id := range additions {
+		require.NoError(t, dag.Select(ctx, sequential, &sequential, dagql.Selector{Field: "__withFunction", Args: []dagql.NamedInput{{Name: "function", Value: id}}}))
+	}
+	var bulk dagql.ObjectResult[T]
+	require.NoError(t, dag.Select(ctx, held, &bulk, dagql.Selector{Field: "__withFunctions", Args: []dagql.NamedInput{{Name: "functions", Value: additions}}}))
+	require.Equal(t, bulkAliasIDs(t, functions(sequential)), bulkAliasIDs(t, functions(bulk)))
+	require.Equal(t, before, bulkAliasIDs(t, functions(held)), "bulk publication must not mutate a held receiver")
+	require.Len(t, functions(bulk), 3)
+	// Replacements retain their first matching slot rather than being
+	// reordered by a normalized-name or original-name index.
+	require.Equal(t, "alpha", functions(bulk)[0].Self().Name)
+	require.Equal(t, "beta", functions(bulk)[1].Self().Name)
+	require.Equal(t, "gamma", functions(bulk)[2].Self().Name)
+}
+
+func TestCoreBulkPublicationInvalidIDPreservesReceiver(t *testing.T) {
+	ctx, dag, makeFn := bulkAliasFixture(t)
+	initial, err := makeFn("initial", "Initial").Load(ctx, dag)
+	require.NoError(t, err)
+	valid := makeFn("added", "Added")
+	// Call the actual resolver directly so the invalid second member reaches
+	// ID.Load after the first immutable update, rather than failing early in
+	// call-recipe input validation. The well-typed recipe names no field.
+	invalid := dagql.NewID[*core.Function](call.New().Append((&core.Function{}).Type(), "__bulkAliasMissingFunction"))
+	args := typeDefWithFunctionsArgs{Functions: dagql.ArrayInput[core.FunctionID]{valid, invalid}}
+	t.Run("object", func(t *testing.T) {
+		held := core.NewObjectTypeDef("Held", "preserved", nil).WithFunction(initial)
+		before := bulkAliasIDs(t, held.Functions)
+		got, err := (&moduleSchema{}).objectTypeDefWithFunctions(ctx, held, args)
+		require.ErrorContains(t, err, "failed to decode function 1")
+		require.Nil(t, got)
+		require.Equal(t, before, bulkAliasIDs(t, held.Functions))
+		require.Equal(t, "preserved", held.Description)
+	})
+	t.Run("interface", func(t *testing.T) {
+		held := (&core.InterfaceTypeDef{Name: "Held", Description: "preserved"}).WithFunction(initial)
+		before := bulkAliasIDs(t, held.Functions)
+		got, err := (&moduleSchema{}).interfaceTypeDefWithFunctions(ctx, held, args)
+		require.ErrorContains(t, err, "failed to decode function 1")
+		require.Nil(t, got)
+		require.Equal(t, before, bulkAliasIDs(t, held.Functions))
+		require.Equal(t, "preserved", held.Description)
+	})
+}

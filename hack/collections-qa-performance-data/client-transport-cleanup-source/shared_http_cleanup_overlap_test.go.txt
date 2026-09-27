@@ -1,0 +1,125 @@
+package client
+
+import (
+	"context"
+	"net"
+	"net/http"
+	"sync"
+	"testing"
+	"testing/synctest"
+
+	"github.com/dagger/dagger/engine"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
+)
+
+type cleanupOverlapRoundTripper func(*http.Request) (*http.Response, error)
+
+func (f cleanupOverlapRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
+}
+
+type cleanupOverlapConn struct {
+	net.Conn
+	started, completed chan struct{}
+	allow              <-chan struct{}
+	once               sync.Once
+	err                error
+}
+
+func (c *cleanupOverlapConn) Close() error {
+	c.once.Do(func() {
+		close(c.started)
+		<-c.allow
+		c.err = c.Conn.Close()
+		close(c.completed)
+	})
+	return c.err
+}
+
+func TestSharedHTTPTransportCloseOverlapsOtherCleanup(t *testing.T) {
+	for _, physicalFirst := range []bool{false, true} {
+		name := "other-first"
+		if physicalFirst {
+			name = "physical-first"
+		}
+		t.Run(name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				internal, internalCancel := context.WithCancelCause(t.Context())
+				closing, closeRequests := context.WithCancelCause(t.Context())
+				c := &Client{internalCtx: internal, internalCancel: internalCancel,
+					closeCtx: closing, closeRequests: closeRequests,
+					eg: new(errgroup.Group), telemetry: new(errgroup.Group)}
+				// Keep this scheduling witness independent of HTTP/2's global pools:
+				// channels pooled within a synctest bubble cannot be reused outside it.
+				// Real h2c final-record and cancellation coverage remains separate.
+				c.httpClient = &httpClient{closeCtx: closing, inner: &http.Client{Transport: cleanupOverlapRoundTripper(func(r *http.Request) (*http.Response, error) {
+					require.Equal(t, engine.ShutdownEndpoint, r.URL.Path)
+					return &http.Response{StatusCode: http.StatusNoContent, Body: http.NoBody}, nil
+				})}}
+				client, peer := net.Pipe()
+				t.Cleanup(func() { _ = peer.Close() })
+				allowPhysical := make(chan struct{})
+				releasePhysical := sync.OnceFunc(func() { close(allowPhysical) })
+				physical := &cleanupOverlapConn{Conn: client, started: make(chan struct{}), completed: make(chan struct{}), allow: allowPhysical}
+				c.httpTransportOnce.Do(func() {
+					c.httpTransport = newClientHTTPTransport(internal, func(context.Context) (net.Conn, error) { return physical, nil })
+				})
+				_, err := c.sharedHTTPTransport().connect(t.Context())
+				require.NoError(t, err)
+
+				allowOther := make(chan struct{})
+				releaseOther := sync.OnceFunc(func() { close(allowOther) })
+				c.eg.Go(func() error { <-allowOther; return nil })
+				closed := make(chan struct{})
+				var closeErr error
+				go func() { closeErr = c.Close(); close(closed) }()
+				t.Cleanup(func() { releasePhysical(); releaseOther(); <-closed })
+
+				synctest.Wait()
+				select {
+				case <-physical.started:
+				default:
+					t.Error("physical Close must begin while other cleanup is still blocked")
+				}
+				select {
+				case <-closed:
+					t.Error("Client.Close returned before physical and other cleanup completed")
+				default:
+				}
+
+				if physicalFirst {
+					releasePhysical()
+					synctest.Wait()
+					select {
+					case <-physical.completed:
+					default:
+						t.Error("physical Close completion must not wait for unrelated cleanup")
+					}
+					select {
+					case <-closed:
+						t.Error("Client.Close returned while unrelated cleanup was still blocked")
+					default:
+					}
+					releaseOther()
+				} else {
+					releaseOther()
+					synctest.Wait()
+					select {
+					case <-closed:
+						t.Error("Client.Close returned while physical Close was still blocked")
+					default:
+					}
+					releasePhysical()
+				}
+				<-closed
+				require.NoError(t, closeErr)
+				select {
+				case <-physical.completed:
+				default:
+					t.Error("Client.Close must join actual physical Close completion")
+				}
+			})
+		})
+	}
+}

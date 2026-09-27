@@ -1,0 +1,15 @@
+{
+  "first_run": {
+    "path": "validation-v1",
+    "expected_serial_witness_exit": 1,
+    "candidate_normal_exit": 1,
+    "candidate_race_run": false,
+    "cause": "New witness created pooled HTTP2 channels inside synctest; a later test reused one outside the bubble and the Go runtime rejected that test-fixture reuse.",
+    "raw_candidate_log_sha256": "0130a893cd2cf13d7729428bd9aa32b72328ec5f8292abf79c6a6bb024cf993a",
+    "new_overlap_test_itself_passed": true
+  },
+  "correction": "Only the new witness changed: direct owner registration of a gated net.Conn, fake shutdown response, both physical-first and other-first release orders. Existing real HTTP2 lifecycle tests retained.",
+  "production_patch_changed_during_fixture_correction": false,
+  "final_run": "validation-v2",
+  "final_all_expected_results": true
+}

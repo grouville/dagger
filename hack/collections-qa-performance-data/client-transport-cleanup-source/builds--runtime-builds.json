@@ -1,0 +1,21 @@
+{
+  "source_head": "0d1c32e29f2f31cdb95f0b5f17f7daed7305bc87",
+  "recipe_sha256": "8a2b01a689dfa807e7ea9a0263870def257954e9bfa86efb234e9cedbf693664",
+  "variants": {
+    "original": {
+      "path": "/tmp/collections-perf/shared-client-transport-v1/prototype-v2/builds/dagger-original",
+      "sha256": "d68580985d5eaa2350e7c4ec369d30ddfbb830ad8ea687d94228255b86ae76b8"
+    },
+    "baseline": {
+      "path": "/tmp/collections-perf/shared-client-transport-v1/prototype-v2/builds/dagger-baseline",
+      "sha256": "fd942972784665b2a9371dc3e8e9140357ffb704f1e95ca8349ad2fee28df406"
+    },
+    "candidate": {
+      "path": "/tmp/collections-perf/shared-client-transport-v1/prototype-v2/builds/dagger-candidate",
+      "sha256": "4e22d22916fb431276c48634a035ef3db03c67453e6e611696878d2295b57c7d"
+    }
+  },
+  "comparison": "All three freshly built CLIs share HEAD0d, parent metadata sources, flags and original otel pin. Original keeps separate HTTP pools and three warmed tunnels. Baseline and candidate both share the same per-Client HTTP2 transport, request cancellation, pending-dial ownership and two warm tunnels; baseline joins physical owner serially after other cleanup, candidate schedules it in the existing joined error group. No lifecycle wait is removed from candidate.",
+  "profiling": false,
+  "cloud_calls": 0
+}

@@ -1,0 +1,30 @@
+"""Focused local-only connector tests; no Docker, Dagger engine or Cloud calls."""
+from pathlib import Path
+import argparse,hashlib,json,os,subprocess,time
+H=Path(__file__).resolve().parent;R=Path('/home/dagger/dag');GO='/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go'
+sha=lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest()
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('--run',action='store_true');p.add_argument('--output',default='validation-v2');a=p.parse_args()
+commands=[]
+for label,overlay,regex,race in [('baseline-witness','baseline-overlay.json','^TestContainerPerfUnixExplicitDial$',False),('prefetch-context-witness','prefetch-context-witness-overlay.json','^TestContainerPerfUnixWarmSurvivesDialCancellation$',False),('candidate','test-overlay.json','^(TestContainerPerfUnix.*|TestContainerConnector.*|TestImageDriverCreate.*)$',False),('candidate-race','test-overlay.json','^(TestContainerPerfUnix.*|TestContainerConnector.*|TestImageDriverCreate.*)$',True)]:
+ cmd=[GO,'test','-json','-mod=readonly','-overlay='+str(H/overlay)]
+ if race:cmd.append('-race')
+ commands.append({'label':label,'argv':cmd+['./engine/client/drivers','-run',regex,'-count=1','-timeout=45s']})
+if not a.run:print(json.dumps({'execute':False,'commands':commands,'cloud_calls':0,'engine_calls':0,'scope':'Unix socket pairs and fake container backend only'}));raise SystemExit
+assert a.output.startswith('validation-v')and'/'not in a.output
+out=H/a.output;assert not out.exists();prov=json.loads((H/'provenance.json').read_text());hashes=json.loads((H/'hashes.json').read_text())
+for path,want in prov['source'].items():assert sha(path)==want,path
+for name,want in hashes.items():assert sha(H/name)==want,name
+out.mkdir();(out/'validate.py.txt').write_bytes(Path(__file__).read_bytes());result={'source_head':prov['source_head'],'script_sha256':sha(__file__),'source':prov['source'],'inputs':hashes,'runs':[]}
+for item in commands:
+ log=out/(item['label']+'.jsonl');started=time.monotonic()
+ with log.open('w')as f:r=subprocess.run(item['argv'],cwd=R,env=os.environ|{'GOMAXPROCS':'4','GOPROXY':'off','GOTOOLCHAIN':'local'},stdout=f,stderr=subprocess.STDOUT,timeout=300)
+ events=[]
+ for line in log.read_text().splitlines():
+  try:events.append(json.loads(line))
+  except json.JSONDecodeError:pass
+ row=dict(item,exit_code=r.returncode,seconds=time.monotonic()-started,log_sha256=sha(log),passes=[e['Test']for e in events if e.get('Action')=='pass'and'Test'in e],failures=[e['Test']for e in events if e.get('Action')=='fail'and'Test'in e])
+ result['runs'].append(row);(out/'results.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps({k:row[k]for k in ['label','exit_code','seconds','failures']}),flush=True)
+ if item['label']=='baseline-witness':assert r.returncode!=0 and row['failures']==['TestContainerPerfUnixExplicitDial']
+ elif item['label']=='prefetch-context-witness':assert r.returncode!=0 and row['failures']==['TestContainerPerfUnixWarmSurvivesDialCancellation']
+ else:assert r.returncode==0
+result['all_expected_results']=True;(out/'results.json').write_text(json.dumps(result,indent=2)+'\n')

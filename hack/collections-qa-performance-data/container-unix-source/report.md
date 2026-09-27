@@ -1,0 +1,13 @@
+# Container connector Unix-socket proof
+
+This isolated benchmark switch preserves the container driver and changes only how it opens an engine connection. Both measured selectors use the same CLI and `container+docker://` URL; adding `perf-unix-socket=<absolute private socket>` opts into a Unix socket. An explicit socket error is returned, without a hidden fallback. No shared repository source was changed.
+
+Docker availability checks, container provisioning, backend image loading, request headers, engine identity handling, HTTP pool topology, and the existing first-byte-triggered three proactive warm dials remain on their original code paths. This is an explicit experiment, not automatic local-engine discovery or an upstream user-facing flag. The private socket's setup and ownership are validated by the separate runtime harness.
+
+The focused tests use fake container backends and actual local Unix sockets. They preserve default arguments and cancellation-independent process lifetime, driver/image-loader identity, bytes after a completed dial context is canceled, visible socket errors without backend fallback, and one initial plus three proactive warm connections. The unmodified source fails exactly the intended explicit-socket witness; candidate normal and race gates pass. These are correctness results, not CLI timing results.
+
+The original stdio connector removes cancellation before starting its subprocess. The explicit Unix dial honors request cancellation during establishment; after it succeeds, cancellation does not close the connection. The warm callback now explicitly removes cancellation, matching the original subprocess behavior. A deterministic canceled-before-first-byte witness fails against the initial prototype and passes against the correction; each queued warm result must contain a real connection, so later retries cannot disguise failed prefetch. The initial Unix dial remains cancelable.
+
+Automatic production selection would require a separate design for local-daemon detection, socket ownership/permissions and revocation, container identity, existing-engine compatibility, cleanup, remote Docker/Desktop/Podman fallback, and image-store parity. The benchmark does not establish those policies.
+
+The corrected prototype passed 13 focused normal test cases/subtests and the same race gate. Both negative witnesses fail exactly as expected. The single CLI built successfully at HEAD `0d1c32e29f`; its SHA-256 is `acaaa1563cd3c008dc60c7c21d98d55b9cb25119a006cedd64eeaa39e7db9cdf`. Both forthcoming runtime arms use this identical binary. No runtime speedup is claimed here.

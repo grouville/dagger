@@ -1,0 +1,416 @@
+--- a/engine/server/session_workspaces.go
++++ b/engine/server/session_workspaces.go
+@@ -29,7 +29,6 @@
+ 	"github.com/dagger/dagger/engine/slog"
+ 	"github.com/dagger/dagger/engine/telemetryattrs"
+ 	"github.com/dagger/dagger/util/gitutil"
+-	"github.com/dagger/dagger/util/parallel"
+ )
+ 
+ // invalidateClientWorkspace drops the calling client's cached workspace
+@@ -1356,14 +1355,24 @@
+ 	resolvedLoads := make([]resolvedModuleLoad, len(loads))
+ 	resolveErrs := make([]error, len(loads))
+ 
+-	jobs := parallel.New().
+-		WithContextualTracer(true).
+-		WithLimit(moduleLoadParallelism(len(loads)))
++	// Bound each phase independently. Source resolution can itself load SDKs,
++	// so this is bounded pipelining, not an I/O-only concurrency allowance.
++	pipeline := newModuleLoadPipeline(len(loads))
++	jobs := pipeline.jobs()
+ 	for i, load := range loads {
+ 		i := i
+ 		load := load
+ 		jobs = jobs.WithJob(moduleLoadJobName(load), func(ctx context.Context) error {
+-			resolved, err := srv.resolveModuleLoad(ctx, client.dag, load)
++			src, err := runModuleLoadStage(ctx, pipeline.sources, func(ctx context.Context) (dagql.ObjectResult[*core.ModuleSource], error) {
++				return srv.resolveModuleSource(ctx, client.dag, load.mod)
++			})
++			if err != nil {
++				resolveErrs[i] = err
++				return nil //nolint:nilerr // errors collected for deterministic ordering
++			}
++			resolved, err := runModuleLoadStage(ctx, pipeline.modules, func(ctx context.Context) (resolvedModuleLoad, error) {
++				return srv.resolveModuleLoad(ctx, client.dag, load, src)
++			})
+ 			if err != nil {
+ 				resolveErrs[i] = err
+ 				return nil //nolint:nilerr // errors collected for deterministic ordering
+@@ -1796,8 +1805,9 @@
+ 	ctx context.Context,
+ 	dag *dagql.Server,
+ 	load moduleLoadRequest,
++	primarySrc dagql.ObjectResult[*core.ModuleSource],
+ ) (resolvedModuleLoad, error) {
+-	primary, err := srv.resolveModule(ctx, dag, load.mod)
++	primary, err := srv.resolveModuleSourceAsModule(ctx, dag, primarySrc, load.mod)
+ 	if err != nil {
+ 		return resolvedModuleLoad{}, err
+ 	}
+@@ -2200,18 +2210,18 @@
+ 	return canonicalModuleReference(self.GetSource()) + "|" + self.GetSource().Pin() + "|" + name
+ }
+ 
+-// resolveModule resolves a module through the dagql pipeline.
++// resolveModuleSource resolves and validates a module source through the dagql pipeline.
+ // Handles all module sources uniformly: legacy compat modules and -m flag modules.
+ //
+ // Legacy settings (LegacyDefaultPath, ArgCustomizations, WorkspaceConfig, etc.)
+ // are passed as internal args to asModule so they are applied BEFORE the module
+ // is installed into dagql — mutating the result after Select is incorrect because
+ // dagql may return a cached (and already-installed) pointer.
+-func (srv *Server) resolveModule(
++func (srv *Server) resolveModuleSource(
+ 	ctx context.Context,
+ 	dag *dagql.Server,
+ 	mod pendingModule,
+-) (dagql.ObjectResult[*core.Module], error) {
++) (dagql.ObjectResult[*core.ModuleSource], error) {
+ 	srcArgs := []dagql.NamedInput{
+ 		{Name: "refString", Value: dagql.String(mod.Ref)},
+ 	}
+@@ -2227,29 +2237,29 @@
+ 		dagql.Selector{Field: "moduleSource", Args: srcArgs},
+ 	)
+ 	if err != nil {
+-		return dagql.ObjectResult[*core.Module]{}, fmt.Errorf("resolving module source %q: %w", mod.Ref, err)
++		return dagql.ObjectResult[*core.ModuleSource]{}, fmt.Errorf("resolving module source %q: %w", mod.Ref, err)
+ 	}
+ 
+ 	if src.Self().UsesLegacyWorkspaceFields() {
+ 		switch mod.legacyFieldPolicy {
+ 		case legacyWorkspaceFieldPolicyDirect:
+-			return dagql.ObjectResult[*core.Module]{}, src.Self().DirectLegacyWorkspaceLoadError()
++			return dagql.ObjectResult[*core.ModuleSource]{}, src.Self().DirectLegacyWorkspaceLoadError()
+ 		case legacyWorkspaceFieldPolicyStripCompatMain:
+ 			srcCall, err := src.ResultCall()
+ 			if err != nil {
+-				return dagql.ObjectResult[*core.Module]{}, fmt.Errorf("failed to get module source call for %q: %w", mod.Ref, err)
++				return dagql.ObjectResult[*core.ModuleSource]{}, fmt.Errorf("failed to get module source call for %q: %w", mod.Ref, err)
+ 			}
+ 			stripped, err := dagql.NewObjectResultForCall(src.Self().StripLegacyWorkspaceFields(), dag, srcCall)
+ 			if err != nil {
+-				return dagql.ObjectResult[*core.Module]{}, fmt.Errorf("failed to strip legacy workspace fields from %q: %w", mod.Ref, err)
++				return dagql.ObjectResult[*core.ModuleSource]{}, fmt.Errorf("failed to strip legacy workspace fields from %q: %w", mod.Ref, err)
+ 			}
+ 			src = stripped
+ 		case legacyWorkspaceFieldPolicyRejectAsWorkspace:
+-			return dagql.ObjectResult[*core.Module]{}, src.Self().NestedLegacyWorkspaceLoadError()
+-		}
+-	}
+-
+-	return srv.resolveModuleSourceAsModule(ctx, dag, src, mod)
++			return dagql.ObjectResult[*core.ModuleSource]{}, src.Self().NestedLegacyWorkspaceLoadError()
++		}
++	}
++
++	return src, nil
+ }
+ 
+ // pendingRelatedModule adapts a related module of a primary module into the
+--- a/engine/server/module_load_pipeline.go
++++ b/engine/server/module_load_pipeline.go
+@@ -0,0 +1,51 @@
++package server
++
++import (
++	"context"
++
++	"github.com/dagger/dagger/util/parallel"
++	"golang.org/x/sync/semaphore"
++)
++
++// moduleLoadPipeline retains a bounded number of whole jobs and bounds each
++// phase separately. The source permit is released before a job waits for its
++// module permit, allowing another source to start while registration proceeds.
++//
++// Both phases may perform expensive work: loading a source can initialize its
++// SDK. This raises the total in-flight top-level limit from 8 to at most 16;
++// it does not establish an engine-wide limit on nested SDK/dependency work.
++// Permits are intentionally acquired only by the top-level workspace batch.
++// Nested source/module loads must not reacquire this batch's permits.
++type moduleLoadPipeline struct {
++	sources *semaphore.Weighted
++	modules *semaphore.Weighted
++	window  int
++}
++
++func newModuleLoadPipeline(moduleCount int) *moduleLoadPipeline {
++	limit := moduleLoadParallelism(moduleCount)
++	return &moduleLoadPipeline{
++		sources: semaphore.NewWeighted(int64(limit)),
++		modules: semaphore.NewWeighted(int64(limit)),
++		window:  max(1, min(moduleCount, 2*limit)),
++	}
++}
++
++func (p *moduleLoadPipeline) jobs() parallel.Jobs {
++	// A single existing contextual span encloses both stages, including waits.
++	// Jobs.Run joins every job; errors are collected by input index by its caller.
++	return parallel.New().WithContextualTracer(true).WithLimit(p.window)
++}
++
++func runModuleLoadStage[T any](
++	ctx context.Context,
++	slots *semaphore.Weighted,
++	fn func(context.Context) (T, error),
++) (T, error) {
++	if err := slots.Acquire(ctx, 1); err != nil {
++		var zero T
++		return zero, err
++	}
++	defer slots.Release(1)
++	return fn(ctx)
++}
+--- a/engine/server/module_load_pipeline_test.go
++++ b/engine/server/module_load_pipeline_test.go
+@@ -0,0 +1,248 @@
++package server
++
++import (
++	"context"
++	"errors"
++	"fmt"
++	"sync/atomic"
++	"testing"
++	"time"
++)
++
++func pipelineAwait[T any](t *testing.T, ch <-chan T) T {
++	t.Helper()
++	select {
++	case v := <-ch:
++		return v
++	case <-time.After(5 * time.Second):
++		t.Fatal("pipeline did not make expected progress")
++		var zero T
++		return zero
++	}
++}
++
++func pipelineUpdateMax(dst *atomic.Int64, n int64) {
++	for old := dst.Load(); n > old; old = dst.Load() {
++		if dst.CompareAndSwap(old, n) {
++			return
++		}
++	}
++}
++
++func TestModuleLoadPipelinePhaseBoundsAndOverlap(t *testing.T) {
++	const count = 32
++	ctx, cancel := context.WithCancel(context.Background())
++	defer cancel()
++	p := newModuleLoadPipeline(count)
++	jobs := p.jobs().WithTracing(false)
++	sourceGate, moduleGate := make(chan struct{}), make(chan struct{})
++	sourceStarted, moduleStarted := make(chan int, count), make(chan int, count)
++	var sources, modules, active atomic.Int64
++	var maxSources, maxModules, maxActive atomic.Int64
++	results, errs := make([]int, count), make([]error, count)
++	for i := range count {
++		jobs = jobs.WithJob(fmt.Sprint(i), func(ctx context.Context) error {
++			pipelineUpdateMax(&maxActive, active.Add(1))
++			defer active.Add(-1)
++			src, err := runModuleLoadStage(ctx, p.sources, func(ctx context.Context) (int, error) {
++				pipelineUpdateMax(&maxSources, sources.Add(1))
++				defer sources.Add(-1)
++				sourceStarted <- i
++				select {
++				case <-sourceGate:
++					return i * 2, nil
++				case <-ctx.Done():
++					return 0, ctx.Err()
++				}
++			})
++			if err != nil {
++				errs[i] = err
++				return nil
++			}
++			results[i], errs[i] = runModuleLoadStage(ctx, p.modules, func(ctx context.Context) (int, error) {
++				pipelineUpdateMax(&maxModules, modules.Add(1))
++				defer modules.Add(-1)
++				moduleStarted <- i
++				select {
++				case <-moduleGate:
++					return src + 1, nil
++				case <-ctx.Done():
++					return 0, ctx.Err()
++				}
++			})
++			return nil
++		})
++	}
++	done := make(chan error, 1)
++	go func() { done <- jobs.Run(ctx) }()
++	joined := false
++	defer func() {
++		if joined {
++			return
++		}
++		// In particular, the old-window negative witness must not leave its
++		// deliberately blocked jobs behind after the progress assertion fails.
++		cancel()
++		select {
++		case <-done:
++		case <-time.After(5 * time.Second):
++			t.Error("pipeline cleanup failed to join workers")
++		}
++	}()
++	// The first eight sources occupy all permits. Complete only one source.
++	for range 8 {
++		pipelineAwait(t, sourceStarted)
++	}
++	select {
++	case sourceGate <- struct{}{}:
++	case <-time.After(5 * time.Second):
++		t.Fatal("no source ready")
++	}
++	pipelineAwait(t, moduleStarted)
++	// A ninth source must start while that module remains blocked. A whole-job
++	// limiter of eight or a full-source barrier cannot satisfy this witness.
++	pipelineAwait(t, sourceStarted)
++	close(sourceGate)
++	for range 7 {
++		pipelineAwait(t, moduleStarted)
++	}
++	if maxSources.Load() > 8 || maxModules.Load() > 8 || maxActive.Load() > 16 {
++		t.Fatalf("limits exceeded: sources=%d modules=%d jobs=%d", maxSources.Load(), maxModules.Load(), maxActive.Load())
++	}
++	close(moduleGate)
++	err := pipelineAwait(t, done)
++	joined = true
++	if err != nil {
++		t.Fatal(err)
++	}
++	for i := range count {
++		if errs[i] != nil || results[i] != i*2+1 {
++			t.Fatalf("index %d: result=%d error=%v", i, results[i], errs[i])
++		}
++	}
++	if maxSources.Load() != 8 || maxModules.Load() != 8 || maxActive.Load() > 16 {
++		t.Fatalf("unexpected high water: sources=%d modules=%d jobs=%d", maxSources.Load(), maxModules.Load(), maxActive.Load())
++	}
++}
++
++func TestModuleLoadPipelineErrorsRemainIndexed(t *testing.T) {
++	const count = 24
++	p := newModuleLoadPipeline(count)
++	jobs := p.jobs().WithTracing(false)
++	sourceErr, moduleErr := errors.New("source policy"), errors.New("module validation")
++	results, errs := make([]int, count), make([]error, count)
++	var calls [count]atomic.Int64
++	for i := range count {
++		jobs = jobs.WithJob(fmt.Sprint(i), func(ctx context.Context) error {
++			src, err := runModuleLoadStage(ctx, p.sources, func(context.Context) (int, error) {
++				if i%3 == 0 {
++					return 0, sourceErr
++				}
++				return i, nil
++			})
++			if err != nil {
++				errs[i] = err
++				return nil
++			}
++			results[i], errs[i] = runModuleLoadStage(ctx, p.modules, func(context.Context) (int, error) {
++				calls[i].Add(1)
++				if i%3 == 1 {
++					return 0, moduleErr
++				}
++				return src + 1, nil
++			})
++			return nil // preserve non-fail-fast indexed collection
++		})
++	}
++	if err := jobs.Run(context.Background()); err != nil {
++		t.Fatal(err)
++	}
++	for i := range count {
++		switch i % 3 {
++		case 0:
++			if !errors.Is(errs[i], sourceErr) || calls[i].Load() != 0 {
++				t.Fatalf("source policy not retained at %d", i)
++			}
++		case 1:
++			if !errors.Is(errs[i], moduleErr) || calls[i].Load() != 1 {
++				t.Fatalf("module error not retained at %d", i)
++			}
++		case 2:
++			if errs[i] != nil || results[i] != i+1 || calls[i].Load() != 1 {
++				t.Fatalf("success lost at %d", i)
++			}
++		}
++	}
++}
++
++func TestModuleLoadPipelineCancellationJoinsStartedWork(t *testing.T) {
++	ctx, cancel := context.WithCancelCause(context.Background())
++	defer cancel(nil)
++	p := newModuleLoadPipeline(2)
++	jobs := p.jobs().WithTracing(false)
++	started, observedCancel, release := make(chan struct{}), make(chan struct{}), make(chan struct{})
++	cause := errors.New("cancel pipeline")
++	var returned atomic.Bool
++	jobs = jobs.WithJob("active", func(ctx context.Context) error {
++		_, err := runModuleLoadStage(ctx, p.modules, func(ctx context.Context) (int, error) {
++			close(started)
++			<-ctx.Done()
++			close(observedCancel)
++			<-release // cleanup deliberately remains outstanding after cancellation
++			returned.Store(true)
++			return 0, context.Cause(ctx)
++		})
++		return err
++	})
++	done := make(chan error, 1)
++	go func() { done <- jobs.Run(ctx) }()
++	pipelineAwait(t, started)
++	cancel(cause)
++	pipelineAwait(t, observedCancel)
++	select {
++	case <-done:
++		t.Fatal("returned while started job still owned resources")
++	default:
++	}
++	close(release)
++	if err := pipelineAwait(t, done); !errors.Is(err, cause) {
++		t.Fatalf("cause lost: %v", err)
++	}
++	if !returned.Load() {
++		t.Fatal("started work abandoned")
++	}
++	// Both phase permit sets are fully reusable after the joined cancellation.
++	for _, slots := range []interface {
++		TryAcquire(int64) bool
++		Release(int64)
++	}{p.sources, p.modules} {
++		if !slots.TryAcquire(2) {
++			t.Fatal("permit leaked")
++		}
++		slots.Release(2)
++	}
++}
++
++func TestModuleLoadPipelineCanceledWaitDoesNotRun(t *testing.T) {
++	p := newModuleLoadPipeline(1)
++	for _, slots := range []interface {
++		Acquire(context.Context, int64) error
++		Release(int64)
++	}{p.sources, p.modules} {
++		if err := slots.Acquire(context.Background(), 1); err != nil {
++			t.Fatal(err)
++		}
++		ctx, cancel := context.WithCancel(context.Background())
++		cancel()
++		if err := slots.Acquire(ctx, 1); !errors.Is(err, context.Canceled) {
++			t.Fatalf("canceled wait: %v", err)
++		}
++		slots.Release(1)
++	}
++	ctx, cancel := context.WithCancel(context.Background())
++	cancel()
++	_, err := runModuleLoadStage(ctx, p.sources, func(context.Context) (int, error) { t.Fatal("canceled source executed"); return 0, nil })
++	if !errors.Is(err, context.Canceled) {
++		t.Fatalf("canceled stage: %v", err)
++	}
++}

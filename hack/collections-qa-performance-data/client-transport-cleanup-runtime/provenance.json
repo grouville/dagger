@@ -1,0 +1,33 @@
+{
+  "driver_sha256": "bf23de5327c883861aa025b89f845b9c2b2fbcb7f0c1f3961838af70186bb64f",
+  "reducer_sha256": "3eb32eced1c548ed0bd5dfd67fbe20bbda855a7daa381ba02238ac90df1cdc62",
+  "raw_results_sha256": "46fd241c01db69181efd21845d90071e039049d33438bc6acef504dc69052d8f",
+  "restoration_sha256": "39997951c2b9656177f4db29e3e53f32c57413f28fa5703e876f1089b6cd125c",
+  "matched_cli_builds": {
+    "source_head": "0d1c32e29f2f31cdb95f0b5f17f7daed7305bc87",
+    "recipe_sha256": "8a2b01a689dfa807e7ea9a0263870def257954e9bfa86efb234e9cedbf693664",
+    "variants": {
+      "original": {
+        "path": "/tmp/collections-perf/shared-client-transport-v1/prototype-v2/builds/dagger-original",
+        "sha256": "d68580985d5eaa2350e7c4ec369d30ddfbb830ad8ea687d94228255b86ae76b8"
+      },
+      "baseline": {
+        "path": "/tmp/collections-perf/shared-client-transport-v1/prototype-v2/builds/dagger-baseline",
+        "sha256": "fd942972784665b2a9371dc3e8e9140357ffb704f1e95ca8349ad2fee28df406"
+      },
+      "candidate": {
+        "path": "/tmp/collections-perf/shared-client-transport-v1/prototype-v2/builds/dagger-candidate",
+        "sha256": "4e22d22916fb431276c48634a035ef3db03c67453e6e611696878d2295b57c7d"
+      }
+    },
+    "comparison": "All three freshly built CLIs share HEAD0d, parent metadata sources, flags and original otel pin. Original keeps separate HTTP pools and three warmed tunnels. Baseline and candidate both share the same per-Client HTTP2 transport, request cancellation, pending-dial ownership and two warm tunnels; baseline joins physical owner serially after other cleanup, candidate schedules it in the existing joined error group. No lifecycle wait is removed from candidate.",
+    "profiling": false,
+    "cloud_calls": 0
+  },
+  "engine_sha256": "2c005dfc7f2d7ad65ec0ed0f28c27aad1af1ea47a26602cc0ad7740c11acf62f",
+  "validation_results_sha256": "25f109730ec958d64fb8ed7a739d98c68adc8c1bfe5b4a8126ef870f060b8585",
+  "local_commands": 54,
+  "cloud_commands": 0,
+  "profiles": 0,
+  "scope": "Four warm flows and correctness sentinels. Same engine process/volume; three rotated triples; all exact flows primed once per CLI. No expanded check listing, source-edit benchmark, fresh-volume cold or Cloud measurement."
+}

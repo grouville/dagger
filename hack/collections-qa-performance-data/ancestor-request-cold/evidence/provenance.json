@@ -1,0 +1,54 @@
+{
+  "image": "sha256:b00e366e582ab98f0e4a7907163f338b6be3bfa13b10f3ad6bac3d699cd25a07",
+  "sdk_manifest": "sha256:2a8f755cfe5322aeeee861f646c58d6b796a585d2794db47b5b71ba14f6f3fef",
+  "build_manifest": {
+    "source_head": "85b60f7a0a16a27459ef571bc94bcf870c876dcc",
+    "recipe_sha256": "be89c9a1ea384f92cbc6701844d60f6c6b88f2bf7877069c2be7b1f857d927fd",
+    "variants": {
+      "baseline": {
+        "cli": {
+          "path": "/tmp/collections-perf/cli-log-overlap-v3/backport-v016/builds/dagger-baseline",
+          "sha256": "748700a2a203b2872461f5930c80d37a90c139c791929a7bc2b77bfbded9fe30"
+        },
+        "engine": {
+          "path": "/tmp/collections-perf/ancestor-request-v1/builds/engine-baseline",
+          "sha256": "cc287078c2a553c7bb5484ce635913d257199256b2fb612db00ca82463581115"
+        }
+      },
+      "candidate": {
+        "cli": {
+          "path": "/tmp/collections-perf/ancestor-request-v1/builds/cli-candidate",
+          "sha256": "faef77fe5c0e5e1eef3a225c49ee3bea21b5f8be348aa9f0b97c6796a447ca11"
+        },
+        "engine": {
+          "path": "/tmp/collections-perf/ancestor-request-v1/builds/engine-candidate",
+          "sha256": "2c005dfc7f2d7ad65ec0ed0f28c27aad1af1ea47a26602cc0ad7740c11acf62f"
+        }
+      }
+    },
+    "wcprof_marker": "filesync.syncParentDirs",
+    "production_cloud_calls": 0,
+    "comparison": "Only explicit parent metadata request differs. Both engines contain the same fixed filesync.syncParentDirs wcprof marker, inactive without profiling. Baseline CLI is the retained byte-identical748 binary. No core bulk/span/log changes; same frozen f864 SDK/Dang stack."
+  },
+  "build_manifest_sha256": "c10bb9d81a1146bb4d885820108b2e7969278be38e37d33663a23ba5fd1bf6e7",
+  "build_recipe_sha256": "be89c9a1ea384f92cbc6701844d60f6c6b88f2bf7877069c2be7b1f857d927fd",
+  "source_sha256": "f82932f24df65917db145f4f8a2df20475791246a553a9c03b9cce926a42d5d7",
+  "expected_stdout_sha256": "c5ab5a8e1e456367b3c15e934d3d6fd7d62b315967d8d7c9571a24b2bbde63d6",
+  "cloud_commands": 0,
+  "command_cap": 4,
+  "cache_boundary": "Each first CLI starts on a newly created empty named Dagger volume; SDK image/blobs and host pages are retained, image pulls/builds are not part of setup. Engine start through debug readiness is separately recorded. First CLI is check -l --all, not preceded by a Dagger request.",
+  "order": "Baseline then candidate; one pair, order-confounded diagnostic, not a variability estimate. Each has one identical warm repeat.",
+  "timing": "Popen through blocking waitpid. Setup, binary/blob copies, engine readiness, source guards and host/cgroup snapshots excluded. Counters sampled around CLI and write guard every500ms.",
+  "bounds": {
+    "free_disk_bytes": 17179869184,
+    "engine_written_bytes": 8589934592,
+    "command_timeout_seconds": 300,
+    "write_guard_scope": "Cumulative engine cgroup writes from process creation, plus prior stopped engine final sample; sampled guard is not a hard I/O quota. Final stop writeback may follow last sample."
+  },
+  "cleanup": "Only exact newly created IDs/names with owner labels and volume creation timestamps; remove these two containers/volumes after evidence capture. Never modify existing engines.",
+  "fixture_manifest_sha256": "e3d8241fedf0fe592fa251743b58eece107f088153f3dfab1b5f6ce7bb0f1fa2",
+  "fixture_current_hashes_unchanged": true,
+  "source_result_sha256": "a2a09eed3da9a2e84b9bfe6717846024483d272993ed8245695b0d916d885a72",
+  "fixture_source_and_raw_output_archived": false,
+  "production_relation": "Linux v1 runtime binaries remain frozen. The committed v2 production correction only adds protocol-root slash acceptance on Windows; v3 is a test-oracle correction."
+}

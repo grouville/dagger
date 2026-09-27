@@ -1,0 +1,30 @@
+{
+  "direct_upgrade": {
+    "log_sdk": "v0.21.0",
+    "otel_sdk": "v1.45.0",
+    "outcome": "Compilation failed before tests",
+    "first_issue": "Missing metric SDK checksum in copied candidate sum file; resolved there only",
+    "blocking_issue": "Old log.Value and log.KeyValue public types removed; pinned dagger/otel-go logging.go and transform.go do not compile",
+    "removed_types": [
+      "log.Value",
+      "log.KeyValue"
+    ],
+    "broader_source_audit": {
+      "all_go_files": 47,
+      "production_go_files": 25,
+      "approx_old_value_api_references": 292
+    }
+  },
+  "earliest_released_worker_fix": {
+    "log_sdk": "v0.21.0",
+    "otel": "v1.45.0",
+    "v0.20_still_old_worker": true,
+    "sources": [
+      "https://github.com/open-telemetry/opentelemetry-go/pull/8620",
+      "https://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.45.0",
+      "https://raw.githubusercontent.com/open-telemetry/opentelemetry-go/sdk/log/v0.20.0/sdk/log/batch.go"
+    ]
+  },
+  "chosen_experiment": "Backport worker and chunk-drain behavior onto old public API/provider, independently measure joined close; not a whole-stack migration or a proposal to maintain a vendored fork",
+  "dependency_cache": "No module-cache source files patched; all code changes use private copies and Go overlays. Standard Go compilation/download cache operations were allowed."
+}

@@ -1,0 +1,47 @@
+--- a/init.go
++++ b/init.go
+@@ -485,18 +485,38 @@
+ 	ctx := closeCtx
+ 	flushCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+ 	defer cancel()
+-	if tracerProvider != nil {
+-		if err := tracerProvider.Shutdown(flushCtx); err != nil {
++	shutdownProviders(flushCtx, tracerProvider, LoggerProvider(ctx), MeterProvider(ctx))
++}
++
++// shutdownProviders keeps logs open until trace cleanup and its error reporting
++// finish, and retains the trace, log, then metric provider shutdown order.
++func shutdownProviders(ctx context.Context, traces *sdktrace.TracerProvider, logs *sdklog.LoggerProvider, metrics *sdkmetric.MeterProvider) {
++	var logFlush <-chan error
++	if traces != nil && logs != nil {
++		// Prompt already queued logs to export while traces drain. ForceFlush
++		// leaves the logger open for records emitted by trace cleanup below.
++		// Join before logger shutdown, using the same bounded close context.
++		done := make(chan error, 1)
++		logFlush = done
++		go func() { done <- logs.ForceFlush(ctx) }()
++	}
++	if traces != nil {
++		if err := traces.Shutdown(ctx); err != nil {
+ 			slog.Error("failed to shut down tracer provider", "error", err)
+ 		}
+ 	}
+-	if loggerProvider := LoggerProvider(ctx); loggerProvider != nil {
+-		if err := loggerProvider.Shutdown(flushCtx); err != nil {
++	if logFlush != nil {
++		if err := <-logFlush; err != nil {
++			slog.Error("failed to flush logger provider", "error", err)
++		}
++	}
++	if logs != nil {
++		if err := logs.Shutdown(ctx); err != nil {
+ 			slog.Error("failed to shut down logger provider", "error", err)
+ 		}
+ 	}
+-	if meterProvider := MeterProvider(ctx); meterProvider != nil {
+-		if err := meterProvider.Shutdown(flushCtx); err != nil {
++	if metrics != nil {
++		if err := metrics.Shutdown(ctx); err != nil {
+ 			slog.Error("failed to shut down meter provider", "error", err)
+ 		}
+ 	}

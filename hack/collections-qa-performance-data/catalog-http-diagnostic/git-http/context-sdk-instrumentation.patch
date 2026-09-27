@@ -1,0 +1,22 @@
+--- a/core/schema/modulesource.go
++++ b/core/schema/modulesource.go
+@@ -1201,11 +1201,16 @@
+ 
+ 	var eg errgroup.Group
+ 	eg.Go(func() error {
+-		if err := s.loadModuleSourceContext(ctx, src); err != nil {
+-			return fmt.Errorf("load module source context: %w", err)
++		contextCtx, contextOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "moduleSource.loadContext", wcprof.OpOpts{})
++		contextErr := s.loadModuleSourceContext(contextCtx, src)
++		contextOp.EndErr(contextErr)
++		if contextErr != nil {
++			return fmt.Errorf("load module source context: %w", contextErr)
+ 		}
+ 		if src.SDK != nil {
+-			loaded, err := sdk.NewLoader().SDKForModule(ctx, query, src.SDK, src)
++			sdkCtx, sdkOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "moduleSource.loadSDK", wcprof.OpOpts{})
++			loaded, err := sdk.NewLoader().SDKForModule(sdkCtx, query, src.SDK, src)
++			sdkOp.EndErr(err)
+ 			if err != nil {
+ 				return fmt.Errorf("load module source SDK: %w", err)
+ 			}

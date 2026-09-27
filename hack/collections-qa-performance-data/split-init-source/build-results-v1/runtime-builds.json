@@ -1,0 +1,96 @@
+{
+  "source_head": "0d1c32e29f2f31cdb95f0b5f17f7daed7305bc87",
+  "recipe_path": "/tmp/collections-perf/split-init-prototype-v1/recipes-v3/recipe.json",
+  "recipe_sha256": "ac2c4b0ee6c3d43946dc4f5f2b2a10ebd2b78bd570602161bf138338dc28b5f4",
+  "runner_sha256": "0183003dfc696d5dba67633d4d2b946664854901f383ff4379e4b456a9995eb0",
+  "validation_sha256": "1ae2478b095745dc72450cd188ebf72f600ad2181561750a1e6574426cbb3972",
+  "builds": {
+    "engine-baseline": {
+      "exit_code": 0,
+      "seconds": 57.153735920088366,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "build",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-buildvcs=true",
+        "-overlay=/tmp/collections-perf/split-init-prototype-v1/recipes-v3/baseline-overlay.json",
+        "-o",
+        "/tmp/collections-perf/split-init-prototype-v1/recipes-v3/engine-baseline",
+        "./cmd/engine"
+      ],
+      "path": "/tmp/collections-perf/split-init-prototype-v1/recipes-v3/engine-baseline",
+      "sha256": "cde146153e9d09480c43953d8120e946c88371d29b3e0674eddf3f9bae209327",
+      "bytes": 219184277,
+      "build_info_sha256": "5ce9f4156c2b6bf995df195f55928a41e43edabda5919db5c2dee673c250b166"
+    },
+    "engine-candidate": {
+      "exit_code": 0,
+      "seconds": 55.345007847994566,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "build",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-buildvcs=true",
+        "-overlay=/tmp/collections-perf/split-init-prototype-v1/recipes-v3/candidate-overlay.json",
+        "-o",
+        "/tmp/collections-perf/split-init-prototype-v1/recipes-v3/engine-candidate",
+        "./cmd/engine"
+      ],
+      "path": "/tmp/collections-perf/split-init-prototype-v1/recipes-v3/engine-candidate",
+      "sha256": "48fc8d7d2d415c558dc255fc3fe9c36760efe0c0725ebc9a563b22926ae7950b",
+      "bytes": 219183629,
+      "build_info_sha256": "8a5f330fbb0b6668abad12e8743d799ef3295a611803aa89f6842cc343a12f18"
+    },
+    "dagger-init-common": {
+      "exit_code": 0,
+      "seconds": 3.4262515550944954,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "build",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-buildvcs=true",
+        "-overlay=/tmp/collections-perf/split-init-prototype-v1/recipes-v3/baseline-overlay.json",
+        "-tags=dfexcludepatterns,dfparents",
+        "-ldflags=-s -w",
+        "-o",
+        "/tmp/collections-perf/split-init-prototype-v1/recipes-v3/dagger-init-common",
+        "./cmd/init"
+      ],
+      "path": "/tmp/collections-perf/split-init-prototype-v1/recipes-v3/dagger-init-common",
+      "sha256": "e5157dc97821baef29e9518a169b50e16647b1bdc8b73132345c2fa04971f1e5",
+      "bytes": 47972514,
+      "build_info_sha256": "e8c6cf43ed1493a43d574e6847d6a9e4ea31b689ed2d706a5af9885309484d7e"
+    },
+    "dagger-init-lite": {
+      "exit_code": 0,
+      "seconds": 0.31451484211720526,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "build",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-buildvcs=true",
+        "-overlay=/tmp/collections-perf/split-init-prototype-v1/recipes-v3/candidate-overlay.json",
+        "-tags=dfexcludepatterns,dfparents",
+        "-ldflags=-s -w",
+        "-o",
+        "/tmp/collections-perf/split-init-prototype-v1/recipes-v3/dagger-init-lite",
+        "./cmd/init-lite"
+      ],
+      "path": "/tmp/collections-perf/split-init-prototype-v1/recipes-v3/dagger-init-lite",
+      "sha256": "fa267a4586dac374f868867fd09277f43e03e8dac7aa5bee2fc65ad62bcad26a",
+      "bytes": 1945762,
+      "build_info_sha256": "14ba6994153293f8225a39045106da63440036a6013df061a14725a89753b8a1"
+    }
+  },
+  "engine_calls": 0,
+  "cloud_calls": 0,
+  "privileged_pid1_gate": "not run"
+}

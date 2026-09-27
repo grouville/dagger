@@ -1,0 +1,284 @@
+//go:build linux
+
+package main
+
+import (
+	"bufio"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"os/exec"
+	"os/signal"
+	"path/filepath"
+	"reflect"
+	"strconv"
+	"strings"
+	"syscall"
+	"testing"
+	"time"
+)
+
+// Every process is created by this test. The helper's Wait belongs to this test
+// process; the real init keeps using its existing global child reaper.
+func TestSplitInitReadiness(t *testing.T) {
+	for _, mode := range []string{"ready", "dies"} {
+		t.Run(mode, func(t *testing.T) {
+			ready := filepath.Join(t.TempDir(), "ready")
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			cmd := splitInitProcessContext(ctx, "helper", mode, ready)
+			input, err := cmd.StdinPipe()
+			if err != nil {
+				t.Fatal(err)
+			}
+			done := make(chan error, 1)
+			finished := make(chan struct{})
+			t.Cleanup(func() {
+				input.Close()
+				cancel()
+				// cmd.Process is assigned asynchronously by Start. Do not inspect it
+				// until the readiness goroutine has finished, including failure paths.
+				select {
+				case <-finished:
+					if cmd.Process != nil && cmd.ProcessState == nil {
+						_ = cmd.Wait()
+					}
+				case <-time.After(10 * time.Second):
+					t.Error("readiness goroutine did not stop after cancellation")
+				}
+			})
+			go func() {
+				done <- startSessionCommand(cmd)
+				close(finished)
+			}()
+			if mode == "ready" {
+				if err := waitSplitInitFile(ready); err != nil {
+					t.Fatal(err)
+				}
+				select {
+				case err := <-done:
+					t.Fatalf("returned before FD3 closed: %v", err)
+				default:
+				}
+				fmt.Fprintln(input, "ready")
+			}
+			select {
+			case err := <-done:
+				if err != nil {
+					t.Fatal(err)
+				}
+			case <-time.After(10 * time.Second):
+				t.Fatal("readiness did not finish")
+			}
+			if mode == "ready" {
+				if err := cmd.Process.Signal(syscall.Signal(0)); err != nil {
+					t.Fatalf("helper must remain alive after readiness: %v", err)
+				}
+				fmt.Fprintln(input, "finish")
+				if err := cmd.Wait(); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				var exit *exec.ExitError
+				if err := cmd.Wait(); !errors.As(err, &exit) || exit.ExitCode() != 23 {
+					t.Fatalf("helper death must preserve EOF protocol: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestSplitInitHelperStartError(t *testing.T) {
+	err := startSessionCommand(exec.Command(filepath.Join(t.TempDir(), "absent")))
+	if err == nil || !strings.Contains(err.Error(), "failed to start session subprocess") {
+		t.Fatalf("missing helper error: %v", err)
+	}
+}
+
+func TestSplitInitArgvAndExitStatus(t *testing.T) {
+	want := []string{"space value", "", "λ"}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	cmd := splitInitProcessContext(ctx, "init", append([]string{"args"}, want...)...)
+	out, err := cmd.Output()
+	var exit *exec.ExitError
+	if !errors.As(err, &exit) || exit.ExitCode() != 17 {
+		t.Fatalf("user exit status not retained: %v", err)
+	}
+	var got []string
+	if err := json.Unmarshal(out, &got); err != nil || !reflect.DeepEqual(got, want) {
+		t.Fatalf("argv = %q, decode error = %v", got, err)
+	}
+}
+
+func TestSplitInitSignalForwarding(t *testing.T) {
+	ready := filepath.Join(t.TempDir(), "ready")
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	cmd := splitInitProcessContext(ctx, "init", "signal", ready)
+	// Give PID1's unchanged signal path time to reap its child on early test
+	// failure, rather than killing the init and leaving the payload behind.
+	cmd.Cancel = func() error { return cmd.Process.Signal(syscall.SIGTERM) }
+	cmd.WaitDelay = 15 * time.Second
+	t.Cleanup(func() {
+		cancel()
+		if cmd.Process != nil && cmd.ProcessState == nil {
+			_ = cmd.Wait()
+		}
+	})
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	if err := waitSplitInitFile(ready); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
+		t.Fatal(err)
+	}
+	var exit *exec.ExitError
+	if err := cmd.Wait(); !errors.As(err, &exit) || exit.ExitCode() != 42 {
+		t.Fatalf("user did not observe forwarded signal: %v", err)
+	}
+}
+
+// Requires an explicitly provisioned privileged test environment. It creates a
+// new PID namespace, never signals pre-existing host processes, and checks a
+// real orphan's disappearance using namespace-scoped kill(0), without host /proc.
+func TestSplitInitPIDNamespaceReaping(t *testing.T) {
+	if os.Getenv("DAGGER_TEST_INIT_PID_NAMESPACE") != "1" {
+		t.Skip("requires explicit privileged PID-namespace test environment")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cmd := splitInitProcessContext(ctx, "init", "pid1", filepath.Join(t.TempDir(), "orphan"))
+	cmd.SysProcAttr = &syscall.SysProcAttr{Cloneflags: syscall.CLONE_NEWPID}
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("PID1/reaping: %v: %s", err, out)
+	}
+}
+
+func splitInitProcess(role string, args ...string) *exec.Cmd {
+	return splitInitProcessContext(context.Background(), role, args...)
+}
+
+func splitInitProcessContext(ctx context.Context, role string, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, os.Args[0], append([]string{"-test.run=^TestSplitInitProcess$", "--"}, args...)...)
+	for _, entry := range os.Environ() {
+		if strings.HasPrefix(entry, "DAGGER_SESSION_TOKEN=") || strings.HasPrefix(entry, "DAGGER_SPLIT_INIT_TEST_ROLE=") {
+			continue
+		}
+		cmd.Env = append(cmd.Env, entry)
+	}
+	cmd.Env = append(cmd.Env, "DAGGER_SPLIT_INIT_TEST_ROLE="+role)
+	return cmd
+}
+
+func waitSplitInitFile(path string) error {
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(path); err == nil {
+			return nil
+		}
+		time.Sleep(time.Millisecond)
+	}
+	return fmt.Errorf("timed out waiting for test child")
+}
+
+func TestSplitInitProcess(t *testing.T) {
+	role := os.Getenv("DAGGER_SPLIT_INIT_TEST_ROLE")
+	if role == "" {
+		return
+	}
+	i := 0
+	for i < len(os.Args) && os.Args[i] != "--" {
+		i++
+	}
+	args := os.Args[i+1:]
+	if role == "init" {
+		binary := os.Args[0]
+		os.Setenv("DAGGER_SPLIT_INIT_TEST_ROLE", "payload")
+		os.Args = append([]string{"/.init", binary, "-test.run=^TestSplitInitProcess$", "--"}, args...)
+		if err := mainInit(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(99)
+		}
+		os.Exit(0)
+	}
+	if role == "helper" {
+		if args[0] == "dies" {
+			os.Exit(23)
+		}
+		fd := os.NewFile(3, "readiness")
+		if _, err := fd.Stat(); err != nil {
+			os.Exit(70)
+		}
+		if err := os.WriteFile(args[1], []byte("ready"), 0o600); err != nil {
+			os.Exit(71)
+		}
+		input := bufio.NewScanner(os.Stdin)
+		input.Scan()
+		fd.Close()
+		input.Scan()
+		os.Exit(0)
+	}
+	switch args[0] {
+	case "args":
+		json.NewEncoder(os.Stdout).Encode(args[1:])
+		os.Exit(17)
+	case "signal":
+		ch := make(chan os.Signal, 1)
+		signal.Notify(ch, syscall.SIGTERM)
+		if err := os.WriteFile(args[1], []byte("ready"), 0o600); err != nil {
+			os.Exit(72)
+		}
+		select {
+		case <-ch:
+			os.Exit(42)
+		case <-time.After(10 * time.Second):
+			os.Exit(81)
+		}
+	case "pid1":
+		if os.Getppid() != 1 {
+			os.Exit(73)
+		}
+		if err := splitInitProcess("payload", "orphan-parent", args[1]).Run(); err != nil {
+			os.Exit(74)
+		}
+		if err := waitSplitInitFile(args[1]); err != nil {
+			os.Exit(75)
+		}
+		data, _ := os.ReadFile(args[1])
+		pid, err := strconv.Atoi(string(data))
+		if err != nil || pid <= 1 {
+			os.Exit(76)
+		}
+		deadline := time.Now().Add(10 * time.Second)
+		for time.Now().Before(deadline) {
+			if errors.Is(syscall.Kill(pid, 0), syscall.ESRCH) {
+				os.Exit(0)
+			}
+			time.Sleep(time.Millisecond)
+		}
+		os.Exit(77)
+	case "orphan-parent":
+		cmd := splitInitProcess("payload", "orphan", args[1])
+		if err := cmd.Start(); err != nil {
+			os.Exit(78)
+		}
+		os.Exit(0)
+	case "orphan":
+		deadline := time.Now().Add(10 * time.Second)
+		for os.Getppid() != 1 && time.Now().Before(deadline) {
+			time.Sleep(time.Millisecond)
+		}
+		if os.Getppid() != 1 {
+			os.Exit(79)
+		}
+		if err := os.WriteFile(args[1], []byte(strconv.Itoa(os.Getpid())), 0o600); err != nil {
+			os.Exit(80)
+		}
+		os.Exit(0)
+	}
+	os.Exit(98)
+}

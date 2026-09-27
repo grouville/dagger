@@ -1,0 +1,160 @@
+package schema
+
+import (
+	"context"
+	"crypto/tls"
+	"net/http/httptrace"
+	"sync"
+
+	"github.com/dagger/dagger/engine/wcprof"
+)
+
+// Diagnostic only: this does not replace the transport, retry policy, credentials,
+// or session cache. The recorder receives only fixed labels and timestamps.
+// HTTP trace callbacks may overlap or arrive after the request returns.
+type gitAdvertisementHTTPAudit struct {
+	mu                    sync.Mutex
+	now                   func() int64
+	record                func(string, int64, int64, bool)
+	pending               map[string][]int64
+	connect               map[[2]string][]int64 // callback matching only; never recorded
+	lastFirstByte         int64
+	hasFirstByte          bool
+	writePairingAmbiguous bool
+}
+
+func withGitAdvertisementHTTPAudit(ctx context.Context) (context.Context, *gitAdvertisementHTTPAudit) {
+	if !wcprof.Enabled(ctx) {
+		return ctx, nil
+	}
+	a := newGitAdvertisementHTTPAudit(wcprof.NowNS, func(name string, start, end int64, failed bool) {
+		outcome := wcprof.OutcomeOK
+		if failed {
+			outcome = wcprof.OutcomeError
+		}
+		wcprof.RecordOp(ctx, wcprof.OpKindIO, name, wcprof.OpOpts{}, start, end, outcome)
+	})
+	return httptrace.WithClientTrace(ctx, a.trace()), a
+}
+
+func newGitAdvertisementHTTPAudit(now func() int64, record func(string, int64, int64, bool)) *gitAdvertisementHTTPAudit {
+	return &gitAdvertisementHTTPAudit{now: now, record: record, pending: map[string][]int64{}, connect: map[[2]string][]int64{}}
+}
+
+func (a *gitAdvertisementHTTPAudit) start(key string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.pending[key] = append(a.pending[key], a.now())
+}
+
+func takeGitAuditStart(q []int64) (int64, []int64, bool) {
+	if len(q) == 0 {
+		return 0, q, false
+	}
+	return q[0], q[1:], true
+}
+
+func (a *gitAdvertisementHTTPAudit) finish(key, label string, failed bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	start, rest, ok := takeGitAuditStart(a.pending[key])
+	a.pending[key] = rest
+	if ok {
+		a.record(label, start, a.now(), failed)
+	}
+}
+
+func (a *gitAdvertisementHTTPAudit) point(label string, failed bool) {
+	now := a.now()
+	a.record(label, now, now, failed)
+}
+
+func (a *gitAdvertisementHTTPAudit) trace() *httptrace.ClientTrace {
+	return &httptrace.ClientTrace{
+		GetConn: func(string) { a.start("getConn") },
+		GotConn: func(info httptrace.GotConnInfo) {
+			a.finish("getConn", "git.publicAdvertisement.http.getConn", false)
+			label := "git.publicAdvertisement.http.connectionNew"
+			if info.Reused {
+				label = "git.publicAdvertisement.http.connectionReused"
+			}
+			a.point(label, false)
+		},
+		DNSStart: func(httptrace.DNSStartInfo) { a.start("dns") },
+		DNSDone:  func(info httptrace.DNSDoneInfo) { a.finish("dns", "git.publicAdvertisement.http.dns", info.Err != nil) },
+		ConnectStart: func(network, address string) {
+			a.mu.Lock()
+			defer a.mu.Unlock()
+			key := [2]string{network, address}
+			a.connect[key] = append(a.connect[key], a.now())
+		},
+		ConnectDone: func(network, address string, err error) {
+			a.mu.Lock()
+			defer a.mu.Unlock()
+			key := [2]string{network, address}
+			start, rest, ok := takeGitAuditStart(a.connect[key])
+			if len(rest) == 0 {
+				delete(a.connect, key)
+			} else {
+				a.connect[key] = rest
+			}
+			if ok {
+				a.record("git.publicAdvertisement.http.connect", start, a.now(), err != nil)
+			}
+		},
+		TLSHandshakeStart: func() { a.start("tls") },
+		TLSHandshakeDone: func(_ tls.ConnectionState, err error) {
+			a.finish("tls", "git.publicAdvertisement.http.tls", err != nil)
+		},
+		WroteRequest: func(info httptrace.WroteRequestInfo) {
+			a.mu.Lock()
+			defer a.mu.Unlock()
+			now := a.now()
+			a.record("git.publicAdvertisement.http.requestWritten", now, now, info.Err != nil)
+			if a.writePairingAmbiguous || info.Err != nil {
+				return
+			}
+			if len(a.pending["write"]) != 0 {
+				// httptrace does not expose a request ID. Never pair a retry's
+				// first byte with an earlier attempt whose write was observed.
+				a.writePairingAmbiguous = true
+				a.pending["write"] = nil
+				a.record("git.publicAdvertisement.http.writePairingAmbiguous", now, now, false)
+				return
+			}
+			a.pending["write"] = []int64{now}
+		},
+		GotFirstResponseByte: func() {
+			a.mu.Lock()
+			defer a.mu.Unlock()
+			now := a.now()
+			start, rest, ok := takeGitAuditStart(a.pending["write"])
+			a.pending["write"] = rest
+			if ok && !a.writePairingAmbiguous {
+				a.record("git.publicAdvertisement.http.writeToFirstByte", start, now, false)
+			} else if !a.writePairingAmbiguous {
+				// HTTP permits a response before the write callback completes.
+				// In this case subsequent write callbacks cannot be paired with
+				// redirects/retries reliably, so omit these derived intervals.
+				a.writePairingAmbiguous = true
+				a.record("git.publicAdvertisement.http.firstByteBeforeWrite", now, now, false)
+			}
+			a.lastFirstByte, a.hasFirstByte = now, true
+			a.record("git.publicAdvertisement.http.firstByte", now, now, false)
+		},
+	}
+}
+
+// The boundary includes response headers, body transfer AND go-git's pkt-line
+// decoding. It is not a pure server-time or decoder-time measurement. Redirects
+// contribute multiple request events; this interval starts at the LAST response.
+func (a *gitAdvertisementHTTPAudit) parsed(err error) {
+	if a == nil {
+		return
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.hasFirstByte {
+		a.record("git.publicAdvertisement.http.lastFirstByteToParsed", a.lastFirstByte, a.now(), err != nil)
+	}
+}

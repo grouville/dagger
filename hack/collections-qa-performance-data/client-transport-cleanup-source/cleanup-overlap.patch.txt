@@ -1,0 +1,26 @@
+--- serial-v1/engine/client/client.go
++++ joined-parallel-v2/engine/client/client.go
+@@ -907,6 +907,13 @@
+ 		c.eg.Go(c.daggerClient.Close)
+ 	}
+ 
++	// The shutdown drain precedes cancellation. Join the shared connection
++	// owner alongside the other canceled client cleanup.
++	c.eg.Go(func() error {
++		c.sharedHTTPTransport().Close()
++		return nil
++	})
++
+ 	if c.sessionSrv != nil {
+ 		c.eg.Go(func() error {
+ 			c.sessionSrv.Stop()
+@@ -937,9 +944,6 @@
+ 		}
+ 	}
+ 
+-	// Both request domains have ended. One owner closes the shared physical
+-	// connection, including any connection opened during partial initialization.
+-	c.sharedHTTPTransport().Close()
+ 	return rerr
+ }
+ 

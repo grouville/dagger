@@ -1,0 +1,140 @@
+{
+  "recipe_sha256": "f55023bca3336878e8d4c35b5fdf2a8106337ca5cfea216cee23246b2e31bffa",
+  "runner_sha256": "498c276f7ce1ba03909cb4670442302ca87cab81b01ceccdb9c2d5d48dcbdde2",
+  "steps": [
+    {
+      "name": "normal",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-overlay=/tmp/collections-perf/module-load-pipeline-v1/test-overlay.json",
+        "-count=1",
+        "-timeout=90s",
+        "-run",
+        "^(TestModuleLoadPipeline.*|TestGatherModuleLoadRequests|TestModuleLoadParallelism|TestModuleLoadErr|TestDedupeResolvedModuleLoads.*|TestResolvedModuleLoadIdentity|TestArbitrateSameSourceEntrypointNominations|TestArbitrateResolvedModuleLoads)$",
+        "./engine/server"
+      ],
+      "returncode": 0,
+      "wall_seconds": 8.985986697021872,
+      "passed_tests": [
+        "TestModuleLoadPipelinePhaseBoundsAndOverlap",
+        "TestModuleLoadPipelineErrorsRemainIndexed",
+        "TestModuleLoadPipelineCancellationJoinsStartedWork",
+        "TestModuleLoadPipelineCanceledWaitDoesNotRun",
+        "TestGatherModuleLoadRequests",
+        "TestDedupeResolvedModuleLoads",
+        "TestArbitrateResolvedModuleLoads/extra_beats_ambient",
+        "TestModuleLoadErr",
+        "TestDedupeResolvedModuleLoadsKeepsSameSourceUnderDifferentNames",
+        "TestModuleLoadParallelism",
+        "TestArbitrateSameSourceEntrypointNominations/same_settings_under_two_names_collapse_to_one_nomination",
+        "TestArbitrateResolvedModuleLoads/multiple_extra_entrypoints_are_invalid",
+        "TestArbitrateResolvedModuleLoads/multiple_ambient_entrypoints_are_invalid",
+        "TestArbitrateResolvedModuleLoads",
+        "TestArbitrateSameSourceEntrypointNominations/different_settings_under_two_names_stay_a_conflict",
+        "TestArbitrateSameSourceEntrypointNominations",
+        "TestResolvedModuleLoadIdentity"
+      ],
+      "failed_tests": [],
+      "expected_negative": false,
+      "accepted": true,
+      "log_sha256": "26b812883598c4d37c50ea011cc23a767d685c986a500b0c2b4065899131992b"
+    },
+    {
+      "name": "race",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-race",
+        "-json",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-overlay=/tmp/collections-perf/module-load-pipeline-v1/test-overlay.json",
+        "-count=1",
+        "-timeout=90s",
+        "-run",
+        "^(TestModuleLoadPipeline.*|TestGatherModuleLoadRequests|TestModuleLoadParallelism|TestModuleLoadErr|TestDedupeResolvedModuleLoads.*|TestResolvedModuleLoadIdentity|TestArbitrateSameSourceEntrypointNominations|TestArbitrateResolvedModuleLoads)$",
+        "./engine/server"
+      ],
+      "returncode": 0,
+      "wall_seconds": 44.51625940296799,
+      "passed_tests": [
+        "TestModuleLoadPipelinePhaseBoundsAndOverlap",
+        "TestModuleLoadPipelineErrorsRemainIndexed",
+        "TestModuleLoadPipelineCancellationJoinsStartedWork",
+        "TestModuleLoadPipelineCanceledWaitDoesNotRun",
+        "TestModuleLoadErr",
+        "TestDedupeResolvedModuleLoads",
+        "TestModuleLoadParallelism",
+        "TestGatherModuleLoadRequests",
+        "TestResolvedModuleLoadIdentity",
+        "TestArbitrateResolvedModuleLoads/multiple_ambient_entrypoints_are_invalid",
+        "TestDedupeResolvedModuleLoadsKeepsSameSourceUnderDifferentNames",
+        "TestArbitrateResolvedModuleLoads/multiple_extra_entrypoints_are_invalid",
+        "TestArbitrateSameSourceEntrypointNominations/same_settings_under_two_names_collapse_to_one_nomination",
+        "TestArbitrateResolvedModuleLoads/extra_beats_ambient",
+        "TestArbitrateResolvedModuleLoads",
+        "TestArbitrateSameSourceEntrypointNominations/different_settings_under_two_names_stay_a_conflict",
+        "TestArbitrateSameSourceEntrypointNominations"
+      ],
+      "failed_tests": [],
+      "expected_negative": false,
+      "accepted": true,
+      "log_sha256": "749ca464701209dd98f300bb6a4400086801a48279b4480aa3d176bcf977d92d"
+    },
+    {
+      "name": "negative-old-window",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-overlay=/tmp/collections-perf/module-load-pipeline-v1/negative-overlay.json",
+        "-count=1",
+        "-timeout=20s",
+        "-run",
+        "^TestModuleLoadPipelinePhaseBoundsAndOverlap$",
+        "./engine/server"
+      ],
+      "returncode": 1,
+      "wall_seconds": 14.009783077053726,
+      "passed_tests": [],
+      "failed_tests": [
+        "TestModuleLoadPipelinePhaseBoundsAndOverlap"
+      ],
+      "expected_negative": true,
+      "accepted": true,
+      "log_sha256": "0f898da5b76ea4289b1ee8d02860014558b8a4c337d01ffc4debcfe1868f0221"
+    },
+    {
+      "name": "build",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "build",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-buildvcs=true",
+        "-overlay=/tmp/collections-perf/module-load-pipeline-v1/engine-overlay.json",
+        "-o",
+        "/tmp/collections-perf/module-load-pipeline-v1/engine-candidate",
+        "./cmd/engine"
+      ],
+      "returncode": 0,
+      "wall_seconds": 13.441713038133457,
+      "passed_tests": [],
+      "failed_tests": [],
+      "expected_negative": false,
+      "accepted": true,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "engine_or_cloud_calls": 0,
+  "negative_inputs": {
+    "module_load_pipeline.negative.go": "6147c65bb47e1093c98c6ef09f7fc6d3e56c1b0f8faa973667b81f88f9de69c4",
+    "negative-overlay.json": "71480cc6887da4d1a9eae84ffb9b5592c4a4c2f0774e26c38c65a90309b4f2a5"
+  }
+}

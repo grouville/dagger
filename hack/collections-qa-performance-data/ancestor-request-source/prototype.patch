@@ -1,0 +1,270 @@
+--- a/engine/opts.go
++++ b/engine/opts.go
+@@ -304,6 +304,9 @@
+ }
+ 
+ type LocalImportOpts struct {
++	// ParentDirsOnly requests literal ancestor directory metadata, without
++	// enumerating siblings. Include/exclude patterns remain for older clients.
++	ParentDirsOnly     bool             `json:"parent_dirs_only,omitempty"`
+ 	Path               string           `json:"path"`
+ 	UseGitIgnore       bool             `json:"use_gitignore"`
+ 	IncludePatterns    []string         `json:"include_patterns"`
+--- a/engine/filesync/remotefs.go
++++ b/engine/filesync/remotefs.go
+@@ -17,12 +17,13 @@
+ )
+ 
+ type remoteFS struct {
+-	callerConn   *grpc.ClientConn
+-	clientPath   string
+-	includes     []string
+-	excludes     []string
+-	followPaths  []string
+-	useGitIgnore bool
++	callerConn     *grpc.ClientConn
++	clientPath     string
++	includes       []string
++	excludes       []string
++	followPaths    []string
++	useGitIgnore   bool
++	parentDirsOnly bool
+ 
+ 	startOnce   sync.Once
+ 	client      filesync.FileSync_DiffCopyClient
+@@ -68,6 +69,7 @@
+ 	var err error
+ 	fs.client, err = filesync.NewFileSyncClient(fs.callerConn).DiffCopy(engine.LocalImportOpts{
+ 		Path:            fs.clientPath,
++		ParentDirsOnly:  fs.parentDirsOnly,
+ 		UseGitIgnore:    fs.useGitIgnore,
+ 		IncludePatterns: fs.includes,
+ 		ExcludePatterns: fs.excludes,
+--- a/engine/filesync/filesyncer.go
++++ b/engine/filesync/filesyncer.go
+@@ -15,6 +15,7 @@
+ 
+ 	"github.com/dagger/dagger/engine"
+ 	"github.com/dagger/dagger/engine/client/pathutil"
++	"github.com/dagger/dagger/engine/wcprof"
+ 	telemetry "github.com/dagger/otel-go"
+ )
+ 
+@@ -140,6 +141,8 @@
+ 	drive string,
+ 	opts SnapshotOpts,
+ ) (rerr error) {
++	ctx, profOp := wcprof.BeginOp(ctx, wcprof.OpKindIO, "filesync.syncParentDirs", wcprof.OpOpts{})
++	defer func() { profOp.EndErr(rerr) }()
+ 	ctx, cancel := context.WithCancelCause(ctx)
+ 	defer func() {
+ 		cancel(rerr)
+@@ -156,6 +159,10 @@
+ 	}
+ 
+ 	remote := newRemoteFS(callerConn, root, includes, excludes, nil, false)
++	// Keep the existing filter request intact for clients that do not yet
++	// recognize the metadata-only operation. Root or non-literal patterns
++	// retain the general traversal on every client.
++	remote.parentDirsOnly = engine.IsLiteralParentDirectoryTarget(include)
+ 	local, err := newLocalFS(sharedState, "/", includes, excludes, nil, opts.RelativePath)
+ 	if err != nil {
+ 		return fmt.Errorf("failed to create local fs: %w", err)
+--- a/engine/client/filesync.go
++++ b/engine/client/filesync.go
+@@ -115,6 +115,34 @@
+ 	absPath, err := Filesyncer(s).fullRootPathAndBaseName(opts.Path, opts.StatResolvePath)
+ 	if err != nil {
+ 		return fmt.Errorf("get full root path: %w", err)
++	}
++
++	if opts.ParentDirsOnly {
++		if err := opts.ValidateParentDirectoryMetadataRequest(); err != nil {
++			return status.Errorf(codes.InvalidArgument, "invalid parent-directory request: %v", err)
++		}
++		// The wire operation is rooted at the client's filesystem or volume
++		// root, as syncParentDirs has always been. Never reinterpret arbitrary
++		// include/exclude requests as permission to walk another source root.
++		if !filepath.IsAbs(absPath) || filepath.Clean(absPath) != filepath.Clean(filepath.VolumeName(absPath)+string(filepath.Separator)) {
++			return status.Error(codes.InvalidArgument, "parent-directory request must use a filesystem root")
++		}
++		chain, err := fsutil.NewParentMetadataFS(absPath, filepath.FromSlash(opts.IncludePatterns[0]))
++		if err != nil {
++			return fmt.Errorf("prepare parent-directory metadata: %w", err)
++		}
++		filtered, err := fsutil.NewFilterFS(chain, &fsutil.FilterOpt{
++			IncludePatterns: opts.IncludePatterns,
++			ExcludePatterns: opts.ExcludePatterns,
++			Map: func(_ string, st *fstypes.Stat) fsutil.MapResult {
++				normalizeLocalImportStat(st)
++				return fsutil.MapResultKeep
++			},
++		})
++		if err != nil {
++			return fmt.Errorf("filter parent-directory metadata: %w", err)
++		}
++		return fsutil.Send(stream.Context(), stream, filtered, nil)
+ 	}
+ 
+ 	switch {
+--- /dev/null
++++ b/engine/parent_directory_request.go
+@@ -0,0 +1,37 @@
++package engine
++
++import (
++	"fmt"
++	"path"
++	"strings"
++)
++
++// IsLiteralParentDirectoryTarget restricts the opt-in operation to the
++// existing canonical filter pair whose old-client fallback names one path.
++// Paths needing glob escaping and root itself continue using the old request.
++func IsLiteralParentDirectoryTarget(target string) bool {
++	return target != "" && target != "." && strings.TrimSpace(target) == target &&
++		!strings.HasPrefix(target, "!") && !strings.HasPrefix(target, "/") &&
++		!strings.HasPrefix(target, "../") && target != ".." &&
++		!strings.ContainsAny(target, `*?[]^\`) && path.Clean(target) == target
++}
++
++// ValidateParentDirectoryMetadataRequest prevents the explicit operation
++// from silently ignoring filters or other special filesync modes. The path is
++// also checked with the host platform's filepath.IsLocal by the source FS.
++func (o LocalImportOpts) ValidateParentDirectoryMetadataRequest() error {
++	if !o.ParentDirsOnly {
++		return fmt.Errorf("parent directory operation is not enabled")
++	}
++	if o.UseGitIgnore || o.FollowPaths != nil || o.ReadSingleFileOnly || o.MaxFileSize != 0 ||
++		o.StatPathOnly || o.StatReturnAbsPath || o.StatResolvePath || o.GetAbsPathOnly ||
++		o.GlobPattern != "" || o.SearchOpts != nil {
++		return fmt.Errorf("parent directory operation cannot be combined with another filesync mode")
++	}
++	if len(o.IncludePatterns) != 1 || len(o.ExcludePatterns) != 1 ||
++		!IsLiteralParentDirectoryTarget(o.IncludePatterns[0]) ||
++		o.ExcludePatterns[0] != o.IncludePatterns[0]+"/*" {
++		return fmt.Errorf("parent directory operation requires one literal target and its descendant exclusion")
++	}
++	return nil
++}
+--- /dev/null
++++ b/internal/fsutil/parent_metadata.go
+@@ -0,0 +1,118 @@
++package fsutil
++
++import (
++	"context"
++	"io"
++	gofs "io/fs"
++	"os"
++	"path/filepath"
++	"strings"
++	"syscall"
++)
++
++// NewParentMetadataFS describes a literal directory chain, rather than a
++// filtered directory enumeration. It obtains fresh metadata on every walk,
++// does not enumerate siblings, and cannot serve file contents. A missing or
++// non-directory component found during preflight fails before any records are
++// emitted. A concurrent mutation during later stat emission can still fail a
++// partially emitted stream, as in ordinary filesystem synchronization.
++//
++// Unlike glob matching over ReadDir entries, native path lookup applies the
++// host filesystem's spelling/case rules. This is an explicit operation, never
++// an implicit replacement for NewFilterFS. No filesystem-type gate is needed.
++func NewParentMetadataFS(root, target string) (FS, error) {
++	if !filepath.IsLocal(target) || target == "." || filepath.Clean(target) != target {
++		return nil, &os.PathError{Op: "parent metadata target", Path: target, Err: syscall.EINVAL}
++	}
++	base, err := NewFS(root)
++	if err != nil {
++		return nil, err
++	}
++	return &parentMetadataFS{fs: base.(*fs), target: target}, nil
++}
++
++type parentMetadataFS struct {
++	*fs
++	target string
++}
++
++func (f *parentMetadataFS) Open(path string) (io.ReadCloser, error) {
++	return nil, &os.PathError{Op: "open parent metadata", Path: path, Err: syscall.EISDIR}
++}
++
++func (f *parentMetadataFS) Walk(ctx context.Context, target string, fn gofs.WalkDirFunc) error {
++	if target != "" && target != "." && target != string(filepath.Separator) {
++		return &os.PathError{Op: "walk parent metadata", Path: target, Err: syscall.EINVAL}
++	}
++	return f.walk(ctx, fn, os.Lstat)
++}
++
++func (f *parentMetadataFS) walk(ctx context.Context, fn gofs.WalkDirFunc, lstat func(string) (os.FileInfo, error)) error {
++	if err := ctx.Err(); err != nil {
++		return err
++	}
++	rootInfo, err := lstat(f.root)
++	if err != nil {
++		return err
++	}
++	if !rootInfo.IsDir() {
++		return &os.PathError{Op: "parent metadata root", Path: f.root, Err: syscall.ENOTDIR}
++	}
++	// Resolve the complete directory chain first. This preserves the delayed
++	// parent emission of the prior filtered walk when the target disappeared,
++	// and rejects files/symlinks without a partial chain or content stream.
++	seenFiles := make(map[uint64]string)
++	entries := make([]*DirEntryInfo, 0, strings.Count(f.target, string(filepath.Separator))+1)
++	var rel string
++	for _, component := range strings.Split(f.target, string(filepath.Separator)) {
++		if err := ctx.Err(); err != nil {
++			return err
++		}
++		rel = filepath.Join(rel, component)
++		full := filepath.Join(f.root, rel)
++		info, err := lstat(full)
++		if err != nil {
++			return err
++		}
++		if !info.IsDir() {
++			return &os.PathError{Op: "parent directory metadata", Path: full, Err: syscall.ENOTDIR}
++		}
++		entries = append(entries, &DirEntryInfo{
++			path: rel, origpath: full, seenFiles: seenFiles,
++			entry: &parentMetadataEntry{path: full, info: info},
++		})
++	}
++	for _, entry := range entries {
++		if err := ctx.Err(); err != nil {
++			return err
++		}
++		if err := fn(entry.path, entry, nil); err != nil {
++			if err == filepath.SkipDir || err == filepath.SkipAll {
++				return nil
++			}
++			return err
++		}
++	}
++	return nil
++}
++
++// Keep emission-time metadata fresh, as ordinary fsutil DirEntryInfo does.
++// A replacement with a file/symlink is an error, never a content request.
++type parentMetadataEntry struct {
++	path string
++	info os.FileInfo
++}
++
++func (e *parentMetadataEntry) Name() string        { return e.info.Name() }
++func (e *parentMetadataEntry) IsDir() bool         { return true }
++func (e *parentMetadataEntry) Type() gofs.FileMode { return gofs.ModeDir }
++func (e *parentMetadataEntry) Info() (os.FileInfo, error) {
++	info, err := os.Lstat(e.path)
++	if err != nil {
++		return nil, err
++	}
++	if !info.IsDir() {
++		return nil, &os.PathError{Op: "parent directory metadata", Path: e.path, Err: syscall.ENOTDIR}
++	}
++	return info, nil
++}

@@ -1,0 +1,582 @@
+package client
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"testing/synctest"
+	"time"
+
+	"github.com/dagger/dagger/engine"
+	enginetel "github.com/dagger/dagger/engine/telemetry"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/net/http2"
+	"golang.org/x/sync/errgroup"
+)
+
+type sharedHTTPTestConnector struct {
+	handler              http.Handler
+	maxConcurrentStreams uint32
+	dials                atomic.Int64
+	closes               atomic.Int64
+	mu                   sync.Mutex
+	peers                []net.Conn
+	done                 []chan struct{}
+}
+
+func (p *sharedHTTPTestConnector) EngineID() string { return "" }
+func (p *sharedHTTPTestConnector) Connect(ctx context.Context) (net.Conn, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	client, server := net.Pipe()
+	p.dials.Add(1)
+	done := make(chan struct{})
+	p.mu.Lock()
+	p.peers = append(p.peers, server)
+	p.done = append(p.done, done)
+	p.mu.Unlock()
+	go func() {
+		defer close(done)
+		(&http2.Server{MaxConcurrentStreams: p.maxConcurrentStreams}).ServeConn(server, &http2.ServeConnOpts{Handler: p.handler})
+	}()
+	return &sharedHTTPCountConn{Conn: client, count: &p.closes}, nil
+}
+func (p *sharedHTTPTestConnector) stop(t *testing.T) {
+	t.Helper()
+	p.mu.Lock()
+	peers := append([]net.Conn(nil), p.peers...)
+	done := append([]chan struct{}(nil), p.done...)
+	p.mu.Unlock()
+	for _, conn := range peers {
+		_ = conn.Close()
+	}
+	for _, ch := range done {
+		awaitHTTPTest(t, ch)
+	}
+}
+
+type sharedHTTPCountConn struct {
+	net.Conn
+	count *atomic.Int64
+}
+
+func (c *sharedHTTPCountConn) Close() error { c.count.Add(1); return c.Conn.Close() }
+
+func newSharedHTTPTestClient(t *testing.T, handler http.HandlerFunc) (*Client, *httpClient, *sharedHTTPTestConnector) {
+	t.Helper()
+	internal, cancel := context.WithCancelCause(context.Background())
+	closing, closeRequests := context.WithCancelCause(context.Background())
+	peer := &sharedHTTPTestConnector{handler: handler}
+	c := &Client{Params: Params{ID: "transport-client", SessionID: "transport-session", SecretToken: "fixture-only"},
+		connector: peer, internalCtx: internal, internalCancel: cancel, closeCtx: closing,
+		closeRequests: closeRequests, eg: new(errgroup.Group), telemetry: new(errgroup.Group)}
+	c.httpClient = c.newHTTPClient()
+	telemetry := c.newTelemetryHTTPClient()
+	t.Cleanup(func() {
+		closeRequests(context.Canceled)
+		cancel(context.Canceled)
+		c.sharedHTTPTransport().Close()
+		peer.stop(t)
+	})
+	return c, telemetry, peer
+}
+
+func awaitHTTPTest(t *testing.T, ch <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-ch:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for HTTP/2 test peer")
+	}
+}
+func getSharedHTTP(t *testing.T, client *httpClient, ctx context.Context, path string) *http.Response {
+	t.Helper()
+	req, err := http.NewRequestWithContext(ctx, "GET", "http://dagger"+path, nil)
+	require.NoError(t, err)
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	return resp
+}
+func consumeSharedHTTP(t *testing.T, c *Client, client *httpClient, path string, cb func([]byte, liveTelemetryEncoding) error) {
+	t.Helper()
+	ctx, cancel := c.telemetryContext(t.Context())
+	t.Cleanup(func() { cancel(context.Canceled) })
+	consumer := &otlpConsumer{httpClient: client, path: path, eg: c.telemetry, reconnectDelay: time.Millisecond}
+	require.NoError(t, consumer.Consume(ctx, cb))
+}
+
+func TestSharedHTTPTransportMultiplexesAndPreservesCancellationDomains(t *testing.T) {
+	for _, clientCancel := range []bool{false, true} {
+		t.Run(fmt.Sprint(clientCancel), func(t *testing.T) {
+			late := make(chan struct{})
+			apiCanceled := make(chan struct{})
+			var once sync.Once
+			c, telemetry, peer := newSharedHTTPTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+				user, pass, ok := r.BasicAuth()
+				if !ok || user != "fixture-only" || pass != "" {
+					http.Error(w, "invalid fixture auth", 401)
+					return
+				}
+				want := "telemetry"
+				if r.URL.Path == "/api" {
+					want = "api"
+				}
+				if r.Header.Get("X-Independent-Wrapper") != want {
+					http.Error(w, "wrapper header changed", 400)
+					return
+				}
+				if r.URL.Path == "/api" {
+					w.WriteHeader(200)
+					w.(http.Flusher).Flush()
+					<-r.Context().Done()
+					once.Do(func() { close(apiCanceled) })
+					return
+				}
+				w.Header().Set("Content-Type", enginetel.LiveContentType)
+				_ = enginetel.WriteLiveHello(w, 0)
+				w.(http.Flusher).Flush()
+				select {
+				case <-late:
+				case <-r.Context().Done():
+					return
+				}
+				_ = enginetel.WriteLiveFrame(w, 1, []byte("late:"+r.URL.Path))
+				_ = enginetel.WriteLiveTerminal(w, 1)
+			})
+			c.httpClient.headers.Set("X-Independent-Wrapper", "api")
+			telemetry.headers.Set("X-Independent-Wrapper", "telemetry")
+			records := make(chan string, 3)
+			for _, path := range []string{"/v1/traces", "/v1/logs", "/v1/metrics"} {
+				consumeSharedHTTP(t, c, telemetry, path, func(payload []byte, _ liveTelemetryEncoding) error { records <- string(payload); return nil })
+			}
+			apiCtx, cancelAPI := context.WithCancel(t.Context())
+			defer cancelAPI()
+			resp := getSharedHTTP(t, c.httpClient, apiCtx, "/api")
+			require.EqualValues(t, 1, peer.dials.Load(), "four HTTP/2 streams must use one physical connection")
+			if clientCancel {
+				c.closeRequests(errors.New("test API close"))
+			} else {
+				cancelAPI()
+			}
+			_, err := io.ReadAll(resp.Body)
+			require.Error(t, err)
+			require.NoError(t, resp.Body.Close())
+			awaitHTTPTest(t, apiCanceled)
+			require.Zero(t, peer.closes.Load(), "canceling API must leave telemetry's shared connection open")
+			close(late)
+			require.NoError(t, c.telemetry.Wait())
+			var got []string
+			for range 3 {
+				got = append(got, <-records)
+			}
+			require.ElementsMatch(t, []string{"late:/v1/traces", "late:/v1/logs", "late:/v1/metrics"}, got)
+			c.sharedHTTPTransport().Close()
+			c.sharedHTTPTransport().Close()
+			require.EqualValues(t, 1, peer.closes.Load())
+		})
+	}
+}
+
+func TestSharedHTTPTransportCloseDrainsFinalRecords(t *testing.T) {
+	shutdownStarted := make(chan struct{})
+	allowShutdown := make(chan struct{})
+	late := make(chan struct{})
+	apiCanceled := make(chan struct{})
+	var shutdownOnce, apiOnce sync.Once
+	c, telemetry, peer := newSharedHTTPTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case engine.ShutdownEndpoint:
+			shutdownOnce.Do(func() { close(shutdownStarted) })
+			select {
+			case <-allowShutdown:
+			case <-r.Context().Done():
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+		case "/api":
+			w.WriteHeader(200)
+			w.(http.Flusher).Flush()
+			<-r.Context().Done()
+			apiOnce.Do(func() { close(apiCanceled) })
+		default:
+			w.Header().Set("Content-Type", enginetel.LiveContentType)
+			_ = enginetel.WriteLiveHello(w, 0)
+			w.(http.Flusher).Flush()
+			select {
+			case <-late:
+			case <-r.Context().Done():
+				return
+			}
+			_ = enginetel.WriteLiveFrame(w, 1, []byte("final"))
+			_ = enginetel.WriteLiveTerminal(w, 1)
+		}
+	})
+	var received atomic.Int64
+	consumeSharedHTTP(t, c, telemetry, "/v1/traces", func(payload []byte, _ liveTelemetryEncoding) error {
+		if string(payload) == "final" {
+			received.Add(1)
+		}
+		return nil
+	})
+	resp := getSharedHTTP(t, c.httpClient, t.Context(), "/api")
+	closed := make(chan error, 2)
+	for range 2 {
+		go func() { closed <- c.Close() }()
+	}
+	awaitHTTPTest(t, shutdownStarted)
+	require.Zero(t, peer.closes.Load())
+	close(allowShutdown)
+	// Close must still wait for the stream's final cursor, independent of the
+	// shutdown response. Avoid timing assertions: only gate the records here.
+	select {
+	case err := <-closed:
+		t.Fatalf("closed before terminal frame: %v", err)
+	default:
+	}
+	close(late)
+	for range 2 {
+		select {
+		case err := <-closed:
+			require.NoError(t, err)
+		case <-time.After(5 * time.Second):
+			t.Fatal("client close blocked")
+		}
+	}
+	awaitHTTPTest(t, apiCanceled)
+	_, err := io.ReadAll(resp.Body)
+	require.Error(t, err)
+	_ = resp.Body.Close()
+	require.EqualValues(t, 1, received.Load())
+	require.EqualValues(t, 1, peer.dials.Load())
+	require.EqualValues(t, 1, peer.closes.Load())
+	require.NoError(t, c.Close(), "repeated close must not close a physical connection twice")
+	require.EqualValues(t, 1, peer.closes.Load())
+}
+
+func TestSharedHTTPTransportSlowStreamDoesNotBlockAPI(t *testing.T) {
+	writing := make(chan struct{})
+	finished := make(chan struct{})
+	apiBytes := bytes.Repeat([]byte("a"), 1024*1024)
+	c, telemetry, peer := newSharedHTTPTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/slow" {
+			w.WriteHeader(200)
+			w.(http.Flusher).Flush()
+			close(writing)
+			_, _ = io.CopyN(w, endlessHTTPReader{}, 32*1024*1024)
+			close(finished)
+			return
+		}
+		_, _ = w.Write(apiBytes)
+	})
+	slow := getSharedHTTP(t, telemetry, t.Context(), "/slow")
+	awaitHTTPTest(t, writing)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	resp := getSharedHTTP(t, c.httpClient, ctx, "/api")
+	got, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	require.Equal(t, apiBytes, got)
+	require.EqualValues(t, 1, peer.dials.Load())
+	require.NoError(t, slow.Body.Close())
+	awaitHTTPTest(t, finished)
+}
+
+type endlessHTTPReader struct{}
+
+func (endlessHTTPReader) Read(p []byte) (int, error) { clear(p); return len(p), nil }
+
+func TestSharedHTTPTransportFailureDoesNotCancelOtherStreams(t *testing.T) {
+	late := make(chan struct{})
+	c, telemetry, peer := newSharedHTTPTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/broken" {
+			http.Error(w, "unavailable stream", http.StatusGone)
+			return
+		}
+		w.WriteHeader(200)
+		w.(http.Flusher).Flush()
+		select {
+		case <-late:
+		case <-r.Context().Done():
+			return
+		}
+		_, _ = io.WriteString(w, "still running")
+	})
+	api := getSharedHTTP(t, c.httpClient, t.Context(), "/api")
+	consumer := &otlpConsumer{httpClient: telemetry, path: "/broken", eg: c.telemetry}
+	err := consumer.Consume(t.Context(), func([]byte, liveTelemetryEncoding) error { return nil })
+	require.ErrorIs(t, err, errPermanentTelemetryConnection)
+	close(late)
+	data, err := io.ReadAll(api.Body)
+	require.NoError(t, err)
+	require.NoError(t, api.Body.Close())
+	require.Equal(t, "still running", string(data))
+	require.EqualValues(t, 1, peer.dials.Load())
+	require.Zero(t, peer.closes.Load())
+}
+
+func TestSharedHTTPTransportPartialInitializationCleanup(t *testing.T) {
+	streamCanceled := make(chan struct{})
+	c, telemetry, peer := newSharedHTTPTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/missing" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", enginetel.LiveContentType)
+		_ = enginetel.WriteLiveHello(w, 0)
+		w.(http.Flusher).Flush()
+		<-r.Context().Done()
+		close(streamCanceled)
+	})
+	consumeSharedHTTP(t, c, telemetry, "/v1/traces", func([]byte, liveTelemetryEncoding) error { return nil })
+	consumer := &otlpConsumer{httpClient: telemetry, path: "/missing", eg: c.telemetry}
+	err := consumer.Consume(t.Context(), func([]byte, liveTelemetryEncoding) error { return nil })
+	require.Error(t, err)
+	c.cleanupFailedConnect(err)
+	awaitHTTPTest(t, streamCanceled)
+	require.Error(t, c.closeCtx.Err())
+	require.Error(t, c.internalCtx.Err())
+	require.EqualValues(t, 1, peer.dials.Load())
+	require.EqualValues(t, 1, peer.closes.Load())
+}
+
+func TestSharedHTTPTransportPendingDialCancellation(t *testing.T) {
+	for _, ownerClose := range []bool{false, true} {
+		t.Run(fmt.Sprint(ownerClose), func(t *testing.T) {
+			started := make(chan struct{})
+			done := make(chan error, 1)
+			owner := newClientHTTPTransport(t.Context(), func(ctx context.Context) (net.Conn, error) {
+				close(started)
+				<-ctx.Done()
+				return nil, context.Cause(ctx)
+			})
+			t.Cleanup(owner.Close)
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			go func() { _, err := owner.connect(ctx); done <- err }()
+			awaitHTTPTest(t, started)
+			if ownerClose {
+				owner.Close()
+			} else {
+				cancel()
+			}
+			select {
+			case err := <-done:
+				require.Error(t, err)
+			case <-time.After(5 * time.Second):
+				t.Fatal("pending dial not canceled")
+			}
+		})
+	}
+}
+
+func TestSharedHTTPTransportAPILinkReleasedOnBodyCloseAndError(t *testing.T) {
+	closing, cancelClient := context.WithCancelCause(t.Context())
+	defer cancelClient(context.Canceled)
+	var requestCtx context.Context
+	client := &httpClient{closeCtx: closing, inner: &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		requestCtx = req.Context()
+		if req.URL.Path == "/error" {
+			return nil, errors.New("request failed")
+		}
+		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader("ok")), Request: req}, nil
+	})}}
+	resp := getSharedHTTP(t, client, t.Context(), "/ok")
+	require.NoError(t, requestCtx.Err(), "link must survive response headers")
+	require.NoError(t, resp.Body.Close())
+	require.ErrorIs(t, requestCtx.Err(), context.Canceled)
+	req, err := http.NewRequestWithContext(t.Context(), "GET", "http://dagger/error", nil)
+	require.NoError(t, err)
+	_, err = client.Do(req)
+	require.Error(t, err)
+	require.ErrorIs(t, requestCtx.Err(), context.Canceled)
+}
+
+func TestSharedHTTPTransportShutdownFailureClosesPartialStreams(t *testing.T) {
+	streamCanceled := make(chan struct{})
+	c, telemetry, peer := newSharedHTTPTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == engine.ShutdownEndpoint {
+			// A stream error is a request failure, without corrupting another
+			// stream. Preserve the existing Close error handling and cleanup.
+			panic(http.ErrAbortHandler)
+		}
+		w.Header().Set("Content-Type", enginetel.LiveContentType)
+		_ = enginetel.WriteLiveHello(w, 0)
+		w.(http.Flusher).Flush()
+		<-r.Context().Done()
+		close(streamCanceled)
+	})
+	consumeSharedHTTP(t, c, telemetry, "/v1/traces", func([]byte, liveTelemetryEncoding) error { return nil })
+	closed := make(chan error, 1)
+	go func() { closed <- c.Close() }()
+	select {
+	case err := <-closed:
+		require.ErrorContains(t, err, "shutdown")
+	case <-time.After(5 * time.Second):
+		t.Fatal("failed shutdown did not cancel and join telemetry")
+	}
+	awaitHTTPTest(t, streamCanceled)
+	require.EqualValues(t, 1, peer.dials.Load())
+	require.EqualValues(t, 1, peer.closes.Load())
+}
+
+func TestSharedHTTPTransportTelemetryReconnectPreservesAPIStream(t *testing.T) {
+	finishAPI := make(chan struct{})
+	var attempts atomic.Int64
+	c, telemetry, peer := newSharedHTTPTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api" {
+			w.WriteHeader(200)
+			w.(http.Flusher).Flush()
+			select {
+			case <-finishAPI:
+			case <-r.Context().Done():
+				return
+			}
+			_, _ = io.WriteString(w, "API survived reconnect")
+			return
+		}
+		w.Header().Set("Content-Type", enginetel.LiveContentType)
+		_ = enginetel.WriteLiveHello(w, 0)
+		if attempts.Add(1) == 1 {
+			// An incomplete telemetry stream must resume without canceling
+			// another request on the same physical HTTP/2 connection.
+			return
+		}
+		_ = enginetel.WriteLiveFrame(w, 1, []byte("after retry"))
+		_ = enginetel.WriteLiveTerminal(w, 1)
+	})
+	api := getSharedHTTP(t, c.httpClient, t.Context(), "/api")
+	var records atomic.Int64
+	consumeSharedHTTP(t, c, telemetry, "/v1/traces", func(payload []byte, _ liveTelemetryEncoding) error {
+		if string(payload) == "after retry" {
+			records.Add(1)
+		}
+		return nil
+	})
+	require.NoError(t, c.telemetry.Wait())
+	require.EqualValues(t, 2, attempts.Load())
+	require.EqualValues(t, 1, records.Load())
+	close(finishAPI)
+	data, err := io.ReadAll(api.Body)
+	require.NoError(t, err)
+	require.NoError(t, api.Body.Close())
+	require.Equal(t, "API survived reconnect", string(data))
+	require.EqualValues(t, 1, peer.dials.Load())
+}
+
+func TestSharedHTTPTransportCloseJoinsPendingDial(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		started := make(chan struct{})
+		canceled := make(chan struct{})
+		allowReturn := make(chan struct{})
+		closeStarted := make(chan struct{})
+		allowPhysicalClose := make(chan struct{})
+		var returnOnce, closeOnce sync.Once
+		releaseDial := func() { returnOnce.Do(func() { close(allowReturn) }) }
+		releaseClose := func() { closeOnce.Do(func() { close(allowPhysicalClose) }) }
+		defer releaseDial()
+		defer releaseClose()
+		owner := newClientHTTPTransport(t.Context(), func(ctx context.Context) (net.Conn, error) {
+			close(started)
+			<-ctx.Done()
+			close(canceled)
+			<-allowReturn // Model command startup that ignores cancellation.
+			left, right := net.Pipe()
+			_ = right.Close()
+			return &sharedHTTPGatedCloseConn{Conn: left, started: closeStarted, allow: allowPhysicalClose}, nil
+		})
+		dialDone := make(chan struct{})
+		go func() { _, _ = owner.connect(t.Context()); close(dialDone) }()
+		<-started
+		firstDone := make(chan struct{})
+		secondDone := make(chan struct{})
+		go func() { owner.Close(); close(firstDone) }()
+		<-canceled
+		go func() { owner.Close(); close(secondDone) }()
+		synctest.Wait()
+		select {
+		case <-firstDone:
+			t.Error("first Close returned before pending dial completed")
+		default:
+		}
+		select {
+		case <-secondDone:
+			t.Error("concurrent Close did not join the owner")
+		default:
+		}
+		releaseDial()
+		<-closeStarted
+		synctest.Wait()
+		select {
+		case <-firstDone:
+			t.Error("Close returned before physical connection cleanup")
+		default:
+		}
+		select {
+		case <-secondDone:
+			t.Error("concurrent Close returned before physical cleanup")
+		default:
+		}
+		releaseClose()
+		<-dialDone
+		<-firstDone
+		<-secondDone
+		owner.Close()
+	})
+}
+
+type sharedHTTPGatedCloseConn struct {
+	net.Conn
+	started chan struct{}
+	allow   <-chan struct{}
+}
+
+func (c *sharedHTTPGatedCloseConn) Close() error {
+	close(c.started)
+	<-c.allow
+	return c.Conn.Close()
+}
+
+func TestSharedHTTPTransportRespectsPeerStreamLimit(t *testing.T) {
+	finish := make(chan struct{})
+	c, telemetry, peer := newSharedHTTPTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api" {
+			_, _ = io.WriteString(w, "api")
+			return
+		}
+		w.Header().Set("Content-Type", enginetel.LiveContentType)
+		_ = enginetel.WriteLiveHello(w, 0)
+		w.(http.Flusher).Flush()
+		select {
+		case <-finish:
+		case <-r.Context().Done():
+			return
+		}
+		_ = enginetel.WriteLiveTerminal(w, 0)
+	})
+	peer.maxConcurrentStreams = 3
+	for _, path := range []string{"/v1/traces", "/v1/logs", "/v1/metrics"} {
+		consumeSharedHTTP(t, c, telemetry, path, func([]byte, liveTelemetryEncoding) error { return nil })
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	resp := getSharedHTTP(t, c.httpClient, ctx, "/api")
+	data, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	require.Equal(t, "api", string(data))
+	require.EqualValues(t, 2, peer.dials.Load(), "ordinary transport may open another connection instead of blocking behind three occupied streams")
+	close(finish)
+	require.NoError(t, c.telemetry.Wait())
+	c.sharedHTTPTransport().Close()
+	require.EqualValues(t, 2, peer.closes.Load())
+}

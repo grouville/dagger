@@ -1,0 +1,55 @@
+"""Offline allowlisted evidence for the 54-call matched cleanup trial."""
+from pathlib import Path
+import collections,hashlib,json,statistics,shutil
+HERE=Path(__file__).resolve().parent;ROOT=HERE.parent;TRIAL=HERE/'results-v1';OUT=HERE/'evidence-v2';PROTO=ROOT/'prototype-v2'
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def put(name,v):(OUT/name).write_text(json.dumps(v,indent=2)+'\n')
+r=json.loads((TRIAL/'results.json').read_text());restore=json.loads((TRIAL/'restoration.json').read_text());assert len(r)==54 and all(x['correct']and not x['profile']and not x['unexpected_cloud_link']for x in r)
+assert collections.Counter(x['phase']for x in r)=={'explicit-primer':12,'warm':36,'sentinel-fail':3,'sentinel-restored':3}
+assert all(restore[x]for x in ['fixtures_restored','engine_original_restored','engine_stopped'])and restore['cloud_commands']==0
+for x in r:x['cli_process_tree_cpu_seconds']=x['process_tree_user_seconds']+x['process_tree_system_seconds']
+summary=[]
+for f in ['core','ws','call','generate']:
+ group={v:[x for x in r if x['phase']=='warm'and x['flow']==f and x['variant']==v]for v in ['original','baseline','candidate']};assert all(len(x)==3 for x in group.values())
+ if f=='generate':assert all(x['output_already_current']and x['file_visible_seconds']is None for rows in group.values()for x in rows)
+ s={'flow':f,'n_each':3,'variants':{},'triple_deltas_ms':{}}
+ for v,rows in group.items():
+  s['variants'][v]={'wall_ms':[x['seconds']*1000 for x in rows],'median_wall_ms':statistics.median(x['seconds']for x in rows)*1000,'median_cli_process_tree_cpu_ms':statistics.median(x['cli_process_tree_cpu_seconds']for x in rows)*1000,'median_engine_cpu_bracket_ms':statistics.median(x['engine_cpu_seconds']for x in rows)*1000}
+ for left,right in [('candidate','original'),('candidate','baseline'),('baseline','original')]:
+  s['triple_deltas_ms'][left+'-minus-'+right]=[(next(x for x in group[left]if x['block']//3==i)['seconds']-next(x for x in group[right]if x['block']//3==i)['seconds'])*1000 for i in range(3)]
+ summary.append(s)
+OUT.mkdir(exist_ok=False)
+allowed=['variant','flow','phase','block','expected_failure','input_sha256','app_main_sha256','native_module_sha256','seconds','started_unix_ns','exited_unix_ns','exit_code','timed_out','correct','stdout_sha256','file_visible_seconds','output_already_current','file_visible_censored_at_exit','process_tree_user_seconds','process_tree_system_seconds','cli_process_tree_cpu_seconds','engine_cpu_seconds','engine_written_bytes','counter_bracket_seconds','unexpected_cloud_link']
+put('numeric-evidence.json',{'summary':summary,'rows':[{k:x[k]for k in allowed}for x in r],'restoration':restore,'variant_names':{'original':'separate API and telemetry pools','baseline':'shared transport, serial joined cleanup','candidate':'shared transport, concurrently joined cleanup'}})
+put('provenance.json',{'driver_sha256':sha(HERE/'runtime.py'),'reducer_sha256':sha(__file__),'raw_results_sha256':sha(TRIAL/'results.json'),'restoration_sha256':sha(TRIAL/'restoration.json'),'matched_cli_builds':json.loads((PROTO/'builds/runtime-builds.json').read_text()),'engine_sha256':'2c005dfc7f2d7ad65ec0ed0f28c27aad1af1ea47a26602cc0ad7740c11acf62f','validation_results_sha256':sha(PROTO/'validation-v2/results.json'),'local_commands':54,'cloud_commands':0,'profiles':0,'scope':'Four warm flows and correctness sentinels. Same engine process/volume; three rotated triples; all exact flows primed once per CLI. No expanded check listing, source-edit benchmark, fresh-volume cold or Cloud measurement.'})
+shutil.copyfile(HERE/'runtime.py',OUT/'runtime.py.txt');shutil.copyfile(__file__,OUT/'analyze.py.txt');shutil.copyfile(HERE/'previous-driver-delta.patch',OUT/'driver-delta.patch.txt')
+lines=['The cleanup-overlap correction passes its lifecycle tests but does not repair the shared-transport performance regression. Keep both shared-transport variants isolated; neither is recommended for production adoption from these measurements.','',
+'Three CLIs were freshly built from the same HEAD0d source, parent metadata implementation, dependency bytes and flags. Original uses separate API/telemetry pools; serial shares one per-client transport but joins physical cleanup after other cleanup; concurrent schedules that same fully joined owner in the existing cleanup group. The owner still joins established connections and pending dials. Nothing is allowed to escape after CLI exit.','',
+'The experiment contains 12 counted exact-flow primers, 36 ordinary warm commands and six sentinel fail/restore calls: 54 local commands total, all correct. All four flows run in three rotated triples ABC, BCA, CAB. Every time includes CLI spawn through full process exit. Engine startup/stop and out-of-process counters are excluded. There are no Cloud calls or profiler-enabled commands.','',
+'| Warm flow | Original | Shared, serial | Shared, concurrent | Concurrent − original, each triple |','| --- | ---: | ---: | ---: | --- |']
+labels={'core':'Core API version','ws':'Workspace files','call':'Native API call','generate':'Native generation'}
+for s in summary:
+ values=[s['variants'][v]['median_wall_ms']for v in ['original','baseline','candidate']]
+ lines.append('| '+labels[s['flow']]+' | '+' | '.join(f'{x:.1f} ms'for x in values)+' | '+' / '.join(f'{x:+.1f} ms'for x in s['triple_deltas_ms']['candidate-minus-original'])+' |')
+lines += ['', 'Each median has three samples. The concurrently joined version is slower than original generation in all three triples. Against shared-serial it changes generation by +27.2, +9.7 and −13.3 ms; the proposed scheduling correction is therefore not an observed latency repair. Original, serial and concurrent raw samples are all retained; the earlier 90-command series is not replaced.', '',
+'| Warm flow | Original CLI + child CPU | Serial CLI + child CPU | Concurrent CLI + child CPU |','| --- | ---: | ---: | ---: |']
+for s in summary:lines.append('| '+labels[s['flow']]+' | '+' | '.join(f"{s['variants'][v]['median_cli_process_tree_cpu_ms']:.1f} ms"for v in ['original','baseline','candidate'])+' |')
+lines += ['', 'Engine CPU brackets are also retained, but include background work. They are not added to elapsed times and do not by themselves explain the regression. There is no file-visible event for warm generation because generated bytes are already correct and remain untouched; a fabricated zero or file-to-exit tail would be misleading.', '',
+'The strengthened deterministic test gates actual client net.Conn.Close start and completion separately from another cleanup task. It proves both resources are joined, and that physical closure can proceed while the other task is blocked. Both release orders fail on serial-v1 and pass on the correction. The full focused normal and race suites also pass, including real HTTP/2 final telemetry, cancellation, reconnect, partial initialization and pending-dial cleanup.', '',
+'The first new witness used a real HTTP/2 server inside synctest. It passed on the correction, but a later test crashed when x/net/http2 reused a pooled channel outside that synctest bubble. That failed fixture run is preserved. Only the witness was replaced with a directly owned gated net.Conn and a fake shutdown response; real HTTP/2 lifecycle coverage was retained and rerun. The production overlap patch did not change during this fixture correction.', '',
+'This narrow trial validates core API version, workspace listing, native API output, already-current native generation, and intentional native check failure/restoration. It does not validate a new expanded 14-row listing result or measure actual SDK generators, fresh edits, cold starts or Cloud overhead. The earlier broader 90-command trial covers its own distinct flows.', '',
+'Both fixture bytes and the original engine binary were restored; the engine was stopped and no resource was deleted. The next useful investigation would attribute specific API/drain/physical-close phases with separate local diagnostics. More ordinary repetitions without a causal measurement are not justified by this result.']
+paired_cpu=[]
+for flow in ['generate','call']:
+ for triple in range(3):
+  group={x['variant']:x for x in r if x['phase']=='warm'and x['flow']==flow and x['block']//3==triple}
+  item={'flow':flow,'triple':triple}
+  for left,right in [('candidate','original'),('candidate','baseline')]:
+   a,b=group[left],group[right]
+   item[left+'-minus-'+right]={'wall_ms':(a['seconds']-b['seconds'])*1000,'cli_process_tree_cpu_ms':(a['cli_process_tree_cpu_seconds']-b['cli_process_tree_cpu_seconds'])*1000,'engine_cpu_bracket_ms':(a['engine_cpu_seconds']-b['engine_cpu_seconds'])*1000}
+  paired_cpu.append(item)
+put('paired-cpu.json',paired_cpu)
+lines += ['', 'Generation paired CPU does not isolate physical-close waiting. Concurrent minus original CLI-plus-children CPU is +16.4 / +6.5 / +39.0 ms, while engine CPU brackets are +54.3 / −8.2 / −122.7 ms. Concurrent minus serial CLI-plus-children CPU is also higher in all three (+21.4 / +11.9 / +29.6 ms), although wall time improves in the last triple. Thus the evidence supports neither a pure added-wait explanation nor consistently more engine work. Both shared variants fully join the same owner; the original has weaker physical cleanup ownership, which also limits comparisons of process-tree accounting. These are aggregate counters, not timed Close stages.']
+(OUT/'report.md').write_text('\n'.join(lines)+'\n')
+files=sorted(x.name for x in OUT.iterdir()if x.is_file());put('checksums.json',{n:sha(OUT/n)for n in files});files.append('checksums.json');(OUT/'allowlist.txt').write_text('\n'.join(files)+'\n')
+print(OUT/'allowlist.txt')

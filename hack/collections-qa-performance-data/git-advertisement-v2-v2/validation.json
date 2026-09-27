@@ -1,0 +1,74 @@
+{
+  "results": [
+    {
+      "mode": "normal",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-json",
+        "-count=1",
+        "-timeout=60s",
+        "/tmp/collections-perf/git-advertisement-v2-v2/main.go",
+        "/tmp/collections-perf/git-advertisement-v2-v2/main_test.go"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.46653704391792417,
+      "passed_groups": [
+        "TestAdvertisementParsing",
+        "TestAdvertisementHTTPPrefixAndOptionalLF",
+        "TestFixedScheduleWireAndReuse",
+        "TestNoReplayRedirectAndFailureBounds",
+        "TestV0FallbackAndBodyTiming",
+        "TestResponseAndRequestCaps",
+        "TestCancellationAndHeaderBound"
+      ],
+      "failures": []
+    },
+    {
+      "mode": "race",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-json",
+        "-count=1",
+        "-timeout=60s",
+        "-race",
+        "/tmp/collections-perf/git-advertisement-v2-v2/main.go",
+        "/tmp/collections-perf/git-advertisement-v2-v2/main_test.go"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 1.7260011630132794,
+      "passed_groups": [
+        "TestAdvertisementParsing",
+        "TestAdvertisementHTTPPrefixAndOptionalLF",
+        "TestFixedScheduleWireAndReuse",
+        "TestNoReplayRedirectAndFailureBounds",
+        "TestV0FallbackAndBodyTiming",
+        "TestResponseAndRequestCaps",
+        "TestCancellationAndHeaderBound"
+      ],
+      "failures": []
+    },
+    {
+      "mode": "build",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "build",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-buildvcs=false",
+        "-o",
+        "/tmp/collections-perf/git-advertisement-v2-v2/git-advertisement-probe",
+        "/tmp/collections-perf/git-advertisement-v2-v2/main.go"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.4149471849668771
+    }
+  ],
+  "remote_requests": 0,
+  "cloud_requests": 0
+}

@@ -1,0 +1,21 @@
+from pathlib import Path
+import collections,json,hashlib
+H=Path(__file__).resolve().parent;p=Path('/tmp/collections-perf/direct-unix-transport-v1/results-v1/53-5-diagnostic-checks-unix/run.wcprof.private')
+with p.open()as f:h=json.loads(next(f));ops=[json.loads(l)for l in f if l.strip()]
+ops=[o for o in ops if o.get('e')=='op'];name=lambda o:h['strings'][o.get('c',0)];by={o['id']:o for o in ops};children=collections.defaultdict(list)
+for o in ops:children[o.get('p')].append(o)
+rows=[]
+for label in ['backend:Query.backend','backend:Backend.goTestBase']:
+ rs=[o for o in ops if name(o)==label and o['k']=='call_exec'];assert len(rs)==1;r=rs[0];desc=[];stack=list(children[r['id']])
+ while stack:o=stack.pop();desc.append(o);stack.extend(children[o['id']])
+ groups=collections.defaultdict(list)
+ for o in desc:groups[(o['k'],name(o))].append(o)
+ aggs=[{'kind':k,'class':n,'count':len(xs),'sum_ms':sum(o['d']-o['s']for o in xs)/1e6,'max_ms':max(o['d']-o['s']for o in xs)/1e6}for(k,n),xs in groups.items()];aggs.sort(key=lambda x:x['sum_ms'],reverse=True)
+ timeline=[]
+ for o in sorted(ops,key=lambda o:o['s']):
+  if o['s']<r['s']or o['d']>r['d']:continue
+  if o['k']in['exec','exec_phase','query']or name(o).startswith(('session.','module.','runtime.','client.')):
+   timeline.append({'kind':o['k'],'class':name(o),'start_ms':(o['s']-r['s'])/1e6,'duration_ms':(o['d']-o['s'])/1e6,'direct_descendant':o in desc})
+ rows.append({'call':label,'duration_ms':(r['d']-r['s'])/1e6,'descendants':len(desc),'aggregates':aggs,'temporal_subphases':timeline})
+(H/'runtime-numeric.json').write_text(json.dumps({'profile_sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'calls':rows,'warning':'Nested inclusive sums overlap. Temporal intervals include cross-session work without proving direct ancestry; no command/source/argument values are retained.'},indent=2)+'\n')
+for r in rows:print(json.dumps(dict(call=r['call'],duration_ms=r['duration_ms'],top=r['aggregates'][:25],phases=r['temporal_subphases']),indent=2))

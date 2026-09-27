@@ -1,0 +1,627 @@
+{
+  "ordinary": [
+    {
+      "phase": "first-api-after-restart",
+      "flow": "core",
+      "variants": {
+        "baseline": {
+          "n": 2,
+          "samples_ms": [
+            517.90487091057,
+            487.86197206936777
+          ],
+          "median_ms": 502.8834214899689,
+          "median_engine_cpu_ms": 1240.5205,
+          "engine_write_bytes_total": 118784
+        },
+        "candidate": {
+          "n": 2,
+          "samples_ms": [
+            509.5678099896759,
+            471.04499000124633
+          ],
+          "median_ms": 490.3063999954611,
+          "median_engine_cpu_ms": 1170.56,
+          "engine_write_bytes_total": 110592
+        }
+      },
+      "delta_ms": -12.57702149450779,
+      "percent": -2.5009815311158867
+    },
+    {
+      "phase": "explicit-primer",
+      "flow": "module",
+      "variants": {
+        "baseline": {
+          "n": 2,
+          "samples_ms": [
+            503.2920960802585,
+            500.73584099300206
+          ],
+          "median_ms": 502.0139685366303,
+          "median_engine_cpu_ms": 1221.3654999999999,
+          "engine_write_bytes_total": 106496
+        },
+        "candidate": {
+          "n": 2,
+          "samples_ms": [
+            479.2751220520586,
+            507.4358719866723
+          ],
+          "median_ms": 493.35549701936543,
+          "median_engine_cpu_ms": 1260.3580000000002,
+          "engine_write_bytes_total": 106496
+        }
+      },
+      "delta_ms": -8.658471517264843,
+      "percent": -1.7247471305438467
+    },
+    {
+      "phase": "explicit-primer",
+      "flow": "listing",
+      "variants": {
+        "baseline": {
+          "n": 2,
+          "samples_ms": [
+            2951.7394530121237,
+            2611.1431778408587
+          ],
+          "median_ms": 2781.441315426491,
+          "median_engine_cpu_ms": 9971.6035,
+          "engine_write_bytes_total": 495616
+        },
+        "candidate": {
+          "n": 2,
+          "samples_ms": [
+            2866.7062108870596,
+            2608.0146150197834
+          ],
+          "median_ms": 2737.3604129534215,
+          "median_engine_cpu_ms": 9832.749,
+          "engine_write_bytes_total": 499712
+        }
+      },
+      "delta_ms": -44.08090247306973,
+      "percent": -1.584822308800382
+    },
+    {
+      "phase": "warm",
+      "flow": "core",
+      "variants": {
+        "baseline": {
+          "n": 4,
+          "samples_ms": [
+            253.56147391721606,
+            209.0247378218919,
+            237.02003806829453,
+            206.95709413848817
+          ],
+          "median_ms": 223.02238794509321,
+          "median_engine_cpu_ms": 258.8205,
+          "engine_write_bytes_total": 45056
+        },
+        "candidate": {
+          "n": 4,
+          "samples_ms": [
+            229.99483812600374,
+            206.3065469264984,
+            246.24453112483025,
+            232.83205786719918
+          ],
+          "median_ms": 231.41344799660146,
+          "median_engine_cpu_ms": 258.5215,
+          "engine_write_bytes_total": 40960
+        }
+      },
+      "delta_ms": 8.391060051508248,
+      "percent": 3.7624294712394812
+    },
+    {
+      "phase": "warm",
+      "flow": "module",
+      "variants": {
+        "baseline": {
+          "n": 4,
+          "samples_ms": [
+            315.94154285266995,
+            290.33572995103896,
+            357.66624798998237,
+            292.0045340433717
+          ],
+          "median_ms": 303.9730384480208,
+          "median_engine_cpu_ms": 294.5,
+          "engine_write_bytes_total": 49152
+        },
+        "candidate": {
+          "n": 4,
+          "samples_ms": [
+            341.48278599604964,
+            331.0952039901167,
+            356.4948688726872,
+            308.3863630890846
+          ],
+          "median_ms": 336.2889949930832,
+          "median_engine_cpu_ms": 492.78550000000007,
+          "engine_write_bytes_total": 57344
+        }
+      },
+      "delta_ms": 32.31595654506236,
+      "percent": 10.631191736627787
+    },
+    {
+      "phase": "warm",
+      "flow": "listing",
+      "variants": {
+        "baseline": {
+          "n": 4,
+          "samples_ms": [
+            1439.8546209558845,
+            1403.991220984608,
+            1447.802108945325,
+            1486.5463399328291
+          ],
+          "median_ms": 1443.8283649506047,
+          "median_engine_cpu_ms": 3961.2495,
+          "engine_write_bytes_total": 8192
+        },
+        "candidate": {
+          "n": 4,
+          "samples_ms": [
+            1544.9447580613196,
+            1483.987573068589,
+            1455.1111930049956,
+            1512.7208100166172
+          ],
+          "median_ms": 1498.354191542603,
+          "median_engine_cpu_ms": 3966.2169999999996,
+          "engine_write_bytes_total": 12288
+        }
+      },
+      "delta_ms": 54.52582659199834,
+      "percent": 3.7764756473574135
+    }
+  ],
+  "cloud_commands": 0,
+  "validated_commands": 38,
+  "profiles": [
+    {
+      "variant": "baseline",
+      "profile_sha256": "cec7de69aa5aea3f0f0e35fb6defd119d8fa79a1782f4d4a178563e22012136e",
+      "operation_count": 11465,
+      "dropped_events": 0,
+      "open_ops": 0,
+      "profile_window_ms": 381.74654,
+      "phases": [
+        {
+          "kind": "call",
+          "class": "Query.__currentTypeDefsJSON",
+          "count": 1,
+          "inclusive_sum_ms": 329.92056,
+          "interval_union_ms": 329.92056,
+          "max_ms": 329.92056,
+          "outcomes": {
+            "executed": 1
+          }
+        },
+        {
+          "kind": "call",
+          "class": "Query.currentTypeDefs",
+          "count": 1,
+          "inclusive_sum_ms": 321.415228,
+          "interval_union_ms": 321.415228,
+          "max_ms": 321.415228,
+          "outcomes": {
+            "executed": 1
+          }
+        },
+        {
+          "kind": "call",
+          "class": "ObjectTypeDef.__withFunction",
+          "count": 865,
+          "inclusive_sum_ms": 39.668629,
+          "interval_union_ms": 39.668629,
+          "max_ms": 0.233847,
+          "outcomes": {
+            "hit": 783,
+            "executed": 82
+          }
+        },
+        {
+          "kind": "call",
+          "class": "ObjectTypeDef.__withFunctions",
+          "count": 0,
+          "inclusive_sum_ms": 0.0,
+          "interval_union_ms": 0.0,
+          "max_ms": 0.0,
+          "outcomes": {}
+        },
+        {
+          "kind": "call",
+          "class": "InterfaceTypeDef.__withFunction",
+          "count": 2,
+          "inclusive_sum_ms": 0.041125,
+          "interval_union_ms": 0.041125,
+          "max_ms": 0.023006,
+          "outcomes": {
+            "hit": 2
+          }
+        },
+        {
+          "kind": "call",
+          "class": "InterfaceTypeDef.__withFunctions",
+          "count": 0,
+          "inclusive_sum_ms": 0.0,
+          "interval_union_ms": 0.0,
+          "max_ms": 0.0,
+          "outcomes": {}
+        },
+        {
+          "kind": "call",
+          "class": "Function.__withArg",
+          "count": 819,
+          "inclusive_sum_ms": 24.541463,
+          "interval_union_ms": 24.541463,
+          "max_ms": 0.241256,
+          "outcomes": {
+            "hit": 755,
+            "executed": 64
+          }
+        },
+        {
+          "kind": "call",
+          "class": "Query.__function",
+          "count": 867,
+          "inclusive_sum_ms": 17.983489,
+          "interval_union_ms": 17.983489,
+          "max_ms": 0.458336,
+          "outcomes": {
+            "hit": 806,
+            "executed": 61
+          }
+        },
+        {
+          "kind": "call",
+          "class": "Query.__functionArgExact",
+          "count": 819,
+          "inclusive_sum_ms": 22.11236,
+          "interval_union_ms": 22.11236,
+          "max_ms": 0.287153,
+          "outcomes": {
+            "hit": 759,
+            "executed": 60
+          }
+        },
+        {
+          "kind": "call",
+          "class": "Function.withDescription",
+          "count": 820,
+          "inclusive_sum_ms": 30.468708,
+          "interval_union_ms": 30.468708,
+          "max_ms": 12.612856,
+          "outcomes": {
+            "hit": 782,
+            "executed": 38
+          }
+        },
+        {
+          "kind": "call_exec",
+          "class": "Query.__currentTypeDefsJSON",
+          "count": 1,
+          "inclusive_sum_ms": 329.83192,
+          "interval_union_ms": 329.83192,
+          "max_ms": 329.83192,
+          "outcomes": {
+            "ok": 1
+          }
+        },
+        {
+          "kind": "call_exec",
+          "class": "Query.currentTypeDefs",
+          "count": 1,
+          "inclusive_sum_ms": 320.054652,
+          "interval_union_ms": 320.054652,
+          "max_ms": 320.054652,
+          "outcomes": {
+            "ok": 1
+          }
+        },
+        {
+          "kind": "call_exec",
+          "class": "ObjectTypeDef.__withFunction",
+          "count": 82,
+          "inclusive_sum_ms": 2.010874,
+          "interval_union_ms": 2.010874,
+          "max_ms": 0.038278,
+          "outcomes": {
+            "ok": 82
+          }
+        },
+        {
+          "kind": "call_exec",
+          "class": "ObjectTypeDef.__withFunctions",
+          "count": 0,
+          "inclusive_sum_ms": 0.0,
+          "interval_union_ms": 0.0,
+          "max_ms": 0.0,
+          "outcomes": {}
+        },
+        {
+          "kind": "call_exec",
+          "class": "InterfaceTypeDef.__withFunction",
+          "count": 0,
+          "inclusive_sum_ms": 0.0,
+          "interval_union_ms": 0.0,
+          "max_ms": 0.0,
+          "outcomes": {}
+        },
+        {
+          "kind": "call_exec",
+          "class": "InterfaceTypeDef.__withFunctions",
+          "count": 0,
+          "inclusive_sum_ms": 0.0,
+          "interval_union_ms": 0.0,
+          "max_ms": 0.0,
+          "outcomes": {}
+        },
+        {
+          "kind": "internal",
+          "class": "dagql.publishResult",
+          "count": 435,
+          "inclusive_sum_ms": 15.049854,
+          "interval_union_ms": 15.049854,
+          "max_ms": 1.341514,
+          "outcomes": {
+            "ok": 435
+          }
+        },
+        {
+          "kind": "session_phase",
+          "class": "session.query",
+          "count": 2,
+          "inclusive_sum_ms": 350.144123,
+          "interval_union_ms": 350.144123,
+          "max_ms": 349.575154,
+          "outcomes": {
+            "ok": 2
+          }
+        },
+        {
+          "kind": "session_phase",
+          "class": "session.schemaBuild",
+          "count": 2,
+          "inclusive_sum_ms": 0.35229,
+          "interval_union_ms": 0.35229,
+          "max_ms": 0.351081,
+          "outcomes": {
+            "ok": 2
+          }
+        }
+      ]
+    },
+    {
+      "variant": "candidate",
+      "profile_sha256": "9220ff326ec7f414a44146cabf54936f5bef955b8bf2d406b7ccd05af988de59",
+      "operation_count": 10655,
+      "dropped_events": 0,
+      "open_ops": 0,
+      "profile_window_ms": 320.052677,
+      "phases": [
+        {
+          "kind": "call",
+          "class": "Query.__currentTypeDefsJSON",
+          "count": 1,
+          "inclusive_sum_ms": 272.335104,
+          "interval_union_ms": 272.335104,
+          "max_ms": 272.335104,
+          "outcomes": {
+            "executed": 1
+          }
+        },
+        {
+          "kind": "call",
+          "class": "Query.currentTypeDefs",
+          "count": 1,
+          "inclusive_sum_ms": 265.666879,
+          "interval_union_ms": 265.666879,
+          "max_ms": 265.666879,
+          "outcomes": {
+            "executed": 1
+          }
+        },
+        {
+          "kind": "call",
+          "class": "ObjectTypeDef.__withFunction",
+          "count": 41,
+          "inclusive_sum_ms": 5.418846,
+          "interval_union_ms": 5.418846,
+          "max_ms": 0.554127,
+          "outcomes": {
+            "hit": 3,
+            "executed": 38
+          }
+        },
+        {
+          "kind": "call",
+          "class": "ObjectTypeDef.__withFunctions",
+          "count": 86,
+          "inclusive_sum_ms": 4.255618,
+          "interval_union_ms": 4.255618,
+          "max_ms": 0.318082,
+          "outcomes": {
+            "hit": 78,
+            "executed": 8
+          }
+        },
+        {
+          "kind": "call",
+          "class": "InterfaceTypeDef.__withFunction",
+          "count": 2,
+          "inclusive_sum_ms": 0.036563,
+          "interval_union_ms": 0.036563,
+          "max_ms": 0.019679,
+          "outcomes": {
+            "hit": 2
+          }
+        },
+        {
+          "kind": "call",
+          "class": "InterfaceTypeDef.__withFunctions",
+          "count": 0,
+          "inclusive_sum_ms": 0.0,
+          "interval_union_ms": 0.0,
+          "max_ms": 0.0,
+          "outcomes": {}
+        },
+        {
+          "kind": "call",
+          "class": "Function.__withArg",
+          "count": 819,
+          "inclusive_sum_ms": 23.549695,
+          "interval_union_ms": 23.549695,
+          "max_ms": 0.151851,
+          "outcomes": {
+            "hit": 755,
+            "executed": 64
+          }
+        },
+        {
+          "kind": "call",
+          "class": "Query.__function",
+          "count": 867,
+          "inclusive_sum_ms": 16.426408,
+          "interval_union_ms": 16.426408,
+          "max_ms": 0.255346,
+          "outcomes": {
+            "hit": 806,
+            "executed": 61
+          }
+        },
+        {
+          "kind": "call",
+          "class": "Query.__functionArgExact",
+          "count": 819,
+          "inclusive_sum_ms": 20.766807,
+          "interval_union_ms": 20.766807,
+          "max_ms": 0.263456,
+          "outcomes": {
+            "hit": 759,
+            "executed": 60
+          }
+        },
+        {
+          "kind": "call",
+          "class": "Function.withDescription",
+          "count": 820,
+          "inclusive_sum_ms": 16.30219,
+          "interval_union_ms": 16.30219,
+          "max_ms": 0.196254,
+          "outcomes": {
+            "hit": 782,
+            "executed": 38
+          }
+        },
+        {
+          "kind": "call_exec",
+          "class": "Query.__currentTypeDefsJSON",
+          "count": 1,
+          "inclusive_sum_ms": 272.258185,
+          "interval_union_ms": 272.258185,
+          "max_ms": 272.258185,
+          "outcomes": {
+            "ok": 1
+          }
+        },
+        {
+          "kind": "call_exec",
+          "class": "Query.currentTypeDefs",
+          "count": 1,
+          "inclusive_sum_ms": 264.465091,
+          "interval_union_ms": 264.465091,
+          "max_ms": 264.465091,
+          "outcomes": {
+            "ok": 1
+          }
+        },
+        {
+          "kind": "call_exec",
+          "class": "ObjectTypeDef.__withFunction",
+          "count": 38,
+          "inclusive_sum_ms": 0.934645,
+          "interval_union_ms": 0.934645,
+          "max_ms": 0.044438,
+          "outcomes": {
+            "ok": 38
+          }
+        },
+        {
+          "kind": "call_exec",
+          "class": "ObjectTypeDef.__withFunctions",
+          "count": 8,
+          "inclusive_sum_ms": 0.323053,
+          "interval_union_ms": 0.323053,
+          "max_ms": 0.07867,
+          "outcomes": {
+            "ok": 8
+          }
+        },
+        {
+          "kind": "call_exec",
+          "class": "InterfaceTypeDef.__withFunction",
+          "count": 0,
+          "inclusive_sum_ms": 0.0,
+          "interval_union_ms": 0.0,
+          "max_ms": 0.0,
+          "outcomes": {}
+        },
+        {
+          "kind": "call_exec",
+          "class": "InterfaceTypeDef.__withFunctions",
+          "count": 0,
+          "inclusive_sum_ms": 0.0,
+          "interval_union_ms": 0.0,
+          "max_ms": 0.0,
+          "outcomes": {}
+        },
+        {
+          "kind": "internal",
+          "class": "dagql.publishResult",
+          "count": 399,
+          "inclusive_sum_ms": 14.580999,
+          "interval_union_ms": 14.580999,
+          "max_ms": 1.185532,
+          "outcomes": {
+            "ok": 399
+          }
+        },
+        {
+          "kind": "session_phase",
+          "class": "session.query",
+          "count": 2,
+          "inclusive_sum_ms": 294.548303,
+          "interval_union_ms": 294.548303,
+          "max_ms": 294.103054,
+          "outcomes": {
+            "ok": 2
+          }
+        },
+        {
+          "kind": "session_phase",
+          "class": "session.schemaBuild",
+          "count": 2,
+          "inclusive_sum_ms": 0.289368,
+          "interval_union_ms": 0.289368,
+          "max_ms": 0.287839,
+          "outcomes": {
+            "ok": 2
+          }
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "Retained same volume and warm host pages/images; first API after process restart is not cold-volume startup.",
+    "Two first-API samples and four warm samples per variant; report all raw values, not a general promise.",
+    "Separate profiles are diagnostics, excluded from ordinary medians; inclusive and union times overlap.",
+    "Engine CPU/I/O counters bracket the CLI and include any background activity."
+  ]
+}

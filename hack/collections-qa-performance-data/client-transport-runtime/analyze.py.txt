@@ -1,0 +1,59 @@
+"""Reduce recorded local transport measurements; no engines/network or raw output."""
+from pathlib import Path
+import collections,hashlib,json,statistics,shutil
+HERE=Path(__file__).resolve().parent;ROOT=HERE.parent
+TRIAL=HERE/'results-v1';OUT=HERE/'evidence-v1';PROTO=ROOT/'prototype-v1'
+def sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+def put(name,data):(OUT/name).write_text(json.dumps(data,indent=2)+'\n')
+def median(rows,key):return statistics.median(row[key]for row in rows)
+rows=json.loads((TRIAL/'results.json').read_text());restored=json.loads((TRIAL/'restoration.json').read_text())
+assert len(rows)==90 and all(r['correct'] and not r['unexpected_cloud_link'] and not r['profile']for r in rows)
+assert all(restored[k]for k in ['fixtures_restored','engine_original_restored','engine_stopped'])
+assert restored['cloud_commands']==0
+assert collections.Counter(r['phase']for r in rows)=={'explicit-primer':18,'warm':54,'fresh-edit':12,'sentinel-fail':2,'sentinel-restored':2,'correctness-only':2}
+for phase,flows in [('warm',['core','ws','artifacts','checks','generators','call','check','generate','export']),('fresh-edit',['check','generate'])]:
+ for flow in flows:
+  for variant in ['baseline','candidate']:assert len([r for r in rows if(r['phase'],r['flow'],r['variant'])==(phase,flow,variant)])==3
+for flow,key in [('check','native_module_sha256'),('generate','input_sha256')]:
+ edits=[r for r in rows if r['phase']=='fresh-edit'and r['flow']==flow]
+ assert len({r[key]for r in edits})==6,'fresh inputs were reused between samples'
+for row in rows:row['process_tree_cpu_seconds']=row['process_tree_user_seconds']+row['process_tree_system_seconds']
+summary=[]
+for phase in ['warm','fresh-edit']:
+ for flow in dict.fromkeys(r['flow']for r in rows if r['phase']==phase):
+  group={v:[r for r in rows if(r['phase'],r['flow'],r['variant'])==(phase,flow,v)]for v in ['baseline','candidate']}
+  entry={'phase':phase,'flow':flow,'n_per_variant':3,'variants':{},'paired_candidate_minus_baseline_ms':[]}
+  for v,g in group.items():
+   entry['variants'][v]={'wall_ms':[r['seconds']*1000 for r in g],'median_wall_ms':median(g,'seconds')*1000,'median_cli_process_tree_cpu_ms':median(g,'process_tree_cpu_seconds')*1000,'median_engine_cpu_ms':median(g,'engine_cpu_seconds')*1000,'engine_written_bytes':[r['engine_written_bytes']for r in g],'file_visible_ms':[None if r['file_visible_seconds']is None else r['file_visible_seconds']*1000 for r in g],'visible_to_exit_ms':[None if r['file_visible_seconds']is None else (r['seconds']-r['file_visible_seconds'])*1000 for r in g]}
+  for pair in range(3):
+   a=next(r for r in group['baseline']if r['block']//2==pair);b=next(r for r in group['candidate']if r['block']//2==pair)
+   entry['paired_candidate_minus_baseline_ms'].append((b['seconds']-a['seconds'])*1000)
+  summary.append(entry)
+OUT.mkdir(exist_ok=False)
+allowed=['variant','flow','phase','block','expected_failure','input_sha256','app_main_sha256','native_module_sha256','seconds','started_unix_ns','exited_unix_ns','exit_code','timed_out','correct','stdout_sha256','file_visible_seconds','output_already_current','file_visible_censored_at_exit','file_poll_ms','file_polls','process_tree_user_seconds','process_tree_system_seconds','process_tree_cpu_seconds','engine_cpu_seconds','engine_written_bytes','counter_bracket_seconds','unexpected_cloud_link']
+put('numeric-evidence.json',{'summary':summary,'rows':[{k:r[k]for k in allowed}for r in rows],'restoration':restored,'counter_caveat':'Engine CPU/I/O span snapshot brackets and can include background work. CLI CPU includes waited-for subprocesses. No metrics totals are added to elapsed wall time.'})
+build=json.loads((PROTO/'builds-v2/runtime-builds.json').read_text());validation=json.loads((PROTO/'validation-v1/results.json').read_text())
+put('provenance.json',{'runtime_driver_sha256':sha(HERE/'runtime.py'),'analysis_sha256':sha(__file__),'raw_numeric_results_sha256':sha(TRIAL/'results.json'),'restoration_sha256':sha(TRIAL/'restoration.json'),'cli_builds':build,'cli_build_recipe_sha256':sha(PROTO/'builds-v2/build-recipe.json'),'fixed_engine_sha256':'2c005dfc7f2d7ad65ec0ed0f28c27aad1af1ea47a26602cc0ad7740c11acf62f','prototype_patch_sha256':sha(PROTO/'prototype.patch'),'test_results_sha256':sha(PROTO/'validation-v1/results.json'),'local_commands':90,'cloud_commands':0,'profiles':0,'cache_boundary':'One retained volume and fixed engine process; all nine exact ordinary flows primed once per CLI before measurement; three pairs AB,BA,AB; no fresh engine or host cache claim.','scope':'Two newly matched CLIs, same parent metadata v2 production sources and dependency bytes. Test-only v3 Stat oracle changes no compiled CLI input.'})
+shutil.copyfile(HERE/'runtime.py',OUT/'runtime.py.txt');shutil.copyfile(__file__,OUT/'analyze.py.txt');shutil.copyfile(HERE/'v1-to-v2.patch',OUT/'primer-correction.patch.txt')
+lines=['The shared per-client HTTP/2 transport is still an isolated prototype. All 90 local commands passed their correctness checks, but warm generation became slower in each of the three pairs. The local improvements in several other flows do not yet justify enabling it.','',
+'Two freshly built CLIs use the same fixed parent-metadata engine and retained volume. All nine exact warm flows were primed once per CLI; the three ordinary pairs run AB, BA, AB. The total is 18 counted primers, 54 warm commands, 12 first-seen edit commands, four sentinel fail/restore commands, and two selected greetings checks. There are no Cloud calls or profiler-enabled commands.','',
+'Every elapsed value includes CLI spawn through process exit, including joined HTTP/Docker cleanup. Engine startup/stop, fixture guards and out-of-process counters are excluded. Edit markers are distinct, equal-length inputs that were never previously evaluated by this engine. All edit hashes are checked for uniqueness. This is a warm local engine experiment, not a cold-start result or a production Cloud claim.','',
+'| Flow | Baseline median | Shared transport median | Candidate − baseline, paired |','| --- | ---: | ---: | --- |']
+labels={'core':'Core API version','ws':'Workspace files','artifacts':'All artifacts','checks':'Expanded check listing','generators':'Generator listing','call':'Native API call','check':'Native standard check','generate':'Native generation','export':'File export'}
+for s in summary:
+ a=s['variants']['baseline']['median_wall_ms'];b=s['variants']['candidate']['median_wall_ms'];label=labels[s['flow']]+(' after unique edit'if s['phase']=='fresh-edit'else'')
+ lines.append(f"| {label} | {a:.1f} ms | {b:.1f} ms | "+' / '.join(f'{x:+.1f} ms'for x in s['paired_candidate_minus_baseline_ms'])+' |')
+lines += ['', 'Each row has three ordinary samples per variant. All raw values, counter brackets and the 18 primers are preserved in the numeric evidence. A median difference is not a per-command guarantee. The large fresh-generation samples (baseline 1,096 ms; candidate 781 ms) are retained, not discarded.', '',
+'| Flow | Baseline CLI + children CPU | Shared transport CLI + children CPU |','| --- | ---: | ---: |']
+for s in summary:
+ if s['phase']!='warm':continue
+ lines.append(f"| {labels[s['flow']]} | {s['variants']['baseline']['median_cli_process_tree_cpu_ms']:.1f} ms | {s['variants']['candidate']['median_cli_process_tree_cpu_ms']:.1f} ms |")
+lines += ['', 'The normal-path unit witness confirms one API/telemetry connection instead of two and two warmed connector tunnels instead of three. This runtime matrix did not independently count physical Docker execs. It validates the actual command path and full cleanup latency; it does not establish that every environment will maintain one HTTP/2 connection. A low peer stream limit can still require another connection.', '',
+'The earlier unchanged-source witnesses fail on the expected connection/topology counts. The pre-correction owner witness fails because Close could return before a pending dial/physical close completed. The corrected focused normal and race suites pass, including API cancellation after headers, late final telemetry records, slow streams, reconnects, partial initialization and joined concurrent Close.', '',
+'Warm native calls improved in all three pairs (median 308.5 → 278.2 ms), while warm generation worsened in all three (256.9 → 290.9 ms). This is sufficient to keep the candidate isolated pending phase attribution, rather than repeat a large matrix without a mechanism. The next useful diagnostic would separate API work, telemetry drain and owned physical-close timing for warm generation, and compare those with the same phases for native API calls.', '',
+'Generation file-visible timing is separate from full exit. Warm generation already has the correct generated bytes and therefore has no fabricated "time to new file" value. Unique edit generation and export poll for the exact expected bytes every 5 ms; both the observed visibility time and remaining exit tail are in the numeric evidence.', '',
+'Both CLIs returned the exact 14 expected check rows and matching workspace/artifact/generator listings. Native calls, generated and exported bytes matched their current inputs. Both sentinels failed for the intended reason and passed after restoration; both selected greetings checks passed. The original engine binary and all fixture bytes were restored, the engine was stopped, and no resource was deleted.', '',
+'Only the explicitly listed evidence files are shareable. Raw stdout/stderr, the preserved engine binary and runtime fixture contents remain outside the allowlist.']
+(OUT/'report.md').write_text('\n'.join(lines)+'\n')
+files=sorted(p.name for p in OUT.iterdir()if p.is_file());put('checksums.json',{name:sha(OUT/name)for name in files});files.append('checksums.json');(OUT/'allowlist.txt').write_text('\n'.join(files)+'\n')
+print(json.dumps({'evidence':str(OUT),'rows':len(rows),'summary_rows':len(summary),'allowlist':str(OUT/'allowlist.txt')}))

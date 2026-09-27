@@ -1,0 +1,227 @@
+package drivers
+
+import (
+	"context"
+	"errors"
+	"io"
+	"net"
+	"net/url"
+	"os"
+	"path/filepath"
+	"runtime"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/dagger/dagger/engine/client/imageload"
+)
+
+type perfUnixContextKey struct{}
+
+type perfUnixBackend struct {
+	captureContainerBackend
+	dials     atomic.Int64
+	available atomic.Int64
+	loader    imageload.Backend
+	ctx       context.Context
+	host      string
+	args      []string
+	conn      net.Conn
+	err       error
+}
+
+func (b *perfUnixBackend) Available(context.Context) (bool, error) {
+	b.available.Add(1)
+	return true, nil
+}
+func (b *perfUnixBackend) ImageLoader(context.Context) imageload.Backend { return b.loader }
+func (b *perfUnixBackend) ContainerDial(ctx context.Context, host string, args []string) (net.Conn, error) {
+	b.dials.Add(1)
+	b.ctx, b.host, b.args = ctx, host, args
+	return b.conn, b.err
+}
+
+type perfUnixImageLoader struct{}
+
+func (*perfUnixImageLoader) Loader(context.Context) (*imageload.Loader, error) {
+	return nil, errors.New("loader should not run in connector tests")
+}
+
+func TestContainerPerfUnixDefaultUnchanged(t *testing.T) {
+	for _, explicitEmpty := range []bool{false, true} {
+		values := url.Values{"context": {"kept-context"}}
+		if explicitEmpty {
+			values.Set("perf-unix-socket", "")
+		}
+		client, peer := net.Pipe()
+		backend := &perfUnixBackend{conn: client}
+		connector := containerConnector{backend: backend, host: "kept-container", values: values}
+		ctx, cancel := context.WithCancel(context.WithValue(t.Context(), perfUnixContextKey{}, "kept-value"))
+		cancel()
+		conn, err := connector.dial(ctx)
+		require.NoError(t, err)
+		require.Same(t, client, conn)
+		require.Equal(t, int64(1), backend.dials.Load())
+		require.Equal(t, "kept-container", backend.host)
+		require.Equal(t, []string{"--context=kept-context", "buildctl", "dial-stdio"}, backend.args)
+		require.Nil(t, backend.ctx.Done(), "original command lifetime ignores request cancellation")
+		require.Equal(t, "kept-value", backend.ctx.Value(perfUnixContextKey{}))
+		require.NoError(t, conn.Close())
+		require.NoError(t, peer.Close())
+	}
+}
+
+func TestContainerPerfUnixPreservesDriver(t *testing.T) {
+	loader := &perfUnixImageLoader{}
+	backend := &perfUnixBackend{loader: loader}
+	driver := &containerDriver{backend: backend}
+	available, err := driver.Available(t.Context())
+	require.NoError(t, err)
+	require.True(t, available)
+	require.Equal(t, int64(1), backend.available.Load())
+	require.Same(t, loader, driver.ImageLoader(t.Context()))
+	u := &url.URL{Scheme: "container+docker", Host: "kept-container", RawQuery: url.Values{"perf-unix-socket": {"/task/socket"}, "context": {"kept-context"}}.Encode()}
+	got, err := driver.Provision(t.Context(), u, &DriverOpts{})
+	require.NoError(t, err)
+	connector := got.(containerConnector)
+	require.Same(t, backend, connector.backend)
+	require.Equal(t, u.Host, connector.host)
+	require.Equal(t, u.Query(), connector.values)
+	require.Equal(t, 3, cap(connector.warm.pending))
+	require.Empty(t, connector.EngineID())
+	require.Equal(t, int64(0), backend.dials.Load())
+}
+
+func perfUnixListener(t *testing.T) (net.Listener, string) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("local Unix socket diagnostic")
+	}
+	// Keep the path below the portable sockaddr_un length limit.
+	dir, err := os.MkdirTemp("", "cu-")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, os.RemoveAll(dir)) })
+	path := filepath.Join(dir, "s")
+	listener, err := net.Listen("unix", path)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = listener.Close() })
+	return listener, path
+}
+
+func TestContainerPerfUnixExplicitDial(t *testing.T) {
+	listener, path := perfUnixListener(t)
+	backend := &perfUnixBackend{err: errors.New("unexpected container dial")}
+	connector := containerConnector{backend: backend, host: "kept-container", values: url.Values{"perf-unix-socket": {path}}}
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	conn, err := connector.dial(ctx)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Close() })
+	peer, err := listener.Accept()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = peer.Close() })
+	require.NoError(t, conn.SetDeadline(time.Now().Add(5*time.Second)))
+	require.NoError(t, peer.SetDeadline(time.Now().Add(5*time.Second)))
+	cancel()
+	// Canceling the completed dial must not terminate the returned connection.
+	_, err = peer.Write([]byte("live"))
+	require.NoError(t, err)
+	buf := make([]byte, 4)
+	_, err = io.ReadFull(conn, buf)
+	require.NoError(t, err)
+	require.Equal(t, "live", string(buf))
+	require.Equal(t, int64(0), backend.dials.Load())
+	require.NoError(t, conn.Close())
+	_, err = peer.Read(make([]byte, 1))
+	require.ErrorIs(t, err, io.EOF)
+}
+
+func TestContainerPerfUnixErrorsDoNotFallback(t *testing.T) {
+	_, path := perfUnixListener(t)
+	for _, tc := range []struct {
+		name, path string
+		canceled   bool
+	}{
+		{"canceled", path, true}, {"missing", path + ".missing", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			backend := &perfUnixBackend{err: errors.New("unexpected container dial")}
+			connector := containerConnector{backend: backend, values: url.Values{"perf-unix-socket": {tc.path}}}
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			if tc.canceled {
+				cancel()
+			}
+			conn, err := connector.dial(ctx)
+			require.Nil(t, conn)
+			require.Error(t, err)
+			if tc.canceled {
+				require.ErrorIs(t, err, context.Canceled)
+			}
+			require.Equal(t, int64(0), backend.dials.Load(), "explicit socket errors must be visible")
+		})
+	}
+}
+
+func TestContainerPerfUnixKeepsThreeWarmTunnels(t *testing.T) {
+	listener, path := perfUnixListener(t)
+	backend := &perfUnixBackend{err: errors.New("unexpected container dial")}
+	connector := containerConnector{backend: backend, values: url.Values{"perf-unix-socket": {path}}, warm: newWarmTunnels()}
+	first, err := connector.Connect(t.Context())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = first.Close() })
+	peer, err := listener.Accept()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = peer.Close() })
+	require.Len(t, connector.warm.pending, 0)
+	_, err = peer.Write([]byte("x"))
+	require.NoError(t, err)
+	_, err = first.Read(make([]byte, 1))
+	require.NoError(t, err)
+	require.Len(t, connector.warm.pending, 3)
+	for range 3 {
+		conn, err := connector.Connect(t.Context())
+		require.NoError(t, err)
+		require.NoError(t, conn.Close())
+		peer, err := listener.Accept()
+		require.NoError(t, err)
+		require.NoError(t, peer.Close())
+	}
+	require.Len(t, connector.warm.pending, 0)
+	require.Equal(t, int64(0), backend.dials.Load())
+}
+
+// gRPC cancels its connect context once the first server preface has arrived.
+// The three background prefetches must not race that establishment lifetime.
+func TestContainerPerfUnixWarmSurvivesDialCancellation(t *testing.T) {
+	listener, path := perfUnixListener(t)
+	backend := &perfUnixBackend{err: errors.New("unexpected container dial")}
+	connector := containerConnector{backend: backend, values: url.Values{"perf-unix-socket": {path}}, warm: newWarmTunnels()}
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	first, err := connector.Connect(ctx)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = first.Close() })
+	peer, err := listener.Accept()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = peer.Close() })
+	require.NoError(t, first.SetDeadline(time.Now().Add(5*time.Second)))
+	cancel()
+	_, err = peer.Write([]byte("x"))
+	require.NoError(t, err)
+	_, err = first.Read(make([]byte, 1))
+	require.NoError(t, err)
+	require.Len(t, connector.warm.pending, 3)
+	for range 3 {
+		pending := <-connector.warm.pending
+		conn := <-pending
+		require.NotNil(t, conn, "a canceled initial dial context must not disable background prefetch")
+		require.NoError(t, conn.Close())
+		peer, err := listener.Accept()
+		require.NoError(t, err)
+		require.NoError(t, peer.Close())
+	}
+	require.Equal(t, int64(0), backend.dials.Load())
+}

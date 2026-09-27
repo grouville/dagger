@@ -1,0 +1,59 @@
+--- before/shared_http_transport.go
++++ after/shared_http_transport.go
+@@ -38,12 +38,14 @@
+ 	dial      func(context.Context) (net.Conn, error)
+ 	mu        sync.Mutex
+ 	closed    bool
++	closeDone chan struct{}
++	pending   sync.WaitGroup
+ 	conns     map[*clientHTTPConn]struct{}
+ }
+ 
+ func newClientHTTPTransport(lifetime context.Context, dial func(context.Context) (net.Conn, error)) *clientHTTPTransport {
+ 	lifetime, cancel := context.WithCancelCause(lifetime)
+-	t := &clientHTTPTransport{lifetime: lifetime, cancel: cancel, dial: dial, conns: make(map[*clientHTTPConn]struct{})}
++	t := &clientHTTPTransport{lifetime: lifetime, cancel: cancel, dial: dial, conns: make(map[*clientHTTPConn]struct{}), closeDone: make(chan struct{})}
+ 	t.transport = &http2.Transport{
+ 		AllowHTTP: true,
+ 		DialTLSContext: func(ctx context.Context, _, _ string, _ *tls.Config) (net.Conn, error) {
+@@ -55,11 +57,14 @@
+ 
+ func (t *clientHTTPTransport) connect(ctx context.Context) (net.Conn, error) {
+ 	t.mu.Lock()
+-	closed := t.closed
+-	t.mu.Unlock()
+-	if closed {
++	if t.closed {
++		t.mu.Unlock()
+ 		return nil, errors.New("client HTTP transport closed")
+ 	}
++	// Registration shares Close's lock, so no Add can race with its Wait.
++	t.pending.Add(1)
++	t.mu.Unlock()
++	defer t.pending.Done()
+ 	if t.lifetime.Err() != nil {
+ 		return nil, context.Cause(t.lifetime)
+ 	}
+@@ -110,7 +115,9 @@
+ func (t *clientHTTPTransport) Close() {
+ 	t.mu.Lock()
+ 	if t.closed {
++		done := t.closeDone
+ 		t.mu.Unlock()
++		<-done
+ 		return
+ 	}
+ 	t.closed = true
+@@ -123,7 +130,12 @@
+ 	for _, conn := range conns {
+ 		_ = conn.Close()
+ 	}
++	// A connector that returns after cancellation still hands back an owned
++	// connection: connect closes it before decrementing pending. In particular,
++	// Docker command startup ignores context cancellation until it returns.
++	t.pending.Wait()
+ 	t.transport.CloseIdleConnections()
++	close(t.closeDone)
+ }
+ 
+ type clientHTTPConn struct {

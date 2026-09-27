@@ -1,0 +1,40 @@
+package fsutil
+
+import (
+	"context"
+	"path/filepath"
+	"strings"
+
+	"golang.org/x/sys/unix"
+)
+
+// The literal filter matches directory-entry spelling, whereas direct lookup
+// can match a different spelling on a case-folding filesystem. This initial
+// implementation is restricted to ext-family directories where each parent
+// reports a known, case-sensitive lookup policy. Unknown filesystems fall back.
+// Probe on every walk: neither mount layout nor directory flags are cached.
+func parentChainSupported(ctx context.Context, root, target string) bool {
+	const fsCasefoldFlag = 0x40000000 // FS_CASEFOLD_FL, linux/fs.h
+	components := strings.Split(target, string(filepath.Separator))
+	parent := root
+	for i := range components {
+		if ctx.Err() != nil {
+			return false
+		}
+		if i > 0 {
+			parent = filepath.Join(parent, components[i-1])
+		}
+		fd, err := unix.Open(parent, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_DIRECTORY|unix.O_NOFOLLOW, 0)
+		if err != nil {
+			return false
+		}
+		var stat unix.Statfs_t
+		statErr := unix.Fstatfs(fd, &stat)
+		flags, flagsErr := unix.IoctlGetInt(fd, unix.FS_IOC_GETFLAGS)
+		_ = unix.Close(fd)
+		if statErr != nil || stat.Type != unix.EXT4_SUPER_MAGIC || flagsErr != nil || flags&fsCasefoldFlag != 0 {
+			return false
+		}
+	}
+	return true
+}

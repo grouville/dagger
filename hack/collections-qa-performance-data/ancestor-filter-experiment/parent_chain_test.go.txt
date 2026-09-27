@@ -1,0 +1,429 @@
+package fsutil
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	gofs "io/fs"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/dagger/dagger/internal/fsutil/types"
+	"github.com/gogo/protobuf/proto"
+	"github.com/stretchr/testify/require"
+)
+
+// The wrapper deliberately prevents the concrete-host fast path, providing the
+// existing general traversal as an independent parity oracle.
+type generalChainFS struct{ FS }
+
+func chainProductionFilter(t testing.TB, root, target string, general bool, mapFn MapFunc) FS {
+	t.Helper()
+	base, err := NewFS(root)
+	require.NoError(t, err)
+	if general {
+		base = generalChainFS{base}
+	}
+	filtered, err := NewFilterFS(base, &FilterOpt{
+		IncludePatterns: []string{target}, ExcludePatterns: []string{target + "/*"}, Map: mapFn,
+	})
+	require.NoError(t, err)
+	return filtered
+}
+
+// Force the candidate traversal in semantic tests, even when the host's
+// filesystem would conservatively fall back in production. Gate behavior and
+// ordinary production costs are checked independently.
+func chainFilter(t testing.TB, root, target string, general bool, mapFn MapFunc) FS {
+	filtered := chainProductionFilter(t, root, target, general, mapFn)
+	if general {
+		return filtered
+	}
+	f := filtered.(*filterFS)
+	require.IsType(t, &parentChainFS{}, f.fs)
+	chain := f.fs.(*parentChainFS)
+	f.fs = chainWalkFS{FS: chain, walk: func(ctx context.Context, target string, fn gofs.WalkDirFunc) error {
+		if target != "" && target != "." && target != string(filepath.Separator) {
+			return chain.fs.Walk(ctx, target, fn)
+		}
+		return chain.walk(ctx, fn, os.Lstat, readableDirectory)
+	}}
+	return f
+}
+
+func chainStats(t testing.TB, fs FS, target string) []*types.Stat {
+	t.Helper()
+	var stats []*types.Stat
+	require.NoError(t, fs.Walk(context.Background(), target, func(_ string, d gofs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		fi, err := d.Info()
+		if err != nil {
+			return err
+		}
+		stats = append(stats, proto.Clone(fi.Sys().(*types.Stat)).(*types.Stat))
+		return nil
+	}))
+	return stats
+}
+
+func TestParentChainExactFilterParity(t *testing.T) {
+	for _, kind := range []string{"directory", "file", "symlink", "dangling-symlink", "missing-leaf", "missing-parent", "symlink-parent", "file-parent"} {
+		t.Run(kind, func(t *testing.T) {
+			root := t.TempDir()
+			require.NoError(t, os.MkdirAll(filepath.Join(root, "a", "b"), 0751))
+			leaf := filepath.Join(root, "a", "b", "target")
+			outside := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(outside, "target"), []byte("outside"), 0600))
+			switch kind {
+			case "directory":
+				require.NoError(t, os.Mkdir(leaf, 0711))
+				require.NoError(t, os.WriteFile(filepath.Join(leaf, "ignored"), []byte("no import"), 0600))
+			case "file":
+				require.NoError(t, os.WriteFile(leaf, []byte("contents"), 0610))
+			case "symlink":
+				require.NoError(t, os.Symlink(outside, leaf))
+			case "dangling-symlink":
+				require.NoError(t, os.Symlink(filepath.Join(outside, "missing"), leaf))
+			case "missing-parent":
+				require.NoError(t, os.Remove(filepath.Dir(leaf)))
+			case "symlink-parent":
+				require.NoError(t, os.Remove(filepath.Dir(leaf)))
+				require.NoError(t, os.Symlink(outside, filepath.Dir(leaf)))
+			case "file-parent":
+				require.NoError(t, os.Remove(filepath.Dir(leaf)))
+				require.NoError(t, os.WriteFile(filepath.Dir(leaf), nil, 0600))
+			}
+			for i := 0; i < 32; i++ {
+				require.NoError(t, os.Mkdir(filepath.Join(root, fmt.Sprintf("sibling-%d", i)), 0755))
+			}
+			var generalMaps, fastMaps []string
+			mapper := func(calls *[]string) MapFunc {
+				return func(p string, st *types.Stat) MapResult {
+					*calls = append(*calls, p)
+					st.Uid = 0
+					st.Gid = 0
+					st.Xattrs = nil
+					st.GitIgnored = true
+					return MapResultKeep
+				}
+			}
+			general := chainStats(t, chainFilter(t, root, "a/b/target", true, mapper(&generalMaps)), "/")
+			fast := chainStats(t, chainFilter(t, root, "a/b/target", false, mapper(&fastMaps)), "/")
+			require.Equal(t, general, fast)
+			require.Equal(t, generalMaps, fastMaps)
+			if strings.Contains(kind, "missing") || strings.HasSuffix(kind, "parent") {
+				require.Empty(t, fast)
+			}
+			if len(fast) > 0 {
+				require.Equal(t, []string{"a", "a/b", "a/b/target"}, []string{filepath.ToSlash(fast[0].Path), filepath.ToSlash(fast[1].Path), filepath.ToSlash(fast[2].Path)})
+			}
+		})
+	}
+}
+
+func TestParentChainFallbacks(t *testing.T) {
+	root := t.TempDir()
+	base, err := NewFS(root)
+	require.NoError(t, err)
+	for _, tc := range []struct {
+		name string
+		opt  *FilterOpt
+	}{
+		{"root", &FilterOpt{IncludePatterns: []string{""}, ExcludePatterns: []string{"/*"}}},
+		{"glob", &FilterOpt{IncludePatterns: []string{"a*"}, ExcludePatterns: []string{"a*/*"}}},
+		{"escaped", &FilterOpt{IncludePatterns: []string{`a\b`}, ExcludePatterns: []string{`a\b/*`}}},
+		{"negated", &FilterOpt{IncludePatterns: []string{"!a"}, ExcludePatterns: []string{"!a/*"}}},
+		{"unclean", &FilterOpt{IncludePatterns: []string{"a/../b"}, ExcludePatterns: []string{"a/../b/*"}}},
+		{"space", &FilterOpt{IncludePatterns: []string{" a "}, ExcludePatterns: []string{" a /*"}}},
+		{"follow", &FilterOpt{IncludePatterns: []string{"a"}, ExcludePatterns: []string{"a/*"}, FollowPaths: []string{}}},
+		{"extra-include", &FilterOpt{IncludePatterns: []string{"a", "b"}, ExcludePatterns: []string{"a/*"}}},
+		{"extra-exclude", &FilterOpt{IncludePatterns: []string{"a"}, ExcludePatterns: []string{"a/*", "!a/b"}}},
+		{"absolute", &FilterOpt{IncludePatterns: []string{"/a"}, ExcludePatterns: []string{"/a/*"}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) { require.Same(t, base, parentChainFilterFS(base, tc.opt)) })
+	}
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "a", "b"), 0755))
+	for _, target := range []string{"a", "a/b"} {
+		require.Equal(t, chainStats(t, chainFilter(t, root, "a/b", true, nil), target), chainStats(t, chainFilter(t, root, "a/b", false, nil), target))
+	}
+}
+
+func TestParentChainFreshStatsRootAndReplacement(t *testing.T) {
+	root := t.TempDir()
+	leaf := filepath.Join(root, "a", "b")
+	require.NoError(t, os.MkdirAll(leaf, 0755))
+	fast := chainFilter(t, root, "a/b", false, nil)
+	before := chainStats(t, fast, "/")
+	require.Len(t, before, 2)
+	require.NoError(t, os.Chmod(leaf, 0700))
+	after := chainStats(t, fast, "/")
+	require.Equal(t, uint32(os.ModeDir|0700), after[1].Mode)
+	require.NoError(t, os.RemoveAll(filepath.Join(root, "a")))
+	require.Empty(t, chainStats(t, fast, "/"))
+	outside := t.TempDir()
+	require.NoError(t, os.Mkdir(filepath.Join(outside, "b"), 0755))
+	require.NoError(t, os.Symlink(outside, filepath.Join(root, "a")))
+	require.Empty(t, chainStats(t, fast, "/"))
+	// A symlink root is resolved at NewFS time, exactly as ordinary imports.
+	link := filepath.Join(t.TempDir(), "root")
+	require.NoError(t, os.Symlink(outside, link))
+	require.Equal(t, chainStats(t, chainFilter(t, link, "b", true, nil), "/"), chainStats(t, chainFilter(t, link, "b", false, nil), "/"))
+	// Replacing the already-resolved root between construction and walking is not followed.
+	root2 := filepath.Join(t.TempDir(), "root")
+	require.NoError(t, os.Mkdir(root2, 0755))
+	fast2 := chainFilter(t, root2, "b", false, nil)
+	general2 := chainFilter(t, root2, "b", true, nil)
+	require.NoError(t, os.Remove(root2))
+	require.NoError(t, os.Symlink(outside, root2))
+	require.Empty(t, chainStats(t, fast2, "/"))
+	require.Empty(t, chainStats(t, general2, "/"))
+}
+
+func TestParentChainMapSkipCancellationAndMutation(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "a", "b", "c"), 0755))
+	for _, result := range []MapResult{MapResultExclude, MapResultSkipDir} {
+		mapFn := func(p string, _ *types.Stat) MapResult {
+			if p == "a" {
+				return result
+			}
+			return MapResultKeep
+		}
+		require.Equal(t, chainStats(t, chainFilter(t, root, "a/b/c", true, mapFn), "/"), chainStats(t, chainFilter(t, root, "a/b/c", false, mapFn), "/"))
+	}
+	for _, general := range []bool{true, false} {
+		filtered := chainFilter(t, root, "a/b/c", general, nil)
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		require.ErrorIs(t, filtered.Walk(ctx, "/", func(string, gofs.DirEntry, error) error { return nil }), context.Canceled)
+		var calls []string
+		require.NoError(t, filtered.Walk(context.Background(), "/", func(p string, _ gofs.DirEntry, err error) error { calls = append(calls, p); return filepath.SkipDir }))
+		require.Equal(t, []string{"a"}, calls)
+		// Parent stat collection remains lazy: no cached metadata survives a
+		// mapping callback that deletes the branch before parent emission.
+		leaf := filepath.Join(root, "raced", "leaf")
+		require.NoError(t, os.MkdirAll(leaf, 0755))
+		mapped := chainFilter(t, root, "raced/leaf", general, func(p string, _ *types.Stat) MapResult {
+			if filepath.ToSlash(p) == "raced/leaf" {
+				require.NoError(t, os.RemoveAll(filepath.Dir(leaf)))
+			}
+			return MapResultKeep
+		})
+		require.Empty(t, chainStats(t, mapped, "/"))
+	}
+}
+
+type chainWalkFS struct {
+	FS
+	walk func(context.Context, string, gofs.WalkDirFunc) error
+}
+
+func (f chainWalkFS) Walk(ctx context.Context, p string, fn gofs.WalkDirFunc) error {
+	return f.walk(ctx, p, fn)
+}
+
+func TestParentChainWorkBoundAndRelevantErrors(t *testing.T) {
+	for _, width := range []int{0, 100, 1000} {
+		t.Run(fmt.Sprint(width), func(t *testing.T) {
+			root := t.TempDir()
+			require.NoError(t, os.MkdirAll(filepath.Join(root, "a", "b", "c"), 0755))
+			for _, parent := range []string{"", "a", "a/b", "a/b/c"} {
+				for i := 0; i < width; i++ {
+					require.NoError(t, os.WriteFile(filepath.Join(root, parent, fmt.Sprintf("sibling-%04d", i)), nil, 0600))
+				}
+			}
+			base, err := NewFS(root)
+			require.NoError(t, err)
+			general := &recordingFS{FS: base}
+			old, err := NewFilterFS(general, &FilterOpt{IncludePatterns: []string{"a/b/c"}, ExcludePatterns: []string{"a/b/c/*"}})
+			require.NoError(t, err)
+			want := chainStats(t, old, "/")
+			fast := chainProductionFilter(t, root, "a/b/c", false, nil).(*filterFS)
+			require.IsType(t, &parentChainFS{}, fast.fs)
+			chain := fast.fs.(*parentChainFS)
+			var stats, opens int
+			fast.fs = chainWalkFS{FS: chain, walk: func(ctx context.Context, _ string, fn gofs.WalkDirFunc) error {
+				return chain.walk(ctx, fn, func(p string) (os.FileInfo, error) { stats++; return os.Lstat(p) }, func(p string) error { opens++; return readableDirectory(p) })
+			}}
+			require.Equal(t, want, chainStats(t, fast, "/"))
+			require.Equal(t, 4, stats)
+			require.Equal(t, 4, opens)
+			require.Equal(t, 3+4*width, len(general.visited))
+			t.Logf("siblings_per_level=%d legacy_entries=%d chain_lstats=%d chain_directory_opens=%d", width, len(general.visited), stats, opens)
+		})
+	}
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "a", "b"), 0755))
+	for _, where := range []string{"", "a", "a/b"} {
+		t.Run("permission-"+where, func(t *testing.T) {
+			fast := chainProductionFilter(t, root, "a/b", false, nil).(*filterFS)
+			require.IsType(t, &parentChainFS{}, fast.fs)
+			chain := fast.fs.(*parentChainFS)
+			fast.fs = chainWalkFS{FS: chain, walk: func(ctx context.Context, _ string, fn gofs.WalkDirFunc) error {
+				return chain.walk(ctx, fn, os.Lstat, func(p string) error {
+					if p == filepath.Join(root, where) {
+						return os.ErrPermission
+					}
+					return readableDirectory(p)
+				})
+			}}
+			var count int
+			err := fast.Walk(context.Background(), "/", func(_ string, _ gofs.DirEntry, err error) error { count++; return err })
+			if where == "a/b" {
+				require.ErrorIs(t, err, os.ErrPermission)
+				require.Equal(t, 2, count)
+			} else {
+				require.NoError(t, err)
+				require.Zero(t, count)
+			}
+		})
+	}
+	// Actual permission parity when the test user is not privileged.
+	if runtime.GOOS != "windows" && os.Geteuid() != 0 {
+		for _, where := range []string{"", "a", "a/b"} {
+			p := filepath.Join(root, where)
+			require.NoError(t, os.Chmod(p, 0111))
+			var errs []error
+			for _, general := range []bool{true, false} {
+				f := chainFilter(t, root, "a/b", general, nil)
+				errs = append(errs, f.Walk(context.Background(), "/", func(_ string, _ gofs.DirEntry, err error) error { return err }))
+			}
+			require.Equal(t, errors.Is(errs[0], os.ErrPermission), errors.Is(errs[1], os.ErrPermission))
+			require.NoError(t, os.Chmod(p, 0755))
+		}
+	}
+}
+
+type chainPacketStream struct {
+	ctx        context.Context
+	send, recv chan *types.Packet
+}
+
+func (s *chainPacketStream) Context() context.Context { return s.ctx }
+func (s *chainPacketStream) SendMsg(v interface{}) error {
+	p := proto.Clone(v.(*types.Packet)).(*types.Packet)
+	select {
+	case s.send <- p:
+		return nil
+	case <-s.ctx.Done():
+		return s.ctx.Err()
+	}
+}
+func (s *chainPacketStream) RecvMsg(v interface{}) error {
+	select {
+	case p := <-s.recv:
+		*v.(*types.Packet) = *p
+		return nil
+	case <-s.ctx.Done():
+		return s.ctx.Err()
+	}
+}
+
+func recordChainProtocol(t *testing.T, fs FS) ([]*types.Stat, []byte) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	s := &chainPacketStream{ctx: ctx, send: make(chan *types.Packet, 32), recv: make(chan *types.Packet, 32)}
+	done := make(chan error, 1)
+	go func() { done <- Send(ctx, s, fs, nil) }()
+	var stats []*types.Stat
+	var data []byte
+	var requested int
+	walkDone := false
+	finSent := false
+	for {
+		select {
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		case p := <-s.send:
+			switch p.Type {
+			case types.PACKET_STAT:
+				if p.Stat == nil {
+					walkDone = true
+				} else {
+					idx := uint32(len(stats))
+					stats = append(stats, p.Stat)
+					if os.FileMode(p.Stat.Mode)&os.ModeType == 0 {
+						requested++
+						s.recv <- &types.Packet{Type: types.PACKET_REQ, ID: idx}
+					}
+				}
+			case types.PACKET_DATA:
+				if len(p.Data) == 0 {
+					requested--
+				} else {
+					data = append(data, p.Data...)
+				}
+			case types.PACKET_ERR:
+				t.Fatalf("sender error: %s", p.Data)
+			case types.PACKET_FIN:
+				require.NoError(t, <-done)
+				return stats, data
+			}
+			if walkDone && requested == 0 && !finSent {
+				finSent = true
+				s.recv <- &types.Packet{Type: types.PACKET_FIN}
+			}
+		}
+	}
+}
+
+func TestParentChainSendProtocolParity(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "a", "b"), 0750))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "a", "b", "file"), []byte("actual source contents"), 0600))
+	for _, target := range []string{"a/b", "a/b/file", "a/missing"} {
+		t.Run(target, func(t *testing.T) {
+			oldStats, oldData := recordChainProtocol(t, chainFilter(t, root, target, true, nil))
+			newStats, newData := recordChainProtocol(t, chainFilter(t, root, target, false, nil))
+			require.Equal(t, oldStats, newStats)
+			require.Equal(t, oldData, newData)
+			gatedStats, gatedData := recordChainProtocol(t, chainProductionFilter(t, root, target, false, nil))
+			require.Equal(t, oldStats, gatedStats)
+			require.Equal(t, oldData, gatedData)
+			if strings.HasSuffix(target, "file") {
+				require.Equal(t, []byte("actual source contents"), newData)
+			}
+		})
+	}
+}
+
+func BenchmarkParentChainWidth(b *testing.B) {
+	for _, width := range []int{0, 100, 1000} {
+		b.Run(fmt.Sprint(width), func(b *testing.B) {
+			root := b.TempDir()
+			require.NoError(b, os.MkdirAll(filepath.Join(root, "a", "b", "c"), 0755))
+			for _, parent := range []string{"", "a", "a/b", "a/b/c"} {
+				for i := 0; i < width; i++ {
+					require.NoError(b, os.WriteFile(filepath.Join(root, parent, fmt.Sprintf("sibling-%04d", i)), nil, 0600))
+				}
+			}
+			if !parentChainSupported(context.Background(), root, "a/b/c") {
+				b.Skip("production filesystem gate disables chain traversal")
+			}
+			for _, general := range []bool{true, false} {
+				name := "chain"
+				if general {
+					name = "general"
+				}
+				b.Run(name, func(b *testing.B) {
+					f := chainProductionFilter(b, root, "a/b/c", general, nil)
+					b.ReportAllocs()
+					b.ResetTimer()
+					for b.Loop() {
+						err := f.Walk(context.Background(), "/", func(_ string, _ gofs.DirEntry, err error) error { return err })
+						if err != nil {
+							b.Fatal(err)
+						}
+					}
+				})
+			}
+		})
+	}
+}

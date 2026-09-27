@@ -1,0 +1,57 @@
+--- split-init-runtime-v1/runtime.py@53c482
++++ split-init-confirmation-v1/runtime.py
+@@ -1,7 +1,8 @@
+-"""Prepared split-init LOCAL-only staged comparison:10 smoke +36 ABBA calls.
++"""Prepared split-init LOCAL-only confirmation:40 calls in four ABBA blocks.
+ 
+-No execution by default. Smoke includes explicitly accounted first Python SDK setup.
+-Both helper binaries are identically installed in both arms. Shared sources untouched.
++No execution by default. Prior10-call SDK/execution smoke is required unchanged.
++Each block:2 primers,3 warm artifacts,3 fresh comments,1 native generation,1 warm check.
++Both helper binaries are identically installed in both arms. No new profiles.
+ """
+ from pathlib import Path
+ import argparse, hashlib, importlib.util, json, os, re, resource, shutil, signal, subprocess, sys, threading, time, uuid, socket, stat, csv, io
+@@ -18,7 +19,7 @@
+ MANIFEST=Path('/tmp/collections-perf/split-init-prototype-v1/build-results-v1/runtime-builds.json')
+ FROZEN_MANIFEST=HERE/'frozen-runtime-manifest.json'
+ FROZEN_INPUTS=HERE/'frozen-inputs.json'
+-CAPS={"smoke":10,"measure":36};MIN_FREE=16*1024**3;MAX_WRITE=8*1024**3
++CAPS={"confirm":40};MIN_FREE=16*1024**3;MAX_WRITE=8*1024**3
+ FLOWS={
+  'core':['-m','core','api','call','version'],
+  'go-read':['-m','.dagger/modules/backend','api','call','source','file','--path=main.go','contents'],
+@@ -41,7 +42,7 @@
+  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--run',action='store_true');p.add_argument('--stage',choices=tuple(CAPS));p.add_argument('--output',default='results-v1');a=p.parse_args()
+  assert re.fullmatch(r'results-v[0-9]+',a.output)
+  if not a.run:
+-  print(json.dumps({'execute':False,'local_commands_cap':46,'stage_caps':CAPS,'cloud_commands':0,'smoke':'Go, TypeScript, Python, real selected Go check, unique ordinary exec per arm; all separately profiled correctness calls','measure':'4 ABBA blocks ×8 calls +4 separate primer/profile calls','python_setup':'Explicit first SDK preparation counted in smoke; no cold-performance claim','manifest_required':str(FROZEN_MANIFEST)}));return
++  print(json.dumps({'execute':False,'local_commands_cap':40,'stage_caps':CAPS,'cloud_commands':0,'prior_smoke':'Existing10 SDK/execution calls must have passed with the identical manifest','confirmation':'4 ABBA blocks ×10 calls; no profiles','python_setup':'No new Python setup or commands','manifest_required':str(FROZEN_MANIFEST)}));return
+  assert a.stage is not None;CAP=CAPS[a.stage]
+ 
+  os.umask(0o077);stage_root=HERE/a.stage;stage_root.mkdir(exist_ok=True);out=stage_root/a.output;assert not out.exists()
+@@ -57,8 +58,8 @@
+  assert manifest['source_head']=='0d1c32e29f2f31cdb95f0b5f17f7daed7305bc87'
+  inventory=json.loads((HERE/'fixture-inventory.json').read_text());python_pin=inventory['python']['python_sdk_manifest_digest']
+  for name,want in inventory['python']['template_sha256'].items():assert x.sha(HERE/'python-template'/name)==want
+- if a.stage=='measure':
+-  prior=HERE/'smoke/results-v1';smoke=json.loads((prior/'restoration.json').read_text());assert smoke['validated_commands']==10 and smoke['local_attempts']==10 and smoke['fixtures_restored']and smoke['original_engine_binary_untouched']and smoke['original_init_binary_untouched']and smoke['temporary_container_removed']and smoke['original_engine_stopped']
++ if a.stage=='confirm':
++  prior=Path('/tmp/collections-perf/split-init-runtime-v1/smoke/results-v1');smoke=json.loads((prior/'restoration.json').read_text());assert smoke['validated_commands']==10 and smoke['local_attempts']==10 and smoke['fixtures_restored']and smoke['original_engine_binary_untouched']and smoke['original_init_binary_untouched']and smoke['temporary_container_removed']and smoke['original_engine_stopped']
+   assert json.loads((prior/'provenance.json').read_text())['frozen_runtime_manifest_sha256']==x.sha(FROZEN_MANIFEST)
+   gate=json.loads((prior/'process-gate.json').read_text());assert gate['all_profiles_complete']and gate['all_smoke_commands_dispatched_processes']
+  original=json.loads((LAB/'lazy-core-runtime-v1/engines.json').read_text())['lazy'];assert original['sha256']==ORIGINAL;x.OWNER=ORIGINAL_OWNER
+@@ -228,10 +229,9 @@
+    for block,variant in enumerate(('baseline','candidate','candidate','baseline')):
+     install_engine(variant,block)
+     for flow in ('checks','artifacts'):run(variant,flow,'block-primer',block)
+-    for sample in range(3):run(variant,'checks','warm',block)
+-    run(variant,'artifacts','warm',block);run(variant,'checks','fresh-edit',block);run(variant,'generate','fresh-edit',block)
+-   for block,variant in enumerate(('baseline','candidate'),start=4):
+-    install_engine(variant,block);run(variant,'checks','diagnostic-primer',block);run(variant,'checks','diagnostic',block,profile=True)
++    for sample in range(3):run(variant,'artifacts','warm',block)
++    for sample in range(3):run(variant,'checks','fresh-edit',block)
++    run(variant,'generate','fresh-edit',block);run(variant,'checks','warm',block)
+ 
+  finally:
+   cleanup_error=None;restored=False;volume_retained=False;temporary_removed=False;original_stopped=False;init_untouched=False

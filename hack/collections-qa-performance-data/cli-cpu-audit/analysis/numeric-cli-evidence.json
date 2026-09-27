@@ -1,0 +1,2649 @@
+{
+  "scope": "Seven saved CLI CPU captures and four saved runtime traces; local-only. CPU samples are not wall time; cumulative anchors overlap; trace delays aggregate goroutines. No ordinary speed or attribution of unprofiled CPU is implied.",
+  "source_head": "85b60f7a0a16a27459ef571bc94bcf870c876dcc",
+  "cli_sha256": "748700a2a203b2872461f5930c80d37a90c139c791929a7bc2b77bfbded9fe30",
+  "engine_sha256": "9912b76324d1015e6811ea3a8ac7bdfb029ce6c079226c9a3b7aa6de8a3212a5",
+  "restoration": {
+    "fixtures_unchanged": true,
+    "original_engine_restored": true,
+    "engine_stopped": true,
+    "validated_commands": 11,
+    "production_cloud_commands": 0,
+    "resources_deleted": 0
+  },
+  "captures": [
+    {
+      "capture": "01-core-cpu",
+      "flow": "core",
+      "profile_sha256": "d8bed0053b0f36d1b3aa9d5e42f3f6686afd9229ee7fe6f7e3b97733454225f2",
+      "sampled_dagger_cpu_ms": 40.0,
+      "profile_duration_ms_rounded": 184.33,
+      "instrumented_cli_ms": 264.1100201290101,
+      "waited_process_tree_cpu_ms": 193.45199999999997,
+      "tree_cpu_minus_sampled_cpu_ms_unattributed": 153.45199999999997,
+      "outside_profile_wall_ms_rounded_upper_envelope": 79.78002012901007,
+      "anchors_cumulative_ms_nonadditive": {
+        "source_walk": 0,
+        "readdir": 0,
+        "filepath_rel": 0,
+        "metadata_decode": 20.0,
+        "telemetry_consume": 0,
+        "telemetry_unmarshal": 0,
+        "frontend_dispatch": 10.0,
+        "gc_workers": 0,
+        "labels": 0
+      },
+      "top_flat": [
+        {
+          "function": "encoding/json.stateInString",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "reflect.(*rtype).Name",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "runtime.(*unwinder).resolveInternal",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "runtime.acquirem (inline)",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "dagger.io/dagger.(*Client).Do",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "dagger.io/dagger.errorWrappedClient.MakeRequest",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*Decoder).Decode",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*Decoder).readValue",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).array",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).literalStore",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).object",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).unmarshal",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).value",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.Unmarshal",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.indirect",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        }
+      ],
+      "top_cumulative": [
+        {
+          "function": "github.com/dagger/dagger/dagql/idtui.(*frontendPretty).Run",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.(*FuncCommand).Command.func2",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.(*FuncCommand).Command.func2.1",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.(*FuncCommand).execute",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.(*moduleDef).loadTypeDefs",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.Main",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.initializeCore",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.withEngine",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.withEngine.func1",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/spf13/cobra.(*Command).Execute (inline)",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/spf13/cobra.(*Command).ExecuteC",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/spf13/cobra.(*Command).ExecuteContext (inline)",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/spf13/cobra.(*Command).execute",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "main.main",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "runtime.main",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "dagger.io/dagger.(*Client).Do",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "dagger.io/dagger.errorWrappedClient.MakeRequest",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*Decoder).Decode",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*Decoder).readValue",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).array",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).literalStore",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).object",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).unmarshal",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).value",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.Unmarshal",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        }
+      ],
+      "trace_profiles": {
+        "sync": {
+          "anchors_cumulative_ms_nonadditive": {
+            "github.com/dagger/dagger/engine/client/drivers.containerRuntimeAvailable": 0,
+            "github.com/dagger/dagger/engine/client.newBuildkitClient": 41.74,
+            "runtime/pprof.StopCPUProfile": 0.73,
+            "github.com/dagger/dagger/internal/fsutil.(*sender).walk": 0,
+            "os.Lstat": 0,
+            "os.Stat": 0,
+            "golang.org/x/sys/unix.Llistxattr": 0,
+            "syscall.Getdents": 0,
+            "runtime.(*profBuf).read": 0
+          },
+          "top_flat": [
+            {
+              "function": "runtime.selectgo",
+              "flat_ms": 1704.25,
+              "cumulative_ms": 1704.25
+            },
+            {
+              "function": "runtime.chanrecv2",
+              "flat_ms": 664.35,
+              "cumulative_ms": 664.35
+            },
+            {
+              "function": "runtime.chanrecv1",
+              "flat_ms": 365.36,
+              "cumulative_ms": 365.36
+            },
+            {
+              "function": "sync.(*Cond).Wait",
+              "flat_ms": 208.08,
+              "cumulative_ms": 208.08
+            },
+            {
+              "function": "sync.(*WaitGroup).Wait",
+              "flat_ms": 9.21,
+              "cumulative_ms": 9.21
+            },
+            {
+              "function": "sync.(*Mutex).Lock",
+              "flat_ms": 8.94,
+              "cumulative_ms": 8.94
+            },
+            {
+              "function": "internal/poll.(*FD).Close",
+              "flat_ms": 0.03,
+              "cumulative_ms": 0.03
+            },
+            {
+              "function": "runtime.chansend1",
+              "flat_ms": 0.01,
+              "cumulative_ms": 0.01
+            },
+            {
+              "function": "bufio.(*Writer).Flush",
+              "flat_ms": 0.0,
+              "cumulative_ms": 0.17
+            },
+            {
+              "function": "dagger.io/dagger.(*Client).Do",
+              "flat_ms": 0.0,
+              "cumulative_ms": 47.65
+            }
+          ]
+        },
+        "syscall": {
+          "anchors_cumulative_ms_nonadditive": {
+            "github.com/dagger/dagger/engine/client/drivers.containerRuntimeAvailable": 17.35,
+            "github.com/dagger/dagger/engine/client.newBuildkitClient": 0,
+            "runtime/pprof.StopCPUProfile": 0,
+            "github.com/dagger/dagger/internal/fsutil.(*sender).walk": 0,
+            "os.Lstat": 0.13,
+            "os.Stat": 0.29,
+            "golang.org/x/sys/unix.Llistxattr": 0.01,
+            "syscall.Getdents": 0,
+            "runtime.(*profBuf).read": 0
+          },
+          "top_flat": [
+            {
+              "function": "internal/syscall/unix.Waitid",
+              "flat_ms": 26.07,
+              "cumulative_ms": 26.07
+            },
+            {
+              "function": "syscall.write",
+              "flat_ms": 1.39,
+              "cumulative_ms": 1.39
+            },
+            {
+              "function": "syscall.read",
+              "flat_ms": 0.71,
+              "cumulative_ms": 0.71
+            },
+            {
+              "function": "syscall.fstatat",
+              "flat_ms": 0.42,
+              "cumulative_ms": 0.42
+            },
+            {
+              "function": "syscall.readlen",
+              "flat_ms": 0.42,
+              "cumulative_ms": 0.42
+            },
+            {
+              "function": "syscall.Close",
+              "flat_ms": 0.16,
+              "cumulative_ms": 0.16
+            },
+            {
+              "function": "syscall.openat",
+              "flat_ms": 0.09,
+              "cumulative_ms": 0.09
+            },
+            {
+              "function": "syscall.fcntl",
+              "flat_ms": 0.08,
+              "cumulative_ms": 0.08
+            },
+            {
+              "function": "internal/syscall/unix.PidFDSendSignal",
+              "flat_ms": 0.03,
+              "cumulative_ms": 0.03
+            },
+            {
+              "function": "syscall.Fstat",
+              "flat_ms": 0.02,
+              "cumulative_ms": 0.02
+            }
+          ]
+        },
+        "sched": {
+          "anchors_cumulative_ms_nonadditive": {
+            "github.com/dagger/dagger/engine/client/drivers.containerRuntimeAvailable": 0.23,
+            "github.com/dagger/dagger/engine/client.newBuildkitClient": 0.21,
+            "runtime/pprof.StopCPUProfile": 0,
+            "github.com/dagger/dagger/internal/fsutil.(*sender).walk": 0,
+            "os.Lstat": 0,
+            "os.Stat": 0,
+            "golang.org/x/sys/unix.Llistxattr": 0,
+            "syscall.Getdents": 0,
+            "runtime.(*profBuf).read": 0
+          },
+          "top_flat": [
+            {
+              "function": "runtime.selectnbsend",
+              "flat_ms": 2.39,
+              "cumulative_ms": 2.39
+            },
+            {
+              "function": "runtime.selectgo",
+              "flat_ms": 0.87,
+              "cumulative_ms": 0.87
+            },
+            {
+              "function": "runtime.chansend1",
+              "flat_ms": 0.36,
+              "cumulative_ms": 0.36
+            },
+            {
+              "function": "golang.org/x/net/http2.closeWaiter.Close",
+              "flat_ms": 0.34,
+              "cumulative_ms": 0.34
+            },
+            {
+              "function": "context.(*cancelCtx).cancel",
+              "flat_ms": 0.3,
+              "cumulative_ms": 0.3
+            },
+            {
+              "function": "runtime.systemstack_switch",
+              "flat_ms": 0.29,
+              "cumulative_ms": 0.29
+            },
+            {
+              "function": "internal/poll.runtime_Semrelease",
+              "flat_ms": 0.23,
+              "cumulative_ms": 0.23
+            },
+            {
+              "function": "encoding/json.stateBeginValue",
+              "flat_ms": 0.19,
+              "cumulative_ms": 0.19
+            },
+            {
+              "function": "sync.(*Mutex).Unlock",
+              "flat_ms": 0.17,
+              "cumulative_ms": 0.17
+            },
+            {
+              "function": "runtime.Gosched",
+              "flat_ms": 0.15,
+              "cumulative_ms": 0.15
+            }
+          ]
+        },
+        "net": {
+          "anchors_cumulative_ms_nonadditive": {
+            "github.com/dagger/dagger/engine/client/drivers.containerRuntimeAvailable": 0,
+            "github.com/dagger/dagger/engine/client.newBuildkitClient": 0,
+            "runtime/pprof.StopCPUProfile": 0,
+            "github.com/dagger/dagger/internal/fsutil.(*sender).walk": 0,
+            "os.Lstat": 0,
+            "os.Stat": 0,
+            "golang.org/x/sys/unix.Llistxattr": 0,
+            "syscall.Getdents": 0,
+            "runtime.(*profBuf).read": 0
+          },
+          "top_flat": [
+            {
+              "function": "internal/poll.(*FD).Read",
+              "flat_ms": 850.62,
+              "cumulative_ms": 850.62
+            },
+            {
+              "function": "bufio.(*Reader).Read",
+              "flat_ms": 0.0,
+              "cumulative_ms": 298.43
+            },
+            {
+              "function": "bufio.(*Reader).ReadLine",
+              "flat_ms": 0.0,
+              "cumulative_ms": 43.39
+            },
+            {
+              "function": "bufio.(*Reader).ReadSlice",
+              "flat_ms": 0.0,
+              "cumulative_ms": 43.39
+            },
+            {
+              "function": "bufio.(*Reader).fill",
+              "flat_ms": 0.0,
+              "cumulative_ms": 43.39
+            },
+            {
+              "function": "github.com/dagger/dagger/dagql/idtui.(*frontendPretty).Run",
+              "flat_ms": 0.0,
+              "cumulative_ms": 43.39
+            },
+            {
+              "function": "github.com/dagger/dagger/engine/client.(*Client).startSession",
+              "flat_ms": 0.0,
+              "cumulative_ms": 43.39
+            },
+            {
+              "function": "github.com/dagger/dagger/engine/client.Connect",
+              "flat_ms": 0.0,
+              "cumulative_ms": 43.39
+            },
+            {
+              "function": "github.com/dagger/dagger/engine/client.ConnectSessionAttachables",
+              "flat_ms": 0.0,
+              "cumulative_ms": 43.39
+            },
+            {
+              "function": "github.com/dagger/dagger/engine/client/drivers.(*answeredConn).Read",
+              "flat_ms": 0.0,
+              "cumulative_ms": 158.7
+            }
+          ]
+        }
+      }
+    },
+    {
+      "capture": "02-core-cpu",
+      "flow": "core",
+      "profile_sha256": "ba81ea413088d393de0b89530327069eaab345a86598fafa62cbdddd282cc332",
+      "sampled_dagger_cpu_ms": 30.0,
+      "profile_duration_ms_rounded": 181.71,
+      "instrumented_cli_ms": 264.1368310432881,
+      "waited_process_tree_cpu_ms": 196.58700000000002,
+      "tree_cpu_minus_sampled_cpu_ms_unattributed": 166.58700000000002,
+      "outside_profile_wall_ms_rounded_upper_envelope": 82.4268310432881,
+      "anchors_cumulative_ms_nonadditive": {
+        "source_walk": 0,
+        "readdir": 0,
+        "filepath_rel": 0,
+        "metadata_decode": 20.0,
+        "telemetry_consume": 0,
+        "telemetry_unmarshal": 0,
+        "frontend_dispatch": 0,
+        "gc_workers": 0,
+        "labels": 0
+      },
+      "top_flat": [
+        {
+          "function": "encoding/json.indirect",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.unquoteBytes",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "go.opentelemetry.io/otel/sdk/log.newRing (inline)",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "dagger.io/dagger.(*Client).Do",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "dagger.io/dagger.errorWrappedClient.MakeRequest",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*Decoder).Decode",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).array",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).literalStore",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).object",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).unmarshal",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).value",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "encoding/json.Unmarshal",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "github.com/Khan/genqlient/graphql.(*client).MakeRequest",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "github.com/dagger/dagger/dagql/idtui.(*frontendPretty).Run",
+          "flat_ms": 0.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.(*FuncCommand).Command.func2",
+          "flat_ms": 0.0,
+          "cumulative_ms": 30.0
+        }
+      ],
+      "top_cumulative": [
+        {
+          "function": "github.com/dagger/dagger/dagql/idtui.(*frontendPretty).Run",
+          "flat_ms": 0.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.(*FuncCommand).Command.func2",
+          "flat_ms": 0.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.Main",
+          "flat_ms": 0.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.withEngine",
+          "flat_ms": 0.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.withEngine.func1",
+          "flat_ms": 0.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "github.com/spf13/cobra.(*Command).Execute (inline)",
+          "flat_ms": 0.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "github.com/spf13/cobra.(*Command).ExecuteC",
+          "flat_ms": 0.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "github.com/spf13/cobra.(*Command).ExecuteContext (inline)",
+          "flat_ms": 0.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "github.com/spf13/cobra.(*Command).execute",
+          "flat_ms": 0.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "main.main",
+          "flat_ms": 0.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "runtime.main",
+          "flat_ms": 0.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).literalStore",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).object",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).unmarshal",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).value",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.(*FuncCommand).Command.func2.1",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.(*FuncCommand).execute",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.(*moduleDef).loadTypeDefs",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.initializeCore",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "dagger.io/dagger.(*Client).Do",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "dagger.io/dagger.errorWrappedClient.MakeRequest",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*Decoder).Decode",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).array",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.Unmarshal",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.indirect",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        }
+      ],
+      "trace_profiles": {}
+    },
+    {
+      "capture": "03-core-cpu",
+      "flow": "core",
+      "profile_sha256": "389c987f17f6bdbf014965de1f2f13fc4e57de83c2e194b5a6c84d54e5c2b0c8",
+      "sampled_dagger_cpu_ms": 30.0,
+      "profile_duration_ms_rounded": 208.33,
+      "instrumented_cli_ms": 264.3679219763726,
+      "waited_process_tree_cpu_ms": 193.882,
+      "tree_cpu_minus_sampled_cpu_ms_unattributed": 163.882,
+      "outside_profile_wall_ms_rounded_upper_envelope": 56.03792197637259,
+      "anchors_cumulative_ms_nonadditive": {
+        "source_walk": 0,
+        "readdir": 0,
+        "filepath_rel": 0,
+        "metadata_decode": 10.0,
+        "telemetry_consume": 0,
+        "telemetry_unmarshal": 0,
+        "frontend_dispatch": 0,
+        "gc_workers": 0,
+        "labels": 0
+      },
+      "top_flat": [
+        {
+          "function": "runtime.(*traceBuf).varint (inline)",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "runtime.memmove",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "runtime.mergeSummaries",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "dagger.io/dagger.(*Client).Do",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "dagger.io/dagger.errorWrappedClient.MakeRequest",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*Decoder).Decode",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).literalStore",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).object",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).unmarshal",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).value",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.unquoteBytes",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "github.com/Khan/genqlient/graphql.(*client).MakeRequest",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "github.com/dagger/dagger/dagql/idtui.(*frontendPretty).Run",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/engine/client.(*Client).startEngine",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "github.com/dagger/dagger/engine/client.(*SessionAttachablesServer).Run.func1",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        }
+      ],
+      "top_cumulative": [
+        {
+          "function": "runtime.systemstack",
+          "flat_ms": 0.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "github.com/dagger/dagger/dagql/idtui.(*frontendPretty).Run",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.(*FuncCommand).Command.func2",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.Main",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.withEngine",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.withEngine.func1",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/spf13/cobra.(*Command).Execute (inline)",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/spf13/cobra.(*Command).ExecuteC",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/spf13/cobra.(*Command).ExecuteContext (inline)",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/spf13/cobra.(*Command).execute",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "main.main",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "runtime.main",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "dagger.io/dagger.(*Client).Do",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "dagger.io/dagger.errorWrappedClient.MakeRequest",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*Decoder).Decode",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).literalStore",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).object",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).unmarshal",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).value",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.unquoteBytes",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "github.com/Khan/genqlient/graphql.(*client).MakeRequest",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "github.com/dagger/dagger/engine/client.(*Client).startEngine",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "github.com/dagger/dagger/engine/client.(*SessionAttachablesServer).Run.func1",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "github.com/dagger/dagger/engine/client.Connect",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.(*FuncCommand).Command.func2.1",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        }
+      ],
+      "trace_profiles": {}
+    },
+    {
+      "capture": "05-module-cpu",
+      "flow": "module",
+      "profile_sha256": "660146f2634d07e1fef1502e5215069caa95358db5c4e47f1aa55abb31af149d",
+      "sampled_dagger_cpu_ms": 80.0,
+      "profile_duration_ms_rounded": 313.85,
+      "instrumented_cli_ms": 414.36120914295316,
+      "waited_process_tree_cpu_ms": 246.82799999999995,
+      "tree_cpu_minus_sampled_cpu_ms_unattributed": 166.82799999999995,
+      "outside_profile_wall_ms_rounded_upper_envelope": 100.51120914295313,
+      "anchors_cumulative_ms_nonadditive": {
+        "source_walk": 10.0,
+        "readdir": 10.0,
+        "filepath_rel": 0,
+        "metadata_decode": 20.0,
+        "telemetry_consume": 0,
+        "telemetry_unmarshal": 0,
+        "frontend_dispatch": 0,
+        "gc_workers": 20.0,
+        "labels": 10.0
+      },
+      "top_flat": [
+        {
+          "function": "encoding/json.(*Decoder).readValue",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.stateInString",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "internal/runtime/syscall/linux.Syscall6",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "runtime.(*lfstack).push",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "runtime.(*spanInlineMarkBits).tryAcquire",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "runtime.(*spanSet).push",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "runtime.(*traceMap).put",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "runtime.funcdata (inline)",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "dagger.io/dagger.(*Client).Do",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "dagger.io/dagger.(*TypeDefKind).UnmarshalJSON",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "dagger.io/dagger.errorWrappedClient.MakeRequest",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*Decoder).Decode",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).array",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).literalStore",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).object",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        }
+      ],
+      "top_cumulative": [
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.Main",
+          "flat_ms": 0.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "github.com/spf13/cobra.(*Command).Execute (inline)",
+          "flat_ms": 0.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "github.com/spf13/cobra.(*Command).ExecuteC",
+          "flat_ms": 0.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "github.com/spf13/cobra.(*Command).ExecuteContext (inline)",
+          "flat_ms": 0.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "github.com/spf13/cobra.(*Command).execute",
+          "flat_ms": 0.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "main.main",
+          "flat_ms": 0.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "runtime.main",
+          "flat_ms": 0.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "github.com/dagger/dagger/dagql/idtui.(*frontendPretty).Run",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.(*FuncCommand).Command.func2",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.(*FuncCommand).Command.func2.1",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.(*FuncCommand).execute",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.(*moduleDef).loadTypeDefs",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.initializeWorkspace",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.withEngine",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/cmd/dagger.withEngine.func1",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "runtime.gcBgMarkWorker",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "runtime.gcBgMarkWorker.func2",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "runtime.gcDrain",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "runtime.systemstack",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "dagger.io/dagger.(*Client).Do",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "dagger.io/dagger.(*TypeDefKind).UnmarshalJSON",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "dagger.io/dagger.errorWrappedClient.MakeRequest",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*Decoder).Decode",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*Decoder).readValue",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).array",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        }
+      ],
+      "trace_profiles": {
+        "sync": {
+          "anchors_cumulative_ms_nonadditive": {
+            "github.com/dagger/dagger/engine/client/drivers.containerRuntimeAvailable": 0,
+            "github.com/dagger/dagger/engine/client.newBuildkitClient": 37.15,
+            "runtime/pprof.StopCPUProfile": 0.93,
+            "github.com/dagger/dagger/internal/fsutil.(*sender).walk": 0.28,
+            "os.Lstat": 0,
+            "os.Stat": 0,
+            "golang.org/x/sys/unix.Llistxattr": 0,
+            "syscall.Getdents": 0,
+            "runtime.(*profBuf).read": 0
+          },
+          "top_flat": [
+            {
+              "function": "runtime.selectgo",
+              "flat_ms": 3920.49,
+              "cumulative_ms": 3920.49
+            },
+            {
+              "function": "runtime.chanrecv2",
+              "flat_ms": 1289.4,
+              "cumulative_ms": 1289.4
+            },
+            {
+              "function": "runtime.chanrecv1",
+              "flat_ms": 830.73,
+              "cumulative_ms": 830.73
+            },
+            {
+              "function": "sync.(*Cond).Wait",
+              "flat_ms": 644.38,
+              "cumulative_ms": 644.38
+            },
+            {
+              "function": "sync.(*WaitGroup).Wait",
+              "flat_ms": 34.02,
+              "cumulative_ms": 34.02
+            },
+            {
+              "function": "sync.(*Mutex).Lock",
+              "flat_ms": 6.76,
+              "cumulative_ms": 6.76
+            },
+            {
+              "function": "runtime.gcMarkDone",
+              "flat_ms": 0.24,
+              "cumulative_ms": 0.24
+            },
+            {
+              "function": "runtime.gcStart",
+              "flat_ms": 0.07,
+              "cumulative_ms": 0.07
+            },
+            {
+              "function": "internal/poll.(*FD).Close",
+              "flat_ms": 0.03,
+              "cumulative_ms": 0.03
+            },
+            {
+              "function": "runtime.chansend1",
+              "flat_ms": 0.03,
+              "cumulative_ms": 0.03
+            }
+          ]
+        },
+        "syscall": {
+          "anchors_cumulative_ms_nonadditive": {
+            "github.com/dagger/dagger/engine/client/drivers.containerRuntimeAvailable": 17.13,
+            "github.com/dagger/dagger/engine/client.newBuildkitClient": 0,
+            "runtime/pprof.StopCPUProfile": 0,
+            "github.com/dagger/dagger/internal/fsutil.(*sender).walk": 6.31,
+            "os.Lstat": 0.25,
+            "os.Stat": 0.3,
+            "golang.org/x/sys/unix.Llistxattr": 0.04,
+            "syscall.Getdents": 6.17,
+            "runtime.(*profBuf).read": 313.32
+          },
+          "top_flat": [
+            {
+              "function": "runtime.(*profBuf).read",
+              "flat_ms": 313.32,
+              "cumulative_ms": 313.32
+            },
+            {
+              "function": "internal/syscall/unix.Waitid",
+              "flat_ms": 23.26,
+              "cumulative_ms": 23.26
+            },
+            {
+              "function": "syscall.Getdents",
+              "flat_ms": 6.17,
+              "cumulative_ms": 6.17
+            },
+            {
+              "function": "syscall.write",
+              "flat_ms": 1.01,
+              "cumulative_ms": 1.01
+            },
+            {
+              "function": "syscall.read",
+              "flat_ms": 0.97,
+              "cumulative_ms": 0.97
+            },
+            {
+              "function": "syscall.fstatat",
+              "flat_ms": 0.55,
+              "cumulative_ms": 0.55
+            },
+            {
+              "function": "syscall.Fstat",
+              "flat_ms": 0.35,
+              "cumulative_ms": 0.35
+            },
+            {
+              "function": "syscall.readlen",
+              "flat_ms": 0.34,
+              "cumulative_ms": 0.34
+            },
+            {
+              "function": "syscall.openat",
+              "flat_ms": 0.23,
+              "cumulative_ms": 0.23
+            },
+            {
+              "function": "syscall.Close",
+              "flat_ms": 0.2,
+              "cumulative_ms": 0.2
+            }
+          ]
+        },
+        "sched": {
+          "anchors_cumulative_ms_nonadditive": {
+            "github.com/dagger/dagger/engine/client/drivers.containerRuntimeAvailable": 0.1,
+            "github.com/dagger/dagger/engine/client.newBuildkitClient": 0.23,
+            "runtime/pprof.StopCPUProfile": 0,
+            "github.com/dagger/dagger/internal/fsutil.(*sender).walk": 0.3,
+            "os.Lstat": 0.17,
+            "os.Stat": 0,
+            "golang.org/x/sys/unix.Llistxattr": 0,
+            "syscall.Getdents": 0,
+            "runtime.(*profBuf).read": 0
+          },
+          "top_flat": [
+            {
+              "function": "runtime.selectnbsend",
+              "flat_ms": 2.48,
+              "cumulative_ms": 2.48
+            },
+            {
+              "function": "runtime.selectgo",
+              "flat_ms": 1.28,
+              "cumulative_ms": 1.28
+            },
+            {
+              "function": "runtime.systemstack_switch",
+              "flat_ms": 0.57,
+              "cumulative_ms": 0.57
+            },
+            {
+              "function": "context.(*cancelCtx).cancel",
+              "flat_ms": 0.47,
+              "cumulative_ms": 0.47
+            },
+            {
+              "function": "runtime.chansend1",
+              "flat_ms": 0.43,
+              "cumulative_ms": 0.43
+            },
+            {
+              "function": "golang.org/x/net/http2.closeWaiter.Close",
+              "flat_ms": 0.4,
+              "cumulative_ms": 0.4
+            },
+            {
+              "function": "sync.(*Mutex).Unlock",
+              "flat_ms": 0.24,
+              "cumulative_ms": 0.24
+            },
+            {
+              "function": "sync.(*Cond).Signal",
+              "flat_ms": 0.19,
+              "cumulative_ms": 0.19
+            },
+            {
+              "function": "runtime.gcStart",
+              "flat_ms": 0.18,
+              "cumulative_ms": 0.34
+            },
+            {
+              "function": "golang.org/x/net/http2.(*clientConnReadLoop).processHeaders",
+              "flat_ms": 0.14,
+              "cumulative_ms": 0.14
+            }
+          ]
+        },
+        "net": {
+          "anchors_cumulative_ms_nonadditive": {
+            "github.com/dagger/dagger/engine/client/drivers.containerRuntimeAvailable": 0,
+            "github.com/dagger/dagger/engine/client.newBuildkitClient": 0,
+            "runtime/pprof.StopCPUProfile": 0,
+            "github.com/dagger/dagger/internal/fsutil.(*sender).walk": 0,
+            "os.Lstat": 0,
+            "os.Stat": 0,
+            "golang.org/x/sys/unix.Llistxattr": 0,
+            "syscall.Getdents": 0,
+            "runtime.(*profBuf).read": 0
+          },
+          "top_flat": [
+            {
+              "function": "internal/poll.(*FD).Read",
+              "flat_ms": 1785.28,
+              "cumulative_ms": 1785.28
+            },
+            {
+              "function": "bufio.(*Reader).Read",
+              "flat_ms": 0.0,
+              "cumulative_ms": 700.98
+            },
+            {
+              "function": "bufio.(*Reader).ReadLine",
+              "flat_ms": 0.0,
+              "cumulative_ms": 43.49
+            },
+            {
+              "function": "bufio.(*Reader).ReadSlice",
+              "flat_ms": 0.0,
+              "cumulative_ms": 43.49
+            },
+            {
+              "function": "bufio.(*Reader).fill",
+              "flat_ms": 0.0,
+              "cumulative_ms": 43.49
+            },
+            {
+              "function": "github.com/dagger/dagger/dagql/idtui.(*frontendPretty).Run",
+              "flat_ms": 0.0,
+              "cumulative_ms": 43.49
+            },
+            {
+              "function": "github.com/dagger/dagger/engine/client.(*Client).startSession",
+              "flat_ms": 0.0,
+              "cumulative_ms": 43.49
+            },
+            {
+              "function": "github.com/dagger/dagger/engine/client.Connect",
+              "flat_ms": 0.0,
+              "cumulative_ms": 43.49
+            },
+            {
+              "function": "github.com/dagger/dagger/engine/client.ConnectSessionAttachables",
+              "flat_ms": 0.0,
+              "cumulative_ms": 43.49
+            },
+            {
+              "function": "github.com/dagger/dagger/engine/client/drivers.(*answeredConn).Read",
+              "flat_ms": 0.0,
+              "cumulative_ms": 289.33
+            }
+          ]
+        }
+      }
+    },
+    {
+      "capture": "06-module-cpu",
+      "flow": "module",
+      "profile_sha256": "603f1f6121144cd680d29d73e04555c9d0b2ccaa597807defebf20f09975df2f",
+      "sampled_dagger_cpu_ms": 60.0,
+      "profile_duration_ms_rounded": 302.56,
+      "instrumented_cli_ms": 364.4311379175633,
+      "waited_process_tree_cpu_ms": 239.1859999999999,
+      "tree_cpu_minus_sampled_cpu_ms_unattributed": 179.1859999999999,
+      "outside_profile_wall_ms_rounded_upper_envelope": 61.87113791756332,
+      "anchors_cumulative_ms_nonadditive": {
+        "source_walk": 20.0,
+        "readdir": 10.0,
+        "filepath_rel": 0,
+        "metadata_decode": 10.0,
+        "telemetry_consume": 20.0,
+        "telemetry_unmarshal": 20.0,
+        "frontend_dispatch": 0,
+        "gc_workers": 0,
+        "labels": 0
+      },
+      "top_flat": [
+        {
+          "function": "encoding/json.unquoteBytes",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "os.(*File).readdir",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "reflect.Value.Pointer",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "regexp.(*inputString).canCheckPrefix",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "runtime.(*spanSet).push",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "runtime.runqgrab",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "dagger.io/dagger.(*Client).Do",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "dagger.io/dagger.errorWrappedClient.MakeRequest",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*Decoder).Decode",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).literalStore",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).object",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).unmarshal",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).value",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "github.com/Khan/genqlient/graphql.(*client).MakeRequest",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "github.com/dagger/dagger/dagql/idtui.(*frontendPretty).Run",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        }
+      ],
+      "top_cumulative": [
+        {
+          "function": "golang.org/x/sync/errgroup.(*Group).Go.func1",
+          "flat_ms": 0.0,
+          "cumulative_ms": 40.0
+        },
+        {
+          "function": "github.com/dagger/dagger/engine/client.(*Client).exportTraces.func1",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/engine/client.(*otlpConsumer).Consume.func2",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/engine/client.(*otlpConsumer).consumeResponse",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/engine/client.consumeTelemetryPayload",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/engine/client.unmarshalLiveTelemetry",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/fsutil.(*filterFS).Walk",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/fsutil.(*fs).Walk",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/fsutil.(*hardlinkFilter).Walk",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/fsutil.(*sender).run.func1",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/fsutil.(*sender).walk",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "google.golang.org/protobuf/internal/impl.(*MessageInfo).unmarshal",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "google.golang.org/protobuf/internal/impl.(*MessageInfo).unmarshalPointer",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "google.golang.org/protobuf/internal/impl.(*MessageInfo).unmarshalPointerEager",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "google.golang.org/protobuf/internal/impl.consumeMessageInfo",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "google.golang.org/protobuf/internal/impl.consumeMessageSliceInfo",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "google.golang.org/protobuf/proto.Unmarshal",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "google.golang.org/protobuf/proto.UnmarshalOptions.unmarshal",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "path/filepath.WalkDir",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "path/filepath.walkDir",
+          "flat_ms": 0.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "dagger.io/dagger.(*Client).Do",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "dagger.io/dagger.errorWrappedClient.MakeRequest",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*Decoder).Decode",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).literalStore",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "encoding/json.(*decodeState).object",
+          "flat_ms": 0.0,
+          "cumulative_ms": 10.0
+        }
+      ],
+      "trace_profiles": {}
+    },
+    {
+      "capture": "08-checks-cpu",
+      "flow": "checks",
+      "profile_sha256": "0c201491d516e81f57a1d8a4031b8ae9b32317be099b57e68f82bef71645c21f",
+      "sampled_dagger_cpu_ms": 430.0,
+      "profile_duration_ms_rounded": 1560.0,
+      "instrumented_cli_ms": 1618.5291060246527,
+      "waited_process_tree_cpu_ms": 675.869,
+      "tree_cpu_minus_sampled_cpu_ms_unattributed": 245.86900000000003,
+      "outside_profile_wall_ms_rounded_upper_envelope": 58.52910602465272,
+      "anchors_cumulative_ms_nonadditive": {
+        "source_walk": 170.0,
+        "readdir": 80.0,
+        "filepath_rel": 20.0,
+        "metadata_decode": 0,
+        "telemetry_consume": 30.0,
+        "telemetry_unmarshal": 30.0,
+        "frontend_dispatch": 30.0,
+        "gc_workers": 80.0,
+        "labels": 0
+      },
+      "top_flat": [
+        {
+          "function": "internal/runtime/syscall/linux.Syscall6",
+          "flat_ms": 60.0,
+          "cumulative_ms": 60.0
+        },
+        {
+          "function": "internal/filepathlite.(*lazybuf).append (inline)",
+          "flat_ms": 20.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "runtime.futex",
+          "flat_ms": 20.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "runtime.selectgo",
+          "flat_ms": 20.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "aeshashbody",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/fsutil.(*filterFS).Walk.func1.2",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/fsutil.(*fs).Walk.func1.1",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "github.com/dagger/otel-go.keyValueToPB (inline)",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "github.com/moby/patternmatcher.(*Pattern).match",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "go.opentelemetry.io/otel/propagation.TraceContext.Inject",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "google.golang.org/grpc.(*Server).handleStream",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "google.golang.org/grpc/internal/transport.(*serverHandlerTransport).runStream (inline)",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "google.golang.org/protobuf/internal/impl.(*MessageInfo).unmarshalPointerEager",
+          "flat_ms": 10.0,
+          "cumulative_ms": 50.0
+        },
+        {
+          "function": "internal/filepathlite.Clean",
+          "flat_ms": 10.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "internal/runtime/atomic.(*UnsafePointer).StoreNoWB (inline)",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        }
+      ],
+      "top_cumulative": [
+        {
+          "function": "golang.org/x/sync/errgroup.(*Group).Go.func1",
+          "flat_ms": 0.0,
+          "cumulative_ms": 210.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/fsutil.(*filterFS).Walk",
+          "flat_ms": 0.0,
+          "cumulative_ms": 170.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/fsutil.(*fs).Walk",
+          "flat_ms": 0.0,
+          "cumulative_ms": 170.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/fsutil.(*hardlinkFilter).Walk",
+          "flat_ms": 0.0,
+          "cumulative_ms": 170.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/fsutil.(*sender).run.func1",
+          "flat_ms": 0.0,
+          "cumulative_ms": 170.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/fsutil.(*sender).walk",
+          "flat_ms": 0.0,
+          "cumulative_ms": 170.0
+        },
+        {
+          "function": "path/filepath.WalkDir",
+          "flat_ms": 0.0,
+          "cumulative_ms": 170.0
+        },
+        {
+          "function": "path/filepath.walkDir",
+          "flat_ms": 0.0,
+          "cumulative_ms": 160.0
+        },
+        {
+          "function": "os.ReadDir",
+          "flat_ms": 0.0,
+          "cumulative_ms": 80.0
+        },
+        {
+          "function": "runtime.gcBgMarkWorker",
+          "flat_ms": 0.0,
+          "cumulative_ms": 80.0
+        },
+        {
+          "function": "runtime.gcBgMarkWorker.func2",
+          "flat_ms": 0.0,
+          "cumulative_ms": 80.0
+        },
+        {
+          "function": "runtime.gcDrain",
+          "flat_ms": 0.0,
+          "cumulative_ms": 80.0
+        },
+        {
+          "function": "runtime.systemstack",
+          "flat_ms": 0.0,
+          "cumulative_ms": 80.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/fsutil.(*fs).Walk.func1",
+          "flat_ms": 0.0,
+          "cumulative_ms": 70.0
+        },
+        {
+          "function": "internal/runtime/syscall/linux.Syscall6",
+          "flat_ms": 60.0,
+          "cumulative_ms": 60.0
+        },
+        {
+          "function": "os.(*File).ReadDir",
+          "flat_ms": 0.0,
+          "cumulative_ms": 60.0
+        },
+        {
+          "function": "os.(*File).readdir",
+          "flat_ms": 10.0,
+          "cumulative_ms": 60.0
+        },
+        {
+          "function": "syscall.RawSyscall6",
+          "flat_ms": 0.0,
+          "cumulative_ms": 60.0
+        },
+        {
+          "function": "google.golang.org/protobuf/internal/impl.(*MessageInfo).unmarshal",
+          "flat_ms": 0.0,
+          "cumulative_ms": 50.0
+        },
+        {
+          "function": "google.golang.org/protobuf/internal/impl.(*MessageInfo).unmarshalPointer",
+          "flat_ms": 0.0,
+          "cumulative_ms": 50.0
+        },
+        {
+          "function": "google.golang.org/protobuf/internal/impl.(*MessageInfo).unmarshalPointerEager",
+          "flat_ms": 10.0,
+          "cumulative_ms": 50.0
+        },
+        {
+          "function": "google.golang.org/protobuf/internal/impl.consumeMessageSliceInfo",
+          "flat_ms": 0.0,
+          "cumulative_ms": 50.0
+        },
+        {
+          "function": "google.golang.org/protobuf/proto.Unmarshal",
+          "flat_ms": 0.0,
+          "cumulative_ms": 50.0
+        },
+        {
+          "function": "google.golang.org/protobuf/proto.UnmarshalOptions.unmarshal",
+          "flat_ms": 0.0,
+          "cumulative_ms": 50.0
+        },
+        {
+          "function": "runtime.gcDrainMarkWorkerIdle (inline)",
+          "flat_ms": 0.0,
+          "cumulative_ms": 50.0
+        }
+      ],
+      "trace_profiles": {
+        "sync": {
+          "anchors_cumulative_ms_nonadditive": {
+            "github.com/dagger/dagger/engine/client/drivers.containerRuntimeAvailable": 0,
+            "github.com/dagger/dagger/engine/client.newBuildkitClient": 50.22,
+            "runtime/pprof.StopCPUProfile": 1.1,
+            "github.com/dagger/dagger/internal/fsutil.(*sender).walk": 2.59,
+            "os.Lstat": 0,
+            "os.Stat": 0,
+            "golang.org/x/sys/unix.Llistxattr": 0,
+            "syscall.Getdents": 0,
+            "runtime.(*profBuf).read": 0
+          },
+          "top_flat": [
+            {
+              "function": "runtime.selectgo",
+              "flat_ms": 23821.75,
+              "cumulative_ms": 23821.75
+            },
+            {
+              "function": "runtime.chanrecv2",
+              "flat_ms": 6777.49,
+              "cumulative_ms": 6777.49
+            },
+            {
+              "function": "runtime.chanrecv1",
+              "flat_ms": 5487.4,
+              "cumulative_ms": 5487.4
+            },
+            {
+              "function": "sync.(*Cond).Wait",
+              "flat_ms": 4379.29,
+              "cumulative_ms": 4379.31
+            },
+            {
+              "function": "sync.(*WaitGroup).Wait",
+              "flat_ms": 177.53,
+              "cumulative_ms": 177.53
+            },
+            {
+              "function": "sync.(*Mutex).Lock",
+              "flat_ms": 12.11,
+              "cumulative_ms": 12.11
+            },
+            {
+              "function": "runtime.chansend1",
+              "flat_ms": 0.5,
+              "cumulative_ms": 0.5
+            },
+            {
+              "function": "runtime.gcMarkDone",
+              "flat_ms": 0.11,
+              "cumulative_ms": 0.11
+            },
+            {
+              "function": "runtime.traceAdvance",
+              "flat_ms": 0.07,
+              "cumulative_ms": 0.07
+            },
+            {
+              "function": "bufio.(*Writer).Flush",
+              "flat_ms": 0.0,
+              "cumulative_ms": 4.23
+            }
+          ]
+        },
+        "syscall": {
+          "anchors_cumulative_ms_nonadditive": {
+            "github.com/dagger/dagger/engine/client/drivers.containerRuntimeAvailable": 14.95,
+            "github.com/dagger/dagger/engine/client.newBuildkitClient": 0,
+            "runtime/pprof.StopCPUProfile": 0,
+            "github.com/dagger/dagger/internal/fsutil.(*sender).walk": 39.3,
+            "os.Lstat": 1.79,
+            "os.Stat": 1.03,
+            "golang.org/x/sys/unix.Llistxattr": 0.6,
+            "syscall.Getdents": 37.29,
+            "runtime.(*profBuf).read": 1558.87
+          },
+          "top_flat": [
+            {
+              "function": "runtime.(*profBuf).read",
+              "flat_ms": 1558.87,
+              "cumulative_ms": 1558.87
+            },
+            {
+              "function": "syscall.Getdents",
+              "flat_ms": 37.29,
+              "cumulative_ms": 37.29
+            },
+            {
+              "function": "internal/syscall/unix.Waitid",
+              "flat_ms": 23.21,
+              "cumulative_ms": 23.21
+            },
+            {
+              "function": "syscall.read",
+              "flat_ms": 4.82,
+              "cumulative_ms": 4.82
+            },
+            {
+              "function": "syscall.write",
+              "flat_ms": 3.8,
+              "cumulative_ms": 3.8
+            },
+            {
+              "function": "syscall.fstatat",
+              "flat_ms": 2.82,
+              "cumulative_ms": 2.82
+            },
+            {
+              "function": "syscall.openat",
+              "flat_ms": 1.6,
+              "cumulative_ms": 1.6
+            },
+            {
+              "function": "syscall.Close",
+              "flat_ms": 1.08,
+              "cumulative_ms": 1.08
+            },
+            {
+              "function": "golang.org/x/sys/unix.Llistxattr",
+              "flat_ms": 0.6,
+              "cumulative_ms": 0.6
+            },
+            {
+              "function": "syscall.fcntl",
+              "flat_ms": 0.44,
+              "cumulative_ms": 0.44
+            }
+          ]
+        },
+        "sched": {
+          "anchors_cumulative_ms_nonadditive": {
+            "github.com/dagger/dagger/engine/client/drivers.containerRuntimeAvailable": 0.23,
+            "github.com/dagger/dagger/engine/client.newBuildkitClient": 1.4,
+            "runtime/pprof.StopCPUProfile": 0,
+            "github.com/dagger/dagger/internal/fsutil.(*sender).walk": 3.3,
+            "os.Lstat": 0.01,
+            "os.Stat": 0,
+            "golang.org/x/sys/unix.Llistxattr": 0,
+            "syscall.Getdents": 0,
+            "runtime.(*profBuf).read": 0
+          },
+          "top_flat": [
+            {
+              "function": "runtime.selectnbsend",
+              "flat_ms": 13.32,
+              "cumulative_ms": 13.32
+            },
+            {
+              "function": "runtime.selectgo",
+              "flat_ms": 10.17,
+              "cumulative_ms": 10.17
+            },
+            {
+              "function": "runtime.systemstack_switch",
+              "flat_ms": 3.31,
+              "cumulative_ms": 3.31
+            },
+            {
+              "function": "runtime.chansend1",
+              "flat_ms": 2.49,
+              "cumulative_ms": 2.49
+            },
+            {
+              "function": "golang.org/x/net/http2.closeWaiter.Close",
+              "flat_ms": 2.27,
+              "cumulative_ms": 2.27
+            },
+            {
+              "function": "sync.(*Cond).Signal",
+              "flat_ms": 1.65,
+              "cumulative_ms": 1.65
+            },
+            {
+              "function": "context.(*cancelCtx).cancel",
+              "flat_ms": 0.97,
+              "cumulative_ms": 0.97
+            },
+            {
+              "function": "google.golang.org/grpc/internal/transport.(*serverHandlerTransport).Close.func1",
+              "flat_ms": 0.58,
+              "cumulative_ms": 0.58
+            },
+            {
+              "function": "github.com/dagger/dagger/internal/fsutil.(*sender).run.func3",
+              "flat_ms": 0.39,
+              "cumulative_ms": 0.39
+            },
+            {
+              "function": "runtime.gcMarkDone",
+              "flat_ms": 0.29,
+              "cumulative_ms": 1.32
+            }
+          ]
+        },
+        "net": {
+          "anchors_cumulative_ms_nonadditive": {
+            "github.com/dagger/dagger/engine/client/drivers.containerRuntimeAvailable": 0,
+            "github.com/dagger/dagger/engine/client.newBuildkitClient": 0,
+            "runtime/pprof.StopCPUProfile": 0,
+            "github.com/dagger/dagger/internal/fsutil.(*sender).walk": 0,
+            "os.Lstat": 0,
+            "os.Stat": 0,
+            "golang.org/x/sys/unix.Llistxattr": 0,
+            "syscall.Getdents": 0,
+            "runtime.(*profBuf).read": 0
+          },
+          "top_flat": [
+            {
+              "function": "internal/poll.(*FD).Read",
+              "flat_ms": 10343.72,
+              "cumulative_ms": 10343.72
+            },
+            {
+              "function": "bufio.(*Reader).Read",
+              "flat_ms": 0.0,
+              "cumulative_ms": 4346.83
+            },
+            {
+              "function": "bufio.(*Reader).ReadLine",
+              "flat_ms": 0.0,
+              "cumulative_ms": 64.35
+            },
+            {
+              "function": "bufio.(*Reader).ReadSlice",
+              "flat_ms": 0.0,
+              "cumulative_ms": 64.35
+            },
+            {
+              "function": "bufio.(*Reader).fill",
+              "flat_ms": 0.0,
+              "cumulative_ms": 64.35
+            },
+            {
+              "function": "bytes.(*Buffer).ReadFrom",
+              "flat_ms": 0.0,
+              "cumulative_ms": 6.86
+            },
+            {
+              "function": "encoding/json.(*Decoder).Decode",
+              "flat_ms": 0.0,
+              "cumulative_ms": 6.33
+            },
+            {
+              "function": "encoding/json.(*Decoder).readValue",
+              "flat_ms": 0.0,
+              "cumulative_ms": 6.33
+            },
+            {
+              "function": "encoding/json.(*Decoder).refill",
+              "flat_ms": 0.0,
+              "cumulative_ms": 6.33
+            },
+            {
+              "function": "github.com/dagger/dagger/dagql/idtui.(*frontendPretty).Run",
+              "flat_ms": 0.0,
+              "cumulative_ms": 64.35
+            }
+          ]
+        }
+      }
+    },
+    {
+      "capture": "09-checks-cpu",
+      "flow": "checks",
+      "profile_sha256": "f22a4ff90bcec7c392e3c72ad4155821baf0a3142195ad235963dbe2ce707f4f",
+      "sampled_dagger_cpu_ms": 410.0,
+      "profile_duration_ms_rounded": 1710.0,
+      "instrumented_cli_ms": 1768.92601698637,
+      "waited_process_tree_cpu_ms": 583.5400000000002,
+      "tree_cpu_minus_sampled_cpu_ms_unattributed": 173.5400000000002,
+      "outside_profile_wall_ms_rounded_upper_envelope": 58.92601698637009,
+      "anchors_cumulative_ms_nonadditive": {
+        "source_walk": 100.0,
+        "readdir": 60.0,
+        "filepath_rel": 0,
+        "metadata_decode": 0,
+        "telemetry_consume": 60.0,
+        "telemetry_unmarshal": 50.0,
+        "frontend_dispatch": 50.0,
+        "gc_workers": 60.0,
+        "labels": 10.0
+      },
+      "top_flat": [
+        {
+          "function": "internal/runtime/syscall/linux.Syscall6",
+          "flat_ms": 30.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "runtime.futex",
+          "flat_ms": 30.0,
+          "cumulative_ms": 30.0
+        },
+        {
+          "function": "cmpbody",
+          "flat_ms": 20.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/dagql/dagui.(*SpanSnapshot).ProcessAttribute",
+          "flat_ms": 20.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "runtime.mallocgc",
+          "flat_ms": 20.0,
+          "cumulative_ms": 50.0
+        },
+        {
+          "function": "runtime.memmove",
+          "flat_ms": 20.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "runtime.scanObject",
+          "flat_ms": 20.0,
+          "cumulative_ms": 20.0
+        },
+        {
+          "function": "github.com/dagger/dagger/dagql/dagui.(*DB).ingestLogs",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "github.com/vito/midterm.(*Screen).ensureHeight",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "go.opentelemetry.io/otel/sdk/log.newRecordCounterIncr",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "google.golang.org/protobuf/encoding/protowire.ConsumeBytes",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "internal/abi.Name.ReadVarint (inline)",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "internal/filepathlite.(*lazybuf).append (inline)",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "internal/poll.(*fdMutex).rwlock",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        },
+        {
+          "function": "internal/runtime/maps.(*Map).getWithoutKeySmallFastStr",
+          "flat_ms": 10.0,
+          "cumulative_ms": 10.0
+        }
+      ],
+      "top_cumulative": [
+        {
+          "function": "golang.org/x/sync/errgroup.(*Group).Go.func1",
+          "flat_ms": 0.0,
+          "cumulative_ms": 160.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/fsutil.(*filterFS).Walk",
+          "flat_ms": 0.0,
+          "cumulative_ms": 100.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/fsutil.(*fs).Walk",
+          "flat_ms": 0.0,
+          "cumulative_ms": 100.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/fsutil.(*hardlinkFilter).Walk",
+          "flat_ms": 0.0,
+          "cumulative_ms": 100.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/fsutil.(*sender).run.func1",
+          "flat_ms": 0.0,
+          "cumulative_ms": 100.0
+        },
+        {
+          "function": "github.com/dagger/dagger/internal/fsutil.(*sender).walk",
+          "flat_ms": 0.0,
+          "cumulative_ms": 100.0
+        },
+        {
+          "function": "path/filepath.WalkDir",
+          "flat_ms": 0.0,
+          "cumulative_ms": 100.0
+        },
+        {
+          "function": "path/filepath.walkDir",
+          "flat_ms": 0.0,
+          "cumulative_ms": 100.0
+        },
+        {
+          "function": "github.com/dagger/dagger/engine/client.(*otlpConsumer).Consume.func2",
+          "flat_ms": 0.0,
+          "cumulative_ms": 60.0
+        },
+        {
+          "function": "github.com/dagger/dagger/engine/client.(*otlpConsumer).consumeResponse",
+          "flat_ms": 0.0,
+          "cumulative_ms": 60.0
+        },
+        {
+          "function": "github.com/dagger/dagger/engine/client.consumeTelemetryPayload",
+          "flat_ms": 0.0,
+          "cumulative_ms": 60.0
+        },
+        {
+          "function": "google.golang.org/protobuf/internal/impl.(*MessageInfo).unmarshal",
+          "flat_ms": 0.0,
+          "cumulative_ms": 60.0
+        },
+        {
+          "function": "google.golang.org/protobuf/internal/impl.(*MessageInfo).unmarshalPointer",
+          "flat_ms": 0.0,
+          "cumulative_ms": 60.0
+        },
+        {
+          "function": "google.golang.org/protobuf/internal/impl.(*MessageInfo).unmarshalPointerEager",
+          "flat_ms": 0.0,
+          "cumulative_ms": 60.0
+        },
+        {
+          "function": "google.golang.org/protobuf/proto.Unmarshal",
+          "flat_ms": 0.0,
+          "cumulative_ms": 60.0
+        },
+        {
+          "function": "google.golang.org/protobuf/proto.UnmarshalOptions.unmarshal",
+          "flat_ms": 0.0,
+          "cumulative_ms": 60.0
+        },
+        {
+          "function": "os.ReadDir",
+          "flat_ms": 0.0,
+          "cumulative_ms": 60.0
+        },
+        {
+          "function": "runtime.gcBgMarkWorker",
+          "flat_ms": 0.0,
+          "cumulative_ms": 60.0
+        },
+        {
+          "function": "runtime.systemstack",
+          "flat_ms": 0.0,
+          "cumulative_ms": 60.0
+        },
+        {
+          "function": "github.com/dagger/dagger/dagql/idtui.(*frontendPretty).dispatch",
+          "flat_ms": 0.0,
+          "cumulative_ms": 50.0
+        },
+        {
+          "function": "github.com/dagger/dagger/engine/client.unmarshalLiveTelemetry",
+          "flat_ms": 0.0,
+          "cumulative_ms": 50.0
+        },
+        {
+          "function": "google.golang.org/protobuf/internal/impl.consumeMessageSliceInfo",
+          "flat_ms": 0.0,
+          "cumulative_ms": 50.0
+        },
+        {
+          "function": "runtime.gcBgMarkWorker.func2",
+          "flat_ms": 0.0,
+          "cumulative_ms": 50.0
+        },
+        {
+          "function": "runtime.gcDrain",
+          "flat_ms": 0.0,
+          "cumulative_ms": 50.0
+        },
+        {
+          "function": "runtime.mallocgc",
+          "flat_ms": 20.0,
+          "cumulative_ms": 50.0
+        }
+      ],
+      "trace_profiles": {
+        "sync": {
+          "anchors_cumulative_ms_nonadditive": {
+            "github.com/dagger/dagger/engine/client/drivers.containerRuntimeAvailable": 0,
+            "github.com/dagger/dagger/engine/client.newBuildkitClient": 34.38,
+            "runtime/pprof.StopCPUProfile": 1.25,
+            "github.com/dagger/dagger/internal/fsutil.(*sender).walk": 2.67,
+            "os.Lstat": 0,
+            "os.Stat": 0,
+            "golang.org/x/sys/unix.Llistxattr": 0,
+            "syscall.Getdents": 0,
+            "runtime.(*profBuf).read": 0
+          },
+          "top_flat": [
+            {
+              "function": "runtime.selectgo",
+              "flat_ms": 26150.98,
+              "cumulative_ms": 26150.98
+            },
+            {
+              "function": "runtime.chanrecv2",
+              "flat_ms": 7234.91,
+              "cumulative_ms": 7234.91
+            },
+            {
+              "function": "runtime.chanrecv1",
+              "flat_ms": 5915.41,
+              "cumulative_ms": 5915.41
+            },
+            {
+              "function": "sync.(*Cond).Wait",
+              "flat_ms": 4800.97,
+              "cumulative_ms": 4800.97
+            },
+            {
+              "function": "sync.(*WaitGroup).Wait",
+              "flat_ms": 193.34,
+              "cumulative_ms": 193.34
+            },
+            {
+              "function": "sync.(*Mutex).Lock",
+              "flat_ms": 2.5,
+              "cumulative_ms": 2.5
+            },
+            {
+              "function": "runtime.chansend1",
+              "flat_ms": 0.49,
+              "cumulative_ms": 0.49
+            },
+            {
+              "function": "runtime.gcStart",
+              "flat_ms": 0.09,
+              "cumulative_ms": 0.09
+            },
+            {
+              "function": "runtime.traceAdvance",
+              "flat_ms": 0.06,
+              "cumulative_ms": 0.06
+            },
+            {
+              "function": "bufio.(*Writer).Flush",
+              "flat_ms": 0.0,
+              "cumulative_ms": 3.32
+            }
+          ]
+        },
+        "syscall": {
+          "anchors_cumulative_ms_nonadditive": {
+            "github.com/dagger/dagger/engine/client/drivers.containerRuntimeAvailable": 15.96,
+            "github.com/dagger/dagger/engine/client.newBuildkitClient": 0,
+            "runtime/pprof.StopCPUProfile": 0,
+            "github.com/dagger/dagger/internal/fsutil.(*sender).walk": 34.39,
+            "os.Lstat": 1.31,
+            "os.Stat": 0.63,
+            "golang.org/x/sys/unix.Llistxattr": 0.49,
+            "syscall.Getdents": 32.57,
+            "runtime.(*profBuf).read": 0
+          },
+          "top_flat": [
+            {
+              "function": "syscall.Getdents",
+              "flat_ms": 32.57,
+              "cumulative_ms": 32.57
+            },
+            {
+              "function": "internal/syscall/unix.Waitid",
+              "flat_ms": 23.61,
+              "cumulative_ms": 23.61
+            },
+            {
+              "function": "syscall.read",
+              "flat_ms": 4.01,
+              "cumulative_ms": 4.01
+            },
+            {
+              "function": "syscall.write",
+              "flat_ms": 3.82,
+              "cumulative_ms": 3.82
+            },
+            {
+              "function": "syscall.fstatat",
+              "flat_ms": 1.94,
+              "cumulative_ms": 1.94
+            },
+            {
+              "function": "syscall.Close",
+              "flat_ms": 1.5,
+              "cumulative_ms": 1.5
+            },
+            {
+              "function": "syscall.openat",
+              "flat_ms": 1.31,
+              "cumulative_ms": 1.31
+            },
+            {
+              "function": "golang.org/x/sys/unix.Llistxattr",
+              "flat_ms": 0.49,
+              "cumulative_ms": 0.49
+            },
+            {
+              "function": "syscall.fcntl",
+              "flat_ms": 0.26,
+              "cumulative_ms": 0.26
+            },
+            {
+              "function": "syscall.readlen",
+              "flat_ms": 0.08,
+              "cumulative_ms": 0.08
+            }
+          ]
+        },
+        "sched": {
+          "anchors_cumulative_ms_nonadditive": {
+            "github.com/dagger/dagger/engine/client/drivers.containerRuntimeAvailable": 0.23,
+            "github.com/dagger/dagger/engine/client.newBuildkitClient": 0.27,
+            "runtime/pprof.StopCPUProfile": 0,
+            "github.com/dagger/dagger/internal/fsutil.(*sender).walk": 2.05,
+            "os.Lstat": 0.01,
+            "os.Stat": 0,
+            "golang.org/x/sys/unix.Llistxattr": 0,
+            "syscall.Getdents": 0,
+            "runtime.(*profBuf).read": 0
+          },
+          "top_flat": [
+            {
+              "function": "runtime.selectnbsend",
+              "flat_ms": 10.34,
+              "cumulative_ms": 10.34
+            },
+            {
+              "function": "runtime.selectgo",
+              "flat_ms": 7.32,
+              "cumulative_ms": 7.32
+            },
+            {
+              "function": "runtime.systemstack_switch",
+              "flat_ms": 5.76,
+              "cumulative_ms": 5.76
+            },
+            {
+              "function": "golang.org/x/net/http2.closeWaiter.Close",
+              "flat_ms": 1.52,
+              "cumulative_ms": 1.52
+            },
+            {
+              "function": "runtime.chansend1",
+              "flat_ms": 1.44,
+              "cumulative_ms": 1.44
+            },
+            {
+              "function": "sync.(*Cond).Signal",
+              "flat_ms": 1.43,
+              "cumulative_ms": 1.43
+            },
+            {
+              "function": "sync.(*WaitGroup).Add",
+              "flat_ms": 0.72,
+              "cumulative_ms": 0.72
+            },
+            {
+              "function": "context.(*cancelCtx).cancel",
+              "flat_ms": 0.54,
+              "cumulative_ms": 0.54
+            },
+            {
+              "function": "google.golang.org/grpc/internal/transport.(*serverHandlerTransport).Close.func1",
+              "flat_ms": 0.43,
+              "cumulative_ms": 0.43
+            },
+            {
+              "function": "github.com/dagger/dagger/internal/fsutil.(*sender).run.func3",
+              "flat_ms": 0.42,
+              "cumulative_ms": 0.42
+            }
+          ]
+        },
+        "net": {
+          "anchors_cumulative_ms_nonadditive": {
+            "github.com/dagger/dagger/engine/client/drivers.containerRuntimeAvailable": 0,
+            "github.com/dagger/dagger/engine/client.newBuildkitClient": 0,
+            "runtime/pprof.StopCPUProfile": 0,
+            "github.com/dagger/dagger/internal/fsutil.(*sender).walk": 0,
+            "os.Lstat": 0,
+            "os.Stat": 0,
+            "golang.org/x/sys/unix.Llistxattr": 0,
+            "syscall.Getdents": 0,
+            "runtime.(*profBuf).read": 0
+          },
+          "top_flat": [
+            {
+              "function": "internal/poll.(*FD).Read",
+              "flat_ms": 11410.5,
+              "cumulative_ms": 11410.5
+            },
+            {
+              "function": "bufio.(*Reader).Read",
+              "flat_ms": 0.0,
+              "cumulative_ms": 4868.67
+            },
+            {
+              "function": "bufio.(*Reader).ReadLine",
+              "flat_ms": 0.0,
+              "cumulative_ms": 42.2
+            },
+            {
+              "function": "bufio.(*Reader).ReadSlice",
+              "flat_ms": 0.0,
+              "cumulative_ms": 42.2
+            },
+            {
+              "function": "bufio.(*Reader).fill",
+              "flat_ms": 0.0,
+              "cumulative_ms": 42.2
+            },
+            {
+              "function": "bytes.(*Buffer).ReadFrom",
+              "flat_ms": 0.0,
+              "cumulative_ms": 6.13
+            },
+            {
+              "function": "encoding/json.(*Decoder).Decode",
+              "flat_ms": 0.0,
+              "cumulative_ms": 7.27
+            },
+            {
+              "function": "encoding/json.(*Decoder).readValue",
+              "flat_ms": 0.0,
+              "cumulative_ms": 7.27
+            },
+            {
+              "function": "encoding/json.(*Decoder).refill",
+              "flat_ms": 0.0,
+              "cumulative_ms": 7.27
+            },
+            {
+              "function": "github.com/dagger/dagger/dagql/idtui.(*frontendPretty).Run",
+              "flat_ms": 0.0,
+              "cumulative_ms": 42.2
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

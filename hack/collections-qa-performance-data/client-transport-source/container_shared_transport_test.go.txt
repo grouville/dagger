@@ -1,0 +1,29 @@
+package drivers
+
+import (
+	"testing"
+	"testing/synctest"
+
+	"github.com/stretchr/testify/require"
+)
+
+// One initial control tunnel plus the attachables tunnel and shared API/telemetry
+// tunnel are the complete normal topology. The old topology warms one extra.
+func TestContainerConnectorWarmsSharedHTTPTopology(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		backend := &dialingBackend{}
+		connector := containerConnector{backend: backend, host: "engine", warm: newWarmTunnels()}
+		first, err := connector.Connect(t.Context())
+		require.NoError(t, err)
+		_, err = first.Read(make([]byte, 1))
+		require.NoError(t, err)
+		synctest.Wait()
+		require.Equal(t, 3, backend.dials())
+		for range 2 {
+			conn, err := connector.Connect(t.Context())
+			require.NoError(t, err)
+			require.NotNil(t, conn)
+		}
+		require.Equal(t, 3, backend.dials(), "both additional consumers must reuse warmed tunnels")
+	})
+}

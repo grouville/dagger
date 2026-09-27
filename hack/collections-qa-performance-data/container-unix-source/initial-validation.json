@@ -1,0 +1,115 @@
+{
+  "source_head": "0d1c32e29f2f31cdb95f0b5f17f7daed7305bc87",
+  "script_sha256": "2503efaa6dfea3480ef43135242e7c4dd6aa8fdd929dfa67f3bf67d205ad8cad",
+  "source": {
+    "/home/dagger/dag/engine/client/drivers/container.go": "990ce4a905dbbea0e2ece84b716dc71c9ba637e68d2d5ca00a75a9a361949996",
+    "/home/dagger/dag/engine/client/client.go": "ee258323f792a93035fabeab2582258760b7ef2686e24b4bb5b018887f29f42a",
+    "/home/dagger/dag/engine/client/drivers/container_connect_test.go": "116269ff501edf10cc680c6ec82dd69d66aea445ae2563ff2bc1c54067a053d4",
+    "/home/dagger/dag/engine/client/drivers/container_create_test.go": "5722c76b46ae86caec62d12936735c7316d2635d22ad1314d5780a6773e5091c",
+    "/home/dagger/dag/go.mod": "67176883052394c928a27f1bbc74a263b50a99bf7272bda438bd9342eb71c483",
+    "/home/dagger/dag/go.sum": "05b34feba139701de20620f80fbb5cb54d95e05c3ba33004e80f73d75aaa8bc8"
+  },
+  "inputs": {
+    "container.go": "699305a66e2e519be0d2439f6b8071a95e241dac051bc3ab265bf055228f89ca",
+    "container_perf_unix_test.go": "556a64452f313562e713ce3551b57ac41a9ede6eb3a3b5cc6a3c6f0be645ebe7",
+    "original-container.go.txt": "990ce4a905dbbea0e2ece84b716dc71c9ba637e68d2d5ca00a75a9a361949996",
+    "prototype.patch": "36cdb0c4b5d67f96ca141e4e8cc7f84d4cd7e5a1a580a377625073ae9d8cd688",
+    "production-overlay.json": "162d1d39d76cb6ba2107f8a68de564cfec710a08bf646e85b4191928e1b34791",
+    "test-overlay.json": "0b0f74dd78ae891585e1b1eb7aa81c0871a140139627d692a5be54ed4f23fc7d",
+    "baseline-overlay.json": "9970862d31d496f99e0586f81297a5f02117e9b19e131a2e77653178f254aa56",
+    "provenance.json": "0606dcf4a7146816c9b7fd58c8d9dffe3316e76a998262362d866b9cd7443bc1",
+    "validate.py": "2503efaa6dfea3480ef43135242e7c4dd6aa8fdd929dfa67f3bf67d205ad8cad"
+  },
+  "runs": [
+    {
+      "label": "baseline-witness",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/connector-unix-proof-v1/baseline-overlay.json",
+        "./engine/client/drivers",
+        "-run",
+        "^TestContainerPerfUnixExplicitDial$",
+        "-count=1",
+        "-timeout=45s"
+      ],
+      "exit_code": 1,
+      "seconds": 1.1676419079303741,
+      "log_sha256": "022746d127f122bc0f16b386cc3c43c0cc3ab104791c42306b908c6796c622e1",
+      "passes": [],
+      "failures": [
+        "TestContainerPerfUnixExplicitDial"
+      ]
+    },
+    {
+      "label": "candidate",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/connector-unix-proof-v1/test-overlay.json",
+        "./engine/client/drivers",
+        "-run",
+        "^(TestContainerPerfUnix.*|TestContainerConnector.*|TestImageDriverCreate.*)$",
+        "-count=1",
+        "-timeout=45s"
+      ],
+      "exit_code": 0,
+      "seconds": 1.2170929179992527,
+      "log_sha256": "fd9ac75c1362888447a0f6fb97cabc06ee104cf5861c057dc3a2063ee3572ec2",
+      "passes": [
+        "TestContainerPerfUnixDefaultUnchanged",
+        "TestContainerPerfUnixPreservesDriver",
+        "TestContainerPerfUnixExplicitDial",
+        "TestContainerPerfUnixErrorsDoNotFallback/canceled",
+        "TestContainerPerfUnixErrorsDoNotFallback/missing",
+        "TestContainerPerfUnixErrorsDoNotFallback",
+        "TestContainerPerfUnixKeepsThreeWarmTunnels",
+        "TestImageDriverCreateEnablesLoopbackDebugListener",
+        "TestContainerConnectorKeepsTunnelAClientStoppedWaitingFor",
+        "TestImageDriverCreateStartsExistingEngineWithoutListing",
+        "TestContainerConnectorDoesNotWarmOnDeadTunnel",
+        "TestContainerConnectorWarmsTunnelsOnceEngineAnswers"
+      ],
+      "failures": []
+    },
+    {
+      "label": "candidate-race",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/connector-unix-proof-v1/test-overlay.json",
+        "-race",
+        "./engine/client/drivers",
+        "-run",
+        "^(TestContainerPerfUnix.*|TestContainerConnector.*|TestImageDriverCreate.*)$",
+        "-count=1",
+        "-timeout=45s"
+      ],
+      "exit_code": 0,
+      "seconds": 2.680508346995339,
+      "log_sha256": "7c11f619237e522804d0e684f8d7a976b825813643bafef2dc450f7166aee4ae",
+      "passes": [
+        "TestContainerPerfUnixDefaultUnchanged",
+        "TestContainerPerfUnixPreservesDriver",
+        "TestContainerPerfUnixExplicitDial",
+        "TestContainerPerfUnixErrorsDoNotFallback/canceled",
+        "TestContainerPerfUnixErrorsDoNotFallback/missing",
+        "TestContainerPerfUnixErrorsDoNotFallback",
+        "TestContainerPerfUnixKeepsThreeWarmTunnels",
+        "TestImageDriverCreateEnablesLoopbackDebugListener",
+        "TestContainerConnectorKeepsTunnelAClientStoppedWaitingFor",
+        "TestImageDriverCreateStartsExistingEngineWithoutListing",
+        "TestContainerConnectorDoesNotWarmOnDeadTunnel",
+        "TestContainerConnectorWarmsTunnelsOnceEngineAnswers"
+      ],
+      "failures": []
+    }
+  ],
+  "all_expected_results": true
+}

@@ -1,0 +1,141 @@
+{
+  "scope": "Diagnostic-only backport of upstream single worker/queue/chunk-drain behavior onto unchanged log v0.16 public API and provider. Not a full v0.21 upgrade or a proposed vendored dependency.",
+  "source_commit": "ba71b09e6ed272e93a669aeaec1e98b1df4cc582",
+  "upstream_pr": "https://github.com/open-telemetry/opentelemetry-go/pull/8620",
+  "release": "https://github.com/open-telemetry/opentelemetry-go/releases/tag/v1.45.0",
+  "v020_source": "https://raw.githubusercontent.com/open-telemetry/opentelemetry-go/sdk/log/v0.20.0/sdk/log/batch.go",
+  "original_source_sha256": {
+    "v0.16.0/batch.go": "7c8c7ca6e27f00b98778103e9682d50dc05f9fc418701e00a7919e2fb4184218",
+    "v0.16.0/exporter.go": "1b75d51ea135f6acb34ce70c474a30156b5fa472dd79b4b69d3f5980360a3a6e",
+    "v0.21.0/batch.go": "ff2c1f1ff577ef6e20b96d195b493c631e2b73f71675f3c1e4e43dab13600645",
+    "v0.21.0/exporter.go": "210dbad96ab65a5aeca5bbdcf40e028dc69fd158dccce0af0b3aae6e23ff1fb7"
+  },
+  "adaptations": [
+    "Use v0.21 single-worker batch/queue code, stripping only unrelated experimental observability imports/fields/setup/shutdown/drop counters.",
+    "Apply v0.21 chunkExporter.Export implementation to v0.16 exporter.go; retain all other exporter helpers and public API.",
+    "Keep v0.16 LoggerProvider unchanged. No log.Value/KeyValue migration and no dependency graph upgrade.",
+    "Retain upstream Apache-2.0 copyright headers and license."
+  ],
+  "tests": [
+    {
+      "name": "worker-only-local-copy",
+      "expected_pass": true,
+      "passed": [
+        "TestCloseProvidersKeepsLateTraceLogsAndError",
+        "TestCloseProvidersJoinsBlockedLogExportWithoutEmptyUpload",
+        "TestCloseProvidersReportsScheduledExportFailure",
+        "TestCloseProvidersCancellationJoinsFlushAndReportsShutdownFailure",
+        "TestCloseProvidersNoTraceSkipsExtraFlush",
+        "TestCloseProvidersDrainsLargeQueueAndLateRecords"
+      ],
+      "failed": [],
+      "package_outcome": "pass",
+      "elapsed_seconds": 0.008,
+      "log_sha256": "d227430cf23fb026c8a79b2e946ebf0185ca3f19f07013e7ada01b62edff0d8b"
+    },
+    {
+      "name": "worker-only-negative-witness",
+      "expected_pass": false,
+      "passed": [],
+      "failed": [
+        "TestCloseProvidersFlushesLogsWhileTraceShutdownPending"
+      ],
+      "package_outcome": "fail",
+      "elapsed_seconds": 1.007,
+      "log_sha256": "11ea4bb0d2737220bd6a930aee00345b21127015bec78fe1945b9ec2325ef1f0"
+    },
+    {
+      "name": "overlap",
+      "expected_pass": true,
+      "passed": [
+        "TestCloseProvidersFlushesLogsWhileTraceShutdownPending",
+        "TestCloseProvidersKeepsLateTraceLogsAndError",
+        "TestCloseProvidersJoinsBlockedLogExportWithoutEmptyUpload",
+        "TestCloseProvidersPreservesFlushAndShutdownErrors",
+        "TestCloseProvidersReportsSynchronousFlushExportFailure",
+        "TestCloseProvidersReportsScheduledExportFailure",
+        "TestCloseProvidersCancellationJoinsFlushAndReportsShutdownFailure",
+        "TestCloseProvidersNoTraceSkipsExtraFlush",
+        "TestCloseProvidersDrainsLargeQueueAndLateRecords"
+      ],
+      "failed": [],
+      "package_outcome": "pass",
+      "elapsed_seconds": 0.008,
+      "log_sha256": "501c1b484cbaa9630982f5001793cc17c31ac9a6560bbdfba057238ae5f99af7"
+    },
+    {
+      "name": "overlap-worker-gates",
+      "expected_pass": true,
+      "passed": [
+        "TestCloseProvidersFlushesLogsWhileTraceShutdownPending",
+        "TestCloseProvidersKeepsLateTraceLogsAndError",
+        "TestCloseProvidersJoinsBlockedLogExportWithoutEmptyUpload",
+        "TestCloseProvidersPreservesFlushAndShutdownErrors",
+        "TestCloseProvidersReportsSynchronousFlushExportFailure",
+        "TestCloseProvidersReportsScheduledExportFailure",
+        "TestCloseProvidersCancellationJoinsFlushAndReportsShutdownFailure",
+        "TestCloseProvidersNoTraceSkipsExtraFlush",
+        "TestCloseProvidersDrainsLargeQueueAndLateRecords",
+        "TestCloseBackportCanceledFlushPreservesQueue",
+        "TestCloseBackportForcedDrainAttemptsLaterChunks"
+      ],
+      "failed": [],
+      "package_outcome": "pass",
+      "elapsed_seconds": 0.008,
+      "log_sha256": "15d38367a44f83ea8100e4a66546de49349790fd1f7792e329bd85511c460f2c"
+    },
+    {
+      "name": "worker-only-race",
+      "expected_pass": true,
+      "passed": [
+        "TestCloseProvidersKeepsLateTraceLogsAndError",
+        "TestCloseProvidersJoinsBlockedLogExportWithoutEmptyUpload",
+        "TestCloseProvidersReportsScheduledExportFailure",
+        "TestCloseProvidersCancellationJoinsFlushAndReportsShutdownFailure",
+        "TestCloseProvidersNoTraceSkipsExtraFlush",
+        "TestCloseProvidersDrainsLargeQueueAndLateRecords",
+        "TestCloseBackportCanceledFlushPreservesQueue",
+        "TestCloseBackportForcedDrainAttemptsLaterChunks"
+      ],
+      "failed": [],
+      "package_outcome": "pass",
+      "elapsed_seconds": 1.038,
+      "log_sha256": "6e6b331af7ad7be3f9001dbc562b5b393918aa5219995f77a9d80f011640316b"
+    },
+    {
+      "name": "overlap-race",
+      "expected_pass": true,
+      "passed": [
+        "TestCloseProvidersFlushesLogsWhileTraceShutdownPending",
+        "TestCloseProvidersKeepsLateTraceLogsAndError",
+        "TestCloseProvidersJoinsBlockedLogExportWithoutEmptyUpload",
+        "TestCloseProvidersPreservesFlushAndShutdownErrors",
+        "TestCloseProvidersReportsSynchronousFlushExportFailure",
+        "TestCloseProvidersReportsScheduledExportFailure",
+        "TestCloseProvidersCancellationJoinsFlushAndReportsShutdownFailure",
+        "TestCloseProvidersNoTraceSkipsExtraFlush",
+        "TestCloseProvidersDrainsLargeQueueAndLateRecords",
+        "TestCloseBackportCanceledFlushPreservesQueue",
+        "TestCloseBackportForcedDrainAttemptsLaterChunks"
+      ],
+      "failed": [],
+      "package_outcome": "pass",
+      "elapsed_seconds": 1.039,
+      "log_sha256": "f0f7dc96e77c677da6e81df1505a0485b76210e2b8db3a6e6ef160f4a74cdba0"
+    }
+  ],
+  "backport_sha256": {
+    "batch.go": "f4288ab177f12a5f6db098476242e39e91d4a003709113f58da910b5bd778b27",
+    "exporter.go": "0e3655a9be2039aa3c7c211311b5a51c3be0e228f73c220f75aecda3ff49c7f8",
+    "worker-backport.patch": "69ba2eb330d3fb9828ee4f670e2b9d41870bc6f37d73f5a56ec2f076941faaa3",
+    "close_overlap_test.go": "e7ac5064b902010a00b023cedf4a5ca6b2f65190484341b5233f11c3ff80a838",
+    "backport.mod": "ef97bdce16824cb96ed1baa15dad692be2e17104acb12f6b66873f4d7ff70169",
+    "backport.sum": "05b34feba139701de20620f80fbb5cb54d95e05c3ba33004e80f73d75aaa8bc8",
+    "worker-only-test-overlay.json": "5dd512a48c339cf7fce9ff87f7de42131c867d052bd65959522baf90408612d9",
+    "overlap-test-overlay.json": "a70287876143eb91065eeb252f020ffac90178547ab3b21f9434ed3091a488cf"
+  },
+  "private_copy": {
+    "path": "/tmp/collections-perf/cli-log-overlap-v3/backport-v016/sdk-log-v016",
+    "reason": "Go disallows overlays into GOMODCACHE; this unmodified v0.16 copy is used by all variants."
+  }
+}

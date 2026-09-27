@@ -1,0 +1,565 @@
+package otel
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"slices"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"testing/synctest"
+	"time"
+
+	otelapi "go.opentelemetry.io/otel"
+	logapi "go.opentelemetry.io/otel/log"
+	sdklog "go.opentelemetry.io/otel/sdk/log"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+)
+
+type closeRecordings struct {
+	mu      sync.Mutex
+	events  []string
+	batches [][]string
+}
+
+func (r *closeRecordings) event(s string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.events = append(r.events, s)
+}
+func (r *closeRecordings) snapshot() ([]string, [][]string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	batches := make([][]string, len(r.batches))
+	for i, b := range r.batches {
+		batches[i] = slices.Clone(b)
+	}
+	return slices.Clone(r.events), batches
+}
+
+type closeLogExporter struct {
+	r             *closeRecordings
+	export        func(context.Context) error
+	flush         func(context.Context) error
+	shutdownError error
+}
+
+func (e *closeLogExporter) Export(ctx context.Context, records []sdklog.Record) error {
+	b := make([]string, len(records))
+	for i, r := range records {
+		b[i] = r.Body().AsString()
+	}
+	e.r.mu.Lock()
+	e.r.batches = append(e.r.batches, b)
+	e.r.mu.Unlock()
+	if e.export != nil {
+		return e.export(ctx)
+	}
+	return nil
+}
+func (e *closeLogExporter) ForceFlush(ctx context.Context) error {
+	e.r.event("log-flush")
+	if e.flush != nil {
+		return e.flush(ctx)
+	}
+	return nil
+}
+func (e *closeLogExporter) Shutdown(context.Context) error {
+	e.r.event("log-shutdown")
+	return e.shutdownError
+}
+
+type closeTraceExporter struct{ shutdown func(context.Context) error }
+
+func (*closeTraceExporter) ExportSpans(context.Context, []sdktrace.ReadOnlySpan) error { return nil }
+func (e *closeTraceExporter) Shutdown(ctx context.Context) error                       { return e.shutdown(ctx) }
+
+type closeMetricReader struct {
+	sdkmetric.Reader
+	r             *closeRecordings
+	shutdownError error
+}
+
+func (r *closeMetricReader) Shutdown(ctx context.Context) error {
+	r.r.event("metric-shutdown")
+	return errors.Join(r.Reader.Shutdown(ctx), r.shutdownError)
+}
+
+type closeLogHandler struct {
+	logger logapi.Logger
+	r      *closeRecordings
+}
+
+func (*closeLogHandler) Enabled(context.Context, slog.Level) bool { return true }
+func (h *closeLogHandler) Handle(ctx context.Context, r slog.Record) error {
+	h.r.event(r.Message)
+	var rec logapi.Record
+	rec.SetBody(logapi.StringValue(r.Message))
+	h.logger.Emit(ctx, rec)
+	return nil
+}
+func (h *closeLogHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
+func (h *closeLogHandler) WithGroup(string) slog.Handler      { return h }
+
+func closeTestLogs(t *testing.T, e *closeLogExporter, extra ...sdklog.BatchProcessorOption) *sdklog.LoggerProvider {
+	t.Helper()
+	opts := []sdklog.BatchProcessorOption{
+		sdklog.WithExportInterval(time.Hour), sdklog.WithMaxQueueSize(32),
+		sdklog.WithExportMaxBatchSize(32),
+	}
+	opts = append(opts, extra...)
+	proc := sdklog.NewBatchProcessor(e, opts...)
+	p := sdklog.NewLoggerProvider(sdklog.WithProcessor(proc))
+	old := slog.Default()
+	slog.SetDefault(slog.New(&closeLogHandler{logger: p.Logger("close-test"), r: e.r}))
+	t.Cleanup(func() {
+		slog.SetDefault(old)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = p.Shutdown(ctx)
+		// Explicit fixture cleanup remains safe if a provider stops before
+		// completing the processor shutdown under a canceled context.
+		_ = proc.Shutdown(ctx)
+	})
+	return p
+}
+func closeTestTrace(t *testing.T, r *closeRecordings, f func(context.Context) error) *sdktrace.TracerProvider {
+	t.Helper()
+	p := sdktrace.NewTracerProvider(sdktrace.WithSyncer(&closeTraceExporter{shutdown: func(ctx context.Context) error {
+		r.event("trace-shutdown-start")
+		defer r.event("trace-shutdown-end")
+		if f != nil {
+			return f(ctx)
+		}
+		return nil
+	}}))
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		_ = p.Shutdown(ctx)
+	})
+	return p
+}
+func closeTestMetric(t *testing.T, r *closeRecordings, err error) *sdkmetric.MeterProvider {
+	t.Helper()
+	p := sdkmetric.NewMeterProvider(sdkmetric.WithReader(&closeMetricReader{Reader: sdkmetric.NewManualReader(), r: r, shutdownError: err}))
+	t.Cleanup(func() { _ = p.Shutdown(context.Background()) })
+	return p
+}
+func emitCloseLog(p *sdklog.LoggerProvider, s string) {
+	var r logapi.Record
+	r.SetBody(logapi.StringValue(s))
+	p.Logger("close-test").Emit(context.Background(), r)
+}
+func waitCloseEvent(t *testing.T, ch <-chan struct{}, msg string) {
+	t.Helper()
+	select {
+	case <-ch:
+	case <-time.After(time.Second):
+		t.Fatal(msg)
+	}
+}
+func closeAsync(t *testing.T, ctx context.Context, traces *sdktrace.TracerProvider, logs *sdklog.LoggerProvider, metrics *sdkmetric.MeterProvider) <-chan struct{} {
+	t.Helper()
+	done := make(chan struct{})
+	go func() { shutdownProviders(ctx, traces, logs, metrics); close(done) }()
+	return done
+}
+func checkCloseOrder(t *testing.T, r *closeRecordings) {
+	t.Helper()
+	es, _ := r.snapshot()
+	tr, lo, me := slices.Index(es, "trace-shutdown-end"), slices.Index(es, "log-shutdown"), slices.Index(es, "metric-shutdown")
+	if tr < 0 || lo <= tr || me <= lo {
+		t.Fatalf("provider shutdown order: %v", es)
+	}
+}
+func allCloseRecords(r *closeRecordings) []string {
+	_, bs := r.snapshot()
+	var all []string
+	for _, b := range bs {
+		all = append(all, b...)
+	}
+	return all
+}
+
+// The original Close cannot deliver any log while the trace exporter is gated.
+// This tests the real BatchProcessor path, not a mock of helper call ordering.
+func TestCloseProvidersFlushesLogsWhileTraceShutdownPending(t *testing.T) {
+	r := &closeRecordings{}
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	exported := make(chan struct{})
+	var once sync.Once
+	logs := closeTestLogs(t, &closeLogExporter{r: r, export: func(context.Context) error { once.Do(func() { close(exported) }); return nil }})
+	traces := closeTestTrace(t, r, func(ctx context.Context) error {
+		close(entered)
+		select {
+		case <-release:
+			emitCloseLog(logs, "late-trace-cleanup")
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	})
+	metrics := closeTestMetric(t, r, nil)
+	emitCloseLog(logs, "final-stdout")
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	done := closeAsync(t, ctx, traces, logs, metrics)
+	defer func() { close(release); waitCloseEvent(t, done, "close did not join") }()
+	waitCloseEvent(t, entered, "trace shutdown not entered")
+	waitCloseEvent(t, exported, "pending log did not export while trace shutdown remained blocked")
+	select {
+	case <-done:
+		t.Fatal("returned before trace cleanup")
+	default:
+	}
+}
+
+func TestCloseProvidersKeepsLateTraceLogsAndError(t *testing.T) {
+	r := &closeRecordings{}
+	logs := closeTestLogs(t, &closeLogExporter{r: r})
+	traces := closeTestTrace(t, r, func(context.Context) error {
+		emitCloseLog(logs, "late-trace-cleanup")
+		return errors.New("trace failure")
+	})
+	metrics := closeTestMetric(t, r, nil)
+	emitCloseLog(logs, "final-stdout")
+	shutdownProviders(context.Background(), traces, logs, metrics)
+	want := []string{"final-stdout", "late-trace-cleanup", "failed to shut down tracer provider"}
+	if got := allCloseRecords(r); !slices.Equal(got, want) {
+		t.Fatalf("records: %v, want %v", got, want)
+	}
+	checkCloseOrder(t, r)
+}
+
+func TestCloseProvidersJoinsBlockedLogExportWithoutEmptyUpload(t *testing.T) {
+	r := &closeRecordings{}
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	var once sync.Once
+	logs := closeTestLogs(t, &closeLogExporter{r: r, export: func(ctx context.Context) error {
+		once.Do(func() { close(entered) })
+		select {
+		case <-release:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}})
+	traces := closeTestTrace(t, r, nil)
+	metrics := closeTestMetric(t, r, nil)
+	emitCloseLog(logs, "final-stdout")
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	done := closeAsync(t, ctx, traces, logs, metrics)
+	var unblock sync.Once
+	defer func() { unblock.Do(func() { close(release) }); waitCloseEvent(t, done, "close did not join") }()
+	waitCloseEvent(t, entered, "log export not entered")
+	select {
+	case <-done:
+		t.Fatal("returned while log export blocked")
+	default:
+	}
+	unblock.Do(func() { close(release) })
+	waitCloseEvent(t, done, "close did not finish")
+	_, batches := r.snapshot()
+	if len(batches) != 1 || !slices.Equal(batches[0], []string{"final-stdout"}) {
+		t.Fatalf("unexpected exports: %v", batches)
+	}
+	checkCloseOrder(t, r)
+}
+
+func TestCloseProvidersPreservesFlushAndShutdownErrors(t *testing.T) {
+	r := &closeRecordings{}
+	logs := closeTestLogs(t, &closeLogExporter{r: r, flush: func(context.Context) error { return errors.New("flush failure") }, shutdownError: errors.New("log shutdown failure")})
+	traces := closeTestTrace(t, r, func(context.Context) error { return errors.New("trace failure") })
+	metrics := closeTestMetric(t, r, errors.New("metric failure"))
+	shutdownProviders(context.Background(), traces, logs, metrics)
+	es, _ := r.snapshot()
+	for _, message := range []string{"failed to shut down tracer provider", "failed to flush logger provider", "failed to shut down logger provider", "failed to shut down meter provider"} {
+		if !slices.Contains(es, message) {
+			t.Fatalf("missing %q in %v", message, es)
+		}
+	}
+	if !slices.Contains(allCloseRecords(r), "failed to flush logger provider") {
+		t.Fatal("flush error logged after logger shutdown")
+	}
+	checkCloseOrder(t, r)
+}
+
+// v0.21 returns a forced export error synchronously. The helper must report
+// that error before logger shutdown so its diagnostic remains exportable.
+func TestCloseProvidersReportsSynchronousFlushExportFailure(t *testing.T) {
+	r := &closeRecordings{}
+	entered := make(chan struct{})
+	var calls atomic.Int64
+	logs := closeTestLogs(t, &closeLogExporter{r: r, export: func(context.Context) error {
+		if calls.Add(1) == 1 {
+			close(entered)
+			return errors.New("forced export failure")
+		}
+		return nil
+	}})
+	traces := closeTestTrace(t, r, func(context.Context) error {
+		waitCloseEvent(t, entered, "early flush did not invoke exporter")
+		return nil
+	})
+	metrics := closeTestMetric(t, r, nil)
+	emitCloseLog(logs, "final-stdout")
+	shutdownProviders(context.Background(), traces, logs, metrics)
+	if !slices.Contains(allCloseRecords(r), "failed to flush logger provider") {
+		t.Fatal("synchronous forced export failure was not reported before logger shutdown")
+	}
+	checkCloseOrder(t, r)
+}
+
+// Scheduled export errors still use the global asynchronous error handler.
+func TestCloseProvidersReportsScheduledExportFailure(t *testing.T) {
+	r := &closeRecordings{}
+	exportErr := errors.New("scheduled export failure")
+	reported := make(chan error, 32)
+	old := otelapi.GetErrorHandler()
+	otelapi.SetErrorHandler(otelapi.ErrorHandlerFunc(func(err error) { reported <- err }))
+	t.Cleanup(func() { otelapi.SetErrorHandler(old) })
+	logs := closeTestLogs(t, &closeLogExporter{r: r, export: func(context.Context) error { return exportErr }}, sdklog.WithExportMaxBatchSize(1))
+	emitCloseLog(logs, "scheduled-stdout")
+	select {
+	case err := <-reported:
+		if !errors.Is(err, exportErr) {
+			t.Fatalf("wrong error: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("scheduled export error was lost")
+	}
+	shutdownProviders(context.Background(), nil, logs, nil)
+}
+
+// Keep the original v0.16 provider and the backported worker cancellation
+// contract: bounded caller completion, context-aware operation completion,
+// and observable shutdown failure. Do not promise an unbounded final drain.
+func TestCloseProvidersCancellationJoinsFlushAndReportsShutdownFailure(t *testing.T) {
+	r := &closeRecordings{}
+	entered := make(chan struct{})
+	returned := make(chan struct{})
+	var calls atomic.Int64
+	logs := closeTestLogs(t, &closeLogExporter{r: r, flush: func(ctx context.Context) error {
+		if calls.Add(1) != 1 {
+			return nil
+		}
+		close(entered)
+		<-ctx.Done()
+		close(returned)
+		return ctx.Err()
+	}})
+	traces := closeTestTrace(t, r, nil)
+	metrics := closeTestMetric(t, r, nil)
+	emitCloseLog(logs, "final-stdout")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := closeAsync(t, ctx, traces, logs, metrics)
+	waitCloseEvent(t, entered, "flush not entered")
+	select {
+	case <-done:
+		t.Fatal("returned before blocked flush")
+	default:
+	}
+	cancel()
+	waitCloseEvent(t, done, "canceled helper did not join its flush call")
+	waitCloseEvent(t, returned, "context-aware exporter flush did not return")
+	es, _ := r.snapshot()
+	if !slices.Contains(es, "failed to shut down logger provider") {
+		t.Fatalf("canceled logger shutdown was not reported: %v", es)
+	}
+}
+
+func TestCloseProvidersNoTraceSkipsExtraFlush(t *testing.T) {
+	r := &closeRecordings{}
+	logs := closeTestLogs(t, &closeLogExporter{r: r})
+	emitCloseLog(logs, "final-stdout")
+	shutdownProviders(context.Background(), nil, logs, nil)
+	es, bs := r.snapshot()
+	// v0.21's own Shutdown force-flushes the exporter once. Without traces
+	// the helper must not add a second flush; zero-length batches stay absent.
+	if countCloseEvents(es, "log-flush") != 1 || len(bs) != 1 || len(bs[0]) != 1 {
+		t.Fatalf("unneeded flush/export: %v, %v", es, bs)
+	}
+	shutdownProviders(context.Background(), nil, logs, nil)
+	_, bs = r.snapshot()
+	if len(bs) != 1 {
+		t.Fatalf("duplicate repeated shutdown export: %v", bs)
+	}
+	shutdownProviders(context.Background(), nil, nil, nil)
+}
+
+func countCloseEvents(events []string, name string) int {
+	count := 0
+	for _, event := range events {
+		if event == name {
+			count++
+		}
+	}
+	return count
+}
+
+// Keep more than 512 records queued behind an in-flight export, then close.
+// This checks complete ordered delivery across the SDK's terminal chunking.
+func TestCloseProvidersDrainsLargeQueueAndLateRecords(t *testing.T) {
+	r := &closeRecordings{}
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	var exportCalls atomic.Int64
+	var unblock sync.Once
+	defer unblock.Do(func() { close(release) })
+	logs := closeTestLogs(t, &closeLogExporter{r: r, export: func(ctx context.Context) error {
+		if exportCalls.Add(1) != 1 {
+			return nil
+		}
+		close(entered)
+		select {
+		case <-release:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}}, sdklog.WithMaxQueueSize(4096), sdklog.WithExportMaxBatchSize(512))
+	want := make([]string, 0, 1615)
+	for i := 0; i < 512; i++ {
+		value := fmt.Sprintf("record-%04d", i)
+		want = append(want, value)
+		emitCloseLog(logs, value)
+	}
+	waitCloseEvent(t, entered, "first full batch did not begin")
+	for i := 512; i < 1612; i++ {
+		value := fmt.Sprintf("record-%04d", i)
+		want = append(want, value)
+		emitCloseLog(logs, value)
+	}
+	for _, value := range []string{"stdout-eof", "stderr-eof"} {
+		want = append(want, value)
+		emitCloseLog(logs, value)
+	}
+	tracesDone := make(chan struct{})
+	traces := closeTestTrace(t, r, func(context.Context) error {
+		emitCloseLog(logs, "late-trace-cleanup")
+		close(tracesDone)
+		return nil
+	})
+	want = append(want, "late-trace-cleanup")
+	metrics := closeTestMetric(t, r, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	done := closeAsync(t, ctx, traces, logs, metrics)
+	waitCloseEvent(t, tracesDone, "trace cleanup did not finish")
+	select {
+	case <-done:
+		t.Fatal("returned before blocked export finished")
+	default:
+	}
+	unblock.Do(func() { close(release) })
+	waitCloseEvent(t, done, "close did not drain the queued records")
+	if got := allCloseRecords(r); !slices.Equal(got, want) {
+		t.Fatalf("ordered delivery differs: got %d records, want %d", len(got), len(want))
+	}
+	_, batches := r.snapshot()
+	for _, batch := range batches {
+		if len(batch) == 0 || len(batch) > 512 {
+			t.Fatalf("invalid exported batch length: %d", len(batch))
+		}
+	}
+	checkCloseOrder(t, r)
+}
+
+// A canceled request must leave accepted queued records available for a later
+// successful drain; there is no elapsed-time assertion here.
+func TestCloseBackportCanceledFlushPreservesQueue(t *testing.T) {
+	r := &closeRecordings{}
+	processor := sdklog.NewBatchProcessor(&closeLogExporter{r: r},
+		sdklog.WithExportInterval(time.Hour), sdklog.WithMaxQueueSize(16), sdklog.WithExportMaxBatchSize(16))
+	t.Cleanup(func() { _ = processor.Shutdown(context.Background()) })
+	var record sdklog.Record
+	record.SetBody(logapi.StringValue("retained-after-cancel"))
+	if err := processor.OnEmit(context.Background(), &record); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := processor.ForceFlush(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("error: %v", err)
+	}
+	if got := allCloseRecords(r); len(got) != 0 {
+		t.Fatalf("canceled flush exported: %v", got)
+	}
+	if err := processor.Shutdown(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := allCloseRecords(r); !slices.Equal(got, []string{"retained-after-cancel"}) {
+		t.Fatalf("records: %v", got)
+	}
+}
+
+// The single worker must return a forced-drain error while still attempting
+// every later chunk. Deterministic blocking ensures this is a ForceFlush drain,
+// not a timer export racing the assertion.
+func TestCloseBackportForcedDrainAttemptsLaterChunks(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r := &closeRecordings{}
+		firstEntered := make(chan struct{})
+		release := make(chan struct{})
+		var unblock sync.Once
+		defer unblock.Do(func() { close(release) })
+		var calls atomic.Int64
+		wantErr := errors.New("first forced chunk failed")
+		processor := sdklog.NewBatchProcessor(&closeLogExporter{r: r, export: func(ctx context.Context) error {
+			switch calls.Add(1) {
+			case 1:
+				close(firstEntered)
+				select {
+				case <-release:
+					return nil
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			case 2:
+				return wantErr
+			default:
+				return nil
+			}
+		}}, sdklog.WithExportInterval(time.Hour), sdklog.WithMaxQueueSize(16), sdklog.WithExportMaxBatchSize(2))
+		defer func() {
+			if err := processor.Shutdown(context.Background()); err != nil {
+				t.Error(err)
+			}
+		}()
+		emit := func(i int) {
+			var record sdklog.Record
+			record.SetBody(logapi.StringValue(fmt.Sprintf("record-%d", i)))
+			if err := processor.OnEmit(context.Background(), &record); err != nil {
+				t.Fatal(err)
+			}
+		}
+		emit(0)
+		emit(1)
+		<-firstEntered
+		for i := 2; i < 7; i++ {
+			emit(i)
+		}
+		flushed := make(chan error, 1)
+		go func() { flushed <- processor.ForceFlush(context.Background()) }()
+		synctest.Wait()
+		unblock.Do(func() { close(release) })
+		if err := <-flushed; !errors.Is(err, wantErr) {
+			t.Fatalf("error: %v", err)
+		}
+		want := []string{"record-0", "record-1", "record-2", "record-3", "record-4", "record-5", "record-6"}
+		if got := allCloseRecords(r); !slices.Equal(got, want) {
+			t.Fatalf("attempted records: %v", got)
+		}
+		if got := calls.Load(); got != 4 {
+			t.Fatalf("export attempts: %d, want 4", got)
+		}
+	})
+}

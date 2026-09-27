@@ -1,0 +1,108 @@
+[
+  {
+    "name": "normal",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-mod=readonly",
+      "-modfile=/tmp/collections-perf/ancestor-request-v1/builds/engine.mod",
+      "-overlay=/tmp/collections-perf/ancestor-request-v2/test-overlay.json",
+      "-count=1",
+      "-run=^Test(ParentDirectoryMetadata|ParentMetadata)",
+      "-json",
+      "./engine",
+      "./internal/fsutil",
+      "./engine/client",
+      "./engine/filesync"
+    ],
+    "env": {
+      "GOMAXPROCS": "4",
+      "GOPROXY": "off",
+      "GOTOOLCHAIN": "local",
+      "GOOS": "linux",
+      "GOARCH": "amd64",
+      "CGO_ENABLED": "1"
+    },
+    "exit_code": 0,
+    "seconds": 3.0236305079888552,
+    "log_sha256": "043a4101fdd414642cb47d0e78309699adf68cd52272ebc25825f433c2a769d9",
+    "passed_top_level_tests": [
+      "TestParentDirectoryMetadataRequestValidation",
+      "TestParentDirectoryMetadataWireAndOldClientFallback",
+      "TestParentMetadataDirectoryParityAndFreshness",
+      "TestParentMetadataProtocolWalkRoot",
+      "TestParentMetadataRejectsMissingAndNonDirectoryWithoutEmission",
+      "TestParentMetadataBoundedStatsErrorsAndCancellation",
+      "TestParentDirectoryMetadataActualDiffCopy",
+      "TestParentDirectoryMetadataDiffCopyRejectsBroadening",
+      "TestParentDirectoryMetadataMissingDispatchWitness"
+    ],
+    "failures": []
+  },
+  {
+    "name": "race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-mod=readonly",
+      "-modfile=/tmp/collections-perf/ancestor-request-v1/builds/engine.mod",
+      "-overlay=/tmp/collections-perf/ancestor-request-v2/test-overlay.json",
+      "-race",
+      "-count=1",
+      "-run=^Test(ParentDirectoryMetadata|ParentMetadata)",
+      "-json",
+      "./engine",
+      "./internal/fsutil",
+      "./engine/client",
+      "./engine/filesync"
+    ],
+    "env": {
+      "GOMAXPROCS": "4",
+      "GOPROXY": "off",
+      "GOTOOLCHAIN": "local",
+      "GOOS": "linux",
+      "GOARCH": "amd64",
+      "CGO_ENABLED": "1"
+    },
+    "exit_code": 0,
+    "seconds": 5.280732122948393,
+    "log_sha256": "a03dba6cea0f63502f88431b724b90e8ac21aaecbc764d3afac12e02c677b111",
+    "passed_top_level_tests": [
+      "TestParentDirectoryMetadataRequestValidation",
+      "TestParentDirectoryMetadataWireAndOldClientFallback",
+      "TestParentMetadataDirectoryParityAndFreshness",
+      "TestParentMetadataProtocolWalkRoot",
+      "TestParentMetadataRejectsMissingAndNonDirectoryWithoutEmission",
+      "TestParentMetadataBoundedStatsErrorsAndCancellation",
+      "TestParentDirectoryMetadataActualDiffCopy",
+      "TestParentDirectoryMetadataDiffCopyRejectsBroadening",
+      "TestParentDirectoryMetadataMissingDispatchWitness"
+    ],
+    "failures": []
+  },
+  {
+    "name": "windows-compile",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-mod=readonly",
+      "-modfile=/tmp/collections-perf/ancestor-request-v1/builds/engine.mod",
+      "-overlay=/tmp/collections-perf/ancestor-request-v2/test-overlay.json",
+      "-c",
+      "-o",
+      "/tmp/collections-perf/ancestor-request-v2/validation/fsutil-windows.test.exe",
+      "./internal/fsutil"
+    ],
+    "env": {
+      "GOMAXPROCS": "4",
+      "GOPROXY": "off",
+      "GOTOOLCHAIN": "local",
+      "GOOS": "windows",
+      "GOARCH": "amd64",
+      "CGO_ENABLED": "0"
+    },
+    "exit_code": 0,
+    "seconds": 11.33504996704869,
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+]

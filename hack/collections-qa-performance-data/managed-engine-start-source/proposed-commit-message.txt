@@ -1,0 +1,10 @@
+perf: skip redundant starts for running Docker engines
+
+Read the container state during the existing managed-engine inspection and
+skip Docker start only for the exact running status. Preserve the start path
+for paused, restarting, unknown and stopped states and for other backends.
+
+Focused negative, normal and race gates pass; a matched 32-command local trial
+also verifies existing-container reuse, stopped-engine resume and actual
+native check failure/restoration. Core wall medians were flat; paired CPU
+cost was lower and the small native generation series improved.

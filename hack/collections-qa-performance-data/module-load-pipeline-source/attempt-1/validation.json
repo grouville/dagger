@@ -1,0 +1,30 @@
+{
+  "recipe_sha256": "d1138e8827b9a34b0fe3901d6ae07161f18189505f5d5ffb160e2bc8d1a72771",
+  "runner_sha256": "498c276f7ce1ba03909cb4670442302ca87cab81b01ceccdb9c2d5d48dcbdde2",
+  "steps": [
+    {
+      "name": "normal",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-overlay=/tmp/collections-perf/module-load-pipeline-v1/test-overlay.json",
+        "-count=1",
+        "-timeout=90s",
+        "-run",
+        "^(TestModuleLoadPipeline.*|TestGatherModuleLoadRequests|TestModuleLoadParallelism|TestModuleLoadErr|TestDedupeResolvedModuleLoads.*|TestResolvedModuleLoadIdentity|TestArbitrateSameSourceEntrypointNominations|TestArbitrateResolvedModuleLoads)$",
+        "./engine/server"
+      ],
+      "returncode": 1,
+      "wall_seconds": 1.1663034511730075,
+      "passed_tests": [],
+      "failed_tests": [],
+      "expected_negative": false,
+      "accepted": false,
+      "log_sha256": "60e71fc953246882a227b9b9a2573fe726912bbad350cecfc53a54316d55b1d4"
+    }
+  ],
+  "engine_or_cloud_calls": 0
+}

@@ -1,0 +1,16 @@
+--- a/engine/client/drivers/container.go
++++ b/engine/client/drivers/container.go
+@@ -276,6 +276,13 @@
+ }
+ 
+ func (d containerConnector) dial(ctx context.Context) (net.Conn, error) {
++	// Benchmark-only opt-in: keep the container driver and change only its dial.
++	// No automatic socket discovery or fallback is part of this prototype.
++	if socket := d.values.Get("perf-unix-socket"); socket != "" {
++		var dialer net.Dialer
++		return dialer.DialContext(ctx, "unix", socket)
++	}
++
+ 	args := []string{}
+ 	if context := d.values.Get("context"); context != "" {
+ 		args = append(args, "--context="+context)

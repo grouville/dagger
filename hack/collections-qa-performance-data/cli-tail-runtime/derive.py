@@ -1,0 +1,52 @@
+"""Offline allowlisted numeric reduction; never reads telemetry records or credentials."""
+from pathlib import Path
+import argparse,hashlib,json,statistics
+P=argparse.ArgumentParser();P.add_argument('--run-dir',type=Path,default=Path('/tmp/collections-perf/cli-tail-runtime-v2/local-v1'));P.add_argument('--failed-dir',type=Path,default=Path('/tmp/collections-perf/cli-tail-runtime-v1/local-v1'));P.add_argument('--out',type=Path,default=Path(__file__).resolve().parent);a=P.parse_args();a.out.mkdir(exist_ok=True)
+sha=lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def save(name,value):(a.out/name).write_text(json.dumps(value,indent=2)+'\n')
+def stats(values):return {'median':statistics.median(values),'min':min(values),'max':max(values),'values':values}
+variants=['baseline','queuefix','overlap'];flows=['core','module','fresh-module','checks','fresh-generate']
+rows=json.loads((a.run_dir/'results.json').read_text());cleanup=json.loads((a.run_dir/'restoration.json').read_text());failed=json.loads((a.failed_dir/'restoration.json').read_text());builds=json.loads((a.run_dir.parent/'frozen-builds.json').read_text())['builds'];recipe=json.loads(Path(builds['recipe_path']).read_text())
+assert len(rows)==72 and all(r['correct']for r in rows)
+assert sum(r['phase']=='primer-smoke'for r in rows)==24
+assert sum(r['phase']=='measured'for r in rows)==45
+assert sum(r['phase']=='failure-smoke'for r in rows)==3
+assert all(r['exit_code']!=0 if r['phase']=='failure-smoke'else r['exit_code']==0 for r in rows)
+assert cleanup['local_attempts']==72 and cleanup['production_cloud_attempts']==0
+assert all(cleanup[k]for k in ['fixtures_restored','engine_stopped','original_binary_restored','receiver_cleanup_complete','original_receiver_state_unchanged'])
+assert failed['local_attempts']==0 and failed['production_cloud_attempts']==0
+samples=[]
+for n,r in enumerate(rows):
+ samples.append({'ordinal':n,'variant':r['variant'],'flow':r['flow'],'phase':r['phase'],'round':r['index'],'wall_ms':r['seconds']*1000,'cli_user_cpu_ms':r['cli_user_seconds']*1000,'cli_system_cpu_ms':r['cli_system_seconds']*1000,'cli_cpu_ms':(r['cli_user_seconds']+r['cli_system_seconds'])*1000,'engine_cpu_ms':r['engine_cpu_seconds']*1000,'engine_written_bytes':r['engine_written_bytes'],'engine_read_bytes':sum(v.get('rbytes',0)for v in r['engine_io_delta'].values()),'counter_bracket_ms':r['counter_bracket_seconds']*1000,'receiver_post_count':r['receiver_post_count'],'receiver_status_codes':r['receiver_statuses'],'excluded_receiver_quiet_ms':r['receiver_quiet_seconds_excluded']*1000,'correct':r['correct'],'exit_code':r['exit_code'],'synthetic_input_sha256':r['input_sha256']})
+summaries={}
+for flow in flows:
+ relevant=[r for r in samples if r['phase']=='measured'and r['flow']==flow]
+ assert len(relevant)==9
+ for i in range(3):assert [r['variant']for r in relevant if r['round']==i]==variants[i:]+variants[:i]
+ summaries[flow]={}
+ for variant in variants:
+  selected=[r for r in relevant if r['variant']==variant];assert len(selected)==3
+  summaries[flow][variant]={k:stats([r[k]for r in selected])for k in ['wall_ms','cli_cpu_ms','cli_user_cpu_ms','cli_system_cpu_ms','engine_cpu_ms','engine_written_bytes','receiver_post_count']}
+ summaries[flow]['paired']={}
+ base={r['round']:r for r in relevant if r['variant']=='baseline'}
+ for variant in variants[1:]:
+  deltas=[r['wall_ms']-base[r['round']]['wall_ms']for r in relevant if r['variant']==variant]
+  summaries[flow]['paired'][variant]={'candidate_minus_baseline_ms':stats(deltas),'faster_rounds':sum(v<0 for v in deltas),'slower_rounds':sum(v>0 for v in deltas)}
+fresh=[r for r in samples if r['phase']=='measured'and r['flow'].startswith('fresh-')];assert len(set(r['synthetic_input_sha256']for r in fresh))==18
+warm=[r for r in samples if r['flow']=='module'];assert len(set(r['synthetic_input_sha256']for r in warm))==1
+summary={'scope':'Ordinary CLI against real local API/stores; not production Cloud and not cold engine startup.','calls':{'total':72,'primer_smoke':24,'measured':45,'expected_failure_smoke':3,'production_cloud':0},'n_per_measured_flow_variant':3,'balanced_order':True,'profile_enabled':False,'injected_latency_ms':0,'same_engine_and_volume':True,'do_not_track':True,'empty_cli_config':True,'fresh_distinct_input_count':18,'ordinary_module_input_primed_and_restored':True,'variants':recipe['scope'],'flows':summaries,'cleanup':{k:cleanup[k]for k in ['fixtures_restored','engine_stopped','original_binary_restored','receiver_cleanup_complete','original_receiver_state_unchanged','resources_deleted','engine_written_bytes']},'prior_setup_attempt':{'commands':0,'failure':'The initial empty receiver records field was null; the first driver assumed a list before launching any CLI command. Version2 normalizes null to an empty list.','cleanup':{k:failed[k]for k in ['fixtures_restored','engine_stopped','original_binary_restored','receiver_cleanup_complete','original_receiver_state_unchanged']},'restoration_sha256':sha(a.failed_dir/'restoration.json')},'caveats':['Only three balanced rounds: no statistical confidence or general winner.','Real local API and storage paths with local network latency; these timings do not predict production Cloud savings.','Receiver POST acceptance and bounded observed quiet are not a persisted delivery or durable-background-export proof.','CLI CPU is per-command child user+system CPU; engine cgroup counters include the wider snapshot bracket and background work. Neither is additive to wall time.','The retained engine includes experimental SDK/Dang plus validated lazy-core/JSON/closure stack. Only the CLI shutdown variants differ.','Workspace/artifact/generator navigation is smoke coverage only; native generation is not Go/TS SDK generation.']}
+save('samples.json',samples);save('summary.json',summary)
+save('provenance.json',{'cli_source_head':builds['source_head'],'cli_source_tree':recipe['source_tree'],'engine_sha256':builds['engine']['sha256'],'cli_sha256':{k:v['sha256']for k,v in builds['variants'].items()},'recipe_sha256':builds['recipe_sha256'],'frozen_manifest_sha256':sha(a.run_dir.parent/'frozen-builds.json'),'executed_driver_sha256':sha(a.run_dir/'driver.py.txt'),'raw_numeric_results_sha256':sha(a.run_dir/'results.json'),'raw_restoration_sha256':sha(a.run_dir/'restoration.json'),'reducer_sha256':sha(__file__),'private_artifacts_excluded':['receiver/API controller and state','tokens and credentials','raw telemetry/HTTP records','stdout and stderr','private resource identities']})
+labels={'core':'Core version call','module':'Warm native module call','fresh-module':'New input → native module call','checks':'Greetings check -l --all','fresh-generate':'New input → native generate'}
+lines=['The 72-command local API trial passed all correctness checks, but it did not identify a general CLI shutdown winner. Three balanced rounds per measured flow are too few to infer a universal improvement. These are real local API/storage timings, not production Cloud results.','', 'Baseline uses unchanged shutdown; queuefix backports only log worker/chunk draining fixes; overlap adds a joined early log ForceFlush before trace Shutdown. All variants use the same engine, volume and receiver.','', '| Flow | Baseline | Queue fix | Queue fix + overlap |','| --- | ---: | ---: | ---: |']
+for flow in flows:lines.append('| '+labels[flow]+' | '+' | '.join(f"{summaries[flow][v]['wall_ms']['median']:.1f} ms"for v in variants)+' |')
+lines+=['','Values are median full CLI exit times. The paired per-round differences and all 72 numeric samples are preserved separately; improvements in one flow do not establish a winner for the others.','',f"The baseline CLI itself used median {summaries['core']['baseline']['cli_cpu_ms']['median']:.1f} ms of user+system CPU for the core call and {summaries['checks']['baseline']['cli_cpu_ms']['median']:.1f} ms for the expanded check listing. That is a concrete next profiling target. CPU time can overlap engine/network work and is not a removable wall-time estimate.",'','Correctness covered 24 primer/smoke calls, 45 measured calls and 3 expected failing checks. Listings matched known identities and the reference output; module calls returned exact input bytes; generation produced exact bytes; the sentinel failed for every variant. Eighteen fresh inputs were distinct, and the original primed input/generated-file state was restored before every ordinary module comparison. Fixtures, original engine binary and network attachment were restored; the API/stores and engine were stopped. No resources were deleted and no production Cloud calls were made.','','The first setup attempt launched zero CLI commands. It failed because the empty receiver record list arrived as JSON null. Its failure and successful cleanup remain archived; version 2 handles that initial empty state.','','This run used a retained engine/cache, an empty CLI config and DO_NOT_TRACK=1. It excluded setup, counter snapshots and receiver quiet observation from command wall timing, and used no profiler or artificial delay. Workspace/artifact/generator navigation was smoke coverage; native generate is not SDK code generation. Receiver acceptance was checked for every command, but the run is not a proof of durable background delivery.']
+paired_lines=['','| Median paired change vs baseline | Queue fix | Queue fix + overlap |','| --- | ---: | ---: |']
+for flow in flows:
+ paired_lines.append('| '+labels[flow]+' | '+' | '.join(f"{summaries[flow]['paired'][v]['candidate_minus_baseline_ms']['median']:+.1f} ms"for v in variants[1:])+' |')
+paired_lines+=['','Negative means faster within the same balanced round. For example, the fresh-module overlap difference of marginal medians is 39.5 ms, but the median paired improvement is 7.3 ms; the three paired changes are −7.3, −3.0 and −149.2 ms. The small sample and outlier make a broad speedup claim unwarranted.']
+insert=next(i for i,line in enumerate(lines) if line.startswith('The baseline CLI itself'))
+lines[insert:insert]=paired_lines+['']
+(a.out/'report.md').write_text('\n'.join(lines)+'\n')
+allow=['derive.py','report.md','samples.json','summary.json','provenance.json'];save('checksums.json',{f:sha(a.out/f)for f in allow});(a.out/'allowlist.txt').write_text('\n'.join(allow+['checksums.json'])+'\n')
+print(json.dumps({flow:{v:round(summaries[flow][v]['wall_ms']['median'],1)for v in variants}for flow in flows}))

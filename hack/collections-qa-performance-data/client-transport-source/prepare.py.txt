@@ -1,0 +1,98 @@
+from pathlib import Path
+import hashlib,json,difflib
+HERE=Path(__file__).resolve().parent; REPO=Path('/home/dagger/dag')
+source=(REPO/'engine/client/client.go').read_text()
+source=source.replace('\t"crypto/tls"\n','')
+source=source.replace('\thttpClient *httpClient\n','\thttpClient *httpClient\n\n\thttpTransportOnce sync.Once\n\thttpTransport     *clientHTTPTransport\n\n', 1)
+old='''\t\tif rerr != nil {
+\t\t\tc.internalCancel(errors.New("Connect failed"))
+\t\t}
+'''
+new='''\t\tif rerr != nil {
+\t\t\tc.cleanupFailedConnect(errors.New("Connect failed"))
+\t\t}
+'''
+assert source.count(old)==2;source=source.replace(old,new)
+old='''\tif c.httpClient != nil {
+\t\tc.eg.Go(c.httpClient.Close)
+\t}
+
+'''
+assert source.count(old)==1;source=source.replace(old,'')
+old='''\treturn rerr
+}
+
+type otlpConsumer struct'''
+new='''\t// Both request domains have ended. One owner closes the shared physical
+\t// connection, including any connection opened during partial initialization.
+\tc.sharedHTTPTransport().Close()
+\treturn rerr
+}
+
+type otlpConsumer struct'''
+assert source.count(old)==1;source=source.replace(old,new)
+start=source.index('func (c *Client) newHTTPClient() *httpClient {')
+end=source.index('type httpClient struct {',start)
+source=source[:start]+'''func (c *Client) newHTTPClient() *httpClient {
+\treturn &httpClient{
+\t\tinner:       &http.Client{Transport: c.sharedHTTPTransport().transport},
+\t\theaders:     c.AppendHTTPRequestHeaders(http.Header{}),
+\t\tsecretToken: c.SecretToken,
+\t\tcloseCtx:    c.closeCtx,
+\t}
+}
+
+func (c *Client) newTelemetryHTTPClient() *httpClient {
+\treturn &httpClient{
+\t\tinner:       &http.Client{Transport: c.sharedHTTPTransport().transport},
+\t\theaders:     c.AppendHTTPRequestHeaders(http.Header{}),
+\t\tsecretToken: c.SecretToken,
+\t}
+}
+
+'''+source[end:]
+source=source.replace('\tsecretToken string\n}\n\nfunc (c *httpClient) Do','\tsecretToken string\n\tcloseCtx    context.Context\n}\n\nfunc (c *httpClient) Do')
+source=source.replace('''func (c *httpClient) Do(req *http.Request) (*http.Response, error) {
+''','''func (c *httpClient) Do(req *http.Request) (*http.Response, error) {
+\t// API cancellation belongs to the request and its body, not to the
+\t// physical HTTP/2 connection shared with draining telemetry streams.
+\tvar release func()
+\tif c.closeCtx != nil {
+\t\tif c.closeCtx.Err() != nil {
+\t\t\treturn nil, fmt.Errorf("client closed: %w", context.Cause(c.closeCtx))
+\t\t}
+\t\tctx, cancel := context.WithCancelCause(req.Context())
+\t\tstop := context.AfterFunc(c.closeCtx, func() {
+\t\t\tcancel(fmt.Errorf("client closed: %w", context.Cause(c.closeCtx)))
+\t\t})
+\t\trelease = sync.OnceFunc(func() { stop(); cancel(context.Canceled) })
+\t\treq = req.WithContext(ctx)
+\t}
+''')
+old='''\treturn c.inner.Do(req)
+}
+
+func (c *httpClient) Close() error {
+\tc.inner.CloseIdleConnections()
+\treturn nil
+}
+'''
+new='''\tresp, err := c.inner.Do(req)
+\tif release != nil {
+\t\tif err != nil {
+\t\t\trelease()
+\t\t} else {
+\t\t\tresp.Body = &clientRequestBody{ReadCloser: resp.Body, release: release}
+\t\t}
+\t}
+\treturn resp, err
+}
+'''
+assert source.count(old)==1;source=source.replace(old,new)
+(HERE/'client.go').write_text(source)
+container=(REPO/'engine/client/drivers/container.go').read_text()
+container=container.replace('// (gRPC control, session, telemetry, API), and each one dials when its','// (gRPC control, session, shared telemetry/API HTTP2), and each one dials when its')
+container=container.replace('const warmTunnelCount = 3','const warmTunnelCount = 2')
+(HERE/'container.go').write_text(container)
+inputs=['engine/client/client.go','engine/client/drivers/container.go','go.mod','go.sum']
+(HERE/'provenance.json').write_text(json.dumps({'source_head':__import__('subprocess').check_output(['git','rev-parse','HEAD'],cwd=REPO,text=True).strip(),'source':{str(REPO/n):hashlib.sha256((REPO/n).read_bytes()).hexdigest()for n in inputs}},indent=2)+'\n')

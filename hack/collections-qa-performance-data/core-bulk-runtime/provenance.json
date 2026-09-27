@@ -1,0 +1,86 @@
+{
+  "runtime_driver_sha256": "9ba6da9bfe350ec2b52f1868178450092aef1433c4f675e79c2e2d5ac35e417e",
+  "reducer_sha256": "6ae4021c95f1452dbcfb4e8126ae05ed27407c658bd50c5a3403b97ba417977b",
+  "runtime_results_sha256": "c05613a35f1b811853a84bc26bf1d3433fc03839d362a0fc9528878eb351640b",
+  "build_manifest": {
+    "source_head": "85b60f7a0a16a27459ef571bc94bcf870c876dcc",
+    "recipe_sha256": "043fd9abe705f0e651555fed2f697ad9b94f2a7798a18c7e58d5c9a69412f7de",
+    "variants": {
+      "baseline": {
+        "path": "/tmp/collections-perf/sdk-edit-audit/core-bulk-publication-v1/builds/engine-baseline",
+        "sha256": "f864931c4dab6c53f7a1b552eace782eaf925e4dfa600bd5aa57a0099cb5189b"
+      },
+      "candidate": {
+        "path": "/tmp/collections-perf/sdk-edit-audit/core-bulk-publication-v1/builds/engine-candidate",
+        "sha256": "81b6b4b44b59527044ec3fde8376a66af6666d57711e63d15a03bc0592e22645"
+      }
+    },
+    "profiling": false,
+    "difference": "Candidate adds private object/interface __withFunctions and batches only core object-like function attachment. Baseline is committed source plus unchanged historical SDK/Dang/collections overlay. Same frozen experimental stack and dependency pins in both. No held span/log/interner candidates."
+  },
+  "restoration": {
+    "original_binary_restored": true,
+    "engine_stopped": true,
+    "fixtures_unchanged": true,
+    "local_attempts": 38,
+    "validated_commands": 38,
+    "cloud_commands": 0,
+    "resources_deleted": 0,
+    "volume_retained": true,
+    "engine_written_bytes": 1765376
+  },
+  "starts": [
+    {
+      "variant": "baseline",
+      "phase": "ordinary",
+      "block": 0,
+      "startup_seconds_excluded": 1.6297219519037753
+    },
+    {
+      "variant": "candidate",
+      "phase": "ordinary",
+      "block": 1,
+      "startup_seconds_excluded": 1.6136540358420461
+    },
+    {
+      "variant": "candidate",
+      "phase": "ordinary",
+      "block": 2,
+      "startup_seconds_excluded": 1.776273359078914
+    },
+    {
+      "variant": "baseline",
+      "phase": "ordinary",
+      "block": 3,
+      "startup_seconds_excluded": 1.8403117298148572
+    },
+    {
+      "variant": "baseline",
+      "phase": "separate-profile",
+      "block": 0,
+      "startup_seconds_excluded": 1.7854033769108355
+    },
+    {
+      "variant": "candidate",
+      "phase": "separate-profile",
+      "block": 1,
+      "startup_seconds_excluded": 1.7641873161774129
+    }
+  ],
+  "rejected_v1": {
+    "reason": "Stale version expectation from HEAD21939 instead of exact frozen HEAD85; command exit0, golden mismatch. No behavior failure.",
+    "local_commands": 1,
+    "results_sha256": "a2f4c14c9ffe943be52b4e726a742ff9e27811cf1f584398ff811dcbc88ca72d",
+    "restoration": {
+      "original_binary_restored": true,
+      "engine_stopped": true,
+      "fixtures_unchanged": true,
+      "local_attempts": 1,
+      "validated_commands": 0,
+      "cloud_commands": 0,
+      "resources_deleted": 0,
+      "volume_retained": true,
+      "engine_written_bytes": 57344
+    }
+  }
+}

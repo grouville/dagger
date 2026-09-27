@@ -1,0 +1,126 @@
+{
+  "status": "prepared only: no test/build/runtime executed",
+  "baseline_recipe": "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/recipe.json",
+  "baseline_recipe_sha256": "65227fb30a71dd567c44da01b98efca2f2f1f9270d5ad1d617d422fdc5334aa5",
+  "baseline_engine": {
+    "path": "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine-diagnostic",
+    "sha256": "ec6a2d88ca54b1c12fc81c7381538e23d100fece04d703daac0b17dcf3d3ebc1"
+  },
+  "source_head": "0d1c32e29f2f31cdb95f0b5f17f7daed7305bc87",
+  "frozen_parent_source_head": "85b60f7a0a16a27459ef571bc94bcf870c876dcc",
+  "environment": {
+    "CGO_ENABLED": "0",
+    "GOOS": "linux",
+    "GOARCH": "amd64",
+    "GOAMD64": "v1",
+    "GOMAXPROCS": "4",
+    "GOPROXY": "off",
+    "GOTOOLCHAIN": "local"
+  },
+  "test_environments": {
+    "normal": {
+      "CGO_ENABLED": "0",
+      "GOOS": "linux",
+      "GOARCH": "amd64",
+      "GOAMD64": "v1",
+      "GOMAXPROCS": "4",
+      "GOPROXY": "off",
+      "GOTOOLCHAIN": "local"
+    },
+    "race": {
+      "CGO_ENABLED": "1",
+      "GOOS": "linux",
+      "GOARCH": "amd64",
+      "GOAMD64": "v1",
+      "GOMAXPROCS": "4",
+      "GOPROXY": "off",
+      "GOTOOLCHAIN": "local"
+    }
+  },
+  "test_commands": {
+    "normal": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-json",
+      "-mod=readonly",
+      "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+      "-overlay=/tmp/collections-perf/module-load-pipeline-v1/test-overlay.json",
+      "-count=1",
+      "-timeout=90s",
+      "-run",
+      "^(TestModuleLoadPipeline.*|TestGatherModuleLoadRequests|TestModuleLoadParallelism|TestModuleLoadErr|TestDedupeResolvedModuleLoads.*|TestResolvedModuleLoadIdentity|TestArbitrateSameSourceEntrypointNominations|TestArbitrateResolvedModuleLoads)$",
+      "./engine/server"
+    ],
+    "race": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-race",
+      "-json",
+      "-mod=readonly",
+      "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+      "-overlay=/tmp/collections-perf/module-load-pipeline-v1/test-overlay.json",
+      "-count=1",
+      "-timeout=90s",
+      "-run",
+      "^(TestModuleLoadPipeline.*|TestGatherModuleLoadRequests|TestModuleLoadParallelism|TestModuleLoadErr|TestDedupeResolvedModuleLoads.*|TestResolvedModuleLoadIdentity|TestArbitrateSameSourceEntrypointNominations|TestArbitrateResolvedModuleLoads)$",
+      "./engine/server"
+    ]
+  },
+  "build_command": [
+    "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+    "build",
+    "-mod=readonly",
+    "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+    "-buildvcs=true",
+    "-overlay=/tmp/collections-perf/module-load-pipeline-v1/engine-overlay.json",
+    "-o",
+    "/tmp/collections-perf/module-load-pipeline-v1/engine-candidate",
+    "./cmd/engine"
+  ],
+  "inputs": {
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/00-base-00-00-00-00-00-helpers.go": "ea7901ebb3b5d0ac0133c28ebac504c0b0ad72146e3eb7b4d4628ef7d43c5b38",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/01-base-01-01-01-01-01-modulesource.go": "9b12603f2f91c6c35d6bbdc644a621b05076c3e03ef406ae3ffaea5f91d2aaea",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/02-base-02-02-02-02-02-loader.go": "940a6f3b90105d4f0c4ca5a29eeff2fde7b997b90186f586f9f216aa5526e91c",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/03-base-03-03-03-03-03-utils.go": "fc355c4cdc792cb52fecabf5463e5e27d4d065a8fd863996a8344284e3b8fef5",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/04-base-04-04-04-04-04-fields.go": "47f568169b567a72381a00220dd49d6ffeb562248d239505002928396e1e9be6",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/05-base-05-05-05-05-05-eval.go": "81fee7c0cbdfbb35ee4a4f49d1fdd78e288be886731b7ee95d89293fd1b92c58",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/06-base-06-06-06-06-06-artifact_batch.go": "723debdd163ec0487e696de19ed9aee9b1270acc3ba9668072434b5752bf5b22",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/07-base-07-07-07-07-07-parse_cache.go": "b0f575ce0e8c7acc803e9aa7ae73e2a4da5d7b55ba21b2d02cdb04a0805258a0",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/08-base-08-08-08-08-08-interfaces.go": "1c265883ae09a557d552e0b198de960f35578686819aee0dd1665ce9785240b2",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/09-base-09-09-09-09-09-server.go": "e27eb9b289e1818a7b4b51cfe7b105ed34d87205bad31601cf1a909bd43871b7",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/10-base-10-10-10-10-10-container.go": "3830c6713a88236b64c8004c221afbf2731035dca4f6f67010397a9d857359fd",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/11-base-11-11-11-11-telemetry.baseline.go": "8f51ac179f39ba544e6e99077f2b567ed3f3694071aaa5c1175b14b530d83426",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/12-base-12-12-12-12-session.go": "b43151aa15abde9592990b001575cb0add6611b22c99ad7f5a7867f236e379ca",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/13-base-13-13-13-coremod.go": "64fd47cb8514e5479a097249c88d0edda6ced053bfcdf13e0437b3f4d861f546",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/14-base-14-14-module.frozen.go": "4c307f57b9d0d66cf14da005b2a11c5e888d29bcb4c42b76851199fccc29af52",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/15-base-15-15-json-module_typedef_json.go": "136212e6d68c8cce84e8476bf0da0d202a4bcce091f4d8edecae566021b32aa9",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/16-base-16-16-core-telemetry.go": "3879a46259b2c6910a6a9afefe064acc0fed8a1fbd18e124af95038495716ed8",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/18-parent-00-engine-opts.go": "48ec42a213996f54a5e3c9038fa6a32bf1dcda71bcd6f005cc1b5bf9317aef58",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/19-parent-01-engine-filesync-remotefs.go": "4e2965286e661c23b79bce7277ac942e8d7c3a4e3afeb8ad89eab0bed7e420b3",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/20-parent-02-engine-filesync-filesyncer.go": "bf5cb5840f666ab048604abceaab973739a6cf280623cec46d4d05d6c91b806e",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/21-parent-03-engine-client-filesync.go": "58decc63a83ac40c1a828727282da0f2beded5f2fabb31e354d94a4ce4ccc1a0",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/22-parent-04-parent_directory_request.go": "a18c50195532ff0648e32acf6de8df1dfd41dd3d4c84e255ed478fe9d7bc4c6c",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/23-parent-05-parent_metadata.go": "83ff2bda1f394599c5f0596048745086399da8ef1cfd12ac7b1174e708096754",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/git_advertisement_http_audit.go": "ebfd0b5ad7376ab5beeb1d10a34eacfc9393bdeb7b719db80a7729a10f9d91b8",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/inputs/git_visibility.go": "1f062537e3ba725aa22236927c0acf31e8279ceb0d9d05ebe8b8e6bfc397f387",
+    "/tmp/collections-perf/catalog-next-levers-v1/git-http/git_advertisement_http_audit_test.go": "0b99f0544837040845dc17ff7c6d4f4aadaa4b330bb1e0f4bd535dfa449bb577",
+    "/tmp/collections-perf/module-load-pipeline-v1/module_load_pipeline.go": "61c72bdf2a1f9db2c36f7abe403763e83279c0a0fe671869acef7d849960f357",
+    "/tmp/collections-perf/module-load-pipeline-v1/module_load_pipeline_test.go": "5c1b29af4a128126b9111950cc3604dc53d6f62d21a13da165121879a019bbee",
+    "/tmp/collections-perf/module-load-pipeline-v1/session_workspaces.go": "f754cc3b51ba6f6ab44d85bef7f0e5a7beeb02c62b94d5ab8355ab13cb6d6d88",
+    "/tmp/collections-perf/module-load-pipeline-v1/freeze.py": "e77ffb46000c89280668765577ddf64bd775db6e318d700f15ce84ec6a946e16",
+    "/tmp/collections-perf/module-load-pipeline-v1/prepare_source.py": "5cf0f9bb04d621162ce3d1fa6ebbfd2118930d769c083db3be4e43b423fb9d0a",
+    "/tmp/collections-perf/module-load-pipeline-v1/run_validation.py": "498c276f7ce1ba03909cb4670442302ca87cab81b01ceccdb9c2d5d48dcbdde2",
+    "/tmp/collections-perf/module-load-pipeline-v1/engine-overlay.json": "c85b14f717541af671beafce355afd31fb401bdad745f61bed561f00c30f48f3",
+    "/tmp/collections-perf/module-load-pipeline-v1/test-overlay.json": "9da05e9651365bb722f91df7cedb2a4a583993199922700c923d8c28ec47e724",
+    "/tmp/collections-perf/module-load-pipeline-v1/prototype.patch": "d0991d71eb6f3c5f09a0bb83513cca5f9558ff6c988388d901a56ff85072137f",
+    "/tmp/collections-perf/module-load-pipeline-v1/session_workspaces.baseline.go": "06bf5038ed4b671104bae4f291f69685aa55d682ea82117ef9431d721a235f4e"
+  },
+  "limits": {
+    "whole_jobs_before": 8,
+    "whole_jobs_after": 16,
+    "source_after": 8,
+    "registration_after": 8,
+    "nested_work": "unchanged, not bounded by these top-level permits"
+  },
+  "scope": "Only workspace batch scheduling and source/asModule factoring. Same cache keys, contexts, source legacy policies and final publication barrier. Existing diagnostic Git/context instrumentation is common to control and candidate."
+}

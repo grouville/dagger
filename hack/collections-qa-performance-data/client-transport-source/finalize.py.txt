@@ -1,0 +1,13 @@
+from pathlib import Path
+import difflib,hashlib,json
+HERE=Path(__file__).resolve().parent;ROOT=Path('/home/dagger/dag')
+mapping={'engine/client/client.go':'client.go','engine/client/shared_http_transport.go':'shared_http_transport.go','engine/client/drivers/container.go':'container.go'}
+tests={'engine/client/shared_http_transport_test.go':'shared_http_transport_test.go','engine/client/shared_http_transport_witness_test.go':'shared_http_transport_witness_test.go','engine/client/drivers/container_shared_transport_test.go':'container_shared_transport_test.go'}
+for label,files in [('production',mapping),('test',mapping|tests),('baseline-witness',{k:v for k,v in tests.items() if v!='shared_http_transport_test.go'})]:
+ (HERE/(label+'-overlay.json')).write_text(json.dumps({'Replace':{str(ROOT/k):str(HERE/v)for k,v in files.items()}},indent=2)+'\n')
+patch=[]
+for rel,name in (mapping|tests).items():
+ old=ROOT/rel
+ patch.extend(difflib.unified_diff(old.read_text().splitlines(True)if old.exists()else[],(HERE/name).read_text().splitlines(True),fromfile='a/'+rel if old.exists()else'/dev/null',tofile='b/'+rel))
+(HERE/'prototype.patch').write_text(''.join(patch))
+(HERE/'hashes.json').write_text(json.dumps({n:hashlib.sha256((HERE/n).read_bytes()).hexdigest()for n in list((mapping|tests).values())+['prototype.patch','production-overlay.json','test-overlay.json','baseline-witness-overlay.json']},indent=2)+'\n')

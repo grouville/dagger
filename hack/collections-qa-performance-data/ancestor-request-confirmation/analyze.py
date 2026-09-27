@@ -1,0 +1,40 @@
+"""Reduce completed local-only confirmation; preserve every numeric observation."""
+from pathlib import Path
+import hashlib,json,statistics
+H=Path(__file__).resolve().parent;R=H/'results-v1';E=H/'results-v1-evidence'
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def main():
+ rows=json.loads((R/'results.json').read_text());rest=json.loads((R/'restoration.json').read_text());assert len(rows)==54 and all(r['correct'] for r in rows)
+ assert all(rest[k] for k in ('fixtures_restored','engine_original_restored','engine_stopped')) and rest['cloud_commands']==0
+ assert not E.exists();E.mkdir()
+ def write(n,v):(E/n).write_text(json.dumps(v,indent=2)+'\n')
+ write('samples.json',rows);write('restoration.json',rest);summaries=[];pairs=[]
+ for phase,flow in [('warm','artifacts'),('warm','checks'),('fresh-edit','check'),('fresh-edit','generate')]:
+  group=[r for r in rows if (r['phase'],r['flow'])==(phase,flow)];s={'phase':phase,'flow':flow,'samples_per_variant':5}
+  for variant in ('baseline','candidate'):
+   vs=[r for r in group if r['variant']==variant];assert len(vs)==5
+   s[variant]={'seconds':[r['seconds'] for r in vs],'median_seconds':statistics.median(r['seconds'] for r in vs),'file_visible_seconds':[r['file_visible_seconds'] for r in vs],'engine_cpu_seconds':[r['engine_cpu_seconds'] for r in vs],'cli_tree_cpu_seconds':[r['process_tree_user_seconds']+r['process_tree_system_seconds'] for r in vs]}
+   if flow=='generate':s[variant]['median_file_visible_seconds']=statistics.median(r['file_visible_seconds'] for r in vs)
+  s['median_delta_ms']=1000*(s['candidate']['median_seconds']-s['baseline']['median_seconds']);s['median_percent_change']=100*(s['candidate']['median_seconds']/s['baseline']['median_seconds']-1)
+  ps=[]
+  for b,c,count in ((0,1,3),(3,2,2)):
+   for rep in range(count):
+    bv=next(r for r in group if r['block']==b and r['repetition']==rep);cv=next(r for r in group if r['block']==c and r['repetition']==rep)
+    q={'phase':phase,'flow':flow,'block_order':'AB' if b==0 else 'BA','repetition':rep,'baseline_seconds':bv['seconds'],'candidate_seconds':cv['seconds'],'delta_ms':1000*(cv['seconds']-bv['seconds'])};ps.append(q);pairs.append(q)
+  s['paired_median_delta_ms']=statistics.median(p['delta_ms'] for p in ps);s['pairs_candidate_faster']=sum(p['delta_ms']<0 for p in ps);summaries.append(s)
+ for flow,key in [('check','native_module_sha256'),('generate','input_sha256')]:
+  hashes=[r[key] for r in rows if r['phase']=='fresh-edit' and r['flow']==flow];assert len(hashes)==len(set(hashes))==10
+ compatibility=[r for r in rows if r['phase']=='mixed-version-compatibility'];assert len(compatibility)==2 and all(r['engine_variant']!=r['cli_variant'] for r in compatibility)
+ write('summary.json',{'scope':'Local-only, five observations per variant per flow, four retained-volume ABBA blocks; exploratory paired confirmation, not stable percentiles.','groups':summaries});write('paired-values.json',pairs)
+ write('correctness.json',{'commands':54,'correct_outcomes':54,'ordinary_samples':40,'primers':12,'mixed_version_calls':compatibility,'fresh_edit_inputs_independently_unique':True,'exact_greetings_rows':14,'native_standard_check':True,'native_generate_not_sdk_codegen':True,'not_tested':['fresh-volume cold','service up','Cloud','selected Go test in this confirmation','SDK code generation']})
+ p=json.loads((R/'provenance.json').read_text());m=p['build_manifest']
+ write('provenance.json',{'source_head':m['source_head'],'binary_sha256':{v:{k:m[v][k]['sha256'] for k in ('cli','engine')}for v in ('baseline','candidate')},'original_engine_ancestry_sha256':m['original_baseline_engine_sha256'],'driver_sha256':sha(R/'driver.py.txt'),'raw_numeric_results_sha256':sha(R/'results.json'),'cache_boundary':p['cache_boundary'],'edit_boundary':p['edit_boundary'],'limits':p['limits'],'ambient_width_caveat':p['ambient_width_caveat'],'measured_implementation':'Frozen parent-request v1 Linux binaries. The later v2 source adds literal slash as accepted Walk root on Windows; on Linux this is already the native separator. V2 has separate normal/race and Windows cross-compile evidence, not a separately measured binary here.','cloud_commands':0})
+ lines=['The confirmation completed54/54 expected outcomes:40 ordinary observations,12 explicit primers and two mixed-version compatibility checks. Fixtures and the original engine were restored; the owned engine is stopped. No Cloud call ran.','','Each flow has five samples per variant in four ABBA blocks (3/3/2/2 repetitions). These measurements use one retained cache volume and the same frozen experimental SDK/Dang stack. They improve confidence over the earlier n2 exploration but do not establish stable percentiles or isolate every background effect.','','| Flow | Baseline samples (s) | Candidate samples (s) | Median change | Faster pairs |','| --- | --- | --- | ---: | ---: |']
+ for s in summaries:lines.append(f"| {s['phase']} / {s['flow']} | {' / '.join(f'{v:.3f}'for v in s['baseline']['seconds'])} | {' / '.join(f'{v:.3f}'for v in s['candidate']['seconds'])} | {s['median_delta_ms']:+.1f} ms ({s['median_percent_change']:+.1f}%) | {s['pairs_candidate_faster']}/5 |")
+ gen=next(s for s in summaries if s['flow']=='generate');lines+=['',f"Fresh native generation file visibility medians were {gen['baseline']['median_file_visible_seconds']:.3f}s baseline and {gen['candidate']['median_file_visible_seconds']:.3f}s candidate, observed with a5ms polling interval. Full CLI exit remains the primary timing above.",'','Each fresh standard native check uses a unique, never-evaluated Dang source comment. Each fresh generate uses distinct input bytes and validates actual new output bytes. Ordinary comparisons restore both native input and generated output to primed bytes first. The generated check remains enabled. These are native module operations, not SDK code generation.','','Both compatibility directions produced the exact14 expected check rows: new CLI with old engine and old CLI with new engine. These separately labeled calls are correctness evidence, not performance samples. The earlier72-call suite retains the selected real Go check smoke and fail/restore native-check sentinel; neither is silently counted in this confirmation.','','The measured artifacts remain v1 Linux. The production v2 correction only accepts protocol root slash on Windows, already accepted via the native separator on Linux; its normal/race tests and Windows cross-compilation are separate evidence. No Windows runtime claim is made.','','The host /tmp contains roughly6000 accumulated entries. Removing sibling enumeration has greater opportunity here than on a narrow parent directory; synthetic width tests establish scaling separately. No fresh-volume cold, service-up, Cloud or all-UX500ms claim follows from this run. Engine CPU/I/O counters include background work, and the8GiB write guard sums only command-bracket writes.']
+ (E/'report.md').write_text('\n'.join(lines)+'\n')
+ (E/'profile-boundary-addendum.md').write_text('The earlier72-call trial remains unchanged. Its two profiles were collected after engine restart, native sentinel/restore and one selected Go check, without a full check-l primer. They therefore represent diagnostic-after-restart with partial warmup, not a fully warm artifact catalog. The parent-sync mechanism comparison remains useful, but Workspace.artifacts timing cannot rank fully warmed catalog bottlenecks. A separate four-call diagnostic is prepared with a full check-l primer immediately before each profile. It must be reported separately after execution.\n')
+ for n in ('runtime.py','analyze.py'):(E/n).write_bytes((H/n).read_bytes())
+ write('archive-allowlist.json',{'files':['samples.json','restoration.json','summary.json','paired-values.json','correctness.json','provenance.json','report.md','profile-boundary-addendum.md','runtime.py','analyze.py'],'exclude':'No stdout/stderr, raw wcprof, container IDs, credentials/config or raw input source contents.'})
+ print(json.dumps({'evidence':str(E),'groups':summaries}))
+if __name__=='__main__':main()

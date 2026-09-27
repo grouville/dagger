@@ -1,0 +1,44 @@
+{
+  "command": [
+    "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+    "test",
+    "-mod=readonly",
+    "-overlay=/tmp/collections-perf/ancestor-request-v3/test-overlay.json",
+    "-count=1",
+    "-run=^Test(ParentDirectoryMetadata|ParentMetadata)",
+    "-json",
+    "./engine",
+    "./internal/fsutil",
+    "./engine/client",
+    "./engine/filesync"
+  ],
+  "dependency_mode": "ordinary checkout go.mod, no -modfile or dependency replacement overrides",
+  "exit_code": 0,
+  "seconds": 1.8695475030690432,
+  "dependency_hashes": {
+    "go.mod": "67176883052394c928a27f1bbc74a263b50a99bf7272bda438bd9342eb71c483",
+    "go.sum": "05b34feba139701de20620f80fbb5cb54d95e05c3ba33004e80f73d75aaa8bc8",
+    "sdk/go/go.mod": "27303bfeb57fb499545eb793cb2a4c116314a682bee1a81007de8bce996fce25"
+  },
+  "log_sha256": "8169665869d1a4e6c984470d195fedd95dec0ec678975af9fb6f932ae4cf87b2",
+  "passed_top_level_tests": [
+    "TestParentDirectoryMetadataRequestValidation",
+    "TestParentDirectoryMetadataWireAndOldClientFallback",
+    "TestParentMetadataDirectoryParityAndFreshness",
+    "TestParentMetadataProtocolWalkRoot",
+    "TestParentMetadataRejectsMissingAndNonDirectoryWithoutEmission",
+    "TestParentMetadataBoundedStatsErrorsAndCancellation",
+    "TestParentDirectoryMetadataActualDiffCopy",
+    "TestParentDirectoryMetadataDiffCopyRejectsBroadening",
+    "TestParentDirectoryMetadataMissingDispatchWitness"
+  ],
+  "failures": [],
+  "env": {
+    "GOMAXPROCS": "4",
+    "GOPROXY": "off",
+    "GOTOOLCHAIN": "local",
+    "GOOS": "linux",
+    "GOARCH": "amd64",
+    "CGO_ENABLED": "1"
+  }
+}

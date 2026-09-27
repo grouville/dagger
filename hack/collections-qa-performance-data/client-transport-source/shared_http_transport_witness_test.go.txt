@@ -1,0 +1,65 @@
+package client
+
+import (
+	"context"
+	"io"
+	"net"
+	"net/http"
+	"sync/atomic"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+	"golang.org/x/net/http2"
+)
+
+// This test compiles against the unchanged Client as well. Its baseline fails
+// only the physical-dial count; the two responses and authority headers match.
+func TestHTTPClientsSharePhysicalConnection(t *testing.T) {
+	ctx, cancel := context.WithCancelCause(t.Context())
+	closing, closeRequests := context.WithCancelCause(t.Context())
+	connector := &httpShareWitnessConnector{}
+	c := &Client{Params: Params{ID: "witness-client", SessionID: "witness-session", SecretToken: "witness-only"},
+		internalCtx: ctx, internalCancel: cancel, closeCtx: closing, closeRequests: closeRequests, connector: connector}
+	api := c.newHTTPClient()
+	telemetry := c.newTelemetryHTTPClient()
+	t.Cleanup(func() {
+		closeRequests(context.Canceled)
+		cancel(context.Canceled)
+		api.inner.CloseIdleConnections()
+		telemetry.inner.CloseIdleConnections()
+	})
+	require.Equal(t, api.headers, telemetry.headers)
+	for _, client := range []*httpClient{api, telemetry} {
+		req, err := http.NewRequestWithContext(t.Context(), "GET", "http://dagger/authority", nil)
+		require.NoError(t, err)
+		resp, err := client.Do(req)
+		require.NoError(t, err)
+		data, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		require.NoError(t, resp.Body.Close())
+		require.Equal(t, "same authority", string(data))
+	}
+	require.EqualValues(t, 1, connector.dials.Load(), "API and telemetry belong to the same client and share one HTTP/2 tunnel")
+}
+
+type httpShareWitnessConnector struct{ dials atomic.Int64 }
+
+func (p *httpShareWitnessConnector) EngineID() string { return "" }
+func (p *httpShareWitnessConnector) Connect(ctx context.Context) (net.Conn, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	client, peer := net.Pipe()
+	p.dials.Add(1)
+	go func() {
+		(&http2.Server{}).ServeConn(peer, &http2.ServeConnOpts{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			user, pass, ok := r.BasicAuth()
+			if !ok || user != "witness-only" || pass != "" {
+				http.Error(w, "unexpected authority", 401)
+				return
+			}
+			_, _ = io.WriteString(w, "same authority")
+		})})
+	}()
+	return client, nil
+}

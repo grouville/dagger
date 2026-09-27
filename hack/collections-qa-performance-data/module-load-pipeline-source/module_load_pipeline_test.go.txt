@@ -1,0 +1,248 @@
+package server
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"sync/atomic"
+	"testing"
+	"time"
+)
+
+func pipelineAwait[T any](t *testing.T, ch <-chan T) T {
+	t.Helper()
+	select {
+	case v := <-ch:
+		return v
+	case <-time.After(5 * time.Second):
+		t.Fatal("pipeline did not make expected progress")
+		var zero T
+		return zero
+	}
+}
+
+func pipelineUpdateMax(dst *atomic.Int64, n int64) {
+	for old := dst.Load(); n > old; old = dst.Load() {
+		if dst.CompareAndSwap(old, n) {
+			return
+		}
+	}
+}
+
+func TestModuleLoadPipelinePhaseBoundsAndOverlap(t *testing.T) {
+	const count = 32
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	p := newModuleLoadPipeline(count)
+	jobs := p.jobs().WithTracing(false)
+	sourceGate, moduleGate := make(chan struct{}), make(chan struct{})
+	sourceStarted, moduleStarted := make(chan int, count), make(chan int, count)
+	var sources, modules, active atomic.Int64
+	var maxSources, maxModules, maxActive atomic.Int64
+	results, errs := make([]int, count), make([]error, count)
+	for i := range count {
+		jobs = jobs.WithJob(fmt.Sprint(i), func(ctx context.Context) error {
+			pipelineUpdateMax(&maxActive, active.Add(1))
+			defer active.Add(-1)
+			src, err := runModuleLoadStage(ctx, p.sources, func(ctx context.Context) (int, error) {
+				pipelineUpdateMax(&maxSources, sources.Add(1))
+				defer sources.Add(-1)
+				sourceStarted <- i
+				select {
+				case <-sourceGate:
+					return i * 2, nil
+				case <-ctx.Done():
+					return 0, ctx.Err()
+				}
+			})
+			if err != nil {
+				errs[i] = err
+				return nil
+			}
+			results[i], errs[i] = runModuleLoadStage(ctx, p.modules, func(ctx context.Context) (int, error) {
+				pipelineUpdateMax(&maxModules, modules.Add(1))
+				defer modules.Add(-1)
+				moduleStarted <- i
+				select {
+				case <-moduleGate:
+					return src + 1, nil
+				case <-ctx.Done():
+					return 0, ctx.Err()
+				}
+			})
+			return nil
+		})
+	}
+	done := make(chan error, 1)
+	go func() { done <- jobs.Run(ctx) }()
+	joined := false
+	defer func() {
+		if joined {
+			return
+		}
+		// In particular, the old-window negative witness must not leave its
+		// deliberately blocked jobs behind after the progress assertion fails.
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			t.Error("pipeline cleanup failed to join workers")
+		}
+	}()
+	// The first eight sources occupy all permits. Complete only one source.
+	for range 8 {
+		pipelineAwait(t, sourceStarted)
+	}
+	select {
+	case sourceGate <- struct{}{}:
+	case <-time.After(5 * time.Second):
+		t.Fatal("no source ready")
+	}
+	pipelineAwait(t, moduleStarted)
+	// A ninth source must start while that module remains blocked. A whole-job
+	// limiter of eight or a full-source barrier cannot satisfy this witness.
+	pipelineAwait(t, sourceStarted)
+	close(sourceGate)
+	for range 7 {
+		pipelineAwait(t, moduleStarted)
+	}
+	if maxSources.Load() > 8 || maxModules.Load() > 8 || maxActive.Load() > 16 {
+		t.Fatalf("limits exceeded: sources=%d modules=%d jobs=%d", maxSources.Load(), maxModules.Load(), maxActive.Load())
+	}
+	close(moduleGate)
+	err := pipelineAwait(t, done)
+	joined = true
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range count {
+		if errs[i] != nil || results[i] != i*2+1 {
+			t.Fatalf("index %d: result=%d error=%v", i, results[i], errs[i])
+		}
+	}
+	if maxSources.Load() != 8 || maxModules.Load() != 8 || maxActive.Load() > 16 {
+		t.Fatalf("unexpected high water: sources=%d modules=%d jobs=%d", maxSources.Load(), maxModules.Load(), maxActive.Load())
+	}
+}
+
+func TestModuleLoadPipelineErrorsRemainIndexed(t *testing.T) {
+	const count = 24
+	p := newModuleLoadPipeline(count)
+	jobs := p.jobs().WithTracing(false)
+	sourceErr, moduleErr := errors.New("source policy"), errors.New("module validation")
+	results, errs := make([]int, count), make([]error, count)
+	var calls [count]atomic.Int64
+	for i := range count {
+		jobs = jobs.WithJob(fmt.Sprint(i), func(ctx context.Context) error {
+			src, err := runModuleLoadStage(ctx, p.sources, func(context.Context) (int, error) {
+				if i%3 == 0 {
+					return 0, sourceErr
+				}
+				return i, nil
+			})
+			if err != nil {
+				errs[i] = err
+				return nil
+			}
+			results[i], errs[i] = runModuleLoadStage(ctx, p.modules, func(context.Context) (int, error) {
+				calls[i].Add(1)
+				if i%3 == 1 {
+					return 0, moduleErr
+				}
+				return src + 1, nil
+			})
+			return nil // preserve non-fail-fast indexed collection
+		})
+	}
+	if err := jobs.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	for i := range count {
+		switch i % 3 {
+		case 0:
+			if !errors.Is(errs[i], sourceErr) || calls[i].Load() != 0 {
+				t.Fatalf("source policy not retained at %d", i)
+			}
+		case 1:
+			if !errors.Is(errs[i], moduleErr) || calls[i].Load() != 1 {
+				t.Fatalf("module error not retained at %d", i)
+			}
+		case 2:
+			if errs[i] != nil || results[i] != i+1 || calls[i].Load() != 1 {
+				t.Fatalf("success lost at %d", i)
+			}
+		}
+	}
+}
+
+func TestModuleLoadPipelineCancellationJoinsStartedWork(t *testing.T) {
+	ctx, cancel := context.WithCancelCause(context.Background())
+	defer cancel(nil)
+	p := newModuleLoadPipeline(2)
+	jobs := p.jobs().WithTracing(false)
+	started, observedCancel, release := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	cause := errors.New("cancel pipeline")
+	var returned atomic.Bool
+	jobs = jobs.WithJob("active", func(ctx context.Context) error {
+		_, err := runModuleLoadStage(ctx, p.modules, func(ctx context.Context) (int, error) {
+			close(started)
+			<-ctx.Done()
+			close(observedCancel)
+			<-release // cleanup deliberately remains outstanding after cancellation
+			returned.Store(true)
+			return 0, context.Cause(ctx)
+		})
+		return err
+	})
+	done := make(chan error, 1)
+	go func() { done <- jobs.Run(ctx) }()
+	pipelineAwait(t, started)
+	cancel(cause)
+	pipelineAwait(t, observedCancel)
+	select {
+	case <-done:
+		t.Fatal("returned while started job still owned resources")
+	default:
+	}
+	close(release)
+	if err := pipelineAwait(t, done); !errors.Is(err, cause) {
+		t.Fatalf("cause lost: %v", err)
+	}
+	if !returned.Load() {
+		t.Fatal("started work abandoned")
+	}
+	// Both phase permit sets are fully reusable after the joined cancellation.
+	for _, slots := range []interface {
+		TryAcquire(int64) bool
+		Release(int64)
+	}{p.sources, p.modules} {
+		if !slots.TryAcquire(2) {
+			t.Fatal("permit leaked")
+		}
+		slots.Release(2)
+	}
+}
+
+func TestModuleLoadPipelineCanceledWaitDoesNotRun(t *testing.T) {
+	p := newModuleLoadPipeline(1)
+	for _, slots := range []interface {
+		Acquire(context.Context, int64) error
+		Release(int64)
+	}{p.sources, p.modules} {
+		if err := slots.Acquire(context.Background(), 1); err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		if err := slots.Acquire(ctx, 1); !errors.Is(err, context.Canceled) {
+			t.Fatalf("canceled wait: %v", err)
+		}
+		slots.Release(1)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := runModuleLoadStage(ctx, p.sources, func(context.Context) (int, error) { t.Fatal("canceled source executed"); return 0, nil })
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled stage: %v", err)
+	}
+}

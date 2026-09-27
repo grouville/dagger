@@ -1,0 +1,116 @@
+{
+  "head": "85b60f7a0a16a27459ef571bc94bcf870c876dcc",
+  "script_sha256": "961e96aac9bc0521087c278bb196329b22603f177bc2dc0082f0fee93cd6ee0d",
+  "environment": {
+    "GOMAXPROCS": "4",
+    "GOPROXY": "off",
+    "GOTOOLCHAIN": "local"
+  },
+  "candidate_hashes": {
+    "module.go": "842ae9d678a909d34ac861794b84086a9d756d1ec00a51dc28bf845d1b147ad2",
+    "coremod.go": "c652f9461738f01b0f081b656965df266d5078917e952e290ef6b4469b746e60",
+    "module_typedef_bulk.go": "f2121daaa360e7dfea0f57bc51236d2521a5ce4d143442c8ca97de8cc98043e6",
+    "core_bulk_publication_test.go": "13ceb11a62213ed742b964b491ada72759f77017a66c032df056d9663b9b134e",
+    "prototype.patch": "72f31172a6c4c34b5381990b535544ceea218d06fb9a600ddaef0f924901b7e1"
+  },
+  "runs": [
+    {
+      "label": "baseline-witness",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/sdk-edit-audit/core-bulk-publication-v1/baseline-consumer-overlay.json",
+        "./core/schema",
+        "-run",
+        "^TestCoreBulkPublicationUsesOneFinalUpdate$",
+        "-count=1"
+      ],
+      "exit_code": 1,
+      "seconds": 22.564748867880553,
+      "failures": [
+        "TestCoreBulkPublicationUsesOneFinalUpdate/functions=10/interface=false",
+        "TestCoreBulkPublicationUsesOneFinalUpdate/functions=10/interface=true",
+        "TestCoreBulkPublicationUsesOneFinalUpdate"
+      ],
+      "passes": [
+        "TestCoreBulkPublicationUsesOneFinalUpdate/functions=0/interface=false",
+        "TestCoreBulkPublicationUsesOneFinalUpdate/functions=0/interface=true",
+        "TestCoreBulkPublicationUsesOneFinalUpdate/functions=1/interface=false",
+        "TestCoreBulkPublicationUsesOneFinalUpdate/functions=1/interface=true"
+      ],
+      "log_sha256": "85af8fa694806fed47b846601005a328330599f7f1976ef3b108f9a8df96d5ac"
+    },
+    {
+      "label": "candidate",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/sdk-edit-audit/core-bulk-publication-v1/test-overlay.json",
+        "./core/schema",
+        "-run",
+        "^(TestCoreBulkPublicationMetadataOwnership|TestCoreBulkPublicationUsesOneFinalUpdate|TestBaseSchemaAllowlist|TestCoreSchemaTypeDefContentsAfterSessionRelease|TestCLITypeDefsJSONCoreParity|TestCurrentTypeDefsReturnAllTypesAfterSessionRelease)$",
+        "-count=1"
+      ],
+      "exit_code": 0,
+      "seconds": 22.66661534481682,
+      "failures": [],
+      "passes": [
+        "TestCoreBulkPublicationMetadataOwnership",
+        "TestCoreBulkPublicationUsesOneFinalUpdate/functions=0/interface=false",
+        "TestCoreBulkPublicationUsesOneFinalUpdate/functions=0/interface=true",
+        "TestCoreBulkPublicationUsesOneFinalUpdate/functions=1/interface=false",
+        "TestCoreBulkPublicationUsesOneFinalUpdate/functions=1/interface=true",
+        "TestCoreBulkPublicationUsesOneFinalUpdate/functions=10/interface=false",
+        "TestCoreBulkPublicationUsesOneFinalUpdate/functions=10/interface=true",
+        "TestCoreBulkPublicationUsesOneFinalUpdate",
+        "TestCoreSchemaTypeDefContentsAfterSessionRelease",
+        "TestCLITypeDefsJSONCoreParity/v0.21.5",
+        "TestCLITypeDefsJSONCoreParity/v1.0.0",
+        "TestCLITypeDefsJSONCoreParity",
+        "TestBaseSchemaAllowlist",
+        "TestCurrentTypeDefsReturnAllTypesAfterSessionRelease"
+      ],
+      "log_sha256": "ca906ecad2144b92646e4303f830d8e588025478442745e97e3b27cebe1eaf81"
+    },
+    {
+      "label": "candidate-race",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/sdk-edit-audit/core-bulk-publication-v1/test-overlay.json",
+        "-race",
+        "./core/schema",
+        "-run",
+        "^(TestCoreBulkPublicationMetadataOwnership|TestCoreBulkPublicationUsesOneFinalUpdate|TestBaseSchemaAllowlist|TestCoreSchemaTypeDefContentsAfterSessionRelease|TestCLITypeDefsJSONCoreParity|TestCurrentTypeDefsReturnAllTypesAfterSessionRelease)$",
+        "-count=1"
+      ],
+      "exit_code": 0,
+      "seconds": 51.44158334820531,
+      "failures": [],
+      "passes": [
+        "TestCoreBulkPublicationMetadataOwnership",
+        "TestCoreBulkPublicationUsesOneFinalUpdate/functions=0/interface=false",
+        "TestCoreBulkPublicationUsesOneFinalUpdate/functions=0/interface=true",
+        "TestCoreBulkPublicationUsesOneFinalUpdate/functions=1/interface=false",
+        "TestCoreBulkPublicationUsesOneFinalUpdate/functions=1/interface=true",
+        "TestCoreBulkPublicationUsesOneFinalUpdate/functions=10/interface=false",
+        "TestCoreBulkPublicationUsesOneFinalUpdate/functions=10/interface=true",
+        "TestCoreBulkPublicationUsesOneFinalUpdate",
+        "TestCoreSchemaTypeDefContentsAfterSessionRelease",
+        "TestCLITypeDefsJSONCoreParity/v0.21.5",
+        "TestCLITypeDefsJSONCoreParity/v1.0.0",
+        "TestCLITypeDefsJSONCoreParity",
+        "TestBaseSchemaAllowlist",
+        "TestCurrentTypeDefsReturnAllTypesAfterSessionRelease"
+      ],
+      "log_sha256": "76b49a3b8933a239bc127ff4926de6307bf7cf63063ba06afa0da54d461e908f"
+    }
+  ],
+  "all_expected_results": true
+}

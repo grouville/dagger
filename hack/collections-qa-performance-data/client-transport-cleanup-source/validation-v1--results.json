@@ -1,0 +1,79 @@
+{
+  "source_head": "0d1c32e29f2f31cdb95f0b5f17f7daed7305bc87",
+  "script_sha256": "525869224c8e4731bed0a093a8ffc4b837b270e618ca1cd689c19ffe41af744b",
+  "source": {
+    "/home/dagger/dag/engine/client/client.go": "ee258323f792a93035fabeab2582258760b7ef2686e24b4bb5b018887f29f42a",
+    "/home/dagger/dag/engine/client/drivers/container.go": "990ce4a905dbbea0e2ece84b716dc71c9ba637e68d2d5ca00a75a9a361949996",
+    "/home/dagger/dag/go.mod": "67176883052394c928a27f1bbc74a263b50a99bf7272bda438bd9342eb71c483",
+    "/home/dagger/dag/go.sum": "05b34feba139701de20620f80fbb5cb54d95e05c3ba33004e80f73d75aaa8bc8"
+  },
+  "candidate_hashes": {
+    "build-clis.py": "85ced28d21279b4bda6b4496f5dea64e962c6c3423414d429e4f993fdb4849ad",
+    "test-overlay.json": "9c5f97e6f348fb5adaaa83952feea9883c67fde4adac10853692db09e4816031",
+    "validate.py": "525869224c8e4731bed0a093a8ffc4b837b270e618ca1cd689c19ffe41af744b",
+    "provenance.json": "58e80f4a680eddfc5323c6bb2d0b05277a97c802079ba2fc4d66d048c0ae4b1b",
+    "shared_http_cleanup_overlap_test.go": "a04b4f9ef5b84d09d0888b13913ca2dbe104da48d3a9c6ab03b58e86affeff7a",
+    "baseline-witness-overlay.json": "aec4845363659b919fa5843100f61b333f053927920b874e8a2dd5d2523e490c",
+    "client.go": "9581e93203e55327377a79f9b0d4e64ab2257226a8821b6eecf6392f9a446ff8",
+    "cleanup-overlap.patch": "30bc1f418dbc75af2021775eb2bd44b8503fff5aa1ace6e4f062f089c16cfad6",
+    "production-overlay.json": "6a1101a89e728c14df6dbaa8b7683fd1effcad2a71e39eb4b0ae942993d9de63"
+  },
+  "runs": [
+    {
+      "label": "baseline-witness",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/shared-client-transport-v1/prototype-v2/baseline-witness-overlay.json",
+        "./engine/client",
+        "./engine/client/drivers",
+        "-run",
+        "^TestSharedHTTPTransportCloseOverlapsOtherCleanup$",
+        "-count=1",
+        "-timeout=90s"
+      ],
+      "exit_code": 1,
+      "seconds": 2.5198238838929683,
+      "log_sha256": "3abb4b3db68faecb0f81a1a4091ace1c294c42efdd4c371a93244b997bb8b984",
+      "failures": [
+        "TestSharedHTTPTransportCloseOverlapsOtherCleanup"
+      ],
+      "passes": []
+    },
+    {
+      "label": "candidate",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/shared-client-transport-v1/prototype-v2/test-overlay.json",
+        "./engine/client",
+        "./engine/client/drivers",
+        "-run",
+        "^(TestSharedHTTPTransport.*|TestHTTPClientsSharePhysicalConnection|TestContainerConnector.*|TestTelemetryContextUsesClientLifetime|TestOTLPConsumer.*|TestClientClose.*|TestSessionAttachables.*|TestEngineTelemetryForwardingFollowsConfirmation)$",
+        "-count=1",
+        "-timeout=90s"
+      ],
+      "exit_code": 1,
+      "seconds": 2.47074405499734,
+      "log_sha256": "0130a893cd2cf13d7729428bd9aa32b72328ec5f8292abf79c6a6bb024cf993a",
+      "failures": [],
+      "passes": [
+        "TestContainerConnectorWarmsSharedHTTPTopology",
+        "TestContainerConnectorKeepsTunnelAClientStoppedWaitingFor",
+        "TestContainerConnectorDoesNotWarmOnDeadTunnel",
+        "TestContainerConnectorWarmsTunnelsOnceEngineAnswers",
+        "TestSessionAttachablesRemainAvailableThroughCancelledCommandShutdown/e2e=false",
+        "TestSessionAttachablesRemainAvailableThroughCancelledCommandShutdown/e2e=true",
+        "TestSessionAttachablesRemainAvailableThroughCancelledCommandShutdown",
+        "TestSessionAttachablesStopOnClientInitializationFailure/e2e=false",
+        "TestSessionAttachablesStopOnClientInitializationFailure/e2e=true",
+        "TestSessionAttachablesStopOnClientInitializationFailure",
+        "TestSharedHTTPTransportCloseOverlapsOtherCleanup"
+      ]
+    }
+  ]
+}

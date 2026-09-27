@@ -1,0 +1,51 @@
+package schema
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/dagger/dagger/core"
+	"github.com/dagger/dagger/dagql"
+)
+
+type typeDefWithFunctionsArgs struct {
+	Functions dagql.ArrayInput[core.FunctionID]
+}
+
+// Keep the established replacement and name-alias rules. This batches the
+// result publications, not the implementation of the immutable value update.
+func (s *moduleSchema) objectTypeDefWithFunctions(ctx context.Context, obj *core.ObjectTypeDef, args typeDefWithFunctionsArgs) (*core.ObjectTypeDef, error) {
+	if len(args.Functions) == 0 {
+		return obj.Clone(), nil
+	}
+	dag, err := core.CurrentDagqlServer(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dag server: %w", err)
+	}
+	for i, id := range args.Functions {
+		fn, err := id.Load(ctx, dag)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode function %d: %w", i, err)
+		}
+		obj = obj.WithFunction(fn)
+	}
+	return obj, nil
+}
+
+func (s *moduleSchema) interfaceTypeDefWithFunctions(ctx context.Context, iface *core.InterfaceTypeDef, args typeDefWithFunctionsArgs) (*core.InterfaceTypeDef, error) {
+	if len(args.Functions) == 0 {
+		return iface.Clone(), nil
+	}
+	dag, err := core.CurrentDagqlServer(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dag server: %w", err)
+	}
+	for i, id := range args.Functions {
+		fn, err := id.Load(ctx, dag)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode function %d: %w", i, err)
+		}
+		iface = iface.WithFunction(fn)
+	}
+	return iface, nil
+}

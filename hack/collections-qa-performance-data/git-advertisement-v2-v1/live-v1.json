@@ -1,0 +1,61 @@
+{
+  "scope": "Anonymous host HTTP/1.1 on one persistent TLS socket; no engine/HTTP2/admission parity claim",
+  "request_cap": 24,
+  "cloud_requests": 0,
+  "connect": {
+    "dns_ns": 5389490,
+    "tcp_ns": 65929682,
+    "tls_ns": 122901619
+  },
+  "rows": [
+    {
+      "index": 0,
+      "request": {
+        "phase": "primer",
+        "repo": "go",
+        "protocol": "v0"
+      },
+      "write_attempted": true,
+      "reused_connection": false,
+      "status": 200,
+      "body_bytes": 7806,
+      "classification": "valid",
+      "git_protocol": "v0",
+      "request_ns": 206271319,
+      "write_ns": 77490,
+      "first_response_byte_ns": 206043348,
+      "body_done_ns": 206122970,
+      "parse_ns": 146510,
+      "write_to_first_byte_ns": 205965858,
+      "first_byte_to_body_done_ns": 79622,
+      "first_byte_observed": true,
+      "server_close": false
+    },
+    {
+      "index": 1,
+      "request": {
+        "phase": "primer",
+        "repo": "go",
+        "protocol": "v2"
+      },
+      "write_attempted": true,
+      "reused_connection": true,
+      "status": 200,
+      "body_bytes": 191,
+      "classification": "invalid_git",
+      "git_protocol": "unknown",
+      "request_ns": 211427038,
+      "write_ns": 37695,
+      "first_response_byte_ns": 211312126,
+      "body_done_ns": 211362453,
+      "parse_ns": 59367,
+      "write_to_first_byte_ns": 211274431,
+      "first_byte_to_body_done_ns": 50327,
+      "first_byte_observed": true,
+      "server_close": false
+    }
+  ],
+  "finished": false,
+  "stop_reason": "invalid_git",
+  "total_body_bytes": 7997
+}

@@ -1,0 +1,38 @@
+"""Focused shared HTTP/2 owner tests only, with unchanged-source dial-count witnesses."""
+from pathlib import Path
+import argparse,hashlib,json,os,subprocess,time
+H=Path(__file__).resolve().parent;R=Path('/home/dagger/dag')
+GO='/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go'
+P=argparse.ArgumentParser(description=__doc__);P.add_argument('--run',action='store_true');P.add_argument('--output',default='validation-v1');a=P.parse_args()
+sha=lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest()
+base='^(TestHTTPClientsSharePhysicalConnection|TestContainerConnectorWarmsSharedHTTPTopology)$'
+focused='^(TestSharedHTTPTransport.*|TestHTTPClientsSharePhysicalConnection|TestContainerConnector.*|TestTelemetryContextUsesClientLifetime|TestOTLPConsumer.*|TestClientClose.*|TestSessionAttachables.*|TestEngineTelemetryForwardingFollowsConfirmation)$'
+commands=[]
+for label,overlay,regex,race in [('baseline-witness','baseline-witness-overlay.json',base,False),('ownership-witness','ownership-baseline-overlay.json','^TestSharedHTTPTransportCloseJoinsPendingDial$',False),('candidate','test-overlay.json',focused,False),('candidate-race','test-overlay.json',focused,True)]:
+ cmd=[GO,'test','-json','-mod=readonly','-overlay='+str(H/overlay)]
+ if race:cmd.append('-race')
+ commands.append({'label':label,'argv':cmd+['./engine/client','./engine/client/drivers','-run',regex,'-count=1','-timeout=90s']})
+if not a.run:print(json.dumps({'execute':False,'commands':commands,'cloud_calls':0,'engine_calls':0,'scope':'real in-memory h2c peers and counting fake connector, no Docker'}));raise SystemExit
+assert a.output.startswith('validation-v')and '/'not in a.output
+out=H/a.output;assert not out.exists()
+provenance=json.loads((H/'provenance.json').read_text())
+for path,want in provenance['source'].items():assert sha(path)==want,path
+hashes=json.loads((H/'hashes.json').read_text())
+for name,want in hashes.items():assert sha(H/name)==want,name
+out.mkdir();(out/'validate.py.txt').write_bytes(Path(__file__).read_bytes())
+env=os.environ.copy();env.update(GOMAXPROCS='4',GOPROXY='off',GOTOOLCHAIN='local')
+results={'source_head':subprocess.check_output(['git','rev-parse','HEAD'],cwd=R,text=True).strip(),'script_sha256':sha(__file__),'source':provenance['source'],'candidate_hashes':hashes,'runs':[]}
+for item in commands:
+ log=out/(item['label']+'.jsonl');started=time.monotonic()
+ with log.open('w')as f:r=subprocess.run(item['argv'],cwd=R,env=env,stdout=f,stderr=subprocess.STDOUT,timeout=300)
+ events=[]
+ for line in log.read_text().splitlines():
+  try:events.append(json.loads(line))
+  except json.JSONDecodeError:pass
+ row=dict(item,exit_code=r.returncode,seconds=time.monotonic()-started,log_sha256=sha(log),failures=[e['Test']for e in events if e.get('Action')=='fail'and 'Test'in e],passes=[e['Test']for e in events if e.get('Action')=='pass'and 'Test'in e])
+ results['runs'].append(row);(out/'results.json').write_text(json.dumps(results,indent=2)+'\n')
+ print(json.dumps({k:row[k]for k in ('label','exit_code','seconds','failures')}),flush=True)
+ if item['label']=='baseline-witness':assert r.returncode!=0 and set(row['failures'])=={'TestHTTPClientsSharePhysicalConnection','TestContainerConnectorWarmsSharedHTTPTopology'}
+ elif item['label']=='ownership-witness':assert r.returncode!=0 and set(row['failures'])=={'TestSharedHTTPTransportCloseJoinsPendingDial'}
+ else:assert r.returncode==0
+results['all_expected_results']=True;(out/'results.json').write_text(json.dumps(results,indent=2)+'\n')

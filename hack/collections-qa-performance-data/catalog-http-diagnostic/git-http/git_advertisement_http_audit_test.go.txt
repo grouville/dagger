@@ -1,0 +1,188 @@
+package schema
+
+import (
+	"context"
+	"crypto/tls"
+	"errors"
+	"net/http/httptrace"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+)
+
+type gitAuditTestEvent struct {
+	name       string
+	start, end int64
+	failed     bool
+}
+
+func newGitAuditTest(t *testing.T) (*gitAdvertisementHTTPAudit, func() []gitAuditTestEvent) {
+	t.Helper()
+	var now atomic.Int64
+	var mu sync.Mutex
+	var events []gitAuditTestEvent
+	a := newGitAdvertisementHTTPAudit(func() int64 { return now.Add(1) }, func(name string, start, end int64, failed bool) {
+		mu.Lock()
+		defer mu.Unlock()
+		events = append(events, gitAuditTestEvent{name, start, end, failed})
+	})
+	return a, func() []gitAuditTestEvent {
+		mu.Lock()
+		defer mu.Unlock()
+		return append([]gitAuditTestEvent(nil), events...)
+	}
+}
+
+func TestGitAdvertisementHTTPAuditBoundaries(t *testing.T) {
+	a, events := newGitAuditTest(t)
+	h := a.trace()
+	h.GetConn("secret-host:443")
+	h.DNSStart(httptrace.DNSStartInfo{Host: "secret-host"})
+	h.DNSDone(httptrace.DNSDoneInfo{})
+	h.ConnectStart("tcp", "secret-address")
+	h.ConnectDone("tcp", "secret-address", nil)
+	h.TLSHandshakeStart()
+	h.TLSHandshakeDone(tls.ConnectionState{}, nil)
+	h.GotConn(httptrace.GotConnInfo{})
+	h.WroteRequest(httptrace.WroteRequestInfo{})
+	h.GotFirstResponseByte()
+	a.parsed(nil)
+	want := map[string]int{"dns": 1, "connect": 1, "tls": 1, "getConn": 1, "connectionNew": 1, "requestWritten": 1, "writeToFirstByte": 1, "firstByte": 1, "lastFirstByteToParsed": 1}
+	for _, e := range events() {
+		const prefix = "git.publicAdvertisement.http."
+		if !strings.HasPrefix(e.name, prefix) {
+			t.Fatalf("unexpected label %q", e.name)
+		}
+		k := strings.TrimPrefix(e.name, prefix)
+		want[k]--
+		if strings.Contains(e.name, "secret") || e.start > e.end || e.failed {
+			t.Fatalf("invalid event %+v", e)
+		}
+	}
+	for k, n := range want {
+		if n != 0 {
+			t.Errorf("count mismatch %s: %d", k, n)
+		}
+	}
+}
+
+func TestGitAdvertisementHTTPAuditReuseAndError(t *testing.T) {
+	a, events := newGitAuditTest(t)
+	h := a.trace()
+	h.GetConn("private")
+	h.GotConn(httptrace.GotConnInfo{Reused: true})
+	h.WroteRequest(httptrace.WroteRequestInfo{Err: errors.New("private-error")})
+	a.parsed(context.Canceled)
+	for _, e := range events() {
+		if strings.Contains(e.name, "private") || strings.Contains(e.name, "ToParsed") || strings.Contains(e.name, "writeToFirstByte") {
+			t.Errorf("fabricated or sensitive event %+v", e)
+		}
+	}
+	if len(events()) != 3 {
+		t.Fatalf("events %v", events())
+	}
+	if !events()[2].failed {
+		t.Fatal("lost write failure outcome")
+	}
+	(*gitAdvertisementHTTPAudit)(nil).parsed(nil)
+}
+
+func TestGitAdvertisementHTTPAuditComposesTraceAndLateConnect(t *testing.T) {
+	a, events := newGitAuditTest(t)
+	var previous atomic.Int64
+	ctx := httptrace.WithClientTrace(context.Background(), &httptrace.ClientTrace{GetConn: func(string) { previous.Add(1) }})
+	ctx = httptrace.WithClientTrace(ctx, a.trace())
+	h := httptrace.ContextClientTrace(ctx)
+	h.GetConn("private")
+	if previous.Load() != 1 {
+		t.Fatal("existing trace callback was lost")
+	}
+	h.ConnectStart("tcp", "one")
+	h.ConnectStart("tcp", "two")
+	h.ConnectDone("tcp", "two", nil)
+	h.GotConn(httptrace.GotConnInfo{})
+	h.WroteRequest(httptrace.WroteRequestInfo{})
+	h.GotFirstResponseByte()
+	a.parsed(nil)
+	// Losing Happy Eyeballs attempts can finish after the request returns.
+	h.ConnectDone("tcp", "one", context.Canceled)
+	connects := 0
+	for _, e := range events() {
+		if e.name == "git.publicAdvertisement.http.connect" {
+			connects++
+			if e.end < e.start {
+				t.Fatal("negative interval")
+			}
+		}
+	}
+	if connects != 2 {
+		t.Fatalf("connect count %d", connects)
+	}
+}
+
+func TestGitAdvertisementHTTPAuditConcurrentCallbacks(t *testing.T) {
+	a, events := newGitAuditTest(t)
+	h := a.trace()
+	var wg sync.WaitGroup
+	for range 16 {
+		wg.Go(func() {
+			h.ConnectStart("tcp", "same-private-address")
+			h.ConnectDone("tcp", "same-private-address", nil)
+		})
+	}
+	wg.Wait()
+	a.parsed(nil)
+	if len(events()) != 16 {
+		t.Fatalf("got %d events", len(events()))
+	}
+}
+
+func TestGitAdvertisementHTTPAuditRedirects(t *testing.T) {
+	a, events := newGitAuditTest(t)
+	h := a.trace()
+	for range 2 {
+		h.GetConn("secret-host")
+		h.TLSHandshakeStart()
+		h.TLSHandshakeDone(tls.ConnectionState{}, nil)
+		h.GotConn(httptrace.GotConnInfo{})
+		h.WroteRequest(httptrace.WroteRequestInfo{})
+		h.GotFirstResponseByte()
+	}
+	a.parsed(nil)
+	counts := map[string]int{}
+	var lastFirst int64
+	for _, e := range events() {
+		counts[e.name]++
+		if e.name == "git.publicAdvertisement.http.firstByte" {
+			lastFirst = e.start
+		}
+		if e.name == "git.publicAdvertisement.http.lastFirstByteToParsed" && e.start != lastFirst {
+			t.Fatal("parse boundary used an earlier redirect")
+		}
+	}
+	if counts["git.publicAdvertisement.http.tls"] != 2 || counts["git.publicAdvertisement.http.writeToFirstByte"] != 2 || counts["git.publicAdvertisement.http.lastFirstByteToParsed"] != 1 {
+		t.Fatalf("counts %v", counts)
+	}
+}
+
+func TestGitAdvertisementHTTPAuditFirstByteBeforeWrite(t *testing.T) {
+	a, events := newGitAuditTest(t)
+	h := a.trace()
+	h.GetConn("secret-host")
+	h.GotConn(httptrace.GotConnInfo{})
+	h.GotFirstResponseByte()
+	h.WroteRequest(httptrace.WroteRequestInfo{})
+	// A subsequent redirect must not consume the preceding request's late
+	// write timestamp. There is no request identity in these callbacks.
+	h.GetConn("secret-redirect")
+	h.GotConn(httptrace.GotConnInfo{Reused: true})
+	h.WroteRequest(httptrace.WroteRequestInfo{})
+	h.GotFirstResponseByte()
+	a.parsed(nil)
+	for _, e := range events() {
+		if e.name == "git.publicAdvertisement.http.writeToFirstByte" {
+			t.Fatal("ambiguous interval was fabricated")
+		}
+	}
+}

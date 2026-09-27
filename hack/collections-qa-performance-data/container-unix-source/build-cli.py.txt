@@ -1,0 +1,43 @@
+"""Build one isolated connector-dial prototype CLI; both measured arms use this binary."""
+from pathlib import Path
+import argparse,hashlib,json,os,shutil,subprocess,time
+H=Path(__file__).resolve().parent;R=Path('/home/dagger/dag');B=H/'builds'
+P=Path('/tmp/collections-perf/shared-client-transport-v1/prototype-v2/builds')
+HEAD='0d1c32e29f2f31cdb95f0b5f17f7daed7305bc87'
+GO='/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go'
+ENV={'CGO_ENABLED':'0','GOOS':'linux','GOARCH':'amd64','GOAMD64':'v1','GOMAXPROCS':'4','GOPROXY':'off','GOTOOLCHAIN':'local'}
+sha=lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def write(p,x):p.write_text(json.dumps(x,indent=2)+'\n')
+def git(*args):return subprocess.check_output(['git',*args],cwd=R,text=True).strip()
+def source_guard():
+ assert git('rev-parse','HEAD')==HEAD
+ for p in git('diff','--name-only').splitlines():assert p.startswith('hack/'),'unexpected shared source edit: '+p
+ for p in git('ls-files','--others','--exclude-standard').splitlines():assert p.startswith('hack/')or not p.endswith(('.go','.s','.c','.h','.syso')),'untracked source: '+p
+p=argparse.ArgumentParser(description=__doc__);p.add_argument('--prepare',action='store_true');p.add_argument('--run',action='store_true');a=p.parse_args();assert not(a.prepare and a.run)
+if not(a.prepare or a.run):print(json.dumps({'execute':False,'cli_builds':1,'engine_builds':0,'cloud_calls':0,'head':HEAD,'comparison':'same prototype CLI and container+docker driver; URI query only selects Unix dial'}));raise SystemExit
+if a.prepare:
+ source_guard();assert not B.exists();B.mkdir();(B/'inputs').mkdir()
+ prov=json.loads((H/'provenance.json').read_text());hashes=json.loads((H/'hashes.json').read_text())
+ for path,want in prov['source'].items():assert sha(path)==want,path
+ for n,want in hashes.items():assert sha(H/n)==want,n
+ shutil.copyfile(H/'container.go',B/'inputs/container.go')
+ write(B/'overlay.json',{'Replace':{str(R/'engine/client/drivers/container.go'):str(B/'inputs/container.go')}})
+ # Reuse the exact immutable dependency pin of the original d685 CLI.
+ for n in ['cli.mod','cli.sum']:shutil.copyfile(P/n,B/n)
+ prior=json.loads((P/'build-recipe.json').read_text());parent=json.loads((P/'runtime-builds.json').read_text())['variants']['original']
+ assert sha(parent['path'])==parent['sha256']
+ for path,want in prior['external_sources'].items():assert sha(path)==want,path
+ command=[GO,'build','-mod=readonly','-modfile='+str(B/'cli.mod'),'-buildvcs=true','-overlay='+str(B/'overlay.json'),'-o',str(B/'dagger-connector-unix'),'./cmd/dagger']
+ recipe={'source_head':HEAD,'source_tree':git('rev-parse','HEAD^{tree}'),'script_sha256':sha(__file__),'source_guards':prov['source'],'inputs':{str(B/n):sha(B/n)for n in ['inputs/container.go','overlay.json','cli.mod','cli.sum']},'external_sources':prior['external_sources'],'prototype_hashes':hashes,'command':command,'environment':ENV,'parent_cli':parent,'parent_recipe_sha256':sha(P/'build-recipe.json'),'only_changed_source':'engine/client/drivers/container.go','socket_query_parameter':'perf-unix-socket','comparison':'Both arms use this single CLI. All source except the benchmark-only dial branch and cancellation-independent warm callback is current HEAD0d, including original independent HTTP pools and three warm tunnels. Same container driver availability, provisioning and image loading. No automatic detection/fallback, no production adoption.'}
+ write(B/'build-recipe.json',recipe);print(json.dumps({'prepared':True,'recipe':str(B/'build-recipe.json'),'sha256':sha(B/'build-recipe.json')}));raise SystemExit
+recipe=json.loads((B/'build-recipe.json').read_text());validation=json.loads((H/'validation-v2/results.json').read_text());assert validation['all_expected_results'];assert not(B/'build-results.json').exists()
+def guard():
+ source_guard();assert sha(__file__)==recipe['script_sha256']
+ for path,want in(recipe['source_guards']|recipe['inputs']|recipe['external_sources']).items():assert sha(path)==want,path
+ for n,want in recipe['prototype_hashes'].items():assert sha(H/n)==want,n
+guard();started=time.monotonic()
+with(B/'build.log').open('w')as f:r=subprocess.run(recipe['command'],cwd=R,env=os.environ|recipe['environment'],stdout=f,stderr=subprocess.STDOUT,timeout=300)
+row={'exit_code':r.returncode,'seconds':time.monotonic()-started,'argv':recipe['command'],'log_sha256':sha(B/'build.log'),'validation_sha256':sha(H/'validation-v2/results.json')}
+if r.returncode==0:row.update(path=str(B/'dagger-connector-unix'),sha256=sha(B/'dagger-connector-unix'))
+write(B/'build-results.json',row);print(json.dumps(row),flush=True);assert r.returncode==0;guard()
+write(H/'runtime-builds.json',{'cli':{k:row[k]for k in ['path','sha256']},'parent_cli_sha256':recipe['parent_cli']['sha256'],'build_manifest_path':str(B/'build-recipe.json'),'build_manifest_sha256':sha(B/'build-recipe.json'),'socket_query_parameter':'perf-unix-socket','source_head':HEAD,'profiling':False,'cloud_calls':0})

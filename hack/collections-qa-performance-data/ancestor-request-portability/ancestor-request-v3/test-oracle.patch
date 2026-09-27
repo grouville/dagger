@@ -1,0 +1,18 @@
+--- a/internal/fsutil/parent_metadata_test.go
++++ b/internal/fsutil/parent_metadata_test.go
+@@ -74,12 +74,12 @@
+ 	// portable witness that a second walk reads fresh metadata.
+ 	stamp := time.Unix(1700000000, 0)
+ 	require.NoError(t, os.Chtimes(changedPath, stamp, stamp))
+-	wantInfo, err := os.Stat(changedPath)
++	wantStat, err := Stat(changedPath)
+ 	require.NoError(t, err)
+ 	changed, err := metadataStats(f)
+ 	require.NoError(t, err)
+-	require.Equal(t, uint32(wantInfo.Mode()), changed[1].Mode)
+-	require.Equal(t, wantInfo.ModTime().UnixNano(), changed[1].ModTime)
++	require.Equal(t, wantStat.Mode, changed[1].Mode)
++	require.Equal(t, wantStat.ModTime, changed[1].ModTime)
+ 	require.NotEqual(t, newStats[1].ModTime, changed[1].ModTime)
+ 	for _, result := range []MapResult{MapResultExclude, MapResultSkipDir} {
+ 		mapFn := func(p string, _ *types.Stat) MapResult {

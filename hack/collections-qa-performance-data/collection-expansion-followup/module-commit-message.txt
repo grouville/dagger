@@ -1,0 +1,12 @@
+perf(gomod): keep workspace path normalization local
+
+Use a file-private helper instead of crossing the module runtime boundary
+from GoMod.nestedRoots just to split and join path strings. Resolve cwd
+once per discovery operation; keep the public workspaceRootPath method
+and its behavior unchanged. No source/result cache or scanner is added.
+
+Validation: discovery-check and lookup-check passed against this exact
+1784ff37-based source, including nested cwd, enclosing roots and content
+filters. Historical eight-pair warm listings improved 2.6304 to 2.5464 s;
+that series did not establish an edit or cold improvement. The refreshed
+engine/connector comparison is still pending.

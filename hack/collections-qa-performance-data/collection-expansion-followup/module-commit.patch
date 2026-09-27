@@ -1,0 +1,79 @@
+From 93d0f1b5288ccaa47aa4d5befd809a25f6ffb801 Mon Sep 17 00:00:00 2001
+From: Guillaume de Rouville <guillaume@dagger.io>
+Date: Sat, 26 Sep 2026 20:12:06 -0700
+Subject: [PATCH] perf(gomod): keep workspace path normalization local
+
+Use a file-private helper instead of crossing the module runtime boundary
+from GoMod.nestedRoots just to split and join path strings. Resolve cwd
+once per discovery operation; keep the public workspaceRootPath method
+and its behavior unchanged. No source/result cache or scanner is added.
+
+Validation: discovery-check and lookup-check passed against this exact
+1784ff37-based source, including nested cwd, enclosing roots and content
+filters. Historical eight-pair warm listings improved 2.6304 to 2.5464 s;
+that series did not establish an edit or cold improvement. The refreshed
+engine/connector comparison is still pending.
+---
+ gomod/main.dang | 24 ++++++++++++++++--------
+ 1 file changed, 16 insertions(+), 8 deletions(-)
+
+diff --git a/gomod/main.dang b/gomod/main.dang
+index fcc419d..7144d1d 100644
+--- a/gomod/main.dang
++++ b/gomod/main.dang
+@@ -51,9 +51,10 @@ type Gomod {
+   ): [GoMod!]! {
+     # Answered from the workspace directly rather than from the scan, so that
+     # listing modules never builds or runs the scanner.
++    let cwd = ws.cwd
+     ws
+       .findRoots(markers: ["go.mod"])
+-      .map { root => workspaceRootPath(ws, root) }
++      .map { root => resolveWorkspaceRootPath(cwd, root) }
+       .filter { modPath => at(modPath).isGoModule(ws) }
+       .filter { modPath => pathIncluded(ws, modPath, include, exclude) }
+       .map { modPath => at(modPath) }
+@@ -104,12 +105,7 @@ type Gomod {
+   is workspace-root-relative.
+   """
+   workspaceRootPath(ws: Workspace!, cwdPath: String!): String! {
+-    let segments = cwdPath.split("/").filter { segment => segment != "" and segment != "." }
+-    let up = segments.filter { segment => segment == ".." }.length
+-    let down = segments.filter { segment => segment != ".." }
+-    let resolved = ws.cwd.split("/").filter { segment => segment != "" }.dropLast(up) + down
+-
+-    if (resolved.length == 0) { "." } else { resolved.join("/") }
++    resolveWorkspaceRootPath(ws.cwd, cwdPath)
+   }
+ 
+   let normalize(path: String!): String! {
+@@ -398,9 +394,10 @@ type GoMod {
+   Module roots below this one.
+   """
+   nestedRoots(ws: Workspace!): [String!]! {
++    let cwd = ws.cwd
+     ws
+       .findRoots(start: "/" + subpath(""), markers: ["go.mod"])
+-      .map { root => gomod.workspaceRootPath(ws, root) }
++      .map { root => resolveWorkspaceRootPath(cwd, root) }
+       .filter { root => root != path }
+   }
+ 
+@@ -599,3 +596,14 @@ type GoMod {
+     ws.directory("/", include: [subpath("testdata/**"), subpath("**/testdata/**")])
+   }
+ }
++
++# Pure path normalization stays local to this source file. A GraphQL self-call
++# would re-enter the module runtime just to split and join strings.
++let resolveWorkspaceRootPath(cwd: String!, cwdPath: String!): String! {
++  let segments = cwdPath.split("/").filter { segment => segment != "" and segment != "." }
++  let up = segments.filter { segment => segment == ".." }.length
++  let down = segments.filter { segment => segment != ".." }
++  let resolved = cwd.split("/").filter { segment => segment != "" }.dropLast(up) + down
++
++  if (resolved.length == 0) { "." } else { resolved.join("/") }
++}
+-- 
+2.43.0
+

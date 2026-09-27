@@ -1,0 +1,78 @@
+--- a/internal/fsutil/parent_metadata.go
++++ b/internal/fsutil/parent_metadata.go
+@@ -41,7 +41,8 @@
+ }
+ 
+ func (f *parentMetadataFS) Walk(ctx context.Context, target string, fn gofs.WalkDirFunc) error {
+-	if target != "" && target != "." && target != string(filepath.Separator) {
++	// fsutil.Send and filter wrappers use the protocol root "/" on every OS.
++	if target != "" && target != "." && target != "/" && target != string(filepath.Separator) {
+ 		return &os.PathError{Op: "walk parent metadata", Path: target, Err: syscall.EINVAL}
+ 	}
+ 	return f.walk(ctx, fn, os.Lstat)
+--- a/internal/fsutil/parent_metadata_test.go
++++ b/internal/fsutil/parent_metadata_test.go
+@@ -8,6 +8,7 @@
+ 	"os"
+ 	"path/filepath"
+ 	"testing"
++	"time"
+ 
+ 	"github.com/dagger/dagger/internal/fsutil/types"
+ 	"github.com/gogo/protobuf/proto"
+@@ -67,10 +68,19 @@
+ 	require.Equal(t, oldStats, newStats)
+ 	require.Equal(t, oldCalls, newCalls, "map order must still be selected target before delayed parents")
+ 	require.Len(t, newStats, 3)
+-	require.NoError(t, os.Chmod(filepath.Join(root, "a", "b"), 0700))
++	changedPath := filepath.Join(root, "a", "b")
++	require.NoError(t, os.Chmod(changedPath, 0700))
++	// Windows chmod only changes the read-only bit. A changed mtime is a
++	// portable witness that a second walk reads fresh metadata.
++	stamp := time.Unix(1700000000, 0)
++	require.NoError(t, os.Chtimes(changedPath, stamp, stamp))
++	wantInfo, err := os.Stat(changedPath)
++	require.NoError(t, err)
+ 	changed, err := metadataStats(f)
+ 	require.NoError(t, err)
+-	require.Equal(t, uint32(os.ModeDir|0700), changed[1].Mode)
++	require.Equal(t, uint32(wantInfo.Mode()), changed[1].Mode)
++	require.Equal(t, wantInfo.ModTime().UnixNano(), changed[1].ModTime)
++	require.NotEqual(t, newStats[1].ModTime, changed[1].ModTime)
+ 	for _, result := range []MapResult{MapResultExclude, MapResultSkipDir} {
+ 		mapFn := func(p string, _ *types.Stat) MapResult {
+ 			if p == "a" {
+@@ -83,6 +93,33 @@
+ 		got, err := metadataStats(metadataTestFS(t, root, "a/b/c", true, mapFn))
+ 		require.NoError(t, err)
+ 		require.Equal(t, want, got)
++	}
++}
++
++// The sender uses "/" even on Windows; a native-separator-only root guard
++// would reject otherwise valid explicit requests before sending any metadata.
++func TestParentMetadataProtocolWalkRoot(t *testing.T) {
++	root := t.TempDir()
++	require.NoError(t, os.MkdirAll(filepath.Join(root, "a", "b"), 0755))
++	f, err := NewParentMetadataFS(root, filepath.FromSlash("a/b"))
++	require.NoError(t, err)
++	for _, walkRoot := range []string{"/", "", ".", string(filepath.Separator)} {
++		var paths []string
++		err := f.Walk(t.Context(), walkRoot, func(p string, _ gofs.DirEntry, _ error) error {
++			paths = append(paths, filepath.ToSlash(p))
++			return nil
++		})
++		require.NoError(t, err, "walk root %q", walkRoot)
++		require.Equal(t, []string{"a", "a/b"}, paths)
++	}
++	for _, walkRoot := range []string{"a", "a/b", "/a"} {
++		var callbacks int
++		err := f.Walk(t.Context(), walkRoot, func(string, gofs.DirEntry, error) error {
++			callbacks++
++			return nil
++		})
++		require.Error(t, err)
++		require.Zero(t, callbacks)
+ 	}
+ }
+ 

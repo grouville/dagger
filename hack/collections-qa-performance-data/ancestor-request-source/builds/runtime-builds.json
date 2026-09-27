@@ -1,0 +1,29 @@
+{
+  "source_head": "85b60f7a0a16a27459ef571bc94bcf870c876dcc",
+  "recipe_sha256": "be89c9a1ea384f92cbc6701844d60f6c6b88f2bf7877069c2be7b1f857d927fd",
+  "variants": {
+    "baseline": {
+      "cli": {
+        "path": "/tmp/collections-perf/cli-log-overlap-v3/backport-v016/builds/dagger-baseline",
+        "sha256": "748700a2a203b2872461f5930c80d37a90c139c791929a7bc2b77bfbded9fe30"
+      },
+      "engine": {
+        "path": "/tmp/collections-perf/ancestor-request-v1/builds/engine-baseline",
+        "sha256": "cc287078c2a553c7bb5484ce635913d257199256b2fb612db00ca82463581115"
+      }
+    },
+    "candidate": {
+      "cli": {
+        "path": "/tmp/collections-perf/ancestor-request-v1/builds/cli-candidate",
+        "sha256": "faef77fe5c0e5e1eef3a225c49ee3bea21b5f8be348aa9f0b97c6796a447ca11"
+      },
+      "engine": {
+        "path": "/tmp/collections-perf/ancestor-request-v1/builds/engine-candidate",
+        "sha256": "2c005dfc7f2d7ad65ec0ed0f28c27aad1af1ea47a26602cc0ad7740c11acf62f"
+      }
+    }
+  },
+  "wcprof_marker": "filesync.syncParentDirs",
+  "production_cloud_calls": 0,
+  "comparison": "Only explicit parent metadata request differs. Both engines contain the same fixed filesync.syncParentDirs wcprof marker, inactive without profiling. Baseline CLI is the retained byte-identical748 binary. No core bulk/span/log changes; same frozen f864 SDK/Dang stack."
+}

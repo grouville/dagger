@@ -1,5 +1,53 @@
 # Try the collections discovery changes
 
+Start with the [current findings and priorities](collections-performance-current.md)
+for the measured improvements, held experiments and remaining 500 ms gap. The
+entries below retain the history and the cache/Cloud boundary of each round.
+
+**Latest transport isolation:** keeping Docker admission and changing only the
+[container connector](collections-local-transport-performance.md) gives
+`ws ls` **163 → 74 ms**, distinct native source edit → check **282 → 182 ms**,
+and input edit → newly generated output/full exit **371 → 249 ms**. All 50 local
+commands pass. Both arms use the same prototype CLI and retained engine, without
+Cloud. Automatic socket provisioning is not implemented; these gains are not
+enabled by a normal branch build.
+
+The separate Go module helper is now available on
+[`grouville/go:perf/discovery-path-normalization`](https://github.com/grouville/go/commit/93d0f1b5288ccaa47aa4d5befd809a25f6ffb801).
+It removes module-runtime round trips for pure path calculations. Its exact source
+has existing correctness coverage and an older eight-pair warm comparison; the
+current remote greetings fixture and the connector results above do not include it.
+
+**Latest structural comparison:** the existing
+[local Unix transport](collections-local-transport-performance.md) reduces
+`ws ls` **189 → 58 ms**, native calls **306 → 180 ms** and warm native generation
+**285 → 149 ms**. All 56 local commands pass. Expanded artifacts remain at
+**1.243 s**. This requires the prepared private socket and retained experimental
+engine; it is not an automatic branch optimization or a Cloud/cold result.
+The connector-only comparison above retains the Docker driver and distinguishes
+connection overhead from admission; its timings are a separate matched round.
+
+**Latest committed optimization:** [direct parent metadata reads](collections-filesync-performance.md)
+remove sibling enumeration before local directory imports (`0d1c32e29f`). Five
+local samples per variant give **1.473 → 1.413 s** for artifact listing and
+**1.468 → 1.373 s** for expanded checks; the small native edit-to-check fixture
+improves **310 → 269 ms**. The comparison retains the experimental SDK stack,
+disables Cloud and runs beneath an unusually wide `/tmp`; these are not universal
+branch timings. Correctness covers multiple commands and mixed client/engine
+versions, with fresh filesystem reads and ordinary content caching preserved.
+An explicit lower-width control is effectively flat (**1.447 → 1.443 s**);
+the earlier gain depends strongly on the crowded ancestor directory. A separate
+fresh-volume pair is **24.938 → 24.568 s**, insufficient to establish a cold win.
+
+**Latest profiling round:** a
+[72-command local API comparison](collections-qa-performance-data/cli-tail-runtime/report.md)
+finds no general benefit from the isolated log-queue/overlapping-close variants;
+greetings check listing stays near **1.67 s**. Separate
+[CPU and wcprof captures](collections-bootstrap-performance.md#follow-up-eliminate-work-before-adding-concurrency)
+identify filesystem enumeration and collection preparation as further targets.
+These results use the experimental stack and a real local API, not production
+Cloud. The 500 ms goal still requires reducing engine work as well as completion.
+
 **Latest API-call prototype:** compact schema-scoped metadata reduces the measured
 warm core and native Dang API calls by roughly **140–150 ms** locally. Two pairs of distinct, unprimed input edits on
 a native module improve **445 → 293 ms** and **443 → 305 ms**. Cloud end-to-end
