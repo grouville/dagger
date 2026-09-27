@@ -474,13 +474,16 @@ func (ud *UserDefault) Value(ctx context.Context) (any, error) {
 		if err != nil {
 			return nil, ud.errorf(err, "resolve address")
 		}
-		var result dagql.AnyObjectResult
-		if err := srv.Select(mainCtx, addr, &result,
-			dagql.Selector{
-				Field: gqlFieldName(typename),
-			},
-		); err != nil {
-			return nil, ud.errorf(err, "resolve object (%q)", typename)
+		// Address arguments hold the caller-bound address itself. Resolving
+		// its target here would both require a nonexistent Address.address
+		// field and prevent the module from choosing when to consume it.
+		var result dagql.AnyObjectResult = addr
+		if typename != "Address" {
+			if err := srv.Select(mainCtx, addr, &result,
+				dagql.Selector{Field: gqlFieldName(typename)},
+			); err != nil {
+				return nil, ud.errorf(err, "resolve object (%q)", typename)
+			}
 		}
 
 		id, err := result.Select(mainCtx, srv, dagql.Selector{
