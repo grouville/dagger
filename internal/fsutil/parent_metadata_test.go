@@ -1,0 +1,233 @@
+package fsutil
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	gofs "io/fs"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/dagger/dagger/internal/fsutil/types"
+	"github.com/gogo/protobuf/proto"
+	"github.com/stretchr/testify/require"
+)
+
+func metadataTestFS(t testing.TB, root, target string, explicit bool, mapFn MapFunc) FS {
+	t.Helper()
+	var base FS
+	var err error
+	if explicit {
+		base, err = NewParentMetadataFS(root, filepath.FromSlash(target))
+	} else {
+		base, err = NewFS(root)
+	}
+	require.NoError(t, err)
+	filtered, err := NewFilterFS(base, &FilterOpt{IncludePatterns: []string{filepath.ToSlash(target)}, ExcludePatterns: []string{filepath.ToSlash(target) + "/*"}, Map: mapFn})
+	require.NoError(t, err)
+	return filtered
+}
+
+func metadataStats(f FS) ([]*types.Stat, error) {
+	var records []*types.Stat
+	err := f.Walk(context.Background(), "/", func(_ string, entry gofs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		fi, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		records = append(records, proto.Clone(fi.Sys().(*types.Stat)).(*types.Stat))
+		return nil
+	})
+	return records, err
+}
+
+func TestParentMetadataDirectoryParityAndFreshness(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "a", "b", "c"), 0751))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "a", "b", "c", "not-requested"), []byte("unchanged content"), 0600))
+	var oldCalls, newCalls []string
+	mapper := func(calls *[]string) MapFunc {
+		return func(p string, st *types.Stat) MapResult {
+			*calls = append(*calls, p)
+			st.Uid = 0
+			st.Gid = 0
+			st.Xattrs = nil
+			return MapResultKeep
+		}
+	}
+	oldStats, err := metadataStats(metadataTestFS(t, root, "a/b/c", false, mapper(&oldCalls)))
+	require.NoError(t, err)
+	f := metadataTestFS(t, root, "a/b/c", true, mapper(&newCalls))
+	newStats, err := metadataStats(f)
+	require.NoError(t, err)
+	require.Equal(t, oldStats, newStats)
+	require.Equal(t, oldCalls, newCalls, "map order must still be selected target before delayed parents")
+	require.Len(t, newStats, 3)
+	changedPath := filepath.Join(root, "a", "b")
+	require.NoError(t, os.Chmod(changedPath, 0700))
+	// Windows chmod only changes the read-only bit. A changed mtime is a
+	// portable witness that a second walk reads fresh metadata.
+	stamp := time.Unix(1700000000, 0)
+	require.NoError(t, os.Chtimes(changedPath, stamp, stamp))
+	wantStat, err := Stat(changedPath)
+	require.NoError(t, err)
+	changed, err := metadataStats(f)
+	require.NoError(t, err)
+	require.Equal(t, wantStat.Mode, changed[1].Mode)
+	require.Equal(t, wantStat.ModTime, changed[1].ModTime)
+	require.NotEqual(t, newStats[1].ModTime, changed[1].ModTime)
+	for _, result := range []MapResult{MapResultExclude, MapResultSkipDir} {
+		mapFn := func(p string, _ *types.Stat) MapResult {
+			if p == "a" {
+				return result
+			}
+			return MapResultKeep
+		}
+		want, err := metadataStats(metadataTestFS(t, root, "a/b/c", false, mapFn))
+		require.NoError(t, err)
+		got, err := metadataStats(metadataTestFS(t, root, "a/b/c", true, mapFn))
+		require.NoError(t, err)
+		require.Equal(t, want, got)
+	}
+}
+
+// The sender uses "/" even on Windows; a native-separator-only root guard
+// would reject otherwise valid explicit requests before sending any metadata.
+func TestParentMetadataProtocolWalkRoot(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "a", "b"), 0755))
+	f, err := NewParentMetadataFS(root, filepath.FromSlash("a/b"))
+	require.NoError(t, err)
+	for _, walkRoot := range []string{"/", "", ".", string(filepath.Separator)} {
+		var paths []string
+		err := f.Walk(t.Context(), walkRoot, func(p string, _ gofs.DirEntry, _ error) error {
+			paths = append(paths, filepath.ToSlash(p))
+			return nil
+		})
+		require.NoError(t, err, "walk root %q", walkRoot)
+		require.Equal(t, []string{"a", "a/b"}, paths)
+	}
+	for _, walkRoot := range []string{"a", "a/b", "/a"} {
+		var callbacks int
+		err := f.Walk(t.Context(), walkRoot, func(string, gofs.DirEntry, error) error {
+			callbacks++
+			return nil
+		})
+		require.Error(t, err)
+		require.Zero(t, callbacks)
+	}
+}
+
+func TestParentMetadataRejectsMissingAndNonDirectoryWithoutEmission(t *testing.T) {
+	for _, kind := range []string{"missing", "file", "symlink", "parent-file", "parent-symlink"} {
+		t.Run(kind, func(t *testing.T) {
+			root := t.TempDir()
+			outside := t.TempDir()
+			require.NoError(t, os.MkdirAll(filepath.Join(root, "a", "b"), 0755))
+			f := metadataTestFS(t, root, "a/b", true, nil)
+			target := filepath.Join(root, "a", "b")
+			if kind == "parent-file" || kind == "parent-symlink" {
+				target = filepath.Join(root, "a")
+			}
+			require.NoError(t, os.RemoveAll(target))
+			switch kind {
+			case "file", "parent-file":
+				require.NoError(t, os.WriteFile(target, []byte("never transfer"), 0600))
+			case "symlink", "parent-symlink":
+				require.NoError(t, os.Symlink(outside, target))
+			}
+			got, err := metadataStats(f)
+			require.Error(t, err)
+			require.Empty(t, got)
+			_, err = f.Open("a/b")
+			require.Error(t, err, "directory-only source cannot provide bytes")
+		})
+	}
+	root := t.TempDir()
+	for _, target := range []string{"", ".", "..", "../outside", "/outside", "a/../b"} {
+		_, err := NewParentMetadataFS(root, filepath.FromSlash(target))
+		require.Error(t, err)
+	}
+	root2 := filepath.Join(t.TempDir(), "root")
+	require.NoError(t, os.Mkdir(root2, 0755))
+	f, err := NewParentMetadataFS(root2, "child")
+	require.NoError(t, err)
+	require.NoError(t, os.Remove(root2))
+	require.NoError(t, os.Symlink(t.TempDir(), root2))
+	records, err := metadataStats(f)
+	require.Error(t, err)
+	require.Empty(t, records)
+}
+
+func TestParentMetadataBoundedStatsErrorsAndCancellation(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "a", "b", "c"), 0755))
+	f, err := NewParentMetadataFS(root, filepath.FromSlash("a/b/c"))
+	require.NoError(t, err)
+	chain := f.(*parentMetadataFS)
+	for _, width := range []int{0, 100, 1000} {
+		for i := 0; i < width; i++ {
+			require.NoError(t, os.WriteFile(filepath.Join(root, fmt.Sprintf("sibling-%04d", i)), nil, 0600))
+		}
+		var stats, callbacks int
+		err := chain.walk(context.Background(), func(string, gofs.DirEntry, error) error { callbacks++; return nil }, func(p string) (os.FileInfo, error) { stats++; return os.Lstat(p) })
+		require.NoError(t, err)
+		require.Equal(t, 4, stats)
+		require.Equal(t, 3, callbacks)
+		// This is the preparation stat bound; emitted Info performs one fresh
+		// stat per directory plus the unchanged fsutil metadata conversion.
+	}
+	var callbacks int
+	err = chain.walk(context.Background(), func(string, gofs.DirEntry, error) error { callbacks++; return nil }, func(p string) (os.FileInfo, error) {
+		if p == filepath.Join(root, "a", "b") {
+			return nil, os.ErrPermission
+		}
+		return os.Lstat(p)
+	})
+	require.ErrorIs(t, err, os.ErrPermission)
+	require.Zero(t, callbacks)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	require.ErrorIs(t, chain.Walk(ctx, "/", func(string, gofs.DirEntry, error) error { return nil }), context.Canceled)
+	var visited []string
+	require.NoError(t, chain.Walk(context.Background(), "/", func(p string, _ gofs.DirEntry, _ error) error { visited = append(visited, p); return filepath.SkipDir }))
+	require.Equal(t, []string{"a"}, visited)
+	boom := errors.New("receiver error")
+	require.ErrorIs(t, chain.Walk(context.Background(), "/", func(string, gofs.DirEntry, error) error { return boom }), boom)
+}
+
+func BenchmarkExplicitParentMetadataWidth(b *testing.B) {
+	for _, width := range []int{0, 100, 1000} {
+		b.Run(fmt.Sprint(width), func(b *testing.B) {
+			root := b.TempDir()
+			require.NoError(b, os.MkdirAll(filepath.Join(root, "a", "b", "c"), 0755))
+			for _, dir := range []string{"", "a", "a/b", "a/b/c"} {
+				for i := 0; i < width; i++ {
+					require.NoError(b, os.WriteFile(filepath.Join(root, dir, fmt.Sprintf("sibling-%04d", i)), nil, 0600))
+				}
+			}
+			for _, explicit := range []bool{false, true} {
+				name := "general"
+				if explicit {
+					name = "explicit"
+				}
+				b.Run(name, func(b *testing.B) {
+					f := metadataTestFS(b, root, "a/b/c", explicit, nil)
+					b.ReportAllocs()
+					b.ResetTimer()
+					for b.Loop() {
+						err := f.Walk(context.Background(), "/", func(string, gofs.DirEntry, error) error { return nil })
+						if err != nil {
+							b.Fatal(err)
+						}
+					}
+				})
+			}
+		})
+	}
+}

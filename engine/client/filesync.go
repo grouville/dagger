@@ -117,6 +117,34 @@ func (s FilesyncSource) DiffCopy(stream filesync.FileSync_DiffCopyServer) error 
 		return fmt.Errorf("get full root path: %w", err)
 	}
 
+	if opts.ParentDirsOnly {
+		if err := opts.ValidateParentDirectoryMetadataRequest(); err != nil {
+			return status.Errorf(codes.InvalidArgument, "invalid parent-directory request: %v", err)
+		}
+		// The wire operation is rooted at the client's filesystem or volume
+		// root, as syncParentDirs has always been. Never reinterpret arbitrary
+		// include/exclude requests as permission to walk another source root.
+		if !filepath.IsAbs(absPath) || filepath.Clean(absPath) != filepath.Clean(filepath.VolumeName(absPath)+string(filepath.Separator)) {
+			return status.Error(codes.InvalidArgument, "parent-directory request must use a filesystem root")
+		}
+		chain, err := fsutil.NewParentMetadataFS(absPath, filepath.FromSlash(opts.IncludePatterns[0]))
+		if err != nil {
+			return fmt.Errorf("prepare parent-directory metadata: %w", err)
+		}
+		filtered, err := fsutil.NewFilterFS(chain, &fsutil.FilterOpt{
+			IncludePatterns: opts.IncludePatterns,
+			ExcludePatterns: opts.ExcludePatterns,
+			Map: func(_ string, st *fstypes.Stat) fsutil.MapResult {
+				normalizeLocalImportStat(st)
+				return fsutil.MapResultKeep
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("filter parent-directory metadata: %w", err)
+		}
+		return fsutil.Send(stream.Context(), stream, filtered, nil)
+	}
+
 	switch {
 	case opts.GetAbsPathOnly:
 		return stream.SendMsg(&fstypes.Stat{

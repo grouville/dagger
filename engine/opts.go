@@ -304,6 +304,9 @@ func normalizeWorkspaceModuleLoading(loadWorkspaceModules, skipWorkspaceModules 
 }
 
 type LocalImportOpts struct {
+	// ParentDirsOnly requests literal ancestor directory metadata, without
+	// enumerating siblings. Include/exclude patterns remain for older clients.
+	ParentDirsOnly     bool             `json:"parent_dirs_only,omitempty"`
 	Path               string           `json:"path"`
 	UseGitIgnore       bool             `json:"use_gitignore"`
 	IncludePatterns    []string         `json:"include_patterns"`

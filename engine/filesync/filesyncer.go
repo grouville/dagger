@@ -15,6 +15,7 @@ import (
 
 	"github.com/dagger/dagger/engine"
 	"github.com/dagger/dagger/engine/client/pathutil"
+	"github.com/dagger/dagger/engine/wcprof"
 	telemetry "github.com/dagger/otel-go"
 )
 
@@ -140,6 +141,8 @@ func (ls *FileSyncer) syncParentDirs(
 	drive string,
 	opts SnapshotOpts,
 ) (rerr error) {
+	ctx, profOp := wcprof.BeginOp(ctx, wcprof.OpKindIO, "filesync.syncParentDirs", wcprof.OpOpts{})
+	defer func() { profOp.EndErr(rerr) }()
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer func() {
 		cancel(rerr)
@@ -156,6 +159,10 @@ func (ls *FileSyncer) syncParentDirs(
 	}
 
 	remote := newRemoteFS(callerConn, root, includes, excludes, nil, false)
+	// Keep the existing filter request intact for clients that do not yet
+	// recognize the metadata-only operation. Root or non-literal patterns
+	// retain the general traversal on every client.
+	remote.parentDirsOnly = engine.IsLiteralParentDirectoryTarget(include)
 	local, err := newLocalFS(sharedState, "/", includes, excludes, nil, opts.RelativePath)
 	if err != nil {
 		return fmt.Errorf("failed to create local fs: %w", err)
