@@ -66,14 +66,20 @@ func (base *CoreSchemaBase) CoreMod(view call.View) *CoreMod {
 }
 
 func (base *CoreSchemaBase) Fork(ctx context.Context, root *core.Query, view call.View) (*dagql.Server, error) {
-	state, err := base.viewState(ctx, view)
+	// Keep ordinary schema construction outside snapshot-share preparation.
+	// Its decoder uses the explicit schema-only path below.
+	if err := engine.CheckSnapshotSharePreparation(ctx, "build core schema view"); err != nil {
+		return nil, err
+	}
+	// The installed GraphQL schema is sufficient to execute core fields and
+	// answer schema introspection. Module-facing TypeDefs are separate values:
+	// materialize them through CoreMod.viewState only when a consumer asks for
+	// those values or needs to convert a core type across a module boundary.
+	forked, err := base.base.Fork(ctx, root)
 	if err != nil {
 		return nil, err
 	}
-	forked, err := state.server.Fork(ctx, root)
-	if err != nil {
-		return nil, err
-	}
+	forked.View = view
 	core.InstallCoreSchemaLoaders(forked)
 	return forked, nil
 }
