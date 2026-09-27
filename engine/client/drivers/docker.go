@@ -123,6 +123,32 @@ func (d docker) ContainerStart(ctx context.Context, name string) error {
 	return traceexec.Exec(ctx, exec.CommandContext(ctx, d.cmd, "start", name))
 }
 
+// ContainerState reuses the existence probe to avoid a redundant Docker start.
+// Other compatible CLIs keep their existing probe until their state format has
+// been validated; unknown state must never suppress ContainerStart.
+func (d docker) ContainerState(ctx context.Context, name string) (containerState, error) {
+	if d.cmd != "docker" {
+		exists, err := d.ContainerExists(ctx, name)
+		return containerState{exists: exists}, err
+	}
+	cmd := exec.CommandContext(ctx, d.cmd, "container", "inspect", name, "--format", "{{.State.Status}}")
+	stdout, stderr, err := traceexec.ExecOutput(ctx, cmd, telemetry.Encapsulated())
+	if err == nil {
+		return containerState{exists: true, running: containerIsRunning(stdout)}, nil
+	}
+	if strings.Contains(strings.ToLower(stderr), "no such container") {
+		return containerState{}, nil
+	}
+	return containerState{}, err
+}
+
+// A successful inspection establishes existence. Only an exact running status
+// establishes running state; empty, unsupported or malformed output keeps the
+// old start path. No container health output or configuration is requested.
+func containerIsRunning(output string) bool {
+	return strings.TrimSpace(output) == "running"
+}
+
 func (d docker) ContainerExists(ctx context.Context, name string) (bool, error) {
 	cmd := exec.CommandContext(ctx, d.cmd, "container", "inspect", name, "--format", "{{ .ID }}")
 	_, stderr, err := traceexec.ExecOutput(ctx, cmd, telemetry.Encapsulated())

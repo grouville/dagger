@@ -338,14 +338,16 @@ func (d *imageDriver) create(ctx context.Context, opts containerCreateOpts, dopt
 	}
 
 	// The common case is an engine that already exists: look it up by name
-	// and start it (a no-op when it already runs), instead of listing every
+	// and start it only when it is not known to be running, instead of listing every
 	// container on the host first. The listing grows with the host and was
 	// most of a command's connect time. Leftovers from older versions are
 	// still swept, in the background. Only when the engine is missing does
 	// the command list before running a new one.
-	if exists, err := d.backend.ContainerExists(ctx, containerName); err == nil && exists {
-		if err := d.backend.ContainerStart(ctx, containerName); err != nil {
-			return nil, fmt.Errorf("failed to start container: %w", err)
+	if state, err := lookupContainerState(ctx, d.backend, containerName); err == nil && state.exists {
+		if !state.running {
+			if err := d.backend.ContainerStart(ctx, containerName); err != nil {
+				return nil, fmt.Errorf("failed to start container: %w", err)
+			}
 		}
 		go d.sweepLeftoverEngines(context.WithoutCancel(ctx), opts.cleanup, containerName)
 		return &url.URL{Host: containerName}, nil
