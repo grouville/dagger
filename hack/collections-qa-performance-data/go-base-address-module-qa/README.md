@@ -1,0 +1,9 @@
+# Optional Go baseAddress: remaining module QA passed
+
+Three actual local GoDev checks pass on the exact candidate Go module after correcting private QA mistakes. Discovery with an always-failing Address producer completes; selecting the base later reports its error. The constructor rejects base+baseAddress and reports ignored version settings. Execution preserves required environment, sentinel file, workspace-derived marker and live HTTP service, and both Go tests and go generate pass. The pre-existing Container-base check also passes.
+
+The full isolated repository is based on1784ff37. The apply-ready patch includes exactly its tested Go module, corrected QA source and marker, including the QA image pins. The existing QA base image is now digest-pinned, as is the newly authored BusyBox service; no production default image or implementation body changed during these QA corrections. Candidate go.dang remains0b12a6f3, matching the separately measured module.
+
+Preparation first stopped on an overly broad image-substitution guard. Actual inference then caught missing Error annotations, and the next run caught an invalid test comparing a lazy GraphQL proxy directly with null. All failures are preserved; only QA/preparation changed. The final checks are not a timing A/B: 3.89/34.26/1.51seconds include first-use compilation and are not performance claims. No Cloud calls were made. Original engine/init remained untouched and stopped; the new temporary container was removed and the retained volume preserved.
+
+This supplements the separate retained-session and real-source/service edit tests. It is not a run of the entire GoDev suite or every SDK/platform. Workspace baseAddress settings require the generic engine Address fix. The old base Container API and existing positional constructor arguments remain supported.

@@ -1,0 +1,38 @@
+package witness
+
+import (
+	_ "embed"
+	"io"
+	"net/http"
+	"os"
+	"testing"
+	"time"
+)
+
+//go:embed marker.txt
+var expectedMarker string
+
+func TestBoundBase(t *testing.T) {
+	generation := os.Getenv("ADDRESS_WITNESS_GENERATION")
+	marker := os.Getenv("ADDRESS_WITNESS_MARKER")
+	if generation == "" || marker == "" {
+		t.Fatal("required custom base environment missing")
+	}
+	client := &http.Client{Timeout: 10 * time.Second}
+	if marker != expectedMarker {
+		t.Fatal("source marker and custom base marker differ")
+	}
+	response, err := client.Get("http://base-address-witness:8080/value")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK || string(body) != generation+"\n"+marker {
+		t.Fatal("custom base service or generation mismatch")
+	}
+	// APP_EDIT_SENTINEL
+}

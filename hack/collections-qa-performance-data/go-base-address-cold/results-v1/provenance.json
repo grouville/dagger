@@ -1,0 +1,41 @@
+{
+  "frozen_inputs_sha256": "209bd350f057a526423ccfbe63e5249a9bce7fb84d8a909bee20f46062dd2fb9",
+  "source_sha256": "2e741908d4213d3209f702f1c88b21d060e324d87fba9b08b5f4d125f1caf8ef",
+  "image": "sha256:b00e366e582ab98f0e4a7907163f338b6be3bfa13b10f3ad6bac3d699cd25a07",
+  "sdk_manifest": "sha256:2a8f755cfe5322aeeee861f646c58d6b796a585d2794db47b5b71ba14f6f3fef",
+  "engine": {
+    "path": "/tmp/collections-perf/go-base-address-v1/builds/engine-address",
+    "sha256": "38711bd2b42e410f9fbf601d4260b47718e8169f7ff1d2caa29313adfba4569c",
+    "exit_code": 0
+  },
+  "cli": {
+    "path": "/tmp/collections-perf/shared-client-transport-v1/prototype-v2/builds/dagger-original",
+    "sha256": "d68580985d5eaa2350e7c4ec369d30ddfbb830ad8ea687d94228255b86ae76b8"
+  },
+  "engine_version": "v1.0.0-beta.15+2088d5ef.dirty",
+  "same_workspace_path": true,
+  "module_sha256": {
+    "control": "5ea0a8b530a424f1ddd9c75d3d65211f32b85bb2f2d1b954d8802a50e1f7848e",
+    "candidate": "0b12a6f3fe091f5896c19f642e2074593dceca554275b150a450e06732d640be"
+  },
+  "order": [
+    "control",
+    "candidate",
+    "candidate",
+    "control"
+  ],
+  "local_cli_cap": 4,
+  "cloud_commands": 0,
+  "cache_boundary": "Four newly created, never-started Dagger volumes. Host image/SDK blobs/pages and external registry/Git/CDN caches are retained. No host cache flush or preparatory image pull. Fetches/builds performed by the first Dagger command remain inside its measured wall time. Existing engine/volume untouched.",
+  "timing_boundary": "Full CLI Popen through blocking process wait; provisioning, engine start/readiness, fixture changes, counters and cleanup excluded and recorded separately.",
+  "scope": "Two correlated observations per arm in one ABBA block; not a general cold distribution. Same frozen SDK/engine stack, module base versus optional baseAddress only.",
+  "diagnostic_limits": "No phase profile is collected. Wall/CPU/disk counters alone cannot prove compiler attribution.",
+  "bounds": {
+    "min_free_bytes": 17179869184,
+    "sampled_cumulative_engine_write_bytes": 8589934592,
+    "cli_timeout_seconds": 300,
+    "sampling_seconds": 0.5,
+    "write_scope": "Engine lifetime before each final stop, not final stop writeback or Docker provisioning."
+  },
+  "cleanup_policy": "Stop/remove only this run's labeled immutable container IDs. Keep its four owned volumes after success/failure; explicit --cleanup-volumes requires evidence, matching labels/creation time, and zero attached containers. No reused volume is referenced."
+}

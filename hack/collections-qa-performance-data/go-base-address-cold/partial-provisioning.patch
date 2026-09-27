@@ -1,0 +1,108 @@
+--- runtime-before.py
++++ runtime.py
+@@ -19,6 +19,7 @@
+ SDK = 'sha256:2a8f755cfe5322aeeee861f646c58d6b796a585d2794db47b5b71ba14f6f3fef'
+ OWNER = 'collections-go-base-address-cold-v1'
+ LABEL = 'dagger.perf.owner'
++RUN_LABEL = 'dagger.perf.run'
+ MIN_FREE, MAX_WRITE, CAP = 16 * 1024**3, 8 * 1024**3, 4
+ ORDER = ('control', 'candidate', 'candidate', 'control')
+ HTTP = build_opener(ProxyHandler({}))
+@@ -54,6 +55,7 @@
+     info = inspect('container', item['id'])
+     assert info['Id'] == item['id'] and info['Name'] == '/' + item['name']
+     assert info['Config']['Labels'].get(LABEL) == OWNER and info['Image'] == IMAGE
++    assert info['Config']['Labels'].get(RUN_LABEL) == item['run_id']
+     mounts = [m for m in info['Mounts'] if m['Destination'] == '/var/lib/dagger']
+     assert len(mounts) == 1 and mounts[0]['Type'] == 'volume' and mounts[0]['Name'] == item['name']
+     return info
+@@ -62,6 +64,8 @@
+ def volume_owned(item):
+     volume = inspect('volume', item['name'])
+     assert volume['Labels'].get(LABEL) == OWNER
++    assert volume['Labels'].get(RUN_LABEL) == item['run_id']
++    assert item['volume_created_at'] is not None
+     assert volume['CreatedAt'] == item['volume_created_at']
+     return volume
+ 
+@@ -129,6 +133,9 @@
+     removed = []
+     for item in items:
+         assert not exists('container', item['name'])
++        if item['volume_created_at'] is None:
++            assert not exists('volume', item['name'])
++            continue
+         assert not capture(['docker', 'ps', '-aq', '--filter', 'volume=' + item['name']])
+         volume_owned(item)
+         capture(['docker', 'volume', 'rm', item['name']])
+@@ -223,11 +230,16 @@
+             guard(); start = time.monotonic()
+             name = f'dagger-engine.collections-address-cold-{nonce}-{index}'
+             assert not exists('container', name) and not exists('volume', name)
+-            capture(['docker', 'volume', 'create', '--label', LABEL + '=' + OWNER, name])
++            item = {'index': index, 'variant': variant, 'name': name, 'id': None,
++                    'run_id': nonce, 'volume_created_at': None}
++            items.append(item); write(out / 'resources.json', items)
++            capture(['docker', 'volume', 'create', '--label', LABEL + '=' + OWNER,
++                     '--label', RUN_LABEL + '=' + nonce, name])
+             volume = inspect('volume', name)
+-            item = {'index': index, 'variant': variant, 'name': name, 'id': None, 'volume_created_at': volume['CreatedAt']}
+-            items.append(item); write(out / 'resources.json', items)
+-            item['id'] = capture(['docker', 'create', '--name', name, '--label', LABEL + '=' + OWNER, '--privileged', '-p', '127.0.0.1::6060', '-v', name + ':/var/lib/dagger', '-e', 'DAGGER_TYPESCRIPT_SDK_MANIFEST_DIGEST=' + SDK, '-e', '_DAGGER_TEST_REMOTE_CACHE_FIXTURE_ROOT=', IMAGE, '--debugaddr=0.0.0.0:6060'])
++            assert volume['Labels'].get(LABEL) == OWNER and volume['Labels'].get(RUN_LABEL) == nonce
++            item['volume_created_at'] = volume['CreatedAt']
++            write(out / 'resources.json', items)
++            item['id'] = capture(['docker', 'create', '--name', name, '--label', LABEL + '=' + OWNER, '--label', RUN_LABEL + '=' + nonce, '--privileged', '-p', '127.0.0.1::6060', '-v', name + ':/var/lib/dagger', '-e', 'DAGGER_TYPESCRIPT_SDK_MANIFEST_DIGEST=' + SDK, '-e', '_DAGGER_TEST_REMOTE_CACHE_FIXTURE_ROOT=', IMAGE, '--debugaddr=0.0.0.0:6060'])
+             write(out / 'resources.json', items)
+             assert owned(item)['State']['Status'] == 'created'; volume_owned(item)
+             capture(['docker', 'cp', manifest['engine']['path'], item['id'] + ':/usr/local/bin/dagger-engine'])
+@@ -306,8 +318,22 @@
+     finally:
+         cleanup = []
+         for item in items:
+-            record = {'index': item['index'], 'container_removed': False, 'volume_retained': False}
++            record = {'index': item['index'], 'container_removed': False,
++                      'volume_created': False, 'volume_retained': False}
+             try:
++                # A Docker CLI may fail after the daemon created the resource.
++                # Recover only this unique planned name with both ownership labels.
++                if item['volume_created_at'] is None and exists('volume', item['name']):
++                    volume = inspect('volume', item['name'])
++                    assert volume['Labels'].get(LABEL) == OWNER
++                    assert volume['Labels'].get(RUN_LABEL) == item['run_id']
++                    item['volume_created_at'] = volume['CreatedAt']
++                if item['id'] is None and exists('container', item['name']):
++                    info = inspect('container', item['name'])
++                    assert info['Config']['Labels'].get(LABEL) == OWNER
++                    assert info['Config']['Labels'].get(RUN_LABEL) == item['run_id']
++                    item['id'] = info['Id']
++                    owned(item)  # Includes exact image and volume-attachment checks.
+                 if item['id']:
+                     if owned(item)['State']['Running']:
+                         # A failed command still contributes its startup/CLI writes.
+@@ -320,17 +346,22 @@
+                         capture(['docker', 'stop', '--timeout', '30', item['id']], timeout=45)
+                     capture(['docker', 'rm', item['id']])
+                 record['container_removed'] = not exists('container', item['name'])
+-                volume_owned(item); record['volume_retained'] = True
++                if item['volume_created_at'] is not None:
++                    volume_owned(item)
++                    record['volume_created'] = record['volume_retained'] = True
++                else:
++                    assert not exists('volume', item['name'])
+             except Exception as error:
+                 record['cleanup_error_type'] = type(error).__name__
+             cleanup.append(record)
++        write(out / 'resources.json', items)
+         (workspace / 'dagger.toml').write_bytes(initial_config)
+         (workspace / 'dagger.lock').write_bytes(initial_lock)
+         if local.exists(): shutil.rmtree(local)
+-        restoration = {'created_resources': cleanup, 'fixture_restored': hashes(workspace) == original, 'original_fixture_untouched': hashes(APP) == original, 'attempts': len(attempts), 'validated_commands': sum(row['correct'] for row in rows), 'cloud_commands': 0, 'engine_written_bytes_before_final_stops': cumulative_writes, 'volumes_deliberately_retained': len(items), 'timing_claim': 'four individual first-listing observations; no hidden primer and no compiler attribution'}
++        restoration = {'created_resources': cleanup, 'fixture_restored': hashes(workspace) == original, 'original_fixture_untouched': hashes(APP) == original, 'attempts': len(attempts), 'validated_commands': sum(row['correct'] for row in rows), 'cloud_commands': 0, 'engine_written_bytes_before_final_stops': cumulative_writes, 'volumes_deliberately_retained': sum(row['volume_retained'] for row in cleanup), 'timing_claim': 'four individual first-listing observations; no hidden primer and no compiler attribution'}
+         write(out / 'cleanup.json', restoration)
+         assert restoration['fixture_restored'] and restoration['original_fixture_untouched']
+-        assert all(row['container_removed'] and row['volume_retained'] for row in cleanup)
++        assert all(row['container_removed'] and row['volume_created'] == row['volume_retained'] and 'cleanup_error_type' not in row for row in cleanup)
+     assert len(rows) == CAP and all(row['correct'] for row in rows)
+ 
+ 

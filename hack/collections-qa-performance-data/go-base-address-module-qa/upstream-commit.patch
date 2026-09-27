@@ -1,0 +1,235 @@
+commit c5e29463b6ddfe95fe2d9c460e5436e3c16adaed
+Author:     Guillaume de Rouville <guillaume@dagger.io>
+AuthorDate: Sat Sep 26 23:10:54 2026 -0700
+Commit:     Guillaume de Rouville <guillaume@dagger.io>
+CommitDate: Sat Sep 26 23:11:16 2026 -0700
+
+    perf: defer custom Go bases through an explicit Address
+    
+    Add optional baseAddress after existing constructor arguments. Retain the
+    caller-bound Address until GoModule.base needs its Container; discovery can
+    list modules and tests without invoking an execution-only base producer.
+    Keep base: Container eager, reject both options together, and preserve
+    custom-toolchain version warnings and ordinary parent function caching.
+    
+    Workspace settings use baseAddress (camelCase) instead of base and require
+    the engine Address-default correction dagger/dagger commit 36e4939021.
+    Producer/type errors for the opt-in address surface when the base is used.
+    
+    Add GoDev checks for non-consumption, constructor policy, error propagation,
+    custom environment/files, a live bound service, tests and generation. The
+    existing Container-base check also passes. Pin these QA fixture images to
+    the tested digests. Three targeted checks ran on the diagnostic engine;
+    the entire GoDev suite and additional platforms were not run. Final source
+    only changes the version description and canonical formatting after testing.
+    
+    Matched local listings on the experimental SDK stack measured warm
+    1.392 -> 1.138s and new-comment edits 1.409 -> 1.106s (four samples per arm).
+    Four fresh-volume observations were 25.533/29.421s versus21.142/20.918s;
+    host caches were retained and disk variation remains. No Cloud or check
+    execution speedup is claimed. Full evidence lives in grouville/dagger's
+    perf/collections-discovery branch under hack/collections-qa-performance-data.
+    
+    Further work: remove remaining pure-helper runtime round trips, measure
+    catalog readiness before changing scheduling, and preserve workspace
+    binding/cache policy when extending this pattern to other modules.
+
+diff --git a/.dagger/modules/go-dev/main.dang b/.dagger/modules/go-dev/main.dang
+index 9804931..d293841 100644
+--- a/.dagger/modules/go-dev/main.dang
++++ b/.dagger/modules/go-dev/main.dang
+@@ -43,7 +43,7 @@ type GoDev {
+ 
+   let base: Container! {
+     container
+-      .from("golang:1.26.1-alpine")
++      .from("golang:1.26-alpine@sha256:51a7c389a5ddaf82f527191a1e9bff9928655130a44e4975dd1d7e0acf59f1ae")
+       .withEnvVariable("DAGGER_GO_CUSTOM_BASE", "yes")
+       .withNewFile("/custom-go-base", "yes\n")
+   }
+@@ -466,6 +466,81 @@ type GoDev {
+     null
+   }
+ 
++  """
++  Failure witness: discovery must never consume a deferred base address.
++  """
++  addressFailureBase: Container! {
++    raise "base-address producer sentinel"
++  }
++
++  """
++  A custom base carrying environment, files and a real HTTP service. The marker
++  comes from the caller Workspace so an edit has to change the resulting base.
++  """
++  addressBase(ws: Workspace!): Container! {
++    let marker = ws.file(baseFixturePath + "/base-marker.txt").contents
++    let service = container
++      .from("busybox:1.37@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e")
++      .withNewFile("/www/value", marker)
++      .withExposedPort(8080)
++      .asService(args: ["httpd", "-f", "-p", "8080", "-h", "/www"])
++    base
++      .withNewFile("/address-marker", marker)
++      .withServiceBinding("base-address-service", service)
++  }
++
++  """
++  Module/test discovery leaves an Address unconsumed, while version/warning
++  rules and the existing Container constructor remain compatible.
++  """
++  baseAddressDiscoveryCheck(ws: Workspace!): Void @check {
++    let address = ws.resolve("dag://go-dev/address-failure-base")
++    let tool = go(baseAddress: address)
++    assert(containsPath(tool.modules(ws).keys, baseFixturePath), "deferred base hid a module")
++    let mod = tool.module(ws, baseFixturePath)
++    assert(mod.tests(ws).keys == ["TestBase"], "deferred base changed test discovery")
++    assert(mod.version(ws) == null, "deferred custom base exposed inferred Go version")
++    let ignored = go(version: "1.26.1", baseAddress: address)
++    assert(ignored.version == null, "version not ignored beside baseAddress")
++    assert(ignored.warnings.join(";").contains("baseAddress was set"), "missing ignored-version warning")
++    let failed = { mod.base(ws).envVariable("DAGGER_GO_CUSTOM_BASE"); "missing failure" } rescue {
++      err: Error => err.message
++    }
++    assert(failed.contains("base-address producer sentinel"), "consuming base did not propagate producer error")
++    let conflict = { go(base: base, baseAddress: address).version ?? "missing rejection" } rescue {
++      err: Error => err.message
++    }
++    assert(conflict.contains("cannot both be set"), "ambiguous custom bases were accepted")
++    null
++  }
++
++  """
++  A deferred base supplies the same required custom environment/file to tests
++  and generation, and keeps a live service binding. None of these checks skip.
++  """
++  baseAddressExecutionCheck(ws: Workspace!): Void @check {
++    let marker = ws.file(baseFixturePath + "/base-marker.txt").contents
++    let tool = go(baseAddress: ws.resolve("dag://go-dev/address-base"))
++    let mod = tool.module(ws, baseFixturePath)
++    let ctr = mod.base(ws)
++    assert(ctr.envVariable("DAGGER_GO_CUSTOM_BASE") == "yes", "custom base environment lost")
++    assert(ctr.file("/custom-go-base").contents == "yes\n", "custom base file lost")
++    assert(ctr.file("/address-marker").contents == marker, "address source edit was stale")
++    assert(
++      ctr.withExec(["wget", "-qO-", "http://base-address-service:8080/value"]).stdout == marker,
++      "custom base service binding or current marker was lost",
++    )
++    # TestBase fails when the environment or required file is absent.
++    mod.test(ws)
++    let changes = mod.generate(ws)
++    assert(containsPath(changes.addedPaths, baseGeneratedFilePath), "custom base generate omitted output")
++    assert(
++      changes.layer.file(baseGeneratedFilePath).contents.contains("GeneratedFromBase"),
++      "custom base generate lost environment",
++    )
++    null
++  }
++
+   """
+   A custom base container must be used for this module's test and generate
+   containers. The source scanner is not one of them: it runs in a pinned
+diff --git a/go.dang b/go.dang
+index 50c01b6..696b02d 100644
+--- a/go.dang
++++ b/go.dang
+@@ -15,9 +15,15 @@ type Go {
+   """
+   base: Container
+ 
++  """
++  Custom Go base address. Its Container is resolved only when preparing an
++  execution container, in the workspace where the address was configured.
++  """
++  baseAddress: Address
++
+   new(
+     """
+-    Go version for every module, overriding go.mod. Ignored when base is set.
++    Go version for every module, overriding go.mod. Ignored when base or baseAddress is set.
+     """
+     version: String = null,
+     """
+@@ -44,20 +50,30 @@ type Go {
+     Where to mount the workspace in Go containers. Defaults to "/src/<workspace name>".
+     """
+     mountPath: String = null,
++    """
++    Address of a custom Go base. Resolved only for execution, so discovery
++    does not run its producer. Cannot be combined with base. The target must
++    return a Container with a Go toolchain; its errors surface when used.
++    """
++    baseAddress: Address = null,
+   ) {
+     if ((mountPath ?? "/").hasPrefix("/") == false) {
+       raise "mountPath must be an absolute container path: " + (mountPath ?? "")
++    } else if (base != null and baseAddress != null) {
++      raise "base and baseAddress cannot both be set"
+     } else {
+-      self.warnings = if (version != null and base != null) {
++      self.warnings = if (version != null and (base != null or baseAddress != null)) {
+         [
+           "version \"" + version
+-            + "\" is ignored because base was set: the base image supplies its own Go toolchain",
++            + "\" is ignored because " + (if (base != null) { "base" } else { "baseAddress" })
++            + " was set: the base image supplies its own Go toolchain",
+         ]
+       } else {
+         []
+       }
+-      self.version = if (base == null) { version } else { null }
++      self.version = if (base == null and baseAddress == null) { version } else { null }
+       self.base = base
++      self.baseAddress = baseAddress
+       self.includeExtraFiles = includeExtraFiles
+       self.test = test
+       self.generate = generate
+@@ -177,6 +193,7 @@ type Go {
+       configuredVersion: version,
+       warnings: warnings,
+       baseImage: base,
++      baseImageAddress: baseAddress,
+       includeExtraFiles: includeExtraFiles,
+       testPatterns: test,
+       generatePatterns: generate,
+@@ -270,6 +287,9 @@ type GoModule {
+   """
+   let baseImage: Container
+ 
++  # Keep the caller-bound address; do not resolve during module/test discovery.
++  let baseImageAddress: Address
++
+   """
+   Extra workspace files mounted for Go commands, as include patterns.
+   """
+@@ -435,7 +455,7 @@ type GoModule {
+   Go version this module runs under. Null with a custom base.
+   """
+   version(ws: Workspace!): String {
+-    if (baseImage == null) { toolchainVersion(ws) } else { null }
++    if (baseImage == null and baseImageAddress == null) { toolchainVersion(ws) } else { null }
+   }
+ 
+   let toolchainVersion(ws: Workspace!): String! {
+@@ -446,11 +466,12 @@ type GoModule {
+   Go container for this module, before source is added.
+   """
+   base(ws: Workspace!): Container! {
++    let customBase = if (baseImageAddress == null) { baseImage } else { baseImageAddress.container }
+     prepareBase(
+-      if (baseImage == null) {
++      if (customBase == null) {
+         gomod.goContainer(toolchainVersion(ws))
+       } else {
+-        gomod.withGoCaches(baseImage.withoutEntrypoint)
++        gomod.withGoCaches(customBase.withoutEntrypoint)
+       },
+     )
+   }
+diff --git a/testdata/go-module-custom-base/base-marker.txt b/testdata/go-module-custom-base/base-marker.txt
+new file mode 100644
+index 0000000..9166d18
+--- /dev/null
++++ b/testdata/go-module-custom-base/base-marker.txt
+@@ -0,0 +1 @@
++base-address marker A

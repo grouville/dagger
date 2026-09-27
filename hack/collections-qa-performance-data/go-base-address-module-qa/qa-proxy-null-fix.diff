@@ -1,0 +1,10 @@
+--- GoDev-QA-v2.dang
++++ GoDev-QA-v3.dang
+@@ -499,7 +499,6 @@
+     assert(containsPath(tool.modules(ws).keys, baseFixturePath), "deferred base hid a module")
+     let mod = tool.module(ws, baseFixturePath)
+     assert(mod.tests(ws).keys == ["TestBase"], "deferred base changed test discovery")
+-    assert(tool.base == null, "deferred base eagerly populated Container")
+     assert(mod.version(ws) == null, "deferred custom base exposed inferred Go version")
+     let ignored = go(version: "1.26.1", baseAddress: address)
+     assert(ignored.version == null, "version not ignored beside baseAddress")

@@ -15,8 +15,27 @@ boundaries.
 `36e4939021` also fixes configured `Address` arguments, enabling modules to retain
 an address and choose when to consume its target. It preserves caller-workspace
 binding and does not automatically make existing Container arguments lazy. The
-optional Go module API and its real execution/performance proof remain separate.
-`c1a34a011c` adds tree-construction wcprof phases for the next diagnostic.
+optional Go module API now passes a
+[nine-command correctness proof](collections-qa-performance-data/go-base-address-correctness/report.md),
+including real services, source failures and recovery. A separate
+[28-command comparison](collections-qa-performance-data/go-base-address-runtime/report.md)
+gives **1.392 → 1.138 s** for warm expanded checks and **1.409 → 1.106 s** after
+unique app-comment edits, four observations per arm. All outcomes pass. This uses
+matched local module layouts, the experimental SDK stack and no Cloud; it is not
+automatic in a normal branch build. Separate wcprof captures attribute the removed
+work to two backend executions and repeated Address lookup. `c1a34a011c` measures
+the remaining tree construction; core trees total less than one millisecond.
+The optional Go API is now pushed as
+[`c5e29463b6`](https://github.com/grouville/go/commit/c5e29463b6ddfe95fe2d9c460e5436e3c16adaed)
+on `grouville/go:perf/discovery-base-address`. Three additional module-owned checks
+pass real test/generation/service behavior and the existing Container option.
+Use the camelCase `baseAddress` workspace setting in place of `base`; the engine
+Address-default fix is required. This branch is separate from the pure path helper.
+Four [first listings on new volumes](collections-qa-performance-data/go-base-address-cold/report.md)
+then give control **25.53 / 29.42 s** versus candidate **21.14 / 20.92 s**. All
+outputs match. The report separates engine startup, retained host caches and
+I/O variability; these two observations per arm do not establish a general cold
+gain or equivalence with Kyle's environment.
 
 The earlier generic source change, `fef89b56e0`, separates nested-session providers
 from engine provisioning. The helper starts in **9.114 → 6.357 ms** in twelve

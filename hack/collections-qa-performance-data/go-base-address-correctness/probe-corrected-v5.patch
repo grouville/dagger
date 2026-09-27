@@ -1,0 +1,35 @@
+--- probe-corrected-v4.py
++++ probe-corrected-v5.py
+@@ -96,25 +96,25 @@
+     return module['id'], typename
+ 
+ def consume_base(label, mid, typename, wid):
+-    query = 'query($m:ID!,$w:ID!){load' + typename + 'FromID(id:$m){base(ws:$w){id generation:envVariable(name:"ADDRESS_WITNESS_GENERATION") marker:envVariable(name:"ADDRESS_WITNESS_MARKER")}}}'
+-    return rpc(label, query, {'m': mid, 'w': wid})['load' + typename + 'FromID']['base']
++    query = 'query($m:ID!,$w:ID!){node(id:$m){... on ' + typename + '{base(ws:$w){id generation:envVariable(name:"ADDRESS_WITNESS_GENERATION") marker:envVariable(name:"ADDRESS_WITNESS_MARKER")}}}}'
++    return rpc(label, query, {'m': mid, 'w': wid})['node']['base']
+ 
+ def service(label, ctr):
+-    data = rpc(label, 'query($c:ID!){loadContainerFromID(id:$c){withExec(args:["wget","-qO-","http://base-address-witness:8080/value"]){stdout}}}', {'c': ctr['id']})
+-    assert data['loadContainerFromID']['withExec']['stdout'] == ctr['generation'] + '\n' + ctr['marker']
++    data = rpc(label, 'query($c:ID!){node(id:$c){... on Container{withExec(args:["wget","-qO-","http://base-address-witness:8080/value"]){stdout}}}}', {'c': ctr['id']})
++    assert data['node']['withExec']['stdout'] == ctr['generation'] + '\n' + ctr['marker']
+ 
+ def run_test(label, mid, typename, wid, fail=False):
+-    return rpc(label, 'query($m:ID!,$w:ID!){load' + typename + 'FromID(id:$m){test(ws:$w)}}',
++    return rpc(label, 'query($m:ID!,$w:ID!){node(id:$m){... on ' + typename + '{test(ws:$w)}}}',
+                {'m': mid, 'w': wid}, 'real-app-edit-sentinel' if fail else None)
+ 
+ status = 'incomplete'
+ try:
+     wid = rpc('retain-workspace', '{currentWorkspace{id}}')['currentWorkspace']['id'] #1
+     mid, typ = retain_receiver(wid) #2; explicit ws for module and tests
+-    addr = rpc('retain-address', 'query($w:ID!){loadWorkspaceFromID(id:$w){resolve(value:"dag://base-witness/fresh"){id}}}', {'w':wid})['loadWorkspaceFromID']['resolve']['id'] #3
++    addr = rpc('retain-address', 'query($w:ID!){node(id:$w){... on Workspace{resolve(value:"dag://base-witness/fresh"){id}}}}', {'w':wid})['node']['resolve']['id'] #3
+     direct = []
+     for n in range(2): #4,5
+-        direct.append(rpc('direct-never-' + str(n), 'query($a:ID!){loadAddressFromID(id:$a){container{generation:envVariable(name:"ADDRESS_WITNESS_GENERATION")}}}', {'a': addr})['loadAddressFromID']['container']['generation'])
++        direct.append(rpc('direct-never-' + str(n), 'query($a:ID!){node(id:$a){... on Address{container{generation:envVariable(name:"ADDRESS_WITNESS_GENERATION")}}}}', {'a': addr})['node']['container']['generation'])
+     observations['direct_never_distinct'] = direct[0] != direct[1]
+     assert observations['direct_never_distinct'], 'direct successful NEVER producer was reused'
+     c1 = consume_base('retained-base-0', mid, typ, wid) #6

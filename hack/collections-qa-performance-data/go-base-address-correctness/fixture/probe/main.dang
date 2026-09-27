@@ -1,0 +1,19 @@
+"""
+Successful producer used only by the retained-base correctness witness.
+The recording model is never invoked: spawn only creates a unique handle.
+"""
+type BaseWitness {
+  fresh(ws: Workspace!): Container! @cache(policy: FunctionCachePolicy.Never) {
+    let generation = toString(llm(model: "recording/W10=").spawn(name: "address-witness").id)
+    let marker = ws.file("/marker.txt").contents
+    let serviceMarker = ws.file("/service-marker.txt").contents
+    let service = container.from("busybox:1.37@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e")
+      .withNewFile("/www/value", generation + "\n" + serviceMarker)
+      .withExposedPort(8080)
+      .asService(args: ["httpd", "-f", "-p", "8080", "-h", "/www"])
+    container.from("golang:1.26-alpine@sha256:51a7c389a5ddaf82f527191a1e9bff9928655130a44e4975dd1d7e0acf59f1ae")
+      .withEnvVariable("ADDRESS_WITNESS_GENERATION", generation)
+      .withEnvVariable("ADDRESS_WITNESS_MARKER", marker)
+      .withServiceBinding("base-address-witness", service)
+  }
+}

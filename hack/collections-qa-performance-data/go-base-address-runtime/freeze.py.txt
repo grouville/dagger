@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+"""Freeze local timing inputs only after the separate reviewed nine-call gate passes.
+No engine, CLI, container, network, or build operation occurs here.
+"""
+from pathlib import Path
+import hashlib,json,shutil
+HERE=Path(__file__).resolve().parent
+GATE=Path('/tmp/collections-perf/go-base-address-retained-v1')
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+summary=json.loads((GATE/'summary-v5.json').read_text())
+assert summary['validated_cli_commands']==9 and summary['synthetic_restored']and summary['greetings_authored_source_restored']and summary['original_greetings_untouched']
+restored=json.loads((GATE/'results-v5/lifecycle-restoration.json').read_text())
+assert restored['validated_commands']==9 and restored['local_attempts']==9 and not restored['cleanup_error_types']
+assert all(restored[k]for k in ('temporary_container_removed','original_engine_stopped','original_engine_binary_untouched','original_init_binary_untouched','retained_volume_preserved'))
+old=json.loads((GATE/'frozen-runtime-inputs.json').read_text())
+corrected=json.loads((GATE/'runtime-v5-inputs.json').read_text())
+for path,want in corrected['source_sha256'].items():assert sha(path)==want
+for path,want in old['source_sha256'].items():assert sha(path)==want
+for name in ('frozen-engine-manifest.json','frozen-sdk-inputs.json'):
+ assert not(HERE/name).exists();shutil.copyfile(GATE/name,HERE/name)
+manifest=GATE/'workspace-v5/.dagger/perf-go/dagger-module.toml'
+assert manifest.exists();shutil.copyfile(manifest,HERE/'module-manifest.toml')
+# The exact pinned gomod and local Go manifest used by the preceding correctness trial.
+assert 'github.com/dagger/go/gomod@1784ff37eb3dd1aacab7aaff91b1d86e311cc8de'in manifest.read_text()
+paths=set(old['source_sha256'])|set(corrected['source_sha256'])|{str(GATE/'runtime-v5-inputs.json')}|{str(HERE/n)for n in ('runtime.py','lifecycle.py','freeze.py','module-manifest.toml')}
+paths|={str(GATE/n)for n in ('summary-v5.json','results-v5/lifecycle-restoration.json')}
+out={'engine_manifest_sha256':sha(HERE/'frozen-engine-manifest.json'),'source_sha256':{p:sha(p)for p in sorted(paths)},'correctness_summary_sha256':sha(GATE/'summary-v5.json'),'original_module':old['original_module'],'candidate_module':old['candidate_module'],'local_cli_cap':28,'cloud_commands':0}
+path=HERE/'frozen-runtime-inputs.json';assert not path.exists();path.write_text(json.dumps(out,indent=2)+'\n')
+print(json.dumps({'frozen_inputs_sha256':sha(path),'driver_sha256':sha(HERE/'runtime.py'),'local_cli_cap':28,'executed_commands':0}))

@@ -1,0 +1,29 @@
+perf: defer custom Go bases through an explicit Address
+
+Add optional baseAddress after existing constructor arguments. Retain the
+caller-bound Address until GoModule.base needs its Container; discovery can
+list modules and tests without invoking an execution-only base producer.
+Keep base: Container eager, reject both options together, and preserve
+custom-toolchain version warnings and ordinary parent function caching.
+
+Workspace settings use baseAddress (camelCase) instead of base and require
+the engine Address-default correction dagger/dagger commit 36e4939021.
+Producer/type errors for the opt-in address surface when the base is used.
+
+Add GoDev checks for non-consumption, constructor policy, error propagation,
+custom environment/files, a live bound service, tests and generation. The
+existing Container-base check also passes. Pin these QA fixture images to
+the tested digests. Three targeted checks ran on the diagnostic engine;
+the entire GoDev suite and additional platforms were not run. Final source
+only changes the version description and canonical formatting after testing.
+
+Matched local listings on the experimental SDK stack measured warm
+1.392 -> 1.138s and new-comment edits 1.409 -> 1.106s (four samples per arm).
+Four fresh-volume observations were 25.533/29.421s versus21.142/20.918s;
+host caches were retained and disk variation remains. No Cloud or check
+execution speedup is claimed. Full evidence lives in grouville/dagger's
+perf/collections-discovery branch under hack/collections-qa-performance-data.
+
+Further work: remove remaining pure-helper runtime round trips, measure
+catalog readiness before changing scheduling, and preserve workspace
+binding/cache policy when extending this pattern to other modules.

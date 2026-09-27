@@ -1,0 +1,67 @@
+{
+  "core_schema_sha256": "4c3e82ea43d0ae0a8cab96dcca3865be4837d76ef851778a54f872b0c658d73e",
+  "schema_source": "previous actual production installers, current view",
+  "core_field_contracts": [
+    {
+      "type": "Query",
+      "field": "node",
+      "expected_arg_types": {
+        "id": "ID!"
+      },
+      "return_type": "Node",
+      "passed": true
+    },
+    {
+      "type": "Query",
+      "field": "currentWorkspace",
+      "expected_arg_types": {},
+      "return_type": "Workspace!",
+      "passed": true
+    },
+    {
+      "type": "Workspace",
+      "field": "resolve",
+      "expected_arg_types": {
+        "value": "String!"
+      },
+      "return_type": "Address!",
+      "passed": true
+    },
+    {
+      "type": "Address",
+      "field": "container",
+      "expected_arg_types": {},
+      "return_type": "Container!",
+      "passed": true
+    },
+    {
+      "type": "Container",
+      "field": "envVariable",
+      "expected_arg_types": {
+        "name": "String!"
+      },
+      "return_type": "String",
+      "passed": true
+    },
+    {
+      "type": "Container",
+      "field": "withExec",
+      "expected_arg_types": {
+        "args": "[String!]!"
+      },
+      "return_type": "Container!",
+      "passed": true
+    },
+    {
+      "type": "Container",
+      "field": "stdout",
+      "expected_arg_types": {},
+      "return_type": "String!",
+      "passed": true
+    }
+  ],
+  "graphql_documents_parsed": 7,
+  "dynamic_module_fragment_typename": "substituted only for grammar parsing; runtime derives actual __typename",
+  "module_fields": "go.module and tests.keys succeeded in v4; base(ws) and test(ws) verified against exact frozen module source",
+  "limitation": "no authored module schema fabricated; not a claim of validating all documents against a served runtime schema"
+}

@@ -1,11 +1,13 @@
 # Collections performance: current findings
 
-The 500 ms end-to-end target is still open. The latest local experiments put
-expanded greetings-api listings near 1.4 s through Docker, or 1.24 s with a
-prepared Unix socket. Several smaller commands and native edit loops are already
-below 500 ms locally. These use the retained experimental SDK/engine stack and
-disable Cloud; they are not production Cloud timings or the result of building
-the branch without its experimental artifacts.
+The 500 ms end-to-end target is still open. The latest matched local module
+experiment reduces expanded greetings-api listings from 1.392 to 1.138 s through
+Docker, and a new application comment followed by listing from 1.409 to 1.106 s.
+It explicitly defers a configured execution Container through an Address; it is
+not automatic in existing modules. Several smaller commands and native edit
+loops are already below 500 ms locally. These use the retained experimental
+SDK/engine stack and disable Cloud; they are not production Cloud timings or the
+result of building the branch without its experimental artifacts.
 
 ## Keep the changes that remove measured work
 
@@ -16,6 +18,7 @@ the branch without its experimental artifacts.
 | Skip Docker start when the existing inspection reports exactly `running` | Native generation 293 → 280 ms; core wall medians flat at 244 ms; paired process-tree CPU reduced 13–18 ms | CLI commit `e6e723145e`; 32/32 local outcomes correct |
 | Separate serving nested-session files/sockets from engine provisioning | Heavy helper startup 9.114 → 6.357 ms over twelve pairs; binary shrinks by 6.3 MB; no whole-command speedup established | Commit `fef89b56e0`; normal/race gates, full CLI/engine builds and ten real SDK/check/exec outcomes pass |
 | Scope artifact tree construction to selected modules | Repeated Address metadata requests 195 → 18; full warm check median flat, distinct app-comment listing 1.483 → 1.356 s over four observations per arm | Commit `093e161255`; 42 local correctness outcomes and focused normal/race gates pass |
+| Let a module retain a configured Address until execution needs its Container | Warm checks 1.392 → 1.138 s and distinct app-comment listing 1.409 → 1.106 s, four observations per arm; two backend executions removed | Generic Address argument fix `36e4939021`; Go module commit `c5e29463b6` on `grouville/go:perf/discovery-base-address`; separate execution/generation gates pass |
 | Replace Docker exec connections with a local Unix connector, retaining Docker admission | `ws ls` 163 → 74 ms; distinct native source edit → check 282 → 182 ms; distinct input edit → generation/full exit 371 → 249 ms | Isolated prototype; automatic endpoint provisioning and platform/access compatibility remain to implement |
 
 The [filesystem report](collections-filesync-performance.md) includes cold,
@@ -50,11 +53,58 @@ It passes the caller-bound Address ID instead of selecting the nonexistent
 [normal/race and parser gates](collections-qa-performance-data/address-default-validation/README.md)
 cover workspace binding, IDs, scalar/list inputs and unchanged eager Container
 behavior. An optional Go `baseAddress` setting can then defer its producer until
-execution. That module option is not enabled by this engine commit and still
-needs real service/edit validation and timing. Commit `c1a34a011c` adds fixed
-wcprof tree-construction boundaries to identify the remaining metadata costs;
-the [full diagnostic engine build](collections-qa-performance-data/address-default-build/README.md)
-passes with both the Address fix and those boundaries.
+execution. That module option is not enabled by this engine commit. The
+[nine-call correctness proof](collections-qa-performance-data/go-base-address-correctness/report.md)
+passes real service consumption, changed-source failures and recovery, identical
+listings and the strict greetings HTTP test. Ten retained-session RPCs distinguish
+direct NEVER consumption from the ordinary cached outer `GoModule.base` result;
+no transitive NEVER policy is introduced. Existing `base: Container` remains eager,
+and explicit `baseAddress` moves producer errors to actual consumption.
+
+The [three module-owned GoDev checks](collections-qa-performance-data/go-base-address-module-qa/README.md)
+also pass constructor policy, deferred producer failure, required environment and
+files, a bound HTTP service, real Go tests, generation and the existing Container
+base behavior. Earlier QA setup/inference/proxy-equality mistakes remain recorded
+separately. The implementation is pushed as
+[`c5e29463b6`](https://github.com/grouville/go/commit/c5e29463b6ddfe95fe2d9c460e5436e3c16adaed)
+on `perf/discovery-base-address`, based on upstream `1784ff37`. The final commit
+adds a description correction and canonical QA formatting after the passing
+checks; its implementation matches the measured candidate. QA image digests stay
+pinned. This is an explicit module API option requiring the engine fix for
+workspace settings, not an automatic change to existing configurations.
+
+The [28-call module comparison](collections-qa-performance-data/go-base-address-runtime/report.md)
+uses one engine and identical local module layouts in correlated ABBA blocks.
+Warm expanded checks fall **1.392 → 1.138 s**, unique app-comment listings
+**1.409 → 1.106 s**, and artifact listings **1.358 → 1.134 s**. There are four
+observations per arm for checks/edits and two for artifacts; all outputs match.
+These are local-only full CLI exit times, not actual-check execution gains or
+normal remote-module branch timings. Module-owned generation gates are separate
+from this comparison.
+
+The subsequent [four first listings on fresh volumes](collections-qa-performance-data/go-base-address-cold/report.md)
+give control **25.533 / 29.421 s** and candidate **21.142 / 20.918 s**. Each command
+is the first Dagger call on its volume, without a primer; image layers, SDK blobs,
+host pages and external caches remain available. Engine readiness adds about
+0.25 s outside each CLI interval. Both comparison orders favor the module option,
+but two observations per arm are not a stable cold distribution. CPU remains
+87–89 CPU-s; these measurements do not establish compilation elimination.
+The slower control coincides with 2.99 s of host full I/O pressure, versus
+0.12–0.18 s in the other samples. Delayed writeback also shifts bytes outside
+the command interval. All four outputs match; fixtures are restored and only the
+four newly owned containers and volumes were subsequently removed.
+
+Separate wcprof captures show expansion **600 → 374 ms**, four Address Container
+lookups becoming zero, and two authored backend executions disappearing. Runtime
+process count falls from six to four. Catalog loading instead rises **499 → 571 ms**
+in this profile pair, with seven Git admissions in both; no catalog saving is
+claimed. Commit `c1a34a011c` adds fixed tree-construction boundaries: module tree
+interval union falls **52.40 → 10.38 ms**, while core tree construction was already
+below one millisecond. A core-tree factory is therefore not the next useful
+optimization. These savings overlap scoped tree pruning and must not be added to
+its result. The [full diagnostic engine build](collections-qa-performance-data/address-default-build/README.md)
+contains the Address fix and profiling markers; both comparison arms exclude the
+separate pruning, helper extraction, split-init and Unix transport changes.
 
 The [managed-engine comparison](collections-qa-performance-data/managed-engine-start-runtime/report.md)
 uses five alternating pairs per flow. It includes the ordinary image driver's
@@ -83,6 +133,21 @@ process launches. None introduces a TTL or a cache of workspace results.
   host HTTP/1.1 trial does not justify a new engine admission protocol.
 
 ## The remaining larger costs
+
+The [current catalog/expansion audit](collections-qa-performance-data/address-catalog-overlap/report.md)
+finds a 571 ms catalog, a 43 ms handoff and 374 ms expansion in the separate
+Address-candidate profile. Current root-load markers do not identify which
+module became ready first; they cannot yet quantify a Go-specific overlap gain.
+The final root resolves only 18 ms before catalog completion. Before removing
+the batch barrier, measure named module readiness and preserve global validation,
+entrypoint arbitration and nested workspace visibility. Speculatively executing
+a NEVER collection before a later catalog error is a behavior change.
+
+A smaller candidate is to append the hidden listing projection to the existing
+SDK selection, eliminating its explicit ID request followed by a second request
+for rows. The 43 ms gap is only an upper bound on that handoff, not a promised
+saving. This keeps catalog-before-enumeration ordering and is being prepared
+independently of dynamic overlap.
 
 Two fully primed wcprof captures show roughly 385 ms of Git request-write to
 first-byte waiting, using seven already-open connections. Local reference sorting

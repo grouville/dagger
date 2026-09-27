@@ -1,0 +1,14 @@
+--- GoDev-QA-before.dang
++++ GoDev-QA-after.dang
+@@ -504,9 +504,9 @@
+     let ignored = go(version: "1.26.1", baseAddress: address)
+     assert(ignored.version == null, "version not ignored beside baseAddress")
+     assert(ignored.warnings.join(";").contains("baseAddress was set"), "missing ignored-version warning")
+-    let failed = { mod.base(ws).envVariable("DAGGER_GO_CUSTOM_BASE"); "missing failure" } rescue { err => err.message }
++    let failed = { mod.base(ws).envVariable("DAGGER_GO_CUSTOM_BASE"); "missing failure" } rescue { err: Error => err.message }
+     assert(failed.contains("base-address producer sentinel"), "consuming base did not propagate producer error")
+-    let conflict = { go(base: base, baseAddress: address).version ?? "missing rejection" } rescue { err => err.message }
++    let conflict = { go(base: base, baseAddress: address).version ?? "missing rejection" } rescue { err: Error => err.message }
+     assert(conflict.contains("cannot both be set"), "ambiguous custom bases were accepted")
+     null
+   }

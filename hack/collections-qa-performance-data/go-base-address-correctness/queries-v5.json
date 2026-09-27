@@ -1,0 +1,9 @@
+[
+  "query($w:ID!){go{module(ws:$w,path:\".\"){id __typename tests(ws:$w){keys}}}}",
+  "query($c:ID!){node(id:$c){... on Container{withExec(args:[\"wget\",\"-qO-\",\"http://base-address-witness:8080/value\"]){stdout}}}}",
+  "{currentWorkspace{id}}",
+  "query($w:ID!){node(id:$w){... on Workspace{resolve(value:\"dag://base-witness/fresh\"){id}}}}",
+  "query($a:ID!){node(id:$a){... on Address{container{generation:envVariable(name:\"ADDRESS_WITNESS_GENERATION\")}}}}",
+  "query($m:ID!,$w:ID!){node(id:$m){... on GoModule{base(ws:$w){id generation:envVariable(name:\"ADDRESS_WITNESS_GENERATION\") marker:envVariable(name:\"ADDRESS_WITNESS_MARKER\")}}}}",
+  "query($m:ID!,$w:ID!){node(id:$m){... on GoModule{test(ws:$w)}}}"
+]
