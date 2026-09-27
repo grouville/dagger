@@ -1,0 +1,103 @@
+package dang
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func BenchmarkCloneSyntaxLeavesMutable(b *testing.B) {
+	for _, mode := range []string{"same-filename", "alternating-filenames"} {
+		b.Run("declarations=1024/"+mode, func(b *testing.B) {
+			var source strings.Builder
+			for i := range 1024 {
+				fmt.Fprintf(&source, "pub answer%d: Int! = %d + 2\n", i, i)
+			}
+			parsed, err := Parse("template.dang", []byte(source.String()), GlobalStore("filePath", "template.dang"))
+			if err != nil {
+				b.Fatal(err)
+			}
+			template := parsed.(*FileBlock)
+			original := template.Forms[0].(*FieldDecl)
+			line := original.GetSourceLocation().Line
+			filenames := []string{"first/fixture.dang", "second/fixture.dang"}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := range b.N {
+				filename := filenames[0]
+				if mode == "alternating-filenames" {
+					filename = filenames[i%2]
+				}
+				cloned, err := cloneSyntax(template, filename)
+				if err != nil {
+					b.Fatal(err)
+				}
+				field := cloned.Forms[0].(*FieldDecl)
+				loc := field.GetSourceLocation()
+				if loc.Filename != filename || loc.Line != line {
+					b.Fatal("wrong invocation source location")
+				}
+				// Inference/evaluation own and mutate their AST. Include two small writes
+				// equally in both variants and verify the cached template remains intact.
+				field.Name.Name = "mutated"
+				loc.Line++
+			}
+			b.StopTimer()
+			if original.Name.Name != "answer0" || original.GetSourceLocation().Line != line {
+				b.Fatal("mutable AST escaped to template")
+			}
+		})
+	}
+}
+
+func BenchmarkCloneSyntaxLeavesModule(b *testing.B) {
+	root := os.Getenv("DAGGER_DANG_BENCH_ROOT")
+	if root == "" {
+		b.Skip("set DAGGER_DANG_BENCH_ROOT")
+	}
+	for _, name := range []string{"go.dang", "gomod/main.dang", ".dagger/modules/go-dev/main.dang"} {
+		source, err := os.ReadFile(filepath.Join(root, name))
+		if err != nil {
+			b.Fatal(err)
+		}
+		for _, mode := range []string{"same-path", "alternating-paths"} {
+			b.Run(name+"/"+mode, func(b *testing.B) {
+				dir := b.TempDir()
+				files := []string{filepath.Join(dir, "first.dang"), filepath.Join(dir, "second.dang")}
+				var expectedLine int
+				for _, file := range files {
+					if err := os.WriteFile(file, source, 0600); err != nil {
+						b.Fatal(err)
+					}
+					parsed, err := ParseFileCached(file)
+					if err != nil {
+						b.Fatal(err)
+					}
+					expectedLine = parsed.(*FileBlock).Forms[0].GetSourceLocation().Line
+				}
+				// Both names are primed before timing. Same bytes must reuse the syntax
+				// template while each returned mutable tree gets its own file location.
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := range b.N {
+					file := files[0]
+					if mode == "alternating-paths" {
+						file = files[i%2]
+					}
+					parsed, err := ParseFileCached(file)
+					if err != nil {
+						b.Fatal(err)
+					}
+					loc := parsed.(*FileBlock).Forms[0].GetSourceLocation()
+					if loc.Filename != file || loc.Line != expectedLine {
+						b.Fatal("stale filename or shared source position")
+					}
+					loc.Line++
+				}
+				b.StopTimer()
+			})
+		}
+	}
+}

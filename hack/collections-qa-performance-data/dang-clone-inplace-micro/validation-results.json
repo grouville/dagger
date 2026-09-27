@@ -1,0 +1,81 @@
+[
+  {
+    "label": "baseline-normal",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-mod=readonly",
+      "-overlay=/tmp/collections-perf/dang-clone-inplace-v1/baseline-overlay.json",
+      "./pkg/dang",
+      "-run",
+      "^(TestCloneSyntaxLeaves.*|TestCloneSyntaxInPlace.*|TestSyntaxCache.*)$",
+      "-count=1",
+      "-timeout=120s"
+    ],
+    "fixed_environment": {
+      "GOMAXPROCS": "4",
+      "GOTOOLCHAIN": "local",
+      "GOENV": "off",
+      "GOFLAGS": "",
+      "GOPROXY": "off",
+      "GOSUMDB": "off",
+      "CGO_ENABLED": "0"
+    },
+    "exit_code": 0,
+    "seconds": 9.059251216007397,
+    "log_sha256": "e6c99815a0db28bee7490f8cc9c7cdb8af8039cc21544e862ebf6d2c09cf9c07"
+  },
+  {
+    "label": "candidate-normal",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-mod=readonly",
+      "-overlay=/tmp/collections-perf/dang-clone-inplace-v1/candidate-overlay.json",
+      "./pkg/dang",
+      "-run",
+      "^(TestCloneSyntaxLeaves.*|TestCloneSyntaxInPlace.*|TestSyntaxCache.*)$",
+      "-count=1",
+      "-timeout=120s"
+    ],
+    "fixed_environment": {
+      "GOMAXPROCS": "4",
+      "GOTOOLCHAIN": "local",
+      "GOENV": "off",
+      "GOFLAGS": "",
+      "GOPROXY": "off",
+      "GOSUMDB": "off",
+      "CGO_ENABLED": "0"
+    },
+    "exit_code": 0,
+    "seconds": 3.1713172090239823,
+    "log_sha256": "ac4fcee24689ee8015dc72178dced5eb70f64b0dc75ec40f7d4bd94e05d863c8"
+  },
+  {
+    "label": "candidate-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-mod=readonly",
+      "-overlay=/tmp/collections-perf/dang-clone-inplace-v1/candidate-overlay.json",
+      "-race",
+      "./pkg/dang",
+      "-run",
+      "^(TestCloneSyntaxLeaves.*|TestCloneSyntaxInPlace.*|TestSyntaxCache.*)$",
+      "-count=1",
+      "-timeout=120s"
+    ],
+    "fixed_environment": {
+      "GOMAXPROCS": "4",
+      "GOTOOLCHAIN": "local",
+      "GOENV": "off",
+      "GOFLAGS": "",
+      "GOPROXY": "off",
+      "GOSUMDB": "off",
+      "CGO_ENABLED": "1"
+    },
+    "exit_code": 0,
+    "seconds": 17.565384299959987,
+    "log_sha256": "63d0c913efeff664c288c439425aa346058547d09dfae80ad36b5338a8da053b"
+  }
+]

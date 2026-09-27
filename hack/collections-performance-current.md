@@ -178,6 +178,32 @@ content. The measured path is containerd's image applier, not the separate
 snapshot merge applier. Smaller required SDK payloads and useful compiler cache
 seeds merit investigation alongside the existing static-metadata SDK work.
 
+The [verified SDK layer audit](collections-qa-performance-data/builtin-sdk-layer-audit/report.md)
+identifies the largest layer as the Go toolchain: **2.577 / 2.711 s** of
+application, compared with about 0.42 s for the module-cache seed and 0.80 s
+for the build-cache seed. Its 63.8 MB compressed payload contains 16,705 entries,
+including 3,773 entries under the distribution's top-level `test` directory.
+No files have been removed. A smaller supported toolchain payload needs explicit
+compatibility checks; deleting files in an additional OCI layer would still
+hydrate the original parent. Static SDK metadata can avoid this work for listing,
+while actual compilation still needs an available toolchain.
+
+Two separate Dang candidates now have focused normal/race and microbenchmark
+evidence, but no whole-command results yet. The
+[registration metadata snapshot](collections-qa-performance-data/dang-registration-snapshot-micro/validation-report.md)
+uses current production dependencies and removes one of two metadata parses:
+Go-source metadata **162.15 → 78.69 ms**, gomod **133.43 → 65.61 ms**, with
+about half the allocations. Those are metadata-only medians from three short
+process pairs, excluding independent declaration/inference. It does not change
+the earlier experimental engine, which already lacks that second pass.
+The [in-place syntax clone](collections-qa-performance-data/dang-clone-inplace-micro/report.md)
+instead improves that experimental engine's actual retained parser: real Go,
+gomod and GoDev cached-parse medians fall **15–23%**, with **62–64% fewer
+allocations**. Each evaluation still owns its mutable AST; no inferred state or
+workspace result is reused. These are distinct baselines and their savings must
+not be added or presented as new CLI timings. Matched engine comparisons are the
+next acceptance gate.
+
 The [direct CLI projection trial](collections-qa-performance-data/artifact-json-projection-runtime/report.md)
 now eliminates the explicit ID request before fetching listing rows. All 38
 calls pass, including native workspace, check and actual generation controls.

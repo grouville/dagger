@@ -1,0 +1,125 @@
+package dang
+
+import (
+	"reflect"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+type cloneInPlaceValue struct {
+	Number *int
+	Loc    SourceLocation
+	Values map[string]any
+	List   []*int
+}
+
+type cloneInPlaceProbe struct {
+	Node
+	First  *int
+	Second *int
+	Nested cloneInPlaceValue
+	Any    any
+	Next   *cloneInPlaceProbe
+	Loc    *SourceLocation
+}
+
+type cloneInPlaceUnsupportedArray struct {
+	Node
+	Value [2]int
+}
+
+func TestCloneSyntaxInPlaceOwnedCompositeDestinations(t *testing.T) {
+	number := 42
+	value := cloneInPlaceValue{
+		Number: &number,
+		Loc:    SourceLocation{Filename: "original", Line: 8, Column: 4},
+		Values: map[string]any{"number": &number, "text": "value", "nil": (*int)(nil)},
+		List:   []*int{&number, nil},
+	}
+	probe := &cloneInPlaceProbe{First: &number, Second: &number, Nested: value, Any: value, Loc: &value.Loc}
+	probe.Next = probe
+	template := &FileBlock{Forms: []Node{probe, probe}}
+	got, err := cloneSyntax(template, "first.dang")
+	require.NoError(t, err)
+	want, err := cloneSyntaxReference(template, "first.dang")
+	require.NoError(t, err)
+	// This tree has no functions. Deep equality covers nested value structs,
+	// interface payloads, maps, slices and the cycle independently of identity.
+	require.Equal(t, want, got)
+	other, err := cloneSyntax(template, "second.dang")
+	require.NoError(t, err)
+	a := got.Forms[0].(*cloneInPlaceProbe)
+	b := other.Forms[0].(*cloneInPlaceProbe)
+	require.NotSame(t, probe, a)
+	require.NotSame(t, a, b)
+	require.Same(t, a, got.Forms[1])
+	require.Same(t, a, a.Next)
+	require.Same(t, a.First, a.Second)
+	require.Same(t, a.First, a.Nested.Number)
+	require.Same(t, a.First, a.Nested.List[0])
+	require.Same(t, a.First, a.Nested.Values["number"])
+	require.Same(t, a.First, a.Any.(cloneInPlaceValue).Number)
+	require.NotSame(t, &number, a.First)
+	require.Equal(t, "first.dang", a.Nested.Loc.Filename)
+	require.Equal(t, "first.dang", a.Any.(cloneInPlaceValue).Loc.Filename)
+	require.Equal(t, "first.dang", a.Loc.Filename)
+	require.Equal(t, "second.dang", b.Nested.Loc.Filename)
+	*a.First = 7
+	a.Nested.List[0] = nil
+	a.Nested.Values["text"] = "changed"
+	a.Nested.Loc.Line++
+	require.Equal(t, 42, number)
+	require.Equal(t, 42, *b.First)
+	require.NotNil(t, value.List[0])
+	require.Equal(t, "value", value.Values["text"])
+	require.Equal(t, 8, value.Loc.Line)
+	require.Equal(t, "original", value.Loc.Filename)
+}
+
+func TestCloneSyntaxInPlaceReferenceErrorsAndNil(t *testing.T) {
+	for _, node := range []Node{
+		&cloneLeavesProbe{private: 1},
+		&cloneLeavesUnsupportedFunction{Function: func() {}},
+		&cloneLeavesUnsupportedChannel{},
+		&cloneInPlaceUnsupportedArray{},
+	} {
+		t.Run(reflect.TypeOf(node).String(), func(t *testing.T) {
+			template := &FileBlock{Forms: []Node{node}}
+			_, want := cloneSyntaxReference(template, "fixture.dang")
+			_, got := cloneSyntax(template, "fixture.dang")
+			require.Error(t, want)
+			require.EqualError(t, got, want.Error())
+		})
+	}
+	got, err := cloneSyntax(nil, "fixture.dang")
+	require.NoError(t, err)
+	require.Nil(t, got)
+}
+
+func TestCloneSyntaxInPlaceExactTraversalBudget(t *testing.T) {
+	// Find the existing last successful size rather than encoding FileBlock's
+	// current field count. The new visitor must count every scalar/nil visit
+	// exactly once, including leaves returned without a detached allocation.
+	lo, hi := 0, 262145
+	for lo+1 < hi {
+		mid := (lo + hi) / 2
+		_, err := cloneSyntaxReference(&FileBlock{Forms: make([]Node, mid)}, "budget.dang")
+		if err == nil {
+			lo = mid
+		} else {
+			require.ErrorContains(t, err, "syntax exceeds clone budget")
+			hi = mid
+		}
+	}
+	for _, size := range []int{lo - 1, lo, hi} {
+		template := &FileBlock{Forms: make([]Node, size)}
+		_, expected := cloneSyntaxReference(template, "budget.dang")
+		_, actual := cloneSyntax(template, "budget.dang")
+		if expected == nil {
+			require.NoError(t, actual)
+		} else {
+			require.EqualError(t, actual, expected.Error())
+		}
+	}
+}

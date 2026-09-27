@@ -4,6 +4,17 @@ Start with the [current findings and priorities](collections-performance-current
 for the measured improvements, held experiments and remaining 500 ms gap. The
 entries below retain the history and the cache/Cloud boundary of each round.
 
+The next two Dang candidates have passed focused normal/race gates. A
+[single registration metadata pass](collections-qa-performance-data/dang-registration-snapshot-micro/validation-report.md)
+halves that isolated step's cost with ordinary current dependencies; an
+[in-place syntax clone](collections-qa-performance-data/dang-clone-inplace-micro/report.md)
+reduces cached parsing time 15–23% and allocations 62–64% on the retained
+experimental dependency. Full-command comparisons have not yet run, so neither
+changes the reported UX timings. A
+[verified cold SDK layer audit](collections-qa-performance-data/builtin-sdk-layer-audit/report.md)
+also attributes about 2.6–2.7 s to toolchain layer application, identifying a
+packaging target distinct from runtime compilation.
+
 `f743dba657` removes an intermediate artifact-ID query from CLI listing. Focused
 normal/race gates and 54 local UX outcomes pass. Three warm pairs give checks
 **1.154 → 1.135 s** and generator listing **0.777 → 0.754 s**; six artifact

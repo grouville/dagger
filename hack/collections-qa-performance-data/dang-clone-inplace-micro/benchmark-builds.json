@@ -1,0 +1,72 @@
+{
+  "baseline_sha256": "b0f575ce0e8c7acc803e9aa7ae73e2a4da5d7b55ba21b2d02cdb04a0805258a0",
+  "candidate_sha256": "7b0a1e382973d482ab68ac16e82e369323e44e5f37c9914f7c97f83c8166836e",
+  "fixed_environment": {
+    "GOMAXPROCS": "4",
+    "GOTOOLCHAIN": "local",
+    "GOENV": "off",
+    "GOFLAGS": "",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "CGO_ENABLED": "0",
+    "DAGGER_DANG_BENCH_ROOT": "/tmp/dagger-go-kyle-latest"
+  },
+  "source_inputs": {
+    "/tmp/collections-perf/dang-clone-inplace-v1/parse_cache_reference_test.go": "9aa3942bd25ba85a66e664044fefa88b3a7c6d9d8684f42b7ac09f0f16924754",
+    "/tmp/collections-perf/dang-clone-inplace-v1/parse_cache.go": "7b0a1e382973d482ab68ac16e82e369323e44e5f37c9914f7c97f83c8166836e",
+    "/tmp/collections-perf/dang-clone-inplace-v1/parse_cache.baseline.go": "b0f575ce0e8c7acc803e9aa7ae73e2a4da5d7b55ba21b2d02cdb04a0805258a0",
+    "/tmp/collections-perf/dang-clone-inplace-v1/validate.py": "f1fcf79ea534307dbd0539419f4451f542a7642810b47e4b4a615995fc40fe83",
+    "/tmp/collections-perf/dang-clone-inplace-v1/parse_cache_leaves_test.go": "fc784b268c37a8cbc0e7e5ea0b0afe68f83ea013a4fffc8034b5852381e6f9b4",
+    "/tmp/collections-perf/dang-clone-inplace-v1/common-fields.go": "47f568169b567a72381a00220dd49d6ffeb562248d239505002928396e1e9be6",
+    "/tmp/collections-perf/dang-clone-inplace-v1/parse_cache_leaves_benchmark_test.go": "1edae8209792cc54e0432d71c8e1db29ff4daee513c7c2549891c10fd4268234",
+    "/tmp/collections-perf/dang-clone-inplace-v1/benchmark.py": "13accae4e334e672198c672c3ad6be741ab17f9059ebfb85c26ee7d5a9f50dc4",
+    "/tmp/collections-perf/dang-clone-inplace-v1/common-eval.go": "81fee7c0cbdfbb35ee4a4f49d1fdd78e288be886731b7ee95d89293fd1b92c58",
+    "/tmp/collections-perf/dang-clone-inplace-v1/candidate-overlay.json": "119a4de26966a0789a7214414cddd988d0f38cffe732aead7e77ff2c3ec1608e",
+    "/tmp/collections-perf/dang-clone-inplace-v1/parse_cache_inplace_test.go": "227793cafa65483fb1cef9b901adc2d3f4ae5faf46158370ecd959e2dc0b5f19",
+    "/tmp/collections-perf/dang-clone-inplace-v1/baseline-overlay.json": "938773d00aff841fdee2cebad7995154941663fa237355bdd88f1707af2a0211"
+  },
+  "module_head": "1784ff37eb3dd1aacab7aaff91b1d86e311cc8de",
+  "module_sources": {
+    "/tmp/dagger-go-kyle-latest/go.dang": "5ea0a8b530a424f1ddd9c75d3d65211f32b85bb2f2d1b954d8802a50e1f7848e",
+    "/tmp/dagger-go-kyle-latest/gomod/main.dang": "78af314f6a53098db6327b8f7eb7e287766f896ab2f545007fe79a5ff214ae1c",
+    "/tmp/dagger-go-kyle-latest/.dagger/modules/go-dev/main.dang": "837bc228db4725281ee77150d1921474873aaac63fc4132fac17ef178399889e"
+  },
+  "builds": [
+    {
+      "variant": "baseline",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/dang-clone-inplace-v1/baseline-overlay.json",
+        "-c",
+        "-o",
+        "/tmp/collections-perf/dang-clone-inplace-v1/baseline.test",
+        "./pkg/dang"
+      ],
+      "exit_code": 0,
+      "seconds": 1.0171239210758358,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "binary": "/tmp/collections-perf/dang-clone-inplace-v1/baseline.test",
+      "binary_sha256": "d5a2c94b29ddc3761239237933bfe8df9197eb6f6917f80eaba46cdcfe977979"
+    },
+    {
+      "variant": "candidate",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/dang-clone-inplace-v1/candidate-overlay.json",
+        "-c",
+        "-o",
+        "/tmp/collections-perf/dang-clone-inplace-v1/candidate.test",
+        "./pkg/dang"
+      ],
+      "exit_code": 0,
+      "seconds": 0.9657733961939812,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "binary": "/tmp/collections-perf/dang-clone-inplace-v1/candidate.test",
+      "binary_sha256": "afb88dbb536899411cdee36ccef0ad613b76ab3b9f78acdf1f54a9df49580af9"
+    }
+  ]
+}

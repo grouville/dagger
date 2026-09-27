@@ -1,0 +1,23 @@
+{
+  "manifest_sha256": "0f94db4590aa1695d5bccf377458ae6546de2f5fc306ab652bd0021e100f686a",
+  "records": [
+    {
+      "label": "normal",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/dang-registration-snapshot-v1/test-overlay.json",
+        "-count=1",
+        "-timeout=120s",
+        "-run=^(TestDangRegistrationMetadata.*|TestReportDangSourceError|TestDangSourceErrorKeepsGraphQLExtraction|TestDangSourceMessage.*|TestIsDangSourceErrorIgnoresInfrastructureErrors)$",
+        "./core/sdk/dang/v2"
+      ],
+      "exit_code": 1,
+      "seconds": 25.58065687981434,
+      "expected_exit": 0,
+      "correct": false
+    }
+  ],
+  "no_engine_or_cloud_calls": true
+}

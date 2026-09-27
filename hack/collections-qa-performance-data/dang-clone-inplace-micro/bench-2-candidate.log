@@ -1,0 +1,16 @@
+goos: linux
+goarch: amd64
+pkg: github.com/vito/dang/v2/pkg/dang
+cpu: Intel(R) Core(TM) i5-9300H CPU @ 2.40GHz
+BenchmarkCloneSyntaxLeavesMutable/declarations=1024/same-filename-4         	      18	  12259622 ns/op	 4571976 B/op	   26774 allocs/op
+BenchmarkCloneSyntaxLeavesMutable/declarations=1024/alternating-filenames-4 	      19	  11995296 ns/op	 4571976 B/op	   26774 allocs/op
+BenchmarkCloneSyntaxLeavesModule/go.dang/same-path-4                        	      66	   3506321 ns/op	 1237808 B/op	    8653 allocs/op
+BenchmarkCloneSyntaxLeavesModule/go.dang/alternating-paths-4                	      68	   3618224 ns/op	 1237824 B/op	    8653 allocs/op
+BenchmarkCloneSyntaxLeavesModule/gomod/main.dang/same-path-4                	      73	   3231038 ns/op	 1194120 B/op	    7423 allocs/op
+BenchmarkCloneSyntaxLeavesModule/gomod/main.dang/alternating-paths-4        	      90	   3159608 ns/op	 1194120 B/op	    7423 allocs/op
+BenchmarkCloneSyntaxLeavesModule/.dagger/modules/go-dev/main.dang/same-path-4         	      33	   6982079 ns/op	 2400240 B/op	   14768 allocs/op
+BenchmarkCloneSyntaxLeavesModule/.dagger/modules/go-dev/main.dang/alternating-paths-4 	      38	   6649367 ns/op	 2400240 B/op	   14768 allocs/op
+BenchmarkCloneSyntaxLeaves/declarations=16-4                                          	    1149	    185904 ns/op	   67704 B/op	     435 allocs/op
+BenchmarkCloneSyntaxLeaves/declarations=128-4                                         	     152	   1506681 ns/op	  568200 B/op	    3363 allocs/op
+BenchmarkCloneSyntaxLeaves/declarations=1024-4                                        	      19	  11678976 ns/op	 4571981 B/op	   26774 allocs/op
+PASS
