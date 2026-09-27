@@ -20,8 +20,8 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/dagger/dagger/engine"
-	"github.com/dagger/dagger/engine/client"
 	"github.com/dagger/dagger/engine/client/secretprovider"
+	client "github.com/dagger/dagger/engine/session/attachables"
 	"github.com/dagger/dagger/engine/session/git"
 	"github.com/dagger/dagger/engine/session/h2c"
 )
