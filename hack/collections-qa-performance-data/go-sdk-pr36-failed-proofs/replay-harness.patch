@@ -1,0 +1,80 @@
+--- /tmp/collections-perf/go-sdk-pr36-runtime-v1/runtime-v1.py	2026-09-26 21:34:41.584117225 -0700
++++ /tmp/collections-perf/go-sdk-pr36-runtime-v1/runtime.py	2026-09-26 21:40:34.000688297 -0700
+@@ -111,7 +111,7 @@
+  return {'manifest_sha256':sha(module/'dagger-module.toml'),'declarations_sha256':hashlib.sha256(text.encode()).hexdigest(),'session_policy_count':7+int(added)}
+ 
+ def main():
+- parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--run',action='store_true');parser.add_argument('--output',default='results-v1');args=parser.parse_args()
++ parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--run',action='store_true');parser.add_argument('--output',default='results-v2');args=parser.parse_args()
+  assert re.fullmatch(r'results-v[0-9]+',args.output)
+  if not args.run:
+   print(json.dumps({'execute':False,'total_cli_cap':CAP,'normal_generation_calls':4,'api_list_check_calls':12,'cloud_calls':0,'engine':'frozen ec6','cli':'frozen d685','scope':'backend-only, original greetings dependency loader unchanged','freshness':'current TOML and v2 before/after normal generation; live application test failure/recovery separately'}));return
+@@ -126,6 +126,11 @@
+  assert git('rev-parse','HEAD')==provenance['commit']
+  changed=set(git('diff','--name-only').splitlines())|set(git('ls-files','--others','--exclude-standard').splitlines())
+  assert changed=={item['path']for item in provenance['changed_files']},'SDK checkout changed after validation'
++ sdk_files=sorted(set(git('ls-files').splitlines())|changed)
++ sdk_hashes={}
++ for rel in sdk_files:
++  path=SDK/rel;assert not Path(rel).is_absolute()and '..'not in Path(rel).parts and path.is_file()and not path.is_symlink()
++  sdk_hashes[rel]=sha(path)
+  expected=json.loads(INPUT.read_text())['input_sha256']
+  for path,digest in expected.items():assert sha(APP/path)==digest and not (APP/path).is_symlink()
+  full_config=(APP/'dagger.toml').read_bytes();sdk_source=tomllib.loads(full_config.decode())['modules']['dagger-go-sdk']['source']
+@@ -142,7 +147,7 @@
+   subprocess.run(['git','-c','core.hooksPath=/dev/null','init','-q',str(root)],check=True,timeout=15)
+   subprocess.run(['git','-C',str(root),'-c','core.hooksPath=/dev/null','add','-f','.'],check=True,timeout=15)
+  states={};freshness={};calls=[]
+- dump(out/'provenance.json',{'driver_sha256':sha(__file__),'lifecycle_sha256':sha(HERE/'lifecycle.py'),'sdk_validation_sha256':sha(VALID/'validation.json'),'sdk_source':provenance,'input_manifest_sha256':sha(INPUT),'original_fixture_hashes':expected,'cap':CAP,'cloud_calls':0,'purpose':'correctness only; no timing performance comparison','generations_counted_separately':4,'engine_evidence_directory':str(engine_out)})
++ dump(out/'provenance.json',{'driver_sha256':sha(__file__),'lifecycle_sha256':sha(HERE/'lifecycle.py'),'sdk_validation_sha256':sha(VALID/'validation.json'),'sdk_source':provenance,'input_manifest_sha256':sha(INPUT),'original_fixture_hashes':expected,'cap':CAP,'cloud_calls':0,'purpose':'correctness only; no timing performance comparison','generations_counted_separately':4,'engine_evidence_directory':str(engine_out),'sdk_staged_file_hashes':sdk_hashes,'prior_failed_trial':'results-v1: absolute SDK reference rejected; 3 attempted/2 validated calls'})
+  def persist():dump(out/'workflow.json',{'calls':calls,'states':states,'freshness':freshness})
+  try:
+   with EngineLifecycle(engine_out,max_calls=CAP) as engine:
+@@ -155,9 +160,33 @@
+     return dict(row,stdout=stdout,stderr=stderr)
+    def generate(variant,label,added=False):
+     root=roots[variant];path=root/'dagger.toml';assert path.read_bytes()==full_config
+-    path.write_bytes(scoped_config(sdk_source if variant=='control'else str(SDK)))
+-    try:run(variant,label,['-y','generate','dagger-go-sdk/generate'],good,timeout=300)
+-    finally:path.write_bytes(full_config)
++    stage=root/'.sdk36-input';assert not stage.exists()
++    def snapshot():
++     value={}
++     for directory,dirs,files in os.walk(root):
++      dirs[:]=[name for name in dirs if name not in ('.git','.sdk36-input')]
++      for name in files:
++       f=Path(directory)/name;assert not f.is_symlink()
++       value[str(f.relative_to(root))]=sha(f)
++     return value
++    before=snapshot();success=False;diff=[]
++    try:
++     if variant=='candidate':
++      stage.mkdir()
++      for rel,digest in sdk_hashes.items():
++       target=stage/rel;target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(SDK/rel,target);assert sha(target)==digest
++     path.write_bytes(scoped_config(sdk_source if variant=='control'else'.sdk36-input'))
++     run(variant,label,['-y','generate','dagger-go-sdk/generate'],good,timeout=300)
++     success=True
++    finally:
++     path.write_bytes(full_config)
++     after=snapshot();diff=sorted(p for p in before.keys()|after.keys()if before.get(p)!=after.get(p))
++     sdk_unchanged=not stage.exists()or all(sha(stage/rel)==digest for rel,digest in sdk_hashes.items())
++     dump(out/(variant+'-'+label+'-writes.json'),{'changed_paths':diff,'ordinary_resolver_metadata_paths':[p for p in diff if p=='dagger.lock'],'staged_sdk_unchanged':sdk_unchanged,'generator_returned_success':success})
++     if stage.exists():shutil.rmtree(stage)
++    allowed={'dagger.lock'}|{str(BACKEND/p)for p in('dagger.gen.go','go.mod','go.sum','dagger-module.toml','dagger.json','.gitignore','.gitattributes')}
++    assert all(p in allowed or p.startswith(str(BACKEND/'internal')+'/')or p.startswith(str(BACKEND/'cmd/backend-dispatch')+'/')for p in diff),('generator touched non-SDK-owned output',diff)
++    assert sdk_unchanged,'generator modified its own staged SDK source'
+     states[variant+'-'+label]=assert_policy(root,variant,added);persist()
+    def api(variant,label,probe=False,added=False,observe=False):
+     doc=out/(variant+'-'+label+'.graphql');doc.write_text(api_document(probe,added))
+@@ -202,8 +231,9 @@
+  finally:
+   for root in roots.values():
+    (root/'dagger.toml').write_bytes(full_config);(root/'sdk36_fresh_test.go').unlink(missing_ok=True)
++   if(root/'.sdk36-input').exists():shutil.rmtree(root/'.sdk36-input')
+   untouched=all(sha(APP/path)==digest for path,digest in expected.items())
+-  dump(out/'restoration.json',{'original_fixture_untouched':untouched,'full_workspace_configs_restored':all((r/'dagger.toml').read_bytes()==full_config for r in roots.values()),'temporary_app_tests_removed':all(not(r/'sdk36_fresh_test.go').exists()for r in roots.values()),'trial_migration_and_added_api_retained_for_review':True,'attempted_calls':len(calls),'expected_calls':CAP,'cloud_calls':0})
++  dump(out/'restoration.json',{'original_fixture_untouched':untouched,'full_workspace_configs_restored':all((r/'dagger.toml').read_bytes()==full_config for r in roots.values()),'temporary_app_tests_removed':all(not(r/'sdk36_fresh_test.go').exists()for r in roots.values()),'staged_sdk_copies_removed':all(not(r/'.sdk36-input').exists()for r in roots.values()),'trial_migration_and_added_api_retained_for_review':True,'attempted_calls':len(calls),'expected_calls':CAP,'cloud_calls':0})
+   assert untouched
+  persist();print(json.dumps({'complete':True,'calls':len(calls),'generations':4,'freshness':freshness,'cloud_calls':0}))
+ if __name__=='__main__':main()

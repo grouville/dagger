@@ -1,0 +1,49 @@
+{
+  "go": {
+    "path": "/tmp/collections-perf/engine-allocation-round2/greetings/.dagger/modules/backend",
+    "prepared": true,
+    "command": [
+      "-m",
+      ".dagger/modules/backend",
+      "api",
+      "call",
+      "source",
+      "file",
+      "--path=main.go",
+      "contents"
+    ]
+  },
+  "typescript": {
+    "path": "/tmp/collections-perf/engine-allocation-round2/greetings/.dagger/modules/frontend",
+    "prepared": true,
+    "command": [
+      "-m",
+      ".dagger/modules/frontend",
+      "api",
+      "call",
+      "build",
+      "file",
+      "--path=index.html",
+      "contents"
+    ],
+    "note": "Actual runtime invocation, not static metadata listing."
+  },
+  "python": {
+    "retained_prepared_fixture": false,
+    "upstream_source": "/home/dagger/dag/core/integration/testdata/modules/python/constructor-default-factory",
+    "original_source_sha256": {
+      "dagger.json": "10ef3f9e310984f63fcb79055777ce9b9eb0f64a70f182c69517814c8b707a99",
+      "pyproject.toml": "426177c163b8a2525478344bfaee8bf94edd3ef6b34fbdb3eed983296bef4ff6",
+      "src/test/__init__.py": "cbd4c9665b6622eae8d5c59e58373b67bdd65e4201425914a80d42be0b2c121f"
+    },
+    "template_sha256": {
+      "dagger.toml": "68190c84e824165f58683cf3f8dbbc59187f2e3db9e4aa0cdbb7952201aba8e3",
+      "module/dagger.json": "06716902019e7752c4e076e8871af0f7c7a293f067825ee703f2528f8e2ec9a1",
+      "module/pyproject.toml": "426177c163b8a2525478344bfaee8bf94edd3ef6b34fbdb3eed983296bef4ff6",
+      "module/src/test/__init__.py": "cbd4c9665b6622eae8d5c59e58373b67bdd65e4201425914a80d42be0b2c121f"
+    },
+    "python_sdk_manifest_digest": "sha256:bbb0bfabed893b039e5e16381b62dc665fa18263dd7914f26c102fef0434354e",
+    "configuration_changes": "Fixed compatible engine version; disable default function caching so both arms invoke Python. Module body/pyproject copied unchanged.",
+    "setup_boundary": "First standard SDK preparation is inside the explicitly counted correctness call; it is not a warm-performance sample. No installation or module call has run during preparation."
+  }
+}

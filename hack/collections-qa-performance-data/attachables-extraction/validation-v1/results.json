@@ -1,0 +1,121 @@
+{
+  "manifest_sha256": "00994d7c1486499ec4c1b41652890ea723703dc295990a34482226261afb10e2",
+  "driver_sha256": "68e3964d39ceaaa93bf2206313e49b378847e8ec03fba5bc77461cd8f63c5c2c",
+  "source_head": "e6e723145e914680b9daea080046c55eb6ccc233",
+  "checkout_head": "a296dbdcfcb69b8198cca983d7788765dcb0f9bc",
+  "modfile_sha256": "fc4e7e317777881c9b293ab217ccf9e7c3e9d753a71d8af62e618b8ac1938502",
+  "modsum_sha256": "05b34feba139701de20620f80fbb5cb54d95e05c3ba33004e80f73d75aaa8bc8",
+  "environment": {
+    "GOMAXPROCS": "4",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "GOTOOLCHAIN": "local",
+    "GOENV": "off",
+    "GOFLAGS": "",
+    "CGO_ENABLED": "1",
+    "GOOS": "linux",
+    "GOARCH": "amd64",
+    "DO_NOT_TRACK": "1"
+  },
+  "engine_calls": 0,
+  "cloud_calls": 0,
+  "results": [
+    {
+      "name": "baseline-existing",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-count=1",
+        "-timeout=90s",
+        "-run",
+        "^Test(GlobHostPathCancellation|SearchHostPathNestedGitRepo|SearchWithRipgrepNoFilesSearched|FileStreamExportReplacesAtomically|ParentDirectoryMetadata.*|SessionAttachables.*)$",
+        "./engine/client"
+      ],
+      "exit_code": 0,
+      "seconds": 2.570282649016008,
+      "log_sha256": "1d60150265609974b3ea2d6e489dac793ec42907ef8874f1a8ceb3bdd0cb80ce"
+    },
+    {
+      "name": "normal-attachables",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-overlay=/tmp/collections-perf/attachables-extraction-v1/test-overlay.json",
+        "-count=1",
+        "-timeout=90s",
+        "-run",
+        "^Test(GlobHostPathCancellation|SearchHostPathNestedGitRepo|SearchWithRipgrepNoFilesSearched|FileStreamExportReplacesAtomically|ParentDirectoryMetadata.*|ExtractedSocketProvider.*)$",
+        "./engine/session/attachables"
+      ],
+      "exit_code": 0,
+      "seconds": 1.0159155270084739,
+      "log_sha256": "a5cfa2a879254a599aea1deccc2e17148afb31823955d60d39487e5f9872fa13"
+    },
+    {
+      "name": "normal-client",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-overlay=/tmp/collections-perf/attachables-extraction-v1/test-overlay.json",
+        "-count=1",
+        "-timeout=90s",
+        "-run",
+        "^Test(SessionAttachables.*|AttachablesPublicAliases)$",
+        "./engine/client"
+      ],
+      "exit_code": 0,
+      "seconds": 2.368985880166292,
+      "log_sha256": "ef3a1c00538a21cb023618cf891a6f80d32af48b91cbb5ae02364ef1002f68c5"
+    },
+    {
+      "name": "race-attachables",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-overlay=/tmp/collections-perf/attachables-extraction-v1/test-overlay.json",
+        "-race",
+        "-count=1",
+        "-timeout=90s",
+        "-run",
+        "^Test(GlobHostPathCancellation|SearchHostPathNestedGitRepo|SearchWithRipgrepNoFilesSearched|FileStreamExportReplacesAtomically|ParentDirectoryMetadata.*|ExtractedSocketProvider.*)$",
+        "./engine/session/attachables"
+      ],
+      "exit_code": 0,
+      "seconds": 2.4703805909957737,
+      "log_sha256": "566c126ab7a75b2485eb2d2fd78dea7d4b517a821c2851378a7fe138f8b18087"
+    },
+    {
+      "name": "race-client",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-overlay=/tmp/collections-perf/attachables-extraction-v1/test-overlay.json",
+        "-race",
+        "-count=1",
+        "-timeout=90s",
+        "-run",
+        "^Test(SessionAttachables.*|AttachablesPublicAliases)$",
+        "./engine/client"
+      ],
+      "exit_code": 0,
+      "seconds": 4.429211823036894,
+      "log_sha256": "afb9c3543e144ab3e7ba35bd21c244a52634b41c36838f7e03234fc039f65d4b"
+    }
+  ],
+  "empty_package_dir_removed": true,
+  "raw_input_sha256": "1e24eda1660d652203dac4b0e2edd6f15a09695eaf106ac7b68eb21f638bd05d",
+  "go_executable": {
+    "path": "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+    "sha256": "29e6e0b8be61beb1489ceae62b304343566de8a1dc700af74bde7aeb9c80ad45"
+  }
+}

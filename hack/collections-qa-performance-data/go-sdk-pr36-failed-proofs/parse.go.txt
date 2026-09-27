@@ -1,0 +1,3 @@
+package main
+import("encoding/json";"fmt";"os";"github.com/vektah/gqlparser/v2/ast";"github.com/vektah/gqlparser/v2/parser")
+func main(){b,e:=os.ReadFile(os.Args[1]);if e!=nil{panic(e)};var docs []string;if e=json.Unmarshal(b,&docs);e!=nil{panic(e)};for i,s:=range docs{q,e:=parser.ParseQuery(&ast.Source{Name:"sdk36-proof",Input:s});if e!=nil{panic(e)};if len(q.Operations)!=1{panic("operation count")};fmt.Printf("document %d parsed\n",i)}}

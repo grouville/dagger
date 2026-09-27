@@ -1,0 +1,30 @@
+{
+  "status": "Invalid metadata capture; no graph counts usable",
+  "cause": "Go metadata cache path was read-only; rerun used an owned /tmp cache",
+  "errors": {
+    "baseline": [
+      {
+        "import": "github.com/dagger/dagger/engine/client/drivers",
+        "error": {
+          "ImportStack": [
+            "github.com/dagger/dagger/cmd/init",
+            "github.com/dagger/dagger/engine/client"
+          ],
+          "Pos": "engine/client/buildkit.go:16:2",
+          "Err": "open /home/dagger/.cache/go-build/12/12139934ff6f78e14e323bc86f3481d7507076d6a6954e6efebe790a518c836f-a: read-only file system"
+        }
+      }
+    ],
+    "candidate": [
+      {
+        "import": "./cmd/init",
+        "error": {
+          "ImportStack": [],
+          "Pos": "",
+          "Err": "open /home/dagger/.cache/go-build/a9/a965d454839a2533d091f47d392ff60c840074060341ea4bf15d9b9a096b5307-d: read-only file system"
+        }
+      }
+    ]
+  },
+  "behavioral_test": false
+}

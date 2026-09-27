@@ -1,0 +1,19 @@
+# Attachables-only package extraction: concrete source proof
+
+The isolated overlay moves the existing attachables upgrade/server, filesync and socket implementation into `engine/session/attachables`. `cmd/init` imports that package; `engine/client` retains exported type aliases and forwarding constructors. No secret, Git, h2c, filesystem, socket or session authority behavior is intentionally changed. This is seven production overlay entries, mostly moves, rather than a second implementation.
+
+A bounded, offline `go list -deps` comparison confirms an acyclic helper graph: **1,228 packages before, 856 after** (373 removed, one added). It includes 65 removed containerd/v2 packages and 46 go-git packages. Provisioning drivers/image loaders, Buildkit's client, the public Go SDK, analytics, telemetry label enrichment and several unrelated session services leave this helper's graph. The CLI still imports its complete client and does not receive that entire dependency reduction.
+
+AWS, GCP, Vault, 1Password, Git's prompt/UI support, gRPC, filesystem protocols and trace propagation remain. `engine/client/pathutil` and secretprovider are separate subpackages; neither imports the parent client. The new package imports `engine` metadata/protocol definitions, not `engine/client`, so there is no reverse package cycle. `engine/client` imports the new package through its compatibility wrappers.
+
+The full source delta is in prototype.patch. Filesync and socket bodies are unchanged apart from their package declaration. The server/upgrade function bodies are moved unchanged. The old Filesyncer/FilesyncSource/FilesyncTarget/proxy and socket types become aliases; constructor and server signatures remain available from engine/client. Package-private filesync tests move with the implementation. Client lifecycle tests stay in engine/client and continue exercising its real initialization/shutdown through those wrappers.
+
+This preserves Go source-level use of exported constructors/types/methods, but reflection reports the new defining package for moved concrete types, and code inside the old package can no longer access their unexported fields. No production use of those private fields outside the moved files was found. Compilation and broader consumer tests are still required; go-list proves import resolution/cycle absence, not type correctness or binary compatibility.
+
+Static graph membership was also joined to the *earlier*, single heavy-helper inittrace: 140 records belong to packages removed by this graph change, totaling 3.825 ms reported initialization clock and 1,207,368 allocated bytes in that capture. These are not candidate measurements, binary-memory savings, or predicted CLI gains. No candidate binary has been built.
+
+The first metadata-list attempt was invalid because the ordinary Go metadata cache was read-only. It was preserved as setup failure. The successful second attempt used a private writable metadata cache, GOPROXY/GOSUMDB off, a pinned existing modfile and Go 1.26.6. It compiled no packages and ran no tests or Docker/engine commands. The first metadata-cache fill and second cached list elapsed times are not performance comparisons.
+
+Next gate, when scheduled: compile/test `engine/session/attachables` with the moved filesync/search/parent-metadata tests, then the existing client attachables lifetime tests and focused race tests. Add a public alias/constructor compatibility witness if the compiler exposes a gap. Preserve full HTTP upgrade, method advertisement, propagation, ACK, health and FD3 readiness behavior. Then build matched heavy helpers and repeat the benign unmatched-argv startup microbenchmark before deciding whether a real SDK matrix is warranted.
+
+This is a source-only follow-up, lower priority than the existing static SDK integration. It needs no new cache, process, SDK entrypoint or provider deletion. It is not enabled, committed, or a measured performance improvement.

@@ -1,0 +1,43 @@
+{
+  "scope": "Compilation of actual production CLI/engine consumers after exact extraction; no runtime or performance comparison",
+  "engine_calls": 0,
+  "cloud_calls": 0,
+  "results": [
+    {
+      "package": "./cmd/dagger",
+      "exit_code": 0,
+      "seconds": 4.773791984887794,
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "build",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-tags=dfexcludepatterns,dfparents",
+        "-ldflags=-s -w",
+        "-o",
+        "/tmp/collections-perf/attachables-production-compile/dagger",
+        "./cmd/dagger"
+      ],
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "binary_sha256": "1f8b84e2bbb4258ad2dc0c35df4af9695b62ba3f99cfe7a16f27d83c75719227"
+    },
+    {
+      "package": "./cmd/engine",
+      "exit_code": 0,
+      "seconds": 52.63595466897823,
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "build",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-tags=dfexcludepatterns,dfparents",
+        "-ldflags=-s -w",
+        "-o",
+        "/tmp/collections-perf/attachables-production-compile/dagger-engine",
+        "./cmd/engine"
+      ],
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "binary_sha256": "c374cdf519efeaa82b64959d8e389a4ea7c7ec383e8b2b873f43b0c3eadc0765"
+    }
+  ]
+}

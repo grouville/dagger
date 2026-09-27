@@ -1,0 +1,56 @@
+{
+  "source_head": "e6e723145e914680b9daea080046c55eb6ccc233",
+  "checkout_head": "a296dbdcfcb69b8198cca983d7788765dcb0f9bc",
+  "manifest_sha256": "00994d7c1486499ec4c1b41652890ea723703dc295990a34482226261afb10e2",
+  "modfile": "/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+  "modfile_sha256": "fc4e7e317777881c9b293ab217ccf9e7c3e9d753a71d8af62e618b8ac1938502",
+  "modsum_sha256": "05b34feba139701de20620f80fbb5cb54d95e05c3ba33004e80f73d75aaa8bc8",
+  "source_overlay_sha256": "383ff687e803ff67e4a54ac6d5c112e5bc6a4747b5ef974e6a2f0798da7b2336",
+  "commands": {
+    "baseline": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "build",
+      "-mod=readonly",
+      "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+      "-buildvcs=true",
+      "-tags=dfexcludepatterns,dfparents",
+      "-ldflags=-s -w",
+      "-o",
+      "/tmp/collections-perf/attachables-extraction-v1/build-results-v1/dagger-init-baseline",
+      "./cmd/init"
+    ],
+    "candidate": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "build",
+      "-mod=readonly",
+      "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+      "-buildvcs=true",
+      "-overlay=/tmp/collections-perf/attachables-extraction-v1/source-overlay.json",
+      "-tags=dfexcludepatterns,dfparents",
+      "-ldflags=-s -w",
+      "-o",
+      "/tmp/collections-perf/attachables-extraction-v1/build-results-v1/dagger-init-candidate",
+      "./cmd/init"
+    ]
+  },
+  "environment": {
+    "GOMAXPROCS": "4",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "GOTOOLCHAIN": "local",
+    "GOENV": "off",
+    "GOFLAGS": "",
+    "CGO_ENABLED": "0",
+    "GOOS": "linux",
+    "GOARCH": "amd64",
+    "GOAMD64": "v1"
+  },
+  "scope": "matched original heavy helpers; no split-init alias/light binary or engine combination",
+  "engine_calls": 0,
+  "cloud_calls": 0,
+  "raw_input_sha256": "d6a78ffcfffc7e5a95d762b95ffa5bf4b01dbb05078941f25690e319647d3254",
+  "go_executable": {
+    "path": "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+    "sha256": "29e6e0b8be61beb1489ceae62b304343566de8a1dc700af74bde7aeb9c80ad45"
+  }
+}

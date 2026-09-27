@@ -1,0 +1,48 @@
+{
+  "recipe_sha256": "d6a78ffcfffc7e5a95d762b95ffa5bf4b01dbb05078941f25690e319647d3254",
+  "builds": {
+    "baseline": {
+      "path": "/tmp/collections-perf/attachables-extraction-v1/build-results-v1/dagger-init-baseline",
+      "sha256": "4154bc4cecbce2c52e0218a3504096aa7449234d81dcd7b6887ce0a276e302b5",
+      "bytes": 47976610,
+      "exit_code": 0,
+      "seconds": 2.3470960732083768,
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "build",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-buildvcs=true",
+        "-tags=dfexcludepatterns,dfparents",
+        "-ldflags=-s -w",
+        "-o",
+        "/tmp/collections-perf/attachables-extraction-v1/build-results-v1/dagger-init-baseline",
+        "./cmd/init"
+      ],
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "candidate": {
+      "path": "/tmp/collections-perf/attachables-extraction-v1/build-results-v1/dagger-init-candidate",
+      "sha256": "62d5d0ea1254e1cba0aa58449162dba2bc7d00327544a556b2c2f54d32641b1f",
+      "bytes": 41681058,
+      "exit_code": 0,
+      "seconds": 1.5214743071701378,
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "build",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-buildvcs=true",
+        "-overlay=/tmp/collections-perf/attachables-extraction-v1/source-overlay.json",
+        "-tags=dfexcludepatterns,dfparents",
+        "-ldflags=-s -w",
+        "-o",
+        "/tmp/collections-perf/attachables-extraction-v1/build-results-v1/dagger-init-candidate",
+        "./cmd/init"
+      ],
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "engine_calls": 0,
+  "cloud_calls": 0
+}

@@ -4,6 +4,13 @@ Start with the [current findings and priorities](collections-performance-current
 for the measured improvements, held experiments and remaining 500 ms gap. The
 entries below retain the history and the cache/Cloud boundary of each round.
 
+The latest generic source change, `fef89b56e0`, separates nested-session providers
+from engine provisioning. The helper starts in **9.114 → 6.357 ms** in twelve
+matched host-process pairs and loses **6.3 MB**. Normal/race gates, full CLI/engine
+builds and ten actual Go/TypeScript/Python/check/exec calls pass. This is an
+upstream candidate with a measured process-startup gain, not a new whole-command
+timing. See the [current findings](collections-performance-current.md).
+
 **Latest transport isolation:** keeping Docker admission and changing only the
 [container connector](collections-local-transport-performance.md) gives
 `ws ls` **163 → 74 ms**, distinct native source edit → check **282 → 182 ms**,

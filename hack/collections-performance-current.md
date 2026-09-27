@@ -14,6 +14,7 @@ the branch without its experimental artifacts.
 | Read ancestor metadata directly, without listing siblings | Expanded checks 1.468 → 1.373 s, five observations per arm under a wide ancestor directory; a lower-width control is flat | Engine/CLI commit `0d1c32e29f`, pushed to the performance branch |
 | Keep pure Go-module path normalization inside its private helper | Earlier eight-pair warm listing comparison: 2.630 → 2.546 s; discovery and lookup correctness checks pass | Go module commit `93d0f1b5288`, pushed to `grouville/go:perf/discovery-path-normalization` |
 | Skip Docker start when the existing inspection reports exactly `running` | Native generation 293 → 280 ms; core wall medians flat at 244 ms; paired process-tree CPU reduced 13–18 ms | CLI commit `e6e723145e`; 32/32 local outcomes correct |
+| Separate serving nested-session files/sockets from engine provisioning | Heavy helper startup 9.114 → 6.357 ms over twelve pairs; binary shrinks by 6.3 MB; no whole-command speedup established | Commit `fef89b56e0`; normal/race gates, full CLI/engine builds and ten real SDK/check/exec outcomes pass |
 | Replace Docker exec connections with a local Unix connector, retaining Docker admission | `ws ls` 163 → 74 ms; distinct native source edit → check 282 → 182 ms; distinct input edit → generation/full exit 371 → 249 ms | Isolated prototype; automatic endpoint provisioning and platform/access compatibility remain to implement |
 
 The [filesystem report](collections-filesync-performance.md) includes cold,
@@ -101,6 +102,39 @@ keeps static SDK entrypoints in the existing upstream work and preserves dynamic
 input and client-tree invalidation. Remote cache may avoid cached producer work;
 it does not by itself eliminate local process startup, session admission or Cloud
 completion. That distinction needs measurement on the eventual combined stack.
+
+The existing Go SDK #36 JSON-contract adapter now passes its
+[focused template and contract gates](collections-qa-performance-data/go-sdk-pr36-validation/report.md),
+including race checks and both the upstream and engine's Dang versions. This is
+not a completed engine migration or a performance comparison. Two
+[real-fixture attempts](collections-qa-performance-data/go-sdk-pr36-failed-proofs/failed-proofs-report.md)
+each stop after three calls: control generation and JSON/core-object dispatch
+pass, then candidate generation fails. The first failure was an absolute SDK
+reference in the harness; the corrected relative reference reaches the current
+engine's SDK contract and exposes missing `findClientRoot` and `generateScope`
+hooks. Both trials restore all resources and send no Cloud requests. A scoped
+compatibility adapter is being checked before another runtime attempt.
+
+The real-fixture
+migration must be backend-only: the v2 manifest cannot replace the existing
+dependency-bearing greetings module transparently. Preserve its session cache
+policy through generated metadata, and compare both loaders' API changes before
+and after generation. Live application-test discovery remains a separate gate.
+
+A separate, committed startup change separates serving an existing session's
+files and sockets from provisioning an engine. The
+[attachables package extraction](collections-qa-performance-data/attachables-extraction/result-report.md)
+removes 373 transitive packages from the nested helper and preserves the old
+client's exported aliases. Five focused normal/race gates and both helper builds
+pass. Twelve paired host-process starts measure 9.114 → 6.357 ms; the helper
+shrinks by 6,295,552 bytes. This uses the original combined PID1/helper, without
+the split-init prototype. The subsequent
+[ten real SDK/session gates](collections-qa-performance-data/attachables-extraction-runtime/report.md)
+pass Go, TypeScript, Python, changed-check and uncached-exec behavior. Full CLI
+and engine consumer builds also pass. The extraction is committed as
+`fef89b56e0`; the new Unix socket witness is restricted to Unix. It is not a
+measured whole-command or cold-start gain. Reflected concrete Go type package
+paths change even though ordinary source API use is preserved.
 
 The latest fresh-volume filesystem pair is 24.938 → 24.568 s: insufficient to
 establish a cold gain or explain earlier 27–45 s variability. Host image caches,

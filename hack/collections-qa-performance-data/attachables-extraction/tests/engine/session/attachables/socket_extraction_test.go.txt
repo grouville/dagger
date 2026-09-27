@@ -1,0 +1,95 @@
+package attachables
+
+import (
+	"context"
+	"io"
+	"net"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/dagger/dagger/engine"
+	"github.com/dagger/dagger/internal/buildkit/session/sshforward"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
+)
+
+func TestExtractedSocketProviderPolicy(t *testing.T) {
+	p := SocketProvider{}
+	_, err := p.CheckAgent(t.Context(), &sshforward.CheckAgentRequest{ID: "tcp://127.0.0.1:1"})
+	require.Equal(t, codes.PermissionDenied, status.Code(err))
+	p.EnableHostNetworkAccess = true
+	for _, id := range []string{"", "https://example.invalid"} {
+		_, err = p.CheckAgent(t.Context(), &sshforward.CheckAgentRequest{ID: id})
+		require.Equal(t, codes.InvalidArgument, status.Code(err))
+	}
+	path := filepath.Join(t.TempDir(), "ordinary-file")
+	require.NoError(t, os.WriteFile(path, []byte("data"), 0600))
+	_, err = p.CheckAgent(t.Context(), &sshforward.CheckAgentRequest{ID: "unix://" + path})
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
+}
+
+type extractionSocketStream struct {
+	grpc.ServerStream
+	ctx      context.Context
+	pending  []byte
+	received []byte
+}
+
+func (s *extractionSocketStream) Context() context.Context { return s.ctx }
+func (s *extractionSocketStream) RecvMsg(v any) error {
+	if s.pending == nil {
+		return io.EOF
+	}
+	v.(*sshforward.BytesMessage).Data = s.pending
+	s.pending = nil
+	return nil
+}
+func (s *extractionSocketStream) SendMsg(v any) error {
+	s.received = append(s.received, v.(*sshforward.BytesMessage).Data...)
+	return nil
+}
+func (s *extractionSocketStream) Recv() (*sshforward.BytesMessage, error) {
+	v := new(sshforward.BytesMessage)
+	err := s.RecvMsg(v)
+	return v, err
+}
+func (s *extractionSocketStream) Send(v *sshforward.BytesMessage) error { return s.SendMsg(v) }
+
+func TestExtractedSocketProviderHalfClose(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "socket")
+	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
+	require.NoError(t, err)
+	require.NoError(t, listener.SetDeadline(time.Now().Add(5*time.Second)))
+	done := make(chan error, 1)
+	go func() {
+		conn, err := listener.AcceptUnix()
+		if err != nil {
+			done <- err
+			return
+		}
+		defer conn.Close()
+		if err = conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
+			done <- err
+			return
+		}
+		data, err := io.ReadAll(conn)
+		if err == nil {
+			_, err = conn.Write(append([]byte("after-eof:"), data...))
+		}
+		done <- err
+	}()
+	// Install cleanup before any assertion that could leave the accept/read goroutine alive.
+	t.Cleanup(func() { listener.Close(); require.NoError(t, <-done) })
+	provider := SocketProvider{EnableHostNetworkAccess: true}
+	_, err = provider.CheckAgent(t.Context(), &sshforward.CheckAgentRequest{ID: "unix://" + path})
+	require.NoError(t, err)
+	ctx := metadata.NewIncomingContext(t.Context(), metadata.Pairs(engine.SocketURLEncodedKey, "unix://"+path))
+	stream := &extractionSocketStream{ctx: ctx, pending: []byte("request")}
+	require.NoError(t, provider.ForwardAgent(stream))
+	require.Equal(t, "after-eof:request", string(stream.received))
+}

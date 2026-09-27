@@ -1,0 +1,167 @@
+--- split-init-runtime-v1/runtime.py@53c482
++++ attachables-extraction-runtime-v1/runtime.py
+@@ -1,24 +1,25 @@
+-"""Prepared split-init LOCAL-only staged comparison:10 smoke +36 ABBA calls.
++"""Prepared attachables extraction LOCAL correctness only:10 calls, no profiles.
+ 
+-No execution by default. Smoke includes explicitly accounted first Python SDK setup.
+-Both helper binaries are identically installed in both arms. Shared sources untouched.
++The same ordinary ec6 engine serves both arms; only the original-style heavy
++/.init binary changes. No light PID1 or separate helper mount is introduced.
++Prior nested SDK flow/golden/ownership scaffold retained; no latency claim.
+ """
+ from pathlib import Path
+-import argparse, hashlib, importlib.util, json, os, re, resource, shutil, signal, subprocess, sys, threading, time, uuid, socket, stat, csv, io
++import argparse, hashlib, importlib.util, json, os, re, resource, shutil, signal, subprocess, sys, threading, time, uuid, socket, stat, csv, io, tomllib
+ from urllib.parse import urlencode
+ HERE=Path(__file__).resolve().parent;LAB=Path('/tmp/collections-perf/engine-allocation-round2')
+ sys.path.insert(0,str(LAB));import experiment as x
+ spec=importlib.util.spec_from_file_location('navigation',LAB/'navigation-generate.py');nav=importlib.util.module_from_spec(spec);spec.loader.exec_module(nav)
+-ORIGINAL_OWNER='collections-lazy-core-runtime-v1';OWNER='collections-split-init-v1'
++ORIGINAL_OWNER='collections-lazy-core-runtime-v1';OWNER='collections-attachables-extraction-v1'
+ ORIGINAL='56f2eaccf6bf2f3151fb4c08205e1ad33fa7730ad5dee32577e867b527fc4b12'
+-PARENT_ENGINE='2c005dfc7f2d7ad65ec0ed0f28c27aad1af1ea47a26602cc0ad7740c11acf62f'
++PARENT_ENGINE='ec6a2d88ca54b1c12fc81c7381538e23d100fece04d703daac0b17dcf3d3ebc1'
+ IMAGE='sha256:b00e366e582ab98f0e4a7907163f338b6be3bfa13b10f3ad6bac3d699cd25a07'
+ CLI=Path('/tmp/collections-perf/shared-client-transport-v1/prototype-v2/builds/dagger-original')
+ PARENT_CLI_SHA='d68580985d5eaa2350e7c4ec369d30ddfbb830ad8ea687d94228255b86ae76b8'
+-MANIFEST=Path('/tmp/collections-perf/split-init-prototype-v1/build-results-v1/runtime-builds.json')
++MANIFEST=Path('/tmp/collections-perf/attachables-extraction-v1/build-results-v1/runtime-builds.json')
+ FROZEN_MANIFEST=HERE/'frozen-runtime-manifest.json'
+ FROZEN_INPUTS=HERE/'frozen-inputs.json'
+-CAPS={"smoke":10,"measure":36};MIN_FREE=16*1024**3;MAX_WRITE=8*1024**3
++CAPS={"smoke":10};MIN_FREE=16*1024**3;MAX_WRITE=8*1024**3
+ FLOWS={
+  'core':['-m','core','api','call','version'],
+  'go-read':['-m','.dagger/modules/backend','api','call','source','file','--path=main.go','contents'],
+@@ -41,26 +42,24 @@
+  p=argparse.ArgumentParser(description=__doc__);p.add_argument('--run',action='store_true');p.add_argument('--stage',choices=tuple(CAPS));p.add_argument('--output',default='results-v1');a=p.parse_args()
+  assert re.fullmatch(r'results-v[0-9]+',a.output)
+  if not a.run:
+-  print(json.dumps({'execute':False,'local_commands_cap':46,'stage_caps':CAPS,'cloud_commands':0,'smoke':'Go, TypeScript, Python, real selected Go check, unique ordinary exec per arm; all separately profiled correctness calls','measure':'4 ABBA blocks ×8 calls +4 separate primer/profile calls','python_setup':'Explicit first SDK preparation counted in smoke; no cold-performance claim','manifest_required':str(FROZEN_MANIFEST)}));return
++  print(json.dumps({'execute':False,'local_commands_cap':10,'cloud_commands':0,'profile_commands':0,'scope':'Go/TypeScript/Python actual nested reads, fresh selected Go check and unique ordinary exec per arm; correctness only','engine_sha256':PARENT_ENGINE,'only_variant':'heavy init binary; no split PID1','manifest_required':str(FROZEN_MANIFEST)}));return
+  assert a.stage is not None;CAP=CAPS[a.stage]
+ 
+  os.umask(0o077);stage_root=HERE/a.stage;stage_root.mkdir(exist_ok=True);out=stage_root/a.output;assert not out.exists()
+  manifest=json.loads(FROZEN_MANIFEST.read_text());assert manifest==json.loads(MANIFEST.read_text())
+- recipe=json.loads(Path(manifest['recipe_path']).read_text());assert x.sha(manifest['recipe_path'])==manifest['recipe_sha256']
+- engines={v:manifest['builds']['engine-'+v]for v in ('baseline','candidate')}
+- helpers={'/usr/local/bin/dagger-init':manifest['builds']['dagger-init-common'],'/usr/local/bin/dagger-init-lite':manifest['builds']['dagger-init-lite']}
+- for artifact in [*engines.values(),*helpers.values()]:assert artifact['exit_code']==0 and x.sha(artifact['path'])==artifact['sha256']
++ recipe_path=Path('/tmp/collections-perf/attachables-extraction-v1/build-recipe.json')
++ recipe=json.loads(recipe_path.read_text());assert x.sha(recipe_path)==manifest['recipe_sha256']
++ engine={'path':'/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine-diagnostic','sha256':PARENT_ENGINE,'exit_code':0}
++ engines={v:engine for v in ('baseline','candidate')}
++ helpers=manifest['builds'];assert set(helpers)=={'baseline','candidate'}
++ for artifact in [engine,*helpers.values()]:assert artifact['exit_code']==0 and x.sha(artifact['path'])==artifact['sha256']
+  assert x.sha(CLI)==PARENT_CLI_SHA
+  inputs=json.loads(FROZEN_INPUTS.read_text());assert inputs['cli_sha256']==PARENT_CLI_SHA
+- expected_version=recipe['expected_core_version'].encode();assert expected_version==b'v1.0.0-beta.15+0d1c32e2.dirty'
++ expected_version=inputs['expected_core_version'].encode();assert expected_version==b'v1.0.0-beta.15+0d1c32e2.dirty'
+  for path,want in inputs['sdk_blobs'].items():assert x.sha(path)==want
+- assert manifest['source_head']=='0d1c32e29f2f31cdb95f0b5f17f7daed7305bc87'
++ assert recipe['source_head']=='e6e723145e914680b9daea080046c55eb6ccc233'
+  inventory=json.loads((HERE/'fixture-inventory.json').read_text());python_pin=inventory['python']['python_sdk_manifest_digest']
+  for name,want in inventory['python']['template_sha256'].items():assert x.sha(HERE/'python-template'/name)==want
+- if a.stage=='measure':
+-  prior=HERE/'smoke/results-v1';smoke=json.loads((prior/'restoration.json').read_text());assert smoke['validated_commands']==10 and smoke['local_attempts']==10 and smoke['fixtures_restored']and smoke['original_engine_binary_untouched']and smoke['original_init_binary_untouched']and smoke['temporary_container_removed']and smoke['original_engine_stopped']
+-  assert json.loads((prior/'provenance.json').read_text())['frozen_runtime_manifest_sha256']==x.sha(FROZEN_MANIFEST)
+-  gate=json.loads((prior/'process-gate.json').read_text());assert gate['all_profiles_complete']and gate['all_smoke_commands_dispatched_processes']
+  original=json.loads((LAB/'lazy-core-runtime-v1/engines.json').read_text())['lazy'];assert original['sha256']==ORIGINAL;x.OWNER=ORIGINAL_OWNER
+  info=x.owned(original);assert not info['State']['Running']
+  mounts=[m for m in info['Mounts']if m['Destination']=='/var/lib/dagger'];assert len(mounts)==1 and mounts[0]['Type']=='volume' and mounts[0]['Name']==original['name']
+@@ -72,6 +71,10 @@
+   assert not any(token in key.upper()for token in ('CLOUD','TOKEN','SECRET','OTEL_EXPORTER','REMOTE_CACHE')),'image has an unexpected external integration variable'
+  app=LAB/'greetings';native=LAB/'native';core=Path('/tmp/collections-perf/sdk-edit-audit/core-typeref-intern-v1/first-consumer-local-v1/workspace')
+  roots={'app':app,'native':native,'core':core};initial={k:x.fixture_hashes(v)for k,v in roots.items()};assert initial['app']==json.loads((LAB/'withfile-v1/prepared.json').read_text())['input_sha256']
++ for module in ('backend','frontend'):
++  cfg=tomllib.loads((app/'.dagger/modules'/module/'dagger-module.toml').read_text())
++  assert cfg['disableDefaultFunctionCaching'] is True
++ assert json.loads((HERE/'python-template/module/dagger.json').read_text())['disableDefaultFunctionCaching'] is True
+  originals={native/n:(native/n).read_bytes()if(native/n).exists()else None for n in ('input.txt','generated.txt','exported.txt','module/main.dang')};originals[app/'main.go']=(app/'main.go').read_bytes();originals[app/'main_test.go']=(app/'main_test.go').read_bytes();assert originals[native/'input.txt'] is not None
+  expected={k:dict(v)for k,v in initial.items()};expected_checks=Path('/home/dagger/dag/hack/collections-qa-performance-data/expected-checks.txt').read_bytes();assert len(expected_checks.splitlines())==14
+  out.mkdir();(out/'empty-config').mkdir();
+@@ -82,9 +85,9 @@
+  env={k:os.environ[k]for k in ('PATH','HOME','USER','LOGNAME','TMPDIR')if k in os.environ};env.update(XDG_CONFIG_HOME=str(out/'empty-config'),DO_NOT_TRACK='1',DAGGER_NO_UPDATE_CHECK='1',GIT_TERMINAL_PROMPT='0')
+  assert not any(k in env for k in ('DAGGER_CLOUD_TOKEN','DAGGER_CLOUD_URL','OTEL_EXPORTER_OTLP_ENDPOINT','HTTP_PROXY','HTTPS_PROXY'))
+  rows=[];attempts=[];starts=[];goldens={};written=0;item=None;original_init_sha=None;nonce=uuid.uuid4().hex
+- name='dagger-engine.collections-split-init-'+nonce[:12]
++ name='dagger-engine.collections-attachables-' +nonce[:12]
+  selector='container+docker://'+name
+- x.write(out/'provenance.json',{'frozen_runtime_manifest_sha256':x.sha(FROZEN_MANIFEST),'runtime_manifest':manifest,'frozen_inputs_sha256':x.sha(FROZEN_INPUTS),'driver_sha256':x.sha(__file__),'cli':{'path':str(CLI),'sha256':PARENT_CLI_SHA},'helpers_both_arms':helpers,'fixture_inventory_sha256':x.sha(HERE/'fixture-inventory.json'),'fixtures_before':initial,'flows':FLOWS,'stage':a.stage,'commands_cap':CAP,'cloud_commands':0,'owner':OWNER,'original_engine':original,'retained_volume_identity':{k:volume[k]for k in ('Name','CreatedAt','Driver','Labels')},'selector':selector,'cache_boundary':'Both common heavy and lite helpers installed identically in both arms. Engines differ only split PID1/helper dispatch and mounts. Smoke is correctness/setup, not timed comparison; first Python SDK setup is visible and counted. Measurement uses fully primed ABBA engine blocks on the retained volume. Each app-comment and generator input has never-seen bytes.','timing':'Blocking waitpid; snapshots/setup outside CLI. Original CLI d685 and container driver in both arms. Profiles excluded from ordinary medians.','scope':'No Cloud/fresh-volume cold/service-up claim. Actual SDK runtime reads, changed selected-test body and unique ordinary exec are explicit smoke gates. Native generation is not SDK code generation.','limits':{'min_free_bytes':MIN_FREE,'max_measured_command_engine_written_bytes':MAX_WRITE,'write_counter_scope':'CLI-bracketing engine I/O only; excludes startup/gaps.'}})
++ x.write(out/'provenance.json',{'frozen_runtime_manifest_sha256':x.sha(FROZEN_MANIFEST),'runtime_manifest':manifest,'frozen_inputs_sha256':x.sha(FROZEN_INPUTS),'driver_sha256':x.sha(__file__),'cli':{'path':str(CLI),'sha256':PARENT_CLI_SHA},'helper_variants':helpers,'fixture_inventory_sha256':x.sha(HERE/'fixture-inventory.json'),'fixtures_before':initial,'flows':FLOWS,'stage':a.stage,'commands_cap':CAP,'cloud_commands':0,'owner':OWNER,'original_engine':original,'retained_volume_identity':{k:volume[k]for k in ('Name','CreatedAt','Driver','Labels')},'selector':selector,'cache_boundary':'Same ordinary engine and retained volume in both arms; only original-style heavy init is replaced. No split PID1. Go/TS/Python modules disable default function caching, selected Go test and ordinary exec use fresh input. Correctness/setup only, including first Python setup if any; no timing claim.','timing':'Blocking waitpid; snapshots/setup outside CLI. Original CLI d685 and container driver in both arms. Profiles excluded from ordinary medians.','scope':'No Cloud/profile/cold/performance claim; ten actual SDK/check/exec correctness calls only.','limits':{'min_free_bytes':MIN_FREE,'max_measured_command_engine_written_bytes':MAX_WRITE,'write_counter_scope':'CLI-bracketing engine I/O only; excludes startup/gaps.'}})
+  def put(root_name,name,data):
+   path=roots[root_name]/name
+   if data is None:path.unlink(missing_ok=True);expected[root_name].pop(name,None)
+@@ -121,10 +124,11 @@
+   elif x.owned(item)['State']['Running']:x.capture(['docker','stop','--timeout','30',item['name']])
+   assert not x.owned(item)['State']['Running'];guard()
+   x.capture(['docker','cp',engine['path'],name+':/usr/local/bin/dagger-engine']);item['sha256']=engine['sha256']
+-  for destination,helper in helpers.items():x.capture(['docker','cp',helper['path'],name+':'+destination])
++  helper=helpers[variant]
++  x.capture(['docker','cp',helper['path'],name+':/usr/local/bin/dagger-init'])
+   seconds=x.start(item)
+   assert x.capture(['docker','exec',name,'sha256sum','/usr/local/bin/dagger-engine']).split()[0]==engine['sha256']
+-  for destination,helper in helpers.items():assert x.capture(['docker','exec',name,'sha256sum',destination]).split()[0]==helper['sha256']
++  assert x.capture(['docker','exec',name,'sha256sum','/usr/local/bin/dagger-init']).split()[0]==helper['sha256']
+   starts.append({'variant':variant,'block':block,'engine_sha256':item['sha256'],'engine_startup_seconds_excluded':seconds});x.write(out/'starts.json',starts);guard()
+  def run(variant,flow,phase,block,profile=False,fail=False):
+   nonlocal written
+@@ -132,8 +136,8 @@
+   contents=originals[native/'input.txt']
+   if flow=='greetings-check':
+    needle=b'func TestFormatResponse(t *testing.T) {';assert originals[app/'main_test.go'].count(needle)==1
+-   marker=f'split-init-selected-{nonce}-{variant[0]}';put('app','main_test.go',originals[app/'main_test.go'].replace(needle,needle+b'\n\tt.Log('+json.dumps(marker).encode()+b')'))
+-  if flow=='ordinary-exec':contents=f'split-init-exec-{nonce}-{variant[0]}-{len(attempts)}'.encode()
++   marker=f'attachables-selected-{nonce}-{variant[0]}';put('app','main_test.go',originals[app/'main_test.go'].replace(needle,needle+b'\n\tt.Log('+json.dumps(marker).encode()+b')'))
++  if flow=='ordinary-exec':contents=f'attachables-exec-{nonce}-{variant[0]}-{len(attempts)}'.encode()
+   if phase=='fresh-edit':
+    marker=f'split-init-{nonce}-{block:02d}-{variant[0]}-{len(attempts):02d}-{flow:16}\n'.encode()
+    if flow=='checks':put('app','main.go',originals[app/'main.go']+b'\n// '+marker)
+@@ -152,12 +156,9 @@
+   cwd=python_ws if flow=='python-read'else core if flow=='core'else app if flow in ('ws','artifacts','checks','generators','greetings-check','go-read','ts-read')else native
+   exec_tail=[]
+   if flow=='ordinary-exec':
+-   init_hash=helpers['/usr/local/bin/dagger-init'if variant=='baseline'else'/usr/local/bin/dagger-init-lite']['sha256']
+-   shell='set -eu; test -x /.init; test "$(sha256sum /.init | cut -d " " -f1)" = "$2"; '
+-   if variant=='candidate':shell+='test -x /.dagger-session; test "$(sha256sum /.dagger-session | cut -d " " -f1)" = "$3"; '
+-   else:shell+='test ! -e /.dagger-session; '
+-   shell+='printf %s "$1"'
+-   logical_args=['sh','-c',shell,'split-init-smoke',contents.decode(),init_hash,helpers['/usr/local/bin/dagger-init']['sha256']]
++   init_hash=helpers[variant]['sha256']
++   shell='set -eu; test -x /.init; test "$(sha256sum /.init | cut -d " " -f1)" = "$2"; test ! -e /.dagger-session; printf %s "$1"'
++   logical_args=['sh','-c',shell,'attachables-smoke',contents.decode(),init_hash]
+    encoded=io.StringIO();csv.writer(encoded,lineterminator='').writerow(logical_args);csv_args=encoded.getvalue()
+    assert next(csv.reader([csv_args]))==logical_args
+    exec_tail=['--args='+csv_args,'stdout']
+@@ -213,25 +214,11 @@
+  try:
+   guard();verification=out/'original-engine-before.private';x.capture(['docker','cp',original['name']+':/usr/local/bin/dagger-engine',str(verification)]);assert x.sha(verification)==ORIGINAL
+   original_init=out/'original-init-before.private';x.capture(['docker','cp',original['name']+':/usr/local/bin/dagger-init',str(original_init)]);original_init_sha=x.sha(original_init)
+-  if a.stage=='smoke':
+-   for block,variant in enumerate(('baseline','candidate')):
+-    install_engine(variant,block)
+-    for flow in ('go-read','ts-read','ordinary-exec','greetings-check','python-read'):run(variant,flow,'sdk-correctness-and-setup',block,profile=True)
+-   counts=[]
+-   for record in sorted(out.glob('*/run.wcprof.private')):
+-    with record.open()as f:header=json.loads(next(f));operations=[json.loads(line)for line in f if line.strip()]
+-    count=sum(o.get('e')=='op'and header['strings'][o.get('c',0)]=='exec.processRun'for o in operations)
+-    counts.append({'profile_sha256':x.sha(record),'process_runs':count,'open':len(header.get('open_ops',[])),'dropped':header['dropped_events']})
+-   gate={'profiles':counts,'all_profiles_complete':len(counts)==10 and all(x['open']==x['dropped']==0 for x in counts),'all_smoke_commands_dispatched_processes':len(counts)==10 and all(x['process_runs']>0 for x in counts)};x.write(out/'process-gate.json',gate)
+-   assert gate['all_profiles_complete']and gate['all_smoke_commands_dispatched_processes'],'inspect failed/empty runtime-dispatch gate before timing'
+-  else:
+-   for block,variant in enumerate(('baseline','candidate','candidate','baseline')):
+-    install_engine(variant,block)
+-    for flow in ('checks','artifacts'):run(variant,flow,'block-primer',block)
+-    for sample in range(3):run(variant,'checks','warm',block)
+-    run(variant,'artifacts','warm',block);run(variant,'checks','fresh-edit',block);run(variant,'generate','fresh-edit',block)
+-   for block,variant in enumerate(('baseline','candidate'),start=4):
+-    install_engine(variant,block);run(variant,'checks','diagnostic-primer',block);run(variant,'checks','diagnostic',block,profile=True)
++  for block,variant in enumerate(('baseline','candidate')):
++   install_engine(variant,block)
++   for flow in ('go-read','ts-read','ordinary-exec','greetings-check','python-read'):
++    run(variant,flow,'sdk-correctness-and-setup',block,profile=False)
++  x.write(out/'dispatch-policy.json',{'profiles':0,'go_typescript_python_default_function_caching_disabled':True,'selected_test_unique_body_per_variant':True,'ordinary_exec_unique_argv_per_variant':True,'ordinary_exec_verified_mounted_init_sha256':True,'extra_helper_mount_absent':True,'scope':'Operational correctness gate, not process-count or performance measurement'})
+ 
+  finally:
+   cleanup_error=None;restored=False;volume_retained=False;temporary_removed=False;original_stopped=False;init_untouched=False
