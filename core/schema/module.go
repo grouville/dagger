@@ -267,6 +267,9 @@ func (s *moduleSchema) Install(dag *dagql.Server) {
 		dagql.FuncWithDynamicInputs("currentModule", s.currentModule, s.currentModuleCacheKey).
 			Doc(`The module currently being served in the session, if any.`),
 
+		dagql.Func("__currentTypeDefsJSON", s.currentTypeDefsJSON).View(AllVersion).
+			WithInput(dagql.CurrentSchemaInput),
+
 		dagql.Func("currentTypeDefs", s.currentTypeDefs).
 			WithInput(dagql.CurrentSchemaInput).
 			Args(

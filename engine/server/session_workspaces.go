@@ -1619,7 +1619,7 @@ func filterPendingWorkspaceModulesForRootFields(mods []pendingModule, served map
 
 // filterPendingWorkspaceModulesForScopedRootFields applies the client-declared
 // workspace module scope on top of the root-field demand: when the request's
-// only full-schema demand is currentTypeDefs, the scope replaces its
+// only full-schema demand is a currentTypeDefs projection, the scope replaces its
 // load-everything contribution with the scoped module set. Any other
 // full-schema field keeps loading everything, scope untouched. The second
 // result reports whether the scope was applied, so the caller can consume it.
@@ -1631,7 +1631,7 @@ func filterPendingWorkspaceModulesForScopedRootFields(mods []pendingModule, serv
 	hasCurrentTypeDefs := false
 	remaining := make([]string, 0, len(rootFields))
 	for _, field := range rootFields {
-		if field == "currentTypeDefs" {
+		if field == "currentTypeDefs" || field == "__currentTypeDefsJSON" {
 			hasCurrentTypeDefs = true
 			continue
 		}
@@ -1692,6 +1692,7 @@ func rootFieldsRequireFullWorkspaceSchema(fields []string) bool {
 			// functions`, the in-engine MCP/LLM tool builder), so it needs
 			// every workspace module.
 			"currentTypeDefs",
+			"__currentTypeDefsJSON",
 			// env's resolver snapshots the served deps, so it needs every module
 			"env":
 			return true

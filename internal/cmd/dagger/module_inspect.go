@@ -12,10 +12,12 @@ import (
 	"sync"
 
 	"dagger.io/dagger"
+	"github.com/Khan/genqlient/graphql"
 	"github.com/dagger/dagger/dagql/dagui"
 	telemetry "github.com/dagger/otel-go"
 	"github.com/iancoleman/strcase"
 	"github.com/spf13/pflag"
+	"github.com/vektah/gqlparser/v2/gqlerror"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -276,14 +278,28 @@ func (m *moduleDef) loadTypeDefs(ctx context.Context, dag *dagger.Client, opts .
 		TypeDefs []*modTypeDef
 	}
 
+	var wire struct{ TypeDefs string }
 	err := dag.Do(ctx, &dagger.Request{
-		Query:     loadTypeDefsQuery,
+		Query: `query TypeDefs($hideCore: Boolean) {
+			typeDefs: __currentTypeDefsJSON(returnAllTypes: true, hideCore: $hideCore)
+		}`,
 		Variables: map[string]any{"hideCore": o.HideCore},
-	}, &dagger.Response{
-		Data: &res,
-	})
-	if err != nil {
-		return fmt.Errorf("query module objects: %w", err)
+	}, &dagger.Response{Data: &wire})
+	if missingCLITypeDefsJSON(err) {
+		err = dag.Do(ctx, &dagger.Request{
+			Query:     loadTypeDefsQuery,
+			Variables: map[string]any{"hideCore": o.HideCore},
+		}, &dagger.Response{Data: &res})
+		if err != nil {
+			return fmt.Errorf("query module objects: %w", err)
+		}
+	} else {
+		if err != nil {
+			return fmt.Errorf("query module objects: %w", err)
+		}
+		if err := json.Unmarshal([]byte(wire.TypeDefs), &res.TypeDefs); err != nil {
+			return fmt.Errorf("decode module objects: %w", err)
+		}
 	}
 
 	m.MainObject = nil
@@ -1251,4 +1267,26 @@ func gqlFieldName(name string) string {
 // cliName converts casing to the CLI convention (kebab)
 func cliName(name string) string {
 	return strcase.ToKebab(name)
+}
+
+// A new CLI may connect to an older engine. Retry the old metadata selection
+// only when GraphQL validation identifies this exact missing capability. A
+// resolver, authorization, transport, or malformed JSON error must propagate.
+func missingCLITypeDefsJSON(err error) bool {
+	isMissing := func(e *gqlerror.Error) bool {
+		const message = `Cannot query field "__currentTypeDefsJSON" on type "Query".`
+		return e != nil && len(e.Path) == 0 &&
+			(e.Message == message || strings.HasPrefix(e.Message, message+" Did you mean "))
+	}
+	var httpErr *graphql.HTTPError
+	if errors.As(err, &httpErr) {
+		return (httpErr.StatusCode == 400 || httpErr.StatusCode == 422) &&
+			len(httpErr.Response.Errors) == 1 && isMissing(httpErr.Response.Errors[0])
+	}
+	var list gqlerror.List
+	if errors.As(err, &list) {
+		return len(list) == 1 && isMissing(list[0])
+	}
+	var single *gqlerror.Error
+	return errors.As(err, &single) && isMissing(single)
 }
