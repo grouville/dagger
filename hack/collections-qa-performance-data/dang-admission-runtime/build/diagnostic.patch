@@ -1,0 +1,128 @@
+--- a/core/sdk/dang/v2/sdk.go
++++ b/core/sdk/dang/v2/sdk.go
+@@ -15,6 +15,7 @@
+ 	dangshared "github.com/dagger/dagger/core/sdk/dang/shared"
+ 	"github.com/dagger/dagger/dagql"
+ 	"github.com/dagger/dagger/engine/engineutil"
++	"github.com/dagger/dagger/engine/wcprof"
+ 	"github.com/vito/dang/v2/pkg/dang"
+ )
+ 
+@@ -102,6 +103,8 @@
+ 	fnCall *core.FunctionCall,
+ 	moduleContext dagql.ObjectResult[*core.Module],
+ ) (rerr error) {
++	ctx, runtimeOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.runtimeCall", wcprof.OpOpts{})
++	defer func() { runtimeOp.EndErr(rerr) }()
+ 	defer func() {
+ 		if rerr != nil {
+ 			rerr = dangshared.ConvertError(rerr)
+@@ -117,7 +120,9 @@
+ 	if err != nil {
+ 		return fmt.Errorf("current query: %w", err)
+ 	}
+-	schemaJSONFile, err := r.deps.SchemaIntrospectionJSONFileForModule(ctx)
++	schemaCtx, schemaOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.runtimeSchemaFile", wcprof.OpOpts{})
++	schemaJSONFile, err := r.deps.SchemaIntrospectionJSONFileForModule(schemaCtx)
++	schemaOp.EndErr(err)
+ 	if err != nil {
+ 		return fmt.Errorf("get schema introspection: %w", err)
+ 	}
+--- a/core/sdk/dang/v2/helpers.go
++++ b/core/sdk/dang/v2/helpers.go
+@@ -135,7 +135,9 @@
+ 
+ 		modCtx := modSource.Self().ContextDirectory
+ 		var env dang.ValueScope
+-		err = modCtx.Self().Mount(ctx, modCtx, func(path string) error {
++		mountCtx, mountOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.sourceMount", wcprof.OpOpts{})
++		err = modCtx.Self().Mount(mountCtx, modCtx, func(path string) error {
++			ctx := mountCtx
+ 			modSrcDir := filepath.Join(path, modSource.Self().SourceSubpath)
+ 
+ 			// During the typedef/declaration phase (ModuleTypes) the schema
+@@ -165,6 +167,7 @@
+ 			}
+ 			return nil
+ 		})
++		mountOp.EndErr(err)
+ 		if err != nil {
+ 			if errors.As(err, new(*dangSourceError)) {
+ 				// Already reported to stderr; the message is intentionally
+--- a/core/sdk/dang/v2/schema.go
++++ b/core/sdk/dang/v2/schema.go
+@@ -14,9 +14,13 @@
+ 	"github.com/vito/dang/v2/pkg/introspection"
+ )
+ 
+-func loadDangSchema(ctx context.Context, file dagql.Result[*core.File]) (*introspection.Response, error) {
++func loadDangSchema(ctx context.Context, file dagql.Result[*core.File]) (_ *introspection.Response, rerr error) {
++	ctx, loadOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.schemaLoad", wcprof.OpOpts{})
++	defer func() { loadOp.EndErr(rerr) }()
+ 	decode := func(ctx context.Context) (*introspection.Response, error) {
+-		f, err := file.Self().Open(ctx, dagql.ObjectResult[*core.File]{Result: file})
++		openCtx, openOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.schemaOpen", wcprof.OpOpts{})
++		f, err := file.Self().Open(openCtx, dagql.ObjectResult[*core.File]{Result: file})
++		openOp.EndErr(err)
+ 		if err != nil {
+ 			return nil, fmt.Errorf("open schema file: %w", err)
+ 		}
+--- a/core/sdk/dang/shared/shared.go
++++ b/core/sdk/dang/shared/shared.go
+@@ -21,6 +21,7 @@
+ 	"github.com/dagger/dagger/core"
+ 	"github.com/dagger/dagger/dagql"
+ 	"github.com/dagger/dagger/engine"
++	"github.com/dagger/dagger/engine/wcprof"
+ 	"github.com/dagger/dagger/internal/buildkit/identity"
+ 	telemetry "github.com/dagger/otel-go"
+ 	"github.com/vektah/gqlparser/v2/gqlerror"
+@@ -51,7 +52,9 @@
+ 		return nil, err
+ 	}
+ 
+-	transport, err := query.RegisterNestedClientTransport(ctx, nestedClientMetadata, parentClientID)
++	registerCtx, registerOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.nestedTransportRegister", wcprof.OpOpts{})
++	transport, err := query.RegisterNestedClientTransport(registerCtx, nestedClientMetadata, parentClientID)
++	registerOp.EndErr(err)
+ 	if err != nil {
+ 		return nil, fmt.Errorf("register nested client transport: %w", err)
+ 	}
+@@ -78,7 +81,9 @@
+ 	httpTransport *http.Transport,
+ 	fn func(ctx context.Context, gqlClient graphql.Client) ([]byte, error),
+ ) ([]byte, error) {
++	_, listenerOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.nestedListener", wcprof.OpOpts{})
+ 	l, err := net.Listen("tcp", "127.0.0.1:0")
++	listenerOp.EndErr(err)
+ 	if err != nil {
+ 		return nil, fmt.Errorf("listen: %w", err)
+ 	}
+--- a/engine/server/session_workspaces.go
++++ b/engine/server/session_workspaces.go
+@@ -28,6 +28,7 @@
+ 	"github.com/dagger/dagger/engine"
+ 	"github.com/dagger/dagger/engine/slog"
+ 	"github.com/dagger/dagger/engine/telemetryattrs"
++	"github.com/dagger/dagger/engine/wcprof"
+ 	"github.com/dagger/dagger/util/gitutil"
+ 	"github.com/dagger/dagger/util/parallel"
+ )
+@@ -1363,7 +1364,17 @@
+ 		i := i
+ 		load := load
+ 		jobs = jobs.WithJob(moduleLoadJobName(load), func(ctx context.Context) error {
++			// Resolve readiness is distinct from publication: the batch still
++			// arbitrates and installs successful modules after all jobs finish.
++			var loadOp *wcprof.Op
++			if wcprof.Enabled(ctx) {
++				ctx, loadOp = wcprof.BeginOp(ctx, wcprof.OpKindSessionPhase, "workspace.moduleLoad", wcprof.OpOpts{
++					Ident:    pendingModuleCliName(load.mod),
++					ClientID: client.clientID,
++				})
++			}
+ 			resolved, err := srv.resolveModuleLoad(ctx, client.dag, load)
++			loadOp.EndErr(err)
+ 			if err != nil {
+ 				resolveErrs[i] = err
+ 				return nil //nolint:nilerr // errors collected for deterministic ordering

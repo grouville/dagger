@@ -1,0 +1,29 @@
+--- reviewed38-lifecycle.py
++++ confirmation16-lifecycle.py
+@@ -16,7 +16,7 @@
+ nav = importlib.util.module_from_spec(spec)
+ spec.loader.exec_module(nav)
+ ORIGINAL_OWNER = 'collections-lazy-core-runtime-v1'
+-OWNER = 'collections-artifact-json-projection-v1'
++OWNER = 'collections-artifact-json-projection-confirm-v1'
+ ORIGINAL = '56f2eaccf6bf2f3151fb4c08205e1ad33fa7730ad5dee32577e867b527fc4b12'
+ PARENT_ENGINE = 'ec6a2d88ca54b1c12fc81c7381538e23d100fece04d703daac0b17dcf3d3ebc1'
+ IMAGE = 'sha256:b00e366e582ab98f0e4a7907163f338b6be3bfa13b10f3ad6bac3d699cd25a07'
+@@ -34,7 +34,7 @@
+     def __init__(self, output_dir, max_calls):
+         self.out = Path(output_dir)
+         assert self.out.parent.resolve() == HERE.resolve() and not self.out.exists()
+-        assert isinstance(max_calls, int) and 1 <= max_calls <= 38
++        assert isinstance(max_calls, int) and 1 <= max_calls <= 16
+         self.max_calls = max_calls
+         self.item = self.original = self.volume = None
+         self.init_sha = None
+@@ -104,7 +104,7 @@
+                 assert x.sha(path) == ORIGINAL
+             else:
+                 self.init_sha = x.sha(path)
+-        name = 'dagger-engine.collections-json-projection-' + uuid.uuid4().hex[:12]
++        name = 'dagger-engine.collections-json-projection-confirm-' + uuid.uuid4().hex[:12]
+         with socket.socket() as probe:
+             probe.bind(('127.0.0.1', 0))
+             port = probe.getsockname()[1]

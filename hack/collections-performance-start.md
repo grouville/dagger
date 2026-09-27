@@ -4,6 +4,13 @@ Start with the [current findings and priorities](collections-performance-current
 for the measured improvements, held experiments and remaining 500 ms gap. The
 entries below retain the history and the cache/Cloud boundary of each round.
 
+`f743dba657` removes an intermediate artifact-ID query from CLI listing. Focused
+normal/race gates and 54 local UX outcomes pass. Three warm pairs give checks
+**1.154 → 1.135 s** and generator listing **0.777 → 0.754 s**; six artifact
+confirmation pairs are flat at **1.144 → 1.147 s**. This is a small verified work
+reduction, not a general artifact-list speedup. See the
+[integration evidence](collections-qa-performance-data/artifact-json-projection-integration/integration-status.md).
+
 The latest generic discovery change, `093e161255`, skips unrelated static artifact
 trees during targeted lookup. A separate profile reduces repeated Address metadata
 requests from **195 to 18**. Full warm check listing is flat; distinct app-comment
@@ -36,6 +43,10 @@ then give control **25.53 / 29.42 s** versus candidate **21.14 / 20.92 s**. All
 outputs match. The report separates engine startup, retained host caches and
 I/O variability; these two observations per arm do not establish a general cold
 gain or equivalence with Kyle's environment.
+Two [separate cold profiles](collections-qa-performance-data/go-base-address-cold-profile/report.md)
+attribute the change to expansion (**3.238 → 0.427 s**); catalog remains about
+20.3 s and Go module runtime builds about 14.6 s. These profiled observations
+are excluded from the ordinary benchmark samples.
 
 The earlier generic source change, `fef89b56e0`, separates nested-session providers
 from engine provisioning. The helper starts in **9.114 → 6.357 ms** in twelve

@@ -1,0 +1,29 @@
+{
+  "source_ref": "2088d5efed34ccff90829bec502320eeca579fc7",
+  "builtin_go_runtime_source_sha256": "8293a8cdc54d6f3da898545b57094435d5a86aaf447af33343b299e4e0e743f5",
+  "current_source_byte_identical": true,
+  "runtime_argv_producer": "core/sdk/go_sdk.go:Runtime, goSDKRuntimePath=/runtime",
+  "matching_recorded_argv": [
+    "go",
+    "build",
+    "-ldflags",
+    "-s -w",
+    "-o",
+    "/runtime",
+    "."
+  ],
+  "public_go_runtime_configs": {
+    "backend": {
+      "path": ".dagger/modules/backend/dagger-module.toml",
+      "sha256": "404acffe55753a238c36ffbd6bf0e10f92a9f36d0ec2a2a6a4403232f9871697",
+      "runtime_source": "go"
+    },
+    "greetings": {
+      "path": ".dagger/modules/greetings/dagger-module.toml",
+      "sha256": "3fdb5981803ddf8505086207e4be101601c1877d5061e60b87c7fdc3131a4642",
+      "runtime_source": "go"
+    }
+  },
+  "module_assignment_limit": "Native wcprof does not retain the ModuleSource receiver/name argument for these asModule operations; individual build durations are not assigned to named modules by order. Exact argument match proves built-in Go SDK runtime compilation, not backend application compilation.",
+  "sdk_direction": "The reviewed static-type Go SDK PR36 can separate schema registration from runtime build; it is not active on this frozen stack. PinnedPR36 compatibility gate remains parked at4dfd447d58344835a0d4692ec0c8e5683c18bd6f; no measured migration speedup."
+}

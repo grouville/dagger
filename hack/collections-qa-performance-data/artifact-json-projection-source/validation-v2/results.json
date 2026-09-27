@@ -1,0 +1,123 @@
+{
+  "steps": [
+    {
+      "step": "baseline-negative",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-overlay=/tmp/collections-perf/artifact-json-projection-v1/negative-overlay.json",
+        "-count=1",
+        "-timeout=90s",
+        "-run=^TestArtifactJSONProjectionSingleRequestAndOrder/check$",
+        "./internal/cmd/dagger"
+      ],
+      "exit_code": 1,
+      "wall_seconds": 19.89360273303464,
+      "pass": [],
+      "fail": [
+        "TestArtifactJSONProjectionSingleRequestAndOrder/check",
+        "TestArtifactJSONProjectionSingleRequestAndOrder"
+      ],
+      "expected_outcome": true,
+      "log_sha256": "8edb1b761365dcbb420b23018f7cf83a35b779a90a0b8e922c9249accf5ba027"
+    },
+    {
+      "step": "candidate-normal",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-overlay=/tmp/collections-perf/artifact-json-projection-v1/test-overlay.json",
+        "-count=1",
+        "-timeout=90s",
+        "-run=^(TestArtifactJSONProjection.*|TestArtifactListReusesWorkspaceWithGlobalAliases|TestListedArtifactKeysPreservesDimensionAndOrder)$",
+        "./internal/cmd/dagger"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 22.14847788400948,
+      "pass": [
+        "TestArtifactJSONProjectionSingleRequestAndOrder/check",
+        "TestArtifactJSONProjectionSingleRequestAndOrder/list",
+        "TestArtifactJSONProjectionSingleRequestAndOrder/generate",
+        "TestArtifactJSONProjectionSingleRequestAndOrder/dimension",
+        "TestArtifactJSONProjectionSingleRequestAndOrder/empty-dimension",
+        "TestArtifactJSONProjectionSingleRequestAndOrder",
+        "TestArtifactJSONProjectionKeepsArgumentPrerequisites",
+        "TestArtifactJSONProjectionClientAffinity",
+        "TestArtifactJSONProjectionErrorsAndCancellation/catalog",
+        "TestArtifactJSONProjectionErrorsAndCancellation/expansion",
+        "TestArtifactJSONProjectionErrorsAndCancellation/invalid-json",
+        "TestArtifactJSONProjectionErrorsAndCancellation/blocked_request_joins_cancellation",
+        "TestArtifactJSONProjectionErrorsAndCancellation",
+        "TestListedArtifactKeysPreservesDimensionAndOrder/0",
+        "TestListedArtifactKeysPreservesDimensionAndOrder/1",
+        "TestListedArtifactKeysPreservesDimensionAndOrder/8",
+        "TestListedArtifactKeysPreservesDimensionAndOrder/9",
+        "TestListedArtifactKeysPreservesDimensionAndOrder/100",
+        "TestListedArtifactKeysPreservesDimensionAndOrder",
+        "TestArtifactListReusesWorkspaceWithGlobalAliases/unfiltered_nested_collections",
+        "TestArtifactListReusesWorkspaceWithGlobalAliases/filtered_TypeScript_collection",
+        "TestArtifactListReusesWorkspaceWithGlobalAliases/filtered_Dang_collection",
+        "TestArtifactListReusesWorkspaceWithGlobalAliases/no_dimensions",
+        "TestArtifactListReusesWorkspaceWithGlobalAliases"
+      ],
+      "fail": [],
+      "expected_outcome": true,
+      "log_sha256": "b83944902bf352bbf12e526af94ab0a689b8ba618ae23ebfa00a36c126ecc498"
+    },
+    {
+      "step": "candidate-race",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-race",
+        "-json",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-overlay=/tmp/collections-perf/artifact-json-projection-v1/test-overlay.json",
+        "-count=1",
+        "-timeout=90s",
+        "-run=^(TestArtifactJSONProjection.*|TestArtifactListReusesWorkspaceWithGlobalAliases|TestListedArtifactKeysPreservesDimensionAndOrder)$",
+        "./internal/cmd/dagger"
+      ],
+      "exit_code": 0,
+      "wall_seconds": 44.3292827908881,
+      "pass": [
+        "TestArtifactJSONProjectionSingleRequestAndOrder/check",
+        "TestArtifactJSONProjectionSingleRequestAndOrder/list",
+        "TestArtifactJSONProjectionSingleRequestAndOrder/generate",
+        "TestArtifactJSONProjectionSingleRequestAndOrder/dimension",
+        "TestArtifactJSONProjectionSingleRequestAndOrder/empty-dimension",
+        "TestArtifactJSONProjectionSingleRequestAndOrder",
+        "TestArtifactJSONProjectionKeepsArgumentPrerequisites",
+        "TestArtifactJSONProjectionClientAffinity",
+        "TestArtifactJSONProjectionErrorsAndCancellation/catalog",
+        "TestArtifactJSONProjectionErrorsAndCancellation/expansion",
+        "TestArtifactJSONProjectionErrorsAndCancellation/invalid-json",
+        "TestArtifactJSONProjectionErrorsAndCancellation/blocked_request_joins_cancellation",
+        "TestArtifactJSONProjectionErrorsAndCancellation",
+        "TestListedArtifactKeysPreservesDimensionAndOrder/0",
+        "TestListedArtifactKeysPreservesDimensionAndOrder/1",
+        "TestListedArtifactKeysPreservesDimensionAndOrder/8",
+        "TestListedArtifactKeysPreservesDimensionAndOrder/9",
+        "TestListedArtifactKeysPreservesDimensionAndOrder/100",
+        "TestListedArtifactKeysPreservesDimensionAndOrder",
+        "TestArtifactListReusesWorkspaceWithGlobalAliases/unfiltered_nested_collections",
+        "TestArtifactListReusesWorkspaceWithGlobalAliases/filtered_TypeScript_collection",
+        "TestArtifactListReusesWorkspaceWithGlobalAliases/filtered_Dang_collection",
+        "TestArtifactListReusesWorkspaceWithGlobalAliases/no_dimensions",
+        "TestArtifactListReusesWorkspaceWithGlobalAliases"
+      ],
+      "fail": [],
+      "expected_outcome": true,
+      "log_sha256": "8ab174c64a895901c7e40df4e283e84af9ab97eb7569280bfc22a40fa54d3671"
+    }
+  ],
+  "engine_calls": 0,
+  "cloud_calls": 0
+}

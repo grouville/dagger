@@ -1,0 +1,28 @@
+--- a/engine/server/session_workspaces.go
++++ b/engine/server/session_workspaces.go
+@@ -28,6 +28,7 @@
+ 	"github.com/dagger/dagger/engine"
+ 	"github.com/dagger/dagger/engine/slog"
+ 	"github.com/dagger/dagger/engine/telemetryattrs"
++	"github.com/dagger/dagger/engine/wcprof"
+ 	"github.com/dagger/dagger/util/gitutil"
+ 	"github.com/dagger/dagger/util/parallel"
+ )
+@@ -1363,7 +1364,17 @@
+ 		i := i
+ 		load := load
+ 		jobs = jobs.WithJob(moduleLoadJobName(load), func(ctx context.Context) error {
++			// Resolve readiness is distinct from publication: the batch still
++			// arbitrates and installs successful modules after all jobs finish.
++			var loadOp *wcprof.Op
++			if wcprof.Enabled(ctx) {
++				ctx, loadOp = wcprof.BeginOp(ctx, wcprof.OpKindSessionPhase, "workspace.moduleLoad", wcprof.OpOpts{
++					Ident:    pendingModuleCliName(load.mod),
++					ClientID: client.clientID,
++				})
++			}
+ 			resolved, err := srv.resolveModuleLoad(ctx, client.dag, load)
++			loadOp.EndErr(err)
+ 			if err != nil {
+ 				resolveErrs[i] = err
+ 				return nil //nolint:nilerr // errors collected for deterministic ordering

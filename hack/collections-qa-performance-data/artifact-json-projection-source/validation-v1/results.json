@@ -1,0 +1,27 @@
+{
+  "steps": [
+    {
+      "step": "baseline-negative",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-overlay=/tmp/collections-perf/artifact-json-projection-v1/negative-overlay.json",
+        "-count=1",
+        "-timeout=90s",
+        "-run=^TestArtifactJSONProjectionSingleRequestAndOrder/check$",
+        "./internal/cmd/dagger"
+      ],
+      "exit_code": 1,
+      "wall_seconds": 0.03205445711500943,
+      "pass": [],
+      "fail": [],
+      "expected_outcome": false,
+      "log_sha256": "c95dc7892023970be0d2974b2441f5fd90f2cfad3e3c48d295073d8947fc507a"
+    }
+  ],
+  "engine_calls": 0,
+  "cloud_calls": 0
+}

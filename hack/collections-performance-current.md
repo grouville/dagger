@@ -19,6 +19,7 @@ result of building the branch without its experimental artifacts.
 | Separate serving nested-session files/sockets from engine provisioning | Heavy helper startup 9.114 → 6.357 ms over twelve pairs; binary shrinks by 6.3 MB; no whole-command speedup established | Commit `fef89b56e0`; normal/race gates, full CLI/engine builds and ten real SDK/check/exec outcomes pass |
 | Scope artifact tree construction to selected modules | Repeated Address metadata requests 195 → 18; full warm check median flat, distinct app-comment listing 1.483 → 1.356 s over four observations per arm | Commit `093e161255`; 42 local correctness outcomes and focused normal/race gates pass |
 | Let a module retain a configured Address until execution needs its Container | Warm checks 1.392 → 1.138 s and distinct app-comment listing 1.409 → 1.106 s, four observations per arm; two backend executions removed | Generic Address argument fix `36e4939021`; Go module commit `c5e29463b6` on `grouville/go:perf/discovery-base-address`; separate execution/generation gates pass |
+| Request artifact JSON directly from its SDK selection | One main-client query removed; checks 1.154 → 1.135 s and generator listing 0.777 → 0.754 s over three pairs each; artifact confirmation flat | CLI commit `f743dba657`; focused normal/race gates and 54 real local UX outcomes pass |
 | Replace Docker exec connections with a local Unix connector, retaining Docker admission | `ws ls` 163 → 74 ms; distinct native source edit → check 282 → 182 ms; distinct input edit → generation/full exit 371 → 249 ms | Isolated prototype; automatic endpoint provisioning and platform/access compatibility remain to implement |
 
 The [filesystem report](collections-filesync-performance.md) includes cold,
@@ -94,6 +95,19 @@ The slower control coincides with 2.99 s of host full I/O pressure, versus
 the command interval. All four outputs match; fixtures are restored and only the
 four newly owned containers and volumes were subsequently removed.
 
+The [two separate cold wcprof captures](collections-qa-performance-data/go-base-address-cold-profile/report.md)
+locate that improvement: catalog construction stays **20.366 → 20.319 s**, while
+expansion falls **3.238 → 0.427 s**. The two Go module runtime compilations still
+occupy **14.616 → 14.572 s** of nonoverlapping process time. Their commands build
+`/runtime`, not the user's application; individual builds cannot be assigned to
+module names from this profile. The removed backend producer spends a **2.454 s
+union in `Container.from`**, reached through its nested client, versus only
+0.397 ms in process startup. This is image/container preparation, without a finer
+attribution to registry, decoding or disk. All fourteen rows match in both
+diagnostics. Instrumented wall times are excluded from the ordinary cold samples.
+Static SDK metadata addresses the remaining runtime-compilation boundary; the
+Address change and that SDK work remove different observed work.
+
 Separate wcprof captures show expansion **600 → 374 ms**, four Address Container
 lookups becoming zero, and two authored backend executions disappearing. Runtime
 process count falls from six to four. Catalog loading instead rises **499 → 571 ms**
@@ -134,20 +148,52 @@ process launches. None introduces a TTL or a cache of workspace results.
 
 ## The remaining larger costs
 
-The [current catalog/expansion audit](collections-qa-performance-data/address-catalog-overlap/report.md)
-finds a 571 ms catalog, a 43 ms handoff and 374 ms expansion in the separate
-Address-candidate profile. Current root-load markers do not identify which
-module became ready first; they cannot yet quantify a Go-specific overlap gain.
-The final root resolves only 18 ms before catalog completion. Before removing
-the batch barrier, measure named module readiness and preserve global validation,
-entrypoint arbitration and nested workspace visibility. Speculatively executing
-a NEVER collection before a later catalog error is a behavior change.
+The [new named-readiness and Dang profiles](collections-qa-performance-data/dang-admission-runtime/report.md)
+resolve the uncertainty in the [earlier overlap audit](collections-qa-performance-data/address-catalog-overlap/report.md).
+Go finishes resolution **135 / 198 ms** before the last module (TypeScript SDK)
+in two captures. Catalog completion still awaits publication and validation;
+resolution readiness is not permission to execute a collection. Any overlap
+must preserve global errors, entrypoint arbitration and nested workspace
+visibility. Speculatively executing a NEVER collection before a later catalog
+error remains a behavior change, not an established optimization.
 
-A smaller candidate is to append the hidden listing projection to the existing
-SDK selection, eliminating its explicit ID request followed by a second request
-for rows. The 43 ms gap is only an upper bound on that handoff, not a promised
-saving. This keeps catalog-before-enumeration ordering and is being prepared
-independently of dynamic overlap.
+The second capture has **367 ms** of expansion and fifteen Dang calls. Source
+evaluation covers an **81 ms interval union**, telemetry flushes **49 ms**, and
+obtaining schema Files **27 ms**. These intervals overlap and are not additive.
+The first Go and gomod calls pay almost all schema preparation; the other thirteen
+schema-File requests each take only 0.05–0.08 ms. Another wrapper/schema cache is
+therefore not a useful target here. The Go schema open is about **0.6 ms**, and
+nested transport/listener preparation totals about **2 ms** across evaluations.
+All four diagnostic commands return the exact fourteen checks and restore their
+fixtures. These profiles use the retained experimental stack: its earlier scalar
+syntax-clone optimization is already active, while its object-directive metadata
+pass differs from current branch source. New candidates must use the actual
+effective baseline, not claim those old differences as new savings.
+
+The [cold catalog remainder audit](collections-qa-performance-data/catalog-remainder-audit/report.md)
+finds **4.196 s** of image layer application outside the two Go runtime builds,
+plus an overlapping **0.592 s** content-copy interval. These are local image
+materialization costs; a downloaded cache entry still needs usable filesystem
+content. The measured path is containerd's image applier, not the separate
+snapshot merge applier. Smaller required SDK payloads and useful compiler cache
+seeds merit investigation alongside the existing static-metadata SDK work.
+
+The [direct CLI projection trial](collections-qa-performance-data/artifact-json-projection-runtime/report.md)
+now eliminates the explicit ID request before fetching listing rows. All 38
+calls pass, including native workspace, check and actual generation controls.
+Three warm pairs per flow give checks **1.154 → 1.135 s**, generator listing
+**0.777 → 0.754 s**, but artifact listing **1.106 → 1.183 s** with mixed pairs.
+The [six-pair artifact confirmation](collections-qa-performance-data/artifact-json-projection-confirmation/report.md)
+is flat at **1.144 → 1.147 s** and does not reproduce a consistent regression.
+All sixteen outcomes match. Every second command in a pair is slower regardless
+of variant; the first also repeats the preceding CLI, so order and switching
+effects remain confounded. Commit `f743dba657` adopts the tested work removal,
+without claiming an artifact-list speedup. Separate check profiles confirm six main-client queries becoming
+five and a **24.26 → 2.81 ms** catalog-to-expansion handoff; executed resolver
+counts remain identical. It preserves catalog-before-enumeration ordering and
+does not establish a broad listing speedup. The
+[validation status and matched source guards](collections-qa-performance-data/artifact-json-projection-integration/integration-status.md)
+cover client affinity, immutable selectors, object arguments and failures.
 
 Two fully primed wcprof captures show roughly 385 ms of Git request-write to
 first-byte waiting, using seven already-open connections. Local reference sorting

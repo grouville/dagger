@@ -1,0 +1,123 @@
+--- reviewed-address-lifecycle.py
++++ projection-lifecycle.py
+@@ -1,4 +1,4 @@
+-"""Prepared LOCAL-only Address/d685 lifecycle; importing it does not run commands.
++"""Prepared LOCAL-only projection CLI/Address lifecycle; importing it does not run commands.
+ 
+ The composing, reviewed driver owns its fixtures and exact command cap. This helper
+ owns one temporary engine only; it never starts/modifies/deletes the original engine
+@@ -16,7 +16,7 @@
+ nav = importlib.util.module_from_spec(spec)
+ spec.loader.exec_module(nav)
+ ORIGINAL_OWNER = 'collections-lazy-core-runtime-v1'
+-OWNER = 'collections-go-base-address-timing-v1'
++OWNER = 'collections-artifact-json-projection-v1'
+ ORIGINAL = '56f2eaccf6bf2f3151fb4c08205e1ad33fa7730ad5dee32577e867b527fc4b12'
+ PARENT_ENGINE = 'ec6a2d88ca54b1c12fc81c7381538e23d100fece04d703daac0b17dcf3d3ebc1'
+ IMAGE = 'sha256:b00e366e582ab98f0e4a7907163f338b6be3bfa13b10f3ad6bac3d699cd25a07'
+@@ -34,7 +34,7 @@
+     def __init__(self, output_dir, max_calls):
+         self.out = Path(output_dir)
+         assert self.out.parent.resolve() == HERE.resolve() and not self.out.exists()
+-        assert isinstance(max_calls, int) and 1 <= max_calls <= 28
++        assert isinstance(max_calls, int) and 1 <= max_calls <= 38
+         self.max_calls = max_calls
+         self.item = self.original = self.volume = None
+         self.init_sha = None
+@@ -70,6 +70,13 @@
+         self.expected_version = manifest['expected_core_version'].encode()
+         assert x.sha(manifest['recipe_path']) == manifest['recipe_sha256']
+         assert x.sha(CLI) == CLI_SHA
++        assert x.sha(HERE / 'frozen-cli-manifest.json') == freeze['cli_manifest_sha256']
++        cli_manifest = json.loads((HERE / 'frozen-cli-manifest.json').read_text())
++        assert cli_manifest['parent_cli']['sha256'] == CLI_SHA
++        self.clis = {variant: Path(cli_manifest[variant]['path']) for variant in ('baseline', 'candidate')}
++        self.cli_shas = {variant: cli_manifest[variant]['sha256'] for variant in self.clis}
++        for variant, cli in self.clis.items():
++            assert cli_manifest[variant]['exit_code'] == 0 and x.sha(cli) == self.cli_shas[variant]
+         assert x.sha(HERE / 'frozen-sdk-inputs.json') == INPUTS_SHA
+         inputs = json.loads((HERE / 'frozen-sdk-inputs.json').read_text())
+         assert inputs['cli_sha256'] == CLI_SHA
+@@ -97,7 +104,7 @@
+                 assert x.sha(path) == ORIGINAL
+             else:
+                 self.init_sha = x.sha(path)
+-        name = 'dagger-engine.collections-base-address-timing-' + uuid.uuid4().hex[:12]
++        name = 'dagger-engine.collections-json-projection-' + uuid.uuid4().hex[:12]
+         with socket.socket() as probe:
+             probe.bind(('127.0.0.1', 0))
+             port = probe.getsockname()[1]
+@@ -123,7 +130,7 @@
+         assert installed_init == self.init_sha, 'ordinary image init differs from retained original'
+         x.write(self.out / 'lifecycle-provenance.private.json', {
+             'owner': OWNER, 'engine': self.item, 'original': self.original,
+-            'cli_sha256': CLI_SHA, 'manifest_sha256': freeze['engine_manifest_sha256'],
++            'cli_sha256': self.cli_shas, 'manifest_sha256': freeze['engine_manifest_sha256'],
+             'sdk_inputs_sha256': x.sha(HERE / 'frozen-sdk-inputs.json'),
+             'lifecycle_sha256': x.sha(__file__), 'original_init_sha256': self.init_sha,
+             'expected_core_version': self.expected_version.decode(), 'startup_seconds_excluded': seconds,
+@@ -146,17 +153,19 @@
+         else:
+             assert not users, 'retained volume already in use'
+ 
+-    def run(self, args, cwd, validator, label, *, profile=False, timeout=300):
++    def run(self, args, cwd, validator, label, *, cli_variant, profile=False, timeout=300, output_path=None, expected_bytes=None):
+         """Run one bounded CLI call. validator(row, stdout_bytes, stderr_bytes) -> bool."""
+         assert callable(validator) and re.fullmatch(r'[a-z0-9-]+', label)
+         assert isinstance(args, list) and all(isinstance(arg, str) for arg in args)
+         assert 1 <= timeout <= 600 and len(self.attempts) < self.max_calls
+         assert not any(arg == '--engine' or arg.startswith('--engine=') for arg in args)
++        assert cli_variant in self.clis and x.sha(self.clis[cli_variant]) == self.cli_shas[cli_variant]
++        assert (output_path is None) == (expected_bytes is None)
+         self.guard()
+         dest = self.out / f'{len(self.attempts):02d}-{label}'
+         dest.mkdir()
+         attempt = {'index': len(self.attempts), 'label': label, 'profile': profile,
+-            'args': args, 'cwd': str(Path(cwd).resolve())}
++            'cli_variant': cli_variant, 'args': args, 'cwd': str(Path(cwd).resolve())}
+         self.attempts.append(attempt)
+         x.write(self.out / 'attempts.private.json', self.attempts)
+         if profile:
+@@ -165,9 +174,11 @@
+             except x.HTTPError as err:
+                 if err.code != 503:
+                     raise
+-        command = [str(CLI), '--engine', self.selector] + (['--profile'] if profile else []) + args
++        command = [str(self.clis[cli_variant]), '--engine', self.selector] + (['--profile'] if profile else []) + args
+         before, usage = nav.warm.snapshot(self.item), resource.getrusage(resource.RUSAGE_CHILDREN)
+         done, observed = threading.Event(), {}
++        visible, polls = None, 0
++        already_current = output_path is not None and output_path.exists() and output_path.read_bytes() == expected_bytes
+         with (dest / 'stdout.private').open('wb') as stdout, (dest / 'stderr.private').open('wb') as stderr:
+             begin, started = time.monotonic(), time.time_ns()
+             proc = subprocess.Popen(command, cwd=cwd, env=self.env, stdout=stdout, stderr=stderr, start_new_session=True)
+@@ -177,7 +188,17 @@
+             worker = threading.Thread(target=wait, daemon=True)
+             worker.start()
+             try:
+-                timed_out = not done.wait(timeout)
++                if output_path is not None and not already_current:
++                    while not done.is_set() and time.monotonic() - begin < timeout:
++                        polls += 1
++                        try:
++                            if output_path.read_bytes() == expected_bytes:
++                                visible = time.monotonic()
++                                break
++                        except FileNotFoundError:
++                            pass
++                        done.wait(.005)
++                timed_out = not done.wait(max(0, timeout - (time.monotonic() - begin)))
+             finally:
+                 if not done.is_set():
+                     try:
+@@ -199,6 +220,10 @@
+         links = re.findall(rb'https://[^\s\x1b]*dagger.cloud/[^\s\x1b]*', text)
+         unexpected = any(url.rstrip(b'.') != b'https://dagger.cloud/traces/setup' for url in links)
+         row = {'index': attempt['index'], 'label': label, 'profile': profile,
++            'cli_variant': cli_variant, 'cli_sha256': self.cli_shas[cli_variant],
++            'file_visible_seconds': visible - begin if visible is not None else None,
++            'output_already_current': already_current, 'file_polls': polls,
++            'file_visibility_right_censored_at_exit': bool(output_path is not None and not already_current and visible is None),
+             'seconds': observed['end'] - begin, 'started_unix_ns': started,
+             'exited_unix_ns': observed['wall'], 'exit_code': observed['code'],
+             'timed_out': timed_out, 'unexpected_cloud_link': unexpected,

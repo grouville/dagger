@@ -1,0 +1,20 @@
+--- reviewed/lifecycle.py
++++ diagnostic/lifecycle.py
+@@ -16,7 +16,7 @@
+ nav = importlib.util.module_from_spec(spec)
+ spec.loader.exec_module(nav)
+ ORIGINAL_OWNER = 'collections-lazy-core-runtime-v1'
+-OWNER = 'collections-go-base-address-v1'
++OWNER = 'collections-dang-admission-v1'
+ ORIGINAL = '56f2eaccf6bf2f3151fb4c08205e1ad33fa7730ad5dee32577e867b527fc4b12'
+ PARENT_ENGINE = 'ec6a2d88ca54b1c12fc81c7381538e23d100fece04d703daac0b17dcf3d3ebc1'
+ IMAGE = 'sha256:b00e366e582ab98f0e4a7907163f338b6be3bfa13b10f3ad6bac3d699cd25a07'
+@@ -97,7 +97,7 @@
+                 assert x.sha(path) == ORIGINAL
+             else:
+                 self.init_sha = x.sha(path)
+-        name = 'dagger-engine.collections-base-address-' + uuid.uuid4().hex[:12]
++        name = 'dagger-engine.collections-dang-admission-' + uuid.uuid4().hex[:12]
+         with socket.socket() as probe:
+             probe.bind(('127.0.0.1', 0))
+             port = probe.getsockname()[1]

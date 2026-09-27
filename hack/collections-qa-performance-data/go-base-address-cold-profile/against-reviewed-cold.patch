@@ -1,0 +1,104 @@
+--- ordinary-cold-runtime.py
++++ profile-runtime.py
+@@ -1,7 +1,8 @@
+ #!/usr/bin/env python3
+-"""Four LOCAL first-listing calls, ABBA, each on a new owned Dagger volume.
+-
+-No primer, preparatory build/pull, Cloud, profile, or existing engine/volume mutation.
++"""Two LOCAL first-listing wcprof diagnostics, each on a new owned Dagger volume.
++
++No primer, preparatory build/pull, Cloud, or existing engine/volume mutation.
++Profiles perturb these diagnostic runs; exclude them from ordinary timings.
+ The host image, packaged SDK blobs and host page cache remain available.
+ Default cleanup removes only our containers; fresh volumes stay stopped for
+ inspection. --cleanup-volumes is an explicit separate, ownership-checked step.
+@@ -17,11 +18,11 @@
+ GATE = LAB / 'go-base-address-retained-v1'
+ IMAGE = 'sha256:b00e366e582ab98f0e4a7907163f338b6be3bfa13b10f3ad6bac3d699cd25a07'
+ SDK = 'sha256:2a8f755cfe5322aeeee861f646c58d6b796a585d2794db47b5b71ba14f6f3fef'
+-OWNER = 'collections-go-base-address-cold-v1'
++OWNER = 'collections-go-base-address-cold-profile-v1'
+ LABEL = 'dagger.perf.owner'
+ RUN_LABEL = 'dagger.perf.run'
+-MIN_FREE, MAX_WRITE, CAP = 16 * 1024**3, 8 * 1024**3, 4
+-ORDER = ('control', 'candidate', 'candidate', 'control')
++MIN_FREE, MAX_WRITE, CAP = 16 * 1024**3, 8 * 1024**3, 2
++ORDER = ('control', 'candidate')
+ HTTP = build_opener(ProxyHandler({}))
+ ANSI = re.compile(rb'\x1b\[[0-9;]*[A-Za-z]')
+ 
+@@ -154,7 +155,7 @@
+         cleanup_volumes()
+         return
+     if not args.run:
+-        print(json.dumps({'execute': False, 'cli_cap': CAP, 'cloud_calls': 0, 'order': ORDER, 'new_volumes': 4, 'primers': 0, 'profiles': 0, 'minimum_free_bytes': MIN_FREE, 'sampled_write_guard_bytes': MAX_WRITE, 'default_cleanup': 'stop/remove only new containers; preserve four owned volumes for separate explicit cleanup'}))
++        print(json.dumps({'execute': False, 'cli_cap': CAP, 'cloud_calls': 0, 'order': ORDER, 'new_volumes': 2, 'primers': 0, 'profiles': 2, 'minimum_free_bytes': MIN_FREE, 'sampled_write_guard_bytes': MAX_WRITE, 'default_cleanup': 'stop/remove only new containers; preserve two owned volumes for separate explicit cleanup'}))
+         return
+     os.umask(0o077)
+     frozen = json.loads((HERE / 'frozen-inputs.json').read_text())
+@@ -215,20 +216,20 @@
+         'engine_version': manifest['expected_core_version'], 'same_workspace_path': True,
+         'module_sha256': {variant: sha(path) for variant, path in modules.items()},
+         'order': ORDER, 'local_cli_cap': CAP, 'cloud_commands': 0,
+-        'cache_boundary': 'Four newly created, never-started Dagger volumes. Host image/SDK blobs/pages and external registry/Git/CDN caches are retained. No host cache flush or preparatory image pull. Fetches/builds performed by the first Dagger command remain inside its measured wall time. Existing engine/volume untouched.',
++        'cache_boundary': 'Two newly created, never-started Dagger volumes. Host image/SDK blobs/pages and external registry/Git/CDN caches are retained. No host cache flush or preparatory image pull. Fetches/builds performed by the first Dagger command remain inside its measured wall time. Existing engine/volume untouched.',
+         'timing_boundary': 'Full CLI Popen through blocking process wait; provisioning, engine start/readiness, fixture changes, counters and cleanup excluded and recorded separately.',
+-        'scope': 'Two correlated observations per arm in one ABBA block; not a general cold distribution. Same frozen SDK/engine stack, module base versus optional baseAddress only.',
+-        'diagnostic_limits': 'No phase profile is collected. Wall/CPU/disk counters alone cannot prove compiler attribution.',
++        'scope': 'One profiled observation per arm for phase attribution only; not ordinary latency samples or a cold distribution. Same frozen SDK/engine stack, module base versus optional baseAddress only.',
++        'diagnostic_limits': 'Each sole first Dagger CLI call enables --profile. A bounded engine dump is captured after complete CLI exit, outside its timer. Raw profiles stay private; only numeric fixed-label aggregates may be archived.',
+         'bounds': {'min_free_bytes': MIN_FREE, 'sampled_cumulative_engine_write_bytes': MAX_WRITE, 'cli_timeout_seconds': 300, 'sampling_seconds': .5, 'write_scope': 'Engine lifetime before each final stop, not final stop writeback or Docker provisioning.'},
+-        'cleanup_policy': 'Stop/remove only this run\'s labeled immutable container IDs. Keep its four owned volumes after success/failure; explicit --cleanup-volumes requires evidence, matching labels/creation time, and zero attached containers. No reused volume is referenced.'})
++        'cleanup_policy': 'Stop/remove only this run\'s labeled immutable container IDs. Keep its two owned volumes after success/failure; explicit --cleanup-volumes requires evidence, matching labels/creation time, and zero attached containers. No reused volume is referenced.'})
+     def guard():
+         assert shutil.disk_usage(HERE).free > MIN_FREE and cumulative_writes < MAX_WRITE
+         assert hashes(APP) == original
+     try:
+-        # Provision all four containers while stopped, before any sample.
++        # Provision all two containers while stopped, before any sample.
+         for index, variant in enumerate(ORDER):
+             guard(); start = time.monotonic()
+-            name = f'dagger-engine.collections-address-cold-{nonce}-{index}'
++            name = f'dagger-engine.collections-address-cold-profile-{nonce}-{index}'
+             assert not exists('container', name) and not exists('volume', name)
+             item = {'index': index, 'variant': variant, 'name': name, 'id': None,
+                     'run_id': nonce, 'volume_created_at': None}
+@@ -273,7 +274,7 @@
+             assert len(attempts) < CAP
+             dest = out / f'{item["index"]}-{variant}'; dest.mkdir()
+             attempts.append({'index': item['index'], 'variant': variant}); write(out / 'attempts.json', attempts)
+-            command = [manifest['cli']['path'], '--engine', 'container+docker://' + item['name'], 'check', '-l', '--all']
++            command = [manifest['cli']['path'], '--engine', 'container+docker://' + item['name'], '--profile', 'check', '-l', '--all']
+             done = threading.Event(); observed = {}; reason = None
+             usage = resource.getrusage(resource.RUSAGE_CHILDREN)
+             with (dest / 'stdout.private').open('wb') as stdout, (dest / 'stderr.private').open('wb') as stderr:
+@@ -301,8 +302,19 @@
+             urls = re.findall(rb'https://[^\s\x1b]*dagger.cloud/[^\s\x1b]*', raw + b'\n' + stderr)
+             cloud = any(url.rstrip(b'.') != b'https://dagger.cloud/traces/setup' for url in urls)
+             correct = reason is None and observed['code'] == 0 and normalized == wanted_rows and not cloud
+-            row = {'index': item['index'], 'variant': variant, 'phase': 'first-cli-new-volume', 'seconds': observed['end'] - begin, 'started_unix_ns': wall, 'exited_unix_ns': observed['wall'], 'exit_code': observed['code'], 'guard_abort': reason, 'correct': correct, 'stdout_rows': len(normalized), 'stdout_sha256': sha(dest / 'stdout.private'), 'unexpected_cloud_link': cloud, 'process_tree_user_seconds': cpu.ru_utime-usage.ru_utime, 'process_tree_system_seconds': cpu.ru_stime-usage.ru_stime, 'provisioning_seconds_excluded': item['provisioning_seconds_excluded'], 'start_to_debug_ready_seconds_excluded': item['start_to_debug_ready_seconds_excluded'], 'module_sha256': sha(local / 'go.dang'), 'config_sha256': sha(workspace / 'dagger.toml'), 'initial_lock_sha256': hashlib.sha256(initial_lock).hexdigest(), 'ordinary_lock_after_sha256': sha(workspace / 'dagger.lock'), **delta(before, after)}
++            row = {'index': item['index'], 'variant': variant, 'phase': 'diagnostic-first-cli-new-volume', 'profile': True, 'ordinary_sample': False, 'seconds': observed['end'] - begin, 'started_unix_ns': wall, 'exited_unix_ns': observed['wall'], 'exit_code': observed['code'], 'guard_abort': reason, 'correct': correct, 'stdout_rows': len(normalized), 'stdout_sha256': sha(dest / 'stdout.private'), 'unexpected_cloud_link': cloud, 'process_tree_user_seconds': cpu.ru_utime-usage.ru_utime, 'process_tree_system_seconds': cpu.ru_stime-usage.ru_stime, 'provisioning_seconds_excluded': item['provisioning_seconds_excluded'], 'start_to_debug_ready_seconds_excluded': item['start_to_debug_ready_seconds_excluded'], 'module_sha256': sha(local / 'go.dang'), 'config_sha256': sha(workspace / 'dagger.toml'), 'initial_lock_sha256': hashlib.sha256(initial_lock).hexdigest(), 'ordinary_lock_after_sha256': sha(workspace / 'dagger.lock'), **delta(before, after)}
+             rows.append(row); write(out / 'results.json', rows)
++            # No pre-run dump/primer: this engine/volume is new. Read debug data
++            # only after the first CLI has fully exited; payload remains private.
++            profile_start = time.monotonic()
++            with HTTP.open(f'http://127.0.0.1:{port}/debug/wcprof/dump?flush=true', timeout=60) as response:
++                profile = response.read(256 * 1024**2 + 1)
++            assert len(profile) <= 256 * 1024**2, 'profile size cap exceeded'
++            (dest / 'run.wcprof.private').write_bytes(profile)
++            row['profile_capture_seconds_excluded'] = time.monotonic() - profile_start
++            row['profile_bytes'] = len(profile)
++            row['profile_sha256'] = sha(dest / 'run.wcprof.private')
++            write(out / 'results.json', rows)
+             print(json.dumps({key: row[key] for key in ('index', 'variant', 'seconds', 'correct', 'engine_io')}), flush=True)
+             actual = hashes(workspace)
+             assert {k:v for k,v in actual.items() if k != 'dagger.lock'} == {k:v for k,v in expected_fixture.items() if k != 'dagger.lock'}
+@@ -358,7 +370,7 @@
+         (workspace / 'dagger.toml').write_bytes(initial_config)
+         (workspace / 'dagger.lock').write_bytes(initial_lock)
+         if local.exists(): shutil.rmtree(local)
+-        restoration = {'created_resources': cleanup, 'fixture_restored': hashes(workspace) == original, 'original_fixture_untouched': hashes(APP) == original, 'attempts': len(attempts), 'validated_commands': sum(row['correct'] for row in rows), 'cloud_commands': 0, 'engine_written_bytes_before_final_stops': cumulative_writes, 'volumes_deliberately_retained': sum(row['volume_retained'] for row in cleanup), 'timing_claim': 'four individual first-listing observations; no hidden primer and no compiler attribution'}
++        restoration = {'created_resources': cleanup, 'fixture_restored': hashes(workspace) == original, 'original_fixture_untouched': hashes(APP) == original, 'attempts': len(attempts), 'validated_commands': sum(row['correct'] for row in rows), 'cloud_commands': 0, 'engine_written_bytes_before_final_stops': cumulative_writes, 'volumes_deliberately_retained': sum(row['volume_retained'] for row in cleanup), 'timing_claim': 'two profiled first-listing diagnostics; no hidden primer, not ordinary latency samples'}
+         write(out / 'cleanup.json', restoration)
+         assert restoration['fixture_restored'] and restoration['original_fixture_untouched']
+         assert all(row['container_removed'] and row['volume_created'] == row['volume_retained'] and 'cleanup_error_type' not in row for row in cleanup)
