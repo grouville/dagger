@@ -490,42 +490,22 @@ type listedArtifact struct {
 	DimensionKeys    []struct{ Dimension, Key string }
 }
 
-func readListedArtifacts(ctx context.Context, dag *dagger.Client, selection *dagger.Artifacts, absolute, typed bool) ([]listedArtifact, error) {
-	id, err := selection.ID(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var response struct {
-		Node struct{ Items string }
-	}
-	err = dag.Do(ctx, &dagger.Request{Query: `query($id: ID!, $absolute: Boolean!, $typeAssertion: Boolean!) {
-  node(id: $id) { ... on Artifacts { items: __itemsJSON(absolute: $absolute, typeAssertion: $typeAssertion) } }
- }`, Variables: map[string]any{"id": id, "absolute": absolute, "typeAssertion": typed}}, &dagger.Response{Data: &response})
+func readListedArtifacts(ctx context.Context, _ *dagger.Client, selection *dagger.Artifacts, absolute, typed bool) ([]listedArtifact, error) {
+	encoded, err := selection.XXX_ItemsJSON(ctx, absolute, typed, nil)
 	if err != nil {
 		return nil, err
 	}
 	var items []listedArtifact
-	err = json.Unmarshal([]byte(response.Node.Items), &items)
+	err = json.Unmarshal([]byte(encoded), &items)
 	return items, err
 }
 
-func readListedDimensionItems(ctx context.Context, dag *dagger.Client, selection *dagger.Artifacts, dimension string, absolute bool) ([]listedArtifact, error) {
-	id, err := selection.ID(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var response struct {
-		Node struct{ Items string }
-	}
-	err = dag.Do(ctx, &dagger.Request{Query: `query($id: ID!, $dimension: String!, $absolute: Boolean!) {
-  node(id: $id) { ... on Artifacts {
-    items: __itemsJSON(dimension: $dimension, absolute: $absolute, typeAssertion: true)
-  } }
- }`, Variables: map[string]any{"id": id, "dimension": dimension, "absolute": absolute}}, &dagger.Response{Data: &response})
+func readListedDimensionItems(ctx context.Context, _ *dagger.Client, selection *dagger.Artifacts, dimension string, absolute bool) ([]listedArtifact, error) {
+	encoded, err := selection.XXX_ItemsJSON(ctx, absolute, true, &dimension)
 	if err != nil {
 		return nil, err
 	}
 	var items []listedArtifact
-	err = json.Unmarshal([]byte(response.Node.Items), &items)
+	err = json.Unmarshal([]byte(encoded), &items)
 	return items, err
 }

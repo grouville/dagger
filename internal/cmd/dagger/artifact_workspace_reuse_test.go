@@ -65,7 +65,7 @@ func TestArtifactListReusesWorkspaceWithGlobalAliases(t *testing.T) {
 					// A second effectful workspace read really has another identity.
 					data = map[string]any{"currentWorkspace": map[string]any{"id": fmt.Sprintf("workspace-%d", workspaceReads)}}
 				case strings.Contains(request.Query, "__itemsJSON"):
-					data = map[string]any{"node": map[string]any{"items": string(items)}}
+					data = artifactProjectionData(t, request.Query, string(items))
 				case strings.Contains(request.Query, "dimensionDefinitions"):
 					dimensionReads++
 					require.Equal(t, "global-artifacts", request.Variables.(map[string]any)["id"], "aliases must use unfiltered definitions")
