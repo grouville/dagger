@@ -2397,40 +2397,55 @@ func expandTypeDefClosure(
 				continue
 			}
 			obj := typeDefSelf.AsObject.Value.Self()
-			for _, field := range obj.Fields {
-				if field.Self() == nil {
-					continue
+			objects := []*core.ObjectTypeDef{obj}
+			if obj.Collection != nil && obj.Collection.Enabled {
+				// The API exposes synthesized list/batch/get/subset members.
+				// Include their references as well as the stored definition's
+				// references, without replacing the author-owned metadata.
+				projected, err := (&moduleSchema{}).typeDefAsObject(ctx, typeDefSelf, struct{}{})
+				if err != nil {
+					return nil, fmt.Errorf("expand collection %q: %w", obj.Name, err)
 				}
-				if err := enqueue(field.Self().TypeDef); err != nil {
-					return nil, err
+				if projected.Valid && projected.Value.Self() != nil {
+					objects = append(objects, projected.Value.Self())
 				}
 			}
-			for _, fn := range obj.Functions {
-				if fn.Self() == nil {
-					continue
-				}
-				if err := enqueue(fn.Self().ReturnType); err != nil {
-					return nil, err
-				}
-				for _, arg := range fn.Self().Args {
-					if arg.Self() == nil {
+			for _, obj := range objects {
+				for _, field := range obj.Fields {
+					if field.Self() == nil {
 						continue
 					}
-					if err := enqueue(arg.Self().TypeDef); err != nil {
+					if err := enqueue(field.Self().TypeDef); err != nil {
 						return nil, err
 					}
 				}
-			}
-			if obj.Constructor.Valid && obj.Constructor.Value.Self() != nil {
-				if err := enqueue(obj.Constructor.Value.Self().ReturnType); err != nil {
-					return nil, err
-				}
-				for _, arg := range obj.Constructor.Value.Self().Args {
-					if arg.Self() == nil {
+				for _, fn := range obj.Functions {
+					if fn.Self() == nil {
 						continue
 					}
-					if err := enqueue(arg.Self().TypeDef); err != nil {
+					if err := enqueue(fn.Self().ReturnType); err != nil {
 						return nil, err
+					}
+					for _, arg := range fn.Self().Args {
+						if arg.Self() == nil {
+							continue
+						}
+						if err := enqueue(arg.Self().TypeDef); err != nil {
+							return nil, err
+						}
+					}
+				}
+				if obj.Constructor.Valid && obj.Constructor.Value.Self() != nil {
+					if err := enqueue(obj.Constructor.Value.Self().ReturnType); err != nil {
+						return nil, err
+					}
+					for _, arg := range obj.Constructor.Value.Self().Args {
+						if arg.Self() == nil {
+							continue
+						}
+						if err := enqueue(arg.Self().TypeDef); err != nil {
+							return nil, err
+						}
 					}
 				}
 			}
