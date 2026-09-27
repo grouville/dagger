@@ -1,0 +1,66 @@
+--- a/core/schema/artifacts.go
++++ b/core/schema/artifacts.go
+@@ -641,8 +641,20 @@
+ 	for _, sdk := range cfg.SDKs {
+ 		sdkProviders[sdk.Module] = true
+ 	}
++	// The load phase only narrows modules not served yet; a warm client can
++	// still return every previously served module. Skip unrelated static trees
++	// before rebuilding their schemas, while retaining every entrypoint because
++	// its promoted paths can match another module's literal prefix.
++	moduleNames := make([]string, 0, len(cfg.Modules))
++	for name := range cfg.Modules {
++		moduleNames = append(moduleNames, name)
++	}
++	includedModules := artifactIncludedModuleNames(moduleNames, include)
+ 	var nodes []*core.ModTreeNode
+ 	for _, mod := range mods {
++		if !artifactIncludesModule(includedModules, mod.Self().Name(), entrypoints[mod.Self().Name()]) {
++			continue
++		}
+ 		root, targets, err := core.ModuleArtifactNodes(ctx, mod)
+ 		if err != nil {
+ 			return nil, err
+@@ -662,11 +674,14 @@
+ 			return nil, err
+ 		}
+ 		for _, sdk := range sdks {
++			provider := cfg.SDKs[sdk.Self().Name].Module
++			if !artifactIncludesModule(includedModules, provider, entrypoints[provider]) {
++				continue
++			}
+ 			root, err := core.NewArtifactTree(ctx, sdk)
+ 			if err != nil {
+ 				return nil, err
+ 			}
+-			provider := cfg.SDKs[sdk.Self().Name].Module
+ 			reparentWorkspaceTreeRoot(root, provider, entrypoints[provider])
+ 			targets, err := core.ArtifactNodes(ctx, root)
+ 			if err != nil {
+@@ -722,6 +737,26 @@
+ 		return nil, err
+ 	}
+ 	return result, nil
++}
++
++// artifactIncludedModuleNames is a conservative static-tree prefilter. Keep the
++// ordinary matcher for patterns, unknown prefixes and entrypoint aliases. The
++// module load phase and final per-node filtering still run unchanged.
++func artifactIncludedModuleNames(names, include []string) map[string]struct{} {
++	for _, pattern := range include {
++		if strings.ContainsAny(pattern, "*?[]{}\\") {
++			return nil
++		}
++	}
++	return overlayIncludedModuleNames(names, include)
++}
++
++func artifactIncludesModule(included map[string]struct{}, name string, entrypoint bool) bool {
++	if included == nil || entrypoint {
++		return true
++	}
++	_, ok := included[canonicalOverlayModuleName(name)]
++	return ok
+ }
+ 
+ // Entries must be sorted by path before checking for duplicate paths.

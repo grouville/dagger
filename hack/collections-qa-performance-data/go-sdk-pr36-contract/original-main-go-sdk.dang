@@ -1,0 +1,217 @@
+"""
+Manage Dagger modules and module clients that use the Go SDK.
+"""
+type GoSdk {
+  """
+  Starter template used when a new module scope is initialized.
+
+  Valid values are `default`, `empty`, and `legacy`.
+  """
+  template: String! = "default"
+
+  """
+  Generate a fat module that includes dagger.json for older engines.
+  By default, generated modules require Dagger v1.0.0-beta.3 or later.
+  """
+  fat: Boolean! = false
+
+  """Write selected dependency commits to the module manifests."""
+  lock: Boolean! = false
+
+  """
+  In module scopes, generate each client two times: one for the module and
+  one standalone. Non-module scopes always generate standalone clients.
+
+  Temporary: this setting will be removed when the two clients become one.
+  """
+  dualClients: Boolean! = false
+
+  """Find the nearest Go module root from Workspace.cwd. Return null if no go.mod exists."""
+  findClientRoot(ws: Workspace!): String {
+    let goMod = ws.findUp("go.mod")
+    if (goMod == null) {
+      null
+    } else {
+      configDir(goMod, "go.mod")
+    }
+  }
+
+  """
+  Generate the complete module and client state for one SDK scope.
+
+  Module scopes use the built-in Go module generator. With dualClients, they
+  also generate standalone clients in their nearest Go scope. Non-module
+  scopes always generate standalone clients.
+  """
+  generateScope(
+    ws: Workspace!,
+    isModule: Boolean!,
+    name: String!,
+    clients: [ModuleSource!]!,
+  ): Workspace! {
+    let hadManifest = exists(ws, "dagger-module.toml") or exists(ws, "dagger.json")
+    let initialized = if (isModule and !hadManifest) {
+      ws.withDirectory(".", renderedTemplate(name, template))
+    } else {
+      ws
+    }
+
+    if (isModule) {
+      let configured = generatedManifest(initialized, name, clients)
+      let generated = configured.withDirectory(".", generatedModuleCode(configured))
+      # generatedModuleCode excludes manifests, so the configured ones survive
+      # the merge. Rewriting them here would repeat the same workspace edit.
+      if (dualClients) {
+        generateStandaloneClients(generated, clients)
+      } else {
+        generated
+      }
+    } else {
+      # Standalone clients are the only output here, so dualClients does not apply.
+      generateStandaloneClients(initialized, clients)
+    }
+  }
+
+  let normalizePath(p: String!): String! {
+    let trimmed = p.trimPrefix("/").trimPrefix("./").trimSuffix("/")
+    if (trimmed == "") { "." } else { trimmed }
+  }
+
+  let configDir(foundPath: String!, marker: String!): String! {
+    normalizePath(foundPath.trimPrefix("/").trimSuffix(marker))
+  }
+
+  let exists(ws: Workspace!, path: String!): Boolean! {
+    ws.directory(".", include: [path]).exists(path)
+  }
+
+  """Generate standalone clients at the nearest Go scope without changing cwd."""
+  let generateStandaloneClients(
+    ws: Workspace!,
+    clients: [ModuleSource!]!,
+  ): Workspace! {
+    if (clients.length == 0) {
+      return ws
+    }
+    let originalScope = normalizePath(ws.cwd)
+    let goScope = findClientRoot(ws)
+    if (goScope == null) {
+      raise "cannot generate Go clients without a go.mod"
+    } else {
+      let scoped = ws.withWorkdir(goScope)
+      let base = codegenBuilder.withDirectory(
+        "/out",
+        scoped.directory(".", exclude: ["**/.git"]),
+      )
+      # Keep prior client outputs and go.mod updates in the same container.
+      # Only the completed batch needs to be merged into the workspace.
+      let generated = clients.reduce(base) { current, target =>
+        generateStandaloneClient(current, target)
+      }
+      scoped
+        .withDirectory(".", generated.directory("/out"))
+        .withWorkdir(originalScope)
+    }
+  }
+
+  """
+  Create the module manifests from the scope inputs and SDK defaults.
+
+  Fields of an existing manifest that the scope does not set are kept.
+  """
+  let generatedManifest(
+    ws: Workspace!,
+    name: String!,
+    clients: [ModuleSource!]!,
+  ): Workspace! {
+    sdkHelpers.loadModuleManifest(ws)
+      .withName(name)
+      .withLegacyGoRuntime
+      .withLegacyRuntimeDependencies(modules: clients)
+      .generate(ws, lock: lock, legacyJson: fat)
+  }
+
+  """Run built-in Go codegen and discard its manifest files."""
+  let generatedModuleCode(ws: Workspace!): Directory! {
+    let scopePath = normalizePath(ws.cwd)
+    let sourcePath = if (scopePath == ".") { "/" } else { "/" + scopePath }
+    let generatedRoot = ws
+      .withWorkdir(".")
+      .moduleSource(sourcePath)
+      .generatedContextDirectory
+    let generated = if (scopePath == ".") {
+      generatedRoot
+    } else {
+      generatedRoot.directory(scopePath)
+    }
+    let withoutTOML = if (generated.exists("dagger-module.toml")) {
+      generated.withoutFile("dagger-module.toml")
+    } else {
+      generated
+    }
+    if (withoutTOML.exists("dagger.json")) {
+      withoutTOML.withoutFile("dagger.json")
+    } else {
+      withoutTOML
+    }
+  }
+
+  """Build the engine-free standalone client generator."""
+  let codegenBuilder: Container! {
+    container
+      .from("golang:1.25-alpine")
+      .withoutEntrypoint
+      .withMountedCache("/go/pkg/mod", cacheVolume("go-mod"))
+      .withMountedCache("/root/.cache/go-build", cacheVolume("go-build"))
+      .withDirectory("/helper", currentModule.source.directory("helpers/codegen"))
+      .withWorkdir("/helper")
+      .withExec(["go", "build", "-o", "/usr/local/bin/codegen", "."])
+  }
+
+  """Serialize the target-module location used by the generated bootstrap."""
+  let boundModuleJSON(kindJSON: String!, path: String!, ref: String!, pin: String!): String! {
+    "{\"kind\":" + kindJSON + ",\"path\":" + JSON.encode(path) + ",\"ref\":" + JSON.encode(ref) + ",\"pin\":" + JSON.encode(pin) + "}"
+  }
+
+  """Generate one target client in the batch's Go module at /out."""
+  let generateStandaloneClient(ctr: Container!, target: ModuleSource!): Container! {
+    let targetName = target.moduleOriginalName
+    let outputPath = "internal/dagger/clients/" + targetName
+    let metaJSON = "{\"engineVersion\":" + JSON.encode(target.engineVersion) +
+      ",\"module\":" + boundModuleJSON(
+        JSON.encode(target.kind),
+        target.sourceRootSubpath,
+        target.asString,
+        target.pin,
+      ) + "}"
+    ctr
+      .withFile("/schema.json", target.clientSchemaIntrospectionJSON)
+      .withNewFile("/meta.json", metaJSON)
+      .withExec([
+        "codegen",
+        "--introspection-json-path", "/schema.json",
+        "--client-meta-path", "/meta.json",
+        "--output", "/out/" + outputPath,
+        "--module-root", "/out",
+      ])
+  }
+
+  """Render one templates/<name> starter for a new module."""
+  let renderedTemplate(name: String!, selected: String!): Directory! {
+    if (currentModule.source.exists("templates/" + selected) == false) {
+      raise "unknown init template: " + selected
+    } else {
+      container
+        .from("golang:1.25-alpine")
+        .withoutEntrypoint
+        .withMountedCache("/go/pkg/mod", cacheVolume("go-mod"))
+        .withMountedCache("/root/.cache/go-build", cacheVolume("go-build"))
+        .withDirectory("/helper", currentModule.source.directory("helpers/render-template"))
+        .withDirectory("/template", currentModule.source.directory("templates/" + selected))
+        .withWorkdir("/helper")
+        .withExec(["go", "build", "-o", "/usr/local/bin/render-template", "."])
+        .withExec(["render-template", name, "/template", "/rendered"])
+        .directory("/rendered")
+    }
+  }
+}

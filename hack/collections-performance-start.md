@@ -4,7 +4,21 @@ Start with the [current findings and priorities](collections-performance-current
 for the measured improvements, held experiments and remaining 500 ms gap. The
 entries below retain the history and the cache/Cloud boundary of each round.
 
-The latest generic source change, `fef89b56e0`, separates nested-session providers
+The latest generic discovery change, `093e161255`, skips unrelated static artifact
+trees during targeted lookup. A separate profile reduces repeated Address metadata
+requests from **195 to 18**. Full warm check listing is flat; distinct app-comment
+listing is **1.483 → 1.356 s** in four observations per arm. All 42 local correctness
+outcomes and the expanded normal/race gates pass. See the
+[current findings](collections-performance-current.md) for sample and error-scope
+boundaries.
+
+`36e4939021` also fixes configured `Address` arguments, enabling modules to retain
+an address and choose when to consume its target. It preserves caller-workspace
+binding and does not automatically make existing Container arguments lazy. The
+optional Go module API and its real execution/performance proof remain separate.
+`c1a34a011c` adds tree-construction wcprof phases for the next diagnostic.
+
+The earlier generic source change, `fef89b56e0`, separates nested-session providers
 from engine provisioning. The helper starts in **9.114 → 6.357 ms** in twelve
 matched host-process pairs and loses **6.3 MB**. Normal/race gates, full CLI/engine
 builds and ten actual Go/TypeScript/Python/check/exec calls pass. This is an

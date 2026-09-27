@@ -1,0 +1,116 @@
+{
+  "source_head": "2088d5efed34ccff90829bec502320eeca579fc7",
+  "manifest_sha256": "2d63eca5528429905f62bba7d75e55f2c5bd415dfa656054ab9a07fd0ef7880a",
+  "runner_sha256": "c0e3169f8c3527783acdafd64fbb4f3e62a814b440e231a5484efd20a16a4bb0",
+  "go_sha256": "29e6e0b8be61beb1489ceae62b304343566de8a1dc700af74bde7aeb9c80ad45",
+  "modfile_sha256": "fc4e7e317777881c9b293ab217ccf9e7c3e9d753a71d8af62e618b8ac1938502",
+  "modsum_sha256": "05b34feba139701de20620f80fbb5cb54d95e05c3ba33004e80f73d75aaa8bc8",
+  "environment": {
+    "GOMAXPROCS": "4",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "GOTOOLCHAIN": "local",
+    "GOENV": "off",
+    "GOFLAGS": "",
+    "CGO_ENABLED": "1",
+    "GOOS": "linux",
+    "GOARCH": "amd64",
+    "DO_NOT_TRACK": "1"
+  },
+  "engine_calls": 0,
+  "cloud_calls": 0,
+  "stages": [
+    {
+      "name": "baseline-address-witness",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-tags=dfexcludepatterns,dfparents",
+        "-count=1",
+        "-v",
+        "-timeout=120s",
+        "-overlay=/tmp/collections-perf/go-base-address-v1/baseline-overlay.json",
+        "-run",
+        "^TestUserDefaultAddress",
+        "./core"
+      ],
+      "exit_code": 1,
+      "seconds": 26.417491912841797,
+      "expected_success": false,
+      "passed": true,
+      "log_sha256": "0cd97d45a042e4059fc32f0b3d8d9409711556eebbe025f8dfbd19cdd2c56be8"
+    },
+    {
+      "name": "candidate-address",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-tags=dfexcludepatterns,dfparents",
+        "-count=1",
+        "-v",
+        "-timeout=120s",
+        "-overlay=/tmp/collections-perf/go-base-address-v1/test-overlay.json",
+        "-run",
+        "^TestUserDefault(Address|WithoutDotEnv)",
+        "./core"
+      ],
+      "exit_code": 0,
+      "seconds": 26.31887650489807,
+      "expected_success": true,
+      "passed": true,
+      "log_sha256": "2dc26c2ff7b3e3f8a85363b8f966c81bc73bc03fb99a38039d00cfb1f567889a"
+    },
+    {
+      "name": "candidate-address-race",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-tags=dfexcludepatterns,dfparents",
+        "-count=1",
+        "-v",
+        "-timeout=120s",
+        "-race",
+        "-overlay=/tmp/collections-perf/go-base-address-v1/test-overlay.json",
+        "-run",
+        "^TestUserDefault(Address|WithoutDotEnv)",
+        "./core"
+      ],
+      "exit_code": 0,
+      "seconds": 48.118303537368774,
+      "expected_success": true,
+      "passed": true,
+      "log_sha256": "ae47e50329e2293da7b265b72b6f63a2b8e907faf9362289c87b95a563b55cb3"
+    },
+    {
+      "name": "module-parse",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-tags=dfexcludepatterns,dfparents",
+        "-count=1",
+        "-v",
+        "-timeout=120s",
+        "/tmp/collections-perf/go-base-address-v1/module_parse_test.go"
+      ],
+      "exit_code": 0,
+      "seconds": 0.9155685901641846,
+      "expected_success": true,
+      "passed": true,
+      "log_sha256": "89da9d6f6bd43ed439178c4fe427c6f7961b2e54bb9307f9ef9f264eaa0abdb9"
+    }
+  ],
+  "parser_input_sha256": {
+    "/tmp/collections-perf/go-base-address-v1/module_parse_test.go": "f37956ff0bafbcbf0bc87ec92d77dba91b182f38419a45a926d7b51c33dcf298",
+    "/tmp/collections-perf/go-base-address-v1/module/go.dang": "0b12a6f3fe091f5896c19f642e2074593dceca554275b150a450e06732d640be",
+    "/tmp/collections-perf/go-base-address-v1/module/.dagger/modules/go-dev/main.dang": "1d0c610f3233112deaddeca2318f07c1490248eeded3ad3ae19adbd4c454297d",
+    "/tmp/collections-perf/go-base-address-retained-v1/fixture/probe/main.dang": "b5ff6abcc4e1eb6df531774270a6fa9a1ceb8b3688862711b1741d5663994016"
+  }
+}

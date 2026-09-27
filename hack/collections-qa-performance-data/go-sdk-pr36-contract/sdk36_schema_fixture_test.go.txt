@@ -1,0 +1,36 @@
+package schema
+
+import (
+	"context"
+	"github.com/dagger/dagger/core"
+	"github.com/dagger/dagger/dagql/call"
+	"github.com/stretchr/testify/require"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func TestSDK36ProductionSchemaFixture(t *testing.T) {
+	ctx := context.Background()
+	server := &currentTypeDefsTestServer{}
+	base, err := NewCoreSchemaBase(ctx, server)
+	require.NoError(t, err)
+	dir := os.Getenv("SDK36_SCHEMA_OUTPUT")
+	require.Equal(t, "/tmp/collections-perf/go-sdk-pr36-contract-v2/schema", dir)
+	require.NoError(t, os.MkdirAll(dir, 0700))
+	for _, item := range []struct {
+		view call.View
+		name string
+	}{{"v1.0.0-beta.11", "beta11.json"}, {"v1.0.0", "current.json"}} {
+		dag, err := base.Fork(ctx, core.NewRoot(server), item.view)
+		require.NoError(t, err)
+		body, err := getSchemaJSON(nil, nil, item.view, dag)
+		require.NoError(t, err)
+		path := filepath.Join(dir, item.name)
+		f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		require.NoError(t, err)
+		_, err = f.Write(body)
+		require.NoError(t, err)
+		require.NoError(t, f.Close())
+	}
+}

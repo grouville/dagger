@@ -1,0 +1,17 @@
+package baseaddress_test
+
+import (
+	"testing"
+
+	"github.com/vito/dang/v2/pkg/dang"
+)
+
+func TestPreparedBaseAddressModuleSyntax(t *testing.T) {
+	for _, path := range []string{"/tmp/collections-perf/go-base-address-v1/module/go.dang", "/tmp/collections-perf/go-base-address-v1/module/.dagger/modules/go-dev/main.dang", "/tmp/collections-perf/go-base-address-retained-v1/fixture/probe/main.dang"} {
+		t.Run(path, func(t *testing.T) {
+			if _, err := dang.ParseFile(path); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}

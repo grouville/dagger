@@ -1,0 +1,59 @@
+--- artifact_static_prune_test.go v1
++++ artifact_static_prune_test.go v2
+@@ -5,6 +5,7 @@
+ 	"testing"
+ 
+ 	"github.com/dagger/dagger/core"
++	"github.com/dagger/dagger/dagql"
+ 	"github.com/stretchr/testify/require"
+ )
+ 
+@@ -90,3 +91,48 @@
+ 		}
+ 	}
+ }
++
++// Schema serving accepts a module with no main object, but constructing its
++// artifact tree rejects it. Targeted discovery must not depend on whether an
++// unrelated module happened to be served earlier in the session. Selected,
++// entrypoint and non-narrowed validation errors remain visible.
++func TestArtifactStaticPruningScopesServedModuleValidation(t *testing.T) {
++	ctx := t.Context()
++	srv, err := dagql.NewServer(ctx, &core.Query{})
++	require.NoError(t, err)
++	srv.InstallObject(dagql.NewClass(srv, dagql.ClassOpts[*core.Module]{}))
++	mod := &core.Module{NameField: "unrelated", OriginalName: "Unrelated"}
++	served, err := dagql.NewObjectResultForCall(mod, srv, &dagql.ResultCall{
++		Field: "servedEmptyModule", Type: dagql.NewResultCallType(mod.Type()),
++	})
++	require.NoError(t, err)
++	require.NoError(t, core.NewUserMod(served).Install(ctx, srv), "the module can be served before discovery")
++	_, _, err = core.ModuleArtifactNodes(ctx, served)
++	require.ErrorContains(t, err, `"unrelated": no main object`, "the real tree builder detects the late error")
++	for _, tc := range []struct {
++		name          string
++		include       []string
++		entrypoint    bool
++		wantTreeError bool
++	}{
++		{"unrelated literal selection", []string{"backend:source"}, false, false},
++		{"selected module", []string{"unrelated:source"}, false, true},
++		{"unfiltered catalog", nil, false, true},
++		{"entrypoint can expose selected path", []string{"backend:source"}, true, true},
++		{"pattern keeps complete validation", []string{"backend:**"}, false, true},
++		{"unknown prefix keeps fallback", []string{"missing:source"}, false, true},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			selection := artifactIncludedModuleNames([]string{"backend", "unrelated"}, tc.include)
++			var treeErr error
++			if artifactIncludesModule(selection, served.Self().Name(), tc.entrypoint) {
++				_, _, treeErr = core.ModuleArtifactNodes(t.Context(), served)
++			}
++			if tc.wantTreeError {
++				require.ErrorContains(t, treeErr, `"unrelated": no main object`)
++			} else {
++				require.NoError(t, treeErr)
++			}
++		})
++	}
++}

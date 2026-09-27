@@ -1,0 +1,97 @@
+{
+  "source_head": "fef89b56e050bd93a450f3a8c8a5837558727464",
+  "manifest_sha256": "809948ef27edb7fc9e6fcdecde71a17526e1a864ebc806d06cb4cb6aa675e0eb",
+  "runner_sha256": "de7d8df85c6a86fa2fe926030638e2fb329a986f1b49bf2d751de399a9cb8cde",
+  "modfile_sha256": "fc4e7e317777881c9b293ab217ccf9e7c3e9d753a71d8af62e618b8ac1938502",
+  "modsum_sha256": "05b34feba139701de20620f80fbb5cb54d95e05c3ba33004e80f73d75aaa8bc8",
+  "environment": {
+    "PATH": "/home/dagger/.bun/install/global/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:/home/dagger/.codex/tmp/arg0/codex-arg0fh39Uq:/tmp/bunx-1000-codex@latest/node_modules/.bin:/tmp/bun-node-bf2e2cecf:/home/dagger/dag/node_modules/.bin:/home/dagger/dag/node_modules/.bin:/home/dagger/node_modules/.bin:/home/node_modules/.bin:/node_modules/.bin:/home/dagger/.kimi-code/bin:/home/dagger/.bun/bin:/home/dagger/.local/bin:/home/dagger/.vscode-server/data/User/globalStorage/github.copilot-chat/debugCommand:/home/dagger/.vscode-server/data/User/globalStorage/github.copilot-chat/copilotCli:/home/dagger/.vscode-server/cli/servers/Stable-e4c7e7b1d6d060162f4aa7f8225271b67ce1df75/server/bin/remote-cli:/home/dagger/.kimi-code/bin:/home/dagger/.bun/bin:/home/dagger/.local/bin:/home/dagger/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin",
+    "HOME": "/home/dagger",
+    "USER": "dagger",
+    "LOGNAME": "dagger",
+    "GOMAXPROCS": "4",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "GOTOOLCHAIN": "local",
+    "GOENV": "off",
+    "GOFLAGS": "",
+    "CGO_ENABLED": "1",
+    "GOOS": "linux",
+    "GOARCH": "amd64",
+    "DO_NOT_TRACK": "1"
+  },
+  "engine_calls": 0,
+  "cloud_calls": 0,
+  "stages": [
+    {
+      "name": "normal-engineutil",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-overlay=/tmp/collections-perf/split-init-upstream-v2/overlay.json",
+        "-tags=dfexcludepatterns,dfparents",
+        "-count=1",
+        "-v",
+        "-timeout=90s",
+        "-run",
+        "^TestSplitInitMounts$",
+        "./engine/engineutil"
+      ],
+      "exit_code": 0,
+      "seconds": 2.970893139950931,
+      "log_sha256": "1388164045fbf658e1705472e746c270d8c27492b784e4c3d582b8482915917c",
+      "passed": [
+        "--- PASS: TestSplitInitMounts (0.00s)",
+        "    --- PASS: TestSplitInitMounts/ordinary (0.00s)",
+        "    --- PASS: TestSplitInitMounts/nested (0.00s)",
+        "    --- PASS: TestSplitInitMounts/explicit_token (0.00s)",
+        "    --- PASS: TestSplitInitMounts/empty_token (0.00s)",
+        "    --- PASS: TestSplitInitMounts/similar_key (0.00s)",
+        "    --- PASS: TestSplitInitMounts/not_assignment (0.00s)",
+        "    --- PASS: TestSplitInitMounts/explicit_token_no_init (0.00s)",
+        "    --- PASS: TestSplitInitMounts/no_init (0.00s)",
+        "    --- PASS: TestSplitInitMounts/no_nested_init (0.00s)"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "name": "race-engineutil",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-overlay=/tmp/collections-perf/split-init-upstream-v2/overlay.json",
+        "-tags=dfexcludepatterns,dfparents",
+        "-race",
+        "-count=1",
+        "-v",
+        "-timeout=90s",
+        "-run",
+        "^TestSplitInitMounts$",
+        "./engine/engineutil"
+      ],
+      "exit_code": 0,
+      "seconds": 5.179062728071585,
+      "log_sha256": "858db596a99625ed8cd65bedac681129709f4a78ee510b8cc14186f59bff9d8d",
+      "passed": [
+        "--- PASS: TestSplitInitMounts (0.00s)",
+        "    --- PASS: TestSplitInitMounts/ordinary (0.00s)",
+        "    --- PASS: TestSplitInitMounts/nested (0.00s)",
+        "    --- PASS: TestSplitInitMounts/explicit_token (0.00s)",
+        "    --- PASS: TestSplitInitMounts/empty_token (0.00s)",
+        "    --- PASS: TestSplitInitMounts/similar_key (0.00s)",
+        "    --- PASS: TestSplitInitMounts/not_assignment (0.00s)",
+        "    --- PASS: TestSplitInitMounts/explicit_token_no_init (0.00s)",
+        "    --- PASS: TestSplitInitMounts/no_init (0.00s)",
+        "    --- PASS: TestSplitInitMounts/no_nested_init (0.00s)"
+      ],
+      "skipped": [],
+      "failed": []
+    }
+  ],
+  "temporary_dirs_removed": true
+}

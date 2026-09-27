@@ -1,0 +1,202 @@
+package core
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"testing"
+
+	"github.com/dagger/dagger/dagql"
+	"github.com/dagger/dagger/engine"
+	"github.com/stretchr/testify/require"
+)
+
+type addressDefaultTestServer struct {
+	*persistedFamiliesTestQueryServer
+	deps *SchemaBuilder
+	main *engine.ClientMetadata
+	t    *testing.T
+}
+
+func (s *addressDefaultTestServer) NonModuleParentClientMetadata(context.Context) (*engine.ClientMetadata, error) {
+	return s.main, nil
+}
+func (s *addressDefaultTestServer) CurrentServedDeps(ctx context.Context) (*SchemaBuilder, error) {
+	md, err := engine.ClientMetadataFromContext(ctx)
+	require.NoError(s.t, err)
+	require.Equal(s.t, s.main.ClientID, md.ClientID, "configured objects resolve in caller scope")
+	return s.deps, nil
+}
+
+func addressDefaultArg(t *testing.T, name string, list bool, input string) *UserDefault {
+	t.Helper()
+	typ := defaultTestObject(t, &TypeDef{Kind: TypeDefKindObject, AsObject: dagql.NonNull(defaultTestObject(t, &ObjectTypeDef{Name: name, OriginalName: name}))})
+	if list {
+		typ = defaultTestObject(t, &TypeDef{Kind: TypeDefKindList, AsList: dagql.NonNull(defaultTestObject(t, &ListTypeDef{ElementTypeDef: typ}))})
+	}
+	return &UserDefault{UserDefaultPrimitive: UserDefaultPrimitive{
+		Function: &ModuleFunction{mod: defaultTestObject(t, &Module{NameField: "consumer", OriginalName: "Consumer"}), metadata: &Function{Name: "new"}},
+		Arg:      &FunctionArg{Name: "baseAddress", OriginalName: "baseAddress", TypeDef: typ}, UserInput: input,
+	}}
+}
+
+func loadDefaultAddress(t *testing.T, ctx context.Context, srv *dagql.Server, value any) dagql.ObjectResult[*Address] {
+	t.Helper()
+	encoded, err := json.Marshal(value)
+	require.NoError(t, err)
+	var id dagql.ID[*Address]
+	require.NoError(t, json.Unmarshal(encoded, &id))
+	addr, err := id.Load(ctx, srv)
+	require.NoError(t, err)
+	return addr
+}
+
+// Exercise the public UserDefault.Value/CallInput paths, not just an isolated
+// helper. The small schema makes any eager target selection observable.
+func TestUserDefaultAddressKeepsCallerBindingWithoutLoadingTarget(t *testing.T) {
+	env := newPersistedFamiliesTestEnv(t, "address-default")
+	ctx, cache, srv := env.open(t)
+	query, err := CurrentQuery(ctx)
+	require.NoError(t, err)
+	facade := &addressDefaultTestServer{
+		persistedFamiliesTestQueryServer: query.Server.(*persistedFamiliesTestQueryServer),
+		deps:                             &SchemaBuilder{root: query, lazilyLoadedServer: srv},
+		main:                             &engine.ClientMetadata{ClientID: env.session, SessionID: env.session}, t: t,
+	}
+	query.Server = facade
+	var targetCalls int
+	failProducer := true
+	var seenOwners []string
+	dagql.Fields[*Workspace]{
+		dagql.NodeFunc("resolve", func(_ context.Context, parent dagql.ObjectResult[*Workspace], args struct{ Value string }) (*Address, error) {
+			if args.Value == "" {
+				return nil, fmt.Errorf("empty fixture address")
+			}
+			return &Address{Value: args.Value, ExternalOnly: true, BoundWorkspace: parent}, nil
+		}),
+	}.Install(srv)
+	dagql.Fields[*Address]{
+		dagql.Func("container", func(_ context.Context, self *Address, _ struct{}) (*Container, error) {
+			targetCalls++
+			seenOwners = append(seenOwners, self.BoundWorkspace.Self().Cwd)
+			if failProducer {
+				return nil, fmt.Errorf("producer sentinel")
+			}
+			ctr := NewContainer(Platform{})
+			ctr.Config.Env = []string{fmt.Sprintf("PRODUCER_GENERATION=%d", targetCalls)}
+			return ctr, nil
+		}).WithInput(dagql.PerCallInput),
+	}.Install(srv)
+	first := env.attach(t, ctx, cache, srv, "ownerA", &Workspace{Cwd: "/owner-a"}).(dagql.ObjectResult[*Workspace])
+	second := env.attach(t, ctx, cache, srv, "ownerB", &Workspace{Cwd: "/owner-b"}).(dagql.ObjectResult[*Workspace])
+	nested := engine.ContextWithClientMetadata(ctx, &engine.ClientMetadata{ClientID: "nested", SessionID: env.session})
+	actx, bctx := WorkspaceToContext(nested, first), WorkspaceToContext(nested, second)
+	address := addressDefaultArg(t, "Address", false, "dag://producer/base")
+	avalue, err := address.Value(actx)
+	require.NoError(t, err)
+	bvalue, err := address.Value(bctx)
+	require.NoError(t, err)
+	require.Zero(t, targetCalls, "passing an Address must not execute its producer")
+	a, b := loadDefaultAddress(t, ctx, srv, avalue), loadDefaultAddress(t, ctx, srv, bvalue)
+	aid, err := a.ID()
+	require.NoError(t, err)
+	bid, err := b.ID()
+	require.NoError(t, err)
+	aEncoded, err := aid.Encode()
+	require.NoError(t, err)
+	bEncoded, err := bid.Encode()
+	require.NoError(t, err)
+	require.NotEqual(t, aEncoded, bEncoded, "same text from distinct workspaces must not collapse")
+	require.Equal(t, "dag://producer/base", a.Self().Value)
+	require.True(t, a.Self().ExternalOnly)
+	require.Equal(t, "/owner-a", a.Self().BoundWorkspace.Self().Cwd)
+	require.Equal(t, "/owner-b", b.Self().BoundWorkspace.Self().Cwd)
+	callInput, err := address.CallInput(actx)
+	require.NoError(t, err)
+	require.Equal(t, "baseAddress", callInput.Name)
+	var argumentID dagql.ID[*Address]
+	require.NoError(t, json.Unmarshal(callInput.Value, &argumentID))
+	passed, err := argumentID.Load(ctx, srv)
+	require.NoError(t, err)
+	require.Equal(t, "/owner-a", passed.Self().BoundWorkspace.Self().Cwd)
+	// The eventual consumer sees the original address workspace even when a
+	// different Workspace is active in its own call context.
+	var unused dagql.ObjectResult[*Container]
+	err = srv.Select(bctx, a, &unused, dagql.Selector{Field: "container"})
+	require.ErrorContains(t, err, "producer sentinel")
+	require.Equal(t, []string{"/owner-a"}, seenOwners)
+	// Ordinary Container settings retain their eager error behavior.
+	_, err = addressDefaultArg(t, "Container", false, "dag://producer/base").Value(actx)
+	require.ErrorContains(t, err, "producer sentinel")
+	require.Equal(t, 2, targetCalls)
+	failProducer = false
+	var previous dagql.ObjectResult[*Container]
+	for _, generation := range []int{3, 4} {
+		var produced dagql.ObjectResult[*Container]
+		require.NoError(t, srv.Select(bctx, a, &produced, dagql.Selector{Field: "container"}))
+		require.Equal(t, []string{fmt.Sprintf("PRODUCER_GENERATION=%d", generation)}, produced.Self().Config.Env, "Address.container must retain its per-call producer behavior")
+		if previous.Self() != nil {
+			before, err := previous.ID()
+			require.NoError(t, err)
+			after, err := produced.ID()
+			require.NoError(t, err)
+			beforeEncoded, err := before.Encode()
+			require.NoError(t, err)
+			afterEncoded, err := after.Encode()
+			require.NoError(t, err)
+			require.NotEqual(t, beforeEncoded, afterEncoded)
+		}
+		previous = produced
+	}
+	_, err = addressDefaultArg(t, "Address", false, "").Value(actx)
+	require.ErrorContains(t, err, "empty fixture address")
+}
+
+func TestUserDefaultAddressListKeepsEachBinding(t *testing.T) {
+	env := newPersistedFamiliesTestEnv(t, "address-list-default")
+	ctx, cache, srv := env.open(t)
+	query, err := CurrentQuery(ctx)
+	require.NoError(t, err)
+	query.Server = &addressDefaultTestServer{
+		persistedFamiliesTestQueryServer: query.Server.(*persistedFamiliesTestQueryServer),
+		deps:                             &SchemaBuilder{root: query, lazilyLoadedServer: srv}, main: &engine.ClientMetadata{ClientID: env.session, SessionID: env.session}, t: t,
+	}
+	dagql.Fields[*Workspace]{dagql.NodeFunc("resolve", func(_ context.Context, parent dagql.ObjectResult[*Workspace], args struct{ Value string }) (*Address, error) {
+		return &Address{Value: args.Value, ExternalOnly: true, BoundWorkspace: parent}, nil
+	})}.Install(srv)
+	ws := env.attach(t, ctx, cache, srv, "owner", &Workspace{Cwd: "/caller"}).(dagql.ObjectResult[*Workspace])
+	ctx = WorkspaceToContext(ctx, ws)
+	empty := addressDefaultArg(t, "Address", true, "[]")
+	emptyInput, err := empty.DagqlID(ctx)
+	require.NoError(t, err)
+	dynamic, ok := emptyInput.(dagql.DynamicArrayInput)
+	require.True(t, ok)
+	require.Empty(t, dynamic.Values)
+	require.NotNil(t, dynamic.Elem)
+	for _, input := range []string{`["dag://producer/one","dag://producer/two"]`, `dag://producer/one, dag://producer/two`} {
+		value, err := addressDefaultArg(t, "Address", true, input).Value(ctx)
+		require.NoError(t, err)
+		items, ok := value.([]any)
+		require.True(t, ok)
+		require.Len(t, items, 2)
+		for i, item := range items {
+			addr := loadDefaultAddress(t, ctx, srv, item)
+			require.Equal(t, []string{"dag://producer/one", "dag://producer/two"}[i], addr.Self().Value)
+			require.Equal(t, "/caller", addr.Self().BoundWorkspace.Self().Cwd)
+		}
+	}
+}
+
+func TestUserDefaultAddressWorkspaceSettingLookup(t *testing.T) {
+	expected := addressDefaultArg(t, "Address", false, "dag://producer/base")
+	fn := expected.Function
+	fn.metadata.Name = ""
+	fn.metadata.Args = dagql.ObjectResultArray[*FunctionArg]{defaultTestObject(t, expected.Arg)}
+	fn.mod.Self().WorkspaceConfig = map[string]any{"baseAddress": expected.UserInput}
+	got, found, err := fn.UserDefault(t.Context(), "baseAddress")
+	require.NoError(t, err)
+	require.True(t, found, "the actual workspace setting must select the new argument")
+	require.Equal(t, expected.UserInput, got.UserInput)
+	require.True(t, got.IsObject())
+	require.Equal(t, "Address", got.Arg.TypeDef.Self().ToType().Name())
+}

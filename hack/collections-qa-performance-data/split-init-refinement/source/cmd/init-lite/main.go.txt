@@ -1,0 +1,21 @@
+//go:build linux
+
+package main
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/dagger/dagger/engine/distconsts"
+	"github.com/dagger/dagger/engine/session/initexec"
+)
+
+func main() {
+	if os.Args[0] != "/.init" {
+		return
+	}
+	if err := initexec.Run(distconsts.DaggerSessionContainerPath); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}

@@ -1,0 +1,176 @@
+{
+  "source_head": "fef89b56e050bd93a450f3a8c8a5837558727464",
+  "manifest_sha256": "e8ea74453139b39184ff8bd11c3faa46a38e2dfad1ed3900e133e9929dd5ff57",
+  "runner_sha256": "646b158643b13ca3cc92c3430ffa967bc060f319f2b0a21bb6bebc5e323ca8f5",
+  "modfile_sha256": "fc4e7e317777881c9b293ab217ccf9e7c3e9d753a71d8af62e618b8ac1938502",
+  "modsum_sha256": "05b34feba139701de20620f80fbb5cb54d95e05c3ba33004e80f73d75aaa8bc8",
+  "environment": {
+    "PATH": "/home/dagger/.bun/install/global/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/codex-path:/home/dagger/.codex/tmp/arg0/codex-arg0fh39Uq:/tmp/bunx-1000-codex@latest/node_modules/.bin:/tmp/bun-node-bf2e2cecf:/home/dagger/dag/node_modules/.bin:/home/dagger/dag/node_modules/.bin:/home/dagger/node_modules/.bin:/home/node_modules/.bin:/node_modules/.bin:/home/dagger/.kimi-code/bin:/home/dagger/.bun/bin:/home/dagger/.local/bin:/home/dagger/.vscode-server/data/User/globalStorage/github.copilot-chat/debugCommand:/home/dagger/.vscode-server/data/User/globalStorage/github.copilot-chat/copilotCli:/home/dagger/.vscode-server/cli/servers/Stable-e4c7e7b1d6d060162f4aa7f8225271b67ce1df75/server/bin/remote-cli:/home/dagger/.kimi-code/bin:/home/dagger/.bun/bin:/home/dagger/.local/bin:/home/dagger/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin",
+    "HOME": "/home/dagger",
+    "USER": "dagger",
+    "LOGNAME": "dagger",
+    "GOMAXPROCS": "4",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "GOTOOLCHAIN": "local",
+    "GOENV": "off",
+    "GOFLAGS": "",
+    "CGO_ENABLED": "1",
+    "GOOS": "linux",
+    "GOARCH": "amd64",
+    "DO_NOT_TRACK": "1"
+  },
+  "engine_calls": 0,
+  "cloud_calls": 0,
+  "stages": [
+    {
+      "name": "normal-initexec",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-overlay=/tmp/collections-perf/split-init-upstream-v2/overlay.json",
+        "-tags=dfexcludepatterns,dfparents",
+        "-count=1",
+        "-v",
+        "-timeout=90s",
+        "-run",
+        "^TestSplitInit",
+        "./engine/session/initexec"
+      ],
+      "exit_code": 0,
+      "seconds": 0.3148456569761038,
+      "log_sha256": "fba6ba55c59250e7fc2928a58f86a012ffdc530eccdb13fbcc891c711b726e69",
+      "passed": [
+        "--- PASS: TestSplitInitReadiness (0.00s)",
+        "    --- PASS: TestSplitInitReadiness/ready (0.00s)",
+        "    --- PASS: TestSplitInitReadiness/dies (0.00s)",
+        "--- PASS: TestSplitInitHelperStartError (0.00s)",
+        "--- PASS: TestSplitInitArgvAndExitStatus (0.00s)",
+        "--- PASS: TestSplitInitSignalForwarding (0.00s)",
+        "--- PASS: TestSplitInitProcess (0.00s)",
+        "--- PASS: TestSplitInitTTY (0.01s)"
+      ],
+      "skipped": [
+        "--- SKIP: TestSplitInitPIDNamespaceReaping (0.00s)"
+      ],
+      "failed": []
+    },
+    {
+      "name": "normal-engineutil",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-overlay=/tmp/collections-perf/split-init-upstream-v2/overlay.json",
+        "-tags=dfexcludepatterns,dfparents",
+        "-count=1",
+        "-v",
+        "-timeout=90s",
+        "-run",
+        "^TestSplitInitMounts$",
+        "./engine/engineutil"
+      ],
+      "exit_code": 0,
+      "seconds": 3.1206184681504965,
+      "log_sha256": "2cc95fd8aa552c4be335a99cbd2ea06d4f13fe3269c3fa6476776c8d8395c98c",
+      "passed": [
+        "--- PASS: TestSplitInitMounts (0.00s)",
+        "    --- PASS: TestSplitInitMounts/ordinary (0.00s)",
+        "    --- PASS: TestSplitInitMounts/nested (0.00s)",
+        "    --- PASS: TestSplitInitMounts/no_init (0.00s)",
+        "    --- PASS: TestSplitInitMounts/no_nested_init (0.00s)"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "name": "race-initexec",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-overlay=/tmp/collections-perf/split-init-upstream-v2/overlay.json",
+        "-tags=dfexcludepatterns,dfparents",
+        "-race",
+        "-count=1",
+        "-v",
+        "-timeout=90s",
+        "-run",
+        "^TestSplitInit",
+        "./engine/session/initexec"
+      ],
+      "exit_code": 0,
+      "seconds": 2.5762942950241268,
+      "log_sha256": "a2caffcac3d7f7675f393d423d579d7cd92761b75ad65d8c9746d537613ede2a",
+      "passed": [
+        "--- PASS: TestSplitInitReadiness (1.02s)",
+        "    --- PASS: TestSplitInitReadiness/ready (1.01s)",
+        "    --- PASS: TestSplitInitReadiness/dies (0.01s)",
+        "--- PASS: TestSplitInitHelperStartError (0.00s)",
+        "--- PASS: TestSplitInitArgvAndExitStatus (0.02s)",
+        "--- PASS: TestSplitInitSignalForwarding (0.02s)",
+        "--- PASS: TestSplitInitProcess (0.00s)",
+        "--- PASS: TestSplitInitTTY (0.02s)"
+      ],
+      "skipped": [
+        "--- SKIP: TestSplitInitPIDNamespaceReaping (0.00s)"
+      ],
+      "failed": []
+    },
+    {
+      "name": "race-engineutil",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-overlay=/tmp/collections-perf/split-init-upstream-v2/overlay.json",
+        "-tags=dfexcludepatterns,dfparents",
+        "-race",
+        "-count=1",
+        "-v",
+        "-timeout=90s",
+        "-run",
+        "^TestSplitInitMounts$",
+        "./engine/engineutil"
+      ],
+      "exit_code": 0,
+      "seconds": 5.278759867884219,
+      "log_sha256": "765cc0036e0a7339ae872043f8922d3cd51d565573bc10d348e3a7fdf7b04122",
+      "passed": [
+        "--- PASS: TestSplitInitMounts (0.00s)",
+        "    --- PASS: TestSplitInitMounts/ordinary (0.00s)",
+        "    --- PASS: TestSplitInitMounts/nested (0.00s)",
+        "    --- PASS: TestSplitInitMounts/no_init (0.00s)",
+        "    --- PASS: TestSplitInitMounts/no_nested_init (0.00s)"
+      ],
+      "skipped": [],
+      "failed": []
+    },
+    {
+      "name": "compile-both-entrypoints",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+        "-overlay=/tmp/collections-perf/split-init-upstream-v2/overlay.json",
+        "-tags=dfexcludepatterns,dfparents",
+        "-run=^$",
+        "./cmd/init",
+        "./cmd/init-lite"
+      ],
+      "exit_code": 0,
+      "seconds": 0.6153597210068256,
+      "log_sha256": "cfb65d54cbd2573ee74cfe4f29d1653113bd5c63e6f97b176358a1917f6f6612",
+      "passed": [],
+      "skipped": [],
+      "failed": []
+    }
+  ],
+  "temporary_dirs_removed": true
+}

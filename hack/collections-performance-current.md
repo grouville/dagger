@@ -15,6 +15,7 @@ the branch without its experimental artifacts.
 | Keep pure Go-module path normalization inside its private helper | Earlier eight-pair warm listing comparison: 2.630 → 2.546 s; discovery and lookup correctness checks pass | Go module commit `93d0f1b5288`, pushed to `grouville/go:perf/discovery-path-normalization` |
 | Skip Docker start when the existing inspection reports exactly `running` | Native generation 293 → 280 ms; core wall medians flat at 244 ms; paired process-tree CPU reduced 13–18 ms | CLI commit `e6e723145e`; 32/32 local outcomes correct |
 | Separate serving nested-session files/sockets from engine provisioning | Heavy helper startup 9.114 → 6.357 ms over twelve pairs; binary shrinks by 6.3 MB; no whole-command speedup established | Commit `fef89b56e0`; normal/race gates, full CLI/engine builds and ten real SDK/check/exec outcomes pass |
+| Scope artifact tree construction to selected modules | Repeated Address metadata requests 195 → 18; full warm check median flat, distinct app-comment listing 1.483 → 1.356 s over four observations per arm | Commit `093e161255`; 42 local correctness outcomes and focused normal/race gates pass |
 | Replace Docker exec connections with a local Unix connector, retaining Docker admission | `ws ls` 163 → 74 ms; distinct native source edit → check 282 → 182 ms; distinct input edit → generation/full exit 371 → 249 ms | Isolated prototype; automatic endpoint provisioning and platform/access compatibility remain to implement |
 
 The [filesystem report](collections-filesync-performance.md) includes cold,
@@ -22,6 +23,38 @@ low-width and mixed-version controls. The [transport report](collections-local-t
 includes all paired samples, output checks, boundaries and upstream requirements.
 These gains come from separate matched experiments and must not be added together.
 The Go helper is not installed in the fixture used for the latest transport trial.
+
+A [targeted artifact-tree pruning trial](collections-qa-performance-data/artifact-static-pruning-runtime/report.md)
+removes metadata work before building unrelated trees for a literal module path.
+Warm check listing is flat/slightly worse, 1.361 → 1.390 s over four observations
+per arm. Distinct app-comment edits give 1.483 → 1.356 s over four observations
+per arm, and artifact listing gives 1.377 → 1.320 s over two. These are correlated
+ABBA blocks, not a general speedup claim. Separate wcprof captures confirm
+195 → 18 TypeDef requests per repeated Address lookup; the three overlapping
+lookups shrink from about 32 to 9 ms. Their durations must not be added, and the
+profile does not distinguish which tree builder contributed those requests.
+All 38 outcomes pass, followed by
+[four selected-generator and real-generation controls](collections-qa-performance-data/artifact-static-pruning-generate/report.md).
+The prototype keeps loading, entrypoints, pattern fallback and final matching;
+its deliberate scope change omits late validation of unrelated already-served
+modules, aligning targeted lookup with existing narrowed loading. This is now
+commit `093e161255`. The
+[expanded normal/race gates](collections-qa-performance-data/artifact-static-pruning-validation/error-scope.md)
+exercise a real served empty module, including retained errors for selected and
+unfiltered discovery.
+
+The next execution-deferral experiment has an independent engine prerequisite:
+commit `36e4939021` fixes configured arguments whose type is already `Address`.
+It passes the caller-bound Address ID instead of selecting the nonexistent
+`Address.address` field. The
+[normal/race and parser gates](collections-qa-performance-data/address-default-validation/README.md)
+cover workspace binding, IDs, scalar/list inputs and unchanged eager Container
+behavior. An optional Go `baseAddress` setting can then defer its producer until
+execution. That module option is not enabled by this engine commit and still
+needs real service/edit validation and timing. Commit `c1a34a011c` adds fixed
+wcprof tree-construction boundaries to identify the remaining metadata costs;
+the [full diagnostic engine build](collections-qa-performance-data/address-default-build/README.md)
+passes with both the Address fix and those boundaries.
 
 The [managed-engine comparison](collections-qa-performance-data/managed-engine-start-runtime/report.md)
 uses five alternating pairs per flow. It includes the ordinary image driver's
@@ -88,6 +121,14 @@ establish a general discovery improvement. Keep the prototype isolated pending
 platform, service/TTY and helper-mount compatibility gates; the implementation
 also needs to share its PID1 code rather than maintain two copies.
 
+The [source refinement](collections-qa-performance-data/split-init-refinement/report.md)
+now shares one PID1 implementation and mounts the heavy session helper only when
+nested-session setup or an explicit session token needs it. Ordinary execs keep
+one injected mount; NoInit keeps none. Normal/race mount and process tests pass,
+as does a separate isolated PID-namespace reaping and controlling-terminal gate.
+This revision is still isolated: real SDK/service execution and packaging remain
+to validate, and its changed mount topology has no whole-command measurement.
+
 An [admission-order audit](collections-qa-performance-data/admission-order-audit/lock-graph-review.md)
 found no safe dependency-prefetch shortcut in the existing lock file: it records
 resolutions, not dependency reachability, and can contain unused historical refs.
@@ -113,7 +154,14 @@ pass, then candidate generation fails. The first failure was an absolute SDK
 reference in the harness; the corrected relative reference reaches the current
 engine's SDK contract and exposes missing `findClientRoot` and `generateScope`
 hooks. Both trials restore all resources and send no Cloud requests. A scoped
-compatibility adapter is being checked before another runtime attempt.
+compatibility adapter subsequently reached the full SDK compile gate and exposed
+two more obsolete core APIs: `CurrentModule.asSDK` and
+`ModuleSource.generateLocalDependencies`. The
+[compatibility report](collections-qa-performance-data/go-sdk-pr36-contract/compatibility-report.md)
+also records a syntax error in our experimental bridge separately from those
+upstream API differences. This migration is now parked; porting the complete SDK
+would overlap the existing upstream effort. No candidate runtime-generation or
+performance result was established.
 
 The real-fixture
 migration must be backend-only: the v2 manifest cannot replace the existing

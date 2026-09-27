@@ -1,0 +1,140 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/Khan/genqlient/graphql"
+	"github.com/stretchr/testify/require"
+	"github.com/vito/dang/v2/pkg/dang"
+)
+
+// This is the complete required surface from core/sdkmodule/provider.go.
+// defaultModulePath is optional and is deliberately not added by this bridge.
+const workspaceSDKContract = `interface WorkspaceSDKCompatibilityContract {
+ findClientRoot(ws: Workspace!): String
+ generateScope(ws: Workspace!, isModule: Boolean!, name: String!, clients: [ModuleSource!]!): Workspace!
+}`
+
+func compileSDKContract(t *testing.T, root, program string, client graphql.Client) (dang.ValueScope, error) {
+	t.Helper()
+	schemaPath := os.Getenv("SDK36_CORE_SCHEMA")
+	require.NotEmpty(t, schemaPath, "use the production-derived workspace schema, not the old SDK fixture")
+	schema, err := loadSchema(schemaPath)
+	require.NoError(t, err)
+	dir := t.TempDir()
+	entries, err := os.ReadDir(root)
+	require.NoError(t, err)
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".dang" {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(root, entry.Name()))
+		require.NoError(t, err)
+		if entry.Name() == "go-sdk.dang" {
+			require.Equal(t, 1, strings.Count(string(data), "type GoSdk {"))
+			data = []byte(strings.Replace(string(data), "type GoSdk {", "type GoSdk implements WorkspaceSDKCompatibilityContract {", 1))
+		}
+		require.NoError(t, os.WriteFile(filepath.Join(dir, entry.Name()), data, 0600))
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "workspace-sdk-contract.dang"), []byte(workspaceSDKContract), 0600))
+	if program != "" {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "contract-program.dang"), []byte(program), 0600))
+	}
+	ctx := dang.ContextWithImportConfigs(context.Background(), dang.ImportConfig{Name: "Dagger", Schema: schema, Client: client, AutoImport: true, Dagger: true})
+	return dang.RunDir(ctx, dir, false)
+}
+
+func TestWorkspaceSDKContractComplete(t *testing.T) {
+	_, err := compileSDKContract(t, "../..", "", nil)
+	require.NoError(t, err)
+}
+
+func TestWorkspaceSDKContractRejectsOriginalSurface(t *testing.T) {
+	_, err := compileSDKContract(t, "/tmp/collections-perf/go-sdk-pr36-validation-v1/source", "", nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "WorkspaceSDKCompatibilityContract")
+	require.Contains(t, err.Error(), "is missing `findClientRoot(")
+	require.Contains(t, err.Error(), "is missing `generateScope(")
+}
+
+type sdkRootClient struct {
+	found   *string
+	failure error
+	calls   int
+}
+
+func (c *sdkRootClient) MakeRequest(_ context.Context, req *graphql.Request, resp *graphql.Response) error {
+	c.calls++
+	if c.failure != nil {
+		return c.failure
+	}
+	if !strings.Contains(req.Query, "findUp") || !strings.Contains(req.Query, "go.mod") {
+		return errors.New("unexpected root lookup")
+	}
+	raw, err := json.Marshal(map[string]any{"data": map[string]any{"currentWorkspace": map[string]any{"findUp": c.found}}})
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(raw, resp)
+}
+
+func TestWorkspaceSDKRootLookup(t *testing.T) {
+	for _, tc := range []struct {
+		name, path, want string
+		absent           bool
+	}{
+		{name: "none", absent: true},
+		{name: "root", path: "/go.mod", want: "."},
+		{name: "nearest-nested", path: "/a/b/go.mod", want: "a/b"},
+		{name: "relative-result", path: "a/b/go.mod", want: "a/b"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			client := &sdkRootClient{}
+			if !tc.absent {
+				client.found = &tc.path
+			}
+			env, err := compileSDKContract(t, "../..", `pub result = GoSdk().findClientRoot(currentWorkspace)`, client)
+			require.NoError(t, err)
+			value, ok, err := env.Lookup(context.Background(), "result")
+			require.NoError(t, err)
+			require.True(t, ok)
+			if tc.absent {
+				require.Equal(t, dang.NullValue{}, value)
+			} else {
+				require.Equal(t, dang.StringValue{Val: tc.want}, value)
+			}
+			require.Equal(t, 1, client.calls)
+		})
+	}
+}
+
+func TestWorkspaceSDKRootLookupPreservesError(t *testing.T) {
+	client := &sdkRootClient{failure: errors.New("root-read failure")}
+	env, err := compileSDKContract(t, "../..", `pub result = GoSdk().findClientRoot(currentWorkspace)`, client)
+	require.NoError(t, err)
+	_, _, err = env.Lookup(context.Background(), "result")
+	require.ErrorContains(t, err, "root-read failure")
+	require.Equal(t, 1, client.calls)
+}
+
+func TestWorkspaceSDKUnsupportedScopeDoesNotReadWorkspace(t *testing.T) {
+	for _, tc := range []struct{ name, expression, want string }{
+		{"standalone", `GoSdk().generateScope(currentWorkspace, false, "backend", [])`, "does not support standalone client scopes"},
+		{"clients", `GoSdk().generateScope(currentWorkspace, true, "backend", [moduleSource(refString: "unused")])`, "does not support client dependencies"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			client := &sdkRootClient{failure: errors.New("unexpected external read")}
+			env, err := compileSDKContract(t, "../..", "pub result = "+tc.expression, client)
+			require.NoError(t, err)
+			_, _, err = env.Lookup(context.Background(), "result")
+			require.ErrorContains(t, err, tc.want)
+			require.Zero(t, client.calls)
+		})
+	}
+}

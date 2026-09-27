@@ -1,0 +1,47 @@
+--- a/go-sdk.dang
++++ b/go-sdk.dang
+@@ -2,6 +2,44 @@
+ Manage Dagger modules that use the Go SDK.
+ """
+ type GoSdk {
++  # Compatibility bridge for the current workspace SDK protocol. This
++  # experiment supports regeneration of existing dependency-free module
++  # scopes only; unsupported paths fail rather than discarding clients.
++  findClientRoot(ws: Workspace!): String {
++    let goMod = ws.findUp("go.mod")
++    if (goMod == null) {
++      null
++    } else {
++      configDir(goMod, "go.mod")
++    }
++  }
++
++  generateScope(
++    ws: Workspace!,
++    isModule: Boolean!,
++    name: String!,
++    clients: [ModuleSource!]!,
++  ): Workspace! {
++    if (!isModule) {
++      raise "PR36 compatibility bridge does not support standalone client scopes"
++    } else if (clients.length != 0) {
++      raise "PR36 compatibility bridge does not support client dependencies"
++    } else {
++      let scopePath = normalizePath(ws.cwd)
++      let sourcePath = if (scopePath == ".") { "/" } else { "/" + scopePath }
++      let source = ws.moduleSource(sourcePath)
++      if (!source.configExists) {
++        raise "PR36 compatibility bridge requires an existing module manifest"
++      } else if (source.dependencies.length != 0) {
++        raise "PR36 compatibility bridge does not support declared dependencies"
++      } else if (source.moduleOriginalName != name) {
++        raise "PR36 compatibility bridge does not rename existing modules"
++      } else {
++        ws.withChanges(mod(ws, path: scopePath, findUp: false).generate(ws))
++      }
++    }
++  }
++
+   """
+   Marker filename that skips generate when found at or above a Go SDK module root.
+   """

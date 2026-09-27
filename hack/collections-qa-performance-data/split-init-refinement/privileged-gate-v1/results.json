@@ -1,0 +1,35 @@
+{
+  "driver_sha256": "f39929cc23ed269a756ae244e0c910e2ca46f8aba6e37f4a15e2add2653bdca6",
+  "recipe_sha256": "809948ef27edb7fc9e6fcdecde71a17526e1a864ebc806d06cb4cb6aa675e0eb",
+  "binary_sha256": "b313c3c303ac5fef5c9c83902ac855e74ac5ed0b723a39094613abda16a644d1",
+  "image_id": "sha256:b00e366e582ab98f0e4a7907163f338b6be3bfa13b10f3ad6bac3d699cd25a07",
+  "owner": "collections-split-init-pid1-v2",
+  "compile_command": [
+    "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+    "test",
+    "-c",
+    "-mod=readonly",
+    "-modfile=/tmp/collections-perf/catalog-next-levers-v1/git-http/builds/engine.mod",
+    "-overlay=/tmp/collections-perf/split-init-upstream-v2/overlay.json",
+    "-o",
+    "/tmp/collections-perf/split-init-upstream-v2/privileged-gate-v1/split-init-tests",
+    "./engine/session/initexec"
+  ],
+  "permissions": {
+    "privileged": true,
+    "network": "none",
+    "host_pid": false,
+    "read_only_rootfs": true,
+    "host_bind": "task-owned test binary, read-only",
+    "tmpfs": "/tmp size 64MiB"
+  },
+  "engine_calls": 0,
+  "cloud_calls": 0,
+  "exit_code": 0,
+  "container_exit_code": 0,
+  "seconds": 0.1804781339596957,
+  "test_log_sha256": "61292159f8630336e323f1d350d9853aab524ef13c6f7f912ef3cdef4da1f5d9",
+  "passed": true,
+  "skipped": false,
+  "owned_container_removed": true
+}

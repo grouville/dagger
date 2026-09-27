@@ -1,0 +1,987 @@
+--- /dev/null
++++ b/engine/session/initexec/init.go
+@@ -0,0 +1,233 @@
++//go:build linux
++
++// Package initexec supervises the payload process without importing providers
++// or engine provisioning into the PID1 executable.
++package initexec
++
++import (
++	"errors"
++	"fmt"
++	"io"
++	"os"
++	"os/exec"
++	"os/signal"
++	"path/filepath"
++	"syscall"
++	"time"
++
++	"golang.org/x/sys/unix"
++)
++
++// Run starts and supervises the container payload. It must run in its own
++// process: its global child reaper must not share a process with providers
++// which use exec.Cmd.Wait. sessionHelper names the separate attachables binary.
++func Run(sessionHelper string) error {
++	sigCh := make(chan os.Signal, 16)
++	// Handle every signal other than a few exceptions noted at the end.
++	// Importantly, by handling all these signals, the child process will start with
++	// the default signal disposition for them after the exec, which is what we want.
++	// https://man7.org/linux/man-pages/man7/signal.7.html
++	signal.Notify(sigCh,
++		syscall.SIGABRT,
++		syscall.SIGALRM,
++		syscall.SIGBUS,
++		syscall.SIGCHLD,
++		syscall.SIGCLD,
++		syscall.SIGCONT,
++		syscall.SIGFPE,
++		syscall.SIGHUP,
++		syscall.SIGILL,
++		syscall.SIGINT,
++		syscall.SIGIO,
++		syscall.SIGIOT,
++		syscall.SIGPIPE,
++		syscall.SIGPOLL,
++		syscall.SIGPROF,
++		syscall.SIGPWR,
++		syscall.SIGQUIT,
++		syscall.SIGSEGV,
++		syscall.SIGSTKFLT,
++		syscall.SIGSYS,
++		syscall.SIGTERM,
++		syscall.SIGTRAP,
++		syscall.SIGTSTP,
++		syscall.SIGTTIN,
++		syscall.SIGTTOU,
++		syscall.SIGUNUSED,
++		syscall.SIGUSR1,
++		syscall.SIGUSR2,
++		syscall.SIGVTALRM,
++		syscall.SIGWINCH,
++		syscall.SIGXCPU,
++		syscall.SIGXFSZ,
++		// explicitly not caught
++		// syscall.SIGKILL, // cannot be caught
++		// syscall.SIGSTOP, // cannot be caught
++		// syscall.SIGURG, // go runtime uses this internally
++	)
++
++	// try to detach from the terminal, if there is one
++	// if detach successful, remember to ignore first SIGHUP/SIGCONT later (they might not be sent immediately and shouldn't be forwarded to the child)
++
++	_, err := unix.IoctlGetTermios(0, unix.TCGETS)
++	haveTTY := err == nil
++
++	sid, err := unix.Getsid(0)
++	if err != nil {
++		return err
++	}
++	pid := unix.Getpid()
++	weAreSessionLeader := sid == pid
++
++	var ignoreFirstHUP bool
++	var ignoreFirstCONT bool
++	if haveTTY && weAreSessionLeader {
++		ignoreFirstHUP = true
++		ignoreFirstCONT = true
++		_, err = unix.IoctlRetInt(0, unix.TIOCNOTTY)
++		if err != nil {
++			return err
++		}
++	}
++
++	if _, ok := os.LookupEnv("DAGGER_SESSION_TOKEN"); ok {
++		if err := startSessionSubprocess(sessionHelper); err != nil {
++			return err
++		}
++	}
++
++	// run the child in a new session
++	sysProcAttr := syscall.SysProcAttr{
++		Setsid: true,
++	}
++	if haveTTY {
++		sysProcAttr.Setctty = true
++		sysProcAttr.Ctty = 0
++	}
++
++	// start the child process
++	fullPath := os.Args[1]
++	if filepath.Base(fullPath) == fullPath {
++		// search for the executable in $PATH
++		fullPath, err = exec.LookPath(fullPath)
++		if errors.Is(err, exec.ErrDot) {
++			// NOTE: backwards compat with dumb-init
++			err = nil
++		}
++		if err != nil {
++			return err
++		}
++	}
++	child, err := os.StartProcess(fullPath, os.Args[1:], &os.ProcAttr{
++		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
++		Sys:   &sysProcAttr,
++	})
++	if err != nil {
++		return err
++	}
++
++	// handle signals until our child exits
++	for sig := range sigCh {
++		sigNum := sig.(syscall.Signal)
++
++		var goToBed bool
++		switch sigNum {
++		case syscall.SIGHUP:
++			if ignoreFirstHUP {
++				ignoreFirstHUP = false
++				continue
++			}
++		case syscall.SIGCONT:
++			if ignoreFirstCONT {
++				ignoreFirstCONT = false
++				continue
++			}
++
++		case syscall.SIGTSTP, syscall.SIGTTIN, syscall.SIGTTOU:
++			sigNum = syscall.SIGSTOP
++			goToBed = true
++
++		case syscall.SIGCHLD:
++			// reap what we have sown (aka various zombie children)
++			for {
++				var ws syscall.WaitStatus
++				deadPid, err := syscall.Wait4(-1, &ws, syscall.WNOHANG, nil)
++				if err != nil || deadPid == 0 {
++					break
++				}
++				if deadPid == child.Pid {
++					// our child died, so we should too
++					exitStatus := ws.ExitStatus()
++					if exitStatus == -1 {
++						exitStatus = 128 + int(ws.Signal())
++					}
++
++					// send SIGTERM to anyone left
++					unix.Kill(-child.Pid, syscall.SIGTERM)
++
++					// goodbye
++					os.Exit(exitStatus)
++				}
++			}
++
++			continue
++		}
++
++		// forward the signal to the child's process group
++		unix.Kill(-child.Pid, sigNum) // ignore error, best effort
++
++		if goToBed {
++			unix.Kill(pid, syscall.SIGSTOP)
++		}
++	}
++
++	return nil
++}
++
++func startSessionSubprocess(sessionHelper string) error {
++	return startSessionCommand(exec.Command(sessionHelper))
++}
++
++func startSessionCommand(cmd *exec.Cmd) error {
++	// create a pipe to synchronize with the child process on when the session has started
++	// when the child closes the write end of the pipe, we know it has started (or died, which
++	// will result in errors for the nested exec process on any use of a session attachable)
++	r, w, err := os.Pipe()
++	if err != nil {
++		return err
++	}
++
++	// forwarding our stdio ensures that a panic in the child process won't get hidden and any other logging works too
++	cmd.Stdout = os.Stdout
++	cmd.Stderr = os.Stderr
++
++	cmd.ExtraFiles = []*os.File{w}
++	cmd.SysProcAttr = &syscall.SysProcAttr{
++		Setsid: true,
++	}
++	err = cmd.Start()
++	if err != nil {
++		return fmt.Errorf("failed to start session subprocess: %w", err)
++	}
++
++	// wait for the session attachables to be ready (or the child to die)
++
++	// need to close our dup of the write end of the pipe
++	if err := w.Close(); err != nil {
++		return fmt.Errorf("failed to close pipe: %w", err)
++	}
++
++	doneCh := make(chan struct{})
++	go func() {
++		defer close(doneCh)
++		io.Copy(io.Discard, r)
++	}()
++	// something really really wrong would have to happen for this to block indefinitely, but be
++	// cautious anyways w/ an overly generous timeout
++	select {
++	case <-doneCh:
++		return nil
++	case <-time.After(5 * time.Minute):
++		return fmt.Errorf("timed out waiting for session subprocess to start")
++	}
++}
+--- /dev/null
++++ b/engine/session/initexec/init_test.go
+@@ -0,0 +1,359 @@
++//go:build linux
++
++package initexec
++
++import (
++	"bufio"
++	"context"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"os"
++	"os/exec"
++	"os/signal"
++	"path/filepath"
++	"reflect"
++	"strconv"
++	"strings"
++	"syscall"
++	"testing"
++	"time"
++
++	"github.com/creack/pty"
++	"golang.org/x/sys/unix"
++)
++
++// Every process is created by this test. The helper's Wait belongs to this test
++// process; the real init keeps using its existing global child reaper.
++func TestSplitInitReadiness(t *testing.T) {
++	for _, mode := range []string{"ready", "dies"} {
++		t.Run(mode, func(t *testing.T) {
++			ready := filepath.Join(t.TempDir(), "ready")
++			ctx, cancel := context.WithCancel(context.Background())
++			defer cancel()
++			cmd := splitInitProcessContext(ctx, "helper", mode, ready)
++			input, err := cmd.StdinPipe()
++			if err != nil {
++				t.Fatal(err)
++			}
++			done := make(chan error, 1)
++			finished := make(chan struct{})
++			t.Cleanup(func() {
++				input.Close()
++				cancel()
++				// cmd.Process is assigned asynchronously by Start. Do not inspect it
++				// until the readiness goroutine has finished, including failure paths.
++				select {
++				case <-finished:
++					if cmd.Process != nil && cmd.ProcessState == nil {
++						_ = cmd.Wait()
++					}
++				case <-time.After(10 * time.Second):
++					t.Error("readiness goroutine did not stop after cancellation")
++				}
++			})
++			go func() {
++				done <- startSessionCommand(cmd)
++				close(finished)
++			}()
++			if mode == "ready" {
++				if err := waitSplitInitFile(ready); err != nil {
++					t.Fatal(err)
++				}
++				select {
++				case err := <-done:
++					t.Fatalf("returned before FD3 closed: %v", err)
++				default:
++				}
++				fmt.Fprintln(input, "ready")
++			}
++			select {
++			case err := <-done:
++				if err != nil {
++					t.Fatal(err)
++				}
++			case <-time.After(10 * time.Second):
++				t.Fatal("readiness did not finish")
++			}
++			if mode == "ready" {
++				if err := cmd.Process.Signal(syscall.Signal(0)); err != nil {
++					t.Fatalf("helper must remain alive after readiness: %v", err)
++				}
++				fmt.Fprintln(input, "finish")
++				if err := cmd.Wait(); err != nil {
++					t.Fatal(err)
++				}
++			} else {
++				var exit *exec.ExitError
++				if err := cmd.Wait(); !errors.As(err, &exit) || exit.ExitCode() != 23 {
++					t.Fatalf("helper death must preserve EOF protocol: %v", err)
++				}
++			}
++		})
++	}
++}
++
++func TestSplitInitHelperStartError(t *testing.T) {
++	err := startSessionCommand(exec.Command(filepath.Join(t.TempDir(), "absent")))
++	if err == nil || !strings.Contains(err.Error(), "failed to start session subprocess") {
++		t.Fatalf("missing helper error: %v", err)
++	}
++}
++
++func TestSplitInitArgvAndExitStatus(t *testing.T) {
++	want := []string{"space value", "", "λ"}
++	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
++	defer cancel()
++	cmd := splitInitProcessContext(ctx, "init", append([]string{"args"}, want...)...)
++	out, err := cmd.Output()
++	var exit *exec.ExitError
++	if !errors.As(err, &exit) || exit.ExitCode() != 17 {
++		t.Fatalf("user exit status not retained: %v", err)
++	}
++	var got []string
++	if err := json.Unmarshal(out, &got); err != nil || !reflect.DeepEqual(got, want) {
++		t.Fatalf("argv = %q, decode error = %v", got, err)
++	}
++}
++
++func TestSplitInitSignalForwarding(t *testing.T) {
++	ready := filepath.Join(t.TempDir(), "ready")
++	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
++	cmd := splitInitProcessContext(ctx, "init", "signal", ready)
++	// Give PID1's unchanged signal path time to reap its child on early test
++	// failure, rather than killing the init and leaving the payload behind.
++	cmd.Cancel = func() error { return cmd.Process.Signal(syscall.SIGTERM) }
++	cmd.WaitDelay = 15 * time.Second
++	t.Cleanup(func() {
++		cancel()
++		if cmd.Process != nil && cmd.ProcessState == nil {
++			_ = cmd.Wait()
++		}
++	})
++	if err := cmd.Start(); err != nil {
++		t.Fatal(err)
++	}
++	if err := waitSplitInitFile(ready); err != nil {
++		t.Fatal(err)
++	}
++	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
++		t.Fatal(err)
++	}
++	var exit *exec.ExitError
++	if err := cmd.Wait(); !errors.As(err, &exit) || exit.ExitCode() != 42 {
++		t.Fatalf("user did not observe forwarded signal: %v", err)
++	}
++}
++
++// Requires an explicitly provisioned privileged test environment. It creates a
++// new PID namespace, never signals pre-existing host processes, and checks a
++// real orphan's disappearance using namespace-scoped kill(0), without host /proc.
++func TestSplitInitPIDNamespaceReaping(t *testing.T) {
++	if os.Getenv("DAGGER_TEST_INIT_PID_NAMESPACE") != "1" {
++		t.Skip("requires explicit privileged PID-namespace test environment")
++	}
++	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
++	defer cancel()
++	cmd := splitInitProcessContext(ctx, "init", "pid1", filepath.Join(t.TempDir(), "orphan"))
++	cmd.SysProcAttr = &syscall.SysProcAttr{Cloneflags: syscall.CLONE_NEWPID}
++	if out, err := cmd.CombinedOutput(); err != nil {
++		t.Fatalf("PID1/reaping: %v: %s", err, out)
++	}
++}
++
++func splitInitProcess(role string, args ...string) *exec.Cmd {
++	return splitInitProcessContext(context.Background(), role, args...)
++}
++
++func splitInitProcessContext(ctx context.Context, role string, args ...string) *exec.Cmd {
++	cmd := exec.CommandContext(ctx, os.Args[0], append([]string{"-test.run=^TestSplitInitProcess$", "--"}, args...)...)
++	for _, entry := range os.Environ() {
++		if strings.HasPrefix(entry, "DAGGER_SESSION_TOKEN=") || strings.HasPrefix(entry, "DAGGER_SPLIT_INIT_TEST_ROLE=") {
++			continue
++		}
++		cmd.Env = append(cmd.Env, entry)
++	}
++	cmd.Env = append(cmd.Env, "DAGGER_SPLIT_INIT_TEST_ROLE="+role)
++	return cmd
++}
++
++func waitSplitInitFile(path string) error {
++	deadline := time.Now().Add(10 * time.Second)
++	for time.Now().Before(deadline) {
++		if _, err := os.Stat(path); err == nil {
++			return nil
++		}
++		time.Sleep(time.Millisecond)
++	}
++	return fmt.Errorf("timed out waiting for test child")
++}
++
++func TestSplitInitProcess(t *testing.T) {
++	role := os.Getenv("DAGGER_SPLIT_INIT_TEST_ROLE")
++	if role == "" {
++		return
++	}
++	i := 0
++	for i < len(os.Args) && os.Args[i] != "--" {
++		i++
++	}
++	args := os.Args[i+1:]
++	if role == "init" {
++		binary := os.Args[0]
++		os.Setenv("DAGGER_SPLIT_INIT_TEST_ROLE", "payload")
++		os.Args = append([]string{"/.init", binary, "-test.run=^TestSplitInitProcess$", "--"}, args...)
++		if err := Run("/unused-session-helper"); err != nil {
++			fmt.Fprintln(os.Stderr, err)
++			os.Exit(99)
++		}
++		os.Exit(0)
++	}
++	if role == "helper" {
++		if args[0] == "dies" {
++			os.Exit(23)
++		}
++		fd := os.NewFile(3, "readiness")
++		if _, err := fd.Stat(); err != nil {
++			os.Exit(70)
++		}
++		if err := os.WriteFile(args[1], []byte("ready"), 0o600); err != nil {
++			os.Exit(71)
++		}
++		input := bufio.NewScanner(os.Stdin)
++		input.Scan()
++		fd.Close()
++		input.Scan()
++		os.Exit(0)
++	}
++	switch args[0] {
++	case "tty":
++		sid, err := unix.Getsid(0)
++		foreground, foregroundErr := unix.IoctlGetInt(0, unix.TIOCGPGRP)
++		initial, sizeErr := pty.GetsizeFull(os.Stdin)
++		if err != nil || foregroundErr != nil || sizeErr != nil || sid != os.Getpid() || foreground != os.Getpid() || initial.Rows != 24 || initial.Cols != 80 {
++			os.Exit(82)
++		}
++		ch := make(chan os.Signal, 4)
++		signal.Notify(ch, syscall.SIGWINCH, syscall.SIGTERM)
++		if err := os.WriteFile(args[1], []byte("ready"), 0o600); err != nil {
++			os.Exit(83)
++		}
++		timeout := time.After(15 * time.Second)
++		for {
++			select {
++			case sig := <-ch:
++				if sig == syscall.SIGTERM {
++					os.Exit(42)
++				}
++				size, err := pty.GetsizeFull(os.Stdin)
++				if err == nil && size.Rows == 31 && size.Cols == 101 {
++					if err := os.WriteFile(args[2], []byte("resized"), 0o600); err != nil {
++						os.Exit(84)
++					}
++				}
++			case <-timeout:
++				os.Exit(85)
++			}
++		}
++	case "args":
++		json.NewEncoder(os.Stdout).Encode(args[1:])
++		os.Exit(17)
++	case "signal":
++		ch := make(chan os.Signal, 1)
++		signal.Notify(ch, syscall.SIGTERM)
++		if err := os.WriteFile(args[1], []byte("ready"), 0o600); err != nil {
++			os.Exit(72)
++		}
++		select {
++		case <-ch:
++			os.Exit(42)
++		case <-time.After(10 * time.Second):
++			os.Exit(81)
++		}
++	case "pid1":
++		if os.Getppid() != 1 {
++			os.Exit(73)
++		}
++		if err := splitInitProcess("payload", "orphan-parent", args[1]).Run(); err != nil {
++			os.Exit(74)
++		}
++		if err := waitSplitInitFile(args[1]); err != nil {
++			os.Exit(75)
++		}
++		data, _ := os.ReadFile(args[1])
++		pid, err := strconv.Atoi(string(data))
++		if err != nil || pid <= 1 {
++			os.Exit(76)
++		}
++		deadline := time.Now().Add(10 * time.Second)
++		for time.Now().Before(deadline) {
++			if errors.Is(syscall.Kill(pid, 0), syscall.ESRCH) {
++				os.Exit(0)
++			}
++			time.Sleep(time.Millisecond)
++		}
++		os.Exit(77)
++	case "orphan-parent":
++		cmd := splitInitProcess("payload", "orphan", args[1])
++		if err := cmd.Start(); err != nil {
++			os.Exit(78)
++		}
++		os.Exit(0)
++	case "orphan":
++		deadline := time.Now().Add(10 * time.Second)
++		for os.Getppid() != 1 && time.Now().Before(deadline) {
++			time.Sleep(time.Millisecond)
++		}
++		if os.Getppid() != 1 {
++			os.Exit(79)
++		}
++		if err := os.WriteFile(args[1], []byte(strconv.Itoa(os.Getpid())), 0o600); err != nil {
++			os.Exit(80)
++		}
++		os.Exit(0)
++	}
++	os.Exit(98)
++}
++
++// A real controlling terminal exercises detach/reattach and resize delivery.
++// The payload checks its own session and foreground process group, then waits
++// for a resize and the forwarded termination signal. No host process is used.
++func TestSplitInitTTY(t *testing.T) {
++	dir := t.TempDir()
++	ready, resized := filepath.Join(dir, "ready"), filepath.Join(dir, "resized")
++	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
++	defer cancel()
++	cmd := splitInitProcessContext(ctx, "init", "tty", ready, resized)
++	cmd.Cancel = func() error { return cmd.Process.Signal(syscall.SIGTERM) }
++	cmd.WaitDelay = 15 * time.Second
++	terminal, err := pty.StartWithSize(cmd, &pty.Winsize{Rows: 24, Cols: 80})
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer terminal.Close()
++	t.Cleanup(func() {
++		if cmd.ProcessState == nil {
++			_ = cmd.Process.Signal(syscall.SIGTERM)
++			_ = cmd.Wait()
++		}
++	})
++	if err := waitSplitInitFile(ready); err != nil {
++		t.Fatal(err)
++	}
++	if err := pty.Setsize(terminal, &pty.Winsize{Rows: 31, Cols: 101}); err != nil {
++		t.Fatal(err)
++	}
++	if err := cmd.Process.Signal(syscall.SIGWINCH); err != nil {
++		t.Fatal(err)
++	}
++	if err := waitSplitInitFile(resized); err != nil {
++		t.Fatal(err)
++	}
++	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
++		t.Fatal(err)
++	}
++	var exit *exec.ExitError
++	if err := cmd.Wait(); !errors.As(err, &exit) || exit.ExitCode() != 42 {
++		t.Fatalf("TTY payload did not finish after forwarded termination: %v", err)
++	}
++}
+--- a/cmd/init/main.go
++++ b/cmd/init/main.go
+@@ -4,249 +4,32 @@
+ 
+ import (
+ 	"context"
+-	"errors"
+ 	"fmt"
+-	"io"
+ 	"net"
+ 	"net/http"
+ 	"os"
+-	"os/exec"
+-	"os/signal"
+-	"path/filepath"
+ 	"strconv"
+-	"syscall"
+-	"time"
+-
+-	"golang.org/x/sys/unix"
+ 
+ 	"github.com/dagger/dagger/engine"
+ 	"github.com/dagger/dagger/engine/client/secretprovider"
++	"github.com/dagger/dagger/engine/distconsts"
+ 	client "github.com/dagger/dagger/engine/session/attachables"
+ 	"github.com/dagger/dagger/engine/session/git"
+ 	"github.com/dagger/dagger/engine/session/h2c"
++	"github.com/dagger/dagger/engine/session/initexec"
+ )
+ 
+ func main() {
+ 	var err error
+ 	switch os.Args[0] {
+ 	case "/.init":
+-		err = mainInit()
+-	case "/proc/self/exe":
++		err = initexec.Run("/proc/self/exe")
++	case "/proc/self/exe", distconsts.DaggerSessionContainerPath:
+ 		err = mainSession()
+ 	}
+ 	if err != nil {
+ 		fmt.Fprintln(os.Stderr, err)
+ 		os.Exit(1)
+-	}
+-}
+-
+-func mainInit() error {
+-	sigCh := make(chan os.Signal, 16)
+-	// Handle every signal other than a few exceptions noted at the end.
+-	// Importantly, by handling all these signals, the child process will start with
+-	// the default signal disposition for them after the exec, which is what we want.
+-	// https://man7.org/linux/man-pages/man7/signal.7.html
+-	signal.Notify(sigCh,
+-		syscall.SIGABRT,
+-		syscall.SIGALRM,
+-		syscall.SIGBUS,
+-		syscall.SIGCHLD,
+-		syscall.SIGCLD,
+-		syscall.SIGCONT,
+-		syscall.SIGFPE,
+-		syscall.SIGHUP,
+-		syscall.SIGILL,
+-		syscall.SIGINT,
+-		syscall.SIGIO,
+-		syscall.SIGIOT,
+-		syscall.SIGPIPE,
+-		syscall.SIGPOLL,
+-		syscall.SIGPROF,
+-		syscall.SIGPWR,
+-		syscall.SIGQUIT,
+-		syscall.SIGSEGV,
+-		syscall.SIGSTKFLT,
+-		syscall.SIGSYS,
+-		syscall.SIGTERM,
+-		syscall.SIGTRAP,
+-		syscall.SIGTSTP,
+-		syscall.SIGTTIN,
+-		syscall.SIGTTOU,
+-		syscall.SIGUNUSED,
+-		syscall.SIGUSR1,
+-		syscall.SIGUSR2,
+-		syscall.SIGVTALRM,
+-		syscall.SIGWINCH,
+-		syscall.SIGXCPU,
+-		syscall.SIGXFSZ,
+-		// explicitly not caught
+-		// syscall.SIGKILL, // cannot be caught
+-		// syscall.SIGSTOP, // cannot be caught
+-		// syscall.SIGURG, // go runtime uses this internally
+-	)
+-
+-	// try to detach from the terminal, if there is one
+-	// if detach successful, remember to ignore first SIGHUP/SIGCONT later (they might not be sent immediately and shouldn't be forwarded to the child)
+-
+-	_, err := unix.IoctlGetTermios(0, unix.TCGETS)
+-	haveTTY := err == nil
+-
+-	sid, err := unix.Getsid(0)
+-	if err != nil {
+-		return err
+-	}
+-	pid := unix.Getpid()
+-	weAreSessionLeader := sid == pid
+-
+-	var ignoreFirstHUP bool
+-	var ignoreFirstCONT bool
+-	if haveTTY && weAreSessionLeader {
+-		ignoreFirstHUP = true
+-		ignoreFirstCONT = true
+-		_, err = unix.IoctlRetInt(0, unix.TIOCNOTTY)
+-		if err != nil {
+-			return err
+-		}
+-	}
+-
+-	if _, ok := os.LookupEnv("DAGGER_SESSION_TOKEN"); ok {
+-		if err := startSessionSubprocess(); err != nil {
+-			return err
+-		}
+-	}
+-
+-	// run the child in a new session
+-	sysProcAttr := syscall.SysProcAttr{
+-		Setsid: true,
+-	}
+-	if haveTTY {
+-		sysProcAttr.Setctty = true
+-		sysProcAttr.Ctty = 0
+-	}
+-
+-	// start the child process
+-	fullPath := os.Args[1]
+-	if filepath.Base(fullPath) == fullPath {
+-		// search for the executable in $PATH
+-		fullPath, err = exec.LookPath(fullPath)
+-		if errors.Is(err, exec.ErrDot) {
+-			// NOTE: backwards compat with dumb-init
+-			err = nil
+-		}
+-		if err != nil {
+-			return err
+-		}
+-	}
+-	child, err := os.StartProcess(fullPath, os.Args[1:], &os.ProcAttr{
+-		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
+-		Sys:   &sysProcAttr,
+-	})
+-	if err != nil {
+-		return err
+-	}
+-
+-	// handle signals until our child exits
+-	for sig := range sigCh {
+-		sigNum := sig.(syscall.Signal)
+-
+-		var goToBed bool
+-		switch sigNum {
+-		case syscall.SIGHUP:
+-			if ignoreFirstHUP {
+-				ignoreFirstHUP = false
+-				continue
+-			}
+-		case syscall.SIGCONT:
+-			if ignoreFirstCONT {
+-				ignoreFirstCONT = false
+-				continue
+-			}
+-
+-		case syscall.SIGTSTP, syscall.SIGTTIN, syscall.SIGTTOU:
+-			sigNum = syscall.SIGSTOP
+-			goToBed = true
+-
+-		case syscall.SIGCHLD:
+-			// reap what we have sown (aka various zombie children)
+-			for {
+-				var ws syscall.WaitStatus
+-				deadPid, err := syscall.Wait4(-1, &ws, syscall.WNOHANG, nil)
+-				if err != nil || deadPid == 0 {
+-					break
+-				}
+-				if deadPid == child.Pid {
+-					// our child died, so we should too
+-					exitStatus := ws.ExitStatus()
+-					if exitStatus == -1 {
+-						exitStatus = 128 + int(ws.Signal())
+-					}
+-
+-					// send SIGTERM to anyone left
+-					unix.Kill(-child.Pid, syscall.SIGTERM)
+-
+-					// goodbye
+-					os.Exit(exitStatus)
+-				}
+-			}
+-
+-			continue
+-		}
+-
+-		// forward the signal to the child's process group
+-		unix.Kill(-child.Pid, sigNum) // ignore error, best effort
+-
+-		if goToBed {
+-			unix.Kill(pid, syscall.SIGSTOP)
+-		}
+-	}
+-
+-	return nil
+-}
+-
+-func startSessionSubprocess() error {
+-	// create a pipe to synchronize with the child process on when the session has started
+-	// when the child closes the write end of the pipe, we know it has started (or died, which
+-	// will result in errors for the nested exec process on any use of a session attachable)
+-	r, w, err := os.Pipe()
+-	if err != nil {
+-		return err
+-	}
+-
+-	// start the session subprocess
+-	cmd := exec.Command("/proc/self/exe")
+-
+-	// forwarding our stdio ensures that a panic in the child process won't get hidden and any other logging works too
+-	cmd.Stdout = os.Stdout
+-	cmd.Stderr = os.Stderr
+-
+-	cmd.ExtraFiles = []*os.File{w}
+-	cmd.SysProcAttr = &syscall.SysProcAttr{
+-		Setsid: true,
+-	}
+-	err = cmd.Start()
+-	if err != nil {
+-		return fmt.Errorf("failed to start session subprocess: %w", err)
+-	}
+-
+-	// wait for the session attachables to be ready (or the child to die)
+-
+-	// need to close our dup of the write end of the pipe
+-	if err := w.Close(); err != nil {
+-		return fmt.Errorf("failed to close pipe: %w", err)
+-	}
+-
+-	doneCh := make(chan struct{})
+-	go func() {
+-		defer close(doneCh)
+-		io.Copy(io.Discard, r)
+-	}()
+-	// something really really wrong would have to happen for this to block indefinitely, but be
+-	// cautious anyways w/ an overly generous timeout
+-	select {
+-	case <-doneCh:
+-		return nil
+-	case <-time.After(5 * time.Minute):
+-		return fmt.Errorf("timed out waiting for session subprocess to start")
+ 	}
+ }
+ 
+--- /dev/null
++++ b/cmd/init-lite/main.go
+@@ -0,0 +1,21 @@
++//go:build linux
++
++package main
++
++import (
++	"fmt"
++	"os"
++
++	"github.com/dagger/dagger/engine/distconsts"
++	"github.com/dagger/dagger/engine/session/initexec"
++)
++
++func main() {
++	if os.Args[0] != "/.init" {
++		return
++	}
++	if err := initexec.Run(distconsts.DaggerSessionContainerPath); err != nil {
++		fmt.Fprintln(os.Stderr, err)
++		os.Exit(1)
++	}
++}
+--- a/engine/distconsts/consts.go
++++ b/engine/distconsts/consts.go
+@@ -12,9 +12,11 @@
+ )
+ 
+ const (
+-	RuncPath       = "/usr/local/bin/runc"
+-	DaggerInitPath = "/usr/local/bin/dagger-init"
+-	TiniPath       = "/usr/local/bin/tini"
++	RuncPath                   = "/usr/local/bin/runc"
++	DaggerInitPath             = "/usr/local/bin/dagger-init"
++	DaggerInitLitePath         = "/usr/local/bin/dagger-init-lite"
++	DaggerSessionContainerPath = "/.dagger-session"
++	TiniPath                   = "/usr/local/bin/tini"
+ 
+ 	EngineDefaultStateDir = "/var/lib/dagger"
+ 
+--- a/engine/engineutil/executor_spec.go
++++ b/engine/engineutil/executor_spec.go
+@@ -379,8 +379,15 @@
+ 
+ 	initPath := "/.init"
+ 	state.mounts = append(state.mounts, executor.Mount{
++		Src:      hostBindMount{srcPath: distconsts.DaggerInitLitePath},
++		Dest:     initPath,
++		Readonly: true,
++	})
++	// Providers own their child processes separately from PID1's global reaper.
++	// Keep the helper available for explicit session-env use on ordinary execs.
++	state.mounts = append(state.mounts, executor.Mount{
+ 		Src:      hostBindMount{srcPath: distconsts.DaggerInitPath},
+-		Dest:     initPath,
++		Dest:     distconsts.DaggerSessionContainerPath,
+ 		Readonly: true,
+ 	})
+ 	state.procInfo.Meta.Args = append([]string{initPath}, state.procInfo.Meta.Args...)
+--- /dev/null
++++ b/engine/engineutil/init_split_test.go
+@@ -0,0 +1,60 @@
++package engineutil
++
++import (
++	"context"
++	"reflect"
++	"testing"
++
++	"github.com/dagger/dagger/engine"
++	"github.com/dagger/dagger/engine/distconsts"
++	"github.com/dagger/dagger/internal/buildkit/executor"
++)
++
++func TestSplitInitMounts(t *testing.T) {
++	for _, tc := range []struct {
++		name   string
++		nested bool
++		noInit bool
++	}{
++		{name: "ordinary"},
++		{name: "nested", nested: true},
++		{name: "no init", noInit: true},
++		{name: "no nested init", nested: true, noInit: true},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			originalArgs := []string{"sh", "-c", "exit 0"}
++			state := &execState{
++				procInfo: &executor.ProcessInfo{Meta: executor.Meta{Args: originalArgs}},
++				execMD:   &ExecutionMetadata{NoInit: tc.noInit},
++			}
++			if tc.nested {
++				state.nestedClientMetadata = &engine.ClientMetadata{ClientID: "test-only-nested"}
++			}
++			if err := (&Client{}).injectInit(context.Background(), state); err != nil {
++				t.Fatal(err)
++			}
++			if tc.noInit {
++				if len(state.mounts) != 0 || !reflect.DeepEqual(state.procInfo.Meta.Args, originalArgs) {
++					t.Fatal("NoInit must retain original argv and mount list")
++				}
++				return
++			}
++			if !reflect.DeepEqual(state.procInfo.Meta.Args, append([]string{"/.init"}, originalArgs...)) {
++				t.Fatalf("argv changed: %q", state.procInfo.Meta.Args)
++			}
++			if len(state.mounts) != 2 {
++				t.Fatalf("want two explicit mounts, got %d", len(state.mounts))
++			}
++			for i, want := range []struct{ source, destination string }{
++				{distconsts.DaggerInitLitePath, "/.init"},
++				{distconsts.DaggerInitPath, distconsts.DaggerSessionContainerPath},
++			} {
++				got := state.mounts[i]
++				bind, ok := got.Src.(hostBindMount)
++				if !ok || bind.srcPath != want.source || got.Dest != want.destination || !got.Readonly {
++					t.Fatalf("mount %d differs from explicit read-only contract", i)
++				}
++			}
++		})
++	}
++}
+--- a/.dagger/modules/engine-dev/build/builder.go
++++ b/.dagger/modules/engine-dev/build/builder.go
+@@ -149,6 +149,7 @@
+ 		{path: "/opt/cni/bin/dnsname", file: build.dnsnameBinary()},
+ 		{path: consts.RuncPath, file: build.runcBin()},
+ 		{path: consts.DaggerInitPath, file: build.daggerInit()},
++		{path: distconsts.DaggerInitLitePath, file: build.binary("./cmd/init-lite", false)},
+ 		{path: consts.TiniPath, file: build.Init(), fileOpts: []dagger.ContainerWithFileOpts{{Permissions: 0o755}}},
+ 	}
+ 	qemuBins, err := build.qemuBins(ctx)

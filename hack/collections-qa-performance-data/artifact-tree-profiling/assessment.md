@@ -1,0 +1,9 @@
+# Do not introduce a core tree factory without cost attribution
+
+CoreMod.TypeDefs already returns the retained `base.views[view].typedefs` slice after first view construction. The frozen ec6 coremod overlay has the same behavior. DefaultDeps is currently just core. Repeating NewArtifactTree for several SDKs therefore repeats obtaining that slice and building a small map; it does not rebuild core TypeDef values on each call once the view is warm. The map is read-only during child lookup, so a call-scoped shared factory is plausible, but there is no measured material cost yet.
+
+In the saved full-catalog profiles, direct Query.typeDef calls under Workspace.artifacts are 187 in each arm (inclusive sum0.82/1.16ms); direct withOptional calls are257 in each (sum1.46/1.82ms). Their overall intervals span16.59/26.91ms, but no tree callsite boundaries existed. Most catalog TypeDef work is nested under loading and registration. These numbers do not isolate SDK map construction and must not be credited to a proposed factory.
+
+The pruning diagnostic proves metadata request reduction but does not assign it specifically to SDK versus ordinary module tree construction. Module._implementationScoped counts being unchanged are not an attribution mechanism. PrimitiveType.TypeDef and ListType.TypeDef issue builder selections during module schema conversion/installation, whereas CoreMod.TypeDefs already returns retained metadata.
+
+Prepared fixed-label wcprof phases around NewModTree and NewArtifactTree will separate root construction in the next already-planned diagnostic. They exclude the later ArtifactNodes traversal; any remaining unscoped metadata calls may belong to that traversal. No names, arguments or values are recorded. Both future module variants must share the instrumentation; ordinary disabled recording remains a no-op. No factory implementation or new timing workload is justified yet.
