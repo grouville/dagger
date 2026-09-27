@@ -1,0 +1,3491 @@
+{
+  "ordinary": {
+    "all_correct": true,
+    "cloud_commands": 8,
+    "cold_samples_per_flow": 1,
+    "setup_excluded": true,
+    "host_page_and_image_cache_cold": false,
+    "flows": {
+      "workspace-files": {
+        "cold_seconds": 2.6854480640031397,
+        "warm_seconds": [
+          0.59887132095173,
+          0.6056590299122036
+        ],
+        "warm_median_seconds": 0.6022651754319668
+      },
+      "artifacts": {
+        "cold_seconds": 26.746583038941026,
+        "warm_seconds": [
+          2.4311601349618286,
+          2.6387473200447857
+        ],
+        "warm_median_seconds": 2.534953727503307
+      }
+    }
+  },
+  "setup": {
+    "workspace-files": {
+      "provision_seconds_excluded": 0.8313102580141276,
+      "engine_start_seconds_excluded": 0.8667937619611621
+    },
+    "artifacts": {
+      "provision_seconds_excluded": 0.5663275308907032,
+      "engine_start_seconds_excluded": 0.9228745619766414
+    }
+  },
+  "diagnostics": [
+    {
+      "variant": "retained-stack-fresh-volume",
+      "flow": "workspace-files",
+      "phase": "cold-diagnostic",
+      "index": 0,
+      "profile": true,
+      "seconds": 1.1226836601272225,
+      "correct": true,
+      "phase_ms": {
+        "cli.labels": 2.000258,
+        "cli.pre_run": 2.22427,
+        "engine.connect": 346.721033,
+        "cloud.logs": 417.156592,
+        "cloud.export.logs": 417.645876,
+        "cloud.traces": 432.096483,
+        "cloud.export.traces": 432.871768,
+        "cli.command": 472.960928,
+        "engine.shutdown_request": 155.250533,
+        "engine.shutdown_http": 155.261839,
+        "engine.subscribers_drain": 0.686689,
+        "engine.close_lock": 0.000341,
+        "engine.clients_cleanup": 3.793388,
+        "engine.subscribers_final_drain": 0.000326,
+        "engine.close": 159.765868,
+        "cli.stdio_close": 0.009858,
+        "cli.root_end": 0.005691,
+        "otel.provider.traces": 84.73598,
+        "otel.provider.logs": 18.605911,
+        "otel.provider.metrics": 0.020876,
+        "cli.telemetry_close": 103.373212,
+        "cli.with_engine_frontend": 1084.696024,
+        "analytics.finalize": 0.000283,
+        "oauth.finalize": 0.006742,
+        "cli.execute": 1087.310659,
+        "cli.main": 1087.979488,
+        "diagnostic.flush": 0.193528
+      },
+      "requests": [
+        {
+          "kind": "cloud.logs",
+          "start_ms": 106.450625,
+          "end_ms": 360.031669,
+          "duration_ms": 253.581044,
+          "numeric_http_values": {
+            "body_closed": 1,
+            "connect_attempts": 1,
+            "connect_ns": 71760495,
+            "connection_acquire_ns": 2852,
+            "connection_idle": 1,
+            "connection_reused": 1,
+            "dns_attempts": 1,
+            "dns_window_ns": 9929320,
+            "first_byte_ns": 253528303,
+            "get_conn_ns": 166599474,
+            "got_conn_ns": 166602326,
+            "request_content_length": 2443,
+            "response_bytes": 0,
+            "response_eof": 1,
+            "response_headers_ns": 253567035,
+            "status": 201,
+            "tls_attempts": 1,
+            "tls_window_ns": 84754383,
+            "write_attempts": 1,
+            "wrote_request_ns": 166731951
+          },
+          "write_to_first_byte_ms": 86.796352
+        },
+        {
+          "kind": "cloud.traces",
+          "start_ms": 105.449265,
+          "end_ms": 366.911433,
+          "duration_ms": 261.462168,
+          "numeric_http_values": {
+            "body_closed": 1,
+            "connect_attempts": 1,
+            "connect_ns": 80761997,
+            "connection_acquire_ns": 167550939,
+            "dns_attempts": 1,
+            "dns_window_ns": 10962851,
+            "first_byte_ns": 261410862,
+            "get_conn_ns": 37928,
+            "got_conn_ns": 167588867,
+            "request_content_length": 2544,
+            "response_bytes": 0,
+            "response_eof": 1,
+            "response_headers_ns": 261439419,
+            "status": 201,
+            "tls_attempts": 1,
+            "tls_window_ns": 81188524,
+            "write_attempts": 1,
+            "wrote_request_ns": 167697050
+          },
+          "write_to_first_byte_ms": 93.713812
+        },
+        {
+          "kind": "cloud.traces",
+          "start_ms": 467.352513,
+          "end_ms": 553.390444,
+          "duration_ms": 86.037931,
+          "numeric_http_values": {
+            "body_closed": 1,
+            "connection_acquire_ns": 820,
+            "connection_idle": 1,
+            "connection_reused": 1,
+            "first_byte_ns": 85996201,
+            "get_conn_ns": 16960,
+            "got_conn_ns": 17780,
+            "request_content_length": 1773,
+            "response_bytes": 0,
+            "response_eof": 1,
+            "response_headers_ns": 86029937,
+            "status": 201,
+            "write_attempts": 1,
+            "wrote_request_ns": 108659
+          },
+          "write_to_first_byte_ms": 85.887542
+        },
+        {
+          "kind": "cloud.logs",
+          "start_ms": 906.094123,
+          "end_ms": 986.751421,
+          "duration_ms": 80.657298,
+          "numeric_http_values": {
+            "body_closed": 1,
+            "connection_acquire_ns": 913,
+            "connection_idle": 1,
+            "connection_reused": 1,
+            "first_byte_ns": 80635420,
+            "get_conn_ns": 13557,
+            "got_conn_ns": 14470,
+            "request_content_length": 3049,
+            "response_bytes": 0,
+            "response_eof": 1,
+            "response_headers_ns": 80651003,
+            "status": 201,
+            "write_attempts": 1,
+            "wrote_request_ns": 103230
+          },
+          "write_to_first_byte_ms": 80.53219
+        },
+        {
+          "kind": "cloud.traces",
+          "start_ms": 985.779896,
+          "end_ms": 1070.37628,
+          "duration_ms": 84.596384,
+          "numeric_http_values": {
+            "body_closed": 1,
+            "connection_acquire_ns": 387,
+            "connection_reused": 1,
+            "first_byte_ns": 84563981,
+            "get_conn_ns": 29871,
+            "got_conn_ns": 30258,
+            "request_content_length": 1211,
+            "response_bytes": 0,
+            "response_eof": 1,
+            "response_headers_ns": 84586160,
+            "status": 201,
+            "write_attempts": 1,
+            "wrote_request_ns": 122925
+          },
+          "write_to_first_byte_ms": 84.441056
+        },
+        {
+          "kind": "cloud.logs",
+          "start_ms": 1006.096603,
+          "end_ms": 1089.014853,
+          "duration_ms": 82.91825,
+          "numeric_http_values": {
+            "body_closed": 1,
+            "connection_acquire_ns": 445,
+            "connection_reused": 1,
+            "first_byte_ns": 82883750,
+            "get_conn_ns": 19339,
+            "got_conn_ns": 19784,
+            "request_content_length": 1213,
+            "response_bytes": 0,
+            "response_eof": 1,
+            "response_headers_ns": 82910475,
+            "status": 201,
+            "write_attempts": 1,
+            "wrote_request_ns": 138880
+          },
+          "write_to_first_byte_ms": 82.74487
+        }
+      ],
+      "timeline_sha256": "32634ab5d69a70e1a6951158a5c27cb3e913f63000f7bcebb1007949bb3fda37",
+      "cli_after_command_ms": 267.605848,
+      "wcprof": {
+        "sha256": "2587cc131cb676f872de25294e558c27a29bd3e8b523bc1ddb14cfb8715c998b",
+        "operations": 92,
+        "open": 0,
+        "dropped": 0,
+        "query_count": 1,
+        "query_union_ms": 31.469228,
+        "cli_after_last_engine_operation_ms": 267.929992,
+        "last_operation_relative_to_cli_command_end_ms": -0.324144
+      },
+      "classes": [
+        {
+          "kind": "call",
+          "operation": "Query._clientFilesyncMirror",
+          "count": 1,
+          "inclusive_ms": 2.375332,
+          "union_ms": 2.375332
+        },
+        {
+          "kind": "internal",
+          "operation": "dagql.publishResult",
+          "count": 29,
+          "inclusive_ms": 1.545838,
+          "union_ms": 1.545838
+        },
+        {
+          "kind": "call",
+          "operation": "String.entries",
+          "count": 23,
+          "inclusive_ms": 1.672466,
+          "union_ms": 1.672466
+        },
+        {
+          "kind": "call_exec",
+          "operation": "String.entries",
+          "count": 23,
+          "inclusive_ms": 0.478431,
+          "union_ms": 0.478431
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query._clientFilesyncMirror",
+          "count": 1,
+          "inclusive_ms": 2.014729,
+          "union_ms": 2.014729
+        },
+        {
+          "kind": "session_phase",
+          "operation": "session.serveQuery",
+          "count": 1,
+          "inclusive_ms": 39.207328,
+          "union_ms": 39.207328
+        },
+        {
+          "kind": "session_phase",
+          "operation": "session.workspaceLoad",
+          "count": 1,
+          "inclusive_ms": 7.314136,
+          "union_ms": 7.314136
+        },
+        {
+          "kind": "session_phase",
+          "operation": "session.modulesLoad",
+          "count": 1,
+          "inclusive_ms": 0.001668,
+          "union_ms": 0.001668
+        },
+        {
+          "kind": "session_phase",
+          "operation": "session.schemaBuild",
+          "count": 1,
+          "inclusive_ms": 0.39145,
+          "union_ms": 0.39145
+        },
+        {
+          "kind": "call",
+          "operation": "Directory.entries",
+          "count": 1,
+          "inclusive_ms": 0.69847,
+          "union_ms": 0.69847
+        },
+        {
+          "kind": "session_phase",
+          "operation": "session.query",
+          "count": 1,
+          "inclusive_ms": 31.469228,
+          "union_ms": 31.469228
+        },
+        {
+          "kind": "call",
+          "operation": "Query.currentWorkspace",
+          "count": 1,
+          "inclusive_ms": 0.148995,
+          "union_ms": 0.148995
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Directory.entries",
+          "count": 1,
+          "inclusive_ms": 0.488513,
+          "union_ms": 0.488513
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.currentWorkspace",
+          "count": 1,
+          "inclusive_ms": 0.039676,
+          "union_ms": 0.039676
+        },
+        {
+          "kind": "call",
+          "operation": "Workspace.directory",
+          "count": 1,
+          "inclusive_ms": 25.6692,
+          "union_ms": 25.6692
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Workspace.directory",
+          "count": 1,
+          "inclusive_ms": 25.562312,
+          "union_ms": 25.562312
+        },
+        {
+          "kind": "call",
+          "operation": "Query.host",
+          "count": 1,
+          "inclusive_ms": 0.108498,
+          "union_ms": 0.108498
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.host",
+          "count": 1,
+          "inclusive_ms": 0.022455,
+          "union_ms": 0.022455
+        },
+        {
+          "kind": "call",
+          "operation": "Host.directory",
+          "count": 1,
+          "inclusive_ms": 24.653162,
+          "union_ms": 24.653162
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Host.directory",
+          "count": 1,
+          "inclusive_ms": 24.42017,
+          "union_ms": 24.42017
+        }
+      ]
+    },
+    {
+      "variant": "retained-stack-fresh-volume",
+      "flow": "artifacts",
+      "phase": "cold-diagnostic",
+      "index": 0,
+      "profile": true,
+      "seconds": 25.551710028899834,
+      "correct": true,
+      "phase_ms": {
+        "cli.labels": 2.195127,
+        "cli.pre_run": 2.544666,
+        "cloud.traces": 674.001999,
+        "cloud.export.traces": 675.11995,
+        "engine.connect": 354.043514,
+        "cloud.logs": 507.341182,
+        "cloud.export.logs": 507.932042,
+        "cli.command": 24487.346496,
+        "engine.shutdown_request": 488.195592,
+        "engine.shutdown_http": 488.210534,
+        "engine.subscribers_drain": 0.015142,
+        "engine.close_lock": 0.000494,
+        "engine.clients_cleanup": 9.128374,
+        "engine.subscribers_final_drain": 0.000812,
+        "engine.close": 497.417607,
+        "cli.stdio_close": 0.025703,
+        "cli.root_end": 0.009487,
+        "otel.provider.traces": 94.254686,
+        "otel.provider.logs": 58.342385,
+        "otel.provider.metrics": 0.034269,
+        "cli.telemetry_close": 152.688335,
+        "cli.with_engine_frontend": 25495.226358,
+        "analytics.finalize": 0.000928,
+        "oauth.finalize": 0.029705,
+        "cli.execute": 25498.116232,
+        "cli.main": 25498.626915,
+        "diagnostic.flush": 0.738172
+      },
+      "requests": [
+        {
+          "kind": "cloud.traces",
+          "start_ms": 106.447714,
+          "end_ms": 358.911225,
+          "duration_ms": 252.463511,
+          "numeric_http_values": {
+            "body_closed": 1,
+            "connect_attempts": 1,
+            "connect_ns": 77304431,
+            "connection_acquire_ns": 162910057,
+            "dns_attempts": 1,
+            "dns_window_ns": 4193400,
+            "first_byte_ns": 252423930,
+            "get_conn_ns": 67714,
+            "got_conn_ns": 162977771,
+            "request_content_length": 2536,
+            "response_bytes": 0,
+            "response_eof": 1,
+            "response_headers_ns": 252450560,
+            "status": 201,
+            "tls_attempts": 1,
+            "tls_window_ns": 81345502,
+            "write_attempts": 1,
+            "wrote_request_ns": 163062362
+          },
+          "write_to_first_byte_ms": 89.361568
+        },
+        {
+          "kind": "cloud.logs",
+          "start_ms": 108.745572,
+          "end_ms": 367.525202,
+          "duration_ms": 258.77963,
+          "numeric_http_values": {
+            "body_closed": 1,
+            "connect_attempts": 1,
+            "connect_ns": 73276210,
+            "connection_acquire_ns": 1479,
+            "connection_reused": 1,
+            "dns_attempts": 1,
+            "dns_window_ns": 1923855,
+            "first_byte_ns": 258723927,
+            "get_conn_ns": 160707417,
+            "got_conn_ns": 160708896,
+            "request_content_length": 5439,
+            "response_bytes": 0,
+            "response_eof": 1,
+            "response_headers_ns": 258752719,
+            "status": 201,
+            "tls_attempts": 1,
+            "tls_window_ns": 85324517,
+            "write_attempts": 1,
+            "wrote_request_ns": 160852685
+          },
+          "write_to_first_byte_ms": 97.871242
+        },
+        {
+          "kind": "cloud.traces",
+          "start_ms": 359.006332,
+          "end_ms": 445.666295,
+          "duration_ms": 86.659963,
+          "numeric_http_values": {
+            "body_closed": 1,
+            "connection_acquire_ns": 436,
+            "connection_reused": 1,
+            "first_byte_ns": 86610455,
+            "get_conn_ns": 12653,
+            "got_conn_ns": 13089,
+            "request_content_length": 1151,
+            "response_bytes": 0,
+            "response_eof": 1,
+            "response_headers_ns": 86645670,
+            "status": 201,
+            "write_attempts": 1,
+            "wrote_request_ns": 131085
+          },
+          "write_to_first_byte_ms": 86.47937
+        },
+        {
+          "kind": "cloud.traces",
+          "start_ms": 460.000538,
+          "end_ms": 550.827772,
+          "duration_ms": 90.827234,
+          "numeric_http_values": {
+            "body_closed": 1,
+            "connection_acquire_ns": 404,
+            "connection_idle": 1,
+            "connection_reused": 1,
+            "first_byte_ns": 90777622,
+            "get_conn_ns": 20673,
+            "got_conn_ns": 21077,
+            "request_content_length": 1649,
+            "response_bytes": 0,
+            "response_eof": 1,
+            "response_headers_ns": 90814357,
+            "status": 201,
+            "write_attempts": 1,
+            "wrote_request_ns": 128310
+          },
+          "write_to_first_byte_ms": 90.649312
+        },
+        {
+          "kind": "cloud.logs",
+          "start_ms": 24907.535737,
+          "end_ms": 25065.393497,
+          "duration_ms": 157.85776,
+          "numeric_http_values": {
+            "body_closed": 1,
+            "connection_acquire_ns": 424,
+            "connection_idle": 1,
+            "connection_reused": 1,
+            "first_byte_ns": 157722262,
+            "get_conn_ns": 11676,
+            "got_conn_ns": 12100,
+            "request_content_length": 17503,
+            "response_bytes": 0,
+            "response_eof": 1,
+            "response_headers_ns": 157819433,
+            "status": 201,
+            "write_attempts": 1,
+            "wrote_request_ns": 97351
+          },
+          "write_to_first_byte_ms": 157.624911
+        },
+        {
+          "kind": "cloud.traces",
+          "start_ms": 24916.59493,
+          "end_ms": 25066.657271,
+          "duration_ms": 150.062341,
+          "numeric_http_values": {
+            "body_closed": 1,
+            "connection_acquire_ns": 254,
+            "connection_reused": 1,
+            "first_byte_ns": 149975356,
+            "get_conn_ns": 8702,
+            "got_conn_ns": 8956,
+            "request_content_length": 1382,
+            "response_bytes": 0,
+            "response_eof": 1,
+            "response_headers_ns": 150037875,
+            "status": 201,
+            "write_attempts": 1,
+            "wrote_request_ns": 55273
+          },
+          "write_to_first_byte_ms": 149.920083
+        },
+        {
+          "kind": "cloud.traces",
+          "start_ms": 25346.729717,
+          "end_ms": 25440.718667,
+          "duration_ms": 93.98895,
+          "numeric_http_values": {
+            "body_closed": 1,
+            "connection_acquire_ns": 1250,
+            "connection_idle": 1,
+            "connection_reused": 1,
+            "first_byte_ns": 93921367,
+            "get_conn_ns": 35183,
+            "got_conn_ns": 36433,
+            "request_content_length": 1203,
+            "response_bytes": 0,
+            "response_eof": 1,
+            "response_headers_ns": 93973949,
+            "status": 201,
+            "write_attempts": 1,
+            "wrote_request_ns": 240816
+          },
+          "write_to_first_byte_ms": 93.680551
+        },
+        {
+          "kind": "cloud.logs",
+          "start_ms": 25408.442334,
+          "end_ms": 25499.146126,
+          "duration_ms": 90.703792,
+          "numeric_http_values": {
+            "body_closed": 1,
+            "connection_acquire_ns": 611,
+            "connection_reused": 1,
+            "first_byte_ns": 90609315,
+            "get_conn_ns": 19605,
+            "got_conn_ns": 20216,
+            "request_content_length": 1209,
+            "response_bytes": 0,
+            "response_eof": 1,
+            "response_headers_ns": 90677822,
+            "status": 201,
+            "write_attempts": 1,
+            "wrote_request_ns": 130914
+          },
+          "write_to_first_byte_ms": 90.478401
+        }
+      ],
+      "timeline_sha256": "d82dce3763aa2bd11ed3d07f7c777fcce92b1a1dc1e4ddc5ac8531e2b3831927",
+      "cli_after_command_ms": 670.404522,
+      "wcprof": {
+        "sha256": "34121d111f83664d1e0b69c7c483352e15e54dae9db2e8348ad55c5aca12cd4e",
+        "operations": 42698,
+        "open": 0,
+        "dropped": 0,
+        "query_count": 259,
+        "query_union_ms": 24038.174294,
+        "cli_after_last_engine_operation_ms": 671.975875,
+        "last_operation_relative_to_cli_command_end_ms": -1.571353
+      },
+      "classes": [
+        {
+          "kind": "call_exec",
+          "operation": "Query._clientFilesyncMirror",
+          "count": 1,
+          "inclusive_ms": 2.072522,
+          "union_ms": 2.072522
+        },
+        {
+          "kind": "call",
+          "operation": "Directory.digest",
+          "count": 54,
+          "inclusive_ms": 325.644431,
+          "union_ms": 278.337682
+        },
+        {
+          "kind": "internal",
+          "operation": "dagql.publishResult",
+          "count": 4334,
+          "inclusive_ms": 366.559214,
+          "union_ms": 336.690907
+        },
+        {
+          "kind": "internal",
+          "operation": "git.publicAdvertisement",
+          "count": 7,
+          "inclusive_ms": 1226.188647,
+          "union_ms": 914.769606
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.__gitRepository",
+          "count": 9,
+          "inclusive_ms": 13.170299,
+          "union_ms": 13.170299
+        },
+        {
+          "kind": "call_exec",
+          "operation": "GitRepository.__resolvedRef",
+          "count": 10,
+          "inclusive_ms": 0.7267,
+          "union_ms": 0.7267
+        },
+        {
+          "kind": "internal",
+          "operation": "image.applyLayer",
+          "count": 17,
+          "inclusive_ms": 5058.54517,
+          "union_ms": 4192.490838
+        },
+        {
+          "kind": "call_exec",
+          "operation": "GitRef.tree",
+          "count": 10,
+          "inclusive_ms": 0.660687,
+          "union_ms": 0.660687
+        },
+        {
+          "kind": "internal",
+          "operation": "image.commitSnapshot",
+          "count": 17,
+          "inclusive_ms": 137.932739,
+          "union_ms": 137.932739
+        },
+        {
+          "kind": "internal",
+          "operation": "image.importLayer",
+          "count": 17,
+          "inclusive_ms": 5224.781917,
+          "union_ms": 4330.48017
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Directory.exists",
+          "count": 18,
+          "inclusive_ms": 8698.164965,
+          "union_ms": 3032.530625
+        },
+        {
+          "kind": "call",
+          "operation": "File.contents",
+          "count": 14,
+          "inclusive_ms": 15.988523,
+          "union_ms": 15.988523
+        },
+        {
+          "kind": "call",
+          "operation": "Directory.exists",
+          "count": 20,
+          "inclusive_ms": 8700.825721,
+          "union_ms": 3033.56162
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Container.rootfs",
+          "count": 3,
+          "inclusive_ms": 1377.762177,
+          "union_ms": 1377.762177
+        },
+        {
+          "kind": "call",
+          "operation": "Query.typeDef",
+          "count": 6482,
+          "inclusive_ms": 46.993619,
+          "union_ms": 45.577455
+        },
+        {
+          "kind": "call",
+          "operation": "Query.__functionArgExact",
+          "count": 1302,
+          "inclusive_ms": 14.258016,
+          "union_ms": 14.258016
+        },
+        {
+          "kind": "call",
+          "operation": "TypeDef.withOptional",
+          "count": 4956,
+          "inclusive_ms": 73.982631,
+          "union_ms": 70.786948
+        },
+        {
+          "kind": "call",
+          "operation": "ObjectTypeDef.__withFunction",
+          "count": 1765,
+          "inclusive_ms": 133.073077,
+          "union_ms": 130.964575
+        },
+        {
+          "kind": "call",
+          "operation": "Query.__enumMemberTypeDef",
+          "count": 240,
+          "inclusive_ms": 1.690722,
+          "union_ms": 1.690722
+        },
+        {
+          "kind": "call",
+          "operation": "Function.withDescription",
+          "count": 1489,
+          "inclusive_ms": 26.1458,
+          "union_ms": 25.032576
+        },
+        {
+          "kind": "call",
+          "operation": "TypeDef.withListOf",
+          "count": 698,
+          "inclusive_ms": 7.834197,
+          "union_ms": 7.812804
+        },
+        {
+          "kind": "call",
+          "operation": "TypeDef.withObject",
+          "count": 1969,
+          "inclusive_ms": 36.647096,
+          "union_ms": 34.309549
+        },
+        {
+          "kind": "call",
+          "operation": "Function.__withArg",
+          "count": 1607,
+          "inclusive_ms": 55.394749,
+          "union_ms": 54.673305
+        },
+        {
+          "kind": "call_exec",
+          "operation": "ObjectTypeDef.__withFunction",
+          "count": 598,
+          "inclusive_ms": 20.556124,
+          "union_ms": 20.556124
+        },
+        {
+          "kind": "call_exec",
+          "operation": "TypeDef.withScalar",
+          "count": 116,
+          "inclusive_ms": 12.27526,
+          "union_ms": 12.27526
+        },
+        {
+          "kind": "call",
+          "operation": "Query.__scalarTypeDef",
+          "count": 116,
+          "inclusive_ms": 8.202228,
+          "union_ms": 8.202228
+        },
+        {
+          "kind": "call",
+          "operation": "Query.__function",
+          "count": 1430,
+          "inclusive_ms": 13.164163,
+          "union_ms": 13.164163
+        },
+        {
+          "kind": "call",
+          "operation": "TypeDef.withKind",
+          "count": 3126,
+          "inclusive_ms": 20.113123,
+          "union_ms": 19.914454
+        },
+        {
+          "kind": "call",
+          "operation": "TypeDef.withScalar",
+          "count": 362,
+          "inclusive_ms": 18.849568,
+          "union_ms": 18.849568
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Function.__withArg",
+          "count": 357,
+          "inclusive_ms": 12.90096,
+          "union_ms": 12.780065
+        },
+        {
+          "kind": "call",
+          "operation": "TypeDef.withEnum",
+          "count": 82,
+          "inclusive_ms": 0.790325,
+          "union_ms": 0.790325
+        },
+        {
+          "kind": "call",
+          "operation": "TypeDef.__withScalarTypeDef",
+          "count": 261,
+          "inclusive_ms": 4.893292,
+          "union_ms": 4.893292
+        },
+        {
+          "kind": "call",
+          "operation": "TypeDef.__withEnumTypeDef",
+          "count": 55,
+          "inclusive_ms": 0.877685,
+          "union_ms": 0.877685
+        },
+        {
+          "kind": "call",
+          "operation": "ScalarTypeDef.__withName",
+          "count": 261,
+          "inclusive_ms": 3.696352,
+          "union_ms": 3.696352
+        },
+        {
+          "kind": "call",
+          "operation": "Query.__objectTypeDef",
+          "count": 244,
+          "inclusive_ms": 18.692204,
+          "union_ms": 18.648382
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.__scalarTypeDef",
+          "count": 116,
+          "inclusive_ms": 1.765825,
+          "union_ms": 1.765825
+        },
+        {
+          "kind": "call",
+          "operation": "TypeDef.__withObjectTypeDef",
+          "count": 434,
+          "inclusive_ms": 14.857556,
+          "union_ms": 14.665399
+        },
+        {
+          "kind": "call",
+          "operation": "Query.directory",
+          "count": 11,
+          "inclusive_ms": 0.505599,
+          "union_ms": 0.505599
+        },
+        {
+          "kind": "call",
+          "operation": "EnumTypeDef.__withMember",
+          "count": 243,
+          "inclusive_ms": 2.047592,
+          "union_ms": 2.047592
+        },
+        {
+          "kind": "call",
+          "operation": "ObjectTypeDef.__withName",
+          "count": 438,
+          "inclusive_ms": 13.451653,
+          "union_ms": 13.392978
+        },
+        {
+          "kind": "call",
+          "operation": "InputTypeDef.__withField",
+          "count": 29,
+          "inclusive_ms": 0.169086,
+          "union_ms": 0.169086
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.__function",
+          "count": 63,
+          "inclusive_ms": 1.748173,
+          "union_ms": 1.748173
+        },
+        {
+          "kind": "call_exec",
+          "operation": "TypeDef.__withScalarTypeDef",
+          "count": 58,
+          "inclusive_ms": 1.55526,
+          "union_ms": 1.55526
+        },
+        {
+          "kind": "call_exec",
+          "operation": "ScalarTypeDef.__withName",
+          "count": 58,
+          "inclusive_ms": 0.708285,
+          "union_ms": 0.708285
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Function.withDescription",
+          "count": 190,
+          "inclusive_ms": 2.753049,
+          "union_ms": 2.753049
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.__functionArgExact",
+          "count": 64,
+          "inclusive_ms": 2.729851,
+          "union_ms": 2.729851
+        },
+        {
+          "kind": "call",
+          "operation": "Function.withDeprecated",
+          "count": 26,
+          "inclusive_ms": 0.154367,
+          "union_ms": 0.154367
+        },
+        {
+          "kind": "exec_phase",
+          "operation": "exec.setExitCodePath",
+          "count": 15,
+          "inclusive_ms": 0.016949,
+          "union_ms": 0.016949
+        },
+        {
+          "kind": "internal",
+          "operation": "dang.selfTypes",
+          "count": 12,
+          "inclusive_ms": 1638.667122,
+          "union_ms": 1246.768883
+        },
+        {
+          "kind": "session_phase",
+          "operation": "session.schemaBuild",
+          "count": 259,
+          "inclusive_ms": 23.823891,
+          "union_ms": 23.608709
+        },
+        {
+          "kind": "session_phase",
+          "operation": "session.workspaceLoad",
+          "count": 259,
+          "inclusive_ms": 7.685975,
+          "union_ms": 7.685975
+        },
+        {
+          "kind": "session_phase",
+          "operation": "session.serveQuery",
+          "count": 259,
+          "inclusive_ms": 27708.48172,
+          "union_ms": 24059.008608
+        },
+        {
+          "kind": "call",
+          "operation": "TypeDef.id",
+          "count": 56,
+          "inclusive_ms": 0.304866,
+          "union_ms": 0.304866
+        },
+        {
+          "kind": "session_phase",
+          "operation": "session.query",
+          "count": 259,
+          "inclusive_ms": 27661.972756,
+          "union_ms": 24038.174294
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.sourceMap",
+          "count": 84,
+          "inclusive_ms": 1.839713,
+          "union_ms": 1.510143
+        },
+        {
+          "kind": "call",
+          "operation": "Query.sourceMap",
+          "count": 729,
+          "inclusive_ms": 35.249358,
+          "union_ms": 17.642629
+        },
+        {
+          "kind": "session_phase",
+          "operation": "session.modulesLoad",
+          "count": 259,
+          "inclusive_ms": 0.236933,
+          "union_ms": 0.236933
+        },
+        {
+          "kind": "call",
+          "operation": "Query.function",
+          "count": 188,
+          "inclusive_ms": 22.876603,
+          "union_ms": 20.969489
+        },
+        {
+          "kind": "call",
+          "operation": "Function.withSourceMap",
+          "count": 23,
+          "inclusive_ms": 10.758171,
+          "union_ms": 4.806634
+        },
+        {
+          "kind": "call",
+          "operation": "Query.__functionArg",
+          "count": 254,
+          "inclusive_ms": 29.404072,
+          "union_ms": 27.876807
+        },
+        {
+          "kind": "call",
+          "operation": "Function.id",
+          "count": 25,
+          "inclusive_ms": 0.130031,
+          "union_ms": 0.130031
+        },
+        {
+          "kind": "call",
+          "operation": "TypeDef.withFunction",
+          "count": 161,
+          "inclusive_ms": 46.909442,
+          "union_ms": 45.50502
+        },
+        {
+          "kind": "call",
+          "operation": "Query.currentFunctionCall",
+          "count": 35,
+          "inclusive_ms": 0.929421,
+          "union_ms": 0.929421
+        },
+        {
+          "kind": "call_exec",
+          "operation": "ObjectTypeDef.__withSourceMap",
+          "count": 56,
+          "inclusive_ms": 1.775639,
+          "union_ms": 1.775639
+        },
+        {
+          "kind": "call_exec",
+          "operation": "FunctionArg.__withSourceMap",
+          "count": 165,
+          "inclusive_ms": 5.398082,
+          "union_ms": 5.398082
+        },
+        {
+          "kind": "call",
+          "operation": "ObjectTypeDef.__withSourceModuleName",
+          "count": 102,
+          "inclusive_ms": 6.553083,
+          "union_ms": 6.199746
+        },
+        {
+          "kind": "call",
+          "operation": "ObjectTypeDef.__withConstructor",
+          "count": 60,
+          "inclusive_ms": 9.108687,
+          "union_ms": 9.060724
+        },
+        {
+          "kind": "call_exec",
+          "operation": "ModuleSource.asModule",
+          "count": 16,
+          "inclusive_ms": 52106.384475,
+          "union_ms": 20346.744215
+        },
+        {
+          "kind": "exec_phase",
+          "operation": "exec.setProxyEnvs",
+          "count": 15,
+          "inclusive_ms": 0.041092,
+          "union_ms": 0.041092
+        },
+        {
+          "kind": "call_exec",
+          "operation": "FunctionCall.inputArgs",
+          "count": 7,
+          "inclusive_ms": 0.313644,
+          "union_ms": 0.313644
+        },
+        {
+          "kind": "call_exec",
+          "operation": "TypeDef.withOptional",
+          "count": 61,
+          "inclusive_ms": 2.233063,
+          "union_ms": 2.233063
+        },
+        {
+          "kind": "call",
+          "operation": "ObjectTypeDef.__withField",
+          "count": 137,
+          "inclusive_ms": 18.133092,
+          "union_ms": 18.111182
+        },
+        {
+          "kind": "call",
+          "operation": "Query.__fieldTypeDef",
+          "count": 65,
+          "inclusive_ms": 9.286024,
+          "union_ms": 9.286024
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Function.__withReturnType",
+          "count": 68,
+          "inclusive_ms": 2.358855,
+          "union_ms": 2.358855
+        },
+        {
+          "kind": "call",
+          "operation": "FunctionArg.__withSourceMap",
+          "count": 305,
+          "inclusive_ms": 18.807276,
+          "union_ms": 18.703053
+        },
+        {
+          "kind": "exec_phase",
+          "operation": "exec.processRun",
+          "count": 15,
+          "inclusive_ms": 18326.865617,
+          "union_ms": 18236.155117
+        },
+        {
+          "kind": "call",
+          "operation": "Query.host",
+          "count": 34,
+          "inclusive_ms": 4.06092,
+          "union_ms": 2.037141
+        },
+        {
+          "kind": "call",
+          "operation": "ModuleSource.digest",
+          "count": 23,
+          "inclusive_ms": 3.346179,
+          "union_ms": 3.346179
+        },
+        {
+          "kind": "call_exec",
+          "operation": "ModuleSource._implementationScoped",
+          "count": 13,
+          "inclusive_ms": 329.346024,
+          "union_ms": 277.887529
+        },
+        {
+          "kind": "call",
+          "operation": "Directory.file",
+          "count": 58,
+          "inclusive_ms": 153.36136,
+          "union_ms": 149.117405
+        },
+        {
+          "kind": "call_exec",
+          "operation": "ObjectTypeDef.__withField",
+          "count": 134,
+          "inclusive_ms": 4.448847,
+          "union_ms": 4.448847
+        },
+        {
+          "kind": "call_exec",
+          "operation": "ObjectTypeDef.__withName",
+          "count": 96,
+          "inclusive_ms": 1.557629,
+          "union_ms": 1.557629
+        },
+        {
+          "kind": "call_exec",
+          "operation": "ObjectTypeDef.__withConstructor",
+          "count": 58,
+          "inclusive_ms": 1.748018,
+          "union_ms": 1.748018
+        },
+        {
+          "kind": "call",
+          "operation": "FieldTypeDef.__withSourceMap",
+          "count": 72,
+          "inclusive_ms": 12.182399,
+          "union_ms": 12.15521
+        },
+        {
+          "kind": "call_exec",
+          "operation": "TypeDef.__withObjectTypeDef",
+          "count": 121,
+          "inclusive_ms": 4.649041,
+          "union_ms": 4.59711
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Directory.digest",
+          "count": 14,
+          "inclusive_ms": 316.166809,
+          "union_ms": 271.495
+        },
+        {
+          "kind": "call",
+          "operation": "Query.__schemaJSONFile",
+          "count": 35,
+          "inclusive_ms": 57.369289,
+          "union_ms": 57.369289
+        },
+        {
+          "kind": "call",
+          "operation": "Function.__asConstructor",
+          "count": 29,
+          "inclusive_ms": 4.43486,
+          "union_ms": 4.42808
+        },
+        {
+          "kind": "call",
+          "operation": "Module.withObject",
+          "count": 31,
+          "inclusive_ms": 7.226257,
+          "union_ms": 7.143128
+        },
+        {
+          "kind": "call",
+          "operation": "ObjectTypeDef.__withSourceMap",
+          "count": 102,
+          "inclusive_ms": 6.759807,
+          "union_ms": 6.620333
+        },
+        {
+          "kind": "call",
+          "operation": "Function.__withSourceMap",
+          "count": 192,
+          "inclusive_ms": 18.62942,
+          "union_ms": 18.127661
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.moduleSource",
+          "count": 13,
+          "inclusive_ms": 19867.003983,
+          "union_ms": 3303.591241
+        },
+        {
+          "kind": "call",
+          "operation": "Directory.withDirectory",
+          "count": 10,
+          "inclusive_ms": 2.969984,
+          "union_ms": 2.969984
+        },
+        {
+          "kind": "call",
+          "operation": "ModuleSource._implementationScoped",
+          "count": 13,
+          "inclusive_ms": 334.55317,
+          "union_ms": 282.392172
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.__functionArg",
+          "count": 142,
+          "inclusive_ms": 9.809585,
+          "union_ms": 9.548143
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.function",
+          "count": 126,
+          "inclusive_ms": 7.005745,
+          "union_ms": 6.932189
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Function.withArg",
+          "count": 254,
+          "inclusive_ms": 54.275296,
+          "union_ms": 49.72468
+        },
+        {
+          "kind": "call",
+          "operation": "Function.withArg",
+          "count": 305,
+          "inclusive_ms": 90.012651,
+          "union_ms": 75.355797
+        },
+        {
+          "kind": "call_exec",
+          "operation": "TypeDef.withFunction",
+          "count": 148,
+          "inclusive_ms": 35.366237,
+          "union_ms": 34.999033
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Function.__asConstructor",
+          "count": 27,
+          "inclusive_ms": 0.387289,
+          "union_ms": 0.387289
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.__objectTypeDef",
+          "count": 52,
+          "inclusive_ms": 1.062093,
+          "union_ms": 1.062093
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Function.__withSourceMap",
+          "count": 152,
+          "inclusive_ms": 5.782937,
+          "union_ms": 5.777411
+        },
+        {
+          "kind": "call_exec",
+          "operation": "FieldTypeDef.__withSourceMap",
+          "count": 63,
+          "inclusive_ms": 2.734148,
+          "union_ms": 2.734148
+        },
+        {
+          "kind": "lazy",
+          "operation": "Directory.withDirectory",
+          "count": 10,
+          "inclusive_ms": 171.603789,
+          "union_ms": 151.010599
+        },
+        {
+          "kind": "call",
+          "operation": "Query.__listTypeDef",
+          "count": 8,
+          "inclusive_ms": 0.905309,
+          "union_ms": 0.905309
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.__schemaJSONFile",
+          "count": 6,
+          "inclusive_ms": 55.466548,
+          "union_ms": 55.466548
+        },
+        {
+          "kind": "internal",
+          "operation": "dang.cloneSchema",
+          "count": 35,
+          "inclusive_ms": 23.083958,
+          "union_ms": 20.813787
+        },
+        {
+          "kind": "internal",
+          "operation": "dang.invoke",
+          "count": 35,
+          "inclusive_ms": 1413.4941,
+          "union_ms": 726.575642
+        },
+        {
+          "kind": "call",
+          "operation": "TypeDef.withField",
+          "count": 72,
+          "inclusive_ms": 27.255934,
+          "union_ms": 27.0458
+        },
+        {
+          "kind": "call_exec",
+          "operation": "TypeDef.withListOf",
+          "count": 8,
+          "inclusive_ms": 1.478511,
+          "union_ms": 1.478511
+        },
+        {
+          "kind": "call",
+          "operation": "ListTypeDef.__withElementTypeDef",
+          "count": 5,
+          "inclusive_ms": 0.390728,
+          "union_ms": 0.390728
+        },
+        {
+          "kind": "call_exec",
+          "operation": "TypeDef.withObject",
+          "count": 64,
+          "inclusive_ms": 14.60887,
+          "union_ms": 14.576489
+        },
+        {
+          "kind": "call_exec",
+          "operation": "TypeDef.withConstructor",
+          "count": 29,
+          "inclusive_ms": 10.798483,
+          "union_ms": 10.46039
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.__fieldTypeDef",
+          "count": 60,
+          "inclusive_ms": 2.104705,
+          "union_ms": 2.104705
+        },
+        {
+          "kind": "call_exec",
+          "operation": "TypeDef.withField",
+          "count": 65,
+          "inclusive_ms": 22.478811,
+          "union_ms": 22.478811
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Function.withCheck",
+          "count": 7,
+          "inclusive_ms": 0.074135,
+          "union_ms": 0.074135
+        },
+        {
+          "kind": "call_exec",
+          "operation": "TypeDef.withCollection",
+          "count": 2,
+          "inclusive_ms": 0.218862,
+          "union_ms": 0.218862
+        },
+        {
+          "kind": "call",
+          "operation": "ObjectTypeDef.__withCollectionMember",
+          "count": 6,
+          "inclusive_ms": 0.95019,
+          "union_ms": 0.95019
+        },
+        {
+          "kind": "call_exec",
+          "operation": "ObjectTypeDef.__withSourceModuleName",
+          "count": 56,
+          "inclusive_ms": 0.80417,
+          "union_ms": 0.80417
+        },
+        {
+          "kind": "call",
+          "operation": "TypeDef.__withListTypeDef",
+          "count": 5,
+          "inclusive_ms": 3.504143,
+          "union_ms": 3.504143
+        },
+        {
+          "kind": "call_exec",
+          "operation": "TypeDef.withKind",
+          "count": 4,
+          "inclusive_ms": 0.060374,
+          "union_ms": 0.060374
+        },
+        {
+          "kind": "call",
+          "operation": "TypeDef.withConstructor",
+          "count": 31,
+          "inclusive_ms": 12.937113,
+          "union_ms": 12.307373
+        },
+        {
+          "kind": "call",
+          "operation": "Function.__withReturnType",
+          "count": 74,
+          "inclusive_ms": 9.821522,
+          "union_ms": 9.713861
+        },
+        {
+          "kind": "call_exec",
+          "operation": "EnumTypeDef.__withMember",
+          "count": 6,
+          "inclusive_ms": 0.241429,
+          "union_ms": 0.241429
+        },
+        {
+          "kind": "call",
+          "operation": "Container.directory",
+          "count": 6,
+          "inclusive_ms": 7599.085122,
+          "union_ms": 4830.637663
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Container.directory",
+          "count": 2,
+          "inclusive_ms": 4830.348282,
+          "union_ms": 4830.348282
+        },
+        {
+          "kind": "lazy",
+          "operation": "Directory.directory",
+          "count": 3,
+          "inclusive_ms": 7.120845,
+          "union_ms": 7.120845
+        },
+        {
+          "kind": "call",
+          "operation": "Container.withEntrypoint",
+          "count": 5,
+          "inclusive_ms": 2.265809,
+          "union_ms": 1.985921
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Container.withoutMount",
+          "count": 4,
+          "inclusive_ms": 0.719997,
+          "union_ms": 0.719997
+        },
+        {
+          "kind": "exec_phase",
+          "operation": "exec.setupRootfs",
+          "count": 15,
+          "inclusive_ms": 14.122039,
+          "union_ms": 13.544867
+        },
+        {
+          "kind": "exec_phase",
+          "operation": "exec.runContainer",
+          "count": 15,
+          "inclusive_ms": 18349.9311,
+          "union_ms": 18258.407183
+        },
+        {
+          "kind": "exec",
+          "operation": "exec.run",
+          "count": 15,
+          "inclusive_ms": 18569.765142,
+          "union_ms": 18468.908697
+        },
+        {
+          "kind": "exec_phase",
+          "operation": "exec.setUserGroup",
+          "count": 15,
+          "inclusive_ms": 1.361992,
+          "union_ms": 1.361992
+        },
+        {
+          "kind": "lazy",
+          "operation": "Container.withEntrypoint",
+          "count": 7,
+          "inclusive_ms": 30498.035767,
+          "union_ms": 15249.390828
+        },
+        {
+          "kind": "call",
+          "operation": "Module._implementationScoped",
+          "count": 214,
+          "inclusive_ms": 12.84089,
+          "union_ms": 11.840523
+        },
+        {
+          "kind": "exec_phase",
+          "operation": "exec.setupSecretScrubbing",
+          "count": 15,
+          "inclusive_ms": 0.008919,
+          "union_ms": 0.008919
+        },
+        {
+          "kind": "call",
+          "operation": "SourceMap.id",
+          "count": 53,
+          "inclusive_ms": 0.285665,
+          "union_ms": 0.285665
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Container.withEnvVariable",
+          "count": 5,
+          "inclusive_ms": 2.57458,
+          "union_ms": 2.57458
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Container.withExec",
+          "count": 9,
+          "inclusive_ms": 2.404574,
+          "union_ms": 2.404574
+        },
+        {
+          "kind": "exec_phase",
+          "operation": "exec.injectInit",
+          "count": 15,
+          "inclusive_ms": 0.021522,
+          "union_ms": 0.021522
+        },
+        {
+          "kind": "exec_phase",
+          "operation": "exec.createCWD",
+          "count": 15,
+          "inclusive_ms": 0.722986,
+          "union_ms": 0.722986
+        },
+        {
+          "kind": "exec_phase",
+          "operation": "exec.setupStdio",
+          "count": 15,
+          "inclusive_ms": 0.778513,
+          "union_ms": 0.778513
+        },
+        {
+          "kind": "exec_phase",
+          "operation": "withExec.applyOutputs",
+          "count": 15,
+          "inclusive_ms": 11.702214,
+          "union_ms": 11.702214
+        },
+        {
+          "kind": "call",
+          "operation": "TypeDef.__withInterfaceTypeDef",
+          "count": 6,
+          "inclusive_ms": 0.036006,
+          "union_ms": 0.036006
+        },
+        {
+          "kind": "call",
+          "operation": "Query.__enumTypeDef",
+          "count": 44,
+          "inclusive_ms": 0.493716,
+          "union_ms": 0.493716
+        },
+        {
+          "kind": "call",
+          "operation": "Query.__inputTypeDef",
+          "count": 25,
+          "inclusive_ms": 0.168167,
+          "union_ms": 0.168167
+        },
+        {
+          "kind": "call",
+          "operation": "TypeDef.withInterface",
+          "count": 8,
+          "inclusive_ms": 0.251198,
+          "union_ms": 0.251198
+        },
+        {
+          "kind": "call",
+          "operation": "Query.__fieldTypeDefExact",
+          "count": 29,
+          "inclusive_ms": 0.192516,
+          "union_ms": 0.192516
+        },
+        {
+          "kind": "call",
+          "operation": "Artifacts.id",
+          "count": 3,
+          "inclusive_ms": 0.023406,
+          "union_ms": 0.023406
+        },
+        {
+          "kind": "call",
+          "operation": "ArtifactDimension.keyName",
+          "count": 2,
+          "inclusive_ms": 0.920249,
+          "union_ms": 0.920249
+        },
+        {
+          "kind": "call",
+          "operation": "ArtifactDimension.keyDescription",
+          "count": 2,
+          "inclusive_ms": 1.26728,
+          "union_ms": 0.924668
+        },
+        {
+          "kind": "call",
+          "operation": "Workspace.directory",
+          "count": 4,
+          "inclusive_ms": 35.738536,
+          "union_ms": 35.738536
+        },
+        {
+          "kind": "exec_phase",
+          "operation": "exec.filterEnvs",
+          "count": 15,
+          "inclusive_ms": 0.042639,
+          "union_ms": 0.042639
+        },
+        {
+          "kind": "call",
+          "operation": "FunctionCall.inputArgs",
+          "count": 7,
+          "inclusive_ms": 0.830776,
+          "union_ms": 0.830776
+        },
+        {
+          "kind": "call",
+          "operation": "Query.node",
+          "count": 64,
+          "inclusive_ms": 80.762395,
+          "union_ms": 79.069882
+        },
+        {
+          "kind": "call",
+          "operation": "FunctionCall.parent",
+          "count": 7,
+          "inclusive_ms": 0.690252,
+          "union_ms": 0.690252
+        },
+        {
+          "kind": "call",
+          "operation": "Container.withDirectory",
+          "count": 1,
+          "inclusive_ms": 0.955374,
+          "union_ms": 0.955374
+        },
+        {
+          "kind": "call",
+          "operation": "Container.withExec",
+          "count": 13,
+          "inclusive_ms": 4.622085,
+          "union_ms": 3.55919
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Directory.withFile",
+          "count": 1,
+          "inclusive_ms": 0.224057,
+          "union_ms": 0.224057
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Container.withFile",
+          "count": 2,
+          "inclusive_ms": 11.201044,
+          "union_ms": 11.201044
+        },
+        {
+          "kind": "internal",
+          "operation": "dang.flushTelemetry",
+          "count": 23,
+          "inclusive_ms": 110.234974,
+          "union_ms": 80.547297
+        },
+        {
+          "kind": "call",
+          "operation": "Workspace.id",
+          "count": 14,
+          "inclusive_ms": 0.104964,
+          "union_ms": 0.104964
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Workspace.file",
+          "count": 3,
+          "inclusive_ms": 44.891697,
+          "union_ms": 44.891697
+        },
+        {
+          "kind": "call_exec",
+          "operation": "String.glob",
+          "count": 30,
+          "inclusive_ms": 0.661417,
+          "union_ms": 0.661417
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Host.directory",
+          "count": 10,
+          "inclusive_ms": 300.919759,
+          "union_ms": 221.791316
+        },
+        {
+          "kind": "call_exec",
+          "operation": "String.findRoots",
+          "count": 13,
+          "inclusive_ms": 0.29585,
+          "union_ms": 0.29585
+        },
+        {
+          "kind": "call",
+          "operation": "gomod:Query.gomod",
+          "count": 17,
+          "inclusive_ms": 34.726756,
+          "union_ms": 34.726756
+        },
+        {
+          "kind": "call",
+          "operation": "Workspace.cwd",
+          "count": 10,
+          "inclusive_ms": 0.159725,
+          "union_ms": 0.159725
+        },
+        {
+          "kind": "call",
+          "operation": "String.glob",
+          "count": 38,
+          "inclusive_ms": 2.349373,
+          "union_ms": 2.349373
+        },
+        {
+          "kind": "call_exec",
+          "operation": "gomod:Gomod.workspaceRootPath",
+          "count": 3,
+          "inclusive_ms": 52.281174,
+          "union_ms": 52.281174
+        },
+        {
+          "kind": "call_exec",
+          "operation": "gomod:GomodGoMod.path",
+          "count": 3,
+          "inclusive_ms": 0.125892,
+          "union_ms": 0.104612
+        },
+        {
+          "kind": "call",
+          "operation": "Address.container",
+          "count": 4,
+          "inclusive_ms": 3057.844502,
+          "union_ms": 2950.861802
+        },
+        {
+          "kind": "call",
+          "operation": "backend:Backend.goTestBase",
+          "count": 4,
+          "inclusive_ms": 2728.440656,
+          "union_ms": 2728.440656
+        },
+        {
+          "kind": "internal",
+          "operation": "dang.runSource",
+          "count": 35,
+          "inclusive_ms": 535.256765,
+          "union_ms": 419.868545
+        },
+        {
+          "kind": "call",
+          "operation": "Directory.glob",
+          "count": 7,
+          "inclusive_ms": 2.262743,
+          "union_ms": 2.262743
+        },
+        {
+          "kind": "call",
+          "operation": "Workspace.glob",
+          "count": 6,
+          "inclusive_ms": 10.162028,
+          "union_ms": 10.162028
+        },
+        {
+          "kind": "call_exec",
+          "operation": "gomod:GomodGoMod.ownFiles",
+          "count": 3,
+          "inclusive_ms": 156.162205,
+          "union_ms": 57.93679
+        },
+        {
+          "kind": "call_exec",
+          "operation": "SearchResult.search",
+          "count": 6,
+          "inclusive_ms": 0.455451,
+          "union_ms": 0.408438
+        },
+        {
+          "kind": "call",
+          "operation": "SearchResult.filePath",
+          "count": 6,
+          "inclusive_ms": 1.523082,
+          "union_ms": 0.960066
+        },
+        {
+          "kind": "call",
+          "operation": "Query._clientFilesyncMirror",
+          "count": 10,
+          "inclusive_ms": 7.674334,
+          "union_ms": 2.771012
+        },
+        {
+          "kind": "call",
+          "operation": "Query.moduleSource",
+          "count": 16,
+          "inclusive_ms": 22032.540167,
+          "union_ms": 3303.74798
+        },
+        {
+          "kind": "call",
+          "operation": "Query._remoteGitMirror",
+          "count": 9,
+          "inclusive_ms": 11.052076,
+          "union_ms": 11.052076
+        },
+        {
+          "kind": "call",
+          "operation": "Query.git",
+          "count": 16,
+          "inclusive_ms": 1794.242406,
+          "union_ms": 930.408419
+        },
+        {
+          "kind": "call",
+          "operation": "Query.__gitRepository",
+          "count": 10,
+          "inclusive_ms": 15.08557,
+          "union_ms": 15.08557
+        },
+        {
+          "kind": "call",
+          "operation": "GitRepository.latest",
+          "count": 5,
+          "inclusive_ms": 6.308712,
+          "union_ms": 6.308712
+        },
+        {
+          "kind": "internal",
+          "operation": "image.prepareSnapshot",
+          "count": 17,
+          "inclusive_ms": 6.599524,
+          "union_ms": 6.599524
+        },
+        {
+          "kind": "lazy",
+          "operation": "GitRef.tree",
+          "count": 10,
+          "inclusive_ms": 8674.373432,
+          "union_ms": 3023.61582
+        },
+        {
+          "kind": "call_exec",
+          "operation": "File.contents",
+          "count": 13,
+          "inclusive_ms": 14.334252,
+          "union_ms": 14.334252
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Function.withSourceMap",
+          "count": 15,
+          "inclusive_ms": 1.440713,
+          "union_ms": 1.298543
+        },
+        {
+          "kind": "call",
+          "operation": "FunctionCall.returnValue",
+          "count": 7,
+          "inclusive_ms": 0.100525,
+          "union_ms": 0.100525
+        },
+        {
+          "kind": "exec_phase",
+          "operation": "exec.enableGPU",
+          "count": 15,
+          "inclusive_ms": 0.007519,
+          "union_ms": 0.007519
+        },
+        {
+          "kind": "call",
+          "operation": "typescript-sdk:Query.typescriptSdk",
+          "count": 1,
+          "inclusive_ms": 128.925625,
+          "union_ms": 128.925625
+        },
+        {
+          "kind": "call",
+          "operation": "Host.findUp",
+          "count": 20,
+          "inclusive_ms": 7.626916,
+          "union_ms": 7.626916
+        },
+        {
+          "kind": "call",
+          "operation": "Directory.directory",
+          "count": 7,
+          "inclusive_ms": 4.484178,
+          "union_ms": 4.484178
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Directory.file",
+          "count": 37,
+          "inclusive_ms": 136.523279,
+          "union_ms": 134.828549
+        },
+        {
+          "kind": "call",
+          "operation": "Function.withUp",
+          "count": 4,
+          "inclusive_ms": 1.493942,
+          "union_ms": 1.493942
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Directory.withDirectory",
+          "count": 10,
+          "inclusive_ms": 1.108652,
+          "union_ms": 1.108652
+        },
+        {
+          "kind": "call",
+          "operation": "GitRef.tree",
+          "count": 10,
+          "inclusive_ms": 1.73124,
+          "union_ms": 1.73124
+        },
+        {
+          "kind": "call",
+          "operation": "ModuleSource.asModule",
+          "count": 17,
+          "inclusive_ms": 52631.23867,
+          "union_ms": 20346.925891
+        },
+        {
+          "kind": "call",
+          "operation": "Query.module",
+          "count": 16,
+          "inclusive_ms": 0.310436,
+          "union_ms": 0.287633
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Module.withObject",
+          "count": 29,
+          "inclusive_ms": 3.388089,
+          "union_ms": 3.388089
+        },
+        {
+          "kind": "call_exec",
+          "operation": "ListTypeDef.__withElementTypeDef",
+          "count": 4,
+          "inclusive_ms": 0.133536,
+          "union_ms": 0.133536
+        },
+        {
+          "kind": "call",
+          "operation": "Function.withGenerator",
+          "count": 2,
+          "inclusive_ms": 0.11953,
+          "union_ms": 0.11953
+        },
+        {
+          "kind": "call_exec",
+          "operation": "ObjectTypeDef.__withCollectionMember",
+          "count": 6,
+          "inclusive_ms": 0.100229,
+          "union_ms": 0.100229
+        },
+        {
+          "kind": "call_exec",
+          "operation": "TypeDef.__withListTypeDef",
+          "count": 4,
+          "inclusive_ms": 3.233122,
+          "union_ms": 3.233122
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.__enumMemberTypeDef",
+          "count": 3,
+          "inclusive_ms": 0.049279,
+          "union_ms": 0.049279
+        },
+        {
+          "kind": "call",
+          "operation": "Function.withCheck",
+          "count": 7,
+          "inclusive_ms": 0.328229,
+          "union_ms": 0.328229
+        },
+        {
+          "kind": "call_exec",
+          "operation": "TypeDef.__withEnumTypeDef",
+          "count": 4,
+          "inclusive_ms": 0.126244,
+          "union_ms": 0.126244
+        },
+        {
+          "kind": "call",
+          "operation": "EnumTypeDef.__withSourceMap",
+          "count": 2,
+          "inclusive_ms": 0.145008,
+          "union_ms": 0.145008
+        },
+        {
+          "kind": "call",
+          "operation": "Container.withWorkdir",
+          "count": 8,
+          "inclusive_ms": 9.841676,
+          "union_ms": 7.368823
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Container.withEntrypoint",
+          "count": 4,
+          "inclusive_ms": 1.179371,
+          "union_ms": 1.179371
+        },
+        {
+          "kind": "lazy",
+          "operation": "Container.withoutMount",
+          "count": 12,
+          "inclusive_ms": 61028.409474,
+          "union_ms": 15259.083863
+        },
+        {
+          "kind": "exec_phase",
+          "operation": "exec.setupNetwork",
+          "count": 15,
+          "inclusive_ms": 3.225271,
+          "union_ms": 3.225271
+        },
+        {
+          "kind": "exec_phase",
+          "operation": "exec.containerStart",
+          "count": 15,
+          "inclusive_ms": 14.591108,
+          "union_ms": 14.435024
+        },
+        {
+          "kind": "lazy",
+          "operation": "Container.withWorkdir",
+          "count": 11,
+          "inclusive_ms": 30506.277984,
+          "union_ms": 15253.11957
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.currentFunctionCall",
+          "count": 7,
+          "inclusive_ms": 0.130897,
+          "union_ms": 0.130897
+        },
+        {
+          "kind": "call",
+          "operation": "Query.cacheVolume",
+          "count": 12,
+          "inclusive_ms": 24.339601,
+          "union_ms": 12.427952
+        },
+        {
+          "kind": "lazy",
+          "operation": "Container.withExec",
+          "count": 17,
+          "inclusive_ms": 16335.701252,
+          "union_ms": 15246.271151
+        },
+        {
+          "kind": "exec_phase",
+          "operation": "exec.generateBaseSpec",
+          "count": 15,
+          "inclusive_ms": 9.514555,
+          "union_ms": 9.514555
+        },
+        {
+          "kind": "exec_phase",
+          "operation": "exec.setupNestedClient",
+          "count": 15,
+          "inclusive_ms": 1.309589,
+          "union_ms": 1.309589
+        },
+        {
+          "kind": "exec_phase",
+          "operation": "exec.setupOTel",
+          "count": 15,
+          "inclusive_ms": 1.878946,
+          "union_ms": 1.878946
+        },
+        {
+          "kind": "call",
+          "operation": "FunctionCall.parentName",
+          "count": 7,
+          "inclusive_ms": 0.567421,
+          "union_ms": 0.567421
+        },
+        {
+          "kind": "call",
+          "operation": "TypeDef.__withInputTypeDef",
+          "count": 25,
+          "inclusive_ms": 0.145552,
+          "union_ms": 0.145552
+        },
+        {
+          "kind": "call",
+          "operation": "Workspace.__workspaceSDK",
+          "count": 10,
+          "inclusive_ms": 0.337952,
+          "union_ms": 0.337952
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Module._implementationScoped",
+          "count": 19,
+          "inclusive_ms": 2.620168,
+          "union_ms": 2.620168
+        },
+        {
+          "kind": "call",
+          "operation": "ArtifactDimension.name",
+          "count": 2,
+          "inclusive_ms": 0.909983,
+          "union_ms": 0.909983
+        },
+        {
+          "kind": "call_exec",
+          "operation": "ArtifactDimension.itemType",
+          "count": 2,
+          "inclusive_ms": 0.182566,
+          "union_ms": 0.182566
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Workspace.directory",
+          "count": 1,
+          "inclusive_ms": 35.575746,
+          "union_ms": 35.575746
+        },
+        {
+          "kind": "call_exec",
+          "operation": "FunctionCall.parent",
+          "count": 7,
+          "inclusive_ms": 0.25097,
+          "union_ms": 0.25097
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Container.withDirectory",
+          "count": 1,
+          "inclusive_ms": 0.669933,
+          "union_ms": 0.669933
+        },
+        {
+          "kind": "lazy",
+          "operation": "Container.from",
+          "count": 2,
+          "inclusive_ms": 0.791926,
+          "union_ms": 0.791926
+        },
+        {
+          "kind": "call",
+          "operation": "Workspace.findRoots",
+          "count": 7,
+          "inclusive_ms": 66.674832,
+          "union_ms": 63.865838
+        },
+        {
+          "kind": "call",
+          "operation": "go:Go.modules",
+          "count": 4,
+          "inclusive_ms": 302.001104,
+          "union_ms": 302.001104
+        },
+        {
+          "kind": "call",
+          "operation": "Container.id",
+          "count": 13,
+          "inclusive_ms": 0.113911,
+          "union_ms": 0.113911
+        },
+        {
+          "kind": "call",
+          "operation": "gomod:Gomod.at",
+          "count": 6,
+          "inclusive_ms": 44.62565,
+          "union_ms": 19.418168
+        },
+        {
+          "kind": "call",
+          "operation": "gomod:GomodGoMod.selected",
+          "count": 3,
+          "inclusive_ms": 60.997725,
+          "union_ms": 27.072276
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Workspace.glob",
+          "count": 6,
+          "inclusive_ms": 9.261398,
+          "union_ms": 9.261398
+        },
+        {
+          "kind": "call",
+          "operation": "SearchResult.search",
+          "count": 6,
+          "inclusive_ms": 2.569267,
+          "union_ms": 0.959514
+        },
+        {
+          "kind": "call_exec",
+          "operation": "SearchResult.filePath",
+          "count": 6,
+          "inclusive_ms": 0.246376,
+          "union_ms": 0.227392
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query._remoteGitMirror",
+          "count": 7,
+          "inclusive_ms": 6.977368,
+          "union_ms": 6.977368
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.git",
+          "count": 16,
+          "inclusive_ms": 1791.740155,
+          "union_ms": 929.614974
+        },
+        {
+          "kind": "call_exec",
+          "operation": "GitRepository.latest",
+          "count": 5,
+          "inclusive_ms": 5.873454,
+          "union_ms": 5.873454
+        },
+        {
+          "kind": "lazy",
+          "operation": "Container.rootfs",
+          "count": 3,
+          "inclusive_ms": 2.636489,
+          "union_ms": 2.636489
+        },
+        {
+          "kind": "lazy",
+          "operation": "Query.directory",
+          "count": 1,
+          "inclusive_ms": 0.598197,
+          "union_ms": 0.598197
+        },
+        {
+          "kind": "call",
+          "operation": "FunctionCallArgValue.inputArgs",
+          "count": 2,
+          "inclusive_ms": 0.327639,
+          "union_ms": 0.327639
+        },
+        {
+          "kind": "call_exec",
+          "operation": "typescript-sdk:Query.typescriptSdk",
+          "count": 1,
+          "inclusive_ms": 128.507371,
+          "union_ms": 128.507371
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Directory.directory",
+          "count": 5,
+          "inclusive_ms": 3.21288,
+          "union_ms": 3.21288
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Function.withUp",
+          "count": 2,
+          "inclusive_ms": 0.029769,
+          "union_ms": 0.029769
+        },
+        {
+          "kind": "internal",
+          "operation": "typescript.staticMetadata.evaluate",
+          "count": 2,
+          "inclusive_ms": 131.072054,
+          "union_ms": 69.032691
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.__listTypeDef",
+          "count": 6,
+          "inclusive_ms": 0.190711,
+          "union_ms": 0.190711
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Function.withGenerator",
+          "count": 2,
+          "inclusive_ms": 0.020481,
+          "union_ms": 0.020481
+        },
+        {
+          "kind": "call",
+          "operation": "TypeDef.withEnumMember",
+          "count": 3,
+          "inclusive_ms": 1.926445,
+          "union_ms": 1.926445
+        },
+        {
+          "kind": "call_exec",
+          "operation": "EnumTypeDef.__withSourceMap",
+          "count": 2,
+          "inclusive_ms": 0.053556,
+          "union_ms": 0.053556
+        },
+        {
+          "kind": "lazy",
+          "operation": "Query._builtinContainer",
+          "count": 2,
+          "inclusive_ms": 6207.72674,
+          "union_ms": 4830.176276
+        },
+        {
+          "kind": "call",
+          "operation": "Container.withMountedCache",
+          "count": 6,
+          "inclusive_ms": 5.147586,
+          "union_ms": 2.713145
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Container.withWorkdir",
+          "count": 6,
+          "inclusive_ms": 4.064501,
+          "union_ms": 4.064501
+        },
+        {
+          "kind": "call",
+          "operation": "Container.withoutMount",
+          "count": 6,
+          "inclusive_ms": 1.681981,
+          "union_ms": 1.262003
+        },
+        {
+          "kind": "exec_phase",
+          "operation": "withExec.prepareMounts",
+          "count": 15,
+          "inclusive_ms": 17.770993,
+          "union_ms": 16.576043
+        },
+        {
+          "kind": "exec_phase",
+          "operation": "exec.installCACerts",
+          "count": 15,
+          "inclusive_ms": 0.415447,
+          "union_ms": 0.415447
+        },
+        {
+          "kind": "call_exec",
+          "operation": "FunctionCall.parentName",
+          "count": 7,
+          "inclusive_ms": 0.229286,
+          "union_ms": 0.229286
+        },
+        {
+          "kind": "call",
+          "operation": "EnumTypeDef.__withName",
+          "count": 13,
+          "inclusive_ms": 0.32737,
+          "union_ms": 0.32737
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Workspace.__workspaceSDK",
+          "count": 2,
+          "inclusive_ms": 0.078779,
+          "union_ms": 0.078779
+        },
+        {
+          "kind": "call_exec",
+          "operation": "ArtifactDimension.name",
+          "count": 2,
+          "inclusive_ms": 0.119374,
+          "union_ms": 0.119374
+        },
+        {
+          "kind": "call_exec",
+          "operation": "ArtifactDimension.keyName",
+          "count": 2,
+          "inclusive_ms": 0.152971,
+          "union_ms": 0.152971
+        },
+        {
+          "kind": "call",
+          "operation": "Directory.id",
+          "count": 3,
+          "inclusive_ms": 0.019484,
+          "union_ms": 0.019484
+        },
+        {
+          "kind": "lazy",
+          "operation": "Container.withEnvVariable",
+          "count": 6,
+          "inclusive_ms": 2.884185,
+          "union_ms": 2.884185
+        },
+        {
+          "kind": "call_exec",
+          "operation": "backend:Backend.goTestBase",
+          "count": 1,
+          "inclusive_ms": 2728.066405,
+          "union_ms": 2728.066405
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Workspace.findRoots",
+          "count": 7,
+          "inclusive_ms": 64.911017,
+          "union_ms": 62.663742
+        },
+        {
+          "kind": "call",
+          "operation": "Host.directory",
+          "count": 14,
+          "inclusive_ms": 311.264435,
+          "union_ms": 230.954241
+        },
+        {
+          "kind": "call",
+          "operation": "String.findRoots",
+          "count": 13,
+          "inclusive_ms": 2.078548,
+          "union_ms": 2.078548
+        },
+        {
+          "kind": "call",
+          "operation": "gomod:Gomod.workspaceRootPath",
+          "count": 10,
+          "inclusive_ms": 52.779128,
+          "union_ms": 52.779128
+        },
+        {
+          "kind": "call_exec",
+          "operation": "go:Go.modules",
+          "count": 1,
+          "inclusive_ms": 301.732636,
+          "union_ms": 301.732636
+        },
+        {
+          "kind": "call",
+          "operation": "Workspace.resolve",
+          "count": 4,
+          "inclusive_ms": 0.237357,
+          "union_ms": 0.237357
+        },
+        {
+          "kind": "call",
+          "operation": "go:Query.go",
+          "count": 4,
+          "inclusive_ms": 56.640146,
+          "union_ms": 56.640146
+        },
+        {
+          "kind": "internal",
+          "operation": "schema.forkPrepared",
+          "count": 15,
+          "inclusive_ms": 5.011051,
+          "union_ms": 5.011051
+        },
+        {
+          "kind": "call_exec",
+          "operation": "gomod:Gomod.at",
+          "count": 3,
+          "inclusive_ms": 43.901823,
+          "union_ms": 19.114295
+        },
+        {
+          "kind": "call_exec",
+          "operation": "gomod:GomodGoMod.selected",
+          "count": 3,
+          "inclusive_ms": 60.478322,
+          "union_ms": 26.880588
+        },
+        {
+          "kind": "call",
+          "operation": "SearchResult.matchedLines",
+          "count": 6,
+          "inclusive_ms": 1.273703,
+          "union_ms": 0.85609
+        },
+        {
+          "kind": "call",
+          "operation": "GitRepository.ref",
+          "count": 5,
+          "inclusive_ms": 4.995112,
+          "union_ms": 4.995112
+        },
+        {
+          "kind": "internal",
+          "operation": "builtinImage.copyContent",
+          "count": 2,
+          "inclusive_ms": 972.199541,
+          "union_ms": 531.502761
+        },
+        {
+          "kind": "call",
+          "operation": "GitRepository.__resolvedRef",
+          "count": 10,
+          "inclusive_ms": 2.648489,
+          "union_ms": 2.648489
+        },
+        {
+          "kind": "call",
+          "operation": "InterfaceTypeDef.__withFunction",
+          "count": 4,
+          "inclusive_ms": 0.028671,
+          "union_ms": 0.028671
+        },
+        {
+          "kind": "call",
+          "operation": "FunctionCall.name",
+          "count": 7,
+          "inclusive_ms": 0.674193,
+          "union_ms": 0.674193
+        },
+        {
+          "kind": "call_exec",
+          "operation": "FunctionCallArgValue.inputArgs",
+          "count": 2,
+          "inclusive_ms": 0.119902,
+          "union_ms": 0.119902
+        },
+        {
+          "kind": "call",
+          "operation": "Query.currentWorkspace",
+          "count": 3,
+          "inclusive_ms": 0.477981,
+          "union_ms": 0.477981
+        },
+        {
+          "kind": "call",
+          "operation": "ModuleSource.withName",
+          "count": 7,
+          "inclusive_ms": 7.010193,
+          "union_ms": 7.010193
+        },
+        {
+          "kind": "call_exec",
+          "operation": "ModuleSource.digest",
+          "count": 6,
+          "inclusive_ms": 0.568552,
+          "union_ms": 0.568552
+        },
+        {
+          "kind": "lazy",
+          "operation": "Query.__schemaJSONFile",
+          "count": 6,
+          "inclusive_ms": 18.49293,
+          "union_ms": 18.49293
+        },
+        {
+          "kind": "call_exec",
+          "operation": "TypeDef.withEnumMember",
+          "count": 3,
+          "inclusive_ms": 0.70528,
+          "union_ms": 0.70528
+        },
+        {
+          "kind": "call",
+          "operation": "EnumValueTypeDef.__withSourceMap",
+          "count": 3,
+          "inclusive_ms": 0.20217,
+          "union_ms": 0.20217
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Container.withMountedCache",
+          "count": 2,
+          "inclusive_ms": 0.237212,
+          "union_ms": 0.237212
+        },
+        {
+          "kind": "lazy",
+          "operation": "Container.withMountedDirectory",
+          "count": 4,
+          "inclusive_ms": 3.539869,
+          "union_ms": 3.539869
+        },
+        {
+          "kind": "call_exec",
+          "operation": "ArtifactDimension.keyDescription",
+          "count": 2,
+          "inclusive_ms": 0.103083,
+          "union_ms": 0.103083
+        },
+        {
+          "kind": "call",
+          "operation": "gomod:Gomod.modules",
+          "count": 1,
+          "inclusive_ms": 229.307132,
+          "union_ms": 229.307132
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Address.container",
+          "count": 4,
+          "inclusive_ms": 3056.913723,
+          "union_ms": 2950.508799
+        },
+        {
+          "kind": "call_exec",
+          "operation": "GitRepository.ref",
+          "count": 5,
+          "inclusive_ms": 4.303411,
+          "union_ms": 4.303411
+        },
+        {
+          "kind": "call",
+          "operation": "Directory.stat",
+          "count": 3,
+          "inclusive_ms": 2.65602,
+          "union_ms": 2.65602
+        },
+        {
+          "kind": "call_exec",
+          "operation": "FunctionCall.name",
+          "count": 7,
+          "inclusive_ms": 0.2129,
+          "union_ms": 0.2129
+        },
+        {
+          "kind": "call",
+          "operation": "FunctionCallArgValue.value",
+          "count": 2,
+          "inclusive_ms": 0.2943,
+          "union_ms": 0.2943
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.currentWorkspace",
+          "count": 3,
+          "inclusive_ms": 0.187616,
+          "union_ms": 0.187616
+        },
+        {
+          "kind": "call_exec",
+          "operation": "ModuleSource.withName",
+          "count": 6,
+          "inclusive_ms": 5.825839,
+          "union_ms": 5.825839
+        },
+        {
+          "kind": "call",
+          "operation": "TypeDef.withCollectionKeys",
+          "count": 2,
+          "inclusive_ms": 0.418237,
+          "union_ms": 0.418237
+        },
+        {
+          "kind": "call_exec",
+          "operation": "TypeDef.withEnum",
+          "count": 2,
+          "inclusive_ms": 0.237321,
+          "union_ms": 0.237321
+        },
+        {
+          "kind": "call",
+          "operation": "Module.withEnum",
+          "count": 1,
+          "inclusive_ms": 0.390631,
+          "union_ms": 0.390631
+        },
+        {
+          "kind": "call_exec",
+          "operation": "EnumTypeDef.__withName",
+          "count": 4,
+          "inclusive_ms": 0.063009,
+          "union_ms": 0.063009
+        },
+        {
+          "kind": "call_exec",
+          "operation": "EnumValueTypeDef.__withSourceMap",
+          "count": 3,
+          "inclusive_ms": 0.088366,
+          "union_ms": 0.088366
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.cacheVolume",
+          "count": 4,
+          "inclusive_ms": 9.425848,
+          "union_ms": 9.425848
+        },
+        {
+          "kind": "call",
+          "operation": "Container.withMountedDirectory",
+          "count": 3,
+          "inclusive_ms": 0.421742,
+          "union_ms": 0.421742
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Workspace.resolve",
+          "count": 1,
+          "inclusive_ms": 0.045565,
+          "union_ms": 0.045565
+        },
+        {
+          "kind": "call",
+          "operation": "Container.file",
+          "count": 1,
+          "inclusive_ms": 0.667307,
+          "union_ms": 0.667307
+        },
+        {
+          "kind": "call_exec",
+          "operation": "gomod:Query.gomod",
+          "count": 2,
+          "inclusive_ms": 33.998816,
+          "union_ms": 33.998816
+        },
+        {
+          "kind": "call_exec",
+          "operation": "gomod:Gomod.modules",
+          "count": 1,
+          "inclusive_ms": 228.917935,
+          "union_ms": 228.917935
+        },
+        {
+          "kind": "call",
+          "operation": "backend:Query.backend",
+          "count": 4,
+          "inclusive_ms": 90.896555,
+          "union_ms": 90.896555
+        },
+        {
+          "kind": "call",
+          "operation": "Query._builtinContainer",
+          "count": 4,
+          "inclusive_ms": 1.529266,
+          "union_ms": 1.529266
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Directory.stat",
+          "count": 3,
+          "inclusive_ms": 2.56392,
+          "union_ms": 2.56392
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.module",
+          "count": 1,
+          "inclusive_ms": 0.024602,
+          "union_ms": 0.024602
+        },
+        {
+          "kind": "call",
+          "operation": "FunctionCallArgValue.id",
+          "count": 2,
+          "inclusive_ms": 0.016089,
+          "union_ms": 0.016089
+        },
+        {
+          "kind": "call_exec",
+          "operation": "FunctionCallArgValue.value",
+          "count": 2,
+          "inclusive_ms": 0.116617,
+          "union_ms": 0.116617
+        },
+        {
+          "kind": "internal",
+          "operation": "dang.decodeSchema",
+          "count": 6,
+          "inclusive_ms": 88.12211,
+          "union_ms": 88.12211
+        },
+        {
+          "kind": "call",
+          "operation": "TypeDef.withCollection",
+          "count": 2,
+          "inclusive_ms": 0.315949,
+          "union_ms": 0.315949
+        },
+        {
+          "kind": "call_exec",
+          "operation": "TypeDef.withCollectionKeys",
+          "count": 2,
+          "inclusive_ms": 0.315921,
+          "union_ms": 0.315921
+        },
+        {
+          "kind": "call",
+          "operation": "Query.__interfaceTypeDef",
+          "count": 8,
+          "inclusive_ms": 0.136262,
+          "union_ms": 0.136262
+        },
+        {
+          "kind": "call",
+          "operation": "ArtifactDimension.qualifiedName",
+          "count": 2,
+          "inclusive_ms": 0.475052,
+          "union_ms": 0.475052
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Container.file",
+          "count": 1,
+          "inclusive_ms": 0.466387,
+          "union_ms": 0.466387
+        },
+        {
+          "kind": "call",
+          "operation": "File.id",
+          "count": 2,
+          "inclusive_ms": 0.041626,
+          "union_ms": 0.041626
+        },
+        {
+          "kind": "lazy",
+          "operation": "Container.withFile",
+          "count": 1,
+          "inclusive_ms": 0.37984,
+          "union_ms": 0.37984
+        },
+        {
+          "kind": "call",
+          "operation": "Query.container",
+          "count": 4,
+          "inclusive_ms": 0.193574,
+          "union_ms": 0.193574
+        },
+        {
+          "kind": "call",
+          "operation": "go:GoModule.tests",
+          "count": 3,
+          "inclusive_ms": 366.620039,
+          "union_ms": 136.90646
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.host",
+          "count": 1,
+          "inclusive_ms": 0.047662,
+          "union_ms": 0.047662
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query._builtinContainer",
+          "count": 2,
+          "inclusive_ms": 0.143987,
+          "union_ms": 0.143987
+        },
+        {
+          "kind": "call",
+          "operation": "FunctionCallArgValue.name",
+          "count": 2,
+          "inclusive_ms": 0.227583,
+          "union_ms": 0.227583
+        },
+        {
+          "kind": "call",
+          "operation": "Workspace.withWorkdir",
+          "count": 4,
+          "inclusive_ms": 0.484686,
+          "union_ms": 0.484686
+        },
+        {
+          "kind": "call",
+          "operation": "EnumTypeDef.__withSourceModuleName",
+          "count": 2,
+          "inclusive_ms": 0.110249,
+          "union_ms": 0.110249
+        },
+        {
+          "kind": "call",
+          "operation": "Container.__withSystemEnvVariable",
+          "count": 6,
+          "inclusive_ms": 5.279676,
+          "union_ms": 2.759509
+        },
+        {
+          "kind": "call",
+          "operation": "Module.id",
+          "count": 4,
+          "inclusive_ms": 0.023679,
+          "union_ms": 0.023679
+        },
+        {
+          "kind": "call",
+          "operation": "InterfaceTypeDef.__withName",
+          "count": 6,
+          "inclusive_ms": 0.037356,
+          "union_ms": 0.037356
+        },
+        {
+          "kind": "call",
+          "operation": "Artifacts.dimensionDefinitions",
+          "count": 1,
+          "inclusive_ms": 0.221957,
+          "union_ms": 0.221957
+        },
+        {
+          "kind": "call_exec",
+          "operation": "ArtifactDimension.qualifiedName",
+          "count": 2,
+          "inclusive_ms": 0.077375,
+          "union_ms": 0.077375
+        },
+        {
+          "kind": "lazy",
+          "operation": "Container.withDirectory",
+          "count": 1,
+          "inclusive_ms": 0.340273,
+          "union_ms": 0.340273
+        },
+        {
+          "kind": "call",
+          "operation": "Container.from",
+          "count": 4,
+          "inclusive_ms": 4576.633179,
+          "union_ms": 2576.416012
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Workspace.cwd",
+          "count": 1,
+          "inclusive_ms": 0.029304,
+          "union_ms": 0.029304
+        },
+        {
+          "kind": "call",
+          "operation": "Workspace.file",
+          "count": 3,
+          "inclusive_ms": 45.107169,
+          "union_ms": 45.107169
+        },
+        {
+          "kind": "call",
+          "operation": "Workspace.address",
+          "count": 4,
+          "inclusive_ms": 0.118745,
+          "union_ms": 0.118745
+        },
+        {
+          "kind": "call",
+          "operation": "go:GoModules.get",
+          "count": 3,
+          "inclusive_ms": 88.503718,
+          "union_ms": 34.337543
+        },
+        {
+          "kind": "call_exec",
+          "operation": "go:GoModule.tests",
+          "count": 3,
+          "inclusive_ms": 365.834949,
+          "union_ms": 136.550525
+        },
+        {
+          "kind": "call",
+          "operation": "Workspace.search",
+          "count": 1,
+          "inclusive_ms": 8.000828,
+          "union_ms": 8.000828
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Host.findUp",
+          "count": 1,
+          "inclusive_ms": 7.224728,
+          "union_ms": 7.224728
+        },
+        {
+          "kind": "internal",
+          "operation": "builtinImage.loadMetadata",
+          "count": 2,
+          "inclusive_ms": 0.982174,
+          "union_ms": 0.982174
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Workspace.withWorkdir",
+          "count": 4,
+          "inclusive_ms": 0.178591,
+          "union_ms": 0.178591
+        },
+        {
+          "kind": "call_exec",
+          "operation": "EnumTypeDef.__withSourceModuleName",
+          "count": 2,
+          "inclusive_ms": 0.024575,
+          "union_ms": 0.024575
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Container.__withSystemEnvVariable",
+          "count": 2,
+          "inclusive_ms": 0.159842,
+          "union_ms": 0.159842
+        },
+        {
+          "kind": "call",
+          "operation": "Container.withEnvVariable",
+          "count": 6,
+          "inclusive_ms": 7.942945,
+          "union_ms": 6.261339
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Artifacts.dimensionDefinitions",
+          "count": 1,
+          "inclusive_ms": 0.08896,
+          "union_ms": 0.08896
+        },
+        {
+          "kind": "call",
+          "operation": "Container.withExposedPort",
+          "count": 1,
+          "inclusive_ms": 0.922345,
+          "union_ms": 0.922345
+        },
+        {
+          "kind": "call",
+          "operation": "Container.withServiceBinding",
+          "count": 1,
+          "inclusive_ms": 0.630387,
+          "union_ms": 0.630387
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Workspace.address",
+          "count": 1,
+          "inclusive_ms": 0.035169,
+          "union_ms": 0.035169
+        },
+        {
+          "kind": "call_exec",
+          "operation": "go:GoModules.get",
+          "count": 3,
+          "inclusive_ms": 87.781186,
+          "union_ms": 34.128925
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Workspace.search",
+          "count": 1,
+          "inclusive_ms": 7.778037,
+          "union_ms": 7.778037
+        },
+        {
+          "kind": "call_exec",
+          "operation": "SearchResult.matchedLines",
+          "count": 6,
+          "inclusive_ms": 0.247198,
+          "union_ms": 0.222316
+        },
+        {
+          "kind": "call",
+          "operation": "Artifacts.__itemsJSON",
+          "count": 1,
+          "inclusive_ms": 3481.148657,
+          "union_ms": 3481.148657
+        },
+        {
+          "kind": "call",
+          "operation": "Container.rootfs",
+          "count": 4,
+          "inclusive_ms": 1378.150955,
+          "union_ms": 1378.150955
+        },
+        {
+          "kind": "call_exec",
+          "operation": "FunctionCallArgValue.name",
+          "count": 2,
+          "inclusive_ms": 0.086727,
+          "union_ms": 0.086727
+        },
+        {
+          "kind": "internal",
+          "operation": "typescript.staticMetadata",
+          "count": 2,
+          "inclusive_ms": 376.163399,
+          "union_ms": 191.673616
+        },
+        {
+          "kind": "call",
+          "operation": "FunctionArg.__withTypeDef",
+          "count": 4,
+          "inclusive_ms": 0.206381,
+          "union_ms": 0.206381
+        },
+        {
+          "kind": "internal",
+          "operation": "builtinImage.importRootfs",
+          "count": 2,
+          "inclusive_ms": 5227.521804,
+          "union_ms": 4331.967086
+        },
+        {
+          "kind": "call",
+          "operation": "ArtifactDimension.collectionType",
+          "count": 2,
+          "inclusive_ms": 1.068047,
+          "union_ms": 1.068047
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Container.withExposedPort",
+          "count": 1,
+          "inclusive_ms": 0.678213,
+          "union_ms": 0.678213
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Container.withServiceBinding",
+          "count": 1,
+          "inclusive_ms": 0.353321,
+          "union_ms": 0.353321
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Artifacts.__itemsJSON",
+          "count": 1,
+          "inclusive_ms": 3481.081373,
+          "union_ms": 3481.081373
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.directory",
+          "count": 1,
+          "inclusive_ms": 0.068857,
+          "union_ms": 0.068857
+        },
+        {
+          "kind": "call_exec",
+          "operation": "TypeDef.withInterface",
+          "count": 2,
+          "inclusive_ms": 0.133835,
+          "union_ms": 0.133835
+        },
+        {
+          "kind": "call",
+          "operation": "ModuleSource.directory",
+          "count": 2,
+          "inclusive_ms": 2.643858,
+          "union_ms": 2.643858
+        },
+        {
+          "kind": "call",
+          "operation": "TypeDef.withCollectionGet",
+          "count": 2,
+          "inclusive_ms": 0.727875,
+          "union_ms": 0.727875
+        },
+        {
+          "kind": "call_exec",
+          "operation": "FunctionArg.__withTypeDef",
+          "count": 3,
+          "inclusive_ms": 0.084419,
+          "union_ms": 0.084419
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Container.withMountedDirectory",
+          "count": 2,
+          "inclusive_ms": 0.170039,
+          "union_ms": 0.170039
+        },
+        {
+          "kind": "call",
+          "operation": "Workspace.artifacts",
+          "count": 1,
+          "inclusive_ms": 20530.715152,
+          "union_ms": 20530.715152
+        },
+        {
+          "kind": "call",
+          "operation": "ArtifactDimension.dimensionDefinitions",
+          "count": 2,
+          "inclusive_ms": 0.545208,
+          "union_ms": 0.545208
+        },
+        {
+          "kind": "call_exec",
+          "operation": "backend:Query.backend",
+          "count": 1,
+          "inclusive_ms": 90.577245,
+          "union_ms": 90.577245
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Directory.glob",
+          "count": 3,
+          "inclusive_ms": 1.917528,
+          "union_ms": 1.917528
+        },
+        {
+          "kind": "call_exec",
+          "operation": "ModuleSource.directory",
+          "count": 2,
+          "inclusive_ms": 2.318197,
+          "union_ms": 2.318197
+        },
+        {
+          "kind": "call_exec",
+          "operation": "TypeDef.withCollectionGet",
+          "count": 2,
+          "inclusive_ms": 0.603663,
+          "union_ms": 0.603663
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.__enumTypeDef",
+          "count": 1,
+          "inclusive_ms": 0.021049,
+          "union_ms": 0.021049
+        },
+        {
+          "kind": "lazy",
+          "operation": "Container.directory",
+          "count": 2,
+          "inclusive_ms": 7.751332,
+          "union_ms": 7.751332
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Workspace.artifacts",
+          "count": 1,
+          "inclusive_ms": 20530.042085,
+          "union_ms": 20530.042085
+        },
+        {
+          "kind": "call_exec",
+          "operation": "ArtifactDimension.dimensionDefinitions",
+          "count": 2,
+          "inclusive_ms": 0.172308,
+          "union_ms": 0.172308
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.container",
+          "count": 1,
+          "inclusive_ms": 0.031789,
+          "union_ms": 0.031789
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Query.__interfaceTypeDef",
+          "count": 2,
+          "inclusive_ms": 0.020227,
+          "union_ms": 0.020227
+        },
+        {
+          "kind": "call",
+          "operation": "FieldTypeDef.__withTypeDef",
+          "count": 1,
+          "inclusive_ms": 0.087951,
+          "union_ms": 0.087951
+        },
+        {
+          "kind": "call_exec",
+          "operation": "ArtifactDimension.collectionType",
+          "count": 2,
+          "inclusive_ms": 0.08275,
+          "union_ms": 0.08275
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Container.from",
+          "count": 3,
+          "inclusive_ms": 4575.571489,
+          "union_ms": 2575.798061
+        },
+        {
+          "kind": "call",
+          "operation": "Container.asService",
+          "count": 1,
+          "inclusive_ms": 1.222706,
+          "union_ms": 1.222706
+        },
+        {
+          "kind": "call",
+          "operation": "gomod:GomodGoMod.ownFiles",
+          "count": 3,
+          "inclusive_ms": 156.616794,
+          "union_ms": 58.109739
+        },
+        {
+          "kind": "call_exec",
+          "operation": "FieldTypeDef.__withTypeDef",
+          "count": 1,
+          "inclusive_ms": 0.036639,
+          "union_ms": 0.036639
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Module.withEnum",
+          "count": 1,
+          "inclusive_ms": 0.060981,
+          "union_ms": 0.060981
+        },
+        {
+          "kind": "call",
+          "operation": "ArtifactDimension.identifier",
+          "count": 2,
+          "inclusive_ms": 1.103339,
+          "union_ms": 1.103339
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Container.asService",
+          "count": 1,
+          "inclusive_ms": 0.846513,
+          "union_ms": 0.846513
+        },
+        {
+          "kind": "lazy",
+          "operation": "Container.withServiceBinding",
+          "count": 1,
+          "inclusive_ms": 0.401621,
+          "union_ms": 0.401621
+        },
+        {
+          "kind": "call",
+          "operation": "gomod:GomodGoMod.path",
+          "count": 3,
+          "inclusive_ms": 0.948019,
+          "union_ms": 0.475047
+        },
+        {
+          "kind": "call",
+          "operation": "Container.withFile",
+          "count": 2,
+          "inclusive_ms": 11.838411,
+          "union_ms": 11.838411
+        },
+        {
+          "kind": "call",
+          "operation": "Directory.asModuleSource",
+          "count": 1,
+          "inclusive_ms": 10.467016,
+          "union_ms": 10.467016
+        },
+        {
+          "kind": "call_exec",
+          "operation": "ArtifactDimension.identifier",
+          "count": 2,
+          "inclusive_ms": 0.126702,
+          "union_ms": 0.126702
+        },
+        {
+          "kind": "lazy",
+          "operation": "Container.withExposedPort",
+          "count": 1,
+          "inclusive_ms": 0.380745,
+          "union_ms": 0.380745
+        },
+        {
+          "kind": "call_exec",
+          "operation": "go:Query.go",
+          "count": 1,
+          "inclusive_ms": 56.088411,
+          "union_ms": 56.088411
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Directory.asModuleSource",
+          "count": 1,
+          "inclusive_ms": 10.369984,
+          "union_ms": 10.369984
+        },
+        {
+          "kind": "call",
+          "operation": "ArtifactDimension.itemType",
+          "count": 2,
+          "inclusive_ms": 0.622971,
+          "union_ms": 0.622971
+        },
+        {
+          "kind": "call",
+          "operation": "Artifacts.filterUri",
+          "count": 1,
+          "inclusive_ms": 0.767014,
+          "union_ms": 0.767014
+        },
+        {
+          "kind": "call_exec",
+          "operation": "Artifacts.filterUri",
+          "count": 1,
+          "inclusive_ms": 0.028213,
+          "union_ms": 0.028213
+        },
+        {
+          "kind": "call",
+          "operation": "Directory.withFile",
+          "count": 1,
+          "inclusive_ms": 0.491303,
+          "union_ms": 0.491303
+        },
+        {
+          "kind": "call",
+          "operation": "Service.id",
+          "count": 1,
+          "inclusive_ms": 0.024817,
+          "union_ms": 0.024817
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "One ordinary cold sample per flow, not a distribution.",
+    "Engine readiness/provisioning excluded; images/host cache not cold.",
+    "Instrumented cold profiles use independent new volumes and are excluded from ordinary timings."
+  ]
+}

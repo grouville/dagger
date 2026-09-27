@@ -1,0 +1,64 @@
+package server
+
+// Diagnostic overlay only. Export anonymous route-count aggregates through
+// existing /debug/vars; never emit client IDs, span names, attributes or bodies.
+import "expvar"
+
+var spanFanoutAuditCounters = expvar.NewMap("span_fanout_audit")
+
+type spanFanoutAudit struct {
+	input, routed, copies, oneTarget int
+	origins                          map[string]struct{}
+}
+
+func beginSpanFanoutAudit(input int) *spanFanoutAudit {
+	return &spanFanoutAudit{input: input, origins: map[string]struct{}{}}
+}
+
+func (a *spanFanoutAudit) observe(origin string, copies int) {
+	a.origins[origin] = struct{}{}
+	a.routed++
+	a.copies += copies
+	if copies == 1 {
+		a.oneTarget++
+	}
+}
+
+func (a *spanFanoutAudit) publish() {
+	spanFanoutAuditCounters.Add("batches", 1)
+	spanFanoutAuditCounters.Add("input_spans", int64(a.input))
+	spanFanoutAuditCounters.Add("validated_route_spans", int64(a.routed))
+	spanFanoutAuditCounters.Add("route_target_copies", int64(a.copies))
+	spanFanoutAuditCounters.Add("one_target_spans", int64(a.oneTarget))
+	spanFanoutAuditCounters.Add("unique_origins_summed_per_batch", int64(len(a.origins)))
+	if a.routed != a.input {
+		spanFanoutAuditCounters.Add("incomplete_route_batches", 1)
+	}
+	if len(a.origins) == 1 && a.routed == a.input {
+		spanFanoutAuditCounters.Add("one_origin_batches", 1)
+	}
+	if a.copies > a.routed {
+		spanFanoutAuditCounters.Add("fanout_batches", 1)
+	}
+	if a.routed == a.input && a.oneTarget == a.input && a.input > 0 {
+		spanFanoutAuditCounters.Add("all_one_target_batches", 1)
+	}
+	bucket := "size_513_plus"
+	switch {
+	case a.input == 0:
+		bucket = "size_0"
+	case a.input == 1:
+		bucket = "size_1"
+	case a.input <= 4:
+		bucket = "size_2_4"
+	case a.input <= 16:
+		bucket = "size_5_16"
+	case a.input <= 64:
+		bucket = "size_17_64"
+	case a.input <= 256:
+		bucket = "size_65_256"
+	case a.input <= 512:
+		bucket = "size_257_512"
+	}
+	spanFanoutAuditCounters.Add(bucket, 1)
+}

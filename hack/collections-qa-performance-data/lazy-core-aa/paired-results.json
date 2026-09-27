@@ -1,0 +1,658 @@
+{
+  "status": "Offline numeric attribution of completed same-baseline-binary A/A generation control; no new CLI or Cloud commands",
+  "results_sha256": "75cd6e7ec449f743bfbfe38ed03847bd6cecd26b5a40d3c97682b78c0b62f5bb",
+  "commands": 10,
+  "main_cloud_flush_records": 10,
+  "comparisons": {
+    "explicit-local-primer/generate-warm": {
+      "baseline": {
+        "commands": 1,
+        "cli_median_ms": 1112.0292898267508,
+        "cpu_median_seconds": 2.518054,
+        "gc_counts": [
+          5
+        ],
+        "file_visible_median_ms": 1083.9229009579867,
+        "phase_medians_ms": {
+          "flush workspace locks": 0.0008849999999999999,
+          "flush session Cloud telemetry": 0.000841,
+          "stop session services": 0.001056,
+          "flush session telemetry": 8.93792,
+          "shutdown handler total": 9.311132
+        }
+      },
+      "lazy": {
+        "commands": 1,
+        "cli_median_ms": 1021.947368979454,
+        "cpu_median_seconds": 2.348678,
+        "gc_counts": [
+          5
+        ],
+        "file_visible_median_ms": 977.9127859510481,
+        "phase_medians_ms": {
+          "flush workspace locks": 0.0008219999999999999,
+          "flush session Cloud telemetry": 0.000784,
+          "stop session services": 0.0017490000000000001,
+          "flush session telemetry": 8.789836,
+          "shutdown handler total": 8.887129
+        }
+      }
+    },
+    "explicit-cloud-primer/generate-warm": {
+      "baseline": {
+        "commands": 1,
+        "cli_median_ms": 1672.2646669950336,
+        "cpu_median_seconds": 0.455197,
+        "gc_counts": [
+          1
+        ],
+        "file_visible_median_ms": 1172.4300880450755,
+        "phase_medians_ms": {
+          "flush workspace locks": 0.000549,
+          "flush session Cloud telemetry": 384.319731,
+          "stop session services": 0.018239000000000002,
+          "flush session telemetry": 0.612263,
+          "shutdown handler total": 385.149694
+        }
+      },
+      "lazy": {
+        "commands": 1,
+        "cli_median_ms": 1221.0900080390275,
+        "cpu_median_seconds": 0.43882,
+        "gc_counts": [
+          1
+        ],
+        "file_visible_median_ms": 597.0000349916518,
+        "phase_medians_ms": {
+          "flush workspace locks": 0.001119,
+          "flush session Cloud telemetry": 426.865962,
+          "stop session services": 0.00265,
+          "flush session telemetry": 0.505056,
+          "shutdown handler total": 427.543914
+        }
+      }
+    },
+    "ordinary-control/generate-warm": {
+      "baseline": {
+        "commands": 3,
+        "cli_median_ms": 836.951034842059,
+        "cpu_median_seconds": 0.331889,
+        "gc_counts": [
+          1,
+          1,
+          1
+        ],
+        "file_visible_median_ms": 301.43643799237907,
+        "phase_medians_ms": {
+          "flush workspace locks": 0.0006,
+          "flush session Cloud telemetry": 321.591913,
+          "stop session services": 0.003403,
+          "flush session telemetry": 0.540004,
+          "shutdown handler total": 322.380713
+        }
+      },
+      "lazy": {
+        "commands": 3,
+        "cli_median_ms": 733.5950729902834,
+        "cpu_median_seconds": 0.341002,
+        "gc_counts": [
+          1,
+          1,
+          1
+        ],
+        "file_visible_median_ms": 295.31085514463484,
+        "phase_medians_ms": {
+          "flush workspace locks": 0.000775,
+          "flush session Cloud telemetry": 306.234762,
+          "stop session services": 0.003216,
+          "flush session telemetry": 0.453998,
+          "shutdown handler total": 306.875361
+        }
+      }
+    }
+  },
+  "pairs": [
+    {
+      "flow": "generate-warm",
+      "phase": "explicit-local-primer",
+      "pair_index": 0,
+      "production": false,
+      "baseline": {
+        "command_ordinal": 0,
+        "variant": "baseline",
+        "flow": "generate-warm",
+        "phase": "explicit-local-primer",
+        "pair_index": 0,
+        "production": false,
+        "correct": true,
+        "cli_ms": 1112.0292898267508,
+        "file_visible_ms": 1083.9229009579867,
+        "file_to_exit_ms": 28.106388868764043,
+        "cpu_seconds": 2.518054,
+        "gc_count": 5,
+        "gc_pause_ms": 0.398421,
+        "total_allocated_bytes": 243765472,
+        "phases_ms": {
+          "flush workspace locks": 0.0008849999999999999,
+          "flush session Cloud telemetry": 0.000841,
+          "stop session services": 0.001056,
+          "flush session telemetry": 8.93792,
+          "shutdown handler total": 9.311132
+        },
+        "engine_io_delta": {
+          "rbytes": 167936,
+          "wbytes": 102400,
+          "rios": 35,
+          "wios": 25
+        },
+        "host_psi_delta_us": {
+          "cpu": {
+            "some": 154370,
+            "full": 0
+          },
+          "io": {
+            "some": 10265,
+            "full": 8085
+          },
+          "memory": {
+            "some": 1,
+            "full": 1
+          }
+        },
+        "input_sha256": "855fe6882de49825c98850b11d8e573f0485ac8c48c2e0c2ba2fa4459ead2365",
+        "possible_export_error_messages": 0
+      },
+      "lazy": {
+        "command_ordinal": 1,
+        "variant": "lazy",
+        "flow": "generate-warm",
+        "phase": "explicit-local-primer",
+        "pair_index": 0,
+        "production": false,
+        "correct": true,
+        "cli_ms": 1021.947368979454,
+        "file_visible_ms": 977.9127859510481,
+        "file_to_exit_ms": 44.034583028405905,
+        "cpu_seconds": 2.348678,
+        "gc_count": 5,
+        "gc_pause_ms": 1.807139,
+        "total_allocated_bytes": 243543256,
+        "phases_ms": {
+          "flush workspace locks": 0.0008219999999999999,
+          "flush session Cloud telemetry": 0.000784,
+          "stop session services": 0.0017490000000000001,
+          "flush session telemetry": 8.789836,
+          "shutdown handler total": 8.887129
+        },
+        "engine_io_delta": {
+          "rbytes": 155648,
+          "wbytes": 94208,
+          "rios": 36,
+          "wios": 23
+        },
+        "host_psi_delta_us": {
+          "cpu": {
+            "some": 124197,
+            "full": 0
+          },
+          "io": {
+            "some": 330,
+            "full": 280
+          },
+          "memory": {
+            "some": 0,
+            "full": 0
+          }
+        },
+        "input_sha256": "855fe6882de49825c98850b11d8e573f0485ac8c48c2e0c2ba2fa4459ead2365",
+        "possible_export_error_messages": 0
+      },
+      "cli_delta_ms": -90.08192084729671,
+      "file_visible_delta_ms": -106.01011500693858,
+      "phase_delta_ms": {
+        "flush workspace locks": -6.300000000000001e-05,
+        "flush session Cloud telemetry": -5.6999999999999976e-05,
+        "stop session services": 0.000693,
+        "flush session telemetry": -0.14808400000000077,
+        "shutdown handler total": -0.4240030000000008
+      },
+      "cli_delta_outside_recorded_shutdown_handler_ms": -89.65791784729672
+    },
+    {
+      "flow": "generate-warm",
+      "phase": "explicit-cloud-primer",
+      "pair_index": 0,
+      "production": true,
+      "baseline": {
+        "command_ordinal": 2,
+        "variant": "baseline",
+        "flow": "generate-warm",
+        "phase": "explicit-cloud-primer",
+        "pair_index": 0,
+        "production": true,
+        "correct": true,
+        "cli_ms": 1672.2646669950336,
+        "file_visible_ms": 1172.4300880450755,
+        "file_to_exit_ms": 499.8345789499581,
+        "cpu_seconds": 0.455197,
+        "gc_count": 1,
+        "gc_pause_ms": 0.065087,
+        "total_allocated_bytes": 60004304,
+        "phases_ms": {
+          "flush workspace locks": 0.000549,
+          "flush session Cloud telemetry": 384.319731,
+          "stop session services": 0.018239000000000002,
+          "flush session telemetry": 0.612263,
+          "shutdown handler total": 385.149694
+        },
+        "engine_io_delta": {
+          "rbytes": 8192,
+          "wbytes": 0,
+          "rios": 2,
+          "wios": 0
+        },
+        "host_psi_delta_us": {
+          "cpu": {
+            "some": 40279,
+            "full": 0
+          },
+          "io": {
+            "some": 662,
+            "full": 619
+          },
+          "memory": {
+            "some": 2,
+            "full": 1
+          }
+        },
+        "input_sha256": "855fe6882de49825c98850b11d8e573f0485ac8c48c2e0c2ba2fa4459ead2365",
+        "possible_export_error_messages": 0
+      },
+      "lazy": {
+        "command_ordinal": 3,
+        "variant": "lazy",
+        "flow": "generate-warm",
+        "phase": "explicit-cloud-primer",
+        "pair_index": 0,
+        "production": true,
+        "correct": true,
+        "cli_ms": 1221.0900080390275,
+        "file_visible_ms": 597.0000349916518,
+        "file_to_exit_ms": 624.0899730473757,
+        "cpu_seconds": 0.43882,
+        "gc_count": 1,
+        "gc_pause_ms": 0.129483,
+        "total_allocated_bytes": 68438240,
+        "phases_ms": {
+          "flush workspace locks": 0.001119,
+          "flush session Cloud telemetry": 426.865962,
+          "stop session services": 0.00265,
+          "flush session telemetry": 0.505056,
+          "shutdown handler total": 427.543914
+        },
+        "engine_io_delta": {
+          "rbytes": 0,
+          "wbytes": 0,
+          "rios": 0,
+          "wios": 0
+        },
+        "host_psi_delta_us": {
+          "cpu": {
+            "some": 27786,
+            "full": 0
+          },
+          "io": {
+            "some": 751,
+            "full": 735
+          },
+          "memory": {
+            "some": 0,
+            "full": 0
+          }
+        },
+        "input_sha256": "855fe6882de49825c98850b11d8e573f0485ac8c48c2e0c2ba2fa4459ead2365",
+        "possible_export_error_messages": 0
+      },
+      "cli_delta_ms": -451.17465895600617,
+      "file_visible_delta_ms": -575.4300530534238,
+      "phase_delta_ms": {
+        "flush workspace locks": 0.00057,
+        "flush session Cloud telemetry": 42.546231000000034,
+        "stop session services": -0.015589000000000002,
+        "flush session telemetry": -0.10720700000000005,
+        "shutdown handler total": 42.39421999999996
+      },
+      "cli_delta_outside_recorded_shutdown_handler_ms": -493.56887895600613
+    },
+    {
+      "flow": "generate-warm",
+      "phase": "ordinary-control",
+      "pair_index": 0,
+      "production": true,
+      "baseline": {
+        "command_ordinal": 4,
+        "variant": "baseline",
+        "flow": "generate-warm",
+        "phase": "ordinary-control",
+        "pair_index": 0,
+        "production": true,
+        "correct": true,
+        "cli_ms": 822.7535299956799,
+        "file_visible_ms": 306.5629908815026,
+        "file_to_exit_ms": 516.1905391141772,
+        "cpu_seconds": 0.319411,
+        "gc_count": 1,
+        "gc_pause_ms": 0.058023,
+        "total_allocated_bytes": 64916960,
+        "phases_ms": {
+          "flush workspace locks": 0.000611,
+          "flush session Cloud telemetry": 321.591913,
+          "stop session services": 0.0030499999999999998,
+          "flush session telemetry": 0.540004,
+          "shutdown handler total": 322.380713
+        },
+        "engine_io_delta": {
+          "rbytes": 0,
+          "wbytes": 0,
+          "rios": 0,
+          "wios": 0
+        },
+        "host_psi_delta_us": {
+          "cpu": {
+            "some": 28276,
+            "full": 0
+          },
+          "io": {
+            "some": 27,
+            "full": 25
+          },
+          "memory": {
+            "some": 1,
+            "full": 1
+          }
+        },
+        "input_sha256": "855fe6882de49825c98850b11d8e573f0485ac8c48c2e0c2ba2fa4459ead2365",
+        "possible_export_error_messages": 0
+      },
+      "lazy": {
+        "command_ordinal": 5,
+        "variant": "lazy",
+        "flow": "generate-warm",
+        "phase": "ordinary-control",
+        "pair_index": 0,
+        "production": true,
+        "correct": true,
+        "cli_ms": 733.5950729902834,
+        "file_visible_ms": 303.45098697580397,
+        "file_to_exit_ms": 430.1440860144794,
+        "cpu_seconds": 0.320201,
+        "gc_count": 1,
+        "gc_pause_ms": 0.094054,
+        "total_allocated_bytes": 64674144,
+        "phases_ms": {
+          "flush workspace locks": 0.000775,
+          "flush session Cloud telemetry": 306.234762,
+          "stop session services": 0.003216,
+          "flush session telemetry": 0.453998,
+          "shutdown handler total": 306.875361
+        },
+        "engine_io_delta": {
+          "rbytes": 0,
+          "wbytes": 0,
+          "rios": 0,
+          "wios": 0
+        },
+        "host_psi_delta_us": {
+          "cpu": {
+            "some": 27214,
+            "full": 0
+          },
+          "io": {
+            "some": 832,
+            "full": 826
+          },
+          "memory": {
+            "some": 0,
+            "full": 0
+          }
+        },
+        "input_sha256": "855fe6882de49825c98850b11d8e573f0485ac8c48c2e0c2ba2fa4459ead2365",
+        "possible_export_error_messages": 0
+      },
+      "cli_delta_ms": -89.15845700539649,
+      "file_visible_delta_ms": -3.112003905698657,
+      "phase_delta_ms": {
+        "flush workspace locks": 0.00016399999999999997,
+        "flush session Cloud telemetry": -15.357150999999988,
+        "stop session services": 0.00016600000000000035,
+        "flush session telemetry": -0.08600600000000003,
+        "shutdown handler total": -15.505352000000016
+      },
+      "cli_delta_outside_recorded_shutdown_handler_ms": -73.65310500539647
+    },
+    {
+      "flow": "generate-warm",
+      "phase": "ordinary-control",
+      "pair_index": 1,
+      "production": true,
+      "baseline": {
+        "command_ordinal": 7,
+        "variant": "baseline",
+        "flow": "generate-warm",
+        "phase": "ordinary-control",
+        "pair_index": 1,
+        "production": true,
+        "correct": true,
+        "cli_ms": 836.951034842059,
+        "file_visible_ms": 301.43643799237907,
+        "file_to_exit_ms": 535.51459684968,
+        "cpu_seconds": 0.331889,
+        "gc_count": 1,
+        "gc_pause_ms": 0.062783,
+        "total_allocated_bytes": 66586144,
+        "phases_ms": {
+          "flush workspace locks": 0.0006,
+          "flush session Cloud telemetry": 339.264649,
+          "stop session services": 0.003403,
+          "flush session telemetry": 0.479429,
+          "shutdown handler total": 339.96278
+        },
+        "engine_io_delta": {
+          "rbytes": 0,
+          "wbytes": 0,
+          "rios": 0,
+          "wios": 0
+        },
+        "host_psi_delta_us": {
+          "cpu": {
+            "some": 20097,
+            "full": 0
+          },
+          "io": {
+            "some": 17,
+            "full": 16
+          },
+          "memory": {
+            "some": 0,
+            "full": 0
+          }
+        },
+        "input_sha256": "855fe6882de49825c98850b11d8e573f0485ac8c48c2e0c2ba2fa4459ead2365",
+        "possible_export_error_messages": 0
+      },
+      "lazy": {
+        "command_ordinal": 6,
+        "variant": "lazy",
+        "flow": "generate-warm",
+        "phase": "ordinary-control",
+        "pair_index": 1,
+        "production": true,
+        "correct": true,
+        "cli_ms": 723.7789880018681,
+        "file_visible_ms": 295.31085514463484,
+        "file_to_exit_ms": 428.4681328572333,
+        "cpu_seconds": 0.341002,
+        "gc_count": 1,
+        "gc_pause_ms": 0.097396,
+        "total_allocated_bytes": 56374448,
+        "phases_ms": {
+          "flush workspace locks": 0.000607,
+          "flush session Cloud telemetry": 302.249844,
+          "stop session services": 0.008269,
+          "flush session telemetry": 0.595112,
+          "shutdown handler total": 303.03266
+        },
+        "engine_io_delta": {
+          "rbytes": 0,
+          "wbytes": 0,
+          "rios": 0,
+          "wios": 0
+        },
+        "host_psi_delta_us": {
+          "cpu": {
+            "some": 25572,
+            "full": 0
+          },
+          "io": {
+            "some": 12,
+            "full": 11
+          },
+          "memory": {
+            "some": 1,
+            "full": 1
+          }
+        },
+        "input_sha256": "855fe6882de49825c98850b11d8e573f0485ac8c48c2e0c2ba2fa4459ead2365",
+        "possible_export_error_messages": 0
+      },
+      "cli_delta_ms": -113.17204684019089,
+      "file_visible_delta_ms": -6.1255828477442265,
+      "phase_delta_ms": {
+        "flush workspace locks": 7.000000000000062e-06,
+        "flush session Cloud telemetry": -37.014805000000024,
+        "stop session services": 0.0048660000000000005,
+        "flush session telemetry": 0.11568299999999998,
+        "shutdown handler total": -36.93011999999999
+      },
+      "cli_delta_outside_recorded_shutdown_handler_ms": -76.2419268401909
+    },
+    {
+      "flow": "generate-warm",
+      "phase": "ordinary-control",
+      "pair_index": 2,
+      "production": true,
+      "baseline": {
+        "command_ordinal": 8,
+        "variant": "baseline",
+        "flow": "generate-warm",
+        "phase": "ordinary-control",
+        "pair_index": 2,
+        "production": true,
+        "correct": true,
+        "cli_ms": 1296.0245551075786,
+        "file_visible_ms": 293.1926150340587,
+        "file_to_exit_ms": 1002.83194007352,
+        "cpu_seconds": 0.344613,
+        "gc_count": 1,
+        "gc_pause_ms": 0.058354,
+        "total_allocated_bytes": 64754120,
+        "phases_ms": {
+          "flush workspace locks": 0.000536,
+          "flush session Cloud telemetry": 321.089591,
+          "stop session services": 0.0042450000000000005,
+          "flush session telemetry": 0.604823,
+          "shutdown handler total": 321.918416
+        },
+        "engine_io_delta": {
+          "rbytes": 0,
+          "wbytes": 0,
+          "rios": 0,
+          "wios": 0
+        },
+        "host_psi_delta_us": {
+          "cpu": {
+            "some": 22699,
+            "full": 0
+          },
+          "io": {
+            "some": 1847,
+            "full": 1599
+          },
+          "memory": {
+            "some": 0,
+            "full": 0
+          }
+        },
+        "input_sha256": "855fe6882de49825c98850b11d8e573f0485ac8c48c2e0c2ba2fa4459ead2365",
+        "possible_export_error_messages": 0
+      },
+      "lazy": {
+        "command_ordinal": 9,
+        "variant": "lazy",
+        "flow": "generate-warm",
+        "phase": "ordinary-control",
+        "pair_index": 2,
+        "production": true,
+        "correct": true,
+        "cli_ms": 829.9482678994536,
+        "file_visible_ms": 289.38765195198357,
+        "file_to_exit_ms": 540.5606159474701,
+        "cpu_seconds": 0.374932,
+        "gc_count": 1,
+        "gc_pause_ms": 0.178026,
+        "total_allocated_bytes": 56393256,
+        "phases_ms": {
+          "flush workspace locks": 0.001307,
+          "flush session Cloud telemetry": 340.468392,
+          "stop session services": 0.002903,
+          "flush session telemetry": 0.32881099999999996,
+          "shutdown handler total": 340.927387
+        },
+        "engine_io_delta": {
+          "rbytes": 0,
+          "wbytes": 0,
+          "rios": 0,
+          "wios": 0
+        },
+        "host_psi_delta_us": {
+          "cpu": {
+            "some": 27764,
+            "full": 0
+          },
+          "io": {
+            "some": 4411,
+            "full": 4097
+          },
+          "memory": {
+            "some": 2733,
+            "full": 2519
+          }
+        },
+        "input_sha256": "855fe6882de49825c98850b11d8e573f0485ac8c48c2e0c2ba2fa4459ead2365",
+        "possible_export_error_messages": 0
+      },
+      "cli_delta_ms": -466.076287208125,
+      "file_visible_delta_ms": -3.804963082075119,
+      "phase_delta_ms": {
+        "flush workspace locks": 0.000771,
+        "flush session Cloud telemetry": 19.37880100000001,
+        "stop session services": -0.0013420000000000003,
+        "flush session telemetry": -0.27601200000000004,
+        "shutdown handler total": 19.00897100000003
+      },
+      "cli_delta_outside_recorded_shutdown_handler_ms": -485.085258208125
+    }
+  ],
+  "final_session_shutdown_records": 4,
+  "final_session_shutdown_ended_after_cli_exit": 0,
+  "limits": [
+    "Only main-client numeric phase records are used for foreground attribution.",
+    "Cloud flush covers pending exports plus the refresh-file gate; it is not network RTT or server-processing timing.",
+    "The residual outside the shutdown handler includes work and CLI cleanup; it is not a pure engine query duration.",
+    "CPU/GC deltas use wider pre/post snapshots and include background work; completed GC count is not causal proof.",
+    "File visibility is sampled every 5 ms; it is not exact generator-return timing.",
+    "Main shutdown records come from Docker completion timestamps; phase duration is recorded by the engine monotonic clock.",
+    "This control uses retained volumes with unequal earlier history; three same-binary pairs measure variability, not proof of no code regression."
+  ],
+  "slot_labels": "baseline/lazy are the previous A/B container roles only; BOTH ran the byte-identical baseline engine for this A/A control."
+}

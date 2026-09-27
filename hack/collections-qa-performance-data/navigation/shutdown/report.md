@@ -1,0 +1,13 @@
+# Existing engine shutdown-log attribution
+
+The separate profiled pair’s foreground difference is inside the explicit **session Cloud flush**: 308.432 ms baseline versus 1082.543 ms candidate, a 774.111 ms difference. Entire shutdown handlers take 312.676/1086.268 ms. Workspace-lock flush and service-stop work are each only a few microseconds; local telemetry flush is 4.015/3.572 ms. This agrees with the independent CLI observer’s 326/1099 ms `/shutdown` HTTP times.
+
+That Cloud phase jointly waits for already-concurrent span/log processor flushes and the token-refresh file-operation gate. It does not identify an individual HTTP call, signal, network delay or server time. The captured interval has no token-file-wait-timeout, incomplete-Cloud-export or credential-refresh-success log. Their absence does not independently time the gate.
+
+The four separate ordinary warm calls per engine do not show this large candidate penalty consistently: median Cloud-flush phases are 396.228 ms baseline and 365.467 ms candidate. Keep these ordinary samples separate from the single profiled outlier and previous trials.
+
+Final **session telemetry shutdown is background work** in these observed expanded commands: all 14 recorded final shutdown summaries end after the associated CLI exits. In the profiled pair they end 442 ms/74 ms after exit, with metric components 411/98 ms. Do not add these durations to foreground shutdown or claim that removing a duplicate metric collection removes that whole tail.
+
+Source confirms the distinction. `releaseClientConnection` schedules `reapDaggerSession` in a goroutine. The request cleanup then releases its lease synchronously; that release can run a quiescent client’s `shutdownMetrics` locally before the HTTP handler returns, depending on remaining leases/session-removal ownership. Nested runtime/proxy releases can also reclaim metrics during command execution. Cloud metric export in those paths only copies/enqueues; its worker performs HTTP delivery separately. The tested metric fix therefore has a proven collection/request-work rationale, but no established foreground latency gain.
+
+Only `numeric-phases.json` and `summary.json` are safe aggregate exports. Docker log timestamps mark completion rather than exact internal phase starts. Raw engine logs, session/client identifiers and payloads remain in `*.private.log` and must not be archived. Records tagged `associated_via_main_session` were internally matched to the same session after exit without exporting its identifier. Session-wide detail records use null for `client_is_main`, since they are not client-specific.

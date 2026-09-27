@@ -1,0 +1,51 @@
+{
+  "engine": {
+    "name": "dagger-engine.collections-alloc2-lazyfile",
+    "id": "9d6a2757be6bfac886b44474a82bbe9a75c1ae8d3bacb0aaffbd8e0b82331283",
+    "port": 6287,
+    "sha256": "36716da4d2607544db2fc3b46d5282fff04012ec3b1b1aaaf9b9a8c648f4a73e"
+  },
+  "engine_start_seconds_excluded": 0.5032823299989104,
+  "cli_sha256": {
+    "control": "170e16539bf086fa8a182ec9f194a0fdb33156736ba2c206cefde7c07da8dce9",
+    "diagnostic": "6d3c425359c9433888a5f5b37ac1d8a87763db1071d900e92ca6d664cd10d56d"
+  },
+  "source_manifest_sha256": "00b1eb6e5b5d58dff167a5b6b096c5f0c890732ae21bacdbdd8f7541d65ae8db",
+  "driver_sha256": "0ea1a30a492131cb26a8f7ee9ed5ddd994c41c8c29c9150a502e0cce38d42f33",
+  "flows": {
+    "workspace-files": [
+      "ws",
+      "ls"
+    ],
+    "artifacts": [
+      "list",
+      "-a"
+    ],
+    "generators": [
+      "generate",
+      "-l"
+    ],
+    "generate-warm": [
+      "-y",
+      "generate"
+    ],
+    "generate-edit": [
+      "-y",
+      "generate"
+    ]
+  },
+  "cloud_commands_max": 20,
+  "local_correctness_warmups": 5,
+  "authentication": "ordinary user login and explicit production endpoint; no credential-file reads by driver",
+  "cache_boundary": "retained candidate engine; no cold claim; warmups separate from ordinary samples",
+  "generation_scope": "single native Dang @generate writing input.txt contents; not Go/TS/Python SDK generation",
+  "fixture_hashes_before": {
+    "dagger.toml": "6fd4176dbb7a888a1df1b69cd1f7aa0f3eb0ca68460ce6f66ed7296649d18c96",
+    "input.txt": "855fe6882de49825c98850b11d8e573f0485ac8c48c2e0c2ba2fa4459ead2365",
+    "dagger.lock": "122e072c5e8d04f592fc87a767c1fdb3cd8a20d2abe2caf897be7d1291f1d627",
+    "module/main.dang": "34a2ea6acd0e7e34a0f42fb1384c09ce572d2761959b44aafa67d0ba91c21449",
+    "module/dagger.json": "4b9b6a134a853cc731e2c57e72165de6e6611c9d4dcb6977f93c047a1b65cff6"
+  },
+  "measurement": "fresh CLI spawn through blocking waitpid; file bytes polled every 5 ms; counters/profile dumps outside ordinary timing",
+  "privacy": "raw outputs and wcprof private; shared results contain timings, counts and validation booleans only"
+}

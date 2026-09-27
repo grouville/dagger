@@ -1,0 +1,241 @@
+package otel
+
+// Diagnostic overlay only: fixed labels plus numeric timings/counters. Never
+// inspect request bodies, authentication, URLs, headers, span IDs or error text.
+import (
+	"crypto/tls"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptrace"
+	"os"
+	"sync"
+	"time"
+)
+
+var perfExitPath = os.Getenv("DAGGER_PERF_EXIT_TIMELINE")
+var perfExitEpoch = time.Now()
+var perfExitMu sync.Mutex
+var perfExitRows []perfExitRow
+var perfExitDropped int64
+var perfExitFlushed bool
+
+type perfExitRow struct {
+	Kind    string           `json:"kind"`
+	UnixNS  int64            `json:"unix_ns,omitempty"`
+	StartNS int64            `json:"start_ns"`
+	EndNS   int64            `json:"end_ns"`
+	Values  map[string]int64 `json:"values,omitempty"`
+}
+
+func PerfExitStart(kind string) func() { return PerfExitStartValues(kind, nil) }
+
+func PerfExitStartValues(kind string, values map[string]int64) func() {
+	if perfExitPath == "" {
+		return func() {}
+	}
+	start := time.Since(perfExitEpoch).Nanoseconds()
+	return func() {
+		perfExitAppend(perfExitRow{Kind: kind, StartNS: start, EndNS: time.Since(perfExitEpoch).Nanoseconds(), Values: values})
+	}
+}
+
+func perfExitAppend(row perfExitRow) {
+	perfExitMu.Lock()
+	defer perfExitMu.Unlock()
+	if len(perfExitRows) == 10000 {
+		perfExitDropped++
+		return
+	}
+	perfExitRows = append(perfExitRows, row)
+}
+
+// PerfExitFlush writes only after the measured operation. This avoids file IO
+// in HTTP hooks and shutdown callbacks. The caller's external process timer
+// still includes the final diagnostic serialization/write.
+func PerfExitFlush() {
+	flushStart := time.Since(perfExitEpoch).Nanoseconds()
+	if perfExitPath == "" {
+		return
+	}
+	perfExitMu.Lock()
+	if perfExitFlushed {
+		perfExitMu.Unlock()
+		return
+	}
+	perfExitFlushed = true
+	rows := append([]perfExitRow(nil), perfExitRows...)
+	dropped := perfExitDropped
+	perfExitMu.Unlock()
+	f, err := os.OpenFile(perfExitPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	enc := json.NewEncoder(f)
+	_ = enc.Encode(perfExitRow{Kind: "anchor", UnixNS: perfExitEpoch.UnixNano()})
+	for _, row := range rows {
+		_ = enc.Encode(row)
+	}
+	_ = enc.Encode(perfExitRow{Kind: "diagnostic.flush", StartNS: flushStart, EndNS: time.Since(perfExitEpoch).Nanoseconds(), Values: map[string]int64{"dropped_events": dropped}})
+}
+
+// PerfExitHTTP attaches passive net/http hooks and wraps response body reads.
+// It returns the original response/error semantics, transport and request body.
+// ContentLength is reported as declared length; response_bytes counts only the
+// bytes the original caller actually reads. It never pre-reads or drains data.
+func PerfExitHTTP(req *http.Request, kind string) (*http.Request, func(*http.Response, error) *http.Response) {
+	if perfExitPath == "" {
+		return req, func(resp *http.Response, _ error) *http.Response { return resp }
+	}
+	start := time.Now()
+	startNS := time.Since(perfExitEpoch).Nanoseconds()
+	var mu sync.Mutex
+	values := map[string]int64{"request_content_length": req.ContentLength}
+	stamp := func(key string) { mu.Lock(); values[key] = time.Since(start).Nanoseconds(); mu.Unlock() }
+	var dnsStart, tlsStart time.Time
+	type connectKey struct{ network, address string }
+	connects := make(map[connectKey]time.Time)
+	trace := &httptrace.ClientTrace{
+		GetConn: func(string) { stamp("get_conn_ns") },
+		GotConn: func(info httptrace.GotConnInfo) {
+			mu.Lock()
+			defer mu.Unlock()
+			values["got_conn_ns"] = time.Since(start).Nanoseconds()
+			values["connection_acquire_ns"] = values["got_conn_ns"] - values["get_conn_ns"]
+			if info.Reused {
+				values["connection_reused"] = 1
+			}
+			if info.WasIdle {
+				values["connection_idle"] = 1
+			}
+		},
+		DNSStart: func(httptrace.DNSStartInfo) {
+			mu.Lock()
+			if dnsStart.IsZero() {
+				dnsStart = time.Now()
+			}
+			values["dns_attempts"]++
+			mu.Unlock()
+		},
+		DNSDone: func(info httptrace.DNSDoneInfo) {
+			mu.Lock()
+			if !dnsStart.IsZero() {
+				values["dns_window_ns"] = time.Since(dnsStart).Nanoseconds()
+			}
+			if info.Err != nil {
+				values["dns_errors"]++
+			}
+			mu.Unlock()
+		},
+		ConnectStart: func(network, address string) {
+			mu.Lock()
+			connects[connectKey{network, address}] = time.Now()
+			values["connect_attempts"]++
+			mu.Unlock()
+		},
+		ConnectDone: func(network, address string, err error) {
+			mu.Lock()
+			key := connectKey{network, address}
+			if began, ok := connects[key]; ok {
+				values["connect_ns"] += time.Since(began).Nanoseconds()
+				delete(connects, key)
+			}
+			if err != nil {
+				values["connect_errors"]++
+			}
+			mu.Unlock()
+		},
+		TLSHandshakeStart: func() {
+			mu.Lock()
+			if tlsStart.IsZero() {
+				tlsStart = time.Now()
+			}
+			values["tls_attempts"]++
+			mu.Unlock()
+		},
+		TLSHandshakeDone: func(_ tls.ConnectionState, err error) {
+			mu.Lock()
+			if !tlsStart.IsZero() {
+				values["tls_window_ns"] = time.Since(tlsStart).Nanoseconds()
+			}
+			if err != nil {
+				values["tls_errors"]++
+			}
+			mu.Unlock()
+		},
+		WroteRequest: func(info httptrace.WroteRequestInfo) {
+			mu.Lock()
+			values["wrote_request_ns"] = time.Since(start).Nanoseconds()
+			values["write_attempts"]++
+			if info.Err != nil {
+				values["write_errors"]++
+			}
+			mu.Unlock()
+		},
+		GotFirstResponseByte: func() { stamp("first_byte_ns") },
+	}
+	req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
+	var once sync.Once
+	finish := func() {
+		once.Do(func() {
+			mu.Lock()
+			copyValues := make(map[string]int64, len(values))
+			for k, v := range values {
+				copyValues[k] = v
+			}
+			mu.Unlock()
+			perfExitAppend(perfExitRow{Kind: kind, StartNS: startNS, EndNS: time.Since(perfExitEpoch).Nanoseconds(), Values: copyValues})
+		})
+	}
+	return req, func(resp *http.Response, err error) *http.Response {
+		mu.Lock()
+		values["response_headers_ns"] = time.Since(start).Nanoseconds()
+		if err != nil {
+			values["transport_error"] = 1
+		}
+		if resp != nil {
+			values["status"] = int64(resp.StatusCode)
+		}
+		mu.Unlock()
+		if resp == nil || resp.Body == nil {
+			finish()
+			return resp
+		}
+		resp.Body = &perfExitBody{ReadCloser: resp.Body,
+			read: func(n int, err error) {
+				mu.Lock()
+				values["response_bytes"] += int64(n)
+				if err == io.EOF {
+					values["response_eof"] = 1
+				} else if err != nil {
+					values["body_read_errors"]++
+				}
+				mu.Unlock()
+			},
+			closed: func(err error) {
+				mu.Lock()
+				values["body_closed"] = 1
+				if err != nil {
+					values["body_close_error"] = 1
+				}
+				mu.Unlock()
+				finish()
+			},
+		}
+		return resp
+	}
+}
+
+type perfExitBody struct {
+	io.ReadCloser
+	read   func(int, error)
+	closed func(error)
+}
+
+func (b *perfExitBody) Read(p []byte) (int, error) {
+	n, err := b.ReadCloser.Read(p)
+	b.read(n, err)
+	return n, err
+}
+func (b *perfExitBody) Close() error { err := b.ReadCloser.Close(); b.closed(err); return err }

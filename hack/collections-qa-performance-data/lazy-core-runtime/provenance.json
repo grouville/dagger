@@ -1,0 +1,160 @@
+{
+  "image": "sha256:b00e366e582ab98f0e4a7907163f338b6be3bfa13b10f3ad6bac3d699cd25a07",
+  "engine_sha256": {
+    "baseline": "bcadd647cc29e737d342cd4e29c6a55f6e49c4919971a7dd7ff1762471bd3660",
+    "lazy": "56f2eaccf6bf2f3151fb4c08205e1ad33fa7730ad5dee32577e867b527fc4b12"
+  },
+  "source_head": "21939e4ff95dd2be7c584b883b39c5e75b20d703",
+  "engine_recipe_sha256": {
+    "baseline": "5831d6686b1ffaaf15fb98f9115a0c698199e2a0297f4365fde7c9831ae8e923",
+    "lazy": "0e8bd07e6d6abdc6e792108c6b2c60540ed39188470b1ab149a2236a31aa7459"
+  },
+  "build_manifest_sha256": {
+    "baseline": "9411f9eb8539a937f3a3ceaf46c49da28b097700c56fe13456aa03dfdfefb5be",
+    "lazy": "fefd03a627e26c9ed5bc96c66fd19bc262f04502538b317e9dad09ee6a2320fc"
+  },
+  "cli_sha256": "170e16539bf086fa8a182ec9f194a0fdb33156736ba2c206cefde7c07da8dce9",
+  "cli_source_head": "341595f37647998908de840dd6350f981628c715",
+  "driver_sha256": "5164e67f383628971705b06c3f3625cd3dab14648e17cd06bbf0df84600f8050",
+  "helper_sha256": {
+    "experiment.py": "92a6eb338af70947fe93af1a648e3b807865bb8d438829f9150390963b2c568c",
+    "navigation-generate.py": "0ea1a30a492131cb26a8f7ee9ed5ddd994c41c8c29c9150a502e0cce38d42f33",
+    "withfile-cloud-warm.py": "6ddf9bbf119500ca2f421d232d68dadc8b19745e4f54f3f0ebae9d99ce8b78b5"
+  },
+  "plan": [
+    [
+      "fresh-engine-first-cli",
+      "workspace-files",
+      1,
+      true
+    ],
+    [
+      "warm",
+      "workspace-files",
+      3,
+      true
+    ],
+    [
+      "minimal-core",
+      "core-version",
+      1,
+      true
+    ],
+    [
+      "explicit-local-primer",
+      "generate-warm",
+      1,
+      false
+    ],
+    [
+      "warm",
+      "generate-warm",
+      3,
+      true
+    ],
+    [
+      "new-input-edit",
+      "generate-edit",
+      3,
+      true
+    ],
+    [
+      "greetings-first-use-warm-engine",
+      "artifacts",
+      1,
+      true
+    ],
+    [
+      "warm",
+      "artifacts",
+      3,
+      true
+    ],
+    [
+      "warm",
+      "generators",
+      2,
+      true
+    ],
+    [
+      "local-fourteen-check-correctness",
+      "all-checks",
+      1,
+      false
+    ],
+    [
+      "selected-check-first-use-local-primer",
+      "selected-check",
+      1,
+      false
+    ],
+    [
+      "warm",
+      "selected-check",
+      2,
+      true
+    ]
+  ],
+  "flows": {
+    "workspace-files": [
+      "ws",
+      "ls"
+    ],
+    "core-version": [
+      "-m",
+      "core",
+      "api",
+      "call",
+      "version"
+    ],
+    "generate-warm": [
+      "-y",
+      "generate"
+    ],
+    "generate-edit": [
+      "-y",
+      "generate"
+    ],
+    "artifacts": [
+      "list",
+      "-a"
+    ],
+    "generators": [
+      "generate",
+      "-l"
+    ],
+    "all-checks": [
+      "check",
+      "-l",
+      "--all"
+    ],
+    "selected-check": [
+      "check",
+      "--generated=false",
+      "go/modules/tests/run",
+      "--go-module=.",
+      "--go-test=TestFormatResponse"
+    ]
+  },
+  "cloud_commands_planned": 38,
+  "cloud_commands_cap": 40,
+  "local_commands_cap": 6,
+  "scope": "Only CoreSchemaBase.Fork changes; baseline span routing in both; same metric fix, withFile/interface and experimental SDK overlays.",
+  "cold_boundary": "First CLI ws ls on each newly started engine and fresh Dagger volume. Engine process startup, image/blob provisioning and host caches excluded; one cold pair cannot establish cold variability.",
+  "first_artifacts_boundary": "First greetings artifact listing on an engine already used by ws ls, core version and native generation; not fully cold engine or host.",
+  "warm_boundary": "Explicit stages in plan; generator listing follows artifact listing but first generator-list sample may initialize its own projection.",
+  "deferred_work": "Lazy core metadata construction is deferred, not deleted. First core-version and native local-primer timings/counters are retained as separate stages; whichever first consumes TypeDefs pays the construction. First greetings listing follows both and cannot establish cold-artifact improvement. Ordinary first-use telemetry population may differ when construction moves into a request.",
+  "generation": "Native Dang @generate returns input.txt contents; not SDK generation. Output removed before each call; no hidden generation primers.",
+  "edit_boundary": "New random trial nonce plus pair index; identical input bytes for two independent engine volumes, neither previously primed with these bytes. Host page caches remain shared.",
+  "selected_check": "TestFormatResponse only; first execution is an explicit local primer per engine, then two ordinary Cloud pairs. Not an all-six-tests execution claim.",
+  "authentication": "Normal approved CLI login/environment; no credential reads/copies. Listings may not print Cloud links. Local primers use empty XDG config and no Cloud token/URL.",
+  "timing": "Fresh Popen through blocking waitpid. Output visibility sampled every 5ms. Snapshots, setup, validation and one-second pacing excluded.",
+  "counter_scope": "Engine cgroup/MemStats and host PSI bracket timer and include background work; no per-phase causal claim.",
+  "privacy": "No credentials or raw traces retained in shareable output; raw stdout/stderr private. No profile instrumentation in ordinary timing.",
+  "bounds": {
+    "free_disk_floor_bytes": 17179869184,
+    "engine_writes_limit_bytes": 8589934592,
+    "timeout_per_command_seconds": 300,
+    "resources_deleted": 0
+  }
+}

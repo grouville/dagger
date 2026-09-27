@@ -1,0 +1,107 @@
+{
+  "environment": {
+    "GOMAXPROCS": "4",
+    "GOPROXY": "off",
+    "toolchain": "go1.26.6 linux/amd64",
+    "CGO_ENABLED": {
+      "baseline": "0",
+      "unit": "0",
+      "race": "1"
+    }
+  },
+  "shared_source_unchanged": true,
+  "new_cloud_commands": 0,
+  "engine_builds": 0,
+  "tests": {
+    "baseline-negative": {
+      "command": [
+        "go",
+        "test",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/warm-audit/exit-tail-audit/metrics-final-collection/baseline-test-overlay.json",
+        "-run=^TestClientShutdownMetrics(CollectsEachReaderOnce|PreservesFinalUpdateAfterExplicitFlush)$",
+        "-count=1",
+        "-timeout=90s",
+        "./engine/server"
+      ],
+      "exit_code": 1,
+      "expected_negative": true,
+      "passed": [],
+      "failed": [
+        "TestClientShutdownMetricsCollectsEachReaderOnce",
+        "TestClientShutdownMetricsPreservesFinalUpdateAfterExplicitFlush"
+      ],
+      "package_execution_seconds": 0.031,
+      "log_sha256": "8aac9fc0161e365e5f3ca9c3e066ed7b113e3f8ed1fd919a2006b4028520a755"
+    },
+    "candidate-unit": {
+      "command": [
+        "go",
+        "test",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/warm-audit/exit-tail-audit/metrics-final-collection/test-overlay.json",
+        "-run=^(TestClientShutdownMetrics.*|TestClientRuntimeReclamationDrainsMetricsBeforeUnpublish|TestClientRuntimeReclamationRacesCloseLeasesChildAndTeardown|TestChildQuiescenceReleasesClosingParent|TestClientRuntimeRetainsTelemetryStoresUntilReclamation|TestSessionTeardownFlushesTraceTelemetryAfterMetricShutdown|TestCloudMetricQueue.*|TestSessionPublishesTelemetryToCloud)$",
+        "-count=1",
+        "-v",
+        "-timeout=90s",
+        "./engine/server"
+      ],
+      "exit_code": 0,
+      "expected_negative": false,
+      "passed": [
+        "TestClientRuntimeRetainsTelemetryStoresUntilReclamation",
+        "TestSessionTeardownFlushesTraceTelemetryAfterMetricShutdown",
+        "TestClientShutdownMetricsCollectsEachReaderOnce",
+        "TestChildQuiescenceReleasesClosingParent",
+        "TestSessionPublishesTelemetryToCloud",
+        "TestCloudMetricQueueCopiesCollections",
+        "TestClientShutdownMetricsReturnsFinalCollectionErrorAndReleasesReader",
+        "TestClientShutdownMetricsCancellationStillClosesSecondReader",
+        "TestClientShutdownMetricsFailureStillClosesBothReaders",
+        "TestClientShutdownMetricsWaitsForFinalExportAndHonorsCancellation",
+        "TestClientShutdownMetricsPreservesFinalUpdateAfterExplicitFlush",
+        "TestClientRuntimeReclamationRacesCloseLeasesChildAndTeardown",
+        "TestClientRuntimeReclamationDrainsMetricsBeforeUnpublish",
+        "TestCloudMetricQueueShutdownIsBounded"
+      ],
+      "failed": [],
+      "package_execution_seconds": 0.601,
+      "log_sha256": "24101685c050d797cec5cd6d194aa066c6636c891bfea28bceb4aed046a8b955"
+    },
+    "candidate-race": {
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/warm-audit/exit-tail-audit/metrics-final-collection/test-overlay.json",
+        "-run=^(TestClientShutdownMetrics.*|TestClientRuntimeReclamationDrainsMetricsBeforeUnpublish|TestClientRuntimeReclamationRacesCloseLeasesChildAndTeardown|TestChildQuiescenceReleasesClosingParent|TestClientRuntimeRetainsTelemetryStoresUntilReclamation|TestSessionTeardownFlushesTraceTelemetryAfterMetricShutdown|TestCloudMetricQueue.*|TestSessionPublishesTelemetryToCloud)$",
+        "-count=1",
+        "-v",
+        "-timeout=90s",
+        "./engine/server"
+      ],
+      "exit_code": 0,
+      "expected_negative": false,
+      "passed": [
+        "TestClientRuntimeRetainsTelemetryStoresUntilReclamation",
+        "TestSessionTeardownFlushesTraceTelemetryAfterMetricShutdown",
+        "TestClientShutdownMetricsCollectsEachReaderOnce",
+        "TestClientShutdownMetricsCancellationStillClosesSecondReader",
+        "TestClientShutdownMetricsReturnsFinalCollectionErrorAndReleasesReader",
+        "TestClientShutdownMetricsWaitsForFinalExportAndHonorsCancellation",
+        "TestClientShutdownMetricsPreservesFinalUpdateAfterExplicitFlush",
+        "TestClientShutdownMetricsFailureStillClosesBothReaders",
+        "TestChildQuiescenceReleasesClosingParent",
+        "TestSessionPublishesTelemetryToCloud",
+        "TestCloudMetricQueueCopiesCollections",
+        "TestClientRuntimeReclamationDrainsMetricsBeforeUnpublish",
+        "TestClientRuntimeReclamationRacesCloseLeasesChildAndTeardown",
+        "TestCloudMetricQueueShutdownIsBounded"
+      ],
+      "failed": [],
+      "package_execution_seconds": 2.88,
+      "log_sha256": "b0aca2016ce0a464271e702c7148b37d0125f3831159cc6e35439d6dc0bcbe0b"
+    }
+  }
+}

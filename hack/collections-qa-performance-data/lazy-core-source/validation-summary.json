@@ -1,0 +1,106 @@
+{
+  "status": "focused checks passed; runtime pending",
+  "source_sha256": "64fd47cb8514e5479a097249c88d0edda6ced053bfcdf13e0437b3f4d861f546",
+  "test_sha256": "6e7a54ce38c1fb000ea272bb59b859569f2bf53691e7952b674c3304ed7304fe",
+  "validation_results_sha256": "37c086bd2ce8e46dcc8580404410eaf70f7c4c4663ec77bb3bcc74a64c171feb",
+  "checks": [
+    {
+      "label": "baseline-expected-failure",
+      "exitCode": 1,
+      "seconds": 19.803672178881243,
+      "accepted": true,
+      "failedTests": [
+        "TestCoreSchemaForkDoesNotRequireModuleMetadata"
+      ],
+      "passedTests": []
+    },
+    {
+      "label": "baseline-existing-retention",
+      "exitCode": 0,
+      "seconds": 4.9744053890462965,
+      "accepted": true,
+      "failedTests": [],
+      "passedTests": [
+        "TestCoreSchemaTypeDefContentsAfterSessionRelease"
+      ]
+    },
+    {
+      "label": "candidate-unit",
+      "exitCode": 0,
+      "seconds": 22.208651304012164,
+      "accepted": true,
+      "failedTests": [],
+      "passedTests": [
+        "TestBaseSchemaAllowlist",
+        "TestCoreModTypeDefs",
+        "TestCoreSchemaForkDefersTypeDefsUntilDemand",
+        "TestCoreSchemaForkDoesNotRequireModuleMetadata",
+        "TestCoreSchemaLazyForkDuringTypeDefDemand",
+        "TestCoreSchemaLazyForkKeepsIndependentFields",
+        "TestCoreSchemaLazyForkKeepsSnapshotPreparationBoundary",
+        "TestCoreSchemaTypeDefContentsAfterSessionRelease",
+        "TestCurrentTypeDefsReturnAllTypes",
+        "TestCurrentTypeDefsReturnAllTypesAfterSessionRelease",
+        "TestGitBundleSchema",
+        "TestWorkspaceAddressViews",
+        "TestWorkspaceAddressViews/v0.21.5",
+        "TestWorkspaceAddressViews/v1.0.0",
+        "TestWorkspaceSnapshotSchema"
+      ]
+    },
+    {
+      "label": "candidate-race",
+      "exitCode": 0,
+      "seconds": 53.63290925207548,
+      "accepted": true,
+      "failedTests": [],
+      "passedTests": [
+        "TestBaseSchemaAllowlist",
+        "TestCoreModTypeDefs",
+        "TestCoreSchemaForkDefersTypeDefsUntilDemand",
+        "TestCoreSchemaForkDoesNotRequireModuleMetadata",
+        "TestCoreSchemaLazyForkDuringTypeDefDemand",
+        "TestCoreSchemaLazyForkKeepsIndependentFields",
+        "TestCoreSchemaLazyForkKeepsSnapshotPreparationBoundary",
+        "TestCoreSchemaTypeDefContentsAfterSessionRelease",
+        "TestCurrentTypeDefsReturnAllTypes",
+        "TestCurrentTypeDefsReturnAllTypesAfterSessionRelease",
+        "TestGitBundleSchema",
+        "TestWorkspaceAddressViews",
+        "TestWorkspaceAddressViews/v0.21.5",
+        "TestWorkspaceAddressViews/v1.0.0",
+        "TestWorkspaceSnapshotSchema"
+      ]
+    }
+  ],
+  "candidate_engine": {
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "build",
+      "-mod=readonly",
+      "-modfile=/tmp/collections-perf/sdk-edit-audit/core-schema-lazy-v1/build.mod",
+      "-buildvcs=true",
+      "-overlay=/tmp/collections-perf/sdk-edit-audit/core-schema-lazy-v1/lazy-engine-overlay.json",
+      "-o",
+      "/tmp/collections-perf/sdk-edit-audit/core-schema-lazy-v1/engine-lazy",
+      "./cmd/engine"
+    ],
+    "binary": "/tmp/collections-perf/sdk-edit-audit/core-schema-lazy-v1/engine-lazy",
+    "exit_code": 0,
+    "seconds": 27.67003981815651,
+    "source_head": "21939e4ff95dd2be7c584b883b39c5e75b20d703",
+    "recipe_sha256": "0e8bd07e6d6abdc6e792108c6b2c60540ed39188470b1ab149a2236a31aa7459",
+    "instrumented": false,
+    "non_build_modified_paths": [
+      "hack/collections-performance-start.md",
+      "hack/collections-qa-performance-data/checksums.json"
+    ],
+    "sha256": "56f2eaccf6bf2f3151fb4c08205e1ad33fa7730ad5dee32577e867b527fc4b12"
+  },
+  "shared_production_source_changed": false,
+  "runtime_commands": 0,
+  "cloud_commands": 0,
+  "prior_rejected_checks": "v1: sandbox cache write denied; v2: asserted IDs of synthesized public wrappers; v3: recursively compared opaque DagQL cache state; v4: used SDK type conversion as a formatter. All retained; no production code changes were made for these failures.",
+  "baseline_witness": "Fork without request metadata fails in Query.__objectTypeDef on eager baseline; callable native core schema succeeds on candidate.",
+  "content_gate": "Baseline-compatible bounded type/function/argument/default shape, full schema JSON across sessions, and retained core TypeDef IDs/loadability all pass."
+}

@@ -1,0 +1,138 @@
+"""Local-only collection closure, schema invalidation and fresh-input control.
+
+Default dry run; exactly 15 calls maximum, including two explicit native primers.
+No Cloud mode. Freeze the SDK agent's corrected runtime-builds.json before --run.
+"""
+from pathlib import Path
+import argparse,hashlib,importlib.util,json,os,re,shutil,signal,subprocess,sys,threading,time,uuid
+HERE=Path(__file__).resolve().parent
+LAB=Path('/tmp/collections-perf/engine-allocation-round2')
+sys.path.insert(0,str(LAB));import experiment as x
+spec=importlib.util.spec_from_file_location('navigation',LAB/'navigation-generate.py')
+nav=importlib.util.module_from_spec(spec);spec.loader.exec_module(nav)
+OWNER='collections-lazy-core-runtime-v1'
+ORIGINAL_SHA='56f2eaccf6bf2f3151fb4c08205e1ad33fa7730ad5dee32577e867b527fc4b12'
+OLD_JSON_SHA='7226c5d1a5a08e41fe7b543a0758a6f56a01f1cfe5f9a5a1feef0f3d514a021c'
+CLI_SHAS={'baseline':'f10947c2788e612d274c18c6129e270f9a200444265a5e5be688a583a1346172','candidate':'2d8cce9bcc4238739d37723a6a6a271e169ae87d72decb58a8e9a0a5e41185a9'}
+CAP=15;MIN_FREE=16*1024**3;MAX_WRITE=4*1024**3
+TEST_NAMES={'TestE2ERandomGreeting','TestE2EGreetingByLanguage','TestE2EUnknownLanguage','TestE2ECORS','TestSelectGreeting','TestFormatResponse'}
+COLLECTIONS={'get':['api','call','go','modules','get','--key=.','tests','keys'],'subset':['api','call','go','modules','subset','--keys=.','keys']}
+ANSI=re.compile(rb'\x1b\[[0-?]*[ -/]*[@-~]')
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--run',action='store_true')
+    parser.add_argument('--freeze-runtime-manifest',type=Path)
+    args=parser.parse_args()
+    assert not(args.run and args.freeze_runtime_manifest)
+    if args.freeze_runtime_manifest:
+        assert not(HERE/'frozen-builds.json').exists()
+        built=json.loads(args.freeze_runtime_manifest.read_text())
+        for name in ('engine','baseline','candidate'):assert x.sha(built[name]['path'])==built[name]['sha256']
+        assert built['engine']['sha256']not in(ORIGINAL_SHA,OLD_JSON_SHA),'must use corrected closure engine'
+        for name,sha in CLI_SHAS.items():assert built[name]['sha256']==sha
+        x.write(HERE/'frozen-builds.json',{'source_manifest_path':str(args.freeze_runtime_manifest),'source_manifest_sha256':x.sha(args.freeze_runtime_manifest),'builds':built})
+        print(json.dumps({'frozen':True,'engine_sha256':built['engine']['sha256'],'executed':False}));return
+    if not args.run:
+        print(json.dumps({'execute':False,'cloud_commands':0,'local_commands_cap':CAP,'explicit_primers':2,'collection_get_subset':4,'renamed_schema_success':2,'stale_schema_expected_rejections':2,'restored_schema_success':1,'unique_fresh_input_calls':4,'profiles':0,'fixed_manifest_frozen':(HERE/'frozen-builds.json').exists(),'retained_engine':'lazy-core-runtime-v1 lazy','restoration':'same binary and full source/input bytes after engine stop','output':str(HERE/'local-v1')}));return
+    os.umask(0o077)
+    frozen=json.loads((HERE/'frozen-builds.json').read_text());built=frozen['builds']
+    assert x.sha(frozen['source_manifest_path'])==frozen['source_manifest_sha256'],'SDK manifest changed after freeze'
+    for name in ('engine','baseline','candidate'):assert x.sha(built[name]['path'])==built[name]['sha256']
+    assert built['engine']['sha256']not in(ORIGINAL_SHA,OLD_JSON_SHA)
+    for name,sha in CLI_SHAS.items():assert built[name]['sha256']==sha
+    original=json.loads((LAB/'lazy-core-runtime-v1/engines.json').read_text())['lazy'];assert original['sha256']==ORIGINAL_SHA
+    x.OWNER=OWNER;info=x.owned(original);assert not info['State']['Running']
+    mounts=[m for m in info['Mounts']if m['Destination']=='/var/lib/dagger']
+    assert len(mounts)==1 and mounts[0]['Name']==original['name']and mounts[0]['Type']=='volume'
+    volume=json.loads(x.capture(['docker','volume','inspect',mounts[0]['Name']]))[0];assert volume['Labels']['dagger.perf.owner']==OWNER
+    app=LAB/'greetings';app_expected=json.loads((LAB/'withfile-v1/prepared.json').read_text())['input_sha256'];assert x.fixture_hashes(app)==app_expected
+    native=LAB/'native';native_before=x.fixture_hashes(native)
+    previous=json.loads(Path('/tmp/collections-perf/cli-metadata-runtime-v1/cloud-v1/provenance.json').read_text())['native_fixture']
+    assert native_before==previous,'native fixture changed from recorded original'
+    source=native/'module/main.dang';source_original=source.read_bytes();input_file=native/'input.txt';input_original=input_file.read_bytes()
+    needle=b'pub read(ws: Workspace!): String!';replacement=b'pub readEdited(ws: Workspace!): String!'
+    assert source_original.count(needle)==1 and replacement not in source_original
+    expected_native=dict(native_before);out=HERE/'local-v1';assert not out.exists();out.mkdir();(out/'empty-config').mkdir()
+    (out/'driver.py.txt').write_bytes(Path(__file__).read_bytes());(out/'source.original.private').write_bytes(source_original);(out/'input.original.private').write_bytes(input_original)
+    local={k:os.environ[k]for k in ('PATH','HOME','USER','LOGNAME','TMPDIR')if k in os.environ}
+    local.update(DO_NOT_TRACK='1',DAGGER_NO_UPDATE_CHECK='1',GIT_TERMINAL_PROMPT='0',XDG_CONFIG_HOME=str(out/'empty-config'))
+    assert not any(k.startswith(('DAGGER_CLOUD_','OTEL_'))for k in local)
+    item=dict(original,sha256=built['engine']['sha256']);backup=out/'original-engine.private'
+    rows=[];attempts=[];collection_bytes={};written=0;modified=False;payload_hashes=set()
+    x.write(out/'provenance.json',{'frozen_builds':frozen,'frozen_builds_sha256':x.sha(HERE/'frozen-builds.json'),'driver_sha256':x.sha(__file__),'original_engine':original,'measured_engine':item,'native_fixture':native_before,'greetings_fixture':app_expected,'cloud_commands_cap':0,'local_commands_cap':CAP,'explicit_primers':2,'same_engine_and_volume':True,'profiling':False,'cold_claim':False,'input_policy':'Every measured fresh-input command gets different UUID bytes, never primed; shared unchanged lower-layer caches remain legitimate. Two pairs alternate CLI order.','timing_boundary':'blocking waitpid thread timestamps CLI exit; resource snapshots/setup outside command','limits':{'minimum_free_bytes':MIN_FREE,'max_engine_writes_bytes':MAX_WRITE},'helper_sha256':{name:x.sha(LAB/name)for name in ('experiment.py','navigation-generate.py')}})
+    def guard():
+        assert x.fixture_hashes(native)==expected_native and x.fixture_hashes(app)==app_expected
+        assert shutil.disk_usage(HERE).free>MIN_FREE and written<MAX_WRITE
+    def set_bytes(path,value):
+        path.write_bytes(value);expected_native[str(path.relative_to(native))]=hashlib.sha256(value).hexdigest()
+    def run(variant,flow,phase,index=0,expect_reject=False):
+        nonlocal written
+        guard();assert len(attempts)<CAP
+        dest=out/f'{len(attempts):02d}-{phase}-{index}-{flow}-{variant}';dest.mkdir()
+        argv=COLLECTIONS[flow]if flow in COLLECTIONS else ['-m','./module','api','call','read-edited'if flow=='renamed'else'read']
+        command=[built[variant]['path'],'--engine','container://'+item['name']]+argv
+        attempts.append({'variant':variant,'flow':flow,'phase':phase,'index':index,'expected_rejection':expect_reject,'cloud':False});x.write(out/'attempts.json',attempts)
+        expected=input_file.read_bytes();before=nav.warm.snapshot(item);done=threading.Event();observed={}
+        with(dest/'stdout.private').open('wb')as stdout,(dest/'stderr.private').open('wb')as stderr:
+            began=time.monotonic();wall_start=time.time_ns();proc=subprocess.Popen(command,cwd=app if flow in COLLECTIONS else native,env=local,stdout=stdout,stderr=stderr,start_new_session=True)
+            def waiter():observed.update(exit_code=proc.wait(),end=time.monotonic(),wall_end=time.time_ns());done.set()
+            worker=threading.Thread(target=waiter,daemon=True);worker.start()
+            try:timed_out=not done.wait(120)
+            finally:
+                if not done.is_set():
+                    try:proc.send_signal(signal.SIGINT)
+                    except ProcessLookupError:pass
+                    if not done.wait(10):
+                        try:os.killpg(proc.pid,signal.SIGKILL)
+                        except ProcessLookupError:pass
+                worker.join(15);assert not worker.is_alive()
+        delta=nav.warm.delta(before,nav.warm.snapshot(item));written+=delta['engine_written_bytes']
+        actual=(dest/'stdout.private').read_bytes();errors=ANSI.sub(b'',(dest/'stderr.private').read_bytes())
+        if expect_reject:
+            missing_read=(b'no function "read" in type'in errors or b'unknown command "read"'in errors)
+            correct=not timed_out and observed['exit_code']!=0 and actual==b'' and missing_read
+        elif flow in COLLECTIONS:
+            if flow=='get':
+                try:keys=json.loads(actual)
+                except ValueError:keys=actual.decode().splitlines()
+                golden=isinstance(keys,list)and len(keys)==6 and set(keys)==TEST_NAMES
+            else:
+                try:golden=json.loads(actual)==['.']
+                except ValueError:golden=actual.strip()==b'.'
+            if variant=='baseline':collection_bytes[flow]=actual
+            correct=not timed_out and observed['exit_code']==0 and golden and actual==collection_bytes[flow]
+        else:correct=not timed_out and observed['exit_code']==0 and actual==expected
+        row={'variant':variant,'flow':flow,'phase':phase,'index':index,'command':command,'cloud':False,'seconds':observed['end']-began,'started_unix_ns':wall_start,'exited_unix_ns':observed['wall_end'],'correct':bool(correct),'expected_rejection':expect_reject,'exit_code':observed['exit_code'],'timed_out':timed_out,'stdout_sha256':hashlib.sha256(actual).hexdigest(),'stderr_bytes':len(errors),'input_sha256':expected_native['input.txt'],'module_source_sha256':expected_native['module/main.dang'],**delta}
+        rows.append(row);x.write(out/'results.json',rows);print(json.dumps({k:row[k]for k in ('variant','flow','phase','index','seconds','correct','expected_rejection')}),flush=True)
+        assert correct,'private output failed semantic/parity validation';guard()
+    try:
+        guard();x.capture(['docker','cp',item['name']+':/usr/local/bin/dagger-engine',str(backup)]);assert x.sha(backup)==ORIGINAL_SHA
+        modified=True;x.capture(['docker','cp',built['engine']['path'],item['name']+':/usr/local/bin/dagger-engine']);startup=x.start(item);x.write(out/'setup.json',{'startup_seconds_excluded':startup})
+        for variant in ('baseline','candidate'):run(variant,'read','explicit-native-primer')
+        for flow in ('get','subset'):
+            for variant in ('baseline','candidate'):run(variant,flow,'collection-correctness')
+        set_bytes(source,source_original.replace(needle,replacement))
+        for variant in ('baseline','candidate'):run(variant,'renamed','schema-renamed-success')
+        for variant in ('candidate','baseline'):run(variant,'read','stale-schema-rejected',expect_reject=True)
+        set_bytes(source,source_original);run('candidate','read','schema-restored-success')
+        for index,order in enumerate((('baseline','candidate'),('candidate','baseline'))):
+            for variant in order:
+                payload=('metadata distinct edit '+uuid.uuid4().hex+'\n').encode();digest=hashlib.sha256(payload).hexdigest()
+                assert digest not in payload_hashes and payload!=input_original;payload_hashes.add(digest)
+                set_bytes(input_file,payload);run(variant,'read','unprimed-fresh-input',index)
+    finally:
+        if source.read_bytes()!=source_original:source.write_bytes(source_original)
+        if input_file.read_bytes()!=input_original:input_file.write_bytes(input_original)
+        restored=not modified
+        if modified:
+            if x.owned(item)['State']['Running']:x.capture(['docker','stop','--timeout','30',item['name']])
+            assert not x.owned(item)['State']['Running']and x.sha(backup)==ORIGINAL_SHA
+            x.capture(['docker','cp',str(backup),item['name']+':/usr/local/bin/dagger-engine'])
+            verify=out/'restored-engine.private';x.capture(['docker','cp',item['name']+':/usr/local/bin/dagger-engine',str(verify)])
+            restored=x.sha(verify)==ORIGINAL_SHA;assert restored
+        unchanged=x.fixture_hashes(native)==native_before and x.fixture_hashes(app)==app_expected
+        x.write(out/'restoration.json',{'fixtures_restored':unchanged,'engine_stopped':not x.owned(item)['State']['Running'],'original_binary_restored':restored,'local_attempts':len(attempts),'cloud_attempts':0,'validated_commands':sum(row['correct']for row in rows),'distinct_unprimed_payloads':len(payload_hashes),'volume_retained':True,'resources_deleted':0,'engine_written_bytes':written})
+        assert unchanged
+    assert len(rows)==CAP
+if __name__=='__main__':main()

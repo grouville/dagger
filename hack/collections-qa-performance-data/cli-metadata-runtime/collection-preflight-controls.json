@@ -1,0 +1,57 @@
+{
+  "original_engine_control": {
+    "cli_sha256": "f10947c2788e612d274c18c6129e270f9a200444265a5e5be688a583a1346172",
+    "engine_sha256": "56f2eaccf6bf2f3151fb4c08205e1ad33fa7730ad5dee32577e867b527fc4b12",
+    "cloud_commands": 0,
+    "exit_code": 1,
+    "diagnostic_seconds": 1.6696531891357154,
+    "baseline_typedef_error": true
+  },
+  "after_closure_fix": [
+    {
+      "variant": "baseline",
+      "flow": "read",
+      "phase": "explicit-native-primer",
+      "correct": true,
+      "exit_code": 0,
+      "seconds": 0.9895660958718508
+    },
+    {
+      "variant": "candidate",
+      "flow": "read",
+      "phase": "explicit-native-primer",
+      "correct": true,
+      "exit_code": 0,
+      "seconds": 0.3707052608951926
+    },
+    {
+      "variant": "baseline",
+      "flow": "get",
+      "phase": "collection-correctness",
+      "correct": true,
+      "exit_code": 0,
+      "seconds": 2.720530431950465
+    },
+    {
+      "variant": "candidate",
+      "flow": "get",
+      "phase": "collection-correctness",
+      "correct": false,
+      "exit_code": 1,
+      "seconds": 0.6358464991208166
+    }
+  ],
+  "classification": "First closure defect reproduced on original engine; after its correction, new JSON root lacks workspace module demand classification. Failed timings are excluded from performance medians.",
+  "restoration": {
+    "fixtures_restored": true,
+    "engine_stopped": true,
+    "original_binary_restored": true,
+    "local_attempts": 4,
+    "cloud_attempts": 0,
+    "validated_commands": 3,
+    "distinct_unprimed_payloads": 0,
+    "volume_retained": true,
+    "resources_deleted": 0,
+    "engine_written_bytes": 425984
+  }
+}

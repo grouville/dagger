@@ -1,0 +1,156 @@
+{
+  "status": "focused unit and race passed; real CLI/engine runtime pending",
+  "normal": [
+    {
+      "label": "core",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/sdk-edit-audit/cli-typedef-json-v1/test-overlay.json",
+        "./core/schema",
+        "-run",
+        "^TestCLITypeDefsJSON(CoreParity|AdaptersAndDefaults|ErrorsAndCancellation)$",
+        "-count=1"
+      ],
+      "seconds": 21.606580055085942,
+      "exit_code": 0,
+      "log_sha256": "d4a621a46e9e7a9bf80dd4f532538449d9f64cb6824d2791dc5029679275536a",
+      "passes": [
+        "TestCLITypeDefsJSONCoreParity/v0.21.5",
+        "TestCLITypeDefsJSONCoreParity/v1.0.0",
+        "TestCLITypeDefsJSONCoreParity",
+        "TestCLITypeDefsJSONAdaptersAndDefaults/v0.21.5",
+        "TestCLITypeDefsJSONAdaptersAndDefaults/v1.0.0",
+        "TestCLITypeDefsJSONAdaptersAndDefaults",
+        "TestCLITypeDefsJSONErrorsAndCancellation"
+      ],
+      "failures": []
+    },
+    {
+      "label": "cli",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/sdk-edit-audit/cli-typedef-json-v1/cli-test-overlay.json",
+        "./internal/cmd/dagger",
+        "-run",
+        "^TestCLITypeDefsJSON(CapabilityErrors|TransportFallback)$",
+        "-count=1"
+      ],
+      "seconds": 8.331140900962055,
+      "exit_code": 0,
+      "log_sha256": "43d90f774cd807550b6c9d03c9e644a3b7728d245981d1fa7a6aec5224fa3277",
+      "passes": [
+        "TestCLITypeDefsJSONCapabilityErrors/supported",
+        "TestCLITypeDefsJSONCapabilityErrors/missing",
+        "TestCLITypeDefsJSONCapabilityErrors/wrapped",
+        "TestCLITypeDefsJSONCapabilityErrors/single_list",
+        "TestCLITypeDefsJSONCapabilityErrors/multiple_errors",
+        "TestCLITypeDefsJSONCapabilityErrors/http_validation",
+        "TestCLITypeDefsJSONCapabilityErrors/http_unauthorized",
+        "TestCLITypeDefsJSONCapabilityErrors/resolver_path",
+        "TestCLITypeDefsJSONCapabilityErrors/other_field",
+        "TestCLITypeDefsJSONCapabilityErrors/plain_string",
+        "TestCLITypeDefsJSONCapabilityErrors",
+        "TestCLITypeDefsJSONTransportFallback/supported",
+        "TestCLITypeDefsJSONTransportFallback/old_engine",
+        "TestCLITypeDefsJSONTransportFallback/old_engine_validation_status",
+        "TestCLITypeDefsJSONTransportFallback/resolver_error",
+        "TestCLITypeDefsJSONTransportFallback/invalid_JSON",
+        "TestCLITypeDefsJSONTransportFallback"
+      ],
+      "failures": []
+    }
+  ],
+  "race": [
+    {
+      "label": "core",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/sdk-edit-audit/cli-typedef-json-v1/test-overlay.json",
+        "-race",
+        "./core/schema",
+        "-run",
+        "^TestCLITypeDefsJSON(CoreParity|AdaptersAndDefaults|ErrorsAndCancellation)$",
+        "-count=1"
+      ],
+      "seconds": 88.24221458099782,
+      "exit_code": 0,
+      "log_sha256": "69b6c3b3747f17b414c2ffae918509e5f5d5636c12c182050dfbb5333d24ccb8",
+      "passes": [
+        "TestCLITypeDefsJSONCoreParity/v0.21.5",
+        "TestCLITypeDefsJSONCoreParity/v1.0.0",
+        "TestCLITypeDefsJSONCoreParity",
+        "TestCLITypeDefsJSONAdaptersAndDefaults/v0.21.5",
+        "TestCLITypeDefsJSONAdaptersAndDefaults/v1.0.0",
+        "TestCLITypeDefsJSONAdaptersAndDefaults",
+        "TestCLITypeDefsJSONErrorsAndCancellation"
+      ],
+      "failures": []
+    },
+    {
+      "label": "cli",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-json",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/sdk-edit-audit/cli-typedef-json-v1/cli-test-overlay.json",
+        "-race",
+        "./internal/cmd/dagger",
+        "-run",
+        "^TestCLITypeDefsJSON(CapabilityErrors|TransportFallback)$",
+        "-count=1"
+      ],
+      "seconds": 13.297504239948466,
+      "exit_code": 0,
+      "log_sha256": "d97c2c5b9870910caf75e730994077d24bfc475bf48af531bca52554b3fb6f90",
+      "passes": [
+        "TestCLITypeDefsJSONCapabilityErrors/supported",
+        "TestCLITypeDefsJSONCapabilityErrors/missing",
+        "TestCLITypeDefsJSONCapabilityErrors/wrapped",
+        "TestCLITypeDefsJSONCapabilityErrors/single_list",
+        "TestCLITypeDefsJSONCapabilityErrors/multiple_errors",
+        "TestCLITypeDefsJSONCapabilityErrors/http_validation",
+        "TestCLITypeDefsJSONCapabilityErrors/http_unauthorized",
+        "TestCLITypeDefsJSONCapabilityErrors/resolver_path",
+        "TestCLITypeDefsJSONCapabilityErrors/other_field",
+        "TestCLITypeDefsJSONCapabilityErrors/plain_string",
+        "TestCLITypeDefsJSONCapabilityErrors",
+        "TestCLITypeDefsJSONTransportFallback/supported",
+        "TestCLITypeDefsJSONTransportFallback/old_engine",
+        "TestCLITypeDefsJSONTransportFallback/old_engine_validation_status",
+        "TestCLITypeDefsJSONTransportFallback/resolver_error",
+        "TestCLITypeDefsJSONTransportFallback/invalid_JSON",
+        "TestCLITypeDefsJSONTransportFallback"
+      ],
+      "failures": []
+    }
+  ],
+  "initial_failures": [
+    {
+      "run": "validation-v1/v2",
+      "classification": "fixture optional sourceModuleName inputs passed as nonoptional; fixed only in fixture"
+    },
+    {
+      "run": "validation-v3",
+      "classification": "real legacy check return mismatch because outer JSON root omitted AllVersion; fixed production registration so effective view and cache key remain correct"
+    },
+    {
+      "run": "validation-v4",
+      "classification": "new test used typed Self on AnyObjectResult; corrected fixture to retrieve core.CurrentQuery"
+    }
+  ],
+  "remaining": [
+    "Real Go/TypeScript/Dang module calls, collections and entrypoint conflict behavior are not yet live-validated.",
+    "Cross-session schema replacement with same canonical names needs a dedicated cache-authority regression.",
+    "Endpoint accepts returnAllTypes=false and absent hideCore; the current parity matrix uses the CLI true/explicit hideCore paths."
+  ]
+}

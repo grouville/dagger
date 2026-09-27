@@ -1,0 +1,43 @@
+"""Publish only allowlisted module names and numeric readiness boundaries."""
+from pathlib import Path
+from collections import Counter
+import json, sys, tomllib
+BASE=Path(__file__).resolve().parent
+APP=Path('/tmp/collections-perf/engine-allocation-round2/greetings')
+ALLOWED=set(tomllib.loads((APP/'dagger.toml').read_text())['modules'])
+
+def analyze(path):
+    with path.open()as f:
+        header=json.loads(next(f));events=[json.loads(line)for line in f]
+    strings=header['strings'];assert header['dropped_events']==0
+    ops=[e for e in events if e.get('e')=='op'];byid={e['id']:e for e in ops}
+    def label(e):return strings[e.get('c',0)]
+    def belongs(e,parent):
+        while e is not None:
+            if e['id']==parent['id']:return True
+            e=byid.get(e.get('p'))
+        return False
+    catalogs=[e for e in ops if e.get('k')=='call_exec'and label(e)=='Workspace.artifacts']
+    expands=[e for e in ops if e.get('k')=='call_exec'and label(e)=='Artifacts.__itemsJSON']
+    assert len(catalogs)==1 and len(expands)==1
+    catalog,expand=catalogs[0],expands[0];origin=catalog['s']
+    relative=lambda ns:round((ns-origin)/1e6,6)
+    loads=[];ignored=0
+    for e in ops:
+        if label(e)!='workspace.moduleLoad':continue
+        name=strings[e.get('i',0)]
+        if name not in ALLOWED:ignored+=1;continue
+        loads.append({'module':name,'start_ms':relative(e['s']),'resolve_ready_ms':relative(e['d']),'duration_ms':round((e['d']-e['s'])/1e6,6),'outcome':e['o'],'within_catalog_window':catalog['s']<=e['s']<=e['d']<=catalog['d'],'descendant_of_catalog':belongs(e,catalog),'same_client_as_catalog':e.get('cl')==catalog.get('cl')})
+    loads.sort(key=lambda e:(e['start_ms'],e['module']))
+    ready={}
+    for name in ('go','backend'):
+        ends=[r['resolve_ready_ms']for r in loads if r['module']==name and r['within_catalog_window']and r['outcome']=='ok']
+        ready[name]=max(ends)if ends else None
+    last=max(ready.values())if all(v is not None for v in ready.values())else None
+    window=relative(catalog['d'])-last if last is not None else None
+    return {'schema_version':header['schema_version'],'dropped_events':header['dropped_events'],'operation_count':len(ops),'catalog':{'start_ms':0,'end_ms':relative(catalog['d'])},'expansion':{'start_ms':relative(expand['s']),'end_ms':relative(expand['d']),'duration_ms':round((expand['d']-expand['s'])/1e6,6)},'module_resolutions':loads,'other_module_names_omitted':ignored,'required_module_resolve_ready_ms':ready,'catalog_barrier_opportunity_upper_bound_ms':window,'caveat':'Resolve-ready is before batch publication/entrypoint arbitration. Window is a scheduling opportunity bound, not a measured saving or correctness proof; Address dependencies may require wider schema publication.'}
+
+if __name__=='__main__':
+    out={phase:analyze(BASE/'runtime-v1'/phase/'run.wcprof')for phase in ('warm','fresh-comment-edit')}
+    (BASE/'runtime-v1/readiness-numeric.json').write_text(json.dumps(out,indent=2)+'\n')
+    print(json.dumps(out,indent=2))

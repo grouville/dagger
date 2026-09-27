@@ -1,0 +1,332 @@
+package server
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/dagger/dagger/engine/clientdb"
+	"github.com/dagger/dagger/engine/telemetryattrs"
+	telemetry "github.com/dagger/otel-go"
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/sdk/instrumentation"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	"go.opentelemetry.io/otel/trace"
+	otlptracev1 "go.opentelemetry.io/proto/otlp/trace/v1"
+	"google.golang.org/protobuf/proto"
+)
+
+func spanFanoutFixture(t testing.TB) (sessionSpanExporter, map[string]*clientdb.DB) {
+	t.Helper()
+	dbs := clientdb.NewDBs(t.TempDir())
+	ps := NewPubSub(&Server{clientDBs: dbs})
+	sess := &daggerSession{clientRecords: map[string]*clientRecord{
+		"root":    {clientID: "root"},
+		"parent":  {clientID: "parent", parentClientIDs: []string{"root"}},
+		"child":   {clientID: "child", parentClientIDs: []string{"root", "parent"}},
+		"sibling": {clientID: "sibling", parentClientIDs: []string{"root"}},
+	}}
+	stores := map[string]*clientdb.DB{}
+	for id := range sess.clientRecords {
+		store, err := dbs.Open(t.Context(), id)
+		require.NoError(t, err)
+		stores[id] = store
+	}
+	t.Cleanup(func() {
+		for _, store := range stores {
+			require.NoError(t, store.Close())
+		}
+		require.NoError(t, dbs.Close())
+	})
+	return sessionSpanExporter{sess: sess, ps: ps}, stores
+}
+
+func fanoutSpan(id byte, origin, name string) tracetest.SpanStub {
+	start := time.Unix(100, 0)
+	return tracetest.SpanStub{
+		Name: name,
+		SpanContext: trace.NewSpanContext(trace.SpanContextConfig{
+			TraceID: trace.TraceID{1}, SpanID: trace.SpanID{id}, TraceFlags: trace.FlagsSampled,
+		}),
+		SpanKind:  trace.SpanKindInternal,
+		StartTime: start,
+		Attributes: []attribute.KeyValue{
+			attribute.String(telemetryattrs.TelemetryOriginClientIDAttr, origin),
+			attribute.String("fixture", name),
+		},
+		Resource: resource.NewSchemaless(attribute.String("service.name", "fanout-fixture")),
+		InstrumentationScope: instrumentation.Scope{Name: "fixture", Version: "1",
+			Attributes: attribute.NewSet(attribute.Int("scope-key", 7))},
+	}
+}
+
+func loadFanoutRows(t testing.TB, store *clientdb.DB) []clientdb.Span {
+	t.Helper()
+	var rows []clientdb.Span
+	var cursor int64
+	for {
+		batch, err := store.SelectSpansSince(t.Context(), clientdb.SelectSpansSinceParams{ID: cursor, Limit: 100})
+		require.NoError(t, err)
+		if len(batch) == 0 {
+			return rows
+		}
+		require.Greater(t, batch[len(batch)-1].ID, cursor)
+		cursor = batch[len(batch)-1].ID
+		rows = append(rows, batch...)
+	}
+}
+
+func TestSessionSpanFanoutPreservesRoutingOrderUpdatesAndIndependentIDs(t *testing.T) {
+	exporter, stores := spanFanoutFixture(t)
+	seed := fanoutSpan(9, "root", "root-seed")
+	require.NoError(t, exporter.ExportSpans(t.Context(), []sdktrace.ReadOnlySpan{seed.Snapshot()}))
+
+	root := fanoutSpan(1, "root", "root-work")
+	child := fanoutSpan(2, "child", "child-live")
+	child.Parent = root.SpanContext
+	sibling := fanoutSpan(3, "sibling", "sibling-work")
+	ended := child
+	ended.Name = "child-ended"
+	ended.EndTime = child.StartTime.Add(time.Second)
+	ended.Status = sdktrace.Status{Code: codes.Error, Description: "fixture failure"}
+	ended.Events = []sdktrace.Event{{Name: "done", Time: ended.EndTime, Attributes: []attribute.KeyValue{attribute.Int("answer", 42)}}}
+	ended.Links = []sdktrace.Link{{SpanContext: sibling.SpanContext,
+		Attributes: []attribute.KeyValue{attribute.String(telemetry.LinkPurposeAttr, telemetry.LinkPurposeCause)}}}
+	ended.DroppedAttributes, ended.DroppedEvents, ended.DroppedLinks = 2, 3, 4
+	inputs := []sdktrace.ReadOnlySpan{root.Snapshot(), child.Snapshot(), sibling.Snapshot(), ended.Snapshot()}
+	require.NoError(t, exporter.ExportSpans(t.Context(), inputs))
+	want := map[string][]string{
+		"root":    {"root-seed", "root-work", "child-live", "sibling-work", "child-ended"},
+		"parent":  {"child-live", "child-ended"},
+		"child":   {"child-live", "child-ended"},
+		"sibling": {"sibling-work"},
+	}
+	for target, names := range want {
+		rows := loadFanoutRows(t, stores[target])
+		require.Len(t, rows, len(names), target)
+		for i, row := range rows {
+			require.Equal(t, names[i], row.Name, target)
+			require.Equal(t, int64(i+1), row.ID, "target-owned IDs: %s", target)
+			ro := row.ReadOnly()
+			for _, kv := range ro.Attributes() {
+				require.NotEqual(t, telemetryattrs.TelemetryOriginClientIDAttr, string(kv.Key))
+			}
+			require.True(t, ro.Resource().Equal(root.Resource))
+			require.Equal(t, "fixture", ro.InstrumentationScope().Name)
+			if row.Name == "child-live" {
+				require.False(t, row.EndTime.Valid)
+			}
+			if row.Name == "child-ended" {
+				require.Equal(t, root.SpanContext.SpanID(), ro.Parent().SpanID())
+				require.Equal(t, ended.EndTime, ro.EndTime())
+				require.Equal(t, ended.Status, ro.Status())
+				require.Equal(t, ended.Events, ro.Events())
+				// The existing read adapter drops link flags. Check the stored
+				// protobuf payload exactly, then its existing read semantics.
+				var links []*otlptracev1.Span_Link
+				require.NoError(t, clientdb.UnmarshalProtoJSONs(row.Links, &otlptracev1.Span_Link{}, &links))
+				require.Len(t, links, len(ended.Links))
+				wantLinks := telemetry.SpanLinksToPB(ended.Links)
+				for j := range links {
+					require.True(t, proto.Equal(wantLinks[j], links[j]))
+				}
+				require.Equal(t, telemetry.SpanLinksFromPB(wantLinks), ro.Links())
+				require.Equal(t, 2, ro.DroppedAttributes())
+				require.Equal(t, 3, ro.DroppedEvents())
+				require.Equal(t, 4, ro.DroppedLinks())
+			}
+		}
+	}
+	// Both ordinary parent edges and links introduced by a later update still
+	// populate the target's causal indexes used for scoped trace/log lookup.
+	require.Contains(t, stores["root"].ChildSpanIDs(root.SpanContext.SpanID().String()), child.SpanContext.SpanID().String())
+	require.Contains(t, stores["root"].ChildSpanIDs(sibling.SpanContext.SpanID().String()), child.SpanContext.SpanID().String())
+	// Routing does not mutate the producer's snapshot.
+	require.Contains(t, inputs[1].Attributes(), attribute.String(telemetryattrs.TelemetryOriginClientIDAttr, "child"))
+}
+
+func TestSessionSpanFanoutValidatesWholeBatchBeforeWriting(t *testing.T) {
+	for _, origin := range []string{"", "unknown"} {
+		t.Run(origin, func(t *testing.T) {
+			exporter, stores := spanFanoutFixture(t)
+			valid := fanoutSpan(1, "child", "valid")
+			invalid := fanoutSpan(2, origin, "invalid")
+			require.Error(t, exporter.ExportSpans(t.Context(), []sdktrace.ReadOnlySpan{valid.Snapshot(), invalid.Snapshot()}))
+			for _, store := range stores {
+				require.Empty(t, loadFanoutRows(t, store))
+			}
+		})
+	}
+}
+
+func TestSessionSpanFanoutEncodingFailureRetainsValidSiblingsAndStoreErrors(t *testing.T) {
+	exporter, stores := spanFanoutFixture(t)
+	invalid := fanoutSpan(1, "child", "invalid-scope")
+	invalid.InstrumentationScope.Name = "\xff" // protobuf JSON rejects invalid UTF-8.
+	valid := fanoutSpan(2, "child", "valid-sibling")
+	require.NoError(t, exporter.ExportSpans(t.Context(), []sdktrace.ReadOnlySpan{invalid.Snapshot(), valid.Snapshot()}))
+	for _, target := range []string{"root", "parent", "child"} {
+		rows := loadFanoutRows(t, stores[target])
+		require.Len(t, rows, 1)
+		require.Equal(t, "valid-sibling", rows[0].Name)
+	}
+	// Even an all-unencodable target retains the existing store-open error;
+	// preparation must not remove it from the delivery map prematurely.
+	require.NoError(t, exporter.ps.srv.clientDBs.Close())
+	require.ErrorContains(t, exporter.ExportSpans(t.Context(), []sdktrace.ReadOnlySpan{invalid.Snapshot()}), "get telemetry db")
+}
+
+type countResourceSpan struct {
+	sdktrace.ReadOnlySpan
+	reads atomic.Int64
+}
+
+func (s *countResourceSpan) Resource() *resource.Resource {
+	s.reads.Add(1)
+	return s.ReadOnlySpan.Resource()
+}
+
+func TestSessionSpanFanoutPreparesEachRecordOnce(t *testing.T) {
+	exporter, stores := spanFanoutFixture(t)
+	stub := fanoutSpan(1, "child", "one-to-three")
+	span := &countResourceSpan{ReadOnlySpan: stub.Snapshot()}
+	require.NoError(t, exporter.ExportSpans(context.Background(), []sdktrace.ReadOnlySpan{span}))
+	require.Equal(t, int64(1), span.reads.Load(), "encode once before delivery to three targets")
+	for _, target := range []string{"root", "parent", "child"} {
+		require.Len(t, loadFanoutRows(t, stores[target]), 1)
+	}
+	require.Empty(t, loadFanoutRows(t, stores["sibling"]))
+}
+
+func TestSessionSpanFanoutReopensPersistedRowsAndIndexes(t *testing.T) {
+	exporter, stores := spanFanoutFixture(t)
+	root := fanoutSpan(250, "root", "persisted-root")
+	require.NoError(t, exporter.ExportSpans(t.Context(), []sdktrace.ReadOnlySpan{root.Snapshot()}))
+	// Exceed the ordinary 2 MiB tail budget in each of three routed stores.
+	// Closing all retained handles then guarantees the reopen reads the log.
+	payload := strings.Repeat("p", 32<<10)
+	spans := make([]sdktrace.ReadOnlySpan, 96)
+	for i := range spans {
+		stub := fanoutSpan(byte(i+1), "child", fmt.Sprintf("persisted-%d", i))
+		stub.Parent = root.SpanContext
+		stub.Attributes = append(stub.Attributes, attribute.String("payload", payload))
+		stub.EndTime = stub.StartTime.Add(time.Second)
+		spans[i] = stub.Snapshot()
+	}
+	require.NoError(t, exporter.ExportSpans(t.Context(), spans))
+	before := map[string][]clientdb.Span{}
+	for target, store := range stores {
+		before[target] = loadFanoutRows(t, store)
+		require.NoError(t, store.Close())
+		reopened, err := exporter.ps.srv.clientDBs.Open(t.Context(), target)
+		require.NoError(t, err)
+		require.NotSame(t, store, reopened)
+		stores[target] = reopened
+		require.Equal(t, before[target], loadFanoutRows(t, reopened), target)
+	}
+	require.Len(t, before["root"], 97)
+	require.Len(t, before["parent"], 96)
+	require.Len(t, before["child"], 96)
+	require.Empty(t, before["sibling"])
+	for _, target := range []string{"root", "parent", "child"} {
+		require.Len(t, stores[target].ChildSpanIDs(root.SpanContext.SpanID().String()), 96)
+	}
+	// Export after recovery must continue each target's independent row IDs.
+	last := fanoutSpan(251, "child", "after-reopen")
+	require.NoError(t, exporter.ExportSpans(t.Context(), []sdktrace.ReadOnlySpan{last.Snapshot()}))
+	for _, target := range []string{"root", "parent", "child"} {
+		rows := loadFanoutRows(t, stores[target])
+		require.Equal(t, int64(len(before[target])+1), rows[len(rows)-1].ID)
+		require.Equal(t, "after-reopen", rows[len(rows)-1].Name)
+	}
+}
+
+func TestSessionSpanFanoutRevalidatesRouteOnNextBatch(t *testing.T) {
+	exporter, stores := spanFanoutFixture(t)
+	stub := fanoutSpan(1, "child", "first")
+	require.NoError(t, exporter.ExportSpans(t.Context(), []sdktrace.ReadOnlySpan{stub.Snapshot()}))
+	exporter.sess.clientMu.Lock()
+	delete(exporter.sess.clientRecords, "parent")
+	exporter.sess.clientMu.Unlock()
+	require.ErrorContains(t, exporter.ExportSpans(t.Context(), []sdktrace.ReadOnlySpan{stub.Snapshot()}), "ancestor client")
+	for _, target := range []string{"root", "parent", "child"} {
+		require.Len(t, loadFanoutRows(t, stores[target]), 1)
+	}
+}
+
+func TestSessionSpanFanoutConcurrentIndependentTargetIDs(t *testing.T) {
+	exporter, stores := spanFanoutFixture(t)
+	var wg sync.WaitGroup
+	errors := make(chan error, 16)
+	for i := range 16 {
+		wg.Go(func() {
+			origin := "child"
+			if i%2 != 0 {
+				origin = "sibling"
+			}
+			first := fanoutSpan(byte(i+1), origin, fmt.Sprintf("live-%d", i))
+			last := first
+			last.Name = fmt.Sprintf("final-%d", i)
+			last.EndTime = first.StartTime.Add(time.Second)
+			errors <- exporter.ExportSpans(t.Context(), []sdktrace.ReadOnlySpan{first.Snapshot(), last.Snapshot()})
+		})
+	}
+	wg.Wait()
+	close(errors)
+	for err := range errors {
+		require.NoError(t, err)
+	}
+	for target, count := range map[string]int{"root": 32, "child": 16, "parent": 16, "sibling": 16} {
+		rows := loadFanoutRows(t, stores[target])
+		require.Len(t, rows, count)
+		for i, row := range rows {
+			require.Equal(t, int64(i+1), row.ID)
+		}
+		// Append publishes a batch as an ordered block even if batches race.
+		for i := 0; i < len(rows); i += 2 {
+			require.True(t, strings.HasPrefix(rows[i].Name, "live-"))
+			require.Equal(t, strings.Replace(rows[i].Name, "live-", "final-", 1), rows[i+1].Name)
+			require.False(t, rows[i].EndTime.Valid)
+			require.True(t, rows[i+1].EndTime.Valid)
+		}
+	}
+}
+
+func TestSessionSpanFanoutSingleRootSpanAndEmptyBatch(t *testing.T) {
+	exporter, stores := spanFanoutFixture(t)
+	require.NoError(t, exporter.ExportSpans(t.Context(), nil))
+	stub := fanoutSpan(1, "root", "singleton")
+	span := &countResourceSpan{ReadOnlySpan: stub.Snapshot()}
+	require.NoError(t, exporter.ExportSpans(t.Context(), []sdktrace.ReadOnlySpan{span}))
+	require.Equal(t, int64(1), span.reads.Load())
+	require.Len(t, loadFanoutRows(t, stores["root"]), 1)
+	for _, target := range []string{"parent", "child", "sibling"} {
+		require.Empty(t, loadFanoutRows(t, stores[target]))
+	}
+}
+
+func TestSessionSpanFanoutReleasesUnretainedStores(t *testing.T) {
+	exporter, stores := spanFanoutFixture(t)
+	for target, store := range stores {
+		require.NoError(t, store.Close())
+		delete(stores, target)
+	}
+	root := fanoutSpan(1, "root", "unretained-root")
+	child := fanoutSpan(2, "child", "unretained-child")
+	require.NoError(t, exporter.ExportSpans(t.Context(), []sdktrace.ReadOnlySpan{root.Snapshot(), child.Snapshot()}))
+	require.Equal(t, clientdb.OpenStats{}, exporter.ps.srv.clientDBs.OpenStats())
+	for target, count := range map[string]int{"root": 2, "parent": 1, "child": 1, "sibling": 0} {
+		store, err := exporter.ps.srv.clientDBs.Open(t.Context(), target)
+		require.NoError(t, err)
+		stores[target] = store
+		require.Len(t, loadFanoutRows(t, store), count)
+	}
+}

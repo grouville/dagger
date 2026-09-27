@@ -1,0 +1,45 @@
+{
+  "baseCommit": "341595f37647998908de840dd6350f981628c715",
+  "goVersion": "go version go1.26.6 linux/amd64",
+  "environment": {
+    "CGO_ENABLED": "0",
+    "GOMAXPROCS": "4"
+  },
+  "builds": [
+    {
+      "name": "control",
+      "command": [
+        "go",
+        "build",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/cli-exit-tail-v2/build.mod",
+        "-buildvcs=true",
+        "-o",
+        "/tmp/collections-perf/cli-exit-tail-v2/dagger-control",
+        "./cmd/dagger"
+      ],
+      "exitCode": 0,
+      "seconds": 11.68176128109917,
+      "binary": "/tmp/collections-perf/cli-exit-tail-v2/dagger-control",
+      "sha256": "170e16539bf086fa8a182ec9f194a0fdb33156736ba2c206cefde7c07da8dce9"
+    },
+    {
+      "name": "diagnostic",
+      "command": [
+        "go",
+        "build",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/cli-exit-tail-v2/build.mod",
+        "-buildvcs=true",
+        "-overlay=/tmp/collections-perf/cli-exit-tail-v2/overlay.json",
+        "-o",
+        "/tmp/collections-perf/cli-exit-tail-v2/dagger-diagnostic",
+        "./cmd/dagger"
+      ],
+      "exitCode": 0,
+      "seconds": 11.680087278131396,
+      "binary": "/tmp/collections-perf/cli-exit-tail-v2/dagger-diagnostic",
+      "sha256": "6d3c425359c9433888a5f5b37ac1d8a87763db1071d900e92ca6d664cd10d56d"
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+"""Offline explicit allowlist builder; reads completed numeric trial records only."""
+from pathlib import Path
+import hashlib,json,statistics
+
+TRIAL=Path('/tmp/collections-perf/cli-metadata-closure-followup-v2')
+RUN=TRIAL/'local-v1'
+PRIOR=Path('/tmp/collections-perf/cli-metadata-closure-followup-v1/local-v1')
+OUT=Path('/tmp/collections-perf/warm-audit/metadata-closure-v2-evidence/shareable')
+
+def sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+def write(name,value):(OUT/name).write_text(json.dumps(value,indent=2)+'\n')
+def numeric_row(row):
+    fields=('variant','flow','phase','index','cloud','seconds','correct','expected_rejection','exit_code','timed_out','stdout_sha256','stderr_bytes','input_sha256','module_source_sha256','engine_cpu_seconds','engine_written_bytes','host_psi_delta_us','counter_bracket_seconds')
+    result={key:row[key]for key in fields}
+    io=row['engine_io_delta'];result['engine_io_aggregate_delta']={key:sum(device.get(key,0)for device in io.values())for key in ('rbytes','wbytes','rios','wios','dbytes','dios')}
+    return result
+
+def main():
+    assert(RUN/'restoration.json').exists(),'trial still running or no final cleanup record'
+    rows=json.loads((RUN/'results.json').read_text());restored=json.loads((RUN/'restoration.json').read_text());prov=json.loads((RUN/'provenance.json').read_text())
+    assert restored['engine_stopped']and restored['fixtures_restored']and restored['original_binary_restored']
+    assert restored['cloud_attempts']==0 and all(not row['cloud']for row in rows)
+    assert len(rows)==15 and all(row['correct']for row in rows),'do not silently publish a partial run as completed'
+    assert not OUT.exists(),'preserve prior evidence output'
+    OUT.mkdir(parents=True)
+    safe=[numeric_row(row)for row in rows];write('commands-numeric.json',safe);write('restoration.json',restored)
+    source=RUN/'driver.py.txt';(OUT/'runtime-driver.py.txt').write_bytes(source.read_bytes());(OUT/'evidence-builder.py.txt').write_bytes(Path(__file__).read_bytes())
+    builds=prov['frozen_builds']['builds']
+    write('provenance.json',{'status':'completed local-only correctness and n=2 fresh-input pairs','source_head':builds['source_head'],'engine_sha256':builds['engine']['sha256'],'baseline_cli_sha256':builds['baseline']['sha256'],'candidate_cli_sha256':builds['candidate']['sha256'],'driver_sha256':sha(source),'frozen_builds_sha256':prov['frozen_builds_sha256'],'source_manifest_sha256':prov['frozen_builds']['source_manifest_sha256'],'helper_sha256':prov['helper_sha256'],'one_retained_engine_and_volume':True,'cloud_commands':0,'local_commands':15,'explicit_primers':2,'profiling':False,'original_engine_restored':True,'source_module_renamed_and_restored':True,'input_policy':prov['input_policy'],'timing_boundary':prov['timing_boundary'],'limits':prov['limits']})
+    groups={phase:[r for r in safe if r['phase']==phase]for phase in sorted({r['phase']for r in safe})}
+    edit=groups['unprimed-fresh-input'];assert len(edit)==4 and len({r['input_sha256']for r in edit})==4
+    assert all(r['stdout_sha256']==r['input_sha256']for r in edit)
+    pairs=[]
+    for index in range(2):
+        p=[r for r in edit if r['index']==index];assert len(p)==2
+        by={r['variant']:r for r in p};b=by['baseline']['seconds'];c=by['candidate']['seconds']
+        pairs.append({'pair':index,'order':[r['variant']for r in p],'baseline_seconds':b,'candidate_seconds':c,'candidate_minus_baseline_seconds':c-b,'candidate_reduction_fraction':1-c/b,'different_input_hashes':len({r['input_sha256']for r in p})==2,'baseline_engine_cpu_seconds':by['baseline']['engine_cpu_seconds'],'candidate_engine_cpu_seconds':by['candidate']['engine_cpu_seconds']})
+    bmed=statistics.median(r['seconds']for r in edit if r['variant']=='baseline');cmed=statistics.median(r['seconds']for r in edit if r['variant']=='candidate')
+    summary={'fresh_input_pairs':pairs,'baseline_fresh_input_median_seconds':bmed,'candidate_fresh_input_median_seconds':cmed,'median_reduction_fraction':1-cmed/bmed,'paired_median_candidate_minus_baseline_seconds':statistics.median(p['candidate_minus_baseline_seconds']for p in pairs),'sample_limit':'Two independent fresh-input pairs only; no population estimate, cold claim or complete application-check claim.','collection_get_subset_passed':len(groups['collection-correctness'])==4,'schema_new_name_passed_both_clis':len(groups['schema-renamed-success'])==2,'schema_old_name_rejected_both_clis':len(groups['stale-schema-rejected'])==2 and all(r['expected_rejection']and r['exit_code']!=0 for r in groups['stale-schema-rejected']),'schema_original_name_restored_candidate':len(groups['schema-restored-success'])==1,'all_source_input_bytes_restored':True}
+    write('summary.json',summary)
+    prior_rows=json.loads((PRIOR/'results.json').read_text());prior_restore=json.loads((PRIOR/'restoration.json').read_text());prior_prov=json.loads((PRIOR/'provenance.json').read_text())
+    write('prior-failed-preflight-numeric.json',{'status':'preserved failed first follow-up; excluded from performance estimates','engine_sha256':prior_prov['frozen_builds']['builds']['engine']['sha256'],'driver_sha256':prior_prov['driver_sha256'],'commands':[numeric_row(r)for r in prior_rows],'restoration':prior_restore,'expected_failure_summary':'Baseline get succeeds after collection type closure correction; candidate JSON CLI rejects the go root command because new metadata field did not trigger pending workspace module loading.','latency_interpretation':'A rejected command did less required work and is not a performance improvement.'})
+    lines=['# CLI metadata: collection and real input invalidation follow-up','',f'All 15 local CLI invocations met their expected outcomes; two are deliberate stale-function errors. No Cloud requests were enabled. The original engine and both fixtures were restored, and the engine was stopped.','',
+      'The corrected engine includes both public collection type closure and equivalent root-demand handling for the JSON metadata endpoint. The old and new CLI use the same engine and retained volume. The baseline CLI uses the existing GraphQL metadata projection; the candidate uses the JSON projection.','',
+      '- Collection get returns exactly all six expected test names on both CLIs; subset returns exactly the dot module key. Output bytes match between CLIs. These are metadata/collection probes, not test execution. The first baseline collection call can pay setup and warm shared state for the following candidate call; their durations are not a matched performance comparison.',
+      '- Renaming the same native module method from read to readEdited makes read-edited callable on both CLIs, while both reject the stale read name. Restoring the complete original module bytes makes candidate read work again.',
+      '- Four separately edited input payloads produce their exact new bytes. Each measured command receives a distinct UUID payload with no prior call on those bytes. Unchanged lower layers can still use ordinary Dagger caching.','',
+      '| Fresh-input pair | Order | GraphQL CLI | JSON CLI | Difference |','| --- | --- | ---: | ---: | ---: |']
+    for p in pairs:lines.append(f"| {p['pair']+1} | {' → '.join(p['order'])} | {p['baseline_seconds']:.3f} s | {p['candidate_seconds']:.3f} s | {p['candidate_minus_baseline_seconds']*1000:+.1f} ms |")
+    lines.extend(['',f'The two-sample medians are {bmed:.3f} s and {cmed:.3f} s ({(1-cmed/bmed)*100:.1f}% lower for the candidate). This is a narrow native-module read after input edits, with n=2 per CLI. It is not a reliable estimate across projects, a cold-start result, or a full greetings check/listing benchmark. Neither primer nor renamed-schema/error timings are pooled into this comparison.','',
+      'Timing covers CLI process spawn through blocking waitpid completion. Setup, engine startup, resource snapshots and final restoration are outside that interval. No profiler was enabled. Engine CPU, IO and host pressure deltas are included as contextual counters; they do not independently identify the cause of the latency difference.','',
+      'The failed v1 trial is retained separately. It repaired the original collection closure error but exposed a missing workspace-loading trigger in the JSON endpoint. Its faster rejected candidate call is excluded. The corrected trigger preserves both full-schema and client-scoped module loading instead of unconditionally loading every module.','',
+      'The archive is an explicit allowlist: source driver, evidence builder, numeric outcomes and hashes. It contains no stdout/stderr, raw profiles, engine binaries, container/client IDs, endpoint URLs, authentication data or private Cloud code.'])
+    (OUT/'report.md').write_text('\n'.join(lines)+'\n')
+    paths=sorted(p.name for p in OUT.iterdir()if p.is_file())
+    write('archive-allowlist.json',{'status':'complete safe aggregate bundle','files':[{'path':name,'sha256':sha(OUT/name)}for name in paths],'exclude':'all raw outputs/profiles/binaries and full runtime provenance outside this explicit list'})
+    print(json.dumps({'status':'complete','commands':15,'cloud_commands':0,'fresh_pairs':2,'output':str(OUT),'baseline_fresh_median_s':bmed,'candidate_fresh_median_s':cmed}))
+if __name__=='__main__':main()

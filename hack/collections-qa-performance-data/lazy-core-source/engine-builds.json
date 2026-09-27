@@ -1,0 +1,47 @@
+{
+  "baseline": {
+    "binary": "/tmp/collections-perf/span-fanout-round2/engine-baseline",
+    "sha256": "bcadd647cc29e737d342cd4e29c6a55f6e49c4919971a7dd7ff1762471bd3660",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "build",
+      "-mod=readonly",
+      "-modfile=/tmp/collections-perf/span-fanout-round2/build.mod",
+      "-buildvcs=true",
+      "-overlay=/tmp/collections-perf/span-fanout-round2/baseline-engine-overlay.json",
+      "-o",
+      "/tmp/collections-perf/span-fanout-round2/engine-baseline",
+      "./cmd/engine"
+    ],
+    "source_head": "21939e4ff95dd2be7c584b883b39c5e75b20d703",
+    "seconds": 14.088711257092655,
+    "recipe_sha256": "5831d6686b1ffaaf15fb98f9115a0c698199e2a0297f4365fde7c9831ae8e923",
+    "instrumented": false,
+    "reused": true,
+    "semantic_inputs_verified": "same 13 frozen overrides byte-for-byte; added explicit original coremod matches unchanged HEAD21939; identical modfile/sum, pinned Dang sources, Go toolchain and environment"
+  },
+  "lazy": {
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "build",
+      "-mod=readonly",
+      "-modfile=/tmp/collections-perf/sdk-edit-audit/core-schema-lazy-v1/build.mod",
+      "-buildvcs=true",
+      "-overlay=/tmp/collections-perf/sdk-edit-audit/core-schema-lazy-v1/lazy-engine-overlay.json",
+      "-o",
+      "/tmp/collections-perf/sdk-edit-audit/core-schema-lazy-v1/engine-lazy",
+      "./cmd/engine"
+    ],
+    "binary": "/tmp/collections-perf/sdk-edit-audit/core-schema-lazy-v1/engine-lazy",
+    "exit_code": 0,
+    "seconds": 27.67003981815651,
+    "source_head": "21939e4ff95dd2be7c584b883b39c5e75b20d703",
+    "recipe_sha256": "0e8bd07e6d6abdc6e792108c6b2c60540ed39188470b1ab149a2236a31aa7459",
+    "instrumented": false,
+    "non_build_modified_paths": [
+      "hack/collections-performance-start.md",
+      "hack/collections-qa-performance-data/checksums.json"
+    ],
+    "sha256": "56f2eaccf6bf2f3151fb4c08205e1ad33fa7730ad5dee32577e867b527fc4b12"
+  }
+}

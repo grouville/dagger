@@ -1,0 +1,555 @@
+--- /home/dagger/dag/internal/cmd/dagger/main.go
++++ /tmp/collections-perf/cli-exit-tail-v2/source/cli_main.go
+@@ -263,6 +263,7 @@
+ 	DisableFlagsInUseLine: true,
+ 	Args:                  cobra.ArbitraryArgs,
+ 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
++		defer telemetry.PerfExitStart("cli.pre_run")()
+ 		// if we got this far, CLI parsing worked just fine; no
+ 		// need to show usage for runtime errors
+ 		cmd.SilenceUsage = true
+@@ -306,10 +307,13 @@
+ 			return err
+ 		}
+ 
++		labelsDone := telemetry.PerfExitStart("cli.labels")
+ 		labels := enginetel.LoadDefaultLabels(workdir, engine.Version)
++		labelsDone()
+ 		t := analytics.New(analytics.DefaultConfig(labels))
+ 		cmd.SetContext(analytics.WithContext(cmd.Context(), t))
+ 		cobra.OnFinalize(func() {
++			defer telemetry.PerfExitStart("analytics.finalize")()
+ 			t.Close()
+ 		})
+ 
+@@ -318,7 +322,8 @@
+ 		// token, and refreshing ahead of expiry keeps the round-trip off the
+ 		// critical path. No-op unless a subscription provider is configured;
+ 		// the on-demand refresher hook stays the fallback.
+-		cobra.OnFinalize(startOAuthTokenRefresher(cmd.Context()))
++		stopOAuth := startOAuthTokenRefresher(cmd.Context())
++		cobra.OnFinalize(func() { defer telemetry.PerfExitStart("oauth.finalize")(); stopOAuth() })
+ 
+ 		checkForUpdates(cmd.Context(), cmd.ErrOrStderr())
+ 
+@@ -1052,6 +1057,8 @@
+ }
+ 
+ func Main() {
++	mainDone := telemetry.PerfExitStart("cli.main")
++	defer func() { mainDone(); telemetry.PerfExitFlush() }()
+ 	runSSHAskpass()
+ 	installRootGlobalFlags()
+ 	if err := validateFlagCapabilities(rootCmd, os.Args[1:]); err != nil {
+@@ -1081,6 +1088,8 @@
+ 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+ 	exitWithCode := func(code int) {
+ 		stop()
++		mainDone()
++		telemetry.PerfExitFlush()
+ 		os.Exit(code)
+ 	}
+ 	if err := execXRelease(ctx); err != nil {
+@@ -1133,7 +1142,10 @@
+ 	ctx = slog.ContextWithColorMode(ctx, termenv.EnvNoColor())
+ 	ctx = slog.ContextWithDebugMode(ctx, debugFlag)
+ 
+-	if err := rootCmd.ExecuteContext(ctx); err != nil {
++	executeDone := telemetry.PerfExitStart("cli.execute")
++	executeErr := rootCmd.ExecuteContext(ctx)
++	executeDone()
++	if err := executeErr; err != nil {
+ 		var exit idtui.ExitError
+ 		switch {
+ 		case errors.As(err, &exit):
+--- /home/dagger/dag/internal/cmd/dagger/engine.go
++++ /tmp/collections-perf/cli-exit-tail-v2/source/cli_engine.go
+@@ -103,6 +103,7 @@
+ 	params client.Params,
+ 	fn runClientCallback,
+ ) (rerr error) {
++	defer telemetry.PerfExitStart("cli.with_engine_frontend")()
+ 	if err := applyWorkspaceClientParams(&params); err != nil {
+ 		return err
+ 	}
+@@ -144,7 +145,9 @@
+ 		}
+ 
+ 		// Connect to and run with the engine
++		connectDone := telemetry.PerfExitStart("engine.connect")
+ 		sess, err := client.Connect(ctx, params)
++		connectDone()
+ 		if err != nil {
+ 			return cleanup.Run, err
+ 		}
+@@ -152,7 +155,10 @@
+ 
+ 		Frontend.SetClient(sess.Dagger())
+ 
+-		return cleanup.Run, fn(ctx, sess)
++		commandDone := telemetry.PerfExitStart("cli.command")
++		commandErr := fn(ctx, sess)
++		commandDone()
++		return cleanup.Run, commandErr
+ 	})
+ }
+ 
+@@ -272,6 +278,7 @@
+ 	before func(context.Context),
+ 	fn func(ctx context.Context, connect func(context.Context) (*client.Client, func(), error)) error,
+ ) (rerr error) {
++	defer telemetry.PerfExitStart("cli.with_engine_frontend")()
+ 	params := client.Params{
+ 		SkipWorkspaceModules:           true,
+ 		SuppressCompatWorkspaceWarning: true,
+@@ -307,7 +314,9 @@
+ 			if err != nil {
+ 				return nil, nil, err
+ 			}
++			connectDone := telemetry.PerfExitStart("engine.connect")
+ 			sess, err := client.Connect(ctx, fp)
++			connectDone()
+ 			if err != nil {
+ 				return nil, nil, err
+ 			}
+@@ -315,7 +324,10 @@
+ 			return sess, func() { _ = sess.Close() }, nil
+ 		}
+ 
+-		return cleanup.Run, fn(ctx, connect)
++		commandDone := telemetry.PerfExitStart("cli.command")
++		commandErr := fn(ctx, connect)
++		commandDone()
++		return cleanup.Run, commandErr
+ 	})
+ }
+ 
+@@ -489,8 +501,14 @@
+ 	return ctx, func(rerr error) {
+ 		rootCmd.SetOut(oldOut)
+ 		rootCmd.SetErr(oldErr)
++		stdioDone := telemetry.PerfExitStart("cli.stdio_close")
+ 		stdio.Close()
++		stdioDone()
++		rootDone := telemetry.PerfExitStart("cli.root_end")
+ 		telemetry.EndWithCause(span, &rerr)
++		rootDone()
++		closeDone := telemetry.PerfExitStart("cli.telemetry_close")
+ 		telemetry.Close()
+-	}
+-}
++		closeDone()
++	}
++}
+--- /home/dagger/dag/engine/client/client.go
++++ /tmp/collections-perf/cli-exit-tail-v2/source/engine_client.go
+@@ -856,8 +856,11 @@
+ }
+ 
+ func (c *Client) Close() (rerr error) {
++	defer telemetry.PerfExitStart("engine.close")()
+ 	// shutdown happens outside of c.closeMu, since it requires a connection
++	shutdownDone := telemetry.PerfExitStart("engine.shutdown_http")
+ 	shutdownErr := c.shutdownServer()
++	shutdownDone()
+ 	if shutdownErr != nil {
+ 		rerr = errors.Join(rerr, fmt.Errorf("shutdown: %w", shutdownErr))
+ 	} else if c.telemetry != nil {
+@@ -871,6 +874,7 @@
+ 		// run's own work has already completed, and callers join Close errors
+ 		// into the run's exit status.
+ 		ctx, cancel := context.WithTimeout(context.WithoutCancel(c.internalCtx), clientShutdownTimeout())
++		drainDone := telemetry.PerfExitStart("engine.subscribers_drain")
+ 		drained := make(chan error, 1)
+ 		go func() { drained <- c.telemetry.Wait() }()
+ 		select {
+@@ -882,9 +886,12 @@
+ 			slog.Warn("telemetry drain timed out after shutdown", "timeout", clientShutdownTimeout())
+ 		}
+ 		cancel()
+-	}
+-
++		drainDone()
++	}
++
++	lockDone := telemetry.PerfExitStart("engine.close_lock")
+ 	c.closeMu.Lock()
++	lockDone()
+ 	defer c.closeMu.Unlock()
+ 
+ 	select {
+@@ -926,14 +933,20 @@
+ 	if c.bkClient != nil {
+ 		c.eg.Go(c.bkClient.Close)
+ 	}
+-	if err := c.eg.Wait(); err != nil {
++	cleanupDone := telemetry.PerfExitStart("engine.clients_cleanup")
++	cleanupErr := c.eg.Wait()
++	cleanupDone()
++	if err := cleanupErr; err != nil {
+ 		rerr = errors.Join(rerr, err)
+ 	}
+ 
+ 	// Wait for telemetry to finish draining. Transport errors are logged, not
+ 	// returned, for the same reason as the post-shutdown drain above.
+ 	if c.telemetry != nil {
+-		if err := c.telemetry.Wait(); err != nil {
++		finalDrainDone := telemetry.PerfExitStart("engine.subscribers_final_drain")
++		finalDrainErr := c.telemetry.Wait()
++		finalDrainDone()
++		if err := finalDrainErr; err != nil {
+ 			slog.Warn("telemetry drain failed", "err", err)
+ 		}
+ 	}
+@@ -1381,7 +1394,9 @@
+ 
+ 	req.SetBasicAuth(c.SecretToken, "")
+ 
++	req, observe := telemetry.PerfExitHTTP(req, "engine.shutdown_request")
+ 	resp, err := c.httpClient.Do(req)
++	resp = observe(resp, err)
+ 	if err != nil {
+ 		return fmt.Errorf("do shutdown: %w", err)
+ 	}
+--- /home/dagger/dag/engine/telemetry/cloud_export_sequence.go
++++ /tmp/collections-perf/cli-exit-tail-v2/source/cloud_export_sequence.go
+@@ -8,6 +8,7 @@
+ 	"sync/atomic"
+ 	"time"
+ 
++	telemetry "github.com/dagger/otel-go"
+ 	"github.com/google/uuid"
+ 	sdklog "go.opentelemetry.io/otel/sdk/log"
+ 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+@@ -66,7 +67,18 @@
+ 	base http.RoundTripper
+ }
+ 
+-func (t exportSequenceTransport) RoundTrip(req *http.Request) (*http.Response, error) {
++func (t exportSequenceTransport) RoundTrip(req *http.Request) (resp *http.Response, rerr error) {
++	kind := "cloud.other"
++	switch req.URL.Path {
++	case "/v1/traces":
++		kind = "cloud.traces"
++	case "/v1/logs":
++		kind = "cloud.logs"
++	case "/v1/metrics":
++		kind = "cloud.metrics"
++	}
++	req, observe := telemetry.PerfExitHTTP(req, kind)
++	defer func() { resp = observe(resp, rerr) }()
+ 	metadata, ok := req.Context().Value(exportSequenceContextKey{}).(exportSequenceMetadata)
+ 	if !ok {
+ 		return t.base.RoundTrip(req)
+@@ -86,6 +98,7 @@
+ var _ sdktrace.SpanExporter = (*sequencedSpanExporter)(nil)
+ 
+ func (e *sequencedSpanExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
++	defer telemetry.PerfExitStartValues("cloud.export.traces", map[string]int64{"records": int64(len(spans))})()
+ 	return e.exporter.ExportSpans(e.sequencer.nextContext(ctx), spans)
+ }
+ 
+@@ -101,6 +114,7 @@
+ var _ sdklog.Exporter = (*sequencedLogExporter)(nil)
+ 
+ func (e *sequencedLogExporter) Export(ctx context.Context, logs []sdklog.Record) error {
++	defer telemetry.PerfExitStartValues("cloud.export.logs", map[string]int64{"records": int64(len(logs))})()
+ 	return e.exporter.Export(e.sequencer.nextContext(ctx), logs)
+ }
+ 
+--- /home/dagger/dag/analytics/analytics.go
++++ /tmp/collections-perf/cli-exit-tail-v2/source/analytics.go
+@@ -17,6 +17,7 @@
+ 	"github.com/dagger/dagger/engine"
+ 	"github.com/dagger/dagger/engine/slog"
+ 	"github.com/dagger/dagger/engine/telemetry"
++	oteldiag "github.com/dagger/otel-go"
+ )
+ 
+ const (
+@@ -212,7 +213,9 @@
+ 		slog.Debug("analytics: new request failed", "error", err)
+ 		return
+ 	}
++	req, observe := oteldiag.PerfExitHTTP(req, "analytics.http")
+ 	resp, err := http.DefaultClient.Do(req)
++	resp = observe(resp, err)
+ 	if err != nil {
+ 		slog.Debug("analytics: do request failed", "error", err)
+ 		return
+--- /tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/init.go
++++ /tmp/collections-perf/cli-exit-tail-v2/source/otel_init.go
+@@ -486,17 +486,26 @@
+ 	flushCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+ 	defer cancel()
+ 	if tracerProvider != nil {
+-		if err := tracerProvider.Shutdown(flushCtx); err != nil {
++		done := PerfExitStart("otel.provider.traces")
++		err := tracerProvider.Shutdown(flushCtx)
++		done()
++		if err != nil {
+ 			slog.Error("failed to shut down tracer provider", "error", err)
+ 		}
+ 	}
+ 	if loggerProvider := LoggerProvider(ctx); loggerProvider != nil {
+-		if err := loggerProvider.Shutdown(flushCtx); err != nil {
++		done := PerfExitStart("otel.provider.logs")
++		err := loggerProvider.Shutdown(flushCtx)
++		done()
++		if err != nil {
+ 			slog.Error("failed to shut down logger provider", "error", err)
+ 		}
+ 	}
+ 	if meterProvider := MeterProvider(ctx); meterProvider != nil {
+-		if err := meterProvider.Shutdown(flushCtx); err != nil {
++		done := PerfExitStart("otel.provider.metrics")
++		err := meterProvider.Shutdown(flushCtx)
++		done()
++		if err != nil {
+ 			slog.Error("failed to shut down meter provider", "error", err)
+ 		}
+ 	}
+--- /tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/perf_exit_diagnostic.go
++++ /tmp/collections-perf/cli-exit-tail-v2/source/perf_exit_diagnostic.go
+@@ -0,0 +1,241 @@
++package otel
++
++// Diagnostic overlay only: fixed labels plus numeric timings/counters. Never
++// inspect request bodies, authentication, URLs, headers, span IDs or error text.
++import (
++	"crypto/tls"
++	"encoding/json"
++	"io"
++	"net/http"
++	"net/http/httptrace"
++	"os"
++	"sync"
++	"time"
++)
++
++var perfExitPath = os.Getenv("DAGGER_PERF_EXIT_TIMELINE")
++var perfExitEpoch = time.Now()
++var perfExitMu sync.Mutex
++var perfExitRows []perfExitRow
++var perfExitDropped int64
++var perfExitFlushed bool
++
++type perfExitRow struct {
++	Kind    string           `json:"kind"`
++	UnixNS  int64            `json:"unix_ns,omitempty"`
++	StartNS int64            `json:"start_ns"`
++	EndNS   int64            `json:"end_ns"`
++	Values  map[string]int64 `json:"values,omitempty"`
++}
++
++func PerfExitStart(kind string) func() { return PerfExitStartValues(kind, nil) }
++
++func PerfExitStartValues(kind string, values map[string]int64) func() {
++	if perfExitPath == "" {
++		return func() {}
++	}
++	start := time.Since(perfExitEpoch).Nanoseconds()
++	return func() {
++		perfExitAppend(perfExitRow{Kind: kind, StartNS: start, EndNS: time.Since(perfExitEpoch).Nanoseconds(), Values: values})
++	}
++}
++
++func perfExitAppend(row perfExitRow) {
++	perfExitMu.Lock()
++	defer perfExitMu.Unlock()
++	if len(perfExitRows) == 10000 {
++		perfExitDropped++
++		return
++	}
++	perfExitRows = append(perfExitRows, row)
++}
++
++// PerfExitFlush writes only after the measured operation. This avoids file IO
++// in HTTP hooks and shutdown callbacks. The caller's external process timer
++// still includes the final diagnostic serialization/write.
++func PerfExitFlush() {
++	flushStart := time.Since(perfExitEpoch).Nanoseconds()
++	if perfExitPath == "" {
++		return
++	}
++	perfExitMu.Lock()
++	if perfExitFlushed {
++		perfExitMu.Unlock()
++		return
++	}
++	perfExitFlushed = true
++	rows := append([]perfExitRow(nil), perfExitRows...)
++	dropped := perfExitDropped
++	perfExitMu.Unlock()
++	f, err := os.OpenFile(perfExitPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
++	if err != nil {
++		return
++	}
++	defer f.Close()
++	enc := json.NewEncoder(f)
++	_ = enc.Encode(perfExitRow{Kind: "anchor", UnixNS: perfExitEpoch.UnixNano()})
++	for _, row := range rows {
++		_ = enc.Encode(row)
++	}
++	_ = enc.Encode(perfExitRow{Kind: "diagnostic.flush", StartNS: flushStart, EndNS: time.Since(perfExitEpoch).Nanoseconds(), Values: map[string]int64{"dropped_events": dropped}})
++}
++
++// PerfExitHTTP attaches passive net/http hooks and wraps response body reads.
++// It returns the original response/error semantics, transport and request body.
++// ContentLength is reported as declared length; response_bytes counts only the
++// bytes the original caller actually reads. It never pre-reads or drains data.
++func PerfExitHTTP(req *http.Request, kind string) (*http.Request, func(*http.Response, error) *http.Response) {
++	if perfExitPath == "" {
++		return req, func(resp *http.Response, _ error) *http.Response { return resp }
++	}
++	start := time.Now()
++	startNS := time.Since(perfExitEpoch).Nanoseconds()
++	var mu sync.Mutex
++	values := map[string]int64{"request_content_length": req.ContentLength}
++	stamp := func(key string) { mu.Lock(); values[key] = time.Since(start).Nanoseconds(); mu.Unlock() }
++	var dnsStart, tlsStart time.Time
++	type connectKey struct{ network, address string }
++	connects := make(map[connectKey]time.Time)
++	trace := &httptrace.ClientTrace{
++		GetConn: func(string) { stamp("get_conn_ns") },
++		GotConn: func(info httptrace.GotConnInfo) {
++			mu.Lock()
++			defer mu.Unlock()
++			values["got_conn_ns"] = time.Since(start).Nanoseconds()
++			values["connection_acquire_ns"] = values["got_conn_ns"] - values["get_conn_ns"]
++			if info.Reused {
++				values["connection_reused"] = 1
++			}
++			if info.WasIdle {
++				values["connection_idle"] = 1
++			}
++		},
++		DNSStart: func(httptrace.DNSStartInfo) {
++			mu.Lock()
++			if dnsStart.IsZero() {
++				dnsStart = time.Now()
++			}
++			values["dns_attempts"]++
++			mu.Unlock()
++		},
++		DNSDone: func(info httptrace.DNSDoneInfo) {
++			mu.Lock()
++			if !dnsStart.IsZero() {
++				values["dns_window_ns"] = time.Since(dnsStart).Nanoseconds()
++			}
++			if info.Err != nil {
++				values["dns_errors"]++
++			}
++			mu.Unlock()
++		},
++		ConnectStart: func(network, address string) {
++			mu.Lock()
++			connects[connectKey{network, address}] = time.Now()
++			values["connect_attempts"]++
++			mu.Unlock()
++		},
++		ConnectDone: func(network, address string, err error) {
++			mu.Lock()
++			key := connectKey{network, address}
++			if began, ok := connects[key]; ok {
++				values["connect_ns"] += time.Since(began).Nanoseconds()
++				delete(connects, key)
++			}
++			if err != nil {
++				values["connect_errors"]++
++			}
++			mu.Unlock()
++		},
++		TLSHandshakeStart: func() {
++			mu.Lock()
++			if tlsStart.IsZero() {
++				tlsStart = time.Now()
++			}
++			values["tls_attempts"]++
++			mu.Unlock()
++		},
++		TLSHandshakeDone: func(_ tls.ConnectionState, err error) {
++			mu.Lock()
++			if !tlsStart.IsZero() {
++				values["tls_window_ns"] = time.Since(tlsStart).Nanoseconds()
++			}
++			if err != nil {
++				values["tls_errors"]++
++			}
++			mu.Unlock()
++		},
++		WroteRequest: func(info httptrace.WroteRequestInfo) {
++			mu.Lock()
++			values["wrote_request_ns"] = time.Since(start).Nanoseconds()
++			values["write_attempts"]++
++			if info.Err != nil {
++				values["write_errors"]++
++			}
++			mu.Unlock()
++		},
++		GotFirstResponseByte: func() { stamp("first_byte_ns") },
++	}
++	req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))
++	var once sync.Once
++	finish := func() {
++		once.Do(func() {
++			mu.Lock()
++			copyValues := make(map[string]int64, len(values))
++			for k, v := range values {
++				copyValues[k] = v
++			}
++			mu.Unlock()
++			perfExitAppend(perfExitRow{Kind: kind, StartNS: startNS, EndNS: time.Since(perfExitEpoch).Nanoseconds(), Values: copyValues})
++		})
++	}
++	return req, func(resp *http.Response, err error) *http.Response {
++		mu.Lock()
++		values["response_headers_ns"] = time.Since(start).Nanoseconds()
++		if err != nil {
++			values["transport_error"] = 1
++		}
++		if resp != nil {
++			values["status"] = int64(resp.StatusCode)
++		}
++		mu.Unlock()
++		if resp == nil || resp.Body == nil {
++			finish()
++			return resp
++		}
++		resp.Body = &perfExitBody{ReadCloser: resp.Body,
++			read: func(n int, err error) {
++				mu.Lock()
++				values["response_bytes"] += int64(n)
++				if err == io.EOF {
++					values["response_eof"] = 1
++				} else if err != nil {
++					values["body_read_errors"]++
++				}
++				mu.Unlock()
++			},
++			closed: func(err error) {
++				mu.Lock()
++				values["body_closed"] = 1
++				if err != nil {
++					values["body_close_error"] = 1
++				}
++				mu.Unlock()
++				finish()
++			},
++		}
++		return resp
++	}
++}
++
++type perfExitBody struct {
++	io.ReadCloser
++	read   func(int, error)
++	closed func(error)
++}
++
++func (b *perfExitBody) Read(p []byte) (int, error) {
++	n, err := b.ReadCloser.Read(p)
++	b.read(n, err)
++	return n, err
++}
++func (b *perfExitBody) Close() error { err := b.ReadCloser.Close(); b.closed(err); return err }

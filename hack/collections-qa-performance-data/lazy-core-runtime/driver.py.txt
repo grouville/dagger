@@ -1,0 +1,389 @@
+"""Bounded ordinary lazy-core comparison. No execution without --run.
+
+Exactly 38 production Cloud commands and six explicit local commands. Cold ws ls
+is each fresh engine's first CLI call. No instrumented binaries or profiled runs.
+"""
+from pathlib import Path
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+import re
+import shutil
+import signal
+import socket
+import statistics
+import subprocess
+import threading
+import time
+import uuid
+
+import experiment as x
+
+LAB = Path(__file__).resolve().parent
+OUT = LAB / 'lazy-core-runtime-v1'
+BUILD = Path('/tmp/collections-perf/sdk-edit-audit/core-schema-lazy-v1')
+BASE_BUILD = Path('/tmp/collections-perf/span-fanout-round2')
+OWNER = 'collections-lazy-core-runtime-v1'
+CLI = Path('/tmp/collections-perf/cli-exit-tail-v2/dagger-control')
+CLI_SHA = '170e16539bf086fa8a182ec9f194a0fdb33156736ba2c206cefde7c07da8dce9'
+BASE_SHA = 'bcadd647cc29e737d342cd4e29c6a55f6e49c4919971a7dd7ff1762471bd3660'
+LAZY_SHA = '56f2eaccf6bf2f3151fb4c08205e1ad33fa7730ad5dee32577e867b527fc4b12'
+RECIPE_SHA = '0e8bd07e6d6abdc6e792108c6b2c60540ed39188470b1ab149a2236a31aa7459'
+BASE_RECIPE_SHA = '5831d6686b1ffaaf15fb98f9115a0c698199e2a0297f4365fde7c9831ae8e923'
+HEAD = '21939e4ff95dd2be7c584b883b39c5e75b20d703'
+VARIANTS = ('baseline', 'lazy')
+CLOUD_PLANNED, CLOUD_CAP, LOCAL_PLANNED = 38, 40, 6
+MIN_FREE, MAX_WRITTEN = 16 * 1024**3, 8 * 1024**3
+MEM_FIELDS = ('TotalAlloc', 'Mallocs', 'Frees', 'HeapAlloc', 'HeapObjects', 'NumGC', 'NumForcedGC', 'PauseTotalNs')
+FLOWS = {
+    'workspace-files': ['ws', 'ls'],
+    'core-version': x.FLOWS['core'],
+    'generate-warm': ['-y', 'generate'],
+    'generate-edit': ['-y', 'generate'],
+    'artifacts': ['list', '-a'],
+    'generators': ['generate', '-l'],
+    'all-checks': x.FLOWS['expanded'],
+    'selected-check': x.FLOWS['execute'],
+}
+PLAN = [
+    ('fresh-engine-first-cli', 'workspace-files', 1, True),
+    ('warm', 'workspace-files', 3, True),
+    ('minimal-core', 'core-version', 1, True),
+    ('explicit-local-primer', 'generate-warm', 1, False),
+    ('warm', 'generate-warm', 3, True),
+    ('new-input-edit', 'generate-edit', 3, True),
+    ('greetings-first-use-warm-engine', 'artifacts', 1, True),
+    ('warm', 'artifacts', 3, True),
+    ('warm', 'generators', 2, True),
+    ('local-fourteen-check-correctness', 'all-checks', 1, False),
+    ('selected-check-first-use-local-primer', 'selected-check', 1, False),
+    ('warm', 'selected-check', 2, True),
+]
+spec = importlib.util.spec_from_file_location('navigation', LAB / 'navigation-generate.py')
+nav = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(nav)
+
+
+def absent(kind, name):
+    return subprocess.run(['docker', kind, 'inspect', name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0
+
+
+def free_port():
+    with socket.socket() as sock:
+        sock.bind(('127.0.0.1', 0))
+        return sock.getsockname()[1]
+
+
+def snapshot(item):
+    result = nav.warm.snapshot(item)
+    # Parse in memory and persist only this fixed numerical allowlist.
+    mem = json.loads(x.get(item['port'], '/debug/vars'))['memstats']
+    result['memstats'] = {key: mem[key] for key in MEM_FIELDS}
+    assert all(isinstance(value, int) and not isinstance(value, bool) for value in result['memstats'].values())
+    return result
+
+
+def delta(before, after):
+    result = nav.warm.delta(before, after)
+    result['memstats_delta'] = {key: after['memstats'][key] - before['memstats'][key] for key in MEM_FIELDS}
+    return result
+
+
+def written_total(snap):
+    return sum(device.get('wbytes', 0) for device in snap['engine_io'].values())
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--run', action='store_true')
+    args = parser.parse_args()
+    assert sum(2 * count for _, _, count, cloud in PLAN if cloud) == CLOUD_PLANNED
+    assert sum(2 * count for _, _, count, cloud in PLAN if not cloud) == LOCAL_PLANNED
+    if not args.run:
+        print(json.dumps({'execute': False, 'candidate_frozen': LAZY_SHA is not None,
+                          'cloud_commands_planned': CLOUD_PLANNED, 'cloud_commands_cap': CLOUD_CAP,
+                          'local_commands_planned_and_cap': LOCAL_PLANNED, 'fresh_engines': 2,
+                          'plan': PLAN, 'output': str(OUT), 'first_cli': 'ws ls; no primer',
+                          'generation': 'native Dang generation; not SDK generation'}))
+        return
+    os.umask(0o077)
+    assert LAZY_SHA is not None, 'candidate build SHA not reviewed/frozen'
+    assert not OUT.exists(), 'never overwrite or resume a partial trial'
+    assert x.sha(CLI) == CLI_SHA
+    assert x.sha(BUILD / 'engine-build-recipe.json') == RECIPE_SHA
+    assert x.sha(BASE_BUILD / 'engine-build-recipe.json') == BASE_RECIPE_SHA
+    recipe = json.loads((BUILD / 'engine-build-recipe.json').read_text())
+    assert recipe['head'] == HEAD and recipe['no_instrumentation'] and recipe['no_test_overlay_in_engine']
+    assert recipe['prior_baseline_binary_sha256'] == BASE_SHA
+    for path, digest in recipe['frozen_inputs'].items():
+        assert x.sha(path) == digest, 'frozen build input changed'
+    builds = {'baseline': json.loads((BASE_BUILD / 'engine-builds.json').read_text())['baseline'],
+              'lazy': json.loads((BUILD / 'engine-builds.json').read_text())['lazy']}
+    engine_sha = {'baseline': BASE_SHA, 'lazy': LAZY_SHA}
+    for variant, entry in builds.items():
+        assert entry['sha256'] == engine_sha[variant] == x.sha(entry['binary'])
+        assert entry['source_head'] == HEAD and not entry['instrumented']
+        assert entry['recipe_sha256'] == (BASE_RECIPE_SHA if variant == 'baseline' else RECIPE_SHA)
+    base = json.loads((LAB / 'prepared.json').read_text())
+    state = json.loads((LAB / 'withfile-v1/prepared.json').read_text())
+    app, native = LAB / 'greetings', LAB / 'native'
+    assert x.fixture_hashes(app) == state['input_sha256'], 'greetings baseline changed'
+    native_hashes = x.fixture_hashes(native)
+    original = {name: (native / name).read_bytes() if (native / name).exists() else None
+                for name in ('input.txt', 'generated.txt')}
+    assert original['input.txt'] is not None
+    expected_native = dict(native_hashes)
+    expected_listings = {flow: nav.normalize((LAB / 'navigation-generate-v1' / ('local-correctness-0-' + flow) / 'stdout.txt').read_bytes())
+                         for flow in ('artifacts', 'workspace-files', 'generators')}
+    expected_checks = nav.warm.normalized_rows(x.WANT)
+    assert len(expected_checks) == 14
+    assert shutil.disk_usage(LAB).free > MIN_FREE
+    image = x.capture(['docker', 'image', 'inspect', '--format', '{{.Id}}', base['image']])
+    assert image == base['image']
+    for path, digest in base['blobs'].items():
+        assert x.sha(path) == digest
+    for variant in VARIANTS:
+        name = 'dagger-engine.' + OWNER + '-' + variant
+        assert absent('container', name) and absent('volume', name), 'resource name already exists'
+    OUT.mkdir(mode=0o700)
+    (OUT / 'driver.py.txt').write_bytes(Path(__file__).read_bytes())
+    (OUT / 'empty-config').mkdir(mode=0o700)
+    common = {key: os.environ[key] for key in ('PATH', 'HOME', 'USER', 'LOGNAME', 'TMPDIR') if key in os.environ}
+    common.update(DO_NOT_TRACK='1', DAGGER_NO_UPDATE_CHECK='1', GIT_TERMINAL_PROMPT='0')
+    local = dict(common, XDG_CONFIG_HOME=str(OUT / 'empty-config'))
+    cloud = dict(common, DAGGER_CLOUD_URL='https://api.dagger.cloud')
+    for key in ('DAGGER_CLOUD_TOKEN', 'XDG_CONFIG_HOME'):
+        if key in os.environ:
+            cloud[key] = os.environ[key]
+    x.OWNER = OWNER
+    engines, rows, attempts, setup, initial_io, latest_io = {}, [], [], {}, {}, {}
+    nonce = uuid.uuid4().hex
+    core_expected = None
+    x.write(OUT / 'provenance.json', {
+        'image': image, 'engine_sha256': engine_sha, 'source_head': HEAD,
+        'engine_recipe_sha256': {'baseline': BASE_RECIPE_SHA, 'lazy': RECIPE_SHA},
+        'build_manifest_sha256': {variant: x.sha((BASE_BUILD if variant == 'baseline' else BUILD) / 'engine-builds.json') for variant in VARIANTS},
+        'cli_sha256': CLI_SHA, 'cli_source_head': '341595f37647998908de840dd6350f981628c715',
+        'driver_sha256': x.sha(__file__),
+        'helper_sha256': {name: x.sha(LAB / name) for name in ('experiment.py', 'navigation-generate.py', 'withfile-cloud-warm.py')},
+        'owner': OWNER, 'plan': PLAN, 'flows': FLOWS, 'cloud_commands_planned': CLOUD_PLANNED,
+        'cloud_commands_cap': CLOUD_CAP, 'local_commands_cap': LOCAL_PLANNED,
+        'prior_cloud_commands': 124, 'approved_cloud_budget': 220,
+        'scope': 'Only CoreSchemaBase.Fork changes; baseline span routing in both; same metric fix, withFile/interface and experimental SDK overlays.',
+        'cold_boundary': 'First CLI ws ls on each newly started engine and fresh Dagger volume. Engine process startup, image/blob provisioning and host caches excluded; one cold pair cannot establish cold variability.',
+        'first_artifacts_boundary': 'First greetings artifact listing on an engine already used by ws ls, core version and native generation; not fully cold engine or host.',
+        'warm_boundary': 'Explicit stages in plan; generator listing follows artifact listing but first generator-list sample may initialize its own projection.',
+        'deferred_work': 'Lazy core metadata construction is deferred, not deleted. First core-version and native local-primer timings/counters are retained as separate stages; whichever first consumes TypeDefs pays the construction. First greetings listing follows both and cannot establish cold-artifact improvement. Ordinary first-use telemetry population may differ when construction moves into a request.',
+        'generation': 'Native Dang @generate returns input.txt contents; not SDK generation. Output removed before each call; no hidden generation primers.',
+        'edit_boundary': 'New random trial nonce plus pair index; identical input bytes for two independent engine volumes, neither previously primed with these bytes. Host page caches remain shared.',
+        'selected_check': 'TestFormatResponse only; first execution is an explicit local primer per engine, then two ordinary Cloud pairs. Not an all-six-tests execution claim.',
+        'authentication': 'Normal approved CLI login/environment; no credential reads/copies. Listings may not print Cloud links. Local primers use empty XDG config and no Cloud token/URL.',
+        'timing': 'Fresh Popen through blocking waitpid. Output visibility sampled every 5ms. Snapshots, setup, validation and one-second pacing excluded.',
+        'counter_scope': 'Engine cgroup/MemStats and host PSI bracket timer and include background work; no per-phase causal claim.',
+        'privacy': 'No credentials or raw traces retained in shareable output; raw stdout/stderr private. No profile instrumentation in ordinary timing.',
+        'fixtures': {'greetings': state['input_sha256'], 'native': native_hashes},
+        'bounds': {'free_disk_floor_bytes': MIN_FREE, 'engine_writes_limit_bytes': MAX_WRITTEN,
+                   'timeout_per_command_seconds': 300, 'resources_deleted': 0},
+    })
+
+    def cumulative_writes():
+        return sum(max(0, latest_io[key] - initial_io[key]) for key in initial_io)
+
+    def guard():
+        assert x.fixture_hashes(app) == state['input_sha256'], 'greetings changed'
+        assert x.fixture_hashes(native) == expected_native, 'native source unexpectedly changed'
+        assert shutil.disk_usage(LAB).free > MIN_FREE, '16 GiB disk floor'
+        assert cumulative_writes() < MAX_WRITTEN, '8 GiB engine writes limit'
+
+    def set_input(contents):
+        (native / 'input.txt').write_bytes(contents)
+        expected_native['input.txt'] = hashlib.sha256(contents).hexdigest()
+        (native / 'generated.txt').unlink(missing_ok=True)
+        expected_native.pop('generated.txt', None)
+
+    def run(variant, flow, phase, index, production, contents=None):
+        nonlocal core_expected
+        assert sum(row['production'] == production for row in attempts) < (CLOUD_PLANNED if production else LOCAL_PLANNED)
+        guard()
+        generates = flow in ('generate-warm', 'generate-edit')
+        if generates:
+            assert contents is not None
+            set_input(contents)
+        guard()
+        item = engines[variant]
+        dest = OUT / f'{phase}-{index}-{flow}-{variant}'
+        dest.mkdir()
+        command = [str(CLI), '--engine', 'container://' + item['name']] + FLOWS[flow]
+        attempt = dict(variant=variant, flow=flow, phase=phase, pair_index=index, production=production, command=command)
+        attempts.append(attempt)
+        x.write(OUT / 'attempts.json', attempts)
+        before = snapshot(item)
+        latest_io[variant] = written_total(before)
+        guard()
+        done, observed = threading.Event(), {}
+        visible, polls = None, 0
+        with (dest / 'stdout.txt').open('wb') as stdout, (dest / 'stderr.txt').open('wb') as stderr:
+            begin, wall = time.monotonic(), time.time_ns()
+            proc = subprocess.Popen(command, cwd=native if generates else app, env=cloud if production else local,
+                                    stdout=stdout, stderr=stderr, start_new_session=True)
+            def waiter():
+                observed['status'] = proc.wait()
+                observed['time'], observed['wall'] = time.monotonic(), time.time_ns()
+                done.set()
+            worker = threading.Thread(target=waiter, daemon=True)
+            worker.start()
+            timed_out = False
+            try:
+                if generates:
+                    while not done.is_set() and time.monotonic() - begin < 300:
+                        polls += 1
+                        try:
+                            if (native / 'generated.txt').read_bytes() == contents:
+                                visible = time.monotonic()
+                                break
+                        except FileNotFoundError:
+                            pass
+                        done.wait(.005)
+                timed_out = not done.wait(max(0, 300 - (time.monotonic() - begin)))
+            finally:
+                if not done.is_set():
+                    try:
+                        proc.send_signal(signal.SIGINT)
+                    except ProcessLookupError:
+                        pass
+                    if not done.wait(10):
+                        try:
+                            os.killpg(proc.pid, signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
+                worker.join(timeout=15)
+                assert not worker.is_alive(), 'owned CLI did not exit'
+        if visible is not None and visible > observed['time']:
+            visible = None
+        after = snapshot(item)
+        latest_io[variant] = written_total(after)
+        counters = delta(before, after)
+        stdout, stderr = (dest / 'stdout.txt').read_bytes(), (dest / 'stderr.txt').read_bytes()
+        text = nav.ANSI.sub(b'', stdout + stderr)
+        correct = not timed_out and observed['status'] == 0
+        if generates:
+            generated = (native / 'generated.txt').read_bytes() if (native / 'generated.txt').exists() else None
+            correct &= generated == contents
+            if generated is not None:
+                expected_native['generated.txt'] = hashlib.sha256(generated).hexdigest()
+        elif flow == 'selected-check':
+            correct &= bool(re.search(rb'\b1 passed\b', text))
+            correct &= b'dag://go/modules/tests/run?go-module=.&go-test=TestFormatResponse' in text
+        elif flow == 'all-checks':
+            correct &= nav.warm.normalized_rows(stdout) == expected_checks
+        elif flow == 'core-version':
+            correct &= bool(stdout.strip())
+            if core_expected is None:
+                core_expected = stdout
+            else:
+                correct &= stdout == core_expected
+        else:
+            correct &= nav.known_listing(flow, stdout) and nav.normalize(stdout) == expected_listings[flow]
+        row = dict(attempt, seconds=observed['time'] - begin, started_unix_ns=wall,
+                   exited_unix_ns=observed['wall'], exit_code=observed['status'], timed_out=timed_out,
+                   correct=bool(correct), stdout_sha256=x.sha(dest / 'stdout.txt'), stderr_bytes=len(stderr),
+                   cloud_link_visible=bool(re.search(rb'https://[^\s]*dagger.cloud/', text)),
+                   file_visible_seconds=visible - begin if visible is not None else None,
+                   file_to_exit_seconds=observed['time'] - visible if visible is not None else None,
+                   file_visibility_censored_at_exit=bool(generates and visible is None and correct),
+                   file_visibility_poll_ms=5 if generates else None, file_poll_count=polls,
+                   input_sha256=hashlib.sha256(contents).hexdigest() if generates else None,
+                   generated_bytes=len(contents) if generates and correct else None,
+                   possible_export_error_messages=len(re.findall(rb'(?:failed|failure|error)[^\n]{0,80}(?:export|telemetry)|(?:export|telemetry)[^\n]{0,80}(?:failed|failure|error)', text, re.I)),
+                   before=before, after=after, cumulative_engine_written_bytes=cumulative_writes(), **counters)
+        rows.append(row)
+        attempt['correct'] = bool(correct)
+        x.write(OUT / 'attempts.json', attempts)
+        x.write(OUT / 'results.json', rows)
+        print(json.dumps({key: row[key] for key in ('phase', 'variant', 'flow', 'pair_index', 'seconds', 'file_visible_seconds', 'correct')}), flush=True)
+        assert correct, 'correctness failed; inspect private output'
+        guard()
+        time.sleep(1)
+
+    try:
+        for variant in VARIANTS:
+            name, port = 'dagger-engine.' + OWNER + '-' + variant, free_port()
+            begin = time.monotonic()
+            x.capture(['docker', 'volume', 'create', '--label', 'dagger.perf.owner=' + OWNER,
+                       '--label', 'dagger.perf.experiment=lazy-core-runtime', name])
+            cid = x.capture(['docker', 'create', '--name', name, '--label', 'dagger.perf.owner=' + OWNER,
+                             '--label', 'dagger.perf.experiment=lazy-core-runtime', '--privileged',
+                             '-p', f'127.0.0.1:{port}:6060', '-v', name + ':/var/lib/dagger',
+                             '-e', 'DAGGER_TYPESCRIPT_SDK_MANIFEST_DIGEST=sha256:2a8f755cfe5322aeeee861f646c58d6b796a585d2794db47b5b71ba14f6f3fef',
+                             '-e', '_DAGGER_TEST_REMOTE_CACHE_FIXTURE_ROOT=', image, '--debugaddr=0.0.0.0:6060'])
+            item = engines[variant] = dict(name=name, id=cid, port=port, sha256=engine_sha[variant], variant=variant)
+            x.write(OUT / 'engines.json', engines)
+            x.capture(['docker', 'cp', builds[variant]['binary'], name + ':/usr/local/bin/dagger-engine'])
+            for path in base['blobs']:
+                x.capture(['docker', 'cp', path, name + ':/usr/local/share/dagger/content/blobs/sha256/' + Path(path).name])
+            setup[variant] = {'provision_seconds_excluded': time.monotonic() - begin}
+            x.write(OUT / 'setup.json', setup)
+        # Each engine starts immediately before its first CLI; readiness reads
+        # only /debug/pprof and binary hash, not GraphQL, schema, or a CLI primer.
+        for variant in VARIANTS:
+            setup[variant]['start_seconds_excluded'] = x.start(engines[variant])
+            first_snapshot = snapshot(engines[variant])
+            initial_io[variant] = latest_io[variant] = written_total(first_snapshot)
+            x.write(OUT / 'setup.json', setup)
+            run(variant, 'workspace-files', 'fresh-engine-first-cli', 0, True)
+        pair_serial = 1
+        for phase, flow, count, production in PLAN[1:]:
+            for index in range(count):
+                order = VARIANTS if pair_serial % 2 == 0 else tuple(reversed(VARIANTS))
+                contents = None
+                if flow == 'generate-edit':
+                    contents = f'lazy-core fresh-input {nonce} pair-{index}\n'.encode()
+                elif flow == 'generate-warm':
+                    contents = original['input.txt']
+                for variant in order:
+                    run(variant, flow, phase, index, production, contents)
+                pair_serial += 1
+    finally:
+        for name, contents in original.items():
+            if contents is None:
+                (native / name).unlink(missing_ok=True)
+            else:
+                (native / name).write_bytes(contents)
+        stopped = 0
+        for item in engines.values():
+            if x.owned(item)['State']['Running']:
+                x.capture(['docker', 'stop', '--timeout', '30', item['name']])
+            stopped += 1
+        restored = x.fixture_hashes(native) == native_hashes
+        unchanged = x.fixture_hashes(app) == state['input_sha256']
+        x.write(OUT / 'restoration.json', {'native_full_fixture_restored': restored, 'greetings_full_fixture_unchanged': unchanged,
+                'engines_stopped': stopped, 'volumes_retained': len(engines), 'resources_deleted': 0,
+                'cloud_commands_attempted': sum(row['production'] for row in attempts),
+                'local_commands_attempted': sum(not row['production'] for row in attempts),
+                'commands_validated': sum(row['correct'] for row in rows), 'cumulative_engine_written_bytes': cumulative_writes()})
+        assert restored and unchanged
+    assert len(rows) == CLOUD_PLANNED + LOCAL_PLANNED and all(row['correct'] for row in rows)
+    assert sum(row['production'] for row in rows) == CLOUD_PLANNED
+    summary = {'all_correct': True, 'cloud_commands': CLOUD_PLANNED, 'local_commands': LOCAL_PLANNED, 'comparisons': {}}
+    for phase, flow, count, production in PLAN:
+        values = {variant: [row for row in rows if row['phase'] == phase and row['variant'] == variant and row['flow'] == flow] for variant in VARIANTS}
+        assert all(len(items) == count for items in values.values())
+        if flow in ('generate-warm', 'generate-edit'):
+            assert [row['input_sha256'] for row in values['baseline']] == [row['input_sha256'] for row in values['lazy']]
+        key = phase + '/' + flow
+        summary['comparisons'][key] = {
+            variant: {'seconds': [row['seconds'] for row in items], 'median_seconds': statistics.median(row['seconds'] for row in items),
+                      'file_visible_seconds': [row['file_visible_seconds'] for row in items],
+                      'engine_cpu_seconds': [row['engine_cpu_seconds'] for row in items],
+                      'allocated_bytes': [row['memstats_delta']['TotalAlloc'] for row in items],
+                      'gc_counts': [row['memstats_delta']['NumGC'] for row in items]}
+            for variant, items in values.items()}
+        summary['comparisons'][key].update(production=production, pairs=count,
+            paired_lazy_minus_baseline_seconds=[b['seconds'] - a['seconds'] for a, b in zip(values['baseline'], values['lazy'])])
+    x.write(OUT / 'summary.json', summary)
+
+
+if __name__ == '__main__':
+    main()

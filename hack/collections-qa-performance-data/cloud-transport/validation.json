@@ -1,0 +1,85 @@
+{
+  "complete": true,
+  "head": "21939e4ff95dd2be7c584b883b39c5e75b20d703",
+  "manifest_sha256": "4511f7babadffa64df0c530049163683140b7d1b3a42b15baf61871d76d992e5",
+  "commands": [
+    {
+      "name": "helper-race",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-race",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/engine-cloud-transport-audit/build.mod",
+        "-overlay=/tmp/collections-perf/engine-cloud-transport-audit/test-overlay.json",
+        "-count=1",
+        "-timeout=180s",
+        "-run=^TestPerfExitAudit",
+        "-v",
+        "github.com/dagger/otel-go"
+      ],
+      "exit_code": 0,
+      "seconds": 3.4794396590441465,
+      "top_level_tests": [
+        "TestPerfExitAuditPassiveHTTPAndPrivacy",
+        "TestPerfExitAuditBoundedEventsAndImmutableValues",
+        "TestPerfExitAuditConcurrentSnapshot"
+      ],
+      "log_sha256": "263ab8260d3245fbcd45ecd397539fa2ea8e22915cc46a0cbf075ac113283c29"
+    },
+    {
+      "name": "server-race",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-race",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/engine-cloud-transport-audit/build.mod",
+        "-overlay=/tmp/collections-perf/engine-cloud-transport-audit/test-overlay.json",
+        "-count=1",
+        "-timeout=180s",
+        "-run=^(TestCloudTransportAuditPreservesLogExporterSemantics|TestCloudTransportAuditFixedRequestClasses|TestCloudLogPipelineKeepsPayloadsThroughBurst|TestCloudLogPipelineRetriesPayloads|TestCloudLogPipelineSerializesExports|TestCloudLogPipelineShutdownIsBounded|TestCloudRefreshGateWaitsForInflight|TestStopCloudTokenRefreshWaitsDespiteSpentBudget|TestSessionCloudTelemetryFlushIsBounded)$",
+        "-v",
+        "./engine/server"
+      ],
+      "exit_code": 0,
+      "seconds": 102.37627522903495,
+      "top_level_tests": [
+        "TestCloudTransportAuditPreservesLogExporterSemantics",
+        "TestCloudTransportAuditFixedRequestClasses",
+        "TestCloudLogPipelineKeepsPayloadsThroughBurst",
+        "TestStopCloudTokenRefreshWaitsDespiteSpentBudget",
+        "TestCloudLogPipelineSerializesExports",
+        "TestCloudLogPipelineShutdownIsBounded",
+        "TestCloudRefreshGateWaitsForInflight",
+        "TestCloudLogPipelineRetriesPayloads",
+        "TestSessionCloudTelemetryFlushIsBounded"
+      ],
+      "log_sha256": "6ec59ebb80aed8aff920965e55741ddb997553b07735d97a10444274c79ce97a"
+    },
+    {
+      "name": "sequence-race",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-race",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/engine-cloud-transport-audit/build.mod",
+        "-overlay=/tmp/collections-perf/engine-cloud-transport-audit/test-overlay.json",
+        "-count=1",
+        "-timeout=180s",
+        "-run=^TestExportSequenc",
+        "-v",
+        "./engine/telemetry"
+      ],
+      "exit_code": 0,
+      "seconds": 3.8740180898457766,
+      "top_level_tests": [
+        "TestExportSequencerIsolatesAndReusesConnections",
+        "TestExportSequencerAddsRetryStableHeader",
+        "TestExportSequencersAreIndependent"
+      ],
+      "log_sha256": "d713f074a41e0820ca4e2ba13f5399b9f0c1dbdc01a28bc97c7d5d6b81a124ec"
+    }
+  ]
+}

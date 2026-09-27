@@ -1,0 +1,123 @@
+"""Prepare one fresh lazy-core engine, then two LOCAL CLI calls.
+
+1. Ordinary ws ls proves native navigation works without metadata demand.
+2. --profile -m core api call version records the first metadata consumer.
+No Cloud credentials/config/exporter environment, retries, hidden CLI warmups,
+application SDKs or fixture edits. Opt-in diagnostic, not ordinary wall timing.
+"""
+from pathlib import Path
+import argparse,hashlib,json,os,re,shutil,signal,socket,subprocess,sys,threading,time
+
+HERE=Path(__file__).resolve().parent
+LAZY=HERE.parent/'core-schema-lazy-v1'
+LAB=Path('/tmp/collections-perf/engine-allocation-round2')
+sys.path.insert(0,str(LAB))
+import experiment as x
+
+OWNER='collections-core-first-metadata-v1'
+OUT=HERE/'first-consumer-local-v1'
+CLI=Path('/tmp/collections-perf/cli-exit-tail-v2/dagger-control')
+CLI_SHA='170e16539bf086fa8a182ec9f194a0fdb33156736ba2c206cefde7c07da8dce9'
+ENGINE_SHA='56f2eaccf6bf2f3151fb4c08205e1ad33fa7730ad5dee32577e867b527fc4b12'
+IMAGE='sha256:b00e366e582ab98f0e4a7907163f338b6be3bfa13b10f3ad6bac3d699cd25a07'
+
+def absent(kind,name):
+    return subprocess.run(['docker',kind,'inspect',name],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode!=0
+
+def mem(item):
+    raw=json.loads(x.get(item['port'],'/debug/vars'))['memstats']
+    return {k:raw[k] for k in ('TotalAlloc','HeapAlloc','NumGC','PauseTotalNs','Mallocs','Frees')}
+
+def main():
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--run',action='store_true');a=p.parse_args()
+    if not a.run:
+        print(json.dumps({'execute':False,'cloud_calls':0,'local_calls':2,'fresh_owned_engines':1,'fresh_volumes':1,
+                          'first_consumer':'-m core api call version','profile_only_on_second_call':True,
+                          'engine_sha256':ENGINE_SHA,'output':str(OUT)}));return
+    os.umask(0o077)
+    assert not OUT.exists(), 'never overwrite/resume a partial trial'
+    assert shutil.disk_usage(HERE).free>16*1024**3
+    build=json.loads((LAZY/'engine-builds.json').read_text())['lazy']
+    assert build['source_head']=='21939e4ff95dd2be7c584b883b39c5e75b20d703'
+    assert build['sha256']==ENGINE_SHA and x.sha(build['binary'])==ENGINE_SHA
+    assert x.sha(CLI)==CLI_SHA
+    assert x.capture(['docker','image','inspect','--format','{{.Id}}',IMAGE])==IMAGE
+    name='dagger-engine.'+OWNER
+    assert absent('container',name) and absent('volume',name)
+    OUT.mkdir(mode=0o700);(OUT/'empty-config').mkdir(mode=0o700)
+    fixture=OUT/'workspace';fixture.mkdir()
+    (fixture/'dagger.toml').write_text('')
+    (fixture/'marker.txt').write_text('local metadata profiling fixture\n')
+    before_fixture=x.fixture_hashes(fixture)
+    (OUT/'driver.py.txt').write_bytes(Path(__file__).read_bytes())
+    x.write(OUT/'provenance.json',{'engine':build,'image':IMAGE,'cli_sha256':CLI_SHA,'owner':OWNER,
+        'driver_sha256':x.sha(__file__),'helper_sha256':x.sha(LAB/'experiment.py'),
+        'local_calls_max':2,'cloud_calls':0,'auth':'environment allowlist and new empty XDG config; no Cloud/OTLP variables forwarded',
+        'cold':'fresh Dagger volume; host image/page caches may be warm; engine provisioning/startup excluded',
+        'sdk_blobs':'not provisioned: no module SDK or container execution is requested',
+        'profile':'native wcprof only for first metadata consumer; diagnostic duration is not an ordinary latency sample',
+        'fixture_hashes':before_fixture,'resources_deleted':0})
+    x.OWNER=OWNER;item=None;volume=False;rows=[];attempts=[]
+    # Preserve only basic process identity; intentionally omit all Cloud, OTLP,
+    # Dagger session and config variables from the inherited environment.
+    env={k:os.environ[k] for k in ('PATH','HOME','USER','LOGNAME','TMPDIR') if k in os.environ}
+    env.update(XDG_CONFIG_HOME=str(OUT/'empty-config'),DO_NOT_TRACK='1',DAGGER_NO_UPDATE_CHECK='1',GIT_TERMINAL_PROMPT='0')
+    try:
+        x.capture(['docker','volume','create','--label','dagger.perf.owner='+OWNER,name]);volume=True
+        with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
+        cid=x.capture(['docker','create','--name',name,'--label','dagger.perf.owner='+OWNER,'--privileged',
+            '-p',f'127.0.0.1:{port}:6060','-v',name+':/var/lib/dagger',
+            '-e','_DAGGER_TEST_REMOTE_CACHE_FIXTURE_ROOT=',IMAGE,'--debugaddr=0.0.0.0:6060'])
+        item={'id':cid,'name':name,'port':port,'sha256':ENGINE_SHA};x.write(OUT/'engine.json',item)
+        x.capture(['docker','cp',build['binary'],name+':/usr/local/bin/dagger-engine'])
+        x.write(OUT/'setup.json',{'startup_seconds_excluded':x.start(item)})
+        for index,(flow,argv) in enumerate([('native-navigation',['ws','ls']),('first-metadata',['--profile','-m','core','api','call','version'])]):
+            assert len(attempts)<2 and x.fixture_hashes(fixture)==before_fixture
+            assert shutil.disk_usage(HERE).free>16*1024**3
+            dest=OUT/f'{index:02d}-{flow}';dest.mkdir()
+            cmd=[str(CLI),'--engine','container://'+name]+argv
+            attempt={'index':index,'flow':flow,'command':cmd,'production':False};attempts.append(attempt);x.write(OUT/'attempts.json',attempts)
+            if index:
+                try:(dest/'prior.wcprof').write_bytes(x.get(port,'/debug/wcprof/dump?flush=true'))
+                except x.HTTPError as error:
+                    if error.code!=503:raise
+            before=mem(item);done=threading.Event();observed={}
+            with (dest/'stdout.txt').open('wb') as out,(dest/'stderr.txt').open('wb') as err:
+                start=time.monotonic();wall=time.time_ns()
+                proc=subprocess.Popen(cmd,cwd=fixture,env=env,stdout=out,stderr=err,start_new_session=True)
+                def waiter():
+                    observed.update(exit_code=proc.wait(),ended=time.monotonic(),ended_unix_ns=time.time_ns());done.set()
+                worker=threading.Thread(target=waiter,daemon=True);worker.start()
+                timed_out=not done.wait(120)
+                if timed_out:
+                    try:proc.send_signal(signal.SIGINT)
+                    except ProcessLookupError:pass
+                    if not done.wait(10):
+                        try:os.killpg(proc.pid,signal.SIGKILL)
+                        except ProcessLookupError:pass
+                worker.join(timeout=15);assert not worker.is_alive()
+            after=mem(item);stdout=(dest/'stdout.txt').read_bytes();stderr=(dest/'stderr.txt').read_bytes()
+            cloud_link=bool(re.search(rb'https://[^\s]*dagger.cloud/',stdout+stderr))
+            correct=not timed_out and observed['exit_code']==0 and not cloud_link
+            if index==0:correct &= b'dagger.toml' in stdout and b'marker.txt' in stdout
+            else:correct &= bool(stdout.strip()) and len(stdout.strip().splitlines())==1
+            row={**attempt,'correct':bool(correct),'seconds':observed['ended']-start,'exit_code':observed['exit_code'],
+                 'started_unix_ns':wall,'ended_unix_ns':observed['ended_unix_ns'],'memstats_before':before,'memstats_after':after,
+                 'memstats_delta':{k:after[k]-before[k] for k in before},'cloud_link_visible':cloud_link,
+                 'stdout_sha256':x.sha(dest/'stdout.txt'),'stderr_bytes':len(stderr),'timed_out':timed_out}
+            rows.append(row);x.write(OUT/'results.json',rows)
+            if index:(dest/'run.wcprof').write_bytes(x.get(port,'/debug/wcprof/dump?flush=true'))
+            print(json.dumps({k:row[k] for k in ('flow','seconds','correct','exit_code')}),flush=True)
+            assert correct, 'failed local correctness; preserve private logs'
+        assert len(rows)==2 and all(r['correct'] for r in rows)
+        x.write(OUT/'summary.json',{'complete':True,'cloud_calls':0,'local_calls':2,'profile_attribution_only':True})
+    finally:
+        stopped=False
+        if item and x.owned(item)['State']['Running']:
+            x.capture(['docker','stop','--timeout','30',item['name']]);stopped=True
+        unchanged=x.fixture_hashes(fixture)==before_fixture
+        x.write(OUT/'cleanup.json',{'fixture_unchanged':unchanged,'owned_engine_stopped':stopped,'volume_retained':volume,'resources_deleted':0,
+                                  'attempted_local_calls':len(attempts),'cloud_calls':0})
+        assert unchanged
+
+if __name__=='__main__':main()

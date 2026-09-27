@@ -1,0 +1,110 @@
+"""Local-only readiness attribution. Default dry run, zero Cloud commands.
+
+One explicit unprofiled primer, one warm profiled list -a, one fresh
+comment-edit profiled list -a. Retained lazy engine restored byte-for-byte while
+stopped; fixture restored. Profiles and raw command outputs remain private.
+"""
+from pathlib import Path
+import argparse, hashlib, importlib.util, json, os, shutil, signal, subprocess, sys, threading, time, uuid
+LAB=Path(__file__).resolve().parent
+PREVIOUS=Path('/tmp/collections-perf/engine-allocation-round2')
+sys.path.insert(0,str(PREVIOUS));import experiment as x
+spec=importlib.util.spec_from_file_location('navigation',PREVIOUS/'navigation-generate.py')
+nav=importlib.util.module_from_spec(spec);spec.loader.exec_module(nav)
+OUT=LAB/'runtime-v1';PRIOR=PREVIOUS/'lazy-core-runtime-v1'
+OWNER='collections-lazy-core-runtime-v1'
+CLI=Path('/tmp/collections-perf/cli-exit-tail-v2/dagger-control')
+CLI_SHA='170e16539bf086fa8a182ec9f194a0fdb33156736ba2c206cefde7c07da8dce9'
+ORIGINAL_SHA='56f2eaccf6bf2f3151fb4c08205e1ad33fa7730ad5dee32577e867b527fc4b12'
+MIN_FREE=16*1024**3;MAX_WRITE=8*1024**3
+
+def main():
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--run',action='store_true');args=p.parse_args()
+    if not args.run:
+        print(json.dumps({'execute':False,'cloud_commands':0,'local_commands':3,'explicit_primers':1,'profiles':2,'owned_existing_engines':1,'new_volumes':0,'binary_restoration':'original lazy binary, verified after stop','output':str(OUT)}));return
+    os.umask(0o077);assert not OUT.exists()
+    build=json.loads((LAB/'build-result.json').read_text());assert build['exit_code']==0 and build['instrumented']
+    assert x.sha(LAB/'manifest.json')==build['manifest_sha256'] and x.sha(build['binary'])==build['sha256']
+    assert x.sha(CLI)==CLI_SHA
+    original_item=json.loads((PRIOR/'engines.json').read_text())['lazy'];assert original_item['sha256']==ORIGINAL_SHA
+    x.OWNER=OWNER;info=x.owned(original_item);assert not info['State']['Running']
+    mounts=[m for m in info['Mounts']if m['Destination']=='/var/lib/dagger']
+    assert len(mounts)==1 and mounts[0]['Type']=='volume' and mounts[0]['Name']==original_item['name']
+    volume=json.loads(x.capture(['docker','volume','inspect',mounts[0]['Name']]))[0]
+    assert volume['Labels']['dagger.perf.owner']==OWNER
+    app=PREVIOUS/'greetings';expected_hashes=json.loads((PREVIOUS/'withfile-v1/prepared.json').read_text())['input_sha256']
+    assert x.fixture_hashes(app)==expected_hashes
+    source=app/'main.go';source_original=source.read_bytes();current_hashes=dict(expected_hashes)
+    expected_output=nav.normalize((PREVIOUS/'navigation-generate-v1/local-correctness-0-artifacts/stdout.txt').read_bytes())
+    OUT.mkdir(mode=0o700);(OUT/'empty-config').mkdir(mode=0o700)
+    (OUT/'driver.py.txt').write_bytes(Path(__file__).read_bytes())
+    env={k:os.environ[k]for k in ('PATH','HOME','USER','LOGNAME','TMPDIR')if k in os.environ}
+    env.update(DO_NOT_TRACK='1',DAGGER_NO_UPDATE_CHECK='1',GIT_TERMINAL_PROMPT='0',XDG_CONFIG_HOME=str(OUT/'empty-config'))
+    assert not any(k.startswith(('DAGGER_CLOUD_','OTEL_'))for k in env)
+    item=dict(original_item,sha256=build['sha256'])
+    rows=[];written=0;modified=False;started=False;backup=OUT/'original-engine.private'
+    x.write(OUT/'provenance.json',{'driver_sha256':x.sha(__file__),'engine_build':build,'cli_sha256':CLI_SHA,'original_engine':original_item,'engine_running':item,'original_fixture_sha256':expected_hashes,'cloud_commands':0,'local_commands_cap':3,'environment':'whitelisted inherited non-secret shell fields; empty XDG config; no Cloud/OTLP environment','attribution_only':True,'readiness_semantics':'workspace.moduleLoad ends at resolve-ready before batch arbitration/publication','scope':'retained engine volume; explicit primer; no cold or ordinary performance claim','minimum_free_bytes':MIN_FREE,'maximum_engine_writes_bytes':MAX_WRITE,'helper_sha256':{name:x.sha(PREVIOUS/name)for name in ('experiment.py','navigation-generate.py')}})
+    def guard():
+        assert x.fixture_hashes(app)==current_hashes
+        assert shutil.disk_usage(LAB).free>MIN_FREE and written<MAX_WRITE
+    def run(phase,profile):
+        nonlocal written
+        guard();dest=OUT/phase;dest.mkdir()
+        if profile:
+            try:(dest/'prior.wcprof').write_bytes(x.get(item['port'],'/debug/wcprof/dump?flush=true'))
+            except x.HTTPError as err:
+                if err.code!=503:raise
+        command=[str(CLI),'--engine','container://'+item['name']]+(['--profile']if profile else [])+['list','-a']
+        before=nav.warm.snapshot(item);done=threading.Event();observed={}
+        with(dest/'stdout.txt').open('wb')as out,(dest/'stderr.txt').open('wb')as err:
+            begin,wall=time.monotonic(),time.time_ns()
+            proc=subprocess.Popen(command,cwd=app,env=env,stdout=out,stderr=err,start_new_session=True)
+            def waiter():
+                observed['status']=proc.wait();observed['mono']=time.monotonic();observed['wall']=time.time_ns();done.set()
+            worker=threading.Thread(target=waiter,daemon=True);worker.start()
+            try:timed_out=not done.wait(180)
+            finally:
+                if not done.is_set():
+                    try:proc.send_signal(signal.SIGINT)
+                    except ProcessLookupError:pass
+                    if not done.wait(10):
+                        try:os.killpg(proc.pid,signal.SIGKILL)
+                        except ProcessLookupError:pass
+                worker.join(timeout=15);assert not worker.is_alive()
+        after=nav.warm.snapshot(item);delta=nav.warm.delta(before,after);written+=delta['engine_written_bytes']
+        stdout=(dest/'stdout.txt').read_bytes();stderr=(dest/'stderr.txt').read_bytes()
+        correct=not timed_out and observed['status']==0 and nav.known_listing('artifacts',stdout) and nav.normalize(stdout)==expected_output
+        marker_count=None
+        if profile:
+            data=x.get(item['port'],'/debug/wcprof/dump?flush=true');(dest/'run.wcprof').write_bytes(data)
+            events=[json.loads(line)for line in data.splitlines()];header=events[0];strings=header['strings']
+            assert header['dropped_events']==0
+            marker_count=sum(event.get('e')=='op' and strings[event.get('c',0)]=='workspace.moduleLoad'for event in events[1:])
+            correct &= marker_count>0
+        row={'phase':phase,'profile':profile,'command':command,'seconds_diagnostic_only':observed['mono']-begin,'started_unix_ns':wall,'exited_unix_ns':observed['wall'],'exit_code':observed['status'],'timed_out':timed_out,'correct':bool(correct),'module_load_markers':marker_count,'stdout_sha256':x.sha(dest/'stdout.txt'),'stderr_bytes':len(stderr),'input_sha256':current_hashes['main.go'],**delta}
+        rows.append(row);x.write(OUT/'results.json',rows)
+        print(json.dumps({k:row[k]for k in ('phase','correct','module_load_markers','seconds_diagnostic_only')}),flush=True)
+        assert correct,'private profile/output validation failed';guard()
+    try:
+        guard();x.capture(['docker','cp',item['name']+':/usr/local/bin/dagger-engine',str(backup)])
+        assert x.sha(backup)==ORIGINAL_SHA
+        modified=True;x.capture(['docker','cp',build['binary'],item['name']+':/usr/local/bin/dagger-engine'])
+        startup=x.start(item);started=True;x.write(OUT/'setup.json',{'startup_seconds_excluded':startup})
+        run('explicit-primer',False);run('warm',True)
+        nonce=uuid.uuid4().hex;contents=source_original+b'\n// module-readiness diagnostic '+nonce.encode()+b'\n'
+        source.write_bytes(contents);current_hashes['main.go']=hashlib.sha256(contents).hexdigest()
+        run('fresh-comment-edit',True)
+    finally:
+        if source.read_bytes()!=source_original:source.write_bytes(source_original)
+        restored=not modified
+        if modified:
+            if x.owned(item)['State']['Running']:x.capture(['docker','stop','--timeout','30',item['name']])
+            assert not x.owned(item)['State']['Running'] and x.sha(backup)==ORIGINAL_SHA
+            x.capture(['docker','cp',str(backup),item['name']+':/usr/local/bin/dagger-engine'])
+            verify=OUT/'restored-engine.private';x.capture(['docker','cp',item['name']+':/usr/local/bin/dagger-engine',str(verify)])
+            restored=x.sha(verify)==ORIGINAL_SHA;assert restored
+        unchanged=x.fixture_hashes(app)==expected_hashes
+        x.write(OUT/'restoration.json',{'fixture_restored':unchanged,'engine_stopped':not x.owned(item)['State']['Running'],'original_binary_restored':restored,'validated_commands':sum(r['correct']for r in rows),'cloud_commands':0,'resources_deleted':0,'volume_retained':True,'engine_written_bytes':written})
+        assert unchanged
+    assert len(rows)==(3)
+if __name__=='__main__':main()

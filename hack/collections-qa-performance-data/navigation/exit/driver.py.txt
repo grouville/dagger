@@ -1,0 +1,161 @@
+"""Bounded phase-only CLI diagnostic; no credentials or raw traces are published.
+
+Four local warmups and sixteen normal Cloud commands. Runtime engines and fixture
+are unchanged. Only the last diagnostic pair enables wcprof. No cache resets.
+"""
+from pathlib import Path
+import argparse
+import importlib.util
+import json
+import os
+import re
+import shutil
+import signal
+import subprocess
+import threading
+import time
+
+import experiment as x
+
+LAB = Path(__file__).resolve().parent
+OUT = LAB / 'exit-tail-diagnostic-v1'
+BUILD = Path('/tmp/collections-perf/cli-exit-tail-v2')
+LIMIT = 16
+spec = importlib.util.spec_from_file_location('warm', LAB / 'withfile-cloud-warm.py')
+warm = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(warm)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--run', action='store_true')
+    args = parser.parse_args()
+    if not args.run:
+        print(json.dumps({'cloud_commands_max': LIMIT, 'local_warmups': 4,
+                          'engine_starts_max': 2, 'fixture_edits': 0, 'output': str(OUT)}))
+        return
+    os.umask(0o077)
+    assert not OUT.exists(), 'never overwrite or resume a partial trial'
+    state = json.loads((LAB / 'withfile-v1/prepared.json').read_text())
+    app = LAB / 'greetings'
+    assert x.fixture_hashes(app) == state['input_sha256']
+    binaries = {key: BUILD / ('dagger-' + key) for key in ('control', 'diagnostic')}
+    assert all(path.is_file() for path in binaries.values())
+    assert shutil.disk_usage(LAB).free > 16 * 1024**3
+    OUT.mkdir(mode=0o700)
+    (OUT / 'driver.py.txt').write_bytes(Path(__file__).read_bytes())
+    common = {key: os.environ[key] for key in ('PATH', 'HOME', 'USER', 'LOGNAME', 'TMPDIR') if key in os.environ}
+    common.update(DO_NOT_TRACK='1', DAGGER_NO_UPDATE_CHECK='1', GIT_TERMINAL_PROMPT='0')
+    local = dict(common, XDG_CONFIG_HOME=str(LAB / 'empty-config'))
+    cloud = dict(common, DAGGER_CLOUD_URL='https://api.dagger.cloud')
+    for key in ('DAGGER_CLOUD_TOKEN', 'XDG_CONFIG_HOME'):
+        if key in os.environ:
+            cloud[key] = os.environ[key]
+    startup = {key: x.start(state[key]) for key in ('base', 'candidate')}
+    x.write(OUT / 'provenance.json', {
+        'state': state, 'cli_sha256': {key: x.sha(path) for key, path in binaries.items()},
+        'build_source_manifest_sha256': x.sha(BUILD / 'source-manifest.json'),
+        'driver_sha256': x.sha(__file__), 'cloud_commands_max': LIMIT,
+        'previous_approved_cloud_commands': 36, 'approved_cloud_budget': 220,
+        'startup_seconds_excluded': startup,
+        'authentication': 'ordinary user login, explicit https://api.dagger.cloud; credential contents never read by driver',
+        'cache_boundary': 'retained volumes, restarted engines, two local warmups each; no cold claim',
+        'measurement': 'fresh Popen through blocking waitpid; numeric counters outside timed interval; diagnostic/profile runs excluded from ordinary medians',
+        'privacy': 'raw command output and wcprof remain private; JSONL records numeric phase/HTTP timing and count data only',
+    })
+    rows, attempts = [], []
+
+    def run(variant, flow, phase, index, diagnostic=False, production=True, profile=False):
+        assert sum(row['production'] for row in attempts) < LIMIT or not production
+        assert x.fixture_hashes(app) == state['input_sha256'], 'fixture changed'
+        assert shutil.disk_usage(LAB).free > 16 * 1024**3
+        item = state[variant]
+        dest = OUT / f'{phase}-{index}-{flow}-{variant}'
+        dest.mkdir()
+        env = dict(cloud if production else local)
+        if diagnostic:
+            env['DAGGER_PERF_EXIT_TIMELINE'] = str(dest / 'timeline.jsonl')
+        binary = binaries['diagnostic' if diagnostic else 'control']
+        command = [str(binary), '--engine', 'container://' + item['name']] + (['--profile'] if profile else []) + x.FLOWS[flow]
+        if profile:
+            try:
+                (dest / 'prior.wcprof').write_bytes(x.get(item['port'], '/debug/wcprof/dump?flush=true'))
+            except x.HTTPError as error:
+                if error.code != 503:
+                    raise
+        attempt = dict(variant=variant, flow=flow, phase=phase, index=index, diagnostic=diagnostic,
+                       production=production, profile=profile, command=command)
+        attempts.append(attempt)
+        x.write(OUT / 'attempts.json', attempts)
+        before = warm.snapshot(item)
+        done, observed = threading.Event(), {}
+        with (dest / 'stdout.txt').open('wb') as stdout, (dest / 'stderr.txt').open('wb') as stderr:
+            begin, wall = time.monotonic(), time.time_ns()
+            process = subprocess.Popen(command, cwd=app, env=env, stdout=stdout, stderr=stderr, start_new_session=True)
+            def waiter():
+                observed['status'] = process.wait()
+                observed['time'], observed['wall'] = time.monotonic(), time.time_ns()
+                done.set()
+            worker = threading.Thread(target=waiter, daemon=True)
+            worker.start()
+            timed_out = not done.wait(240)
+            if timed_out:
+                process.send_signal(signal.SIGINT)
+                if not done.wait(10):
+                    os.killpg(process.pid, signal.SIGKILL)
+            worker.join(timeout=15)
+            assert not worker.is_alive(), 'owned CLI did not exit'
+        after = warm.snapshot(item)
+        stdout, stderr = (dest / 'stdout.txt').read_bytes(), (dest / 'stderr.txt').read_bytes()
+        correct = not timed_out and observed['status'] == 0
+        if flow == 'expanded':
+            correct &= warm.normalized_rows(stdout) == warm.normalized_rows(x.WANT)
+        elif flow == 'core':
+            correct &= stdout.strip() == b'v1.0.0-beta.15+74d8b418'
+        timeline = []
+        if diagnostic:
+            timeline = [json.loads(line) for line in (dest / 'timeline.jsonl').read_text().splitlines()]
+            assert timeline and any(event['kind'] == 'cli.command' for event in timeline)
+        row = dict(attempt, seconds=observed['time'] - begin, started_unix_ns=wall,
+                   exited_unix_ns=observed['wall'], exit_code=observed['status'],
+                   timed_out=timed_out, correct=bool(correct), stdout_sha256=x.sha(dest / 'stdout.txt'),
+                   stderr_bytes=len(stderr), timeline_events=len(timeline),
+                   cloud_link_visible=bool(re.search(rb'https://[^\s]*dagger.cloud/', stdout + stderr)),
+                   before=before, after=after, **warm.delta(before, after))
+        rows.append(row)
+        attempt['correct'] = bool(correct)
+        x.write(OUT / 'attempts.json', attempts)
+        x.write(OUT / 'results.json', rows)
+        print(json.dumps({key: row[key] for key in ('variant', 'phase', 'flow', 'index', 'seconds', 'correct', 'timeline_events')}), flush=True)
+        if profile:
+            (dest / 'run.wcprof').write_bytes(x.get(item['port'], '/debug/wcprof/dump?flush=true'))
+        assert correct, 'command/output validation failed; inspect private artifacts'
+        assert x.fixture_hashes(app) == state['input_sha256']
+        time.sleep(1)
+
+    try:
+        for index in range(2):
+            for variant in ('base', 'candidate'):
+                run(variant, 'expanded', 'local-warmup', index, production=False)
+        for variant in ('base', 'candidate'):
+            run(variant, 'core', 'diagnostic', 0, diagnostic=True)
+            run(variant, 'expanded', 'diagnostic', 0, diagnostic=True)
+        for index in range(4):
+            for variant in (('base', 'candidate') if index % 2 == 0 else ('candidate', 'base')):
+                run(variant, 'expanded', 'ordinary', index)
+        for index in (1, 2):
+            for variant in (('candidate', 'base') if index == 1 else ('base', 'candidate')):
+                run(variant, 'expanded', 'diagnostic', index, diagnostic=True, profile=index == 2)
+    finally:
+        x.write(OUT / 'fixture-validation.json', {
+            'original_fixture_unchanged': x.fixture_hashes(app) == state['input_sha256'],
+            'commands_attempted': len(attempts), 'cloud_commands_attempted': sum(row['production'] for row in attempts),
+            'commands_validated': sum(row['correct'] for row in rows),
+        })
+    assert len(rows) == 20 and all(row['correct'] for row in rows)
+    x.write(OUT / 'summary.json', {'all_correct': True, 'cloud_commands': LIMIT,
+                                 'local_warmups': 4, 'diagnostic_only': True})
+
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,26 @@
+"""Offline safe phase ownership: no argument values, URLs or identifiers."""
+from pathlib import Path
+import json,tomllib
+D=Path(__file__).resolve().parent;ALLOWED=set(tomllib.loads(Path('/tmp/collections-perf/engine-allocation-round2/greetings/dagger.toml').read_text())['modules'])
+WANTED={'Address.container','go:Go.modules','gomod:Gomod.modules','go:GoModule.tests','gomod:GomodGoMod.ownFiles','Workspace.findRoots','Workspace.file','Workspace.search','gomod:Query.workspaceRootPath','gomod:Gomod.workspaceRootPath'}
+output={}
+for phase in ('warm','fresh-comment-edit'):
+    with(D/'runtime-v1'/phase/'run.wcprof').open()as f:h=json.loads(next(f));events=[json.loads(l)for l in f]
+    ops=[e for e in events if e.get('e')=='op'];ix={e['id']:e for e in ops};strings=h['strings'];name=lambda e:strings[e.get('c',0)]
+    catalog=next(e for e in ops if e['k']=='call_exec'and name(e)=='Workspace.artifacts')
+    expansion=next(e for e in ops if e['k']=='call_exec'and name(e)=='Artifacts.__itemsJSON')
+    rows=[];expanded=[]
+    for e in sorted(ops,key=lambda e:e['s']):
+        if name(e)in('exec.processRun','git.publicAdvertisement'):
+            path=[];job=None;cur=e
+            while cur.get('p')in ix:
+                cur=ix[cur['p']]
+                if name(cur)=='workspace.moduleLoad':job=strings[cur.get('i',0)];assert job in ALLOWED
+                if cur['k']in('call','internal','session_phase'):path.append(name(cur))
+            assert all('://'not in p and '/'not in p for p in path)
+            rows.append({'operation':name(e),'duration_ms':(e['d']-e['s'])/1e6,'start_from_catalog_ms':(e['s']-catalog['s'])/1e6,'end_from_catalog_ms':(e['d']-catalog['s'])/1e6,'owning_workspace_job':job,'ancestor_classes':path[:15]})
+        if e['k']=='call'and name(e)in WANTED and expansion['s']<=e['s']<=e['d']<=expansion['d']:
+            expanded.append({'operation':name(e),'outcome':e['o'],'start_from_expand_ms':(e['s']-expansion['s'])/1e6,'end_from_expand_ms':(e['d']-expansion['s'])/1e6,'duration_ms':(e['d']-e['s'])/1e6})
+    output[phase]={'catalog_process_and_git_ownership':rows,'selected_expansion_calls':expanded}
+(D/'runtime-v1/phase-ownership-numeric.json').write_text(json.dumps(output,indent=2)+'\n')
+print(json.dumps({k:{'ownership_phases':len(v['catalog_process_and_git_ownership']),'expansion_calls':len(v['selected_expansion_calls'])}for k,v in output.items()}))

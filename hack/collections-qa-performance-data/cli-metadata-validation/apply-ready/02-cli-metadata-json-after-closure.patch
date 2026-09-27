@@ -1,0 +1,732 @@
+--- a/core/schema/module.go
++++ b/core/schema/module.go
+@@ -267,6 +267,9 @@
+ 		dagql.FuncWithDynamicInputs("currentModule", s.currentModule, s.currentModuleCacheKey).
+ 			Doc(`The module currently being served in the session, if any.`),
+ 
++		dagql.Func("__currentTypeDefsJSON", s.currentTypeDefsJSON).View(AllVersion).
++			WithInput(dagql.CurrentSchemaInput),
++
+ 		dagql.Func("currentTypeDefs", s.currentTypeDefs).
+ 			WithInput(dagql.CurrentSchemaInput).
+ 			Args(
+--- /dev/null
++++ b/core/schema/module_typedef_json.go
+@@ -0,0 +1,193 @@
++package schema
++
++import (
++	"context"
++	"encoding/json"
++	"fmt"
++
++	"github.com/dagger/dagger/core"
++	"github.com/dagger/dagger/dagql"
++)
++
++// currentTypeDefsJSON projects the same metadata selected by the CLI's
++// typedefs.graphql query. It preserves the ordinary schema-scoped TypeDef
++// selection and its semantic adapters, but does not publish every returned
++// field as an independent DagQL result. No cache exists outside DagQL.
++func (s *moduleSchema) currentTypeDefsJSON(ctx context.Context, _ *core.Query, args currentTypeDefsArgs) (core.JSON, error) {
++	dag, err := core.CurrentDagqlServer(ctx)
++	if err != nil {
++		return nil, err
++	}
++	var defs dagql.ObjectResultArray[*core.TypeDef]
++	err = dag.Select(ctx, dag.Root(), &defs, dagql.Selector{
++		Field: "currentTypeDefs", View: dag.View,
++		Args: []dagql.NamedInput{
++			{Name: "returnAllTypes", Value: dagql.Boolean(args.ReturnAllTypes)},
++			{Name: "hideCore", Value: args.HideCore},
++		},
++	})
++	if err != nil {
++		return nil, err
++	}
++	return s.projectCLITypeDefs(ctx, defs)
++}
++
++func cliTypeRef(ref dagql.ObjectResult[*core.TypeDef]) (map[string]any, error) {
++	t := ref.Self()
++	if t == nil {
++		return nil, fmt.Errorf("nil type reference in CLI metadata")
++	}
++	return map[string]any{"name": t.Name, "optional": t.Optional}, nil
++}
++
++func (s *moduleSchema) cliFunction(ctx context.Context, fn *core.Function) (map[string]any, error) {
++	if fn == nil {
++		return nil, nil
++	}
++	if err := ctx.Err(); err != nil {
++		return nil, err
++	}
++	// This adapter preserves the authored check return type in legacy views.
++	returned, err := s.functionReturnType(ctx, fn, struct{}{})
++	if err != nil {
++		return nil, err
++	}
++	ref, err := cliTypeRef(returned)
++	if err != nil {
++		return nil, err
++	}
++	args := make([]map[string]any, 0, len(fn.Args))
++	for _, value := range fn.Args {
++		arg := value.Self()
++		if arg == nil {
++			return nil, fmt.Errorf("nil function argument in CLI metadata")
++		}
++		argRef, err := cliTypeRef(arg.TypeDef)
++		if err != nil {
++			return nil, err
++		}
++		ignore := make([]string, len(arg.Ignore))
++		copy(ignore, arg.Ignore)
++		args = append(args, map[string]any{
++			"name": arg.Name, "description": arg.Description, "defaultValue": arg.DefaultValue,
++			"defaultPath": arg.DefaultPath, "ignore": ignore, "typeDef": argRef,
++		})
++	}
++	return map[string]any{"name": fn.Name, "description": fn.Description,
++		"sourceModuleName": fn.SourceModuleName, "returnType": ref, "args": args}, nil
++}
++
++func (s *moduleSchema) cliFunctions(ctx context.Context, functions dagql.ObjectResultArray[*core.Function]) ([]map[string]any, error) {
++	result := make([]map[string]any, 0, len(functions))
++	for _, fn := range functions {
++		projected, err := s.cliFunction(ctx, fn.Self())
++		if err != nil {
++			return nil, err
++		}
++		if projected == nil {
++			return nil, fmt.Errorf("nil function in CLI metadata")
++		}
++		result = append(result, projected)
++	}
++	return result, nil
++}
++
++func cliFields(fields dagql.ObjectResultArray[*core.FieldTypeDef]) ([]map[string]any, error) {
++	result := make([]map[string]any, 0, len(fields))
++	for _, value := range fields {
++		field := value.Self()
++		if field == nil {
++			return nil, fmt.Errorf("nil field in CLI metadata")
++		}
++		ref, err := cliTypeRef(field.TypeDef)
++		if err != nil {
++			return nil, err
++		}
++		result = append(result, map[string]any{"name": field.Name, "description": field.Description, "typeDef": ref})
++	}
++	return result, nil
++}
++
++func (s *moduleSchema) projectCLITypeDefs(ctx context.Context, defs dagql.ObjectResultArray[*core.TypeDef]) (core.JSON, error) {
++	rows := make([]map[string]any, 0, len(defs))
++	for _, value := range defs {
++		if err := ctx.Err(); err != nil {
++			return nil, err
++		}
++		t := value.Self()
++		if t == nil {
++			return nil, fmt.Errorf("nil TypeDef in CLI metadata")
++		}
++		row := map[string]any{"name": t.Name, "kind": t.Kind, "optional": t.Optional,
++			"asObject": nil, "asInterface": nil, "asScalar": nil, "asEnum": nil, "asInput": nil, "asList": nil}
++		// Collections deliberately project their public get/subset/keys/list/
++		// batch surface. Serializing the stored object directly is incorrect.
++		object, err := s.typeDefAsObject(ctx, t, struct{}{})
++		if err != nil {
++			return nil, err
++		}
++		if object.Valid && object.Value.Self() != nil {
++			obj := object.Value.Self()
++			functions, err := s.cliFunctions(ctx, obj.Functions)
++			if err != nil {
++				return nil, err
++			}
++			fields, err := cliFields(obj.Fields)
++			if err != nil {
++				return nil, err
++			}
++			var constructor map[string]any
++			if obj.Constructor.Valid {
++				constructor, err = s.cliFunction(ctx, obj.Constructor.Value.Self())
++				if err != nil {
++					return nil, err
++				}
++			}
++			row["asObject"] = map[string]any{"name": obj.Name, "description": obj.Description,
++				"sourceModuleName": obj.SourceModuleName, "functions": functions, "fields": fields, "constructor": constructor}
++		}
++		if t.AsInterface.Valid && t.AsInterface.Value.Self() != nil {
++			iface := t.AsInterface.Value.Self()
++			functions, err := s.cliFunctions(ctx, iface.Functions)
++			if err != nil {
++				return nil, err
++			}
++			row["asInterface"] = map[string]any{"name": iface.Name, "description": iface.Description,
++				"sourceModuleName": iface.SourceModuleName, "functions": functions}
++		}
++		if t.AsScalar.Valid && t.AsScalar.Value.Self() != nil {
++			scalar := t.AsScalar.Value.Self()
++			row["asScalar"] = map[string]any{"name": scalar.Name, "description": scalar.Description, "sourceModuleName": scalar.SourceModuleName}
++		}
++		if t.AsEnum.Valid && t.AsEnum.Value.Self() != nil {
++			enum := t.AsEnum.Value.Self()
++			members := make([]map[string]any, 0, len(enum.Members))
++			for _, value := range enum.Members {
++				member := value.Self()
++				if member == nil {
++					return nil, fmt.Errorf("nil enum member in CLI metadata")
++				}
++				members = append(members, map[string]any{"name": member.Name, "description": member.Description})
++			}
++			row["asEnum"] = map[string]any{"name": enum.Name, "description": enum.Description, "sourceModuleName": enum.SourceModuleName, "members": members}
++		}
++		if t.AsInput.Valid && t.AsInput.Value.Self() != nil {
++			input := t.AsInput.Value.Self()
++			fields, err := cliFields(input.Fields)
++			if err != nil {
++				return nil, err
++			}
++			row["asInput"] = map[string]any{"name": input.Name, "fields": fields}
++		}
++		if t.AsList.Valid && t.AsList.Value.Self() != nil {
++			element, err := cliTypeRef(t.AsList.Value.Self().ElementTypeDef)
++			if err != nil {
++				return nil, err
++			}
++			row["asList"] = map[string]any{"elementTypeDef": element}
++		}
++		rows = append(rows, row)
++	}
++	data, err := json.Marshal(rows)
++	return core.JSON(data), err
++}
+--- a/core/telemetry.go
++++ b/core/telemetry.go
+@@ -483,29 +483,30 @@
+ // UI suppression decision (introspectionInfo) and the profiling decision
+ // (profileSkip) can never diverge on the root set.
+ var introspectionRootFields = map[string]struct{}{
+-	"__schema":            {},
+-	"__schemaJSONFile":    {},
+-	"__schemaVersion":     {},
+-	"currentTypeDefs":     {},
+-	"currentModule":       {},
+-	"currentFunctionCall": {},
+-	"function":            {},
+-	"typeDef":             {},
+-	"sourceMap":           {},
+-	"__loadInputTypeDef":  {},
+-	"__function":          {},
+-	"__functionArg":       {},
+-	"__functionArgExact":  {},
+-	"__fieldTypeDef":      {},
+-	"__fieldTypeDefExact": {},
+-	"__enumMemberTypeDef": {},
+-	"__enumValueTypeDef":  {},
+-	"__listTypeDef":       {},
+-	"__objectTypeDef":     {},
+-	"__interfaceTypeDef":  {},
+-	"__inputTypeDef":      {},
+-	"__scalarTypeDef":     {},
+-	"__enumTypeDef":       {},
++	"__schema":              {},
++	"__schemaJSONFile":      {},
++	"__schemaVersion":       {},
++	"currentTypeDefs":       {},
++	"__currentTypeDefsJSON": {},
++	"currentModule":         {},
++	"currentFunctionCall":   {},
++	"function":              {},
++	"typeDef":               {},
++	"sourceMap":             {},
++	"__loadInputTypeDef":    {},
++	"__function":            {},
++	"__functionArg":         {},
++	"__functionArgExact":    {},
++	"__fieldTypeDef":        {},
++	"__fieldTypeDefExact":   {},
++	"__enumMemberTypeDef":   {},
++	"__enumValueTypeDef":    {},
++	"__listTypeDef":         {},
++	"__objectTypeDef":       {},
++	"__interfaceTypeDef":    {},
++	"__inputTypeDef":        {},
++	"__scalarTypeDef":       {},
++	"__enumTypeDef":         {},
+ }
+ 
+ // reflectionTypeNames are the GraphQL type-system reflection object types. EVERY
+--- a/internal/cmd/dagger/module_inspect.go
++++ b/internal/cmd/dagger/module_inspect.go
+@@ -12,10 +12,12 @@
+ 	"sync"
+ 
+ 	"dagger.io/dagger"
++	"github.com/Khan/genqlient/graphql"
+ 	"github.com/dagger/dagger/dagql/dagui"
+ 	telemetry "github.com/dagger/otel-go"
+ 	"github.com/iancoleman/strcase"
+ 	"github.com/spf13/pflag"
++	"github.com/vektah/gqlparser/v2/gqlerror"
+ 	"go.opentelemetry.io/otel/attribute"
+ )
+ 
+@@ -276,14 +278,28 @@
+ 		TypeDefs []*modTypeDef
+ 	}
+ 
++	var wire struct{ TypeDefs string }
+ 	err := dag.Do(ctx, &dagger.Request{
+-		Query:     loadTypeDefsQuery,
++		Query: `query TypeDefs($hideCore: Boolean) {
++			typeDefs: __currentTypeDefsJSON(returnAllTypes: true, hideCore: $hideCore)
++		}`,
+ 		Variables: map[string]any{"hideCore": o.HideCore},
+-	}, &dagger.Response{
+-		Data: &res,
+-	})
+-	if err != nil {
+-		return fmt.Errorf("query module objects: %w", err)
++	}, &dagger.Response{Data: &wire})
++	if missingCLITypeDefsJSON(err) {
++		err = dag.Do(ctx, &dagger.Request{
++			Query:     loadTypeDefsQuery,
++			Variables: map[string]any{"hideCore": o.HideCore},
++		}, &dagger.Response{Data: &res})
++		if err != nil {
++			return fmt.Errorf("query module objects: %w", err)
++		}
++	} else {
++		if err != nil {
++			return fmt.Errorf("query module objects: %w", err)
++		}
++		if err := json.Unmarshal([]byte(wire.TypeDefs), &res.TypeDefs); err != nil {
++			return fmt.Errorf("decode module objects: %w", err)
++		}
+ 	}
+ 
+ 	m.MainObject = nil
+@@ -1252,3 +1268,25 @@
+ func cliName(name string) string {
+ 	return strcase.ToKebab(name)
+ }
++
++// A new CLI may connect to an older engine. Retry the old metadata selection
++// only when GraphQL validation identifies this exact missing capability. A
++// resolver, authorization, transport, or malformed JSON error must propagate.
++func missingCLITypeDefsJSON(err error) bool {
++	isMissing := func(e *gqlerror.Error) bool {
++		const message = `Cannot query field "__currentTypeDefsJSON" on type "Query".`
++		return e != nil && len(e.Path) == 0 &&
++			(e.Message == message || strings.HasPrefix(e.Message, message+" Did you mean "))
++	}
++	var httpErr *graphql.HTTPError
++	if errors.As(err, &httpErr) {
++		return (httpErr.StatusCode == 400 || httpErr.StatusCode == 422) &&
++			len(httpErr.Response.Errors) == 1 && isMissing(httpErr.Response.Errors[0])
++	}
++	var list gqlerror.List
++	if errors.As(err, &list) {
++		return len(list) == 1 && isMissing(list[0])
++	}
++	var single *gqlerror.Error
++	return errors.As(err, &single) && isMissing(single)
++}
+--- /dev/null
++++ b/core/schema/module_typedef_json_test.go
+@@ -0,0 +1,188 @@
++package schema
++
++import (
++	"context"
++	"encoding/json"
++	"os"
++	"strings"
++	"testing"
++
++	"github.com/dagger/dagger/core"
++	"github.com/dagger/dagger/dagql"
++	"github.com/dagger/dagger/dagql/call"
++	"github.com/dagger/dagger/engine"
++	"github.com/stretchr/testify/require"
++)
++
++func cliJSONHarness(t *testing.T, view call.View) (context.Context, *dagql.Server) {
++	t.Helper()
++	ctx := t.Context()
++	cache, err := dagql.NewCache(ctx, "", nil, nil)
++	require.NoError(t, err)
++	t.Cleanup(func() { require.NoError(t, cache.Close(context.Background())) })
++	ctx = dagql.ContextWithCache(ctx, cache)
++	ctx = engine.ContextWithClientMetadata(ctx, &engine.ClientMetadata{ClientID: "cli-json-client", SessionID: "cli-json-session"})
++	server := &currentTypeDefsTestServer{}
++	root := core.NewRoot(server)
++	ctx = core.ContextWithQuery(ctx, root)
++	base, err := NewCoreSchemaBase(ctx, server)
++	require.NoError(t, err)
++	dag, err := base.Fork(ctx, root, view)
++	require.NoError(t, err)
++	server.deps = core.NewSchemaBuilder(root, []core.Mod{base.CoreMod(view)})
++	server.dag = dag
++	return ctx, dag
++}
++
++func cliOriginalQuery(t *testing.T) string {
++	t.Helper()
++	source, err := os.ReadFile("../../internal/cmd/dagger/typedefs.graphql")
++	require.NoError(t, err)
++	return string(source)
++}
++
++func assertCLIJSON(t *testing.T, old, compact map[string]any) {
++	t.Helper()
++	want, err := json.Marshal(old["typeDefs"])
++	require.NoError(t, err)
++	encoded, err := json.Marshal(compact["typeDefs"])
++	require.NoError(t, err)
++	var got string
++	require.NoError(t, json.Unmarshal(encoded, &got))
++	require.JSONEq(t, string(want), got)
++}
++
++func TestCLITypeDefsJSONCoreParity(t *testing.T) {
++	for _, view := range []call.View{"v0.21.5", "v1.0.0"} {
++		t.Run(string(view), func(t *testing.T) {
++			ctx, dag := cliJSONHarness(t, view)
++			for _, hide := range []bool{false, true} {
++				old, err := dag.Query(ctx, cliOriginalQuery(t), map[string]any{"hideCore": hide})
++				require.NoError(t, err)
++				compact, err := dag.Query(ctx, `query($hideCore: Boolean) { typeDefs: __currentTypeDefsJSON(returnAllTypes: true, hideCore: $hideCore) }`, map[string]any{"hideCore": hide})
++				require.NoError(t, err)
++				assertCLIJSON(t, old, compact)
++			}
++		})
++	}
++}
++
++func cliFixtureType(t *testing.T, ctx context.Context, dag *dagql.Server, selectors ...dagql.Selector) dagql.ObjectResult[*core.TypeDef] {
++	t.Helper()
++	var td dagql.ObjectResult[*core.TypeDef]
++	err := dag.Select(ctx, dag.Root(), &td, append([]dagql.Selector{{Field: "typeDef"}}, selectors...)...)
++	require.NoError(t, err)
++	return td
++}
++
++func cliFixtureID[T dagql.Typed](t *testing.T, result dagql.ObjectResult[T]) dagql.ID[T] {
++	t.Helper()
++	id, err := result.ID()
++	require.NoError(t, err)
++	return dagql.NewID[T](id)
++}
++
++func cliFixtureDefs(t *testing.T, ctx context.Context, dag *dagql.Server) dagql.ObjectResultArray[*core.TypeDef] {
++	t.Helper()
++	str := cliFixtureType(t, ctx, dag, dagql.Selector{Field: "withKind", Args: []dagql.NamedInput{{Name: "kind", Value: core.TypeDefKindString}}})
++	directory := cliFixtureType(t, ctx, dag, dagql.Selector{Field: "withObject", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("Directory")}}})
++	check := cliFixtureType(t, ctx, dag, dagql.Selector{Field: "withObject", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("Check")}}})
++	keys := cliFixtureType(t, ctx, dag, dagql.Selector{Field: "withListOf", Args: []dagql.NamedInput{{Name: "elementType", Value: cliFixtureID(t, str)}}})
++	var function dagql.ObjectResult[*core.Function]
++	require.NoError(t, dag.Select(ctx, dag.Root(), &function,
++		dagql.Selector{Field: "__function", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("readExact")}, {Name: "returnType", Value: cliFixtureID(t, str)}, {Name: "sourceModuleName", Value: dagql.Opt(dagql.String("FixtureOwner"))}}},
++		dagql.Selector{Field: "withDescription", Args: []dagql.NamedInput{{Name: "description", Value: dagql.String("Documented function\nwith details.")}}},
++		dagql.Selector{Field: "withArg", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("source")}, {Name: "typeDef", Value: cliFixtureID(t, directory)}, {Name: "defaultPath", Value: dagql.String(".")}, {Name: "ignore", Value: dagql.ArrayInput[dagql.String]{"**/.git", "!keep"}}}},
++		dagql.Selector{Field: "withArg", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("message")}, {Name: "typeDef", Value: cliFixtureID(t, str)}, {Name: "defaultValue", Value: core.JSON(`"hello"`)}}},
++	))
++	// Publish a legacy check-shaped function through the ordinary ownership
++	// machinery; its two return types intentionally differ.
++	dagql.Fields[*core.Query]{dagql.Func("cliFixtureCheck", func(context.Context, *core.Query, struct{}) (*core.Function, error) {
++		return &core.Function{Name: "verify", OriginalName: "verify", ReturnType: check, CheckReturnType: str, IsCheck: true, SourceModuleName: "FixtureOwner"}, nil
++	})}.Install(dag)
++	var checked dagql.ObjectResult[*core.Function]
++	require.NoError(t, dag.Select(ctx, dag.Root(), &checked, dagql.Selector{Field: "cliFixtureCheck"}))
++	obj := cliFixtureType(t, ctx, dag,
++		dagql.Selector{Field: "withObject", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("FixtureThing")}, {Name: "sourceModuleName", Value: dagql.Opt(dagql.String("FixtureOwner"))}, {Name: "description", Value: dagql.String("Object docs")}}},
++		dagql.Selector{Field: "withFunction", Args: []dagql.NamedInput{{Name: "function", Value: cliFixtureID(t, function)}}},
++		dagql.Selector{Field: "withFunction", Args: []dagql.NamedInput{{Name: "function", Value: cliFixtureID(t, checked)}}},
++		dagql.Selector{Field: "withConstructor", Args: []dagql.NamedInput{{Name: "function", Value: cliFixtureID(t, function)}}},
++	)
++	if !AfterVersion("v1.0.0-0").Contains(dag.View) {
++		return dagql.ObjectResultArray[*core.TypeDef]{str, keys, directory, check, obj}
++	}
++	var get dagql.ObjectResult[*core.Function]
++	require.NoError(t, dag.Select(ctx, dag.Root(), &get,
++		dagql.Selector{Field: "function", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("lookup")}, {Name: "returnType", Value: cliFixtureID(t, obj)}}},
++		dagql.Selector{Field: "withArg", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("name")}, {Name: "typeDef", Value: cliFixtureID(t, str)}}},
++	))
++	collection := cliFixtureType(t, ctx, dag,
++		dagql.Selector{Field: "withObject", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("FixtureItems")}, {Name: "sourceModuleName", Value: dagql.Opt(dagql.String("OtherOwner"))}}},
++		dagql.Selector{Field: "withCollection"},
++		dagql.Selector{Field: "withCollectionKeys", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("names")}}},
++		dagql.Selector{Field: "withCollectionGet", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("lookup")}}},
++		dagql.Selector{Field: "withField", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("names")}, {Name: "typeDef", Value: cliFixtureID(t, keys)}}},
++		dagql.Selector{Field: "withFunction", Args: []dagql.NamedInput{{Name: "function", Value: cliFixtureID(t, get)}}},
++		dagql.Selector{Field: "withFunction", Args: []dagql.NamedInput{{Name: "function", Value: cliFixtureID(t, function)}}},
++	)
++	return dagql.ObjectResultArray[*core.TypeDef]{str, keys, directory, check, obj, collection}
++}
++
++func TestCLITypeDefsJSONAdaptersAndDefaults(t *testing.T) {
++	for _, view := range []call.View{"v0.21.5", "v1.0.0"} {
++		t.Run(string(view), func(t *testing.T) {
++			ctx, dag := cliJSONHarness(t, view)
++			defs := cliFixtureDefs(t, ctx, dag)
++			s := &moduleSchema{}
++			dagql.Fields[*core.Query]{
++				dagql.Func("cliFixtureDefs", func(context.Context, *core.Query, struct{}) (dagql.ObjectResultArray[*core.TypeDef], error) {
++					return defs, nil
++				}),
++				dagql.Func("cliFixtureJSON", func(ctx context.Context, _ *core.Query, _ struct{}) (core.JSON, error) {
++					return s.projectCLITypeDefs(ctx, defs)
++				}).View(AllVersion),
++			}.Install(dag)
++			query := strings.Replace(cliOriginalQuery(t), "query TypeDefs($hideCore: Boolean)", "query TypeDefs", 1)
++			query = strings.Replace(query, "currentTypeDefs(returnAllTypes: true, hideCore: $hideCore)", "cliFixtureDefs", 1)
++			old, err := dag.Query(ctx, query, nil)
++			require.NoError(t, err)
++			compact, err := dag.Query(ctx, `{ typeDefs: cliFixtureJSON }`, nil)
++			require.NoError(t, err)
++			assertCLIJSON(t, old, compact)
++
++			// Repeat through the production endpoint and current schema input,
++			// not merely the projector's test wrapper. The embedded CoreMod
++			// supplies normal schema installation, with these held definitions
++			// representing metadata contributed by a module.
++			root, err := core.CurrentQuery(ctx)
++			require.NoError(t, err)
++			server := root.Server.(*currentTypeDefsTestServer)
++			installed := server.deps.Mods()[0].(*CoreMod)
++			server.deps = core.NewSchemaBuilder(root, []core.Mod{&cliMetadataFixtureMod{CoreMod: installed, defs: defs}})
++			old, err = dag.Query(ctx, cliOriginalQuery(t), map[string]any{"hideCore": false})
++			require.NoError(t, err)
++			compact, err = dag.Query(ctx, `{ typeDefs: __currentTypeDefsJSON(returnAllTypes: true, hideCore: false) }`, nil)
++			require.NoError(t, err)
++			assertCLIJSON(t, old, compact)
++		})
++	}
++}
++
++type cliMetadataFixtureMod struct {
++	*CoreMod
++	defs dagql.ObjectResultArray[*core.TypeDef]
++}
++
++func (m *cliMetadataFixtureMod) TypeDefs(context.Context, *dagql.Server) (dagql.ObjectResultArray[*core.TypeDef], error) {
++	return m.defs, nil
++}
++
++func TestCLITypeDefsJSONErrorsAndCancellation(t *testing.T) {
++	s := &moduleSchema{}
++	_, err := s.projectCLITypeDefs(t.Context(), dagql.ObjectResultArray[*core.TypeDef]{{}})
++	require.ErrorContains(t, err, "nil TypeDef")
++	ctx, cancel := context.WithCancel(t.Context())
++	cancel()
++	_, err = s.projectCLITypeDefs(ctx, dagql.ObjectResultArray[*core.TypeDef]{{}})
++	require.ErrorIs(t, err, context.Canceled)
++}
+--- /dev/null
++++ b/internal/cmd/dagger/module_typedef_json_test.go
+@@ -0,0 +1,91 @@
++package daggercmd
++
++import (
++	"bytes"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"io"
++	"net/http"
++	"strings"
++	"testing"
++
++	"dagger.io/dagger"
++	"github.com/Khan/genqlient/graphql"
++	"github.com/stretchr/testify/require"
++	"github.com/vektah/gqlparser/v2/ast"
++	"github.com/vektah/gqlparser/v2/gqlerror"
++)
++
++func TestCLITypeDefsJSONCapabilityErrors(t *testing.T) {
++	missing := &gqlerror.Error{Message: `Cannot query field "__currentTypeDefsJSON" on type "Query".`}
++	for _, tc := range []struct {
++		name string
++		err  error
++		want bool
++	}{
++		{"supported", nil, false},
++		{"missing", missing, true},
++		{"wrapped", fmt.Errorf("wrapped: %w", missing), true},
++		{"single list", gqlerror.List{missing}, true},
++		{"multiple errors", gqlerror.List{missing, &gqlerror.Error{Message: "forbidden"}}, false},
++		{"http validation", &graphql.HTTPError{StatusCode: 422, Response: graphql.Response{Errors: gqlerror.List{missing}}}, true},
++		{"http unauthorized", &graphql.HTTPError{StatusCode: 401, Response: graphql.Response{Errors: gqlerror.List{missing}}}, false},
++		{"resolver path", &gqlerror.Error{Message: missing.Message, Path: ast.Path{ast.PathName("typeDefs")}}, false},
++		{"other field", &gqlerror.Error{Message: `Cannot query field "other" on type "Query".`}, false},
++		{"plain string", errors.New(missing.Message), false},
++	} {
++		t.Run(tc.name, func(t *testing.T) { require.Equal(t, tc.want, missingCLITypeDefsJSON(tc.err)) })
++	}
++}
++
++func TestCLITypeDefsJSONTransportFallback(t *testing.T) {
++	const metadata = `[{"name":"Query","kind":"OBJECT_KIND","optional":false,"asObject":{"name":"Query","description":"Root","sourceModuleName":"","constructor":null,"functions":[],"fields":[]}}]`
++	for _, tc := range []struct {
++		name    string
++		first   any
++		code    int
++		calls   int
++		wantErr string
++	}{
++		{"supported", map[string]any{"data": map[string]any{"typeDefs": metadata}}, 200, 1, ""},
++		{"old engine", map[string]any{"errors": []any{map[string]any{"message": `Cannot query field "__currentTypeDefsJSON" on type "Query".`, "locations": []any{map[string]any{"line": 2, "column": 4}}}}}, 200, 2, ""},
++		{"old engine validation status", map[string]any{"errors": []any{map[string]any{"message": `Cannot query field "__currentTypeDefsJSON" on type "Query".`}}}, 422, 2, ""},
++		{"resolver error", map[string]any{"errors": []any{map[string]any{"message": "permission denied", "path": []string{"typeDefs"}}}}, 200, 1, "permission denied"},
++		{"invalid JSON", map[string]any{"data": map[string]any{"typeDefs": "not JSON"}}, 200, 1, "decode module objects"},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			calls := 0
++			dag, err := dagger.Connect(t.Context(), dagger.WithConn(agentTestConn{do: func(req *http.Request) (*http.Response, error) {
++				calls++
++				var query dagger.Request
++				require.NoError(t, json.NewDecoder(req.Body).Decode(&query))
++				require.Equal(t, true, query.Variables.(map[string]any)["hideCore"])
++				var response any = tc.first
++				status := tc.code
++				if calls == 1 {
++					require.Contains(t, query.Query, "__currentTypeDefsJSON")
++				} else {
++					require.NotContains(t, query.Query, "__currentTypeDefsJSON")
++					require.True(t, strings.Contains(query.Query, "currentTypeDefs(returnAllTypes"))
++					response = map[string]any{"data": map[string]any{"typeDefs": json.RawMessage(metadata)}}
++					status = 200
++				}
++				raw, err := json.Marshal(response)
++				require.NoError(t, err)
++				return &http.Response{StatusCode: status, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(bytes.NewReader(raw))}, nil
++			}}))
++			require.NoError(t, err)
++			t.Cleanup(func() { require.NoError(t, dag.Close()) })
++			var mod moduleDef
++			err = mod.loadTypeDefs(t.Context(), dag, loadTypeDefsOpts{HideCore: true})
++			if tc.wantErr != "" {
++				require.ErrorContains(t, err, tc.wantErr)
++			} else {
++				require.NoError(t, err)
++				require.NotNil(t, mod.GetTypeDef("Query"))
++			}
++			require.Equal(t, tc.calls, calls)
++		})
++	}
++}
+--- a/engine/server/session_workspaces.go
++++ b/engine/server/session_workspaces.go
+@@ -1619,7 +1619,7 @@
+ 
+ // filterPendingWorkspaceModulesForScopedRootFields applies the client-declared
+ // workspace module scope on top of the root-field demand: when the request's
+-// only full-schema demand is currentTypeDefs, the scope replaces its
++// only full-schema demand is a currentTypeDefs projection, the scope replaces its
+ // load-everything contribution with the scoped module set. Any other
+ // full-schema field keeps loading everything, scope untouched. The second
+ // result reports whether the scope was applied, so the caller can consume it.
+@@ -1631,7 +1631,7 @@
+ 	hasCurrentTypeDefs := false
+ 	remaining := make([]string, 0, len(rootFields))
+ 	for _, field := range rootFields {
+-		if field == "currentTypeDefs" {
++		if field == "currentTypeDefs" || field == "__currentTypeDefsJSON" {
+ 			hasCurrentTypeDefs = true
+ 			continue
+ 		}
+@@ -1692,6 +1692,7 @@
+ 			// functions`, the in-engine MCP/LLM tool builder), so it needs
+ 			// every workspace module.
+ 			"currentTypeDefs",
++			"__currentTypeDefsJSON",
+ 			// env's resolver snapshots the served deps, so it needs every module
+ 			"env":
+ 			return true
+--- /dev/null
++++ b/engine/server/typedef_json_demand_test.go
+@@ -0,0 +1,76 @@
++package server
++
++import (
++	"context"
++	"encoding/json"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"testing"
++
++	"github.com/dagger/dagger/dagql"
++	"github.com/dagger/dagger/engine"
++	"github.com/stretchr/testify/require"
++)
++
++func TestCurrentTypeDefsJSONWorkspaceDemand(t *testing.T) {
++	foo := pendingModule{Kind: moduleLoadKindAmbient, Name: "foo"}
++	bar := pendingModule{Kind: moduleLoadKindAmbient, Name: "barBaz"}
++	entry := pendingModule{Kind: moduleLoadKindAmbient, Name: "entry", Entrypoint: true}
++	mods := []pendingModule{foo, bar, entry}
++	for _, field := range []string{"currentTypeDefs", "__currentTypeDefsJSON"} {
++		t.Run(field, func(t *testing.T) {
++			require.True(t, rootFieldsRequireFullWorkspaceSchema([]string{field}))
++			require.Equal(t, mods, filterPendingWorkspaceModulesForRootFields(mods, nil, nil, []string{field}))
++			for _, tc := range []struct {
++				name, scope          string
++				pending, want        []pendingModule
++				extra                []string
++				served               map[string]struct{}
++				entryServed, applied bool
++			}{
++				{name: "no scope", pending: mods, want: mods},
++				{name: "scoped module plus entrypoint", scope: "foo", pending: mods, want: []pendingModule{foo, entry}, applied: true},
++				{name: "kebab module", scope: "bar-baz", pending: mods, want: []pendingModule{bar, entry}, applied: true},
++				{name: "unknown entrypoint command", scope: "greet", pending: mods, want: []pendingModule{entry}, applied: true},
++				{name: "other full schema demand", scope: "foo", pending: mods, want: mods, extra: []string{"__schema"}},
++				{name: "union explicit module", scope: "foo", pending: mods, want: mods, extra: []string{"barBaz"}, applied: true},
++				{name: "served module", scope: "already", pending: mods, want: []pendingModule{entry}, served: map[string]struct{}{"already": {}}, applied: true},
++				{name: "served entrypoint", scope: "greet", pending: []pendingModule{foo, bar}, want: []pendingModule{}, served: map[string]struct{}{"entry": {}}, entryServed: true, applied: true},
++			} {
++				t.Run(tc.name, func(t *testing.T) {
++					selected, applied := filterPendingWorkspaceModulesForScopedRootFields(tc.pending, tc.served, nil, append([]string{field}, tc.extra...), tc.scope, tc.entryServed)
++					require.Equal(t, tc.want, selected)
++					require.Equal(t, tc.applied, applied)
++				})
++			}
++		})
++	}
++}
++
++func TestCurrentTypeDefsJSONAliasedRequestConsumesScope(t *testing.T) {
++	for _, field := range []string{"currentTypeDefs", "__currentTypeDefsJSON"} {
++		t.Run(field, func(t *testing.T) {
++			query := "{ metadata: " + field
++			if field == "currentTypeDefs" {
++				query += " { name }"
++			}
++			query += " }"
++			body, err := json.Marshal(map[string]string{"query": query})
++			require.NoError(t, err)
++			req := httptest.NewRequest(http.MethodPost, engine.QueryEndpoint, strings.NewReader(string(body)))
++			req.Header.Set("Content-Type", "application/json")
++			ok, fields, err := dagql.PeekRootFields(req)
++			require.NoError(t, err)
++			require.True(t, ok)
++			require.Equal(t, []string{field}, fields)
++			client := &clientRuntime{clientRecord: &clientRecord{clientID: "client", clientMetadata: &engine.ClientMetadata{LoadWorkspaceModules: true, WorkspaceModuleScope: "good"}}, pendingWorkspaceLoad: true, pendingModules: []pendingModule{{Kind: moduleLoadKindAmbient, Name: "unrelated"}}, servedWorkspaceModuleNames: map[string]struct{}{"good": {}}}
++			require.NoError(t, (&Server{}).ensureRequestModulesLoaded(context.Background(), client, req))
++			client.modulesMu.Lock()
++			defer client.modulesMu.Unlock()
++			require.Empty(t, client.pendingWorkspaceModuleScopeLocked(), "metadata consumed the one-shot scope even though its target is already served")
++			require.Len(t, client.pendingModules, 1, "unrelated module must remain unloaded")
++			require.Equal(t, "unrelated", client.pendingModules[0].Name)
++		})
++	}
++}

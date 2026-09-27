@@ -1,0 +1,54 @@
+"""Two local-only calls: a primer and warmed metadata profile on the existing owned lazy engine."""
+from pathlib import Path
+import argparse,hashlib,json,os,re,signal,subprocess,sys,threading,time
+HERE=Path(__file__).resolve().parent
+LAB=Path('/tmp/collections-perf/engine-allocation-round2');sys.path.insert(0,str(LAB));import experiment as x
+OLD=HERE/'first-consumer-local-v1';OUT=HERE/'warm-consumer-local-v1'
+OWNER='collections-core-first-metadata-v1'
+CLI=Path('/tmp/collections-perf/cli-exit-tail-v2/dagger-control')
+CLI_SHA='170e16539bf086fa8a182ec9f194a0fdb33156736ba2c206cefde7c07da8dce9'
+def main():
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('--run',action='store_true');a=p.parse_args()
+ if not a.run:print(json.dumps({'execute':False,'cloud_calls':0,'local_calls':2,'reuse_retained_owned_volume':OWNER,'output':str(OUT)}));return
+ os.umask(0o077);assert not OUT.exists();assert x.sha(CLI)==CLI_SHA
+ item=json.loads((OLD/'engine.json').read_text());assert item['name']=='dagger-engine.'+OWNER
+ x.OWNER=OWNER;owned=x.owned(item);assert not owned['State']['Running']
+ fixture=OLD/'workspace';before=x.fixture_hashes(fixture);expected=json.loads((OLD/'provenance.json').read_text())['fixture_hashes'];assert before==expected
+ OUT.mkdir();(OUT/'driver.py.txt').write_bytes(Path(__file__).read_bytes())
+ env={k:os.environ[k] for k in ('PATH','HOME','USER','LOGNAME','TMPDIR') if k in os.environ}
+ env.update(XDG_CONFIG_HOME=str(OLD/'empty-config'),DO_NOT_TRACK='1',DAGGER_NO_UPDATE_CHECK='1',GIT_TERMINAL_PROMPT='0')
+ cmd=[str(CLI),'--engine','container://'+item['name'],'--profile','-m','core','api','call','version']
+ try:
+  x.start(item)
+  primer=[v for v in cmd if v!='--profile']
+  # Start has no CLI invocation. This is the only primer before profiling.
+  with (OUT/'primer-stdout.txt').open('wb') as out,(OUT/'primer-stderr.txt').open('wb') as err:
+   result=subprocess.run(primer,cwd=fixture,env=env,stdout=out,stderr=err,timeout=120)
+  assert result.returncode==0 and (OUT/'primer-stdout.txt').read_bytes()==(OLD/'01-first-metadata/stdout.txt').read_bytes()
+  assert x.fixture_hashes(fixture)==before
+  try:(OUT/'prior.wcprof').write_bytes(x.get(item['port'],'/debug/wcprof/dump?flush=true'))
+  except x.HTTPError as err:
+   if err.code!=503:raise
+  started=time.monotonic();done=threading.Event();observed={}
+  with (OUT/'stdout.txt').open('wb') as out,(OUT/'stderr.txt').open('wb') as err:
+   proc=subprocess.Popen(cmd,cwd=fixture,env=env,stdout=out,stderr=err,start_new_session=True)
+   def wait():observed.update(exit_code=proc.wait(),ended=time.monotonic());done.set()
+   worker=threading.Thread(target=wait,daemon=True);worker.start();timeout=not done.wait(120)
+   if timeout:
+    try:proc.send_signal(signal.SIGINT)
+    except ProcessLookupError:pass
+    if not done.wait(10):
+     try:os.killpg(proc.pid,signal.SIGKILL)
+     except ProcessLookupError:pass
+   worker.join(15);assert not worker.is_alive()
+  stdout=(OUT/'stdout.txt').read_bytes();stderr=(OUT/'stderr.txt').read_bytes()
+  links=re.findall(rb'https://[^\s\x1b]*dagger.cloud/[^\s\x1b]*',stdout+stderr)
+  exported_link=any(url.rstrip(b'.')!=b'https://dagger.cloud/traces/setup' for url in links)
+  correct=not timeout and observed['exit_code']==0 and not exported_link and stdout==(OLD/'01-first-metadata/stdout.txt').read_bytes()
+  (OUT/'run.wcprof').write_bytes(x.get(item['port'],'/debug/wcprof/dump?flush=true'))
+  x.write(OUT/'results.json',{'cloud_calls':0,'local_calls':2,'command':cmd,'correct':correct,'seconds_diagnostic':observed['ended']-started,'exit_code':observed['exit_code'],'warmth':'retained volume; one identical ordinary local metadata primer in the same engine process before the profile','driver_sha256':x.sha(__file__),'cli_sha256':CLI_SHA,'engine_sha256':item['sha256']})
+  assert correct and x.fixture_hashes(fixture)==before
+ finally:
+  if x.owned(item)['State']['Running']:x.capture(['docker','stop','--timeout','30',item['name']])
+  x.write(OUT/'cleanup.json',{'stopped':not x.owned(item)['State']['Running'],'resources_deleted':0,'fixture_unchanged':x.fixture_hashes(fixture)==before})
+if __name__=='__main__':main()

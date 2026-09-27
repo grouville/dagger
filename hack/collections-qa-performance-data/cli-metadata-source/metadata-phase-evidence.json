@@ -1,0 +1,31 @@
+{
+  "purpose": "Diagnostic metadata phase attribution; no ordinary CLI improvement measured for the JSON candidate yet.",
+  "first_demand": {
+    "currentTypeDefs_ms": 469.393089,
+    "response_interval_ms": 323.57444,
+    "response_operations": 23085,
+    "response_publications": 4367,
+    "wcprof_sha256": "4b36c2eb30a2541af11581fca17bee4ab1467a8e89944203a132c819caf0c64e",
+    "driver_sha256": "62e1484ad043197d880c900895ace2089d68081d2b24b131981d8ea56c052fd1",
+    "validation_note": "Both local commands exited0 and returned expected results; initial driver misclassified the unauthenticated setup invitation as a Cloud trace link. This is preserved in raw evidence and corrected only in offline classification; no retry."
+  },
+  "warm_after_same_process_primer": {
+    "currentTypeDefs_ms": 36.026208,
+    "response_interval_ms": 156.807623,
+    "response_operations": 19861,
+    "response_publications": 2758,
+    "query_ms": [
+      217.570864,
+      0.358391
+    ],
+    "wcprof_sha256": "19c523947014c3e7bcf75e32e4bcea81d2fb14120118aba10dc44a0585885349",
+    "driver_sha256": "4879daacd204ff3ecc990b3eaa6ec7136c8894ea0ee2ccf0c6c9a2c33edd5b3c",
+    "correct": true
+  },
+  "cautions": [
+    "Both diagnostic captures use native wcprof and local-only telemetry.",
+    "First-demand and warm recordings are separate invocations; no exact ordinary gain is claimed.",
+    "Per-operation wall durations overlap heavily; do not add their totals or call them CPU time.",
+    "The JSON candidate removes response getter traversal, not first-demand TypeDef construction."
+  ]
+}

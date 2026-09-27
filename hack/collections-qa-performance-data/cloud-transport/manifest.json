@@ -1,0 +1,643 @@
+{
+  "status": "prepared, not built or run",
+  "head": "21939e4ff95dd2be7c584b883b39c5e75b20d703",
+  "baseline": "span-fanout common candidate at 21939e4ff9, including metric fix, frozen common SDK/syntax/withFile stack",
+  "baseline_engine_sha256": "cf5996bdc4bb701f9d39ae0838bd4fe57f4a95e5490d3f00960fe392cc7c9504",
+  "modfile_note": "Same pinned Dang replacement as span-fanout; pinned byte-identical otel-go fork from reviewed CLI diagnostic used only to add passive helper file. No CLI hooks or modified otel init.",
+  "go_binary": "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+  "go_binary_sha256": "29e6e0b8be61beb1489ceae62b304343566de8a1dc700af74bde7aeb9c80ad45",
+  "environment": {
+    "CGO_ENABLED": "0",
+    "GOOS": "linux",
+    "GOARCH": "amd64",
+    "GOAMD64": "v1",
+    "GOMAXPROCS": "4",
+    "GOPROXY": "off",
+    "GOTOOLCHAIN": "local"
+  },
+  "frozen_inputs": {
+    "/tmp/collections-perf/engine-cloud-transport-audit/engine-overlay.json": "63f20ab0d905a23c40d6f627bfdde4c1ae749a29b19ac10cb1fc69bc48a4229b",
+    "/tmp/collections-perf/engine-cloud-transport-audit/test-overlay.json": "9d913a12aefcb2faf90d2222031127c50697084dec2f14d3c8552f34111b909a",
+    "/tmp/collections-perf/engine-cloud-transport-audit/build.mod": "c161d76ae3e01f3c245c13957e0a8d2b32952c08077307c593ee43a329a4ddf4",
+    "/tmp/collections-perf/engine-cloud-transport-audit/build.sum": "05b34feba139701de20620f80fbb5cb54d95e05c3ba33004e80f73d75aaa8bc8",
+    "/tmp/collections-perf/engine-cloud-transport-audit/tests/perf_exit_diagnostic_test.go": "93598f27f2a2b910d8f2558132f57df9e91845d0e331d0f24ece2043c1ea5d46",
+    "/tmp/collections-perf/engine-cloud-transport-audit/tests/cloud_transport_audit_test.go": "9987dd6d94b2db19e7fad5b04e67bb37ff7aacf6cf70b83781b53cd0163048e5",
+    "/tmp/collections-perf/span-fanout-round2/common/00-helpers.go": "ea7901ebb3b5d0ac0133c28ebac504c0b0ad72146e3eb7b4d4628ef7d43c5b38",
+    "/tmp/collections-perf/span-fanout-round2/common/01-modulesource.go": "ba5a20bca1e3d47347bdada9e0f87953cafa9649a35eaa0cac418ce8c635f518",
+    "/tmp/collections-perf/span-fanout-round2/common/02-loader.go": "940a6f3b90105d4f0c4ca5a29eeff2fde7b997b90186f586f9f216aa5526e91c",
+    "/tmp/collections-perf/span-fanout-round2/common/03-utils.go": "fc355c4cdc792cb52fecabf5463e5e27d4d065a8fd863996a8344284e3b8fef5",
+    "/tmp/collections-perf/span-fanout-round2/common/04-fields.go": "47f568169b567a72381a00220dd49d6ffeb562248d239505002928396e1e9be6",
+    "/tmp/collections-perf/span-fanout-round2/common/05-eval.go": "81fee7c0cbdfbb35ee4a4f49d1fdd78e288be886731b7ee95d89293fd1b92c58",
+    "/tmp/collections-perf/span-fanout-round2/common/06-artifact_batch.go": "723debdd163ec0487e696de19ed9aee9b1270acc3ba9668072434b5752bf5b22",
+    "/tmp/collections-perf/span-fanout-round2/common/07-parse_cache.go": "b0f575ce0e8c7acc803e9aa7ae73e2a4da5d7b55ba21b2d02cdb04a0805258a0",
+    "/tmp/collections-perf/span-fanout-round2/common/08-interfaces.go": "1c265883ae09a557d552e0b198de960f35578686819aee0dd1665ce9785240b2",
+    "/tmp/collections-perf/span-fanout-round2/common/09-server.go": "e27eb9b289e1818a7b4b51cfe7b105ed34d87205bad31601cf1a909bd43871b7",
+    "/tmp/collections-perf/span-fanout-round2/common/10-container.go": "3830c6713a88236b64c8004c221afbf2731035dca4f6f67010397a9d857359fd",
+    "/tmp/collections-perf/span-fanout-round2/source/telemetry.common.go": "9b4f51aa15ed6825741645a142ecab85b097b722150ed95bfcbe57fe46ca10b3",
+    "/tmp/collections-perf/engine-cloud-transport-audit/source/session.go": "613022a011fa7712a39c86cf42a77fe16162d6f170b4047f8fdcf869a3630373",
+    "/tmp/collections-perf/engine-cloud-transport-audit/source/session_cloud_telemetry.go": "077fb8d64ac6a767b5de7328a10e5a5c530491803e7462c4fa9cfeb1e258fd86",
+    "/tmp/collections-perf/engine-cloud-transport-audit/source/cloud_transport_audit.go": "7dadefc5bd654c7722baa235e9a5e0de00412260505b4ec86b72be42d7a71fbf",
+    "/tmp/collections-perf/engine-cloud-transport-audit/source/cloud_export_sequence.go": "8daad3ca17415770c09eee9d6ea5a66077ab35562d8b96aedea15d168803e87c",
+    "/tmp/collections-perf/engine-cloud-transport-audit/source/perf_exit_diagnostic.go": "e85e051aa9a307f38da71bc031017228164ccfd993311a4c74183fd4e2cc8406",
+    "/tmp/collections-perf/engine-cloud-transport-audit/source/coremod.go": "19be10682cc8a4bdd2250d41b8ae61590385a946f8a3ee5792f87cffdafea319"
+  },
+  "runtime_source_base": {
+    "/home/dagger/dag/engine/server/session.go": "b43151aa15abde9592990b001575cb0add6611b22c99ad7f5a7867f236e379ca",
+    "/home/dagger/dag/engine/server/session_cloud_telemetry.go": "bf17ed93c7fcd1c4b6b9ded8d038a3a92ed2f4d6974406c4793a731adeba9a61",
+    "/home/dagger/dag/engine/server/cloud_transport_audit.go": null,
+    "/home/dagger/dag/engine/telemetry/cloud_export_sequence.go": "670bd243027b8d74b3ae1002e55ea225532d960196617a902636051cd387ea9c",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/perf_exit_diagnostic.go": null,
+    "/home/dagger/dag/core/schema/coremod.go": "4a7c0f4adff402f4657b704ce8fedc43235248c12387a38bd9693babbcfc00c7"
+  },
+  "dang_source_inputs": [
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/.agents/skills/fs.go",
+      "sha256": "0db71fc67bac3e1f222eb706decd7d0b8effe66dcf4441e743dcf1e29583467b"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/cmd/dang/debug.go",
+      "sha256": "014b31d654857255931dccab8e66693900356a3a91a72ed9548982f65a4f0fba"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/cmd/dang/main.go",
+      "sha256": "1b1c9adb403be3fe96478607b40f591afecaf9453bdbbcd84c478be22b26a4ec"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/cmd/dang/repl.go",
+      "sha256": "179137963fa7b8237bb72bdec66d459f5d6b9928ed2eb1dd28f558091d4e86e3"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/cmd/dang/repl_commands.go",
+      "sha256": "cae916955d37d5a8d87a75208a07d776ca6bc99148f42756172feeb8b6696f92"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/cmd/dang/repl_completion.go",
+      "sha256": "3a38c0b23fc7bea802c22aa6fae60bb3835fd62b1e916bcda84a3881e9c388ec"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/cmd/dang/repl_highlight.go",
+      "sha256": "001688fb0e6423cf73d3e3420a4afa6e0af4b292b18cf9f08ecdd584bb6a8d01"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/cmd/dang/repl_tuist.go",
+      "sha256": "7a98b3c777779a338c2a0960c0239c4c4846f593e009cbee82b4dc37a4efc0de"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/cmd/dang/version.go",
+      "sha256": "f789c6106fec2d51b9d9accd395155e9c9e2161c09a39269f4440c0a896d05e7"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/cmd/dang-playground/main.go",
+      "sha256": "a5ca2807fc99b90677982c8028a6c60b9e10dd9a5dd8294854fa9bda7745a2ce"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/cmd/dang-playground/main_other.go",
+      "sha256": "f24a77fd2a6be687584e00aae916fb0f417720122c0a89b948446f00e77c92b9"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/go.mod",
+      "sha256": "04eeb057917fabfa8ba732579caaed4ef8b8c7a49075cf381cf57b6be7f0df3b"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/go.sum",
+      "sha256": "f9277351c6254a927e8f3d0ff27e0ad44b93eb5fb54604f40f00b67e354a5b83"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/assert.go",
+      "sha256": "02bc918159e1d2df6e934b4a9a28fb7ac99e6f42706ef436c513f088ae6d9df6"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/ast.go",
+      "sha256": "d91649bcae8ac881c8e619e76302e6ba80aa898ad2f31e39c18fb1bad7a5f881"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/ast_declarations.go",
+      "sha256": "355b3f31018fc04676a918196bb8528d122ea45a627cd109c08b592a1dd7d5a4"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/ast_errors.go",
+      "sha256": "88655408ab175efb9764854356a01202cb268b2d1fd356782a36fd79575b3811"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/ast_expressions.go",
+      "sha256": "3445db5b6e0ffb21a903f2c900363aef032f7cd1f3d3f53af5aa19809c982571"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/ast_literals.go",
+      "sha256": "e0f954312c200d36364f5ee0bb754b3680d94b8414f732d8f2d159d5ae8fea66"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/ast_operators.go",
+      "sha256": "679dd5e67714abed776d074731298f527eda3dc7133eb8e177a326cbdd00dc6d"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/ast_patterns.go",
+      "sha256": "87fbbdbbb7701fc29622b87648f5c1710fbc898e660cd794528af70d4883aed8"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/ast_return.go",
+      "sha256": "085bd2396d63badf1d5acd31ed1567a2c4f3ad9596f8fdd7e5b50aa45e876c25"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/block.go",
+      "sha256": "a061dad5e71ab47e2035f238331615b649c7cd524358995fb98971a47a92e7c4"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/builtins.go",
+      "sha256": "f43b4bc8e42325cfcc011a6eb6d49a5932bc4fd9a47fcc47fa529c84281a2ced"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/codec_directives.go",
+      "sha256": "b2da888479c48831d7130232b05bb66aee382066b6b50a0bd48931c045312634"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/complete.go",
+      "sha256": "94c9d886990ac5639f1d9574a663eb55f298f818e2b88d96772de4748f0c8d13"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/complete_nocgo.go",
+      "sha256": "53039e1ac29d7b5e2f86f46d7d1f574e94a7d7248274c3c7a91911f514164505"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/complete_ts.go",
+      "sha256": "4fe70be15f552f29184a9746d1e6026afbf540620f90ddaf3da3de2bd94fe25a"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/config.go",
+      "sha256": "a8ac4688efd89ca06bf47e047d620cd2c62a448bcff7df16787eafcf12371b74"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/control_flow.go",
+      "sha256": "2339593fe7bd1cfdcea84ffe337774b52f35ae5c0f0ae89837c67e6a9b892e13"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/dagger.go",
+      "sha256": "3177a51e66b0fe7638c510d257dbb5495f979628b465fef7f10207483ddd3b6e"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/dang.peg.go",
+      "sha256": "412c376c5f258957e9b1faab9fcf1761487aaed3cc8ab4bb4cac23aecee5c01f"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/dang.peg.helpers.go",
+      "sha256": "827d320ace85585f03c68579b44e064b4ec3063be16d64911bad55b35ffc6a64"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/danglang/danglang.go",
+      "sha256": "af7f04d35e8701847519f086d4523fad00f2ba5915963b5107079f2d734f9d83"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/deferred_yaml.go",
+      "sha256": "58a347519cbdb150e46d86dd64470204432ee5f9a8e4d888ec324806a65ef116"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/dir_inference.go",
+      "sha256": "82e3630177c88d8757c6008911edcda20b6b0acff75ec1694d52a242f1307050"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/divergence.go",
+      "sha256": "ebdfcd377a4227fe0f028910ba25333b932245b3f2b20b7c1d53e1349da70479"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/env.go",
+      "sha256": "d49cf8a49f12562a55760f9cfa2f7e418bc2eb8f3e5ff574a4cbe6ad8dacc99b"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/errors.go",
+      "sha256": "f8912ae7ecfe659f20a01924c18d44b49088bd2f82a5069aef2c0f1327cbf07c"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/eval.go",
+      "sha256": "1d5177e568783f71378fc617c7c4e943bd87d42d7a768c93119505a38c80e968"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/fields.go",
+      "sha256": "9e2de38a92284e91beb16ab556a97add26facb165cd978d668aa86f48988de65"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/file_block.go",
+      "sha256": "8595112b5d397c8743891a3499036c9aba34c1279f4f60beac50421edced8471"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/format.go",
+      "sha256": "5a551f682966018da236c208655ff2c91bebd0c2deb480bde8b83824584a8da0"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/generate.go",
+      "sha256": "3ec0291f6dd96a7736f4d2941d2bf22da54278796e60a67855997f82cdd4b371"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/highlight_common.go",
+      "sha256": "831e2b19e1bfe8f07275354dfc9eda95b6c7f391752c8eb212bb8c12da225e66"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/highlight_nocgo.go",
+      "sha256": "a6b4aaa528454fd1915dc94b279d2c780e2dd65efb6fdd54d29033d6631a17a9"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/highlight_ts.go",
+      "sha256": "6352335a3108bf11da18423fffa282ac2c7bb69f7d26225529bfe75ede574d8f"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/highlights.scm",
+      "sha256": "1a895f3a8a42220eb87a433b19d54def40be16d7beb608c7f503774114b7976b"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/import_dang.go",
+      "sha256": "abfda4262a7504cc356bcbcfdeb3981bbb35e4f69a2f8a50c7faa4fd830944c8"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/import_install.go",
+      "sha256": "540a91d3380e6d91499072dd4c929996a2e4a2dcc31bc43140cbb84602552e11"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/infer.go",
+      "sha256": "56d3f625137cea1ea284142a0f2551f64302e0eed6a99e0e66da561264fb9883"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/materialize.go",
+      "sha256": "9d7f0b27d1bf9e7f52dcfc29e11b8fe0aa292154d90d42f1275bea5b8a02339c"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/module_format.go",
+      "sha256": "1179105dd3a18c712ecea331e01a703a2e9204ea0d2315828f0a567112ced9ee"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/module_scope.go",
+      "sha256": "bd73eae8b80a665ffc3f6ca4c830f9246c07c58ee4340c9497bb6c196a7297ac"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/narrowing.go",
+      "sha256": "08de22e793849a165381cf89091abdaba1319206b499a5ee807e52ca8c07dce5"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/parse_cache.go",
+      "sha256": "65848e4481ec93af8f515813c194ead15f51af60ce8b9ce1219caf743c657adc"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/parse_errors.go",
+      "sha256": "f33085e1aabfc553d1ca8e0a1a014e754a9cfa05396ae2cca75da72bb3a1f27c"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/parse_errors_nocgo.go",
+      "sha256": "465c18b8d067491e27a6daeffd339f6fbc3c47f19599d897bf918497ffd6e9a9"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/prelude/docs.dang",
+      "sha256": "f3f61ebaeee5bf6710d8d0ab66f0afcd92b7e58e5bcf76a7fb9298e1ffe0eb85"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/prelude/path.dang",
+      "sha256": "1629671fa84b263c99a4d1699989d26c97c56915f3f8d4369447fd4a12394a38"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/prelude.go",
+      "sha256": "fbcbda3c9e010746c2a6bddcff006838402ca81529e0b3b91bf5b0fd3605062b"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/process_js.go",
+      "sha256": "50276b7a8bba0e7014f964eaebc5079f9730540d7d5e6e6feda541c9165fc90d"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/process_unix.go",
+      "sha256": "e8bcf7148c2520f0bc03f0eed8a0ad57966fb3ffdec9285a939f1b9b45a91213"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/process_windows.go",
+      "sha256": "f2a032808ecfacbfe782be13691d0c3ad9352e27636986983239ef17fc529e9c"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/project.go",
+      "sha256": "6172860b0bdc881997920a73e8530190040950bb70e5971a3a5e24c9eb7fb0e0"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/record.go",
+      "sha256": "d90715ca73fd6175edea3d18bb2d1ce10c7bbf07b3782df0c577474a657e6578"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/repr.go",
+      "sha256": "aa51eee304508d808fa2e50a51a22cbf4e5f7de5cef5e0cbd24fd8cb79b78777"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/rescue_analysis.go",
+      "sha256": "9e5083c7b236243d218495171ba48ff504a4275cb4dde49f6feacaf5c452ab8d"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/slot_dep_graph.go",
+      "sha256": "75689d848fe0eecdb6e0c3a0268b2d60ab1c45cf69c3b74e6a3415a42b34cc2f"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/stdlib.go",
+      "sha256": "fb6d542571d7c8bb17665d3dd441bacb09febaed8edfbb7e703a97d82657de49"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/stdlib_codec.go",
+      "sha256": "1e59728262bf044691c75dd42f6eae0bcfe3144b0ede00ebcac628ab2951491f"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/stdlib_random.go",
+      "sha256": "497e7b8d73cd77bb2d1ba115778fffa1450e239a64808de1179c30c7d293e2f1"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/stdlib_regexp.go",
+      "sha256": "f71bb8bf4d1e03c507465247c5f792a75841edfba3c12829788bcfdd0a3039e1"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/treesitter/types.go",
+      "sha256": "d4940a40c1ac1fe9c4eaa3dd09957e54a90c3210cf98aa4418adc154da2a34fe"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/treesitter.go",
+      "sha256": "aad228e356452923a52e6db7fac2ae3c3b9485383b2f5e5765adf7e88461af46"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/types.go",
+      "sha256": "79aef3549a912f206494ddde452198720b9f271174e18576945cd2680fe92fc7"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/uncaught.go",
+      "sha256": "0b767477ae10bcaf3f104b0a489a077e2ec768d2969433dff0b62a8ef8a10dcc"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/union_provenance.go",
+      "sha256": "0a3b830c097ec2f7aa02b438eb796a58b70d598f80a2197d353e41727614667b"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/util.go",
+      "sha256": "7ccb3ac3ed46047dff7d5a0877d9ce6dddc35f5c42129d613e52ff416afbce97"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/dang/warnings.go",
+      "sha256": "aa63bc3d304a2df4e33e25e360cdf144b8c0a8b5bf4e0006324198b06aa7f492"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/hm/env.go",
+      "sha256": "924049d3a520fb87429bc28607785015d8c323304f666fcdf871334e154aac31"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/hm/expression.go",
+      "sha256": "ec57cb8b967bbec9238a1e2392e45adeec6762ae06eaf01eff5fbee9f31bd69d"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/hm/generalize.go",
+      "sha256": "37c3fd745a1bfc50c8b37336ae2eec0e9958eb48531af1835ce8f38ff6932961"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/hm/lattice.go",
+      "sha256": "bc9516c7f8d242b3188e10406e4479f58394e4e4d375545a5dff7674ba2da060"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/hm/scheme.go",
+      "sha256": "28f6f45b44aba8efd4017ef4a5a69bc8b916cb71e52bc5f8620cfaf208699272"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/hm/substitutions.go",
+      "sha256": "7ca868b69e98e7e9930dc61e771c6eb7318050b4a1fffd5fc9ceab6003a78b69"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/hm/types.go",
+      "sha256": "8a4006aa459beece7d87a4e5479af1639a0ddcd04a3cb189f9c0cfb638bcf5e6"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/hm/typevarset.go",
+      "sha256": "1854ac79715b4815d9cd5fd6bdd470718852324534b51c748a8e121aa9690dc5"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/hm/unify.go",
+      "sha256": "74bdb936208e7b1b972acf2cedffea0c1f6ad0d6bcc47cfab226e16cfb47c427"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/introspection/introspection.go",
+      "sha256": "bf8868a9aeb328c0ad11b151380d4c136361b58d72b5fa075e520780b51a396c"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/introspection/introspection.graphql",
+      "sha256": "66b0d76d31aca07ebc8f4d4ab88a9f11e87b8a96cec2bdee298ac48036ddb042"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/introspection/introspection_dagger.graphql",
+      "sha256": "e2489174594fa8c23e866d41f69a85282c19026f416478b95a17b7dc8d24fe61"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/introspection/visitor.go",
+      "sha256": "9cea1bed88abaf6c9f1bec86e2a50574b90748bf683eb3595c5d874b86a219cb"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/ioctx/context.go",
+      "sha256": "7b4cb901ff98a7e2e8a168a991ec7cc4c1dcf8c7d16449b2617941c4cfab6ea1"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/lsp/ast_query.go",
+      "sha256": "80793e823b8073f8a82e56f523cff0f7be7683d3fb65d73de6e70b41215a2f31"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/lsp/deprecations.go",
+      "sha256": "a99c6a633dc7e63d4377ee2dc6b5c1344598449df2431ee2ba96a4fdf00629c5"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/lsp/handle_initialize.go",
+      "sha256": "c8fc3e70de3fe632d1dafe770f8cb777a39748fa58cfe48052c769db5e839f1f"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/lsp/handle_shutdown.go",
+      "sha256": "3f870bbfd41a33d1444adb8fe8311aa7321cf2afe8e2693bacf67e2515ecdaae"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/lsp/handle_text_document_code_action.go",
+      "sha256": "30b226f46093d9951d359fc14c926ee5bad03a8ec33231341bd5fe63a730b911"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/lsp/handle_text_document_completion.go",
+      "sha256": "31510f2d3a3f5ed3718f94e76d6452f8e351094691aeeb88ca4a20f6ad8fb92b"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/lsp/handle_text_document_definition.go",
+      "sha256": "e7e49e6edd0964a2cea3d16e74a372c16ca1e6d496841cdef0e09aa83a1818e1"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/lsp/handle_text_document_did_change.go",
+      "sha256": "9c8ead1b266f99c0dcb5b457a616aa4fcbb3595129c0942644bbb779dae2d168"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/lsp/handle_text_document_did_close.go",
+      "sha256": "53b8a1357cc6420476ce179904380160cd299e12e2eb89f259d04133fb7b8116"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/lsp/handle_text_document_did_open.go",
+      "sha256": "292b88789599a303c80a525081f02e765a53b1a04d38f694d2dea70fcb16d342"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/lsp/handle_text_document_did_save.go",
+      "sha256": "42703dba595dfd0a5c36a980cd59fbed0d3e38c90ad088c68c29480027b211ba"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/lsp/handle_text_document_formatting.go",
+      "sha256": "470debbb4c54f48d290a39e16610c40af9bec59354c25cb4d93eb211c4bc7b13"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/lsp/handle_text_document_hover.go",
+      "sha256": "821c1b6c14b1adb29a309ff64a2b722591146db1678ca3a1590bb98bb293eb58"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/lsp/handle_text_document_rename.go",
+      "sha256": "ccbff2c8c469c50321806c36456ad8f18c7c0ecce35e7ccc12d94b01d6efc205"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/lsp/handle_workspace_did_change_configuration.go",
+      "sha256": "3f403eac0b386b41401e2c50d517c2c9c4b4a7563b3c5657b65b3ef8533d98da"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/lsp/handle_workspace_did_change_workspace_folders.go",
+      "sha256": "b3943ef6d3c0ea7992015728df9b07bf80e9a5c49e2331b2c7bea13fb20ba093"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/lsp/handle_workspace_symbol.go",
+      "sha256": "6c99b5f92f9476f687ec4dd073bde54165fc6a1af2ed3424c71daa3d97b432f7"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/lsp/handle_workspace_workspace_folders.go",
+      "sha256": "13d33b7f1729a091105edd95a4b7139f8d8b7bbbfe51c813caaad9b5bac801d5"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/lsp/handler.go",
+      "sha256": "f24d681d644d5451834625f324cb172b255e29b576b8181bc01d260bd8b4ecbd"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/lsp/lsp.go",
+      "sha256": "42cea539d53c8072e5f8beced507dcf050c902dc9762e466b4752049b3d5ef06"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/lsp/warnings.go",
+      "sha256": "1541bd7e1a87a82316f7b8fb47996baae0653feba030061624cdfdb3d18a08da"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/querybuilder/marshal.go",
+      "sha256": "46fbacec3e9a9e83abe7963321c55da57feac8adc4e11644eefd2ec458b7f8be"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/querybuilder/querybuilder.go",
+      "sha256": "bd911b3744a8aa1730f39dd85f442ff19e852a311b2beb1d609c653e302987ce"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/repl/completion.go",
+      "sha256": "530f0e4d84fed4645ed3442663850921ba4ea84064d18c40c7c4c383e11e59e8"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/repl/doc_browser.go",
+      "sha256": "e19b257659dd5ac270e8125eefd8f2ea734080d7a75f5955e01b760a8ab6b34d"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/repl/doc_browser_overlay.go",
+      "sha256": "9c8c50e82d1c1a13442ffbed571a72f800bb53ad343bf3930e4d9e902eee1177"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/pkg/repl/history.go",
+      "sha256": "3bdd94332959f146e4d5179105d4d3438eac1a7023ec2141e2b973a5d3b4882e"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/tests/gqlserver/data.go",
+      "sha256": "91fb893346963ae28b1957559da2823085f9dce46fc668f67087cd5f07b823e5"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/tests/gqlserver/generated.go",
+      "sha256": "29d64981fe9084f17a6932122819edb36fa2a638005d295ff65a61ff3faab411"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/tests/gqlserver/inprocess.go",
+      "sha256": "786e20df7cf14eaf3822890c6254d672db06c425872a40e80a5a75ebe130294a"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/tests/gqlserver/models_gen.go",
+      "sha256": "dc0725c42f90c2b0448b0d45ca85af25451a21a8fdd940851794a1b0df637243"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/tests/gqlserver/playground/main.go",
+      "sha256": "636d5fb000c1f2fe88451809b9571154dac3f0370c21cd7ef0d9ee2c7c8456e1"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/tests/gqlserver/resolvers.go",
+      "sha256": "be3a7c0cf979bcc39b677db66927a72e5e723f4401c26710668671d152ce2baf"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/tests/gqlserver/resolvers.helpers.go",
+      "sha256": "79e21f5a736a8a0e20313e95b967ab810ebd402fe955b665a4daf21694b7969e"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/tests/gqlserver/server.go",
+      "sha256": "2839d5e3e07b0761a302d05a681c6e4dd46f3c6ea97ad9f6857b54cf315f1129"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/tests/gqlserver/service/main.go",
+      "sha256": "6e2e58cecbfaef7a2df01bfce6bc52430211599d3a151122d519ed343140233d"
+    },
+    {
+      "path": "/tmp/collections-perf/syntax-isolated/dang/treesitter/generate.go",
+      "sha256": "753546929778194ab8a016c8fd42d38a8ab9b70260b6c09d40899459959c2728"
+    }
+  ],
+  "otel_source_inputs": {
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/live.go": "d133c015274cef0b7f95a848f33affbd232f99e9a0eacb01f739b76b83525a2e",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/transform_test.go": "ae33fed78f0d0c9e68bfe032ef8f18b92c4ba4a2a60a83cad253bd15a705f55a",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/dagger.toml": "ba830ed61e43f051ec634c0365b5932409d5fa0d1048d56d96d799d867583853",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/transform.go": "43eae7bc6a271efdd7e0dc50e0eb6f835fd8098e1f845ae2b3c6b8785864ae57",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/logging.go": "ad1ca884ed1a1c8e95a2287d079ba97f9a8da2a65a4dba041dd55344c983e6c1",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/live_test.go": "8931936a0abc06f5cfa228d58dbb9625dbc082b987396527f9aa68642fd00a09",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/go.sum": "c43f94396fd461f69890d80e6bc836e6b858b5697afc2fe6eed19647f9b2d766",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/dagger.lock": "be43a1b1aa8958eb96ab3478bb7ca45a463d13dc0dbd1c43b70f4a48bbfcc15e",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/LICENSE": "4442a42853bd02d190ce5f06f76ba62f1a0ff803e8cc1a524dcaa7085a0b100b",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/attrs.go": "7d8bfbfc12641517201bcbc9c2c9941735042ad67faa091d6855ea4c3259099c",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/env.go": "b27aeae5ce20a31d6922bb991efdb745a6257c42f76f32dd36cab1e142f81274",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/metrics.go": "7edd5b04f9b5e59d09fb1bf2529c4b99776df397ae9af0fbe9b76acedc8c6c33",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/exporters.go": "6eb8946676fb2760072f71e5a5cb332e839a59dc9fb75f2634123392fb57a1d7",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/span.go": "c363232b0daf32dd97d73a08ed1c5888f444d45b7a8bc56b68333879a33ed2a0",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/README.md": "08ae695c8bc426d63dd3043b23d363e91405761af2cf8968ef3d9d80e70bd70d",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/init.go": "0f5a86d6a696e20fcc7f66f727695eae7b708d57082f2f77390237735d1b304e",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/go.mod": "92f0788de7ce6419f80236d8597fb7b950fa0caa0707374817793d8430280c05",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/.gitattributes": "5a464c804a424556a52c4b6a0e1bd406eaa96f65a8fe70f84f30f2f240307daf",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/oteltestctx/otel.go": "6bb5859bd7b6c8383005475c08e009604b1dcb54ad3488a57d3f0ec0ddf457da",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/oteltestctx/otel_test.go": "6aafd05b85449b2ef552a2018fcbcf291b62f1345a9662a5ad6b6a0fa61f74bf",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/oteltestctx/trace.go": "2bb1e0d26eb4aea5a1a351702caeaa7359d0beb6865b25daf2327d9899286bd3",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/oteltestctx/clean_test.go": "267e65729512904a8c9560c26127a2f9b7f71a1d5b1ed2e2b585a9430905d66f",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/oteltestctx/log.go": "2e2b8c2e7f357f307e210466540f40f83a9046a6e9206893f7ae0e3276c2db1f",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/oteltestctx/failed_test.go": "7dc0b1739ab66c3ea9c1ef0d2112aa762cf8d203cfe4b8c3a90cf7c15d0014db",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/junit/junit.go": "0e1826f8bdfbaf11f99c8ec747623a5f20cd8da02a3754aa34942bc87314e386",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/junit/junit_test.go": "fa359054b0baa63af1b2b1ba65d440600ef9c0e1ef21817331a80eae24c4bab5",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/gotestmain/gotestmain_test.go": "cc7e4b986c501a7e083e7ab9b1db6bbece686dd822b49f0f199f9841067f9630",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/gotestmain/gotestmain.go": "cae011687c7350203beca207df20e79f2a443aef6e4940a38d3252ba1d522798",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/gotest/registry.go": "a963343ca7f27939558ff1c458da4c1849bc7b2ed65360f82edfa3926ab1ef42",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/gotest/gotest.go": "43e8c008b5e9bd4245861793e1c67d61215f7532509f3805199f9690052f6e23",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/gotest/integration_test.go": "403ca3fdd6fa6873049ff6f34579a00770f1a2ccbbc79979f565bc99eae03788",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/gotest/gotest_test.go": "e6dca430fd384919880433521b3613ee4adf1fa4409a90af22f5728784bdfb71",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/.dagger/modules/testgen/main.dang": "34f8e9b8b72374b5ceb6d271cba7d5b42dad6b74f2effba5233d1f084e42fce4",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/.dagger/modules/testgen/dang.toml": "366f84d6b4af06b8a121963ed4e666b65fb43f306ae2625f9d290c737b9182a4",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/.dagger/modules/testgen/dagger-module.toml": "85da50a16e68553bb26c6488f7bc393756e2466d5eca8c45596f307044a9baae",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/cmd/otelgotest/main.go": "ea24c149137d018300e2c49761d0f8bc150d8d29c06d6e3345498539e23aa813",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/cmd/otelgotest/main_test.go": "554a529f06fb4af3023d069ac370ff971b12e4b609f165823cde7ffed1a54523",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/cmd/oteljunit/main.go": "e387456519febc6aff03ee027ce04cfa2ca811c90d2d66bc05c87d5b4a1abc15",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/junit/testdata/sample.xml": "1b8bc54f9b8ec8d7744549af2a9481229994dc138cd5f98448e302095ec030de",
+    "/tmp/collections-perf/cli-exit-tail-v2/otel-go-pinned/gotest/testdata/sample.jsonl": "a450fbb377345a357a71b718a9e4dafe0903cd920569b7d9458e5f486670bff3"
+  },
+  "expvar_key": "cloud_transport_audit",
+  "event_limit": 10000,
+  "contains_credentials_or_payloads": false,
+  "command": [
+    "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+    "build",
+    "-mod=readonly",
+    "-modfile=/tmp/collections-perf/engine-cloud-transport-audit/build.mod",
+    "-buildvcs=true",
+    "-overlay=/tmp/collections-perf/engine-cloud-transport-audit/engine-overlay.json",
+    "-o",
+    "/tmp/collections-perf/engine-cloud-transport-audit/engine-diagnostic",
+    "./cmd/engine"
+  ],
+  "allowed_tracked_documentation_changes": [
+    "hack/collections-performance-start.md",
+    "hack/collections-qa-performance-data/checksums.json"
+  ],
+  "documentation_changes_before_build": {
+    "hack/collections-performance-start.md": "e2e051bc13c85ada5b739a5fda499da0e238fc7982321a3734c8d77dca77c0f6",
+    "hack/collections-qa-performance-data/checksums.json": "9e8dc4f432fb77be1d49ee324bb4b5794d03672b84e3f85f3d2aa5dd801d53b2"
+  },
+  "preflight_note": "Initial build refused documentation-only changes; allow precisely these non-runtime report/archive files. Runtime source and all frozen hashes unchanged."
+}

@@ -1,0 +1,196 @@
+--- a/core/schema/module.go
++++ b/core/schema/module.go
+@@ -2397,40 +2397,55 @@
+ 				continue
+ 			}
+ 			obj := typeDefSelf.AsObject.Value.Self()
+-			for _, field := range obj.Fields {
+-				if field.Self() == nil {
+-					continue
++			objects := []*core.ObjectTypeDef{obj}
++			if obj.Collection != nil && obj.Collection.Enabled {
++				// The API exposes synthesized list/batch/get/subset members.
++				// Include their references as well as the stored definition's
++				// references, without replacing the author-owned metadata.
++				projected, err := (&moduleSchema{}).typeDefAsObject(ctx, typeDefSelf, struct{}{})
++				if err != nil {
++					return nil, fmt.Errorf("expand collection %q: %w", obj.Name, err)
+ 				}
+-				if err := enqueue(field.Self().TypeDef); err != nil {
+-					return nil, err
++				if projected.Valid && projected.Value.Self() != nil {
++					objects = append(objects, projected.Value.Self())
+ 				}
+ 			}
+-			for _, fn := range obj.Functions {
+-				if fn.Self() == nil {
+-					continue
+-				}
+-				if err := enqueue(fn.Self().ReturnType); err != nil {
+-					return nil, err
+-				}
+-				for _, arg := range fn.Self().Args {
+-					if arg.Self() == nil {
++			for _, obj := range objects {
++				for _, field := range obj.Fields {
++					if field.Self() == nil {
+ 						continue
+ 					}
+-					if err := enqueue(arg.Self().TypeDef); err != nil {
++					if err := enqueue(field.Self().TypeDef); err != nil {
+ 						return nil, err
+ 					}
+ 				}
+-			}
+-			if obj.Constructor.Valid && obj.Constructor.Value.Self() != nil {
+-				if err := enqueue(obj.Constructor.Value.Self().ReturnType); err != nil {
+-					return nil, err
+-				}
+-				for _, arg := range obj.Constructor.Value.Self().Args {
+-					if arg.Self() == nil {
++				for _, fn := range obj.Functions {
++					if fn.Self() == nil {
+ 						continue
+ 					}
+-					if err := enqueue(arg.Self().TypeDef); err != nil {
++					if err := enqueue(fn.Self().ReturnType); err != nil {
+ 						return nil, err
++					}
++					for _, arg := range fn.Self().Args {
++						if arg.Self() == nil {
++							continue
++						}
++						if err := enqueue(arg.Self().TypeDef); err != nil {
++							return nil, err
++						}
++					}
++				}
++				if obj.Constructor.Valid && obj.Constructor.Value.Self() != nil {
++					if err := enqueue(obj.Constructor.Value.Self().ReturnType); err != nil {
++						return nil, err
++					}
++					for _, arg := range obj.Constructor.Value.Self().Args {
++						if arg.Self() == nil {
++							continue
++						}
++						if err := enqueue(arg.Self().TypeDef); err != nil {
++							return nil, err
++						}
+ 					}
+ 				}
+ 			}
+--- /dev/null
++++ b/core/schema/collection_typedef_closure_test.go
+@@ -0,0 +1,112 @@
++package schema
++
++import (
++	"context"
++	"testing"
++
++	"github.com/dagger/dagger/core"
++	"github.com/dagger/dagger/dagql"
++	"github.com/dagger/dagger/engine"
++	"github.com/stretchr/testify/require"
++)
++
++func TestCollectionTypeDefClosure(t *testing.T) {
++	ctx := t.Context()
++	cache, err := dagql.NewCache(ctx, "", nil, nil)
++	require.NoError(t, err)
++	t.Cleanup(func() { require.NoError(t, cache.Close(context.Background())) })
++	ctx = dagql.ContextWithCache(ctx, cache)
++	ctx = engine.ContextWithClientMetadata(ctx, &engine.ClientMetadata{ClientID: "collection-schema", SessionID: "collection-schema"})
++	server := &currentTypeDefsTestServer{}
++	root := core.NewRoot(server)
++	ctx = core.ContextWithQuery(ctx, root)
++	base, err := NewCoreSchemaBase(ctx, server)
++	require.NoError(t, err)
++	dag, err := base.Fork(ctx, root, "v1.0.0")
++	require.NoError(t, err)
++	server.dag = dag
++
++	var key, keys, item, collection dagql.ObjectResult[*core.TypeDef]
++	require.NoError(t, dag.Select(ctx, dag.Root(), &key,
++		dagql.Selector{Field: "typeDef"},
++		dagql.Selector{Field: "withKind", Args: []dagql.NamedInput{{Name: "kind", Value: core.TypeDefKindString}}}))
++	keyID, err := key.ID()
++	require.NoError(t, err)
++	require.NoError(t, dag.Select(ctx, dag.Root(), &keys,
++		dagql.Selector{Field: "typeDef"},
++		dagql.Selector{Field: "withListOf", Args: []dagql.NamedInput{{Name: "elementType", Value: dagql.NewID[*core.TypeDef](keyID)}}}))
++	keysID, err := keys.ID()
++	require.NoError(t, err)
++	require.NoError(t, dag.Select(ctx, dag.Root(), &item,
++		dagql.Selector{Field: "typeDef"},
++		dagql.Selector{Field: "withObject", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("Item")}}}))
++	itemID, err := item.ID()
++	require.NoError(t, err)
++	var get, batch dagql.ObjectResult[*core.Function]
++	require.NoError(t, dag.Select(ctx, dag.Root(), &get,
++		dagql.Selector{Field: "function", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("lookup")}, {Name: "returnType", Value: dagql.NewID[*core.TypeDef](itemID)}}},
++		dagql.Selector{Field: "withArg", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("name")}, {Name: "typeDef", Value: dagql.NewID[*core.TypeDef](keyID)}}}))
++	getID, err := get.ID()
++	require.NoError(t, err)
++	require.NoError(t, dag.Select(ctx, dag.Root(), &batch,
++		dagql.Selector{Field: "function", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("summary")}, {Name: "returnType", Value: dagql.NewID[*core.TypeDef](keyID)}}}))
++	batchID, err := batch.ID()
++	require.NoError(t, err)
++	require.NoError(t, dag.Select(ctx, dag.Root(), &collection,
++		dagql.Selector{Field: "typeDef"},
++		dagql.Selector{Field: "withObject", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("Items")}}},
++		dagql.Selector{Field: "withCollection"},
++		dagql.Selector{Field: "withCollectionKeys", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("names")}}},
++		dagql.Selector{Field: "withCollectionGet", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("lookup")}}},
++		dagql.Selector{Field: "withField", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("names")}, {Name: "typeDef", Value: dagql.NewID[*core.TypeDef](keysID)}}},
++		dagql.Selector{Field: "withFunction", Args: []dagql.NamedInput{{Name: "function", Value: dagql.NewID[*core.Function](getID)}}},
++		dagql.Selector{Field: "withFunction", Args: []dagql.NamedInput{{Name: "function", Value: dagql.NewID[*core.Function](batchID)}}}))
++
++	// A private stored delta is not in the public collection projection. Its
++	// pre-existing closure edge must remain alongside the synthesized ones.
++	var delta dagql.ObjectResult[*core.TypeDef]
++	require.NoError(t, dag.Select(ctx, dag.Root(), &delta,
++		dagql.Selector{Field: "typeDef"},
++		dagql.Selector{Field: "withObject", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("CollectionDelta")}}}))
++	deltaID, err := delta.ID()
++	require.NoError(t, err)
++	require.NoError(t, dag.Select(ctx, collection, &collection,
++		dagql.Selector{Field: "withCollectionDelta", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("changes")}}},
++		dagql.Selector{Field: "withField", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String("changes")}, {Name: "typeDef", Value: dagql.NewID[*core.TypeDef](deltaID)}}}))
++
++	beforeID, err := collection.ID()
++	require.NoError(t, err)
++	closed, err := expandTypeDefClosure(ctx, dag, dagql.ObjectResultArray[*core.TypeDef]{collection})
++	require.NoError(t, err)
++	byName := map[string]dagql.ObjectResult[*core.TypeDef]{}
++	for _, typ := range closed {
++		require.NotContains(t, byName, typ.Self().Name)
++		byName[typ.Self().Name] = typ
++		require.False(t, typ.Self().Optional)
++	}
++	require.Contains(t, byName, "[Item]", "public collection list must resolve by canonical name")
++	require.Contains(t, byName, "Items_Batch", "public batch object must be included")
++	require.Contains(t, byName, "CollectionDelta", "stored implementation references must remain")
++	require.Equal(t, "Item", byName["[Item]"].Self().AsList.Value.Self().ElementTypeDef.Self().Name)
++	require.Len(t, byName["Items_Batch"].Self().AsObject.Value.Self().Functions, 1)
++
++	// Every type reference reachable from the projected collection's public
++	// fields, functions and arguments must appear in the same closure.
++	var projected dagql.ObjectResult[*core.ObjectTypeDef]
++	require.NoError(t, dag.Select(ctx, collection, &projected, dagql.Selector{Field: "asObject"}))
++	for _, field := range projected.Self().Fields {
++		require.Contains(t, byName, field.Self().TypeDef.Self().Name)
++	}
++	for _, fn := range projected.Self().Functions {
++		require.Contains(t, byName, fn.Self().ReturnType.Self().Name)
++		for _, arg := range fn.Self().Args {
++			require.Contains(t, byName, arg.Self().TypeDef.Self().Name)
++		}
++	}
++	afterID, err := collection.ID()
++	require.NoError(t, err)
++	require.Equal(t, beforeID, afterID)
++	require.Equal(t, "names", collection.Self().AsObject.Value.Self().Fields[0].Self().Name)
++	require.Equal(t, "lookup", collection.Self().AsObject.Value.Self().Functions[0].Self().Name)
++	require.NotNil(t, collection.Self().AsObject.Value.Self().Collection)
++}

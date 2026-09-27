@@ -1,0 +1,78 @@
+{
+  "engine_builds": {
+    "baseline": {
+      "binary": "/tmp/collections-perf/engine-cloud-transport-audit/engine-baseline-diagnostic",
+      "sha256": "2715d8bddb8495cccccb1a8dfa03c0858d5cda5779f2285ab97edaa3d1b3cc2c",
+      "seconds": 13.831053831148893,
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "build",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/engine-cloud-transport-audit/build.mod",
+        "-buildvcs=true",
+        "-overlay=/tmp/collections-perf/engine-cloud-transport-audit/baseline-engine-overlay.json",
+        "-o",
+        "/tmp/collections-perf/engine-cloud-transport-audit/engine-baseline-diagnostic",
+        "./cmd/engine"
+      ],
+      "source_head": "21939e4ff95dd2be7c584b883b39c5e75b20d703",
+      "manifest_sha256": "3ae535f10c431b4bcba2f6584919ce7a291933466f8d674bc5367135f783e7c0",
+      "instrumented": true,
+      "normal_performance_comparison_eligible": false
+    },
+    "common": {
+      "binary": "/tmp/collections-perf/engine-cloud-transport-audit/engine-diagnostic",
+      "sha256": "a16f170da0d3bb47f25c4fc854084dcdb2626b2bb44760219819f87c7445a9ce",
+      "seconds": 60.52002311917022,
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "build",
+        "-mod=readonly",
+        "-modfile=/tmp/collections-perf/engine-cloud-transport-audit/build.mod",
+        "-buildvcs=true",
+        "-overlay=/tmp/collections-perf/engine-cloud-transport-audit/engine-overlay.json",
+        "-o",
+        "/tmp/collections-perf/engine-cloud-transport-audit/engine-diagnostic",
+        "./cmd/engine"
+      ],
+      "source_head": "21939e4ff95dd2be7c584b883b39c5e75b20d703",
+      "manifest_sha256": "a4588d924a0b89e7e7d2344a63d240158a9b5c4f0bef6cd436bae1a9634f5612",
+      "instrumented": true,
+      "normal_performance_comparison_eligible": false
+    }
+  },
+  "cli_sha256": "6d3c425359c9433888a5f5b37ac1d8a87763db1071d900e92ca6d664cd10d56d",
+  "image": "sha256:b00e366e582ab98f0e4a7907163f338b6be3bfa13b10f3ad6bac3d699cd25a07",
+  "driver_sha256": "f4e20cc78eef9d31b09b75452eebd64295bd898b52c2bb1bb98756b4ce67ee42",
+  "helper_sha256": {
+    "experiment.py": "92a6eb338af70947fe93af1a648e3b807865bb8d438829f9150390963b2c568c",
+    "navigation-generate.py": "0ea1a30a492131cb26a8f7ee9ed5ddd994c41c8c29c9150a502e0cce38d42f33",
+    "withfile-cloud-warm.py": "6ddf9bbf119500ca2f421d232d68dadc8b19745e4f54f3f0ebae9d99ce8b78b5"
+  },
+  "cloud_budget_used_before": 114,
+  "cloud_commands_max": 10,
+  "approved_cloud_budget": 220,
+  "local_generation_primers": 2,
+  "owner": "collections-cloud-transport-v1",
+  "profile_workspace": true,
+  "cold_boundary": "first CLI on each new empty Dagger volume is Cloud ws ls; no hidden CLI warmup",
+  "not_cold": "host image/page caches and provisioned SDK blobs may be warm; startup/setup excluded",
+  "scope": "both engine and CLI instrumented; attribution only, never ordinary performance medians",
+  "generation": "native Dang generator writes unchanged input bytes; output removed before every invocation; not SDK code generation",
+  "optional_artifacts": "first artifact listing on already warm engine; cannot be called new-volume cold",
+  "collection": "retain only cloud_transport_audit from expvar; raw CLI outputs and optional wcprof private",
+  "settling": "after exit, require no active observed HTTP and no new events for 500ms within 8s; not DB delivery proof",
+  "bounds": {
+    "minimum_free_bytes": 17179869184,
+    "cumulative_engine_written_bytes_stop": 8589934592,
+    "cli_timeout_seconds": 300
+  },
+  "fixture_hashes_before": {
+    "dagger.toml": "6fd4176dbb7a888a1df1b69cd1f7aa0f3eb0ca68460ce6f66ed7296649d18c96",
+    "input.txt": "855fe6882de49825c98850b11d8e573f0485ac8c48c2e0c2ba2fa4459ead2365",
+    "dagger.lock": "122e072c5e8d04f592fc87a767c1fdb3cd8a20d2abe2caf897be7d1291f1d627",
+    "module/main.dang": "34a2ea6acd0e7e34a0f42fb1384c09ce572d2761959b44aafa67d0ba91c21449",
+    "module/dagger.json": "4b9b6a134a853cc731e2c57e72165de6e6611c9d4dcb6977f93c047a1b65cff6"
+  },
+  "resources_deleted": 0
+}

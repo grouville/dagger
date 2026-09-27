@@ -1,5 +1,28 @@
 # Try the collections discovery changes
 
+**Latest API-call prototype:** compact schema-scoped metadata reduces the measured
+warm core and native Dang API calls by roughly **140–150 ms** locally. Two pairs of distinct, unprimed input edits on
+a native module improve **445 → 293 ms** and **443 → 305 ms**. Cloud end-to-end
+gains are smaller; listing/check commands use a different path. The
+[priority review and validation](collections-bootstrap-performance.md) explain
+the remaining work toward 500 ms and the prototype's upstream gates.
+
+**Bootstrap and completion:** the [latest matched comparison](collections-bootstrap-performance.md)
+removes eager core metadata from the first `ws ls`: **1.119 → 0.745 s**, one
+fresh-volume pair with production Cloud. The first later metadata consumer pays
+the deferred work. All 44 commands pass correctness; mixed warm observations
+are retained without claiming a general speedup. A separate same-binary control
+locates substantial variation after engine shutdown, during CLI completion.
+
+**Navigation and completion:** the [Cloud-connected command measurements](collections-navigation-performance.md)
+record warm medians of **615 ms for `ws ls`**, **2.332 s for `list -a`** and
+**2.033 s for `generate -l`**. A native generator writes its output in 296 ms
+warm / 379 ms after an edit, but full exit remains 726 / 925 ms. Separate first
+calls on new Dagger volumes take 2.685 / 26.747 s for workspace/artifact listings;
+engine startup and host image caches are explicit boundaries. This report also
+isolates variable engine Cloud drainage and documents the final-metric duplicate
+collection fix. The 500 ms whole-command target remains unmet.
+
 **Fresh-edit fix:** [preserving pending file producers](collections-lazy-source-performance.md)
 removes an unnecessary backend build during discovery. Three matched local pairs
 improve edit-to-list completion **9.806 → 1.602 s**; with ordinary production Cloud,
@@ -66,6 +89,18 @@ published CLI release or engine image.
 
 ## What a normal build includes
 
+* Defer SDK-facing core TypeDefs until a consumer needs them (`03776794a2`).
+  This avoids eager construction for workspace navigation; it does not eliminate
+  the first metadata consumer's work.
+* A compact CLI metadata projection prototype (`ee092e4122`), retaining existing
+  schema scopes, API views and workspace demand routing. It falls back for older
+  engines. Collection closure correction (`53fe69a0fa`) makes synthesized public
+  list/batch types available to CLI type linking. This prototype needs the
+  additional upstream validation described in the bootstrap report.
+* Client metric shutdown collects once through the real SDK reader's Shutdown,
+  instead of flushing immediately before its final collection (`21939e4ff9`).
+  Final-value delivery, cancellation and cleanup ordering are covered by unit
+  and race tests. A full-command latency gain has not been established.
 * `Container.withFile` preserves a pending source even when its destination is
   already ready. Metadata-only flows no longer force the source producer; actual
   filesystem/service consumers still do. Restored lazy dependencies are covered.

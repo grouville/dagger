@@ -1,0 +1,40 @@
+{
+  "baseline": {
+    "binary": "/tmp/collections-perf/cloud-parallel-logs-v1/diagnostic/engine-baseline",
+    "sha256": "3354c685cd51e9a0b0874dc49770ae6573291c3242a5703c08e441e11b39a545",
+    "source_head": "21939e4ff95dd2be7c584b883b39c5e75b20d703",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "build",
+      "-mod=readonly",
+      "-modfile=/tmp/collections-perf/cloud-parallel-logs-v1/diagnostic/build.mod",
+      "-buildvcs=true",
+      "-overlay=/tmp/collections-perf/cloud-parallel-logs-v1/diagnostic/baseline-overlay.json",
+      "-o",
+      "/tmp/collections-perf/cloud-parallel-logs-v1/diagnostic/engine-baseline",
+      "./cmd/engine"
+    ],
+    "seconds": 29.60707942210138,
+    "instrumented": true,
+    "manifest_sha256": "d180aa5189cc55d5dcdf91390375851788ecb1da58e711475877c29c35810105"
+  },
+  "parallel": {
+    "binary": "/tmp/collections-perf/cloud-parallel-logs-v1/diagnostic/engine-parallel",
+    "sha256": "8911b369b9edfb6b5e68780796aec623953b13dd12dcd572beee2f83bc400378",
+    "source_head": "21939e4ff95dd2be7c584b883b39c5e75b20d703",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "build",
+      "-mod=readonly",
+      "-modfile=/tmp/collections-perf/cloud-parallel-logs-v1/diagnostic/build.mod",
+      "-buildvcs=true",
+      "-overlay=/tmp/collections-perf/cloud-parallel-logs-v1/diagnostic/parallel-overlay.json",
+      "-o",
+      "/tmp/collections-perf/cloud-parallel-logs-v1/diagnostic/engine-parallel",
+      "./cmd/engine"
+    ],
+    "seconds": 56.32507544895634,
+    "instrumented": true,
+    "manifest_sha256": "d180aa5189cc55d5dcdf91390375851788ecb1da58e711475877c29c35810105"
+  }
+}

@@ -1,0 +1,218 @@
+"""Prepare/run only on explicit --run: two fresh owned Dagger volumes.
+
+One separate instrumented first invocation per flow: at most two Cloud commands.
+Derived from the completed ordinary cold driver; never contributes to ordinary medians. Host image
+layers, SDK blobs and host page cache may already be warm. Retain all resources.
+"""
+from pathlib import Path
+import argparse
+import importlib.util
+import json
+import os
+import re
+import shutil
+import signal
+import socket
+import statistics
+import subprocess
+import threading
+import time
+
+import experiment as x
+
+LAB = Path(__file__).resolve().parent
+OUT = LAB / 'cold-navigation-profile-v1'
+BUILD = Path('/tmp/collections-perf/cli-exit-tail-v2')
+OWNER = 'collections-cold-navigation-profile-v1'
+LIMIT = 2
+LIMIT_WRITTEN = 8 * 1024**3
+spec = importlib.util.spec_from_file_location('navigation', LAB / 'navigation-generate.py')
+nav = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(nav)
+FLOWS = {key: nav.FLOWS[key] for key in ('workspace-files', 'artifacts')}
+EXPECTED_ENGINE = '36716da4d2607544db2fc3b46d5282fff04012ec3b1b1aaaf9b9a8c648f4a73e'
+
+
+def absent(kind, name):
+    return subprocess.run(['docker', kind, 'inspect', name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0
+
+
+def free_port():
+    with socket.socket() as sock:
+        sock.bind(('127.0.0.1', 0))
+        return sock.getsockname()[1]
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--run', action='store_true')
+    args = parser.parse_args()
+    if not args.run:
+        print(json.dumps({'execute': False, 'fresh_engines': 2, 'fresh_volumes': 2,
+                          'cloud_commands_max': LIMIT, 'local_cli_warmups': 0,
+                          'flows': FLOWS, 'cold_samples_per_flow': 0, 'cold_profiles_per_flow': 1,
+                          'warm_samples_per_flow': 0, 'separate_profiles_per_flow': 1,
+                          'setup_excluded': True, 'resources_deleted': 0, 'output': str(OUT)}))
+        return
+    os.umask(0o077)
+    assert not OUT.exists(), 'never resume or overwrite a partial cold trial'
+    prior = json.loads((LAB / 'navigation-generate-v1/summary.json').read_text())
+    assert prior['all_correct'] and prior['cloud_commands'] == 20
+    base = json.loads((LAB / 'prepared.json').read_text())
+    state = json.loads((LAB / 'withfile-v1/prepared.json').read_text())
+    build = json.loads((LAB / 'build-withfile.json').read_text())
+    binary = Path(build['binary'])
+    assert build['sha256'] == EXPECTED_ENGINE and x.sha(binary) == EXPECTED_ENGINE
+    app = LAB / 'greetings'
+    assert x.fixture_hashes(app) == state['input_sha256']
+    assert shutil.disk_usage(LAB).free > 16 * 1024**3
+    binaries = {key: BUILD / ('dagger-' + key) for key in ('control', 'diagnostic')}
+    for record in json.loads((BUILD / 'build-results.json').read_text())['builds']:
+        assert record['exitCode'] == 0 and x.sha(binaries[record['name']]) == record['sha256']
+    image = x.capture(['docker', 'image', 'inspect', '--format', '{{.Id}}', base['image']])
+    assert image == base['image'], 'image must already exist with the pinned identity'
+    for path, digest in base['blobs'].items():
+        assert x.sha(path) == digest
+    for flow in FLOWS:
+        name = 'dagger-engine.' + OWNER + '-' + flow
+        assert absent('container', name) and absent('volume', name), 'owned name already exists'
+    OUT.mkdir(mode=0o700)
+    (OUT / 'driver.py.txt').write_bytes(Path(__file__).read_bytes())
+    common = {key: os.environ[key] for key in ('PATH', 'HOME', 'USER', 'LOGNAME', 'TMPDIR') if key in os.environ}
+    common.update(DO_NOT_TRACK='1', DAGGER_NO_UPDATE_CHECK='1', GIT_TERMINAL_PROMPT='0', DAGGER_CLOUD_URL='https://api.dagger.cloud')
+    for key in ('DAGGER_CLOUD_TOKEN', 'XDG_CONFIG_HOME'):
+        if key in os.environ:
+            common[key] = os.environ[key]
+    # Helpers validate this dedicated owner label; these are separate resources
+    # from every retained engine used in prior experiments.
+    x.OWNER = OWNER
+    engines, rows, attempts, setup = {}, [], [], {}
+    written = 0
+    expected = {flow: nav.normalize((LAB / 'navigation-generate-v1' / ('local-correctness-0-' + flow) / 'stdout.txt').read_bytes()) for flow in FLOWS}
+    x.write(OUT / 'provenance.json', {
+        'image': image, 'engine_sha256': EXPECTED_ENGINE, 'engine_build_source_head': build['source_HEAD'],
+        'engine_build_recipe_sha256': x.sha(LAB / 'build-withfile.json'),
+        'cli_sha256': {key: x.sha(path) for key, path in binaries.items()},
+        'driver_sha256': x.sha(__file__), 'owner': OWNER, 'flows': FLOWS,
+        'cloud_commands_max': LIMIT, 'previous_approved_cloud_commands': 80, 'approved_cloud_budget': 220,
+        'fresh_boundary': 'new empty Dagger volume per flow; first CLI is the target operation; no hidden CLI warmup',
+        'not_cold': 'Docker image layers, copied SDK blobs and host page cache may already be warm',
+        'setup': 'engine creation, SDK blob provisioning, startup readiness and binary hashing excluded from CLI time',
+        'sampling': 'one instrumented first invocation per fresh volume; diagnostic only, excluded from all ordinary timing medians',
+        'privacy': 'raw stdout/stderr/wcprof private; numeric counters and output-validation booleans only exported',
+        'bounds': {'minimum_free_bytes': 16 * 1024**3, 'cumulative_engine_written_bytes_stop': LIMIT_WRITTEN,
+                   'per_command_timeout_seconds': 300, 'retained_volumes': 2},
+    })
+
+    def run(flow, phase, index, diagnostic=False):
+        nonlocal written
+        assert len(attempts) < LIMIT
+        assert x.fixture_hashes(app) == state['input_sha256']
+        assert shutil.disk_usage(LAB).free > 16 * 1024**3 and written < LIMIT_WRITTEN
+        item = engines[flow]
+        dest = OUT / f'{phase}-{index}-{flow}'
+        dest.mkdir()
+        env = dict(common)
+        if diagnostic:
+            env['DAGGER_PERF_EXIT_TIMELINE'] = str(dest / 'timeline.jsonl')
+            try:
+                (dest / 'prior.wcprof').write_bytes(x.get(item['port'], '/debug/wcprof/dump?flush=true'))
+            except x.HTTPError as error:
+                if error.code != 503:
+                    raise
+        command = [str(binaries['diagnostic' if diagnostic else 'control']), '--engine', 'container://' + item['name']]
+        command += (['--profile'] if diagnostic else []) + FLOWS[flow]
+        attempt = dict(flow=flow, phase=phase, index=index, diagnostic=diagnostic, profile=diagnostic, production=True, command=command)
+        attempts.append(attempt)
+        x.write(OUT / 'attempts.json', attempts)
+        before = nav.warm.snapshot(item)
+        done, observed = threading.Event(), {}
+        with (dest / 'stdout.txt').open('wb') as stdout, (dest / 'stderr.txt').open('wb') as stderr:
+            begin, wall = time.monotonic(), time.time_ns()
+            process = subprocess.Popen(command, cwd=app, env=env, stdout=stdout, stderr=stderr, start_new_session=True)
+            def waiter():
+                observed['status'] = process.wait()
+                observed['time'], observed['wall'] = time.monotonic(), time.time_ns()
+                done.set()
+            worker = threading.Thread(target=waiter, daemon=True)
+            worker.start()
+            timed_out = not done.wait(300)
+            if timed_out:
+                process.send_signal(signal.SIGINT)
+                if not done.wait(10):
+                    os.killpg(process.pid, signal.SIGKILL)
+            worker.join(timeout=15)
+            assert not worker.is_alive(), 'owned CLI did not exit'
+        after = nav.warm.snapshot(item)
+        delta = nav.warm.delta(before, after)
+        written += delta['engine_written_bytes']
+        stdout, stderr = (dest / 'stdout.txt').read_bytes(), (dest / 'stderr.txt').read_bytes()
+        correct = not timed_out and observed['status'] == 0 and nav.known_listing(flow, stdout) and nav.normalize(stdout) == expected[flow]
+        if diagnostic:
+            timeline = [json.loads(line) for line in (dest / 'timeline.jsonl').read_text().splitlines()]
+            uploads = [row for row in timeline if row['kind'] in ('cloud.traces', 'cloud.logs', 'cloud.metrics')]
+            correct &= bool(uploads) and all(200 <= row.get('values', {}).get('status', 0) < 300 for row in uploads)
+            correct &= timeline[-1].get('values', {}).get('dropped_events') == 0
+        row = dict(attempt, seconds=observed['time'] - begin, started_unix_ns=wall,
+                   exited_unix_ns=observed['wall'], exit_code=observed['status'], timed_out=timed_out,
+                   correct=bool(correct), stdout_sha256=x.sha(dest / 'stdout.txt'), stderr_bytes=len(stderr),
+                   cloud_link_visible=bool(re.search(rb'https://[^\s]*dagger.cloud/', stdout + stderr)),
+                   before=before, after=after, **delta)
+        rows.append(row)
+        attempt['correct'] = bool(correct)
+        x.write(OUT / 'attempts.json', attempts)
+        x.write(OUT / 'results.json', rows)
+        print(json.dumps({key: row[key] for key in ('phase', 'flow', 'index', 'seconds', 'correct')}), flush=True)
+        if diagnostic:
+            (dest / 'run.wcprof').write_bytes(x.get(item['port'], '/debug/wcprof/dump?flush=true'))
+        assert correct, 'command/output validation failed; inspect private evidence'
+        assert x.fixture_hashes(app) == state['input_sha256']
+        assert written < LIMIT_WRITTEN, 'stop before another command exceeds the write guard'
+        time.sleep(1)
+
+    try:
+        for flow in FLOWS:
+            name = 'dagger-engine.' + OWNER + '-' + flow
+            port = free_port()
+            begin = time.monotonic()
+            x.capture(['docker', 'volume', 'create', '--label', 'dagger.perf.owner=' + OWNER, '--label', 'dagger.perf.experiment=cold-navigation', name])
+            cid = x.capture(['docker', 'create', '--name', name, '--label', 'dagger.perf.owner=' + OWNER,
+                             '--label', 'dagger.perf.experiment=cold-navigation', '--privileged',
+                             '-p', f'127.0.0.1:{port}:6060', '-v', name + ':/var/lib/dagger',
+                             '-e', 'DAGGER_TYPESCRIPT_SDK_MANIFEST_DIGEST=sha256:2a8f755cfe5322aeeee861f646c58d6b796a585d2794db47b5b71ba14f6f3fef',
+                             '-e', '_DAGGER_TEST_REMOTE_CACHE_FIXTURE_ROOT=', image, '--debugaddr=0.0.0.0:6060'])
+            item = engines[flow] = {'name': name, 'id': cid, 'port': port, 'sha256': EXPECTED_ENGINE}
+            x.write(OUT / 'engines.json', engines)
+            x.capture(['docker', 'cp', str(binary), name + ':/usr/local/bin/dagger-engine'])
+            for path in base['blobs']:
+                x.capture(['docker', 'cp', path, name + ':/usr/local/share/dagger/content/blobs/sha256/' + Path(path).name])
+            provision_seconds = time.monotonic() - begin
+            start_seconds = x.start(item)
+            setup[flow] = {'provision_seconds_excluded': provision_seconds, 'engine_start_seconds_excluded': start_seconds}
+            x.write(OUT / 'setup.json', setup)
+            run(flow, 'cold-diagnostic', 0, diagnostic=True)
+            if x.owned(item)['State']['Running']:
+                x.capture(['docker', 'stop', '--timeout', '30', item['name']])
+    finally:
+        stopped = 0
+        for item in engines.values():
+            if x.owned(item)['State']['Running']:
+                x.capture(['docker', 'stop', '--timeout', '30', item['name']])
+            stopped += 1
+        unchanged = x.fixture_hashes(app) == state['input_sha256']
+        x.write(OUT / 'restoration.json', {'greetings_full_fixture_unchanged': unchanged,
+                'engines_stopped': stopped, 'resources_deleted': 0, 'volumes_retained': len(engines),
+                'cloud_commands_attempted': len(attempts), 'commands_validated': sum(row['correct'] for row in rows),
+                'cumulative_engine_written_bytes': written})
+        assert unchanged
+    assert len(rows) == LIMIT and all(row['correct'] for row in rows)
+    summary = {'all_correct': True, 'cloud_commands': LIMIT, 'cold_samples_per_flow': 0, 'cold_profiles_per_flow': 1,
+               'setup_excluded': True, 'host_page_and_image_cache_cold': False, 'flows': {}}
+    for flow in FLOWS:
+        row = next(row for row in rows if row['flow'] == flow)
+        summary['flows'][flow] = {'cold_profile_seconds': row['seconds'], 'instrumented_not_ordinary_sample': True}
+    x.write(OUT / 'summary.json', summary)
+
+
+if __name__ == '__main__':
+    main()

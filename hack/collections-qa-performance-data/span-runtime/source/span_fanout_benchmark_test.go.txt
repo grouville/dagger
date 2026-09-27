@@ -1,0 +1,76 @@
+package server
+
+import (
+	"fmt"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+)
+
+// This lab gate uses a fixed small iteration count, e.g. -benchtime=16x.
+// Real per-client stores stay referenced as they do during a live session.
+// 512-span cases may cross the real spill budget; do not interpret their bytes
+// or timing as a serializer-only benchmark. Final reads/close are untimed.
+func BenchmarkSessionSpanFanoutRetainedStores(b *testing.B) {
+	for _, shape := range []string{"root", "child", "mixed", "mixed-late"} {
+		for _, batch := range []int{1, 64, 512} {
+			if (shape == "mixed" || shape == "mixed-late") && batch == 1 {
+				continue
+			}
+			b.Run(fmt.Sprintf("%s/spans=%d", shape, batch), func(b *testing.B) {
+				if b.N > 64 {
+					b.Fatal("bounded lab gate requires -benchtime=16x (maximum 64x)")
+				}
+				exporter, stores := spanFanoutFixture(b)
+				spans := make([]sdktrace.ReadOnlySpan, batch)
+				perTarget := map[string]int{}
+				route := map[string][]string{"root": {"root"}, "parent": {"parent", "root"}, "child": {"child", "root", "parent"}, "sibling": {"sibling", "root"}}
+				payload := strings.Repeat("sample", 64)
+				for i := range spans {
+					origin := shape
+					if shape == "mixed" {
+						origin = []string{"root", "parent", "child", "sibling"}[i%4]
+					} else if shape == "mixed-late" {
+						origin = "root"
+						if i == batch-1 {
+							origin = "child"
+						}
+					}
+					stub := fanoutSpan(byte(i%250+1), origin, fmt.Sprintf("operation-%d", i))
+					stub.EndTime = stub.StartTime.Add(time.Millisecond)
+					stub.Attributes = append(stub.Attributes, attribute.String("sample.payload", payload), attribute.Int("sample.index", i), attribute.Bool("sample.final", true))
+					stub.Events = []sdktrace.Event{{Name: "complete", Time: stub.EndTime, Attributes: []attribute.KeyValue{attribute.Int("sample.rows", i)}}}
+					spans[i] = stub.Snapshot()
+					for _, target := range route[origin] {
+						perTarget[target]++
+					}
+				}
+				copies := 0
+				for _, count := range perTarget {
+					copies += count
+				}
+				b.ReportAllocs()
+				b.ResetTimer()
+				for range b.N {
+					if err := exporter.ExportSpans(b.Context(), spans); err != nil {
+						b.Fatal(err)
+					}
+				}
+				b.StopTimer()
+				b.ReportMetric(float64(batch), "spans/op")
+				b.ReportMetric(float64(copies)/float64(batch), "targets/span")
+				for target, store := range stores {
+					rows := loadFanoutRows(b, store)
+					require.Len(b, rows, perTarget[target]*b.N)
+					for i, row := range rows {
+						require.Equal(b, int64(i+1), row.ID)
+					}
+				}
+			})
+		}
+	}
+}

@@ -1,0 +1,30 @@
+{
+  "parent_recipe": "/tmp/collections-perf/sdk-edit-audit/collection-closure-v1/build-recipe.json",
+  "parent_recipe_sha256": "75101d94b5a01e756f9c6b7804b78cea555d5c60419c39ddc14f71d413f28bac",
+  "head": "21939e4ff95dd2be7c584b883b39c5e75b20d703",
+  "environment": {
+    "CGO_ENABLED": "0",
+    "GOOS": "linux",
+    "GOARCH": "amd64",
+    "GOAMD64": "v1",
+    "GOMAXPROCS": "4",
+    "GOPROXY": "off",
+    "GOTOOLCHAIN": "local"
+  },
+  "command": [
+    "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+    "build",
+    "-mod=readonly",
+    "-modfile=/tmp/collections-perf/sdk-edit-audit/cli-typedef-json-v1/engine.mod",
+    "-buildvcs=true",
+    "-overlay=/tmp/collections-perf/sdk-edit-audit/root-demand-v1/engine-overlay.json",
+    "-o",
+    "/tmp/collections-perf/sdk-edit-audit/root-demand-v1/engine-json-demand",
+    "./cmd/engine"
+  ],
+  "inputs": {
+    "/tmp/collections-perf/sdk-edit-audit/root-demand-v1/session_workspaces.frozen.go": "06bf5038ed4b671104bae4f291f69685aa55d682ea82117ef9431d721a235f4e",
+    "/tmp/collections-perf/sdk-edit-audit/root-demand-v1/engine-overlay.json": "660816849026b73be823bf4124a6ac0c31aeb11457f3aab7b5cc65dc0b8c7acc"
+  },
+  "difference": "The internal JSON metadata field now follows exactly the existing scoped and unscoped workspace module demand rules. All frozen JSON, collection closure, lazy core and SDK inputs retained; matched CLI binaries unchanged."
+}

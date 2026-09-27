@@ -1,0 +1,52 @@
+{
+  "driver_sha256": "03086e811ebd5dcbc97a8cefc275a09dbb4bcfb27c63193a29f676c4d3bffc7c",
+  "cli_sha256": "170e16539bf086fa8a182ec9f194a0fdb33156736ba2c206cefde7c07da8dce9",
+  "engine_sha256": {
+    "baseline": "bcadd647cc29e737d342cd4e29c6a55f6e49c4919971a7dd7ff1762471bd3660",
+    "lazy": "bcadd647cc29e737d342cd4e29c6a55f6e49c4919971a7dd7ff1762471bd3660"
+  },
+  "source_head": "21939e4ff95dd2be7c584b883b39c5e75b20d703",
+  "prior_manifest_sha256": "e81bf89f2d880a99bbb0889c97eb05f9a7d2b6c6bf1c3c99748682c94a461701",
+  "prior_results_sha256": "a777d2add4aefdbfd09e1b81423a4c07cb2ab8cf24a1943ae3941a727426a066",
+  "original_engine_sha256": {
+    "baseline": "bcadd647cc29e737d342cd4e29c6a55f6e49c4919971a7dd7ff1762471bd3660",
+    "lazy": "56f2eaccf6bf2f3151fb4c08205e1ad33fa7730ad5dee32577e867b527fc4b12"
+  },
+  "plan": [
+    [
+      "explicit-local-primer",
+      "generate-warm",
+      1,
+      false
+    ],
+    [
+      "explicit-cloud-primer",
+      "generate-warm",
+      1,
+      true
+    ],
+    [
+      "ordinary-control",
+      "generate-warm",
+      3,
+      true
+    ]
+  ],
+  "cloud_commands_cap": 8,
+  "local_commands_cap": 2,
+  "previous_cloud_commands": 162,
+  "approved_cloud_commands": 220,
+  "scope": "A/A control: both retained engine slots run exact baseline bcadd binary. No candidate code runs during measurements.",
+  "slot_labels": "baseline/lazy name the prior engine roles only; both use baseline binary during this experiment.",
+  "cache_scope": "Existing independent volumes from completed A/B; same explicit local and Cloud generation primers, unequal earlier history preserved. Not cold, no forced GC.",
+  "mutation": "Copy baseline binary into stopped original lazy slot only; preserve private original binary backup, restore while stopped in finally. Existing manifests and original trial evidence never modified.",
+  "commands": "Two local native generation primers, two Cloud native generation primers, then three alternating Cloud pairs. No hidden CLI calls.",
+  "generation": "Unchanged native Dang @generate consumes original input.txt; output removed each time, byte-exact correctness and 5ms visibility checks.",
+  "counter_scope": "Cgroup/MemStats/PSI snapshots bracket CLI and include background work. Timers use blocking waitpid. One-second pacing excluded.",
+  "privacy": "Normal approved Cloud login; no credential reads, no raw stdout publication. Local calls use empty XDG config without Cloud credentials.",
+  "bounds": {
+    "free_disk_floor_bytes": 17179869184,
+    "engine_writes_limit_bytes": 8589934592,
+    "command_timeout_seconds": 300
+  }
+}
