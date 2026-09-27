@@ -1,0 +1,43 @@
+{
+  "retrieved_utc": "2026-09-27T06:47:49.001128+00:00",
+  "public_prs": [
+    "https://github.com/dagger/dagger/pull/13841",
+    "https://github.com/dagger/dagger/pull/13852"
+  ],
+  "original_commit": "7a14465650f0c444e3a2d43818af666dcf126cb5",
+  "revert_commit": "a7a8a9548c66bdb893aa9bc284ef588bff3a8534",
+  "revert_rationale": "Suspected regression, public reports cite workspace path-safety and partial service-startup flakes; no established root cause in public discussion.",
+  "profiles": [
+    {
+      "profile_sha256": "4d80046bcfa5cac7fbe35e95e130a1c79280d583fe62118c4285ae361903d3a0",
+      "phases": [
+        {
+          "class": "dang.flushTelemetry",
+          "kind": "internal",
+          "count": 15,
+          "inclusive_sum_ms": 106.48401,
+          "union_ms": 56.602878,
+          "max_ms": 24.083668
+        }
+      ]
+    },
+    {
+      "profile_sha256": "f8f2d15174f9a3cd1e6886215b3ac9f140562b591b4ee72343a225a38e0bde62",
+      "phases": [
+        {
+          "class": "dang.flushTelemetry",
+          "kind": "internal",
+          "count": 15,
+          "inclusive_sum_ms": 51.881142,
+          "union_ms": 48.969757,
+          "max_ms": 18.764125
+        }
+      ]
+    }
+  ],
+  "unmeasured": [
+    "metric-only duration",
+    "actual live runtime/reader collections per barrier"
+  ],
+  "new_runtime_commands": 0
+}

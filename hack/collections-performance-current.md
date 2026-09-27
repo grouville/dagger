@@ -1,18 +1,24 @@
 # Collections performance: current findings
 
-The 500 ms end-to-end target is still open. The latest matched local module
-experiment reduces expanded greetings-api listings from 1.392 to 1.138 s through
-Docker, and a new application comment followed by listing from 1.409 to 1.106 s.
-It explicitly defers a configured execution Container through an Address; it is
-not automatic in existing modules. Several smaller commands and native edit
-loops are already below 500 ms locally. These use the retained experimental
-SDK/engine stack and disable Cloud; they are not production Cloud timings or the
-result of building the branch without its experimental artifacts.
+The 500 ms end-to-end target is still open. The newest comparison uses ordinary
+branch dependencies: sharing Dang registration metadata reduces expanded
+greetings-api checks **3.595 → 3.068 s**, artifacts **3.592 → 3.065 s**, and a
+novel application comment followed by check listing **3.542 → 3.069 s**.
+The tested source is pushed as `264928484f`. All 36 expected outcomes pass;
+there are only two warm observations and three edit observations per arm.
+
+The earlier **1.1 s** listings use the retained experimental SDK/engine stack,
+plus the module's explicit Address option for deferring an execution Container.
+Several smaller commands and native edit loops are already below 500 ms locally.
+These are separate matched experiments with Cloud disabled; they are neither
+production Cloud timings nor the result of building the branch with its ordinary
+dependencies. The new metadata saving cannot be subtracted from those 1.1 s.
 
 ## Keep the changes that remove measured work
 
 | Change | Evidence | Delivery status |
 | --- | --- | --- |
+| Parse Dang registration metadata once for both consumers | Current dependencies: checks 3.595 → 3.068 s; artifacts 3.592 → 3.065 s; novel comment → checks 3.542 → 3.069 s | Commit `264928484f`, pushed; focused normal/race gates and 36 local outcomes pass |
 | Read ancestor metadata directly, without listing siblings | Expanded checks 1.468 → 1.373 s, five observations per arm under a wide ancestor directory; a lower-width control is flat | Engine/CLI commit `0d1c32e29f`, pushed to the performance branch |
 | Keep pure Go-module path normalization inside its private helper | Earlier eight-pair warm listing comparison: 2.630 → 2.546 s; discovery and lookup correctness checks pass | Go module commit `93d0f1b5288`, pushed to `grouville/go:perf/discovery-path-normalization` |
 | Skip Docker start when the existing inspection reports exactly `running` | Native generation 293 → 280 ms; core wall medians flat at 244 ms; paired process-tree CPU reduced 13–18 ms | CLI commit `e6e723145e`; 32/32 local outcomes correct |
@@ -188,21 +194,67 @@ compatibility checks; deleting files in an additional OCI layer would still
 hydrate the original parent. Static SDK metadata can avoid this work for listing,
 while actual compilation still needs an available toolchain.
 
-Two separate Dang candidates now have focused normal/race and microbenchmark
-evidence, but no whole-command results yet. The
+The two Dang candidates now have separate whole-command comparisons. The
 [registration metadata snapshot](collections-qa-performance-data/dang-registration-snapshot-micro/validation-report.md)
 uses current production dependencies and removes one of two metadata parses:
 Go-source metadata **162.15 → 78.69 ms**, gomod **133.43 → 65.61 ms**, with
 about half the allocations. Those are metadata-only medians from three short
 process pairs, excluding independent declaration/inference. It does not change
 the earlier experimental engine, which already lacks that second pass.
+
+The [36-call current-dependency comparison](collections-qa-performance-data/dang-registration-runtime/report.md)
+confirms about **0.53 s** less full-command warm listing and **0.47 s** less
+listing after a novel app comment. Strict HTTP failure/recovery and fresh native
+generation pass. A separate profile retains 25 independent source evaluations,
+while the second metadata parse becomes attachment of the already-read private
+directives. The combined metadata interval union falls **1.590 → 1.031 s**;
+catalog falls **2.366 → 1.907 s**. These overlap other phases and are not additive.
+The first control primer is not a fresh-volume cold measurement. Commit
+`264928484f` integrates only the three tested production files, without a global
+cache or reuse of inferred ASTs. The
+[frozen builds](collections-qa-performance-data/dang-registration-build/builds/build-recipe.json)
+use clean `4f2ef6d700` and ordinary dependencies; the same pinned CLI, SDK artifacts
+and Address-enabled local Go module are used in both arms.
+
 The [in-place syntax clone](collections-qa-performance-data/dang-clone-inplace-micro/report.md)
 instead improves that experimental engine's actual retained parser: real Go,
 gomod and GoDev cached-parse medians fall **15–23%**, with **62–64% fewer
 allocations**. Each evaluation still owns its mutable AST; no inferred state or
-workspace result is reused. These are distinct baselines and their savings must
-not be added or presented as new CLI timings. Matched engine comparisons are the
-next acceptance gate.
+workspace result is reused. Its
+[36-call runtime comparison](collections-qa-performance-data/dang-clone-runtime/safe-evidence-v1/report.md)
+is flat for warm checks, **1.125 → 1.137 s**, with mixed artifact pairs. The
+apparent edit gain is dominated by one baseline outlier. All outputs, actual
+selected-check failure/recovery and native generation pass, but this remains an
+allocation improvement without a demonstrated broad UX gain. The
+[matched build snapshot](collections-qa-performance-data/dang-clone-engine-build/build-scope.md)
+records the inherited experimental dependency and overlays; it is not a
+240-file proposed upstream change. Neither result establishes a new cold or
+Cloud gain.
+
+A separate [Dang map-merge prototype](collections-qa-performance-data/dang-map-merge/report.md)
+removes repeated immutable-map copies from the existing bulk merge builtin.
+Expected work changes from O(nm + m²) to O(n + m). For two disjoint maps of
+512 entries each, three short process pairs give **21.395 ms → 0.068 ms** and
+**33.0 MB → 0.10 MB allocated per operation**. Baseline/candidate correctness,
+candidate race checks, ordering, conflicts and input ownership pass. Small
+single-key replacement is essentially flat with 16 extra allocated bytes.
+This addresses large-map workloads, not an observed cause of Kyle's small listing;
+it does not fix repeated user-authored `Map.with` construction or change current
+whole-command results. It applies independently to ordinary Dang v2.1.4.
+
+The [all-session trace/log barrier candidate](collections-qa-performance-data/dang-trace-log-barrier/validated-evidence-v1/report.md)
+passes its negative witness, fifteen server test roots normally and with race,
+and six compatibility roots. It would stop collecting every live client's
+metrics at each Dang completion while retaining full shared trace/log visibility
+and periodic/final metric collection. This changes incidental intermediate
+gauge sampling; it is not telemetry equivalence. No behavior comparison or
+actual Dang/log-capture integration has run. New diagnostic subphase markers
+retain full collection and find **109 / 112** actual metric-provider flushes
+across fifteen Dang barriers, but only **2.49 / 3.22 ms** of aggregate metric
+wait. Trace flushes take about **37 ms**, dominating the **44–48 ms** total
+barrier union. These overlapping intervals are not guaranteed savings. The
+metrics-only candidate stays isolated and low priority; the measurement rejects
+the earlier hypothesis that it could recover roughly 49 ms here.
 
 The [direct CLI projection trial](collections-qa-performance-data/artifact-json-projection-runtime/report.md)
 now eliminates the explicit ID request before fetching listing rows. All 38
@@ -226,6 +278,14 @@ first-byte waiting, using seven already-open connections. Local reference sortin
 and validation total less than 0.5 ms. A faster map will not remove that network
 wait. Any protocol experiment must preserve fresh repository admission, ref
 semantics and fallback behavior.
+
+The [follow-up admission audit](collections-qa-performance-data/git-admission-sharing-audit/report.md)
+rules out another duplicate-request cache: sixteen executed `Query.git` calls
+already share seven anonymous advertisements and cause zero subsequent
+`lsRemote` requests. Existing sharing covers clients and refs within a session,
+and the seven connections are reused. The opaque profiles cannot name remotes;
+distinct cache keys are a source-backed inference. Scheduling or another map
+does not eliminate these fresh access decisions.
 
 Registration and module execution still launch runtime processes. Two Go calls
 spend 58–67 ms between the runc monitor starting and the first dispatch query;

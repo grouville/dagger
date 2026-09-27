@@ -1,0 +1,118 @@
+package dang
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+func TestSyntaxCacheIsolationAndContentEdits(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "main.dang")
+	write := func(value string) {
+		require.NoError(t, os.WriteFile(file, []byte("pub answer: String! = \""+value+"\"\n"), 0600))
+	}
+	write("first")
+	original, err := os.Stat(file)
+	require.NoError(t, err)
+	first, err := ParseFileCached(file)
+	require.NoError(t, err)
+	first.(*FileBlock).Forms[0].(*FieldDecl).Name.Name = "mutated"
+	again, err := ParseFileCached(file)
+	require.NoError(t, err)
+	require.Equal(t, "answer", again.(*FileBlock).Forms[0].(*FieldDecl).Name.Name)
+
+	for _, value := range []string{"first", "other", "first"} {
+		write(value)
+		// Same size and timestamp must not cause a stale syntax hit.
+		require.NoError(t, os.Chtimes(file, original.ModTime(), original.ModTime()))
+		env, err := RunDir(context.Background(), dir, false)
+		require.NoError(t, err)
+		got, found := requireEvalGet(t, env, "answer")
+		require.True(t, found)
+		require.Equal(t, value, got.(StringValue).Val)
+	}
+	second := filepath.Join(t.TempDir(), "other.dang")
+	data, err := os.ReadFile(file)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(second, data, 0600))
+	parsed, err := ParseFileCached(second)
+	require.NoError(t, err)
+	parsed.(*FileBlock).Walk(func(n Node) bool {
+		if loc := n.GetSourceLocation(); loc != nil {
+			require.Equal(t, second, loc.Filename)
+		}
+		return true
+	})
+	// A bad edit must fail; fixing it must work without restarting the cache.
+	require.NoError(t, os.WriteFile(file, []byte("pub answer: String! = \""), 0600))
+	_, err = ParseFileCached(file)
+	require.Error(t, err)
+	write("fixed")
+	_, err = RunDir(context.Background(), dir, false)
+	require.NoError(t, err)
+}
+
+func TestSyntaxCacheConcurrentInference(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.dang"), []byte("pub answer: String! = \"shared\"\n"), 0600))
+	var wg sync.WaitGroup
+	errs := make(chan error, 16)
+	for range 16 {
+		wg.Go(func() {
+			_, err := RunDir(context.Background(), dir, false)
+			errs <- err
+		})
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		require.NoError(t, err)
+	}
+}
+
+func TestSyntaxCacheCapacity(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "main.dang")
+	for i := range syntaxCacheEntries + 4 {
+		require.NoError(t, os.WriteFile(file, fmt.Appendf(nil, "pub item%d: String! = \"bounded\"\n", i), 0600))
+		_, err := ParseFileCached(file)
+		require.NoError(t, err)
+	}
+	syntaxCache.Lock()
+	defer syntaxCache.Unlock()
+	require.LessOrEqual(t, len(syntaxCache.entries), syntaxCacheEntries)
+}
+
+func BenchmarkDiscoverySyntaxCache(b *testing.B) {
+	root := os.Getenv("DAGGER_DANG_BENCH_ROOT")
+	if root == "" {
+		b.Skip("set DAGGER_DANG_BENCH_ROOT")
+	}
+	for _, name := range []string{"go.dang", "gomod/main.dang"} {
+		file := filepath.Join(root, name)
+		data, err := os.ReadFile(file)
+		if err != nil {
+			b.Fatal(err)
+		}
+		parsed, err := Parse(file, data, GlobalStore("filePath", file))
+		if err != nil {
+			b.Fatal(err)
+		}
+		if _, err = cloneSyntax(parsed.(*FileBlock), file); err != nil {
+			b.Fatal(err)
+		}
+		b.Run(name, func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				if _, err := ParseFileCached(file); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}

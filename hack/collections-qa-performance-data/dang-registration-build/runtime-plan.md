@@ -1,0 +1,21 @@
+Superseded source plan: the concrete reviewed-source candidate is now `/tmp/collections-perf/dang-registration-runtime-v1/PLAN.md`. It keeps the 36-call cap but trades n3 warm listing samples for n2 and adds strict HTTP failure/recovery controls, plus four native generations. This earlier plan is retained for provenance; do not execute it as a separate matrix.
+
+Prepared only. Maximum36 local Dagger invocations; no Cloud. The build recipe uses current production 4f2ef6d700 with ordinary dependencies in both engines. Do not use engine38711, its historical overlays or experimental Dang revision as the control. Both variants use the identical pinned CLI, image, SDK artifacts and Address-enabled Go module source. SDK compatibility failures stop the trial rather than silently adding old source overlays.
+
+Reuse the reviewed task-owned temporary-container/retained-volume lifecycle from the module-load-pipeline driver, but replace BOTH binaries from this new manifest. The original named engine must be stopped and remain untouched; verify immutable ID, owner and volume labels, exclusive volume use, image/init hashes, free disk floor and sampled write cap. Only the new temporary container may be copied/restarted/removed. Restore its original task workspace fixture in a nested finally even if Docker cleanup errors. No existing volume deletion.
+
+Use one isolated copy of the public greetings fixture at the same path for every sample, with its original full file inventory and lock snapshots. Put the same minimal local Go module at `.dagger/perf-go` in both arms and enable the same `baseAddress` setting. No additional Go helper modules belong in that workspace. Use a separate small native Dang generator fixture for the actual generate control, with its own explicit workspace boundary and full input/output restoration.
+
+Suggested exact budget and ABBA ordering:
+
+- Two core-version probes, one per engine variant when first started, validating the new manifest's VCS-derived version.2calls.
+- Four ABBA blocks, each with full `check -l --all` and `list -a` parity primers.8calls.
+- Across those blocks, three ordinary unchanged samples per variant for each of full check listing and full artifacts listing. First A/B blocks contribute one sample per flow; final B/A blocks contribute two.12calls.
+- Three first-seen harmless user-source comment edits per variant, followed immediately by full check listing.6calls. Use a unique fixed-length comment nonce for every invocation, restore the original source afterward, and record every input hash. This avoids silently priming the exact same edited input in the other variant; byte counts and semantic edits remain equivalent, rather than falsely claiming identical source bytes.
+- One actual selected strict HTTP E2E check per variant, with the same explicit artifact selector and real service/body assertion.2calls. Use normal generated defaults; require the exact selected check identity and1pass, and fail if the test skips for missing service configuration.
+- One actual native `generate render` per variant against a new input sentinel, requiring expected output bytes and success.2calls. This is a correctness control, not a timing optimization target.
+- Last, one full-check primer then one separately profiled full-check listing per variant.4calls. Do not pool profile times with ordinary samples.
+
+Total36. All full check listings must match the exact ordered14 normalized rows. Artifact rows also require exact ordered equality, without wildcard allowances. Record full blocking CLI exit, source/module/lock hashes, engine cgroup CPU/I/O and host pressure counters, with16GiB minimum free disk,8GiB sampled-write ceiling and bounded timeouts. Record primer/control/setup/profile/cleanup timings separately. No unlisted Dagger query is allowed for setup, health or inspection; Docker debug readiness is outside CLI timings.
+
+The retained-volume comparison is warm only after explicit parity primers. It is not a cold startup result or globally fresh-cache comparison. Three ordinary samples per flow/variant and three novel edits are a bounded acceptance gate, not a robust universal latency claim. Stop at the first correctness/setup failure and preserve the failed sample. Root must review the concrete composed runtime driver before launch; this plan is not execution authorization.

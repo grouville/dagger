@@ -4,13 +4,20 @@ Start with the [current findings and priorities](collections-performance-current
 for the measured improvements, held experiments and remaining 500 ms gap. The
 entries below retain the history and the cache/Cloud boundary of each round.
 
-The next two Dang candidates have passed focused normal/race gates. A
-[single registration metadata pass](collections-qa-performance-data/dang-registration-snapshot-micro/validation-report.md)
-halves that isolated step's cost with ordinary current dependencies; an
-[in-place syntax clone](collections-qa-performance-data/dang-clone-inplace-micro/report.md)
-reduces cached parsing time 15–23% and allocations 62–64% on the retained
-experimental dependency. Full-command comparisons have not yet run, so neither
-changes the reported UX timings. A
+`264928484f`, pushed to the performance branch, shares private Dang registration
+metadata between self-type discovery and retained object directives. With ordinary
+branch dependencies, the [36-call comparison](collections-qa-performance-data/dang-registration-runtime/report.md)
+gives checks **3.595 → 3.068 s**, artifacts **3.592 → 3.065 s**, and novel comment
+→ listing **3.542 → 3.069 s**. All correctness outcomes pass, including strict
+HTTP failure/recovery and fresh generated output. These are small local samples,
+with the same pinned CLI, SDK artifacts and Address-enabled Go module in both
+arms; they are not cold or Cloud measurements.
+
+The separate [in-place syntax clone trial](collections-qa-performance-data/dang-clone-runtime/safe-evidence-v1/report.md)
+also passes 36 outcomes, but warm listing remains flat at **1.125 → 1.137 s**.
+Its library allocation reduction does not establish a broad command-time gain.
+That trial uses the retained experimental stack, a different baseline from the
+new registration change. A
 [verified cold SDK layer audit](collections-qa-performance-data/builtin-sdk-layer-audit/report.md)
 also attributes about 2.6–2.7 s to toolchain layer application, identifying a
 packaging target distinct from runtime compilation.

@@ -1,0 +1,72 @@
+{
+  "source_head": "4f2ef6d70018b81f41d9b51140e76c82fe2fabab",
+  "expected_core_version": "v1.0.0-beta.15+4f2ef6d7",
+  "working_tree_must_have_no_tracked_changes": true,
+  "toolchain": "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+  "environment": {
+    "CGO_ENABLED": "0",
+    "GOOS": "linux",
+    "GOARCH": "amd64",
+    "GOAMD64": "v1",
+    "GOMAXPROCS": "4",
+    "GOPROXY": "off",
+    "GOTOOLCHAIN": "local"
+  },
+  "commands": {
+    "baseline": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "build",
+      "-mod=readonly",
+      "-buildvcs=true",
+      "-overlay=/tmp/collections-perf/dang-registration-snapshot-v1/builds/baseline-overlay.json",
+      "-o",
+      "/tmp/collections-perf/dang-registration-snapshot-v1/builds/engine-baseline",
+      "./cmd/engine"
+    ],
+    "snapshot": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "build",
+      "-mod=readonly",
+      "-buildvcs=true",
+      "-overlay=/tmp/collections-perf/dang-registration-snapshot-v1/builds/snapshot-overlay.json",
+      "-o",
+      "/tmp/collections-perf/dang-registration-snapshot-v1/builds/engine-snapshot",
+      "./cmd/engine"
+    ]
+  },
+  "source_scope": "Current production branch and ordinary go.mod in both; only candidate adds the registration metadata snapshot. No historical source/dependency overlays.",
+  "cli": {
+    "path": "/tmp/collections-perf/shared-client-transport-v1/prototype-v2/builds/dagger-original",
+    "sha256": "d68580985d5eaa2350e7c4ec369d30ddfbb830ad8ea687d94228255b86ae76b8"
+  },
+  "common_image": "sha256:b00e366e582ab98f0e4a7907163f338b6be3bfa13b10f3ad6bac3d699cd25a07",
+  "common_sdk_inputs": {
+    "path": "/tmp/collections-perf/go-base-address-retained-v1/frozen-sdk-inputs.json",
+    "sha256": "63d64e849586874a275223fc36346ad208c198d98d88dd20db599fc0338fa06a"
+  },
+  "common_go_module": {
+    "path": "/tmp/collections-perf/go-base-address-v1/module/go.dang",
+    "sha256": "0b12a6f3fe091f5896c19f642e2074593dceca554275b150a450e06732d640be"
+  },
+  "inputs": {
+    "/home/dagger/dag/internal/version/VERSION": "1da4455a2d098a7778c6297c5ed1a80024cc3150338e738169b8760204f50268",
+    "/home/dagger/dag/internal/version/version.go": "8cbb629c6dcd5727e1871a4c1db01431b2c86df3813fbcd81e666f3f5e77549d",
+    "/home/dagger/dag/go.mod": "67176883052394c928a27f1bbc74a263b50a99bf7272bda438bd9342eb71c483",
+    "/home/dagger/dag/go.sum": "05b34feba139701de20620f80fbb5cb54d95e05c3ba33004e80f73d75aaa8bc8",
+    "/home/dagger/dag/sdk/go/go.mod": "27303bfeb57fb499545eb793cb2a4c116314a682bee1a81007de8bce996fce25",
+    "/home/dagger/dag/sdk/go/go.sum": "8042dbc97865a8e6e5a4e843fb8dbf8e30d25e98f72e42da59ff086dbd354620",
+    "/home/dagger/dag/engine/distconsts/go.mod": "cc7a865665480549bee082893fbb696a82fd7760c1fd35cb4d3abe47febbf202",
+    "/home/dagger/dag/engine/distconsts/go.sum": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/tmp/collections-perf/dang-registration-snapshot-v1/manifest.json": "3cb4ec53886119511052e589f298134acbf71f5cc6643239dca96bfc9ba9c92f",
+    "/tmp/collections-perf/dang-registration-snapshot-v1/source-overlay.json": "ac3cfd4ee764ed8244162a645ab79a56b30128600c140a336367c6f4a724defa",
+    "/tmp/collections-perf/dang-registration-snapshot-v1/validation-v2/validation.json": "5944c4b9a9a620307eb99ef3f4e77aceb64c6be563a20f3d89607002d0ede526",
+    "/tmp/collections-perf/dang-registration-snapshot-v1/micro-summary.json": "5d933469b74cf7453265d6c54c15f018d4d25dc4a5ab020ebc60cd7c4d3624dc",
+    "/tmp/collections-perf/dang-registration-snapshot-v1/build.py": "beb45a890f6ea83939552dac4ccd7683195878ce615c8a829cf4cb8fd51c7d08",
+    "/tmp/collections-perf/dang-registration-snapshot-v1/prepare-builds.py": "c4ea83d54f96bf83171e671303c9b9971cc6e3327a1d5e703cd6e21bccc6a9ce",
+    "/tmp/collections-perf/dang-registration-snapshot-v1/builds/helpers.baseline.go": "d3e14791e54ebb6b8e8f2a8b9c33ffa7ea726784106e01a2728e99b66c58b1d1",
+    "/tmp/collections-perf/dang-registration-snapshot-v1/builds/registration_metadata.go": "52de3a071b75c414fcc13f75fa7236b54874abcd48fbb6092df7c7daf3c805ec",
+    "/tmp/collections-perf/dang-registration-snapshot-v1/builds/helpers.snapshot.go": "c1fc784cec1241563362573cb106d6c8c682bfd0eb68a15923578a59bbf3fe43",
+    "/tmp/collections-perf/dang-registration-snapshot-v1/builds/snapshot-overlay.json": "95ad7ae476b7b5ef792aa9c6d6621ee9c2df8b6a20e9f21dcc915e0fb3240ac9",
+    "/tmp/collections-perf/dang-registration-snapshot-v1/builds/baseline-overlay.json": "60c0081e5f4b5ceafc0eefc3b3080af7824bcfd4007ab8e7fba31d1d3a24133a"
+  }
+}

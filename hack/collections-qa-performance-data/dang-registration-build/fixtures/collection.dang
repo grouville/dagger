@@ -1,0 +1,3 @@
+type Main { items: Items! { Items(names: ["one", "two"]) } }
+type Items @collection { pub names: [String!]!; lookup(name: String!): Item! @get { Item(name: name) } }
+type Item { pub name: String! }

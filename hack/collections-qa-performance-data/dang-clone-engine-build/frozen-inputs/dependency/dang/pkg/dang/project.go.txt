@@ -1,0 +1,944 @@
+package dang
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/BurntSushi/toml"
+	"github.com/Khan/genqlient/graphql"
+	"github.com/vektah/gqlparser/v2"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vito/dang/v2/pkg/introspection"
+	"github.com/vito/dang/v2/pkg/ioctx"
+)
+
+// ProjectConfig represents a dang.toml project configuration file.
+type ProjectConfig struct {
+	// Imports maps import names to their source configurations.
+	Imports map[string]*ImportSource `toml:"imports"`
+}
+
+// ImportSource describes where an import's GraphQL schema comes from.
+type ImportSource struct {
+	// Dagger indicates this import connects to a Dagger Engine session.
+	// The service command (default: ["dagger", "session"]) outputs
+	// {"port": N, "session_token": "..."} and the client is configured
+	// with basic auth and OpenTelemetry trace propagation.
+	//
+	// To use a dev engine, point the service at a custom CLI binary:
+	//
+	//   [imports.Dagger]
+	//   dagger = true
+	//   service = ["~/src/dagger/bin/dagger", "session"]
+	Dagger bool `toml:"dagger,omitempty"`
+
+	// Path points at a native Dang module directory (relative to dang.toml).
+	// Unlike the GraphQL source kinds above, the import binds to another Dang
+	// module compiled from source — its `pub` top-level declarations become the
+	// import's API, its `let`s stay private. Mutually exclusive with the GraphQL
+	// fields.
+	//
+	//   [imports.Helpers]
+	//   path = "./lib/helpers"
+	Path string `toml:"path,omitempty"`
+
+	// Schema is a path to a local .graphqls SDL file (relative to dang.toml).
+	// Provides type information for the LSP and type checker.
+	Schema string `toml:"schema,omitempty"`
+
+	// Endpoint is a GraphQL HTTP endpoint URL for runtime queries.
+	// If set without Schema, the schema is introspected from the endpoint.
+	Endpoint string `toml:"endpoint,omitempty"`
+
+	// Service is a command that starts a GraphQL server. The command must
+	// print its endpoint URL as the first line to stdout, then keep running.
+	// The process is started lazily on first use and killed when Dang exits.
+	// If Schema is also set, the schema is used for type checking and the
+	// service is only started when runtime queries are needed.
+	//
+	// When dagger = true, defaults to ["dagger", "session"].
+	Service []string `toml:"service,omitempty"`
+
+	// Authorization is the Authorization header value (e.g. "Bearer token").
+	// Supports ${ENV_VAR} expansion.
+	Authorization string `toml:"authorization,omitempty"`
+
+	// Headers contains additional HTTP headers for the endpoint.
+	// Values support ${ENV_VAR} expansion.
+	Headers map[string]string `toml:"headers,omitempty"`
+}
+
+// LoadProjectConfig loads a dang.toml file from the given path.
+func LoadProjectConfig(path string) (*ProjectConfig, error) {
+	var config ProjectConfig
+	if _, err := toml.DecodeFile(path, &config); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", path, err)
+	}
+	return &config, nil
+}
+
+// FindProjectConfig searches for a dang.toml file starting from dir and
+// walking up to parent directories. Returns the path to dang.toml and the
+// parsed config, or ("", nil, nil) if not found.
+func FindProjectConfig(dir string) (string, *ProjectConfig, error) {
+	dir, err := filepath.Abs(dir)
+	if err != nil {
+		return "", nil, err
+	}
+	for {
+		path := filepath.Join(dir, "dang.toml")
+		if _, err := os.Stat(path); err == nil {
+			config, err := LoadProjectConfig(path)
+			if err != nil {
+				return "", nil, err
+			}
+			return path, config, nil
+		}
+
+		// Stop at .git boundary
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			return "", nil, nil
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", nil, nil
+		}
+		dir = parent
+	}
+}
+
+// ResolveImportConfigs converts project config imports into ImportConfigs
+// that can be used with ContextWithImportConfigs. The configDir is the
+// directory containing dang.toml (used to resolve relative paths).
+//
+// For schema-only imports, the Client will be nil (type info only, no runtime).
+// For endpoint imports, both Client and Schema are provided.
+func ResolveImportConfigs(ctx context.Context, config *ProjectConfig, configDir string) ([]ImportConfig, error) {
+	if config == nil || len(config.Imports) == 0 {
+		return nil, nil
+	}
+
+	var configs []ImportConfig
+	for name, source := range config.Imports {
+		ic, err := resolveImportSource(ctx, name, source, configDir)
+		if err != nil {
+			// Don't wrap SourceErrors — they already carry full context
+			var sourceErr *SourceError
+			if errors.As(err, &sourceErr) {
+				return nil, err
+			}
+			return nil, fmt.Errorf("import %q: %w", name, err)
+		}
+		configs = append(configs, ic)
+	}
+	return configs, nil
+}
+
+// ResolveDaggerImport finds or creates a Dagger import for the given
+// directory. It searches the provided import configs for an existing Dagger
+// import; if none is found and a Dagger module config file exists, a default one is
+// created. The import's schema is eagerly introspected (module-aware if
+// in a Dagger module directory).
+//
+// Returns the updated configs slice. If no Dagger import is applicable,
+// the original slice is returned unchanged.
+func ResolveDaggerImport(ctx context.Context, configs []ImportConfig, dir string) []ImportConfig {
+	moduleDir := FindDaggerModule(dir)
+
+	// Find an existing Dagger import from dang.toml
+	daggerIdx := -1
+	for i, ic := range configs {
+		if ic.Dagger {
+			daggerIdx = i
+			break
+		}
+	}
+
+	if daggerIdx == -1 {
+		// No explicit Dagger import — auto-create one if Dagger module found
+		if moduleDir == "" {
+			slog.Debug("no Dagger import and no Dagger module found", "dir", dir)
+			return configs // no Dagger module, nothing to do
+		}
+		slog.Debug("auto-creating Dagger import", "moduleDir", moduleDir)
+		svc := NewDaggerServiceProcess(context.WithoutCancel(ctx))
+		configs = append(configs, ImportConfig{
+			Name:       "Dagger",
+			Client:     svc,
+			Dagger:     true,
+			AutoImport: true,
+		})
+		daggerIdx = len(configs) - 1
+	}
+
+	ic := &configs[daggerIdx]
+	ic.AutoImport = true
+
+	// Eagerly introspect the schema if not already present
+	if ic.Schema == nil && ic.Client != nil {
+		slog.Debug("introspecting Dagger schema", "moduleDir", moduleDir, "hasModule", moduleDir != "")
+		var schema *introspection.Schema
+		var err error
+		if moduleDir != "" {
+			schema, err = DaggerModuleSchema(ctx, ic.Client, moduleDir)
+		} else {
+			schema, err = IntrospectSchema(ctx, ic.Client, true)
+		}
+		if err != nil {
+			slog.Warn("failed to introspect Dagger schema", "error", err)
+		} else {
+			slog.Debug("Dagger schema introspected", "types", len(schema.Types))
+			ic.Schema = schema
+		}
+	}
+
+	return configs
+}
+
+func resolveImportSource(ctx context.Context, name string, source *ImportSource, configDir string) (ImportConfig, error) {
+	ic := ImportConfig{Name: name}
+	configPath := filepath.Join(configDir, "dang.toml")
+
+	// Native Dang module import (local path). Resolved lazily from source when
+	// the import is inferred, so no client/schema is set up here. Mutually
+	// exclusive with the GraphQL source kinds.
+	if source.Path != "" {
+		if source.Dagger || source.Schema != "" || source.Endpoint != "" || len(source.Service) > 0 {
+			return ic, fmt.Errorf("'path' cannot be combined with 'dagger', 'schema', 'endpoint', or 'service'")
+		}
+		modDir := source.Path
+		if !filepath.IsAbs(modDir) {
+			modDir = filepath.Join(configDir, modDir)
+		}
+		ic.DangModuleDir = modDir
+		return ic, nil
+	}
+
+	// For Dagger imports, default the service command and set up the
+	// lazy client that starts a dagger session.
+	if source.Dagger {
+		ic.Dagger = true
+		service := source.Service
+		if len(service) == 0 {
+			service = []string{"dagger", "session"}
+		}
+		svc := &serviceProcess{
+			ctx:      ctx,
+			cmd:      service,
+			dir:      configDir,
+			parent:   source,
+			services: servicesFromContext(ctx),
+			dagger:   true,
+		}
+		ic.Client = svc
+
+		// If no schema specified, introspect lazily (handled below)
+	}
+
+	// Load schema from SDL file if specified
+	if source.Schema != "" {
+		schemaPath := source.Schema
+		if !filepath.IsAbs(schemaPath) {
+			schemaPath = filepath.Join(configDir, schemaPath)
+		}
+		schema, err := SchemaFromSDLFile(schemaPath)
+		if err != nil {
+			return ic, fmt.Errorf("loading schema %s: %w", schemaPath, err)
+		}
+		ic.Schema = schema
+	}
+
+	// Set up HTTP client for endpoint if specified
+	if source.Endpoint != "" {
+		endpoint, err := expandEnvVars(source.Endpoint)
+		if err != nil {
+			return ic, tomlSourceError(configPath, fmt.Errorf("endpoint: %w", err))
+		}
+		client, err := makeClient(endpoint, source.Authorization, source.Headers)
+		if err != nil {
+			return ic, tomlSourceError(configPath, err)
+		}
+		ic.Client = client
+	}
+
+	// Set up service launcher for lazy endpoint discovery
+	if len(source.Service) > 0 && ic.Client == nil {
+		svc := &serviceProcess{
+			ctx:      ctx,
+			cmd:      source.Service,
+			dir:      configDir,
+			parent:   source,
+			services: servicesFromContext(ctx),
+		}
+		ic.Client = svc
+	}
+
+	// If we have a client but no schema, introspect
+	if ic.Client != nil && ic.Schema == nil {
+		endpoint := source.Endpoint
+		if endpoint != "" {
+			endpoint, err := expandEnvVars(endpoint)
+			if err != nil {
+				return ic, tomlSourceError(configPath, fmt.Errorf("endpoint: %w", err))
+			}
+			cachedSchema, err := loadCachedSchema(endpoint)
+			if err == nil && cachedSchema != nil {
+				ic.Schema = cachedSchema
+			} else {
+				schema, err := introspectSchema(ctx, ic.Client, source.Dagger)
+				if err != nil {
+					return ic, fmt.Errorf("introspecting %s: %w", endpoint, err)
+				}
+				ic.Schema = schema
+				_ = saveCachedSchema(endpoint, schema)
+			}
+		}
+	}
+
+	if ic.Schema == nil && ic.Client == nil {
+		return ic, fmt.Errorf("must specify at least one of 'dagger', 'schema', 'endpoint', or 'service'")
+	}
+
+	return ic, nil
+}
+
+func makeClient(endpoint, authorization string, headers map[string]string) (graphql.Client, error) {
+	authz, err := expandEnvVars(authorization)
+	if err != nil {
+		return nil, fmt.Errorf("authorization: %w", err)
+	}
+	expandedHeaders := make(map[string]string)
+	for k, v := range headers {
+		expanded, err := expandEnvVars(v)
+		if err != nil {
+			return nil, fmt.Errorf("header %s: %w", k, err)
+		}
+		expandedHeaders[k] = expanded
+	}
+	httpClient := &http.Client{
+		Transport: &customTransport{
+			base:          http.DefaultTransport,
+			authorization: authz,
+			headers:       expandedHeaders,
+		},
+	}
+	return graphql.NewClient(endpoint, httpClient), nil
+}
+
+// serviceProcess implements graphql.Client by lazily starting a service
+// process and proxying requests to it.
+//
+// The service command prints a JSON object to stdout matching the
+// ImportSource schema (e.g. {"endpoint": "http://..."}), then closes
+// stdout and stays running. If the response contains another "service"
+// field, that service is started recursively. Resolution must eventually
+// produce an "endpoint" or it is an error.
+type serviceProcess struct {
+	ctx    context.Context // long-lived context for process lifetime
+	cmd    []string
+	dir    string
+	parent *ImportSource // static config fields to use as defaults
+	depth  int
+	dagger bool // true if service speaks the dagger session protocol
+
+	services *ServiceRegistry
+
+	once     sync.Once
+	delegate graphql.Client
+	initErr  error
+}
+
+// NewDaggerServiceProcess creates a lazy graphql.Client that starts a default
+// `dagger session` when first used. Used by the LSP as a fallback when no
+// explicit Dagger import is configured in dang.toml.
+func NewDaggerServiceProcess(ctx context.Context) graphql.Client {
+	return &serviceProcess{
+		ctx:      ctx,
+		cmd:      []string{"dagger", "session"},
+		dir:      "",
+		parent:   &ImportSource{Dagger: true},
+		services: servicesFromContext(ctx),
+		dagger:   true,
+	}
+}
+
+const maxServiceDepth = 10
+
+func (s *serviceProcess) MakeRequest(ctx context.Context, req *graphql.Request, resp *graphql.Response) error {
+	s.once.Do(func() {
+		// Use the long-lived context for starting the process so it
+		// isn't killed when the first request context is cancelled.
+		startCtx := s.ctx
+		if startCtx == nil {
+			startCtx = ctx
+		}
+		s.delegate, s.initErr = s.start(startCtx)
+	})
+	if s.initErr != nil {
+		return fmt.Errorf("starting service %v: %w", s.cmd, s.initErr)
+	}
+	return s.delegate.MakeRequest(ctx, req, resp)
+}
+
+func (s *serviceProcess) start(ctx context.Context) (graphql.Client, error) {
+	if s.depth >= maxServiceDepth {
+		return nil, fmt.Errorf("service recursion depth exceeded (%d)", maxServiceDepth)
+	}
+
+	slog.Debug("starting import service", "cmd", s.cmd, "dir", s.dir, "dagger", s.dagger)
+
+	cmd := exec.CommandContext(ctx, s.cmd[0], s.cmd[1:]...)
+	cmd.Dir = s.dir
+	// Wrap the context's stderr writer so the child never inherits a
+	// raw TTY fd. Programs like dagger detect a TTY on stderr and
+	// launch an interactive TUI that can block or corrupt stdout.
+	cmd.Stderr = nonFileWriter{ioctx.StderrFromContext(ctx)}
+	// Use process group so we can kill the whole tree (e.g. go run -> child)
+	setProcessGroup(cmd)
+
+	// For Dagger sessions, propagate OTel trace context and suppress
+	// the interactive TUI (use plain progress output instead).
+	if s.dagger {
+		cmd.Env = append(os.Environ(), otelPropagationEnv(ctx)...)
+		cmd.Env = append(cmd.Env, "DAGGER_PROGRESS=dots")
+		// Kill by closing stdin (gives the session a chance to drain),
+		// matching the behavior of the Dagger SDK.
+		stdin, err := cmd.StdinPipe()
+		if err != nil {
+			return nil, fmt.Errorf("stdin pipe: %w", err)
+		}
+		cmd.Cancel = stdin.Close
+	}
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("stdout pipe: %w", err)
+	}
+
+	slog.Debug("starting service process", "cmd", s.cmd, "dir", s.dir)
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("starting %v: %w", s.cmd, err)
+	}
+	slog.Debug("service process started", "pid", cmd.Process.Pid)
+
+	// Register for cleanup
+	if s.services != nil {
+		s.services.register(cmd)
+	}
+
+	if s.dagger {
+		slog.Debug("waiting for dagger session params", "pid", cmd.Process.Pid)
+		return s.startDagger(ctx, stdout)
+	}
+
+	// Read a JSON object from stdout
+	resultCh := make(chan *ImportSource, 1)
+	errCh := make(chan error, 1)
+	go func() {
+		var source ImportSource
+		if err := json.NewDecoder(stdout).Decode(&source); err != nil {
+			errCh <- fmt.Errorf("reading service configuration: %w", err)
+			return
+		}
+		resultCh <- &source
+	}()
+
+	var source *ImportSource
+	select {
+	case source = <-resultCh:
+	case err := <-errCh:
+		_ = killProcessGroup(cmd)
+		return nil, err
+	case <-time.After(30 * time.Second):
+		_ = killProcessGroup(cmd)
+		return nil, fmt.Errorf("timed out waiting for service configuration")
+	}
+
+	return s.resolve(ctx, source)
+}
+
+// startDagger reads the {port, session_token} JSON from a dagger session
+// process and creates a client with basic auth and OTel propagation.
+func (s *serviceProcess) startDagger(ctx context.Context, stdout io.ReadCloser) (graphql.Client, error) {
+	resultCh := make(chan *daggerSessionParams, 1)
+	errCh := make(chan error, 1)
+	go func() {
+		var params daggerSessionParams
+		if err := json.NewDecoder(stdout).Decode(&params); err != nil {
+			errCh <- fmt.Errorf("reading dagger session params: %w", err)
+			return
+		}
+		resultCh <- &params
+	}()
+
+	select {
+	case params := <-resultCh:
+		slog.Debug("dagger session ready", "port", params.Port)
+		return newDaggerClient(params), nil
+	case err := <-errCh:
+		return nil, err
+	case <-time.After(300 * time.Second):
+		// Long timeout matching the Dagger SDK — extensions may need to build
+		return nil, fmt.Errorf("timed out waiting for dagger session")
+	}
+}
+
+// resolve turns an ImportSource (returned by a service) into a client,
+// recursively starting nested services if needed.
+func (s *serviceProcess) resolve(ctx context.Context, source *ImportSource) (graphql.Client, error) {
+	if source.Endpoint != "" {
+		endpoint, err := expandEnvVars(source.Endpoint)
+		if err != nil {
+			return nil, fmt.Errorf("endpoint: %w", err)
+		}
+		slog.Debug("import service ready", "endpoint", endpoint)
+		client, err := makeClient(endpoint, source.Authorization, source.Headers)
+		if err != nil {
+			return nil, err
+		}
+		return client, nil
+	}
+
+	if len(source.Service) > 0 {
+		nested := &serviceProcess{
+			ctx:      s.ctx,
+			cmd:      source.Service,
+			dir:      s.dir,
+			parent:   source,
+			depth:    s.depth + 1,
+			services: s.services,
+		}
+		return nested.start(ctx)
+	}
+
+	return nil, fmt.Errorf("service output must include 'endpoint' or 'service'")
+}
+
+// ServiceRegistry tracks service processes for cleanup.
+type ServiceRegistry struct {
+	mu    sync.Mutex
+	procs []*exec.Cmd
+}
+
+func (r *ServiceRegistry) register(cmd *exec.Cmd) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.procs = append(r.procs, cmd)
+}
+
+// StopAll kills all registered service processes.
+func (r *ServiceRegistry) StopAll() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, cmd := range r.procs {
+		if cmd.Process != nil {
+			slog.Debug("stopping import service", "pid", cmd.Process.Pid)
+			// Kill the entire process group to handle go run -> child
+			_ = killProcessGroup(cmd)
+		}
+	}
+	r.procs = nil
+}
+
+type servicesKey struct{}
+
+// ContextWithServices adds a ServiceRegistry to the context for tracking
+// service processes that need cleanup.
+func ContextWithServices(ctx context.Context, services *ServiceRegistry) context.Context {
+	return context.WithValue(ctx, servicesKey{}, services)
+}
+
+func servicesFromContext(ctx context.Context) *ServiceRegistry {
+	if v := ctx.Value(servicesKey{}); v != nil {
+		return v.(*ServiceRegistry)
+	}
+	return nil
+}
+
+// expandError is returned by expandEnvVars when variable expansion fails.
+// It carries the literal pattern to search for in source files so that
+// callers can produce highlighted source errors.
+type expandError struct {
+	msg     string
+	pattern string // literal text to search for, e.g. "${GH_TOKEN}" or "$(cmd)"
+}
+
+func (e *expandError) Error() string { return e.msg }
+
+// expandEnvVars expands ${VAR} references in a string using os.Getenv.
+// Returns an error if a referenced variable is not set, or if unsupported
+// syntax like $() command substitution is used.
+func expandEnvVars(s string) (string, error) {
+	if idx := strings.Index(s, "$("); idx != -1 {
+		// Find the full $(...) expression for the error highlight
+		pattern := s[idx:]
+		if end := strings.Index(pattern, ")"); end != -1 {
+			pattern = pattern[:end+1]
+		}
+		return "", &expandError{
+			msg:     "$() command substitution is not supported; set the value in an environment variable and use ${VAR} instead",
+			pattern: pattern,
+		}
+	}
+	var expandErr error
+	result := os.Expand(s, func(key string) string {
+		if expandErr != nil {
+			return ""
+		}
+		val, ok := os.LookupEnv(key)
+		if !ok {
+			expandErr = &expandError{
+				msg:     fmt.Sprintf("environment variable ${%s} is not set", key),
+				pattern: "${" + key + "}",
+			}
+			return ""
+		}
+		return val
+	})
+	if expandErr != nil {
+		return "", expandErr
+	}
+	return result, nil
+}
+
+// tomlSourceError wraps an expandError with source location from a TOML
+// config file. If the error doesn't contain an expandError or the pattern
+// can't be found in the source, returns the original error unchanged.
+func tomlSourceError(configPath string, err error) error {
+	var expErr *expandError
+	if !errors.As(err, &expErr) {
+		return err
+	}
+	source, readErr := os.ReadFile(configPath)
+	if readErr != nil {
+		return err
+	}
+	srcStr := string(source)
+	idx := strings.Index(srcStr, expErr.pattern)
+	if idx < 0 {
+		return err
+	}
+	line, col := 1, 1
+	for i := range idx {
+		if srcStr[i] == '\n' {
+			line++
+			col = 1
+		} else {
+			col++
+		}
+	}
+	loc := &SourceLocation{
+		Filename: configPath,
+		Line:     line,
+		Column:   col,
+		Length:   len(expErr.pattern),
+	}
+	return NewSourceError(err, loc, srcStr)
+}
+
+// SchemaFromSDLFile parses a .graphqls SDL file and converts it to an
+// introspection.Schema suitable for use with Dang's import system.
+func SchemaFromSDLFile(path string) (*introspection.Schema, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return SchemaFromSDL(string(data), path)
+}
+
+// SchemaFromSDL parses a GraphQL SDL string and converts it to an
+// introspection.Schema.
+func SchemaFromSDL(sdl string, filename string) (*introspection.Schema, error) {
+	source := &ast.Source{
+		Name:  filename,
+		Input: sdl,
+	}
+	schema, err := gqlparser.LoadSchema(source)
+	if err != nil {
+		return nil, fmt.Errorf("parsing GraphQL schema: %w", err)
+	}
+	return astSchemaToIntrospection(schema), nil
+}
+
+// astSchemaToIntrospection converts a gqlparser ast.Schema to an
+// introspection.Schema that Dang's import system understands.
+// astTypeKind maps ast.Definition.Kind to introspection TypeKind for named types.
+var astTypeKindMap = map[ast.DefinitionKind]introspection.TypeKind{
+	ast.Scalar:      introspection.TypeKindScalar,
+	ast.Object:      introspection.TypeKindObject,
+	ast.Interface:   introspection.TypeKindInterface,
+	ast.Union:       introspection.TypeKindUnion,
+	ast.Enum:        introspection.TypeKindEnum,
+	ast.InputObject: introspection.TypeKindInputObject,
+}
+
+func astSchemaToIntrospection(schema *ast.Schema) *introspection.Schema {
+	result := &introspection.Schema{}
+
+	// Set root types
+	if schema.Query != nil {
+		result.QueryType.Name = schema.Query.Name
+	}
+	if schema.Mutation != nil {
+		result.MutationType = &struct {
+			Name string `json:"name,omitempty"`
+		}{Name: schema.Mutation.Name}
+	}
+	if schema.Subscription != nil {
+		result.SubscriptionType = &struct {
+			Name string `json:"name,omitempty"`
+		}{Name: schema.Subscription.Name}
+	}
+
+	// Convert types
+	for _, t := range schema.Types {
+		// Skip built-in introspection types
+		if strings.HasPrefix(t.Name, "__") {
+			continue
+		}
+		result.Types = append(result.Types, astTypeToIntrospection(schema, t))
+	}
+
+	// Convert directives
+	for _, d := range schema.Directives {
+		// Skip built-in directives
+		if d.Name == "skip" || d.Name == "include" || d.Name == "deprecated" || d.Name == "specifiedBy" {
+			continue
+		}
+		result.Directives = append(result.Directives, astDirectiveToIntrospection(schema, d))
+	}
+
+	return result
+}
+
+func astTypeToIntrospection(schema *ast.Schema, t *ast.Definition) *introspection.Type {
+	it := &introspection.Type{
+		Name:        t.Name,
+		Description: t.Description,
+		Directives:  astDirectivesToIntrospection(t.Directives),
+	}
+
+	switch t.Kind {
+	case ast.Scalar:
+		it.Kind = introspection.TypeKindScalar
+	case ast.Object:
+		it.Kind = introspection.TypeKindObject
+		for _, f := range t.Fields {
+			// Skip built-in introspection fields
+			if strings.HasPrefix(f.Name, "__") {
+				continue
+			}
+			field := astFieldToIntrospection(schema, f)
+			field.ParentObject = it
+			it.Fields = append(it.Fields, field)
+		}
+		for _, iface := range t.Interfaces {
+			it.Interfaces = append(it.Interfaces, &introspection.Type{
+				Kind: introspection.TypeKindObject,
+				Name: iface,
+			})
+		}
+	case ast.Interface:
+		it.Kind = introspection.TypeKindInterface
+		for _, f := range t.Fields {
+			field := astFieldToIntrospection(schema, f)
+			field.ParentObject = it
+			it.Fields = append(it.Fields, field)
+		}
+	case ast.Union:
+		it.Kind = introspection.TypeKindUnion
+		for _, memberName := range t.Types {
+			it.PossibleTypes = append(it.PossibleTypes, &introspection.Type{
+				Kind: introspection.TypeKindObject,
+				Name: memberName,
+			})
+		}
+	case ast.Enum:
+		it.Kind = introspection.TypeKindEnum
+		for _, v := range t.EnumValues {
+			it.EnumValues = append(it.EnumValues, introspection.EnumValue{
+				Name:              v.Name,
+				Description:       v.Description,
+				IsDeprecated:      v.Directives.ForName("deprecated") != nil,
+				DeprecationReason: deprecationReason(v.Directives),
+				Directives:        astDirectivesToIntrospection(v.Directives),
+			})
+		}
+	case ast.InputObject:
+		it.Kind = introspection.TypeKindInputObject
+		for _, f := range t.Fields {
+			it.InputFields = append(it.InputFields, astInputValueFromField(schema, f))
+		}
+	}
+
+	return it
+}
+
+func astFieldToIntrospection(schema *ast.Schema, f *ast.FieldDefinition) *introspection.Field {
+	field := &introspection.Field{
+		Name:              f.Name,
+		Description:       f.Description,
+		TypeRef:           astTypeRefToIntrospection(schema, f.Type),
+		IsDeprecated:      f.Directives.ForName("deprecated") != nil,
+		DeprecationReason: deprecationReason(f.Directives),
+		Directives:        astDirectivesToIntrospection(f.Directives),
+	}
+	for _, arg := range f.Arguments {
+		field.Args = append(field.Args, astInputValueToIntrospection(schema, arg))
+	}
+	return field
+}
+
+func astInputValueToIntrospection(schema *ast.Schema, v *ast.ArgumentDefinition) introspection.InputValue {
+	iv := introspection.InputValue{
+		Name:        v.Name,
+		Description: v.Description,
+		TypeRef:     astTypeRefToIntrospection(schema, v.Type),
+		Directives:  astDirectivesToIntrospection(v.Directives),
+	}
+	if v.DefaultValue != nil {
+		s := v.DefaultValue.String()
+		iv.DefaultValue = &s
+	}
+	return iv
+}
+
+func astInputValueFromField(schema *ast.Schema, f *ast.FieldDefinition) introspection.InputValue {
+	iv := introspection.InputValue{
+		Name:        f.Name,
+		Description: f.Description,
+		TypeRef:     astTypeRefToIntrospection(schema, f.Type),
+		Directives:  astDirectivesToIntrospection(f.Directives),
+	}
+	if f.DefaultValue != nil {
+		s := f.DefaultValue.String()
+		iv.DefaultValue = &s
+	}
+	return iv
+}
+
+func astTypeRefToIntrospection(schema *ast.Schema, t *ast.Type) *introspection.TypeRef {
+	if t == nil {
+		return nil
+	}
+	if t.NonNull {
+		inner := *t
+		inner.NonNull = false
+		return &introspection.TypeRef{
+			Kind:   introspection.TypeKindNonNull,
+			OfType: astTypeRefToIntrospection(schema, &inner),
+		}
+	}
+	if t.Elem != nil {
+		return &introspection.TypeRef{
+			Kind:   introspection.TypeKindList,
+			OfType: astTypeRefToIntrospection(schema, t.Elem),
+		}
+	}
+	// Named type — look up the actual kind from the schema
+	kind := introspection.TypeKindObject // fallback
+	if def := schema.Types[t.NamedType]; def != nil {
+		if k, ok := astTypeKindMap[def.Kind]; ok {
+			kind = k
+		}
+	}
+	return &introspection.TypeRef{
+		Kind: kind,
+		Name: t.NamedType,
+	}
+}
+
+func astDirectiveToIntrospection(schema *ast.Schema, d *ast.DirectiveDefinition) *introspection.DirectiveDef {
+	dd := &introspection.DirectiveDef{
+		Name:        d.Name,
+		Description: d.Description,
+	}
+	for _, loc := range d.Locations {
+		dd.Locations = append(dd.Locations, string(loc))
+	}
+	for _, arg := range d.Arguments {
+		dd.Args = append(dd.Args, astInputValueToIntrospection(schema, arg))
+	}
+	return dd
+}
+
+func astDirectivesToIntrospection(directives ast.DirectiveList) introspection.Directives {
+	if len(directives) == 0 {
+		return nil
+	}
+	converted := make(introspection.Directives, 0, len(directives))
+	for _, d := range directives {
+		directive := &introspection.Directive{
+			Name: d.Name,
+		}
+		for _, arg := range d.Arguments {
+			var value *string
+			if arg.Value != nil {
+				v := arg.Value.String()
+				value = &v
+			}
+			directive.Args = append(directive.Args, &introspection.DirectiveArg{
+				Name:  arg.Name,
+				Value: value,
+			})
+		}
+		converted = append(converted, directive)
+	}
+	return converted
+}
+
+func deprecationReason(directives ast.DirectiveList) string {
+	d := directives.ForName("deprecated")
+	if d == nil {
+		return ""
+	}
+	arg := d.Arguments.ForName("reason")
+	if arg == nil || arg.Value == nil {
+		return ""
+	}
+	return arg.Value.Raw
+}
+
+// projectConfigKey is a context key for passing the resolved project config path.
+// nonFileWriter wraps an io.Writer so that exec.Cmd creates a pipe
+// instead of passing an *os.File fd directly to the child process.
+// This prevents the child from inheriting a TTY.
+type nonFileWriter struct{ w io.Writer }
+
+func (n nonFileWriter) Write(p []byte) (int, error) { return n.w.Write(p) }
+
+type projectConfigKey struct{}
+
+// ContextWithProjectConfig adds a project config to the context so that
+// the import resolver can find it.
+func ContextWithProjectConfig(ctx context.Context, configPath string, config *ProjectConfig) context.Context {
+	return context.WithValue(ctx, projectConfigKey{}, &projectConfigEntry{
+		path:   configPath,
+		config: config,
+	})
+}
+
+type projectConfigEntry struct {
+	path   string
+	config *ProjectConfig
+}
+
+func projectConfigFromContext(ctx context.Context) (string, *ProjectConfig) {
+	if v := ctx.Value(projectConfigKey{}); v != nil {
+		e := v.(*projectConfigEntry)
+		return e.path, e.config
+	}
+	return "", nil
+}

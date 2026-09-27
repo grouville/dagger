@@ -1,0 +1,650 @@
+package main
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"log/slog"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"strings"
+	"sync"
+	"syscall"
+
+	"charm.land/lipgloss/v2"
+	uv "github.com/charmbracelet/ultraviolet"
+
+	"github.com/kr/pretty"
+
+	"github.com/vito/dang/v2/pkg/dang"
+	"github.com/vito/dang/v2/pkg/hm"
+	"github.com/vito/dang/v2/pkg/ioctx"
+	"github.com/vito/dang/v2/pkg/repl"
+	"github.com/vito/tuist"
+)
+
+// ── loading wrapper (makes loading phase interruptible) ─────────────────────
+
+// loadingWrapper wraps a spinner during module loading so that Ctrl+C
+// cancels the load context instead of being ignored.
+type loadingWrapper struct {
+	tuist.Container
+	cancel context.CancelFunc
+}
+
+func (l *loadingWrapper) HandleKeyPress(_ tuist.Context, ev uv.KeyPressEvent) bool {
+	key := uv.Key(ev)
+	if key.Code == 'c' && key.Mod == uv.ModCtrl {
+		l.cancel()
+		return true
+	}
+	return false
+}
+
+// ── sync writer (streams dagger output into TUI) ────────────────────────────
+
+// pituiSyncWriter is an io.Writer that directs output to a specific
+// entryView. The target is set at eval start and cleared at eval end,
+// so streaming output always lands on the correct entry regardless of
+// any concurrent container mutations.
+//
+// Each Write dispatches a closure to the UI goroutine. The event loop
+// drains all pending dispatches before rendering, so rapid writes
+// naturally coalesce into a single frame — no explicit buffering needed.
+type pituiSyncWriter struct {
+	mu       sync.Mutex
+	dispatch func(func()) // schedules work on the UI goroutine
+	target   *entryView
+}
+
+func newPituiSyncWriter(dispatch func(func())) *pituiSyncWriter {
+	return &pituiSyncWriter{dispatch: dispatch}
+}
+
+func (w *pituiSyncWriter) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	ev := w.target
+	w.mu.Unlock()
+	if ev != nil {
+		data := string(p)
+		w.dispatch(func() {
+			ev.entry.writeLog(data)
+			ev.Update()
+		})
+	}
+	return len(p), nil
+}
+
+// SetTarget directs future writes to the given entryView. Pass nil to
+// suppress output (e.g. between evals).
+func (w *pituiSyncWriter) SetTarget(ev *entryView) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.target = ev
+}
+
+// ── entry view component ────────────────────────────────────────────────────
+
+// entryView wraps a single replEntry as a tuist.Component. It embeds
+// tuist.Compo for automatic render caching. Once finalized (result
+// written, eval done), nobody calls Update(), so the framework skips
+// Render() entirely and returns the cached result — making 200+ past
+// entries O(1) per render cycle.
+//
+// All entry mutations happen on the UI goroutine (directly from event
+// handlers, or via Dispatch from background goroutines like the Dagger
+// log flusher), so no mutex is needed.
+type entryView struct {
+	tuist.Compo
+	entry *replEntry
+}
+
+func newEntryView(entry *replEntry) *entryView {
+	ev := &entryView{entry: entry}
+	ev.Update() // dirty for first render
+	return ev
+}
+
+func (ev *entryView) Render(ctx tuist.Context) {
+	// Snapshot entry data.
+	input := ev.entry.input
+	logs := ev.entry.logs.String()
+	result := ev.entry.result.String()
+
+	var lines []string
+	if input != "" {
+		inputLines := strings.Split(input, "\n")
+		if len(inputLines) > 0 && inputLines[len(inputLines)-1] == "" {
+			inputLines = inputLines[:len(inputLines)-1]
+		}
+		lines = append(lines, inputLines...)
+	}
+	if logs != "" {
+		logLines := strings.Split(logs, "\n")
+		if len(logLines) > 0 && logLines[len(logLines)-1] == "" {
+			logLines = logLines[:len(logLines)-1]
+		}
+		lines = append(lines, logLines...)
+	}
+	if result != "" {
+		resLines := strings.Split(result, "\n")
+		if len(resLines) > 0 && resLines[len(resLines)-1] == "" {
+			resLines = resLines[:len(resLines)-1]
+		}
+		lines = append(lines, resLines...)
+	}
+	for i, line := range lines {
+		lines[i] = tuist.ExpandTabs(line, 8)
+	}
+	for i, line := range lines {
+		if tuist.VisibleWidth(line) > ctx.Width {
+			lines[i] = tuist.Truncate(line, ctx.Width, "")
+		}
+	}
+
+	ctx.Lines(lines...)
+}
+
+// (completion menu overlay and detail bubble are now provided by tuist.CompletionMenu)
+
+// ── REPL component ─────────────────────────────────────────────────────────
+
+// replComponent is the main REPL controller. It orchestrates eval, input
+// handling, and UI state. Completion logic lives in repl_completion.go,
+// commands in repl_commands.go, and history in repl_history.go.
+//
+// All state is accessed exclusively on the UI goroutine — event handlers
+// run there directly, and background goroutines (eval, Dagger log flusher)
+// use Dispatch to mutate state. No mutex is needed.
+type replComponent struct {
+	tuist.Container
+
+	// Dang state
+	importConfigs []dang.ImportConfig
+	debug         bool
+	typeScope     dang.TypeScope
+	valueScope    dang.ValueScope
+	ctx           context.Context
+
+	// UI state
+	textInput      *tuist.TextInput
+	entryContainer *tuist.Container
+	spinner        *tuist.Spinner
+	inputSlot      *tuist.Slot // swaps between textInput and spinner
+
+	quit        context.Context
+	requestQuit context.CancelFunc
+
+	// Completion
+	completions    []string // static fallback completions
+	completionMenu *tuist.CompletionMenu
+
+	// Eval
+	evaluating bool
+	cancelEval context.CancelFunc
+	daggerLog  *pituiSyncWriter // Dagger log output target (set per-eval)
+
+	// Ctrl+C twice to exit
+	ctrlCPending bool
+
+	// History
+	history *repl.History
+
+	// Commands
+	commands []replCommandDef
+
+	// Doc browser
+	docBrowser *repl.DocBrowserOverlay
+}
+
+func newReplComponent(ctx context.Context, importConfigs []dang.ImportConfig, debug bool) *replComponent {
+	typeScope, valueScope := dang.BuildScopesFromImports("", importConfigs)
+
+	ti := tuist.NewTextInput(promptStyle.Render("dang> "))
+	ti.ContinuationPrompt = promptStyle.Render("  ... ")
+	ti.Highlight = highlightSpans // live tree-sitter syntax highlighting
+
+	r := &replComponent{
+		importConfigs:  importConfigs,
+		debug:          debug,
+		typeScope:      typeScope,
+		valueScope:     valueScope,
+		ctx:            ctx,
+		textInput:      ti,
+		entryContainer: &tuist.Container{},
+		history:        repl.NewHistory(repl.DefaultHistoryPath("dang")),
+	}
+	r.quit, r.requestQuit = context.WithCancel(context.Background())
+	r.commands = r.buildCommandDefs()
+
+	// Spinner
+	sp := tuist.NewSpinner()
+	sp.Style = func(s string) string {
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Render(s)
+	}
+	sp.Label = dimStyle.Render("Evaluating... (Ctrl+C to cancel)")
+	r.spinner = sp
+
+	// Input slot starts with text input.
+	r.inputSlot = tuist.NewSlot(ti)
+
+	// Reset double-Ctrl+C state on any keypress except Ctrl+C itself.
+	ti.KeyInterceptor = func(_ tuist.Context, ev uv.KeyPressEvent) bool {
+		key := uv.Key(ev)
+		if key.Code != 'c' || key.Mod != uv.ModCtrl {
+			r.ctrlCPending = false
+		}
+		return false // let TextInput handle the key normally
+	}
+
+	// Completion menu (wires into ti.OnChange automatically).
+	r.completionMenu = tuist.NewCompletionMenu(ti, r.buildCompletionProvider())
+	r.completionMenu.DetailRenderer = r.buildDetailRenderer()
+
+	// Text input callbacks.
+	ti.SuggestionStyle = func(s string) string {
+		return dimStyle.Render(s)
+	}
+	ti.OnSubmit = r.onSubmit
+
+	// Welcome message.
+	welcome := newReplEntry("")
+	version, _ := versionInfo()
+	welcome.writeLogLine(welcomeStyle.Render("Welcome to Dang REPL " + version))
+	if len(importConfigs) > 0 {
+		var names []string
+		for _, ic := range importConfigs {
+			names = append(names, ic.Name)
+		}
+		welcome.writeLogLine(dimStyle.Render(fmt.Sprintf("Imports: %s", strings.Join(names, ", "))))
+	}
+	welcome.writeLogLine("")
+	welcome.writeLogLine(dimStyle.Render("Type :help for commands, Tab for completion, Alt+Enter for multiline, Ctrl+D to exit"))
+	welcome.writeLogLine("")
+	ev := newEntryView(welcome)
+	r.entryContainer.AddChild(ev)
+
+	// Wire children into this container.
+	r.AddChild(r.entryContainer)
+	r.AddChild(r.inputSlot)
+
+	r.completions = r.buildCompletions()
+	r.history.Load()
+
+	return r
+}
+
+// OnMount focuses the text input when the REPL is added to the TUI.
+func (r *replComponent) OnMount(ctx tuist.Context) {
+	ctx.SetFocus(r.textInput)
+}
+
+// activeEntryView returns the last (active) entryView in the container.
+// Must be called on the UI goroutine.
+func (r *replComponent) activeEntryView() *entryView {
+	children := r.entryContainer.Children
+	if len(children) == 0 {
+		return nil
+	}
+	ev, _ := children[len(children)-1].(*entryView)
+	return ev
+}
+
+// addEntry creates a new entryView, appends it to the container, and returns it.
+// Must be called on the UI goroutine.
+func (r *replComponent) addEntry(input string) *entryView {
+	entry := newReplEntry(input)
+	ev := newEntryView(entry)
+	r.entryContainer.AddChild(ev)
+	return ev
+}
+
+// onSubmit handles Enter in the text input.
+func (r *replComponent) onSubmit(ctx tuist.Context, line string) bool {
+	if line == "" {
+		return false
+	}
+
+	r.history.Add(line)
+
+	// Format the echoed input: syntax-highlight the source, then prefix the
+	// first line with the prompt and continuation lines with "  ... ".
+	// highlightCode clips styling at newlines, so splitting stays safe.
+	inputLines := strings.Split(highlightCode(line), "\n")
+	var echoedLines []string
+	for i, l := range inputLines {
+		if i == 0 {
+			echoedLines = append(echoedLines, promptStyle.Render("dang> ")+l)
+		} else {
+			echoedLines = append(echoedLines, promptStyle.Render("  ... ")+l)
+		}
+	}
+
+	r.addEntry(strings.Join(echoedLines, "\n"))
+
+	r.completionMenu.Hide()
+
+	if strings.HasPrefix(line, ":") {
+		r.handleCommand(ctx, line[1:])
+		r.completionMenu.Refresh(ctx)
+		return true
+	}
+
+	r.startEval(ctx, line)
+	return true
+}
+
+// HandleKeyPress handles keys that bubble up from focused children.
+// When the TextInput is focused, this receives keys TextInput doesn't
+// handle (Up/Down for history, Ctrl+C, Ctrl+D, Ctrl+L, etc.).
+// When the spinner is focused during eval, this receives all keys
+// (the spinner doesn't implement Interactive, so everything bubbles).
+func (r *replComponent) HandleKeyPress(ctx tuist.Context, ev uv.KeyPressEvent) bool {
+	key := uv.Key(ev)
+
+	// Any key other than Ctrl+C resets the double-Ctrl+C exit.
+	if key.Code != 'c' || key.Mod != uv.ModCtrl {
+		r.ctrlCPending = false
+	}
+
+	// While evaluating: Ctrl+C cancels, swallow everything else.
+	if r.evaluating {
+		if key.Code == 'c' && key.Mod == uv.ModCtrl {
+			if r.cancelEval != nil {
+				r.cancelEval()
+			}
+		}
+		return true
+	}
+
+	// Completion menu navigation — checked before general bindings so
+	// Up/Down/Escape/Ctrl+N/Ctrl+P go to the menu instead of history.
+	if r.completionMenu.HandleKeyPress(ctx, ev) {
+		return true
+	}
+
+	switch {
+	case key.Code == 'c' && key.Mod == uv.ModCtrl:
+		if r.textInput.Value() != "" {
+			r.textInput.SetValue("")
+			r.completionMenu.Hide()
+			r.ctrlCPending = false
+			return true
+		}
+		if r.ctrlCPending {
+			r.requestQuit()
+			return true
+		}
+		r.ctrlCPending = true
+		ev := r.addEntry("")
+		ev.entry.writeLogLine(dimStyle.Render("Press Ctrl+C again to exit, or Ctrl+D"))
+		ev.Update()
+		return true
+
+	case key.Code == 'd' && key.Mod == uv.ModCtrl:
+		if r.textInput.Value() == "" {
+			r.requestQuit()
+			return true
+		}
+		r.ctrlCPending = false
+		return false
+
+	case key.Code == uv.KeyUp && key.Mod == 0:
+		r.history.Navigate(-1, r.textInput)
+		return true
+
+	case key.Code == uv.KeyDown && key.Mod == 0:
+		r.history.Navigate(1, r.textInput)
+		return true
+
+	case key.Code == 'l' && key.Mod == uv.ModCtrl:
+		r.entryContainer.Clear()
+		return true
+	}
+
+	return false
+}
+
+// ── eval ────────────────────────────────────────────────────────────────────
+
+func (r *replComponent) startEval(ectx tuist.Context, expr string) {
+	ev := r.activeEntryView()
+
+	result, err := dang.ParseWithRecovery("repl", []byte(expr))
+	if err != nil {
+		ev.entry.writeLogLine(errorStyle.Render(fmt.Sprintf("parse error: %v", err)))
+		ev.Update()
+		return
+	}
+
+	forms := result.(*dang.FileBlock).Forms
+
+	if r.debug {
+		for _, node := range forms {
+			ev.entry.writeLogLine(dimStyle.Render(fmt.Sprintf("%# v", pretty.Formatter(node))))
+		}
+		ev.Update()
+	}
+
+	fresh := hm.NewSimpleFresher()
+	_, err = dang.InferFormsWithPhases(r.ctx, forms, r.typeScope, fresh)
+	if err != nil {
+		ev.entry.writeLogLine(errorStyle.Render(fmt.Sprintf("type error: %v", err)))
+		ev.Update()
+		return
+	}
+
+	evalCtx, cancel := context.WithCancel(r.ctx)
+	r.evaluating = true
+	r.cancelEval = cancel
+	valueScope := r.valueScope
+	debug := r.debug
+	// Direct Dagger log output to this entry for the duration of eval.
+	if r.daggerLog != nil {
+		r.daggerLog.SetTarget(ev)
+	}
+
+	// Swap text input for spinner via the slot.
+	// Spinner starts automatically via OnMount when added to the slot.
+	// Focus the spinner so key events bubble up to replComponent's
+	// HandleKeyPress (which handles Ctrl+C and swallows everything else).
+	r.inputSlot.Set(r.spinner)
+	ectx.SetFocus(r.spinner)
+	ectx.RequestRender(false)
+
+	go func() {
+		var logs []string
+		var results []string
+
+		var stdoutBuf bytes.Buffer
+		ctx := ioctx.StdoutToContext(evalCtx, &stdoutBuf)
+		ctx = ioctx.StderrToContext(ctx, &stdoutBuf)
+
+		for _, node := range forms {
+			val, err := dang.EvalNode(ctx, valueScope, node)
+
+			if evalCtx.Err() != nil {
+				r.finishEval(ectx, ev, nil, nil, true)
+				return
+			}
+
+			if stdoutBuf.Len() > 0 {
+				logs = append(logs, strings.Split(strings.TrimRight(stdoutBuf.String(), "\n"), "\n")...)
+				stdoutBuf.Reset()
+			}
+
+			if err != nil {
+				results = append(results, errorStyle.Render(fmt.Sprintf("evaluation error: %v", err)))
+				r.finishEval(ectx, ev, logs, results, false)
+				return
+			}
+
+			// Echo the result as a highlighted Dang literal (quoted strings,
+			// same grammar as the input), behind a green "=> " marker.
+			results = append(results, resultStyle.Render("=> ")+highlightCode(dang.Repr(val)))
+			if debug {
+				results = append(results, dimStyle.Render(fmt.Sprintf("%# v", pretty.Formatter(val))))
+			}
+		}
+
+		r.finishEval(ectx, ev, logs, results, false)
+	}()
+}
+
+func (r *replComponent) finishEval(ctx tuist.Context, ev *entryView, logs, results []string, cancelled bool) {
+	// Dispatch to the UI goroutine so we can safely mutate component state.
+	ctx.Dispatch(func() {
+		r.evaluating = false
+		r.cancelEval = nil
+		if ev != nil {
+			if cancelled {
+				ev.entry.writeLogLine(errorStyle.Render("cancelled"))
+			} else {
+				for _, line := range logs {
+					ev.entry.writeLogLine(line)
+				}
+				for _, line := range results {
+					ev.entry.writeResult(line)
+				}
+			}
+			ev.Update()
+		}
+		if !cancelled {
+			r.refreshCompletions()
+		}
+
+		// Swap spinner back to text input via the slot.
+		r.inputSlot.Set(r.textInput)
+		ctx.SetFocus(r.textInput)
+	})
+}
+
+// ── doc browser ─────────────────────────────────────────────────────────────
+
+func (r *replComponent) showDocBrowser(ctx tuist.Context) {
+	db := repl.NewDocBrowserOverlay(r.typeScope)
+	db.OnExit = func() {
+		if r.docBrowser != nil {
+			r.entryContainer.RemoveChild(r.docBrowser)
+			r.docBrowser = nil
+			r.inputSlot.Set(r.textInput)
+			ctx.SetFocus(r.textInput)
+		}
+	}
+	r.docBrowser = db
+	r.entryContainer.AddChild(db)
+	r.inputSlot.Set(nil)
+	ctx.SetFocus(db)
+}
+
+// ── entry point ─────────────────────────────────────────────────────────────
+
+func runREPLTUI(ctx context.Context, moduleDir string, debug bool) error {
+	term := tuist.NewStdTerminal()
+	tui := tuist.New(term)
+	tui.SetShowHardwareCursor(true)
+
+	if err := tui.Start(); err != nil {
+		return fmt.Errorf("TUI start: %w", err)
+	}
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+	// Set up the Dagger log writer that routes service stderr through the
+	// TUI. This must be set on the context before resolving imports so
+	// that lazy service processes (started on first request) pick it up.
+	daggerLog := newPituiSyncWriter(tui.Dispatch)
+	ctx = ioctx.StderrToContext(ctx, daggerLog)
+
+	// Find and resolve dang.toml imports
+	var importConfigs []dang.ImportConfig
+	cwd, _ := os.Getwd()
+	configPath, config, err := dang.FindProjectConfig(cwd)
+	if err != nil {
+		slog.Warn("failed to find dang.toml", "error", err)
+	} else if config != nil {
+		configDir := filepath.Dir(configPath)
+		ctx = dang.ContextWithProjectConfig(ctx, configPath, config)
+		resolved, resolveErr := dang.ResolveImportConfigs(ctx, config, configDir)
+		if resolveErr != nil {
+			slog.Warn("failed to resolve dang.toml imports", "error", resolveErr)
+		} else {
+			importConfigs = resolved
+		}
+	}
+
+	// Load the Dagger module if present: find or create a Dagger import,
+	// serve the module, and introspect the live schema.
+	if moduleDir != "" {
+		loadCtx, cancelLoad := context.WithCancel(ctx)
+
+		loadSp := tuist.NewSpinner()
+		loadSp.Style = func(s string) string {
+			return lipgloss.NewStyle().Foreground(lipgloss.Color("5")).Render(s)
+		}
+		loadSp.Label = dimStyle.Render(fmt.Sprintf("Loading Dagger module from %s... (Ctrl+C to cancel)", moduleDir))
+
+		// Wrap spinner so Ctrl+C during loading cancels the load context.
+		loadWrapper := &loadingWrapper{cancel: cancelLoad}
+		loadWrapper.AddChild(loadSp)
+		tui.Dispatch(func() {
+			tui.AddChild(loadWrapper)
+			tui.SetFocus(loadWrapper)
+		})
+
+		// ResolveDaggerImport finds or creates a Dagger import and
+		// eagerly introspects the schema. For the REPL we also need
+		// to serve the module so we can execute queries against it.
+		importConfigs = dang.ResolveDaggerImport(loadCtx, importConfigs, moduleDir)
+		var serveErr error
+		for i, ic := range importConfigs {
+			if !ic.Dagger || ic.Client == nil {
+				continue
+			}
+			schema, err := dang.DaggerServeModule(loadCtx, ic.Client, moduleDir)
+			if err != nil {
+				serveErr = err
+			} else {
+				importConfigs[i].Schema = schema
+			}
+			break
+		}
+		if serveErr != nil {
+			if loadCtx.Err() != nil {
+				tui.Stop()
+				fmt.Println("Goodbye!")
+				return nil
+			}
+			fmt.Fprintf(os.Stderr, "Failed to load Dagger module: %v\n", serveErr)
+		}
+
+		cancelLoad()
+		tui.Dispatch(func() {
+			tui.RemoveChild(loadWrapper)
+		})
+	}
+
+	if len(importConfigs) > 0 {
+		ctx = dang.ContextWithImportConfigs(ctx, importConfigs...)
+	}
+
+	repl := newReplComponent(ctx, importConfigs, debug)
+	repl.daggerLog = daggerLog
+	tui.Dispatch(func() {
+		tui.AddChild(repl)
+	})
+
+	// Wait for quit signal or interrupt.
+	select {
+	case <-repl.quit.Done():
+	case <-sigCh:
+	case <-ctx.Done():
+	}
+
+	signal.Stop(sigCh)
+	tui.Stop()
+	fmt.Println("Goodbye!")
+	return nil
+}

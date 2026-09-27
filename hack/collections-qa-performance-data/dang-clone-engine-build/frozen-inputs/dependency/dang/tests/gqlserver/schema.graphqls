@@ -1,0 +1,169 @@
+directive @expectedType(
+  """The name of the expected object or interface type."""
+  name: String!
+) on ARGUMENT_DEFINITION | FIELD_DEFINITION
+
+enum Status {
+  ACTIVE
+  INACTIVE
+  PENDING
+  ARCHIVED
+}
+
+scalar Timestamp
+scalar URL
+scalar JSON
+scalar BigInt
+
+interface Node {
+  id: String!
+}
+
+interface Timestamped {
+  createdAt: String!
+}
+
+type Query {
+  hello(name: String!): String!
+  users: [User!]!
+  user(id: String!): User
+  primaryUser: User!
+  secondaryUser: User!
+  userName(user: ID! @expectedType(name: "User")): String!
+  userNames(users: [ID!]! @expectedType(name: "User")): [String!]!
+  nodeLabel(node: ID! @expectedType(name: "Node")): String!
+  favoriteUserID: ID! @expectedType(name: "User")
+  favoriteUserIDs: [ID!]! @expectedType(name: "User")
+  favoriteNodeID: ID! @expectedType(name: "Node")
+  serverInfo: ServerInfo!
+  posts(authorId: String, limit: Int): [Post!]!
+  userProfile(userId: String, includeStats: Boolean): UserProfile
+  postTitles: [String!]!
+  status: Status!
+  now: Timestamp!
+  homepage: URL!
+  fetchURL(url: URL!): String!
+  node(id: String!): Node
+  nodes: [Node!]!
+  timestamped: [Timestamped!]!
+  # Additional queries for scalar coercion testing
+  formatTimestamp(ts: Timestamp!): String!
+  parseJSON(data: JSON!): String!
+  addBigInt(a: BigInt!, b: BigInt!): BigInt!
+  fetchURLNullable(url: URL): String
+  fetchMultipleURLs(urls: [URL!]!): [String!]!
+  search(query: String!): [SearchResult!]!
+  searchConnection(query: String!): SearchResultConnection!
+  usersByStatus(status: Status!): [User!]!
+  sortedUsers(sort: UserSort!): [User!]!
+  # Float round-trip: a Float result reused as a Float argument.
+  averageRating: Float!
+  echoFloat(value: Float!): Float!
+}
+
+enum UserSortField {
+  NAME
+  AGE
+}
+
+enum SortDirection {
+  ASC
+  DESC
+}
+
+input UserSort {
+  field: UserSortField!
+  direction: SortDirection!
+}
+
+type Mutation {
+  createUser(input: CreateUserInput!): User!
+  updateUser(id: String!, input: UpdateUserInput!): User
+  deleteUser(id: String!): Boolean!
+}
+
+type User implements Node {
+  id: String!
+  name: String!
+  emails: [String!]!
+  age: Int
+  status: Status!
+  posts(first: Int, after: String, last: Int, before: String): PostConnection! @goField(forceResolver: true)
+  sync: ID! @expectedType(name: "User") @goField(forceResolver: true)
+  # Always returns a server-side error; used to test error reporting for a
+  # field nested inside an object selection.
+  alwaysFails: String! @goField(forceResolver: true)
+}
+
+type Post implements Node & Timestamped {
+  id: String!
+  title: String!
+  content: String!
+  author: User!
+  createdAt: String!
+}
+
+type PostConnection {
+  posts: [Post!]!
+  pageInfo: PageInfo!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+type ServerInfo {
+  version: String!
+  platform: String!
+  uptime: String!
+  totalUsers: Int!
+  totalPosts: Int!
+}
+
+type UserProfile {
+  user: User!
+  joinedDate: String!
+  lastActivity: String!
+  postCount: Int
+  averagePostLength: Float
+  bio: String
+}
+
+input CreateUserInput {
+  name: String!
+  email: String!
+  age: Int
+}
+
+input UpdateUserInput {
+  name: String
+  email: String
+  age: Int
+}
+
+directive @goField(
+  forceResolver: Boolean
+  name: String
+  omittable: Boolean
+  type: String
+) on INPUT_FIELD_DEFINITION | FIELD_DEFINITION
+
+union SearchResult = User | Post
+
+type SearchResultEdge {
+  node: SearchResult!
+}
+
+type SearchResultConnection {
+  edges: [SearchResultEdge!]!
+  totalCount: Int!
+}
+
+directive @customDirective(
+  message: String
+) on FIELD_DEFINITION
+
+directive @experimental on FIELD_DEFINITION | OBJECT

@@ -1,0 +1,182 @@
+package dang
+
+import (
+	"context"
+	"fmt"
+	"math/rand/v2"
+	"reflect"
+	"slices"
+	"sync"
+	"testing"
+)
+
+func mergeBuiltin(t testing.TB, a, b MapValue) MapValue {
+	t.Helper()
+	def, ok := LookupMethod(MapTypeModule, "merge")
+	if !ok {
+		t.Fatal("missing merge builtin")
+	}
+	got, err := def.Impl(context.Background(), a, Args{Values: map[string]Value{"other": b}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return got.(MapValue)
+}
+
+func mergeFixture(keys ...string) MapValue {
+	m := MapValue{Keys: slices.Clone(keys), Entries: map[string]Value{}, ValType: NonNull(StringType)}
+	for i, k := range keys {
+		m.Entries[k] = StringValue{Val: fmt.Sprintf("%s:%d", k, i)}
+	}
+	return m
+}
+
+func TestMapMergeOwnedOrderingAndConflicts(t *testing.T) {
+	left := mergeFixture("b", "a", "empty")
+	left.Entries["empty"] = NullValue{}
+	right := mergeFixture("z", "a", "empty", "x")
+	right.Entries["a"] = StringValue{Val: "replacement"}
+	right.Entries["empty"] = NullValue{}
+	got := mergeBuiltin(t, left, right)
+	if !slices.Equal(got.Keys, []string{"b", "a", "empty", "z", "x"}) {
+		t.Fatal(got.Keys)
+	}
+	if got.ValType != left.ValType {
+		t.Fatal("changed receiver value type")
+	}
+	for _, k := range got.Keys {
+		want, ok := right.Entries[k]
+		if !ok {
+			want = left.Entries[k]
+		}
+		if !reflect.DeepEqual(got.Entries[k], want) {
+			t.Fatalf("wrong value for %q", k)
+		}
+	}
+	// Only the structural containers are owned, as before; nested values retain
+	// their existing shallow-sharing semantics. Expose accidental container aliases.
+	got.Keys[0] = "mutated"
+	got.Entries["b"] = StringValue{Val: "mutated"}
+	delete(got.Entries, "z")
+	if left.Keys[0] != "b" || right.Keys[0] != "z" {
+		t.Fatal("input key slice mutated")
+	}
+	if left.Entries["b"].(StringValue).Val != "b:0" {
+		t.Fatal("left map mutated")
+	}
+	if _, ok := right.Entries["z"]; !ok {
+		t.Fatal("right map mutated")
+	}
+}
+
+func TestMapMergeOwnedNilEmptyAndAliasing(t *testing.T) {
+	empty := MapValue{ValType: StringType}
+	a := mergeFixture("a", "b")
+	for _, pair := range [][2]MapValue{{empty, empty}, {a, empty}, {empty, a}, {a, a}} {
+		got := mergeBuiltin(t, pair[0], pair[1])
+		want := pair[0]
+		for _, k := range pair[1].Keys {
+			want = want.With(k, pair[1].Entries[k])
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("merge differs from prior semantics: %#v / %#v", got, want)
+		}
+	}
+	got := mergeBuiltin(t, a, a)
+	got.Keys[0] = "changed"
+	delete(got.Entries, "a")
+	if a.Keys[0] != "a" || len(a.Entries) != 2 {
+		t.Fatal("self merge shares mutable containers")
+	}
+	def, _ := LookupMethod(MapTypeModule, "merge")
+	_, err := def.Impl(context.Background(), a, Args{Values: map[string]Value{"other": IntValue{Val: 1}}})
+	if err == nil {
+		t.Fatal("wrong argument type accepted")
+	}
+}
+
+func TestMapMergeOwnedRandomizedReference(t *testing.T) {
+	r := rand.New(rand.NewPCG(137, 281))
+	for sample := 0; sample < 200; sample++ {
+		a, b := mergeFixture(), mergeFixture()
+		for i, count := 0, r.IntN(50); i < count; i++ {
+			a = a.With(fmt.Sprint(r.IntN(30)), IntValue{Val: i})
+		}
+		for i, count := 0, r.IntN(50); i < count; i++ {
+			b = b.With(fmt.Sprint(r.IntN(30)), IntValue{Val: -i})
+		}
+		want := a
+		for _, k := range b.Keys {
+			want = want.With(k, b.Entries[k])
+		}
+		if got := mergeBuiltin(t, a, b); !reflect.DeepEqual(got, want) {
+			t.Fatalf("sample %d differs", sample)
+		}
+	}
+}
+
+func TestMapMergeOwnedConcurrent(t *testing.T) {
+	a, b := mergeFixture("a", "b"), mergeFixture("b", "c")
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Go(func() {
+			for range 20 {
+				got := mergeBuiltin(t, a, b)
+				if !slices.Equal(got.Keys, []string{"a", "b", "c"}) {
+					t.Error("changed keys")
+				}
+				got.Keys[0] = "private"
+				delete(got.Entries, "a")
+			}
+		})
+	}
+	wg.Wait()
+}
+
+func TestMapMergeOwnedLanguageSemantics(t *testing.T) {
+	if err := evalExample(`
+let left = ["b": 1, "a": 2]
+let right = ["z": 3, "a": 4]
+let result = left.merge(right)
+assert { result.keys == ["b", "a", "z"] }
+assert { result.get("a") == 4 }
+assert { left.get("a") == 2 }
+assert { right.keys == ["z", "a"] }
+`); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func BenchmarkMapMergeOwned(b *testing.B) {
+	for _, n := range []int{1, 8, 64, 512} {
+		for _, overlap := range []bool{false, true} {
+			b.Run(fmt.Sprintf("entries=%d/overlap=%v", n, overlap), func(b *testing.B) {
+				a, other := mergeFixture(), mergeFixture()
+				for i := range n {
+					k := fmt.Sprintf("key-%06d", i)
+					a.Keys = append(a.Keys, k)
+					a.Entries[k] = IntValue{Val: i}
+					if !overlap {
+						k = "other-" + k
+					}
+					other.Keys = append(other.Keys, k)
+					other.Entries[k] = IntValue{Val: -i}
+				}
+				def, _ := LookupMethod(MapTypeModule, "merge")
+				args := Args{Values: map[string]Value{"other": other}}
+				want := n
+				if !overlap {
+					want *= 2
+				}
+				b.ReportAllocs()
+				b.ResetTimer()
+				for b.Loop() {
+					got, err := def.Impl(context.Background(), a, args)
+					if err != nil || len(got.(MapValue).Keys) != want {
+						b.Fatal("invalid merge", err)
+					}
+				}
+			})
+		}
+	}
+}

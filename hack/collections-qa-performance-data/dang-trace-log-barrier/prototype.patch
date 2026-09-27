@@ -1,0 +1,148 @@
+--- a/engine/server/session.go
++++ b/engine/server/session.go
+@@ -630,6 +630,18 @@
+ 	return time.Since(start)
+ }
+ 
++// timedTelemetryFlush adds fixed phase names only when wall-clock profiling is
++// enabled. The client-metric child phase starts after metricMu is held, so its
++// count is the number of actual provider ForceFlush calls, not retained records.
++func timedTelemetryFlush(ctx context.Context, errs *error, phase string, flush func(context.Context) error) time.Duration {
++	flushCtx, op := wcprof.BeginOp(ctx, wcprof.OpKindInternal, phase, wcprof.OpOpts{})
++	start := time.Now()
++	err := flush(flushCtx)
++	op.EndErr(err)
++	*errs = errors.Join(*errs, err)
++	return time.Since(start)
++}
++
+ func (sess *daggerSession) clientMetricRuntimes() []*clientRuntime {
+ 	sess.clientMu.RLock()
+ 	defer sess.clientMu.RUnlock()
+@@ -664,7 +676,10 @@
+ 	if client.meterProvider == nil {
+ 		return nil
+ 	}
+-	return client.meterProvider.ForceFlush(ctx)
++	flushCtx, op := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "telemetry.flushClientMetrics", wcprof.OpOpts{})
++	err := client.meterProvider.ForceFlush(flushCtx)
++	op.EndErr(err)
++	return err
+ }
+ 
+ func (client *clientRuntime) shutdownMetrics(ctx context.Context) error {
+@@ -761,10 +776,25 @@
+ var inflightSessionTelemetryFlushes atomic.Int64
+ 
+ func (sess *daggerSession) FlushTelemetry(ctx context.Context, reason string) error {
++	return sess.flushTelemetry(ctx, reason, true)
++}
++
++// FlushTraceLogs makes the entire session's trace/log queues locally visible.
++// It does not collect metrics: periodic readers and runtime/session shutdown
++// retain ownership of those collections. Unlike a client-subtree flush, this
++// preserves telemetry from every origin, including detached/nested work.
++func (sess *daggerSession) FlushTraceLogs(ctx context.Context, reason string) error {
++	return sess.flushTelemetry(ctx, reason, false)
++}
++
++func (sess *daggerSession) flushTelemetry(ctx context.Context, reason string, includeMetrics bool) error {
+ 	inflight := inflightSessionTelemetryFlushes.Add(1)
+ 	defer inflightSessionTelemetryFlushes.Add(-1)
+ 
+-	clients := sess.clientMetricRuntimes()
++	var clients []*clientRuntime
++	if includeMetrics {
++		clients = sess.clientMetricRuntimes()
++	}
+ 	sess.clientMu.RLock()
+ 	records := len(sess.clientRecords)
+ 	sess.clientMu.RUnlock()
+@@ -780,14 +810,16 @@
+ 	var errs error
+ 	var traceDur, logDur, metricDur time.Duration
+ 	if sess.tracerProvider != nil {
+-		traceDur = timedProviderOp(ctx, &errs, sess.tracerProvider.ForceFlush)
++		traceDur = timedTelemetryFlush(ctx, &errs, "telemetry.flushTraces", sess.tracerProvider.ForceFlush)
+ 	}
+ 	if sess.loggerProvider != nil {
+-		logDur = timedProviderOp(ctx, &errs, sess.loggerProvider.ForceFlush)
+-	}
+-	metricStart := time.Now()
+-	errs = errors.Join(errs, runClientMetricOp(ctx, clients, "flush metrics", (*clientRuntime).flushMetrics))
+-	metricDur = time.Since(metricStart)
++		logDur = timedTelemetryFlush(ctx, &errs, "telemetry.flushLogs", sess.loggerProvider.ForceFlush)
++	}
++	if includeMetrics {
++		metricDur = timedTelemetryFlush(ctx, &errs, "telemetry.flushMetrics", func(ctx context.Context) error {
++			return runClientMetricOp(ctx, clients, "flush metrics", (*clientRuntime).flushMetrics)
++		})
++	}
+ 	logClientTelemetryOp(lg, "session telemetry flush", start, traceDur, logDur, metricDur, errs)
+ 	return errs
+ }
+@@ -3809,6 +3841,17 @@
+ 	return record.daggerSession.FlushTelemetry(ctx, "FlushSessionTelemetry API")
+ }
+ 
++// FlushSessionTraceLogs is the local visibility barrier used by in-engine
++// calls. It preserves session-wide origin routing without sampling every live
++// client's metrics at each call boundary.
++func (srv *Server) FlushSessionTraceLogs(ctx context.Context) error {
++	record, err := srv.clientRecordFromContext(ctx)
++	if err != nil {
++		return err
++	}
++	return record.daggerSession.FlushTraceLogs(ctx, "FlushSessionTraceLogs API")
++}
++
+ func (srv *Server) ClientTelemetry(ctx context.Context, sessID, clientID string) (*clientdb.DB, error) {
+ 	record, err := srv.clientRecordFromIDs(sessID, clientID)
+ 	if err != nil {
+--- a/core/query.go
++++ b/core/query.go
+@@ -193,6 +193,10 @@
+ 
+ 	// Flush telemetry for all clients in the current session.
+ 	FlushSessionTelemetry(ctx context.Context) error
++
++	// Make all session spans and logs locally visible without collecting metrics.
++	// Periodic metric collection and runtime/session shutdown remain independent.
++	FlushSessionTraceLogs(ctx context.Context) error
+ 
+ 	// SessionScopedContext returns a context that lives for the remainder of
+ 	// the current client's session: it is detached from the given context's
+--- a/core/sdk/dang/v2/helpers.go
++++ b/core/sdk/dang/v2/helpers.go
+@@ -80,7 +80,7 @@
+ 		}
+ 
+ 		flushCtx, flushOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.flushTelemetry", wcprof.OpOpts{})
+-		flushErr := query.Server.FlushSessionTelemetry(flushCtx)
++		flushErr := query.Server.FlushSessionTraceLogs(flushCtx)
+ 		flushOp.EndErr(flushErr)
+ 		if flushErr != nil {
+ 			slog.Debug("failed to flush telemetry after Dang eval", "error", flushErr)
+--- a/core/schema/test_server_test.go
++++ b/core/schema/test_server_test.go
+@@ -163,6 +163,10 @@
+ 	return nil
+ }
+ 
++func (s *currentTypeDefsTestServer) FlushSessionTraceLogs(context.Context) error {
++	return nil
++}
++
+ func (s *currentTypeDefsTestServer) SessionScopedContext(ctx context.Context) (context.Context, error) {
+ 	return context.WithoutCancel(ctx), nil
+ }
+--- a/core/telemetry_test.go
++++ b/core/telemetry_test.go
+@@ -201,6 +201,7 @@
+ func (ms *mockServer) SecretSalt() []byte                              { return nil }
+ func (ms *mockServer) EngineVolumeState() EngineVolumeState            { return EngineVolumeState{} }
+ func (ms *mockServer) FlushSessionTelemetry(context.Context) error     { return nil }
++func (ms *mockServer) FlushSessionTraceLogs(context.Context) error     { return nil }
+ func (ms *mockServer) SessionScopedContext(ctx context.Context) (context.Context, error) {
+ 	return context.WithoutCancel(ctx), nil
+ }

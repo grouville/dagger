@@ -1,0 +1,178 @@
+[
+  {
+    "label": "baseline-normal",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=1",
+      "-mod=readonly",
+      "-overlay=/tmp/collections-perf/dang-map-merge-v1/baseline-overlay.json",
+      "./pkg/dang",
+      "-run=^TestMapMergeOwned",
+      "-count=1",
+      "-timeout=90s"
+    ],
+    "exit_code": 0,
+    "seconds": 3.721805260051042,
+    "log_sha256": "b95f4fdef7e1b936fb4fdb2af4df82ae33cda97e821bf63e61252a3704e67c1a"
+  },
+  {
+    "label": "candidate-normal",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=1",
+      "-mod=readonly",
+      "-overlay=/tmp/collections-perf/dang-map-merge-v1/candidate-overlay.json",
+      "./pkg/dang",
+      "-run=^TestMapMergeOwned",
+      "-count=1",
+      "-timeout=90s"
+    ],
+    "exit_code": 0,
+    "seconds": 3.2712665249127895,
+    "log_sha256": "56df4d3eff5e1d5e1a2af9fcc5ff6a1a0bc220052f3323807c31fd87e3a1eb26"
+  },
+  {
+    "label": "candidate-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=1",
+      "-mod=readonly",
+      "-race",
+      "-overlay=/tmp/collections-perf/dang-map-merge-v1/candidate-overlay.json",
+      "./pkg/dang",
+      "-run=^TestMapMergeOwned",
+      "-count=1",
+      "-timeout=90s"
+    ],
+    "exit_code": 0,
+    "seconds": 9.93863854999654,
+    "log_sha256": "5a34c1939028d70177754cdcaca0bb27697916c4ffdd46089d240bdb77aad095"
+  },
+  {
+    "label": "baseline-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=1",
+      "-mod=readonly",
+      "-overlay=/tmp/collections-perf/dang-map-merge-v1/baseline-overlay.json",
+      "-c",
+      "-o",
+      "/tmp/collections-perf/dang-map-merge-v1/baseline.test",
+      "./pkg/dang"
+    ],
+    "exit_code": 0,
+    "seconds": 1.1160999631974846,
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "candidate-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=1",
+      "-mod=readonly",
+      "-overlay=/tmp/collections-perf/dang-map-merge-v1/candidate-overlay.json",
+      "-c",
+      "-o",
+      "/tmp/collections-perf/dang-map-merge-v1/candidate.test",
+      "./pkg/dang"
+    ],
+    "exit_code": 0,
+    "seconds": 1.080093493917957,
+    "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "bench-0-baseline",
+    "command": [
+      "/tmp/collections-perf/dang-map-merge-v1/baseline.test",
+      "-test.run=^TestMapMergeOwned",
+      "-test.bench=^BenchmarkMapMergeOwned$",
+      "-test.benchmem",
+      "-test.benchtime=100ms",
+      "-test.count=1",
+      "-test.timeout=90s"
+    ],
+    "exit_code": 0,
+    "seconds": 1.115892532048747,
+    "log_sha256": "2c92c5b080c91534506ffb127baf2b7696507addc03bda726c2dbce55b6392da"
+  },
+  {
+    "label": "bench-0-candidate",
+    "command": [
+      "/tmp/collections-perf/dang-map-merge-v1/candidate.test",
+      "-test.run=^TestMapMergeOwned",
+      "-test.bench=^BenchmarkMapMergeOwned$",
+      "-test.benchmem",
+      "-test.benchtime=100ms",
+      "-test.count=1",
+      "-test.timeout=90s"
+    ],
+    "exit_code": 0,
+    "seconds": 1.1160825048573315,
+    "log_sha256": "deb158248654494114308a96e563801725c206bc24efcd09092633d4e1b895a9"
+  },
+  {
+    "label": "bench-1-candidate",
+    "command": [
+      "/tmp/collections-perf/dang-map-merge-v1/candidate.test",
+      "-test.run=^TestMapMergeOwned",
+      "-test.bench=^BenchmarkMapMergeOwned$",
+      "-test.benchmem",
+      "-test.benchtime=100ms",
+      "-test.count=1",
+      "-test.timeout=90s"
+    ],
+    "exit_code": 0,
+    "seconds": 1.0655634989961982,
+    "log_sha256": "58960bcb9a7daee047f9c16d42ed503f11c0b6550b594e54c6732f667992cd40"
+  },
+  {
+    "label": "bench-1-baseline",
+    "command": [
+      "/tmp/collections-perf/dang-map-merge-v1/baseline.test",
+      "-test.run=^TestMapMergeOwned",
+      "-test.bench=^BenchmarkMapMergeOwned$",
+      "-test.benchmem",
+      "-test.benchtime=100ms",
+      "-test.count=1",
+      "-test.timeout=90s"
+    ],
+    "exit_code": 0,
+    "seconds": 1.0659519110340625,
+    "log_sha256": "2e87bae1c81e48aea1976fda071c1b26e2b075f6f50bf6c869cbcff205d5cb57"
+  },
+  {
+    "label": "bench-2-baseline",
+    "command": [
+      "/tmp/collections-perf/dang-map-merge-v1/baseline.test",
+      "-test.run=^TestMapMergeOwned",
+      "-test.bench=^BenchmarkMapMergeOwned$",
+      "-test.benchmem",
+      "-test.benchtime=100ms",
+      "-test.count=1",
+      "-test.timeout=90s"
+    ],
+    "exit_code": 0,
+    "seconds": 1.1157622099854052,
+    "log_sha256": "180ec08d934d223e8be167d72976801ef19b97d2ce0bc55c1d87025a1928b8e3"
+  },
+  {
+    "label": "bench-2-candidate",
+    "command": [
+      "/tmp/collections-perf/dang-map-merge-v1/candidate.test",
+      "-test.run=^TestMapMergeOwned",
+      "-test.bench=^BenchmarkMapMergeOwned$",
+      "-test.benchmem",
+      "-test.benchtime=100ms",
+      "-test.count=1",
+      "-test.timeout=90s"
+    ],
+    "exit_code": 0,
+    "seconds": 1.1159765420015901,
+    "log_sha256": "1c6460f886e5cb280159de4227de996ac5f9d2ca005c0ca0e77c7a017bfe733c"
+  }
+]

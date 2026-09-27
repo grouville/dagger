@@ -1,0 +1,104 @@
+{
+  "execute": false,
+  "steps": [
+    {
+      "name": "negative-full-metric-witness",
+      "overlay": "negative-overlay.json",
+      "pattern": "^TestSessionTraceLogBarrierAllOriginsAndFinalMetrics$",
+      "packages": [
+        "./engine/server"
+      ],
+      "race": false
+    },
+    {
+      "name": "candidate-normal",
+      "overlay": "test-overlay.json",
+      "pattern": "^(TestSessionTraceLogBarrierAllOriginsAndFinalMetrics|TestSessionTraceLogBarrierRetainsOrderAndErrors|TestSessionTraceLogBarrierCancellation|TestSessionTraceLogBarrierDoesNotJoinUnrelatedMetricDrain|TestSessionTraceLogBarrierRequiresExistingClient|TestSessionTraceLogBarrierJoinsRealLogExport|TestClientShutdownMetricsCollectsEachReaderOnce|TestClientShutdownMetricsPreservesFinalUpdateAfterExplicitFlush|TestClientShutdownMetricsWaitsForFinalExportAndHonorsCancellation|TestClientShutdownMetricsReturnsFinalCollectionErrorAndReleasesReader|TestClientShutdownMetricsFailureStillClosesBothReaders|TestClientShutdownMetricsCancellationStillClosesSecondReader|TestClientRuntimeReclamationDrainsMetricsBeforeUnpublish|TestTelemetryRoutesClientsAndAncestorsExactlyOnce|TestCallPayloadReachesCloudOnce)$",
+      "packages": [
+        "./engine/server"
+      ],
+      "race": false
+    },
+    {
+      "name": "candidate-race",
+      "overlay": "test-overlay.json",
+      "pattern": "^(TestSessionTraceLogBarrierAllOriginsAndFinalMetrics|TestSessionTraceLogBarrierRetainsOrderAndErrors|TestSessionTraceLogBarrierCancellation|TestSessionTraceLogBarrierDoesNotJoinUnrelatedMetricDrain|TestSessionTraceLogBarrierRequiresExistingClient|TestSessionTraceLogBarrierJoinsRealLogExport|TestClientShutdownMetricsCollectsEachReaderOnce|TestClientShutdownMetricsPreservesFinalUpdateAfterExplicitFlush|TestClientShutdownMetricsWaitsForFinalExportAndHonorsCancellation|TestClientShutdownMetricsReturnsFinalCollectionErrorAndReleasesReader|TestClientShutdownMetricsFailureStillClosesBothReaders|TestClientShutdownMetricsCancellationStillClosesSecondReader|TestClientRuntimeReclamationDrainsMetricsBeforeUnpublish|TestTelemetryRoutesClientsAndAncestorsExactlyOnce|TestCallPayloadReachesCloudOnce)$",
+      "packages": [
+        "./engine/server"
+      ],
+      "race": true
+    },
+    {
+      "name": "interface-and-dang-compatibility",
+      "overlay": "test-overlay.json",
+      "pattern": "^(TestParseCallerCalleeRefs|TestCurrentTypeDefsReturnAllTypes|TestReportDangSourceError|TestDangSourceErrorKeepsGraphQLExtraction|TestDangSourceMessage|TestDangSourceMessageFromModule)$",
+      "packages": [
+        "./core",
+        "./core/schema",
+        "./core/sdk/dang/v2"
+      ],
+      "race": false
+    }
+  ],
+  "commands": [
+    [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-json",
+      "-p=1",
+      "-parallel=4",
+      "-mod=readonly",
+      "-overlay=/tmp/collections-perf/dang-trace-log-barrier-v1/negative-overlay.json",
+      "-count=1",
+      "-timeout=180s",
+      "-run=^TestSessionTraceLogBarrierAllOriginsAndFinalMetrics$",
+      "./engine/server"
+    ],
+    [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-json",
+      "-p=1",
+      "-parallel=4",
+      "-mod=readonly",
+      "-overlay=/tmp/collections-perf/dang-trace-log-barrier-v1/test-overlay.json",
+      "-count=1",
+      "-timeout=180s",
+      "-run=^(TestSessionTraceLogBarrierAllOriginsAndFinalMetrics|TestSessionTraceLogBarrierRetainsOrderAndErrors|TestSessionTraceLogBarrierCancellation|TestSessionTraceLogBarrierDoesNotJoinUnrelatedMetricDrain|TestSessionTraceLogBarrierRequiresExistingClient|TestSessionTraceLogBarrierJoinsRealLogExport|TestClientShutdownMetricsCollectsEachReaderOnce|TestClientShutdownMetricsPreservesFinalUpdateAfterExplicitFlush|TestClientShutdownMetricsWaitsForFinalExportAndHonorsCancellation|TestClientShutdownMetricsReturnsFinalCollectionErrorAndReleasesReader|TestClientShutdownMetricsFailureStillClosesBothReaders|TestClientShutdownMetricsCancellationStillClosesSecondReader|TestClientRuntimeReclamationDrainsMetricsBeforeUnpublish|TestTelemetryRoutesClientsAndAncestorsExactlyOnce|TestCallPayloadReachesCloudOnce)$",
+      "./engine/server"
+    ],
+    [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-json",
+      "-p=1",
+      "-parallel=4",
+      "-mod=readonly",
+      "-overlay=/tmp/collections-perf/dang-trace-log-barrier-v1/test-overlay.json",
+      "-count=1",
+      "-timeout=180s",
+      "-race",
+      "-run=^(TestSessionTraceLogBarrierAllOriginsAndFinalMetrics|TestSessionTraceLogBarrierRetainsOrderAndErrors|TestSessionTraceLogBarrierCancellation|TestSessionTraceLogBarrierDoesNotJoinUnrelatedMetricDrain|TestSessionTraceLogBarrierRequiresExistingClient|TestSessionTraceLogBarrierJoinsRealLogExport|TestClientShutdownMetricsCollectsEachReaderOnce|TestClientShutdownMetricsPreservesFinalUpdateAfterExplicitFlush|TestClientShutdownMetricsWaitsForFinalExportAndHonorsCancellation|TestClientShutdownMetricsReturnsFinalCollectionErrorAndReleasesReader|TestClientShutdownMetricsFailureStillClosesBothReaders|TestClientShutdownMetricsCancellationStillClosesSecondReader|TestClientRuntimeReclamationDrainsMetricsBeforeUnpublish|TestTelemetryRoutesClientsAndAncestorsExactlyOnce|TestCallPayloadReachesCloudOnce)$",
+      "./engine/server"
+    ],
+    [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-json",
+      "-p=1",
+      "-parallel=4",
+      "-mod=readonly",
+      "-overlay=/tmp/collections-perf/dang-trace-log-barrier-v1/test-overlay.json",
+      "-count=1",
+      "-timeout=180s",
+      "-run=^(TestParseCallerCalleeRefs|TestCurrentTypeDefsReturnAllTypes|TestReportDangSourceError|TestDangSourceErrorKeepsGraphQLExtraction|TestDangSourceMessage|TestDangSourceMessageFromModule)$",
+      "./core",
+      "./core/schema",
+      "./core/sdk/dang/v2"
+    ]
+  ],
+  "engine_calls": 0,
+  "production_cloud_calls": 0,
+  "local_http": "only the existing httptest Cloud receiver",
+  "input_manifest_sha256": "3af181f10f3e9c23317452342c74f756138e1aaa3ce01ae1bd46cf6a0b0ffcba"
+}

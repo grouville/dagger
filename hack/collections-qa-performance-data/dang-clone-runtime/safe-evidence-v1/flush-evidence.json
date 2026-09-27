@@ -1,0 +1,146 @@
+{
+  "input_sha256": "704bb04853ee46b03dd67ee1eb7c1706d4b883d98524683a56e189c247783819",
+  "sdk_reducer_sha256": "db00a6e4e9d09aa0f8a80af9ba9b28e3a6860daaa200f3b6f731ac40270901b2",
+  "admission_reducer_sha256": "3d2ec88d0f7a4c225094799af165e645a2453d5b7d527415791e02985b3f234a",
+  "profiles": [
+    {
+      "variant": "baseline",
+      "profile_sha256": "891789d740afa7ce64d5e8dfa99bf2635fa6d0c90a43defa82077110b5fb92ab",
+      "operations": 18297,
+      "open_operations": 0,
+      "dropped_events": 0,
+      "fixed_classes": [
+        {
+          "class": "dang.flushTelemetry",
+          "count": 15,
+          "inclusive_sum_ms": 52.726347,
+          "union_ms": 47.532523,
+          "max_ms": 9.007954,
+          "expansion_overlap_union_ms": 47.532523
+        },
+        {
+          "class": "telemetry.flushTraces",
+          "count": 15,
+          "inclusive_sum_ms": 42.222289,
+          "union_ms": 37.61044,
+          "max_ms": 8.405689,
+          "expansion_overlap_union_ms": 37.61044
+        },
+        {
+          "class": "telemetry.flushLogs",
+          "count": 15,
+          "inclusive_sum_ms": 7.285758,
+          "union_ms": 7.285758,
+          "max_ms": 1.400933,
+          "expansion_overlap_union_ms": 7.285758
+        },
+        {
+          "class": "telemetry.flushMetrics",
+          "count": 15,
+          "inclusive_sum_ms": 2.620568,
+          "union_ms": 2.49037,
+          "max_ms": 0.985694,
+          "expansion_overlap_union_ms": 2.49037
+        },
+        {
+          "class": "telemetry.flushClientMetrics",
+          "count": 109,
+          "inclusive_sum_ms": 2.539537,
+          "union_ms": 1.809282,
+          "max_ms": 0.958928,
+          "expansion_overlap_union_ms": 1.809282
+        }
+      ],
+      "actual_provider_forceflush_calls_in_dang_barriers": 109,
+      "metrics_aggregate_calls_in_dang_barriers": 15,
+      "provider_calls_per_barrier": [
+        5,
+        8,
+        8,
+        8,
+        7,
+        6,
+        5,
+        5,
+        5,
+        11,
+        10,
+        10,
+        8,
+        7,
+        6
+      ],
+      "provider_calls_outside_dang_barriers": 0
+    },
+    {
+      "variant": "candidate",
+      "profile_sha256": "57d14914ca74fbb025a06cc8c12032787e0f8695089b1629ae2ea2c403631b72",
+      "operations": 18300,
+      "open_operations": 0,
+      "dropped_events": 0,
+      "fixed_classes": [
+        {
+          "class": "dang.flushTelemetry",
+          "count": 15,
+          "inclusive_sum_ms": 74.537813,
+          "union_ms": 44.092826,
+          "max_ms": 13.023516,
+          "expansion_overlap_union_ms": 44.092826
+        },
+        {
+          "class": "telemetry.flushTraces",
+          "count": 15,
+          "inclusive_sum_ms": 65.630014,
+          "union_ms": 37.362972,
+          "max_ms": 12.726524,
+          "expansion_overlap_union_ms": 37.362972
+        },
+        {
+          "class": "telemetry.flushLogs",
+          "count": 15,
+          "inclusive_sum_ms": 5.042452,
+          "union_ms": 4.829145,
+          "max_ms": 0.922633,
+          "expansion_overlap_union_ms": 4.829145
+        },
+        {
+          "class": "telemetry.flushMetrics",
+          "count": 15,
+          "inclusive_sum_ms": 3.400441,
+          "union_ms": 3.224085,
+          "max_ms": 1.798039,
+          "expansion_overlap_union_ms": 3.224085
+        },
+        {
+          "class": "telemetry.flushClientMetrics",
+          "count": 112,
+          "inclusive_sum_ms": 3.195914,
+          "union_ms": 2.703849,
+          "max_ms": 1.703135,
+          "expansion_overlap_union_ms": 2.703849
+        }
+      ],
+      "actual_provider_forceflush_calls_in_dang_barriers": 112,
+      "metrics_aggregate_calls_in_dang_barriers": 15,
+      "provider_calls_per_barrier": [
+        5,
+        8,
+        8,
+        8,
+        7,
+        6,
+        5,
+        5,
+        5,
+        11,
+        11,
+        9,
+        9,
+        9,
+        6
+      ],
+      "provider_calls_outside_dang_barriers": 0
+    }
+  ],
+  "interpretation": "Separate profiled observations only. Actual provider calls prove all-client metric fanout occurs, but metrics aggregate union is2.49/3.22ms, not the47.53/44.09ms whole Dang barrier. Overlap prevents summing phases as removable critical-path time. No metric-only runtime candidate was tested."
+}

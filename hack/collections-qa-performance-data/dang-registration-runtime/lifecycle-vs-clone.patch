@@ -1,0 +1,32 @@
+--- clone/lifecycle.py
++++ registration/lifecycle.py
+@@ -16,9 +16,8 @@
+ nav = importlib.util.module_from_spec(spec)
+ spec.loader.exec_module(nav)
+ ORIGINAL_OWNER = 'collections-lazy-core-runtime-v1'
+-OWNER = 'collections-dang-clone-v1'
++OWNER = 'collections-dang-registration-v1'
+ ORIGINAL = '56f2eaccf6bf2f3151fb4c08205e1ad33fa7730ad5dee32577e867b527fc4b12'
+-PARENT_ENGINE = 'ec6a2d88ca54b1c12fc81c7381538e23d100fece04d703daac0b17dcf3d3ebc1'
+ IMAGE = 'sha256:b00e366e582ab98f0e4a7907163f338b6be3bfa13b10f3ad6bac3d699cd25a07'
+ CLI = Path('/tmp/collections-perf/shared-client-transport-v1/prototype-v2/builds/dagger-original')
+ CLI_SHA = 'd68580985d5eaa2350e7c4ec369d30ddfbb830ad8ea687d94228255b86ae76b8'
+@@ -66,7 +65,8 @@
+         freeze = json.loads((HERE / 'frozen-runtime-inputs.json').read_text())
+         assert x.sha(HERE / ('frozen-' + self.variant + '-engine-manifest.json')) == freeze['engine_manifest_sha256'][self.variant]
+         manifest = json.loads((HERE / ('frozen-' + self.variant + '-engine-manifest.json')).read_text())
+-        assert manifest['baseline_ancestry_engine_sha256'] == PARENT_ENGINE
++        assert manifest['source_head'] == freeze['source_head']
++        assert manifest['scope'] == freeze['engine_scope']
+         engine = manifest['engine']
+         assert engine['exit_code'] == 0 and x.sha(engine['path']) == engine['sha256']
+         self.engine_sha = engine['sha256']
+@@ -101,7 +101,7 @@
+             else:
+                 self.init_sha = x.sha(path)
+         run_id = uuid.uuid4().hex
+-        name = 'dagger-engine.collections-dang-clone-' + run_id[:12]
++        name = 'dagger-engine.collections-dang-registration-' + run_id[:12]
+         assert not x.capture(['docker', 'ps', '-aq', '--filter', 'name=^/' + name + '$'])
+         with socket.socket() as probe:
+             probe.bind(('127.0.0.1', 0))

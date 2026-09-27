@@ -1,0 +1,828 @@
+package dang
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"sync"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+	"github.com/vito/dang/v2/pkg/hm"
+	"github.com/vito/dang/v2/pkg/introspection"
+)
+
+func requireEvalGet(t *testing.T, scope ValueScope, name string) (Value, bool) {
+	t.Helper()
+	val, found, err := scope.Lookup(context.Background(), name)
+	require.NoError(t, err)
+	return val, found
+}
+
+func TestNewEnvSchemaTypeShadowsPreludeType(t *testing.T) {
+	_, found := ErrorType.LocalSchemeOf("id")
+	require.False(t, found)
+
+	env := TypeScopeFromSchema("Dagger", schemaWithErrorObject())
+
+	schemaString, found := env.NamedType("String")
+	require.True(t, found)
+	require.Same(t, StringType, schemaString)
+
+	schemaError, found := env.NamedType("Error")
+	require.True(t, found)
+	require.NotSame(t, ErrorType, schemaError)
+
+	schemaErrorMod, ok := schemaError.(*Type)
+	require.True(t, ok)
+	require.Equal(t, ObjectKind, schemaErrorMod.Kind)
+
+	_, found = schemaError.LocalSchemeOf("id")
+	require.True(t, found)
+	_, found = schemaError.LocalSchemeOf("message")
+	require.True(t, found)
+
+	_, found = ErrorType.LocalSchemeOf("id")
+	require.False(t, found)
+}
+
+func TestConcurrentNewEnvWithPreludeTypeCollision(t *testing.T) {
+	schema := schemaWithErrorObject()
+
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	errs := make(chan bool, 32)
+	for range 32 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			env := TypeScopeFromSchema("Dagger", schema)
+			schemaError, found := env.NamedType("Error")
+			errs <- found && schemaError != ErrorType
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+
+	for ok := range errs {
+		require.True(t, ok)
+	}
+	_, found := ErrorType.LocalSchemeOf("id")
+	require.False(t, found)
+}
+
+func TestObjectSetDoesNotMutateTypeScopeOrigins(t *testing.T) {
+	mod := NewType("runtime", ObjectKind)
+	val := NewObject(mod)
+
+	val.Bind("plain", StringValue{Val: "a"}, PrivateVisibility)
+	val.Bind("visible", StringValue{Val: "b"}, PublicVisibility)
+	val.Update("reassigned", StringValue{Val: "c"})
+
+	for _, name := range []string{"plain", "visible", "reassigned"} {
+		_, found := val.LookupLocal(name)
+		require.True(t, found)
+		_, found = mod.LocalValueOrigin(name)
+		require.False(t, found, "runtime set for %q created a type-environment origin", name)
+	}
+
+	importedOrigin := ImportedBindingOrigin("Upstream", false)
+	for _, name := range []string{"existingPlain", "existingVisible", "existingReassigned"} {
+		mod.Add(name, hm.NewScheme(nil, StringType))
+		mod.SetValueOrigin(name, importedOrigin)
+	}
+
+	val.Bind("existingPlain", StringValue{Val: "d"}, PrivateVisibility)
+	val.Bind("existingVisible", StringValue{Val: "e"}, PublicVisibility)
+	val.Update("existingReassigned", StringValue{Val: "f"})
+
+	for _, name := range []string{"existingPlain", "existingVisible", "existingReassigned"} {
+		origin, found := mod.LocalValueOrigin(name)
+		require.True(t, found)
+		require.Equal(t, importedOrigin, origin, "runtime set for %q clobbered type-environment origin", name)
+	}
+}
+
+func TestRunDirDeclarationsShadowPreludeTypes(t *testing.T) {
+	env := runDangSnippet(t, `
+type Error {
+  id: String! = "x"
+}
+assert { Error.id == "x" }
+`)
+	objectVal, found := requireEvalGet(t, env, "Error")
+	require.True(t, found)
+	objectFn, ok := objectVal.(*ConstructorFunction)
+	require.True(t, ok)
+	require.NotSame(t, ErrorType, objectFn.ObjectType)
+	_, found = ErrorType.LocalSchemeOf("id")
+	require.False(t, found)
+
+	env = runDangSnippet(t, `
+enum Error { FOO }
+assert { Error.FOO == Error.FOO }
+`)
+	enumVal, found := requireEvalGet(t, env, "Error")
+	require.True(t, found)
+	enumMod, ok := enumVal.(*Object)
+	require.True(t, ok)
+	require.NotSame(t, ErrorType, enumMod.Mod)
+	_, found = ErrorType.LocalSchemeOf("FOO")
+	require.False(t, found)
+
+	env = runDangSnippet(t, `
+scalar Error
+`)
+	scalarVal, found := requireEvalGet(t, env, "Error")
+	require.True(t, found)
+	scalarMod, ok := scalarVal.(*Object)
+	require.True(t, ok)
+	require.NotSame(t, ErrorType, scalarMod.Mod)
+	require.Equal(t, ScalarKind, scalarMod.Mod.(*Type).Kind)
+}
+
+func TestImportedTypeDisplayNamesAreQualified(t *testing.T) {
+	env := TypeScopeFromSchema("Dagger", schemaWithCoreShadowTypes())
+
+	container, found := env.NamedType("Container")
+	require.True(t, found)
+	require.Equal(t, "Container", container.Name())
+	require.Equal(t, "Dagger.Container", container.String())
+	require.Equal(t, "Dagger.Container", container.Clone().(TypeScope).String())
+
+	nonNullContainer := hm.NonNullType{Type: container}
+	require.Equal(t, "Dagger.Container!", nonNullContainer.String())
+	require.Equal(t, "Dagger.Container!", nonNullContainer.Name())
+
+	containerList := ListType{nonNullContainer}
+	require.Equal(t, "[Dagger.Container!]", containerList.String())
+	require.Equal(t, "[Dagger.Container!]", containerList.Name())
+
+	fn := hm.NewFnType(
+		NewRecordType("", Keyed[*hm.Scheme]{Key: "input", Value: hm.NewScheme(nil, nonNullContainer)}),
+		nonNullContainer,
+	)
+	require.Equal(t, "(input: Dagger.Container!): Dagger.Container!", fn.String())
+}
+
+func TestBuildScopesFromImportsTracksImportedTypeOrigins(t *testing.T) {
+	typeScope, _ := BuildScopesFromImports("", []ImportConfig{{
+		Name:   "Dagger",
+		Schema: schemaWithCoreShadowTypes(),
+	}})
+
+	importedContainer, found := typeScope.NamedType("Container")
+	require.True(t, found)
+
+	localContainer, err := declareLocalType(context.Background(), typeScope, "Container", ObjectKind)
+	require.NoError(t, err)
+	require.NotSame(t, importedContainer, localContainer)
+
+	daggerType, found := typeScope.NamedType("Dagger")
+	require.True(t, found)
+	qualifiedContainer, found := daggerType.NamedType("Container")
+	require.True(t, found)
+	require.Same(t, importedContainer, qualifiedContainer)
+}
+
+func TestBuildScopesFromImportsKeepsImportedBindingsPrivate(t *testing.T) {
+	typeScope, valueScope := BuildScopesFromImports("", []ImportConfig{{
+		Name:   "Dagger",
+		Schema: schemaWithCoreShadowTypes(),
+	}})
+
+	publicTypeBindings := map[string]bool{}
+	for name := range typeScope.Bindings(PublicVisibility) {
+		publicTypeBindings[name] = true
+	}
+	require.NotContains(t, publicTypeBindings, "Dagger")
+	require.NotContains(t, publicTypeBindings, "container")
+
+	_, found := typeScope.SchemeOf("Dagger")
+	require.True(t, found)
+	_, found = typeScope.SchemeOf("container")
+	require.True(t, found)
+
+	publicEvalBindings := map[string]bool{}
+	for _, binding := range valueScope.Bindings(PublicVisibility) {
+		publicEvalBindings[binding.Key] = true
+	}
+	require.NotContains(t, publicEvalBindings, "Dagger")
+	require.NotContains(t, publicEvalBindings, "container")
+
+	_, found = requireEvalGet(t, valueScope, "Dagger")
+	require.True(t, found)
+	_, found = requireEvalGet(t, valueScope, "container")
+	require.True(t, found)
+}
+
+func TestDeclareLocalTypeRejectsQualifiedImportAlias(t *testing.T) {
+	typeScope, _ := BuildScopesFromImports("", []ImportConfig{{
+		Name:   "Dagger",
+		Schema: schemaWithCoreShadowTypes(),
+	}})
+
+	importAlias, found := typeScope.NamedType("Dagger")
+	require.True(t, found)
+	importedContainer, found := importAlias.NamedType("Container")
+	require.True(t, found)
+
+	localDagger, err := declareLocalType(context.Background(), typeScope, "Dagger", ObjectKind)
+	require.ErrorContains(t, err, `type "Dagger" conflicts with import alias`)
+	require.Nil(t, localDagger)
+
+	aliasAfter, found := typeScope.NamedType("Dagger")
+	require.True(t, found)
+	require.Same(t, importAlias, aliasAfter)
+	qualifiedContainer, found := aliasAfter.NamedType("Container")
+	require.True(t, found)
+	require.Same(t, importedContainer, qualifiedContainer)
+}
+
+func TestRunDirDeclarationShadowsImportAlias(t *testing.T) {
+	// A local type declaration shadows an import of the same name. The
+	// reference to Dagger.Container then resolves through the local Dagger
+	// (which has no Container), surfacing as an unresolved-type error.
+	ctx := ContextWithImportConfigs(context.Background(), ImportConfig{
+		Name:   "Dagger",
+		Schema: schemaWithCoreShadowTypes(),
+	})
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.dang"), []byte(`
+import Dagger
+
+type Dagger {
+  value: String!
+}
+
+core: Dagger.Container! = Dagger.container
+`), 0o600))
+
+	_, err := RunDir(ctx, dir, false)
+	require.ErrorContains(t, err, "unresolved type: Container")
+}
+
+func TestRunDirDeclarationsShadowImportedTypes(t *testing.T) {
+	ctx := ContextWithImportConfigs(context.Background(), ImportConfig{
+		Name:       "Dagger",
+		Schema:     schemaWithCoreShadowTypes(),
+		AutoImport: true,
+	})
+	env := runDangSnippetContext(t, ctx, `
+maybe: Container = null
+
+type TestShadowing {
+  makeLocal: Container! {
+    Container("local")
+  }
+
+  makeCore: Dagger.Container! {
+    Dagger.container
+  }
+}
+
+type Container {
+  value: String!
+}
+
+type Directory {
+  value: String!
+}
+`)
+
+	// Imports are file-scoped, so the Dagger namespace is not a binding on the
+	// returned module scope; reach it through a local type's captured closure,
+	// which still sees the file's imports.
+	testVal, found := requireEvalGet(t, env, "TestShadowing")
+	require.True(t, found)
+	testCtor, ok := testVal.(*ConstructorFunction)
+	require.True(t, ok)
+
+	daggerVal, found := requireEvalGet(t, testCtor.Closure, "Dagger")
+	require.True(t, found)
+	daggerMod, ok := daggerVal.(*Object)
+	require.True(t, ok)
+	importedContainer, found := daggerMod.Mod.NamedType("Container")
+	require.True(t, found)
+	importedDirectory, found := daggerMod.Mod.NamedType("Directory")
+	require.True(t, found)
+
+	containerVal, found := requireEvalGet(t, env, "Container")
+	require.True(t, found)
+	containerCtor, ok := containerVal.(*ConstructorFunction)
+	require.True(t, ok)
+	require.NotSame(t, importedContainer, containerCtor.ObjectType)
+
+	moduleVal, ok := env.(*Object)
+	require.True(t, ok)
+	maybeScheme, found := moduleVal.Mod.SchemeOf("maybe")
+	require.True(t, found)
+	maybeType, mono := maybeScheme.Type()
+	require.True(t, mono)
+	require.Same(t, containerCtor.ObjectType, maybeType)
+	require.NotSame(t, importedContainer, maybeType)
+
+	directoryVal, found := requireEvalGet(t, env, "Directory")
+	require.True(t, found)
+	directoryCtor, ok := directoryVal.(*ConstructorFunction)
+	require.True(t, ok)
+	require.NotSame(t, importedDirectory, directoryCtor.ObjectType)
+
+	localScheme, found := testCtor.ObjectType.LocalSchemeOf("makeLocal")
+	require.True(t, found)
+	require.Same(t, containerCtor.ObjectType, functionReturnType(t, localScheme))
+
+	coreScheme, found := testCtor.ObjectType.LocalSchemeOf("makeCore")
+	require.True(t, found)
+	require.Same(t, importedContainer, functionReturnType(t, coreScheme))
+}
+
+func TestDeclareDirSkipsBodiesAndKeepsDaggerTypes(t *testing.T) {
+	ctx := ContextWithImportConfigs(context.Background(), ImportConfig{
+		Name:       "Dagger",
+		Schema:     schemaWithCoreShadowTypes(),
+		AutoImport: true,
+	})
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.dang"), []byte(`
+type Test {
+  containerEcho(stringArg: String! = missing.default): Container! {
+    Dagger.container
+  }
+
+  print(stringArg: String!): String! {
+    test.containerEcho(stringArg: stringArg).stdout
+  }
+}
+`), 0o600))
+
+	_, err := RunDir(ctx, dir, false)
+	require.Error(t, err)
+
+	env, err := DeclareDir(ctx, dir, false)
+	require.NoError(t, err)
+
+	daggerVal, found := requireEvalGet(t, env, "Dagger")
+	require.True(t, found)
+	daggerMod, ok := daggerVal.(*Object)
+	require.True(t, ok)
+	importedContainer, found := daggerMod.Mod.NamedType("Container")
+	require.True(t, found)
+
+	testVal, found := requireEvalGet(t, env, "Test")
+	require.True(t, found)
+	testCtor, ok := testVal.(*ConstructorFunction)
+	require.True(t, ok)
+
+	containerEcho, found := testCtor.ObjectType.LocalSchemeOf("containerEcho")
+	require.True(t, found)
+	require.Same(t, importedContainer, functionReturnType(t, containerEcho))
+
+	print, found := testCtor.ObjectType.LocalSchemeOf("print")
+	require.True(t, found)
+	require.Same(t, StringType, functionReturnType(t, print))
+}
+
+func TestDeclareDirResolvesPositionalDirectiveArgs(t *testing.T) {
+	// Regression: the Dagger SDK installs module types from the declaration-only
+	// pass (DeclareDir) when self-calls are enabled, and reads directive
+	// arguments by name. Positional directive arguments must therefore have
+	// their keys resolved to the declared parameter names during declaration —
+	// otherwise a directive like @dp("./x") carries an empty key and the SDK
+	// silently drops it (breaking e.g. positional @defaultPath/@ignorePatterns).
+	ctx := context.Background()
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.dang"), []byte(`
+directive @dp(path: String!) on ARGUMENT_DEFINITION
+
+type Test {
+  read(source: String! @dp("./default")): String! {
+    source
+  }
+}
+`), 0o600))
+
+	env, err := DeclareDir(ctx, dir, false)
+	require.NoError(t, err)
+
+	testVal, found := requireEvalGet(t, env, "Test")
+	require.True(t, found)
+	testCtor, ok := testVal.(*ConstructorFunction)
+	require.True(t, ok)
+
+	read, found := testCtor.ObjectType.LocalSchemeOf("read")
+	require.True(t, found)
+	readType, mono := read.Type()
+	require.True(t, mono)
+	readFn, ok := readType.(*hm.FunctionType)
+	require.True(t, ok)
+	argsRec, ok := readFn.Arg().(*RecordType)
+	require.True(t, ok)
+
+	// Locate the @dp application on the `source` argument.
+	var app *DirectiveApplication
+	for _, argDirs := range argsRec.Directives {
+		if argDirs.Key != "source" {
+			continue
+		}
+		for _, d := range argDirs.Value {
+			if d.Name == "dp" {
+				app = d
+			}
+		}
+	}
+	require.NotNil(t, app, "expected @dp directive on source arg")
+	require.Len(t, app.Args, 1)
+	// The positional argument must have its key resolved to the declared param
+	// name, so downstream consumers (the Dagger SDK) can read it by name.
+	require.Equal(t, "path", app.Args[0].Key)
+}
+
+func TestRunDirSameFileImportAndDeclaration(t *testing.T) {
+	// A file that both imports and declares the same name should evaluate the
+	// local declaration, not the import — the file's own decl wins. This used
+	// to surface as a value/type mismatch (declared String! but evaluated to
+	// the imported Container).
+	ctx := ContextWithImportConfigs(context.Background(), ImportConfig{
+		Name:   "Dagger",
+		Schema: schemaWithCoreShadowTypes(),
+	})
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.dang"), []byte(`
+import Dagger
+
+container: String! = "from_a"
+use: String! = container
+`), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.dang"), []byte(`
+other: String! = "from_b"
+`), 0o600))
+
+	env, err := RunDir(ctx, dir, false)
+	require.NoError(t, err)
+
+	useVal, found := requireEvalGet(t, env, "use")
+	require.True(t, found)
+	str, ok := useVal.(StringValue)
+	require.True(t, ok, "use should resolve to local container, got %T", useVal)
+	require.Equal(t, "from_a", str.Val)
+}
+
+func TestRunDirImportedValueDoesNotShadowLocalDeclaration(t *testing.T) {
+	// File-local imports must hold at runtime too: file A's `import Dagger`
+	// brings in an unqualified `container` value, but file B's `pub container`
+	// declaration owns that name in B's scope. With a global eval env the
+	// import would be installed first and FieldDecl.Eval would skip B's
+	// declaration as "already defined".
+	ctx := ContextWithImportConfigs(context.Background(), ImportConfig{
+		Name:   "Dagger",
+		Schema: schemaWithCoreShadowTypes(),
+	})
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "a_uses_dagger.dang"), []byte(`
+import Dagger
+
+fromA: Dagger.Container! = Dagger.container
+`), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "b_declares_container.dang"), []byte(`
+container: String! = "local"
+useContainer: String! = container
+`), 0o600))
+
+	env, err := RunDir(ctx, dir, false)
+	require.NoError(t, err)
+
+	useVal, found := requireEvalGet(t, env, "useContainer")
+	require.True(t, found)
+	str, ok := useVal.(StringValue)
+	require.True(t, ok, "useContainer should resolve to file-local container, got %T", useVal)
+	require.Equal(t, "local", str.Val)
+}
+
+func TestRunDirImportsAreFileLocal(t *testing.T) {
+	// File A imports Dagger and uses an unqualified imported symbol.
+	// File B never imports Dagger and so cannot see container.
+	ctx := ContextWithImportConfigs(context.Background(), ImportConfig{
+		Name:   "Dagger",
+		Schema: schemaWithCoreShadowTypes(),
+	})
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "a_uses_dagger.dang"), []byte(`
+import Dagger
+
+fromA: Dagger.Container! = Dagger.container
+`), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "b_no_import.dang"), []byte(`
+fromB: String! = container.value
+`), 0o600))
+
+	_, err := RunDir(ctx, dir, false)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "container")
+}
+
+// importingTypeModule writes a module whose Widget type, declared in a file that
+// imports Dagger, references the imported namespace. multiFile controls whether
+// the module is single- or multi-file.
+func importingTypeModule(t *testing.T, ctx context.Context, multiFile bool) ValueScope {
+	t.Helper()
+	dir := t.TempDir()
+	if multiFile {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "main.dang"), []byte(`
+pub mainThing: String! = "hi"
+`), 0o600))
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "widget.dang"), []byte(`
+import Dagger
+
+type Widget {
+  pub make: Dagger.Container! { Dagger.container }
+}
+`), 0o600))
+	env, err := RunDir(ctx, dir, false)
+	require.NoError(t, err)
+	return env
+}
+
+// TestRunDirImportsFileLocalReachableViaClosure is the regression test for
+// dagger#13440: imports are file-scoped (absent from the returned module scope),
+// but each type's constructor captures its file's composite scope as Closure, so
+// imported symbols remain resolvable there. Dagger relies on this to evaluate
+// directive arguments like @cache(policy: FunctionCachePolicy.Never). Single- and
+// multi-file modules must behave identically.
+func TestRunDirImportsFileLocalReachableViaClosure(t *testing.T) {
+	for _, multiFile := range []bool{false, true} {
+		name := "single-file"
+		if multiFile {
+			name = "multi-file"
+		}
+		t.Run(name, func(t *testing.T) {
+			ctx := ContextWithImportConfigs(context.Background(), ImportConfig{
+				Name:   "Dagger",
+				Schema: schemaWithCoreShadowTypes(),
+			})
+			env := importingTypeModule(t, ctx, multiFile)
+
+			// Imports are file-scoped: the Dagger namespace must not leak into
+			// the returned module scope.
+			_, found := requireEvalGet(t, env, "Dagger")
+			require.False(t, found, "imported Dagger namespace must not leak into the module scope")
+
+			// But the owning type's constructor Closure still resolves it.
+			widgetVal, found := requireEvalGet(t, env, "Widget")
+			require.True(t, found)
+			widgetCtor, ok := widgetVal.(*ConstructorFunction)
+			require.True(t, ok)
+			_, found = requireEvalGet(t, widgetCtor.Closure, "Dagger")
+			require.True(t, found, "constructor Closure should still see the file's imports")
+		})
+	}
+}
+
+func TestRunDirMultipleFilesCanImportSameSchema(t *testing.T) {
+	// Both files import Test independently. With file-local imports this is
+	// no longer an alias conflict; each file gets its own Test in scope.
+	ctx := ContextWithImportConfigs(context.Background(), ImportConfig{
+		Name:   "Dagger",
+		Schema: schemaWithCoreShadowTypes(),
+	})
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.dang"), []byte(`
+import Dagger
+
+fromA: Dagger.Container! = Dagger.container
+`), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.dang"), []byte(`
+import Dagger
+
+fromB: Dagger.Container! = Dagger.container
+`), 0o600))
+
+	_, err := RunDir(ctx, dir, false)
+	require.NoError(t, err)
+}
+
+func TestRunDirImportedTypesUnifyAcrossFiles(t *testing.T) {
+	// Two files that import the same schema and exchange one of its types
+	// must agree on type identity. Without shared schema modules, each file
+	// would build its own *Type via TypeScopeFromSchema and unification would fail with
+	// "cannot use Dagger.Container as Dagger.Container".
+	ctx := ContextWithImportConfigs(context.Background(), ImportConfig{
+		Name:       "Dagger",
+		Schema:     schemaWithCoreShadowTypes(),
+		AutoImport: true,
+	})
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "producer.dang"), []byte(`
+make: Container! = Dagger.container
+`), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "consumer.dang"), []byte(`
+take(c: Container!): Container! { c }
+piped: Container! = take(c: make)
+`), 0o600))
+
+	_, err := RunDir(ctx, dir, false)
+	require.NoError(t, err)
+}
+
+func TestRunDirNestedBlockImportResolves(t *testing.T) {
+	// An import inside a nested block (here a function body) should make the
+	// imported names available within that block. The shared schema-module
+	// cache on the context resolves Dagger to the same *Type a file-level
+	// import would, so Dagger.container etc. work fine inside the block.
+	ctx := ContextWithImportConfigs(context.Background(), ImportConfig{
+		Name:   "Dagger",
+		Schema: schemaWithCoreShadowTypes(),
+	})
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.dang"), []byte(`
+pub use = {
+  import Dagger
+  Dagger.container
+}
+`), 0o600))
+
+	_, err := RunDir(ctx, dir, false)
+	require.NoError(t, err)
+}
+
+func TestRunDirNestedBlockImportStaysLocal(t *testing.T) {
+	// An import inside a nested block must not be visible outside that block.
+	// Here Dagger is imported inside the function body but the outer return
+	// type annotation references Dagger.Container — that should fail.
+	ctx := ContextWithImportConfigs(context.Background(), ImportConfig{
+		Name:   "Dagger",
+		Schema: schemaWithCoreShadowTypes(),
+	})
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.dang"), []byte(`
+useDagger: Dagger.Container! {
+  import Dagger
+  Dagger.container
+}
+`), 0o600))
+
+	_, err := RunDir(ctx, dir, false)
+	require.ErrorContains(t, err, "Dagger")
+}
+
+func TestRunDirImplementingPreludeInterfaceDoesNotMutatePrelude(t *testing.T) {
+	before := len(ErrorType.GetImplementers())
+	runDangSnippet(t, `
+type MyError implements Error {
+  message: String! = "x"
+}
+assert { MyError.message == "x" }
+`)
+	require.Len(t, ErrorType.GetImplementers(), before)
+}
+
+func TestRunDirUnionWithPreludeMemberDoesNotMutatePrelude(t *testing.T) {
+	before := len(BasicErrorType.GetUnions())
+	runDangSnippet(t, `
+union MyUnion = BasicError
+assert { MyUnion != null }
+`)
+	require.Len(t, BasicErrorType.GetUnions(), before)
+}
+
+func runDangSnippet(t *testing.T, source string) ValueScope {
+	t.Helper()
+	return runDangSnippetContext(t, context.Background(), source)
+}
+
+func runDangSnippetContext(t *testing.T, ctx context.Context, source string) ValueScope {
+	t.Helper()
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.dang"), []byte(source), 0o600))
+	env, err := RunDir(ctx, dir, false)
+	require.NoError(t, err)
+	return env
+}
+
+func functionReturnType(t *testing.T, scheme *hm.Scheme) hm.Type {
+	t.Helper()
+	typ, mono := scheme.Type()
+	require.True(t, mono)
+	fn, ok := typ.(*hm.FunctionType)
+	require.True(t, ok)
+	ret := fn.Ret(false)
+	if nn, ok := ret.(hm.NonNullType); ok {
+		ret = nn.Type
+	}
+	return ret
+}
+
+func schemaWithCoreShadowTypes() *introspection.Schema {
+	schema := &introspection.Schema{
+		Types: introspection.Types{
+			{
+				Kind: introspection.TypeKindScalar,
+				Name: "ID",
+			},
+			{
+				Kind: introspection.TypeKindScalar,
+				Name: "String",
+			},
+			{
+				Kind: introspection.TypeKindObject,
+				Name: "Container",
+				Fields: []*introspection.Field{
+					{
+						Name: "id",
+						TypeRef: &introspection.TypeRef{
+							Kind: introspection.TypeKindNonNull,
+							OfType: &introspection.TypeRef{
+								Kind: introspection.TypeKindScalar,
+								Name: "ID",
+							},
+						},
+					},
+				},
+			},
+			{
+				Kind: introspection.TypeKindObject,
+				Name: "Directory",
+				Fields: []*introspection.Field{
+					{
+						Name: "id",
+						TypeRef: &introspection.TypeRef{
+							Kind: introspection.TypeKindNonNull,
+							OfType: &introspection.TypeRef{
+								Kind: introspection.TypeKindScalar,
+								Name: "ID",
+							},
+						},
+					},
+				},
+			},
+			{
+				Kind: introspection.TypeKindObject,
+				Name: "Query",
+				Fields: []*introspection.Field{
+					{
+						Name: "container",
+						TypeRef: &introspection.TypeRef{
+							Kind: introspection.TypeKindNonNull,
+							OfType: &introspection.TypeRef{
+								Kind: introspection.TypeKindObject,
+								Name: "Container",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	schema.QueryType.Name = "Query"
+	return schema
+}
+
+func schemaWithErrorObject() *introspection.Schema {
+	schema := &introspection.Schema{
+		Types: introspection.Types{
+			{
+				Kind: introspection.TypeKindScalar,
+				Name: "ID",
+			},
+			{
+				Kind: introspection.TypeKindScalar,
+				Name: "String",
+			},
+			{
+				Kind: introspection.TypeKindObject,
+				Name: "Error",
+				Fields: []*introspection.Field{
+					{
+						Name: "id",
+						TypeRef: &introspection.TypeRef{
+							Kind: introspection.TypeKindNonNull,
+							OfType: &introspection.TypeRef{
+								Kind: introspection.TypeKindScalar,
+								Name: "ID",
+							},
+						},
+					},
+					{
+						Name: "message",
+						TypeRef: &introspection.TypeRef{
+							Kind: introspection.TypeKindNonNull,
+							OfType: &introspection.TypeRef{
+								Kind: introspection.TypeKindScalar,
+								Name: "String",
+							},
+						},
+					},
+				},
+			},
+			{
+				Kind: introspection.TypeKindObject,
+				Name: "Query",
+			},
+		},
+	}
+	schema.QueryType.Name = "Query"
+	return schema
+}

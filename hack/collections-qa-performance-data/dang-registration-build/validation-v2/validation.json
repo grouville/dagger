@@ -1,0 +1,149 @@
+{
+  "manifest_sha256": "3cb4ec53886119511052e589f298134acbf71f5cc6643239dca96bfc9ba9c92f",
+  "records": [
+    {
+      "label": "normal",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/dang-registration-snapshot-v1/test-overlay.json",
+        "-count=1",
+        "-timeout=120s",
+        "-run=^(TestDangRegistrationMetadata.*|TestReportDangSourceError|TestDangSourceErrorKeepsGraphQLExtraction|TestDangSourceMessage.*|TestIsDangSourceErrorIgnoresInfrastructureErrors)$",
+        "./core/sdk/dang/v2"
+      ],
+      "exit_code": 0,
+      "seconds": 6.528547086985782,
+      "expected_exit": 0,
+      "correct": true
+    },
+    {
+      "label": "race",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/dang-registration-snapshot-v1/test-overlay.json",
+        "-count=1",
+        "-race",
+        "-timeout=120s",
+        "-run=^(TestDangRegistrationMetadata.*|TestReportDangSourceError|TestDangSourceErrorKeepsGraphQLExtraction|TestDangSourceMessage.*|TestIsDangSourceErrorIgnoresInfrastructureErrors)$",
+        "./core/sdk/dang/v2"
+      ],
+      "exit_code": 0,
+      "seconds": 42.807559996144846,
+      "expected_exit": 0,
+      "correct": true
+    },
+    {
+      "label": "compile-micro",
+      "argv": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-mod=readonly",
+        "-overlay=/tmp/collections-perf/dang-registration-snapshot-v1/test-overlay.json",
+        "-count=1",
+        "-c",
+        "-o",
+        "/tmp/collections-perf/dang-registration-snapshot-v1/validation-v2/metadata.test",
+        "./core/sdk/dang/v2"
+      ],
+      "exit_code": 0,
+      "seconds": 4.874776756158099,
+      "expected_exit": 0,
+      "correct": true
+    },
+    {
+      "label": "micro-0-baseline",
+      "argv": [
+        "/tmp/collections-perf/dang-registration-snapshot-v1/validation-v2/metadata.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkDangRegistrationMetadata/(go.dang|gomod.dang|collection.dang)/baseline$",
+        "-test.benchtime=200ms",
+        "-test.count=1",
+        "-test.timeout=60s"
+      ],
+      "exit_code": 0,
+      "seconds": 1.0660393598955125,
+      "expected_exit": 0,
+      "correct": true
+    },
+    {
+      "label": "micro-0-snapshot",
+      "argv": [
+        "/tmp/collections-perf/dang-registration-snapshot-v1/validation-v2/metadata.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkDangRegistrationMetadata/(go.dang|gomod.dang|collection.dang)/snapshot$",
+        "-test.benchtime=200ms",
+        "-test.count=1",
+        "-test.timeout=60s"
+      ],
+      "exit_code": 0,
+      "seconds": 0.966031386051327,
+      "expected_exit": 0,
+      "correct": true
+    },
+    {
+      "label": "micro-1-snapshot",
+      "argv": [
+        "/tmp/collections-perf/dang-registration-snapshot-v1/validation-v2/metadata.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkDangRegistrationMetadata/(go.dang|gomod.dang|collection.dang)/snapshot$",
+        "-test.benchtime=200ms",
+        "-test.count=1",
+        "-test.timeout=60s"
+      ],
+      "exit_code": 0,
+      "seconds": 0.9659951569046825,
+      "expected_exit": 0,
+      "correct": true
+    },
+    {
+      "label": "micro-1-baseline",
+      "argv": [
+        "/tmp/collections-perf/dang-registration-snapshot-v1/validation-v2/metadata.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkDangRegistrationMetadata/(go.dang|gomod.dang|collection.dang)/baseline$",
+        "-test.benchtime=200ms",
+        "-test.count=1",
+        "-test.timeout=60s"
+      ],
+      "exit_code": 0,
+      "seconds": 1.0670534309465438,
+      "expected_exit": 0,
+      "correct": true
+    },
+    {
+      "label": "micro-2-baseline",
+      "argv": [
+        "/tmp/collections-perf/dang-registration-snapshot-v1/validation-v2/metadata.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkDangRegistrationMetadata/(go.dang|gomod.dang|collection.dang)/baseline$",
+        "-test.benchtime=200ms",
+        "-test.count=1",
+        "-test.timeout=60s"
+      ],
+      "exit_code": 0,
+      "seconds": 1.0160148851573467,
+      "expected_exit": 0,
+      "correct": true
+    },
+    {
+      "label": "micro-2-snapshot",
+      "argv": [
+        "/tmp/collections-perf/dang-registration-snapshot-v1/validation-v2/metadata.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkDangRegistrationMetadata/(go.dang|gomod.dang|collection.dang)/snapshot$",
+        "-test.benchtime=200ms",
+        "-test.count=1",
+        "-test.timeout=60s"
+      ],
+      "exit_code": 0,
+      "seconds": 1.0174009639304131,
+      "expected_exit": 0,
+      "correct": true
+    }
+  ],
+  "no_engine_or_cloud_calls": true
+}

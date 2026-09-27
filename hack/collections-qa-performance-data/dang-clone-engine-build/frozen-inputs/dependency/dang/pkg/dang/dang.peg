@@ -1,0 +1,1387 @@
+{
+  package dang
+
+  import (
+    "fmt"
+    "strconv"
+    "bytes"
+    "strings"
+  )
+}
+
+Dang <- _ eles:(e:Expr FormSep { return e, nil })* last:Expr? _ !. {
+  return &FileBlock{
+    Forms: sliceOfAppend[Node](eles, last),
+    Loc: c.Loc(),
+  }, nil
+}
+
+_ "whitespace" <- ([ \t\r\n] / CommentToken)*
+_lineSpace <- [ \t]* CommentToken?
+_inlineSpace <- [ \t]+
+
+Sep <- (_ CommaToken / _lineSpace '\n') _
+CommaToken <- ','
+
+// FormSep separates forms in a sequence (code) — block bodies, the file
+// top-level, and block-argument bodies. Collection and argument contexts use
+// Sep (comma) instead. Both accept a bare newline.
+FormSep <- (_ SemiToken / _lineSpace '\n') _
+SemiToken <- ';'
+
+Expr <- Import / Decl / Reassignment / Form
+
+Decl <- docstring:DocString? decl:(InterfaceDecl / UnionDecl / EnumDecl / ScalarDecl / ObjectDecl / NewConstructorDecl / SelfBlockDecl / FieldDecl / DirectiveDecl) {
+  switch node := decl.(type) {
+  case *InterfaceDecl:
+    if docstring != nil {
+      node.DocString = docstring.(string)
+    }
+    return node, nil
+  case *UnionDecl:
+    if docstring != nil {
+      node.DocString = docstring.(string)
+    }
+    return node, nil
+  case *EnumDecl:
+    if docstring != nil {
+      node.DocString = docstring.(string)
+    }
+    return node, nil
+  case *ScalarDecl:
+    if docstring != nil {
+      node.DocString = docstring.(string)
+    }
+    return node, nil
+  case *ObjectDecl:
+    if docstring != nil {
+      node.DocString = docstring.(string)
+    }
+    return node, nil
+  case *FieldDecl:
+    if docstring != nil {
+      node.DocString = docstring.(string)
+    }
+    return node, nil
+  case *DirectiveDecl:
+    if docstring != nil {
+      node.DocString = docstring.(string)
+    }
+    return node, nil
+  case *NewConstructorDecl:
+    if docstring != nil {
+      node.DocString = docstring.(string)
+    }
+    return node, nil
+  case *SelfBlockDecl:
+    // A self { } block carries no docstring of its own; its members do.
+    return node, nil
+  default:
+    return decl, nil
+  }
+}
+
+Form <- Return / LegacyTryCatch / Raise / Conditional / Case / Break / Continue / DefaultExpr / TypeHint / Term
+
+Term <- UnaryExpr / NonNullAssert / IndexOrCall / SelectOrCall / Literal / MapLiteral / List / ObjectLiteral / Block / ParenForm / SymbolOrCall
+
+// Postfix `!` asserts that the operand is non-null, narrowing its type from
+// `T` to `T!` and raising at runtime if the value turns out to be null. The
+// `!'='` lookahead keeps `a != b` and `a!=b` parsing as inequality rather
+// than `(a!) ...`.
+NonNullAssert <- expr:Term BangToken !'=' {
+  return &NonNullAssert{
+    Expr: expr.(Node),
+    Loc: c.Loc(),
+  }, nil
+}
+
+UnaryExpr <- '!' _ expr:Term {
+  return &UnaryNegation{
+    Expr: expr.(Node),
+    Loc: c.Loc(),
+  }, nil
+} / AmpersandToken _ expr:Term {
+  return &FunctionRef{
+    Expr: expr.(Node),
+    Loc: c.Loc(),
+  }, nil
+} / '-' _ expr:Term {
+  return &UnaryMinus{
+    Expr: expr.(Node),
+    Loc: c.Loc(),
+  }, nil
+}
+
+ParenForm <- '(' _ expr:Form _ ')' {
+  return &Grouped{
+    Expr: expr.(Node),
+    Loc: c.Loc(),
+  }, nil
+}
+
+// Handle Symbol followed by optional ()
+SymbolOrCall <- Call / SymbolBlock / AutoCallSymbol
+Call <- name:Symbol args:ArgValues blockArg:(_ b:BlockArg { return b, nil })? {
+  // Symbol followed by () - create FunCall
+  argRecord := Record(args.([]Keyed[Node]))
+
+  var block *BlockArg
+  if blockArg != nil {
+    block = blockArg.(*BlockArg)
+  }
+
+  return &FunCall{
+    Fun: name.(*Symbol),
+    Args: argRecord,
+    BlockArg: block,
+    Loc: c.Loc(),
+  }, nil
+}
+SymbolBlock <- name:Symbol _ blockArg:BlockArg {
+  return &FunCall{
+    Fun: name.(*Symbol),
+    Args: nil,
+    BlockArg: blockArg.(*BlockArg),
+    Loc: c.Loc(),
+  }, nil
+}
+AutoCallSymbol <- name:Id {
+  return &Symbol{
+    Name: name.(string),
+    AutoCall: true,
+    Loc: c.Loc(),
+  }, nil
+}
+
+// Handle Select followed by optional (), or ObjectSelection
+SelectOrCall <- left:Term _ DotToken _ selection:(ObjectSelection / BlockArg / name:FieldId args:ArgValues? blockArg:(_ b:BlockArg { return b, nil })?) {
+  switch sel := selection.(type) {
+  case *ObjectSelection:
+    // Object selection: obj.{{field1, field2}}
+    sel.Receiver = left.(Node)
+    return sel, nil
+  case *BlockArg:
+    // Dot-block application: obj.{ x => ... } / obj.{ bar(_) }
+    return &DotApply{
+      Receiver: left.(Node),
+      Block:    sel,
+      Loc:      c.Loc(),
+    }, nil
+  case []interface{}:
+    // Regular field access with optional args
+    name := sel[0].(*Symbol)
+    args := sel[1]
+    blockArg := sel[2]
+    if args != nil || blockArg != nil {
+      // Select followed by () and/or block - create FunCall
+      var argRecord Record
+      if args != nil {
+        argRecord = Record(args.([]Keyed[Node]))
+      }
+
+      var block *BlockArg
+      if blockArg != nil {
+        block = blockArg.(*BlockArg)
+      }
+
+      return &FunCall{
+        Fun: &Select{
+          Receiver: left.(Node),
+          Field:    name,
+          Loc:      c.Loc(),
+        },
+        Args: argRecord,
+        BlockArg: block,
+        Loc:  c.Loc(),
+      }, nil
+    } else {
+      // Just a Select
+      return &Select{
+        Receiver: left.(Node),
+        Field:    name,
+        AutoCall: true,
+        Loc:      c.Loc(),
+      }, nil
+    }
+  default:
+    return nil, fmt.Errorf("unexpected selection type")
+  }
+}
+
+// Handle indexing operations like foo[0]
+IndexOrCall <- left:Term ImmediateBracket _ index:Form _ ']' args:ArgValues? {
+  if args != nil {
+    // Index followed by () - create FunCall
+    argRecord := Record(args.([]Keyed[Node]))
+    return &FunCall{
+      Fun: &Index{
+        Receiver: left.(Node),
+        Index:    index.(Node),
+        Loc:      c.Loc(),
+      },
+      Args: argRecord,
+      Loc:  c.Loc(),
+    }, nil
+  } else {
+    // Just an Index
+    return &Index{
+      Receiver: left.(Node),
+      Index:    index.(Node),
+      AutoCall: true,
+      Loc:      c.Loc(),
+    }, nil
+  }
+}
+ImmediateBracket <- '['
+
+ObjectSelection <- "{{" _ first:InlineFragment rest:(Sep f:InlineFragment { return f, nil })* _ "}}" {
+  return &ObjectSelection{
+    Receiver: nil,
+    InlineFragments: sliceOfPrepend[*InlineFragment](first, rest),
+    Loc: c.Loc(),
+  }, nil
+} / "{{" _ fields:(f:FieldSelection Sep { return f, nil })* last:FieldSelection? _ "}}" {
+  return &ObjectSelection{
+    Receiver: nil, // Will be set by parent SelectOrCall
+    Fields: sliceOfAppend[*FieldSelection](fields, last),
+    Loc: c.Loc(),
+  }, nil
+}
+
+InlineFragment <- SpreadToken _ OnToken _ qual:(p:Id DotToken { return p, nil })* typeName:Symbol _ "{{" _ fields:(f:FieldSelection Sep { return f, nil })* last:FieldSelection? _ "}}" {
+  return &InlineFragment{
+    TypeName:  typeName.(*Symbol),
+    Qualifier: qualifierString(qual),
+    Fields:    sliceOfAppend[*FieldSelection](fields, last),
+    Loc:       c.Loc(),
+  }, nil
+} / SpreadToken _ OnToken _ qual:(p:Id DotToken { return p, nil })* typeName:Symbol nonNull:'!'? {
+  return &InlineFragment{
+    TypeName:  typeName.(*Symbol),
+    Qualifier: qualifierString(qual),
+    Fields:    nil,
+    NonNull:   nonNull != nil,
+    Loc:       c.Loc(),
+  }, nil
+}
+
+SpreadToken <- "..."
+
+FieldSelection <- alias:(a:Id ColonToken _ { return a, nil })? name:Id args:ArgValues? selection:('.' sel:ObjectSelection)? {
+  var aliasStr string
+  if alias != nil {
+    aliasStr = alias.(string)
+  }
+  // A redundant `name: name` alias is just `name`; normalize so the two forms
+  // are indistinguishable, mirroring `{{ x: x }}` and `{{ x }}`.
+  if aliasStr == name.(string) {
+    aliasStr = ""
+  }
+
+  var argRecord Record
+  if args != nil {
+    argRecord = Record(args.([]Keyed[Node]))
+  }
+
+  var sel *ObjectSelection
+  if selection != nil {
+    sel = selection.([]interface{})[1].(*ObjectSelection)
+  }
+
+  return &FieldSelection{
+    Alias: aliasStr,
+    Name: name.(string),
+    Args: argRecord,
+    Selection: sel,
+    Loc: c.Loc(),
+  }, nil
+}
+
+InterfaceDecl <- InterfaceToken _ name:Symbol implements:(_ i:Implements { return i, nil })? _ block:HeadersBlock {
+  return &InterfaceDecl{
+    Name: name.(*Symbol),
+    Value: block.(*Block),
+    Implements: sliceOf[*Symbol](implements),
+    Visibility: PublicVisibility,
+    Loc: c.Loc(),
+  }, nil
+}
+InterfaceToken <- "interface" !WordChar
+
+UnionDecl <- UnionToken _ name:Symbol _ '=' _ first:Symbol rest:(_ '|' _ s:Symbol { return s, nil })* {
+  return &UnionDecl{
+    Name:       name.(*Symbol),
+    Members:    sliceOfPrepend[*Symbol](first, rest),
+    Visibility: PublicVisibility,
+    Loc:        c.Loc(),
+  }, nil
+}
+UnionToken <- "union" !WordChar
+
+ObjectDecl <- prefixDirectives:(d:PrefixDirectiveApplication _ { return d, nil })* TypeToken _ name:Symbol implements:(_ i:Implements { return i, nil })? suffixDirectives:DirectiveApplication* _ block:Block {
+  return &ObjectDecl{
+    Name: name.(*Symbol),
+    Value: block.(*Block),
+    Implements: sliceOf[*Symbol](implements),
+    Visibility: PublicVisibility, // TODO
+    Directives: append(sliceOf[*DirectiveApplication](prefixDirectives), sliceOf[*DirectiveApplication](suffixDirectives)...),
+    Loc: c.Loc(),
+  }, nil
+}
+TypeToken <- "type" !WordChar
+Implements <-  ImplementsToken _ first:Symbol rest:(_ AmpersandToken _ i:Symbol { return i, nil })* {
+  return sliceOfPrepend[*Symbol](first, rest), nil
+}
+ImplementsToken <- "implements" !WordChar
+
+AmpersandToken <- '&'
+
+EnumDecl <- EnumToken _ name:Symbol _ '{' _ values:(first:CapsSymbol rest:(_ v:CapsSymbol { return v, nil })* { return sliceOfPrepend[*Symbol](first, rest), nil }) _ '}' {
+  return &EnumDecl{
+    Name: name.(*Symbol),
+    Values: values.([]*Symbol),
+    Visibility: PublicVisibility,
+    Loc: c.Loc(),
+  }, nil
+}
+EnumToken <- "enum" !WordChar
+
+ScalarDecl <- prefixDirectives:(d:PrefixDirectiveApplication _ { return d, nil })* ScalarToken _ name:Symbol suffixDirectives:DirectiveApplication* body:(_ b:Block { return b, nil })? {
+  var block *Block
+  if body != nil {
+    block = body.(*Block)
+  }
+  return &ScalarDecl{
+    Name: name.(*Symbol),
+    Value: block,
+    Visibility: PublicVisibility,
+    Directives: append(sliceOf[*DirectiveApplication](prefixDirectives), sliceOf[*DirectiveApplication](suffixDirectives)...),
+    Loc: c.Loc(),
+  }, nil
+}
+ScalarToken <- "scalar" !WordChar
+
+NewConstructorDecl <- NewToken _ args:ArgTypes _ block:Block {
+  // Separate block parameters from regular constructor arguments.
+  allArgs := args.([]*FieldDecl)
+  var regularArgs []*FieldDecl
+  var blockParam *FieldDecl
+
+  for _, arg := range allArgs {
+    if arg.IsBlockParam {
+      if blockParam != nil {
+        return nil, fmt.Errorf("constructor can only have one block parameter")
+      }
+      blockParam = arg
+    } else {
+      regularArgs = append(regularArgs, arg)
+    }
+  }
+
+  return &NewConstructorDecl{
+    Args: regularArgs,
+    BlockParam: blockParam,
+    BodyBlock: block.(*Block),
+    Loc: c.Loc(),
+  }, nil
+} / NewToken _ block:Block {
+  return &NewConstructorDecl{
+    Args: nil,
+    BodyBlock: block.(*Block),
+    Loc: c.Loc(),
+  }, nil
+}
+NewToken <- "new" !WordChar
+
+// A self { } block groups static members inside a type body. `self` is never
+// callable-with-a-block, so this production wins unambiguously in Decl position
+// (tried before Form), while a bare `self` expression (self.field, self :: T)
+// still parses as a SelfKeyword since it is not followed by a block.
+SelfBlockDecl <- SelfToken _ block:Block {
+  return &SelfBlockDecl{
+    BodyBlock: block.(*Block),
+    Loc: c.Loc(),
+  }, nil
+}
+
+FieldDecl <- TypeAndArgsAndBlockField  // pub a(foo: Boolean!): Int! { 1 }
+      / TypeAndBlockField         // pub a: Int! { 1 }  <- becomes a function that takes an empty record of args, can use other fields
+      / TypeAndValueField         // pub a: Int! = 1    <- no longer required, default pre-initialized (don't need to worry about mutation)
+      / ValueOnlyField            // pub a = 1              <- as above, type inferred as Int!
+      / TypeOnlyField             // pub a: Int              <- as above, type inferred as Int!
+
+TypeAndValueField <- prefixDirectives:(d:PrefixDirectiveApplication _ { return d, nil })* vis:Visibility? _ name:Symbol _ ColonToken _ type_:Type suffixDirectives:DirectiveApplication* _ EqualToken _ value:Form {
+  return &FieldDecl{
+    Name: name.(*Symbol),
+    Type_: type_.(TypeNode),
+    Value: value.(Node),
+    Visibility: visOrPublic(vis),
+    Directives: append(sliceOf[*DirectiveApplication](prefixDirectives), sliceOf[*DirectiveApplication](suffixDirectives)...),
+    Loc: c.Loc(),
+  }, nil
+}
+
+ValueOnlyField <- prefixDirectives:(d:PrefixDirectiveApplication _ { return d, nil })* vis:Visibility _ name:Symbol suffixDirectives:DirectiveApplication* _ EqualToken _ val:Form {
+  return &FieldDecl{
+    Name: name.(*Symbol),
+    Value: val.(Node),
+    Visibility: visOrPublic(vis),
+    Directives: append(sliceOf[*DirectiveApplication](prefixDirectives), sliceOf[*DirectiveApplication](suffixDirectives)...),
+    Loc: c.Loc(),
+  }, nil
+}
+
+TypeOnlyField <- prefixDirectives:(d:PrefixDirectiveApplication _ { return d, nil })* vis:Visibility? _ name:Symbol _ ColonToken _ type_:Type suffixDirectives:DirectiveApplication* {
+  return &FieldDecl{
+    Name: name.(*Symbol),
+    Type_: type_.(TypeNode),
+    Visibility: visOrPublic(vis),
+    Directives: append(sliceOf[*DirectiveApplication](prefixDirectives), sliceOf[*DirectiveApplication](suffixDirectives)...),
+    Loc: c.Loc(),
+  }, nil
+}
+
+TypeAndBlockField <- prefixDirectives:(d:PrefixDirectiveApplication _ { return d, nil })* vis:Visibility? _ name:Symbol _ ColonToken _ type_:Type suffixDirectives:DirectiveApplication* _ block:Block {
+  allDirectives := append(sliceOf[*DirectiveApplication](prefixDirectives), sliceOf[*DirectiveApplication](suffixDirectives)...)
+  return &FieldDecl{
+    Name: name.(*Symbol),
+    Type_: FunTypeNode{nil, type_.(TypeNode)},
+    Value: &FunDecl{
+      FunctionBase: FunctionBase{
+        Args: nil,
+        Body: block.(*Block),
+        Directives: allDirectives,
+        Loc: c.Loc(),
+      },
+      Named: name.(*Symbol).Name,
+      Ret: type_.(TypeNode),
+      Visibility: visOrPublic(vis),
+    },
+    Visibility: visOrPublic(vis),
+    Directives: allDirectives,
+    Loc: c.Loc(),
+  }, nil
+}
+
+TypeAndArgsAndBlockField <- prefixDirectives:(d:PrefixDirectiveApplication _ { return d, nil })* vis:Visibility? _ name:Symbol _ args:ArgTypes _ ColonToken _ type_:Type suffixDirectives:DirectiveApplication* _ block:Block {
+  // Separate block parameters from regular arguments
+  allArgs := args.([]*FieldDecl)
+  var regularArgs []*FieldDecl
+  var blockParam *FieldDecl
+
+  for _, arg := range allArgs {
+    if arg.IsBlockParam {
+      if blockParam != nil {
+        return nil, fmt.Errorf("function can only have one block parameter")
+      }
+      blockParam = arg
+    } else {
+      regularArgs = append(regularArgs, arg)
+    }
+  }
+
+  allDirectives := append(sliceOf[*DirectiveApplication](prefixDirectives), sliceOf[*DirectiveApplication](suffixDirectives)...)
+
+  return &FieldDecl{
+    Name: name.(*Symbol),
+    Type_: FunTypeNode{allArgs, type_.(TypeNode)},
+    Value: &FunDecl{
+      FunctionBase: FunctionBase{
+        Args: regularArgs,
+        BlockParam: blockParam,
+        Body: block.(*Block),
+        Directives: allDirectives,
+        Loc: c.Loc(),
+      },
+      Named: name.(*Symbol).Name,
+      Ret: type_.(TypeNode),
+      Visibility: visOrPublic(vis),
+    },
+    Visibility: visOrPublic(vis),
+    Directives: allDirectives,
+    Loc: c.Loc(),
+  }, nil
+}
+
+HeaderField <- docstring:DocString? field:(TypeAndArgsField / TypeOnlyFunField) {
+  if docstring != nil {
+    field.(*FieldDecl).DocString = docstring.(string)
+  }
+  return field, nil
+}
+
+TypeAndArgsField <- prefixDirectives:(d:PrefixDirectiveApplication _ { return d, nil })* vis:Visibility? _ name:Symbol _ args:ArgTypes _ ColonToken _ type_:Type suffixDirectives:DirectiveApplication* {
+  return &FieldDecl{
+    Name: name.(*Symbol),
+    Type_: FunTypeNode{args.([]*FieldDecl), type_.(TypeNode)},
+    Visibility: visOrPublic(vis),
+    Directives: append(sliceOf[*DirectiveApplication](prefixDirectives), sliceOf[*DirectiveApplication](suffixDirectives)...),
+    Loc: c.Loc(),
+  }, nil
+}
+
+TypeOnlyFunField <- prefixDirectives:(d:PrefixDirectiveApplication _ { return d, nil })* vis:Visibility? _ name:Symbol _ ColonToken _ type_:Type suffixDirectives:DirectiveApplication* {
+  return &FieldDecl{
+    Name: name.(*Symbol),
+    Type_: FunTypeNode{nil, type_.(TypeNode)},
+    Visibility: visOrPublic(vis),
+    Directives: append(sliceOf[*DirectiveApplication](prefixDirectives), sliceOf[*DirectiveApplication](suffixDirectives)...),
+    Loc: c.Loc(),
+  }, nil
+}
+
+Visibility <- PubToken { return PublicVisibility, nil }
+            / LetToken { return PrivateVisibility, nil }
+// The visibility keyword is optional on field forms that have a disambiguating
+// token (a `:` type annotation, `(args)`, or a `{ block }`), defaulting to
+// public via visOrPublic. It is inlined as `vis:Visibility? _` rather than
+// factored into a named rule because tree-sitter forbids a named rule that can
+// match the empty string. The bare `name = value` form keeps visibility
+// required to avoid colliding with reassignment.
+PubToken <- "pub" !WordChar
+LetToken <- "let" !WordChar
+
+Symbol <- name:Id {
+  return &Symbol{
+    Name: name.(string),
+    Loc: c.Loc(),
+  }, nil
+}
+Id <- WordToken
+FieldId <- !NullToken [a-zA-Z_][a-zA-Z0-9_]* {
+  return &Symbol{
+    Name: string(c.text),
+    Loc: c.Loc(),
+  }, nil
+}
+WordToken <- !NullToken !RescueToken [a-zA-Z_][a-zA-Z0-9_]* {
+  return string(c.text), nil
+}
+WordChar <- [a-zA-Z0-9_]
+UpperId <- UpperToken
+UpperToken <- [A-Z][a-zA-Z0-9_]* {
+  return string(c.text), nil
+}
+CapsSymbol <- name:CapsToken {
+  return &Symbol{
+    Name: name.(string),
+    Loc: c.Loc(),
+  }, nil
+}
+CapsToken <- [A-Z][A-Z0-9_]* {
+  return string(c.text), nil
+}
+
+ImmediateParen <- '('
+ArgValues <- ImmediateParen _ args:(a:Argument Sep { return a, nil })* last:Argument? _ ')' {
+  return sliceOfAppend[Keyed[Node]](args, last), nil
+}
+ArgTypes <- ImmediateParen _ args:(a:ArgType Sep { return a, nil })* last:ArgType? _ ')' {
+  return sliceOfAppend[*FieldDecl](args, last), nil
+}
+ArgType <- docstring:DocString _ field:(ArgWithDefault / ArgWithBlockDefault / ArgWithType / BlockParamDecl) {
+  fieldDecl := field.(*FieldDecl)
+  return &FieldDecl{
+    Name: fieldDecl.Name,
+    Type_: fieldDecl.Type_,
+    Value: fieldDecl.Value,
+    Directives: fieldDecl.Directives,
+    DocString: docstring.(string),
+    IsBlockParam: fieldDecl.IsBlockParam,
+    Loc: fieldDecl.Loc,
+  }, nil
+} / field:(ArgWithDefault / ArgWithBlockDefault / ArgWithType / BlockParamDecl) {
+  return field.(*FieldDecl), nil
+}
+ArgWithDefault <- prefixDirectives:(d:PrefixDirectiveApplication _ { return d, nil })* name:Symbol _ ColonToken _ type_:Type suffixDirectives:DirectiveApplication* _ EqualToken _ value:Form {
+  return &FieldDecl{
+    Name: name.(*Symbol),
+    Type_: type_.(TypeNode),
+    Directives: append(sliceOf[*DirectiveApplication](prefixDirectives), sliceOf[*DirectiveApplication](suffixDirectives)...),
+    Value: value.(Node),
+    Loc: c.Loc(),
+  }, nil
+}
+ArgWithBlockDefault <- prefixDirectives:(d:PrefixDirectiveApplication _ { return d, nil })* name:Symbol _ ColonToken _ type_:Type suffixDirectives:DirectiveApplication* _ block:Block {
+  return &FieldDecl{
+    Name: name.(*Symbol),
+    Type_: type_.(TypeNode),
+    Directives: append(sliceOf[*DirectiveApplication](prefixDirectives), sliceOf[*DirectiveApplication](suffixDirectives)...),
+    Value: block.(*Block),
+    Loc: c.Loc(),
+  }, nil
+}
+ArgWithType <- prefixDirectives:(d:PrefixDirectiveApplication _ { return d, nil })* name:Symbol _ ColonToken _ type_:Type suffixDirectives:DirectiveApplication* {
+  return &FieldDecl{
+    Name: name.(*Symbol),
+    Type_: type_.(TypeNode),
+    Directives: append(sliceOf[*DirectiveApplication](prefixDirectives), sliceOf[*DirectiveApplication](suffixDirectives)...),
+    Loc: c.Loc(),
+  }, nil
+}
+BlockParamDecl <- AmpersandToken name:Symbol _ args:ArgTypes? _ ColonToken _ ret:Type {
+  var argTypes []*FieldDecl
+  if args != nil {
+    argTypes = args.([]*FieldDecl)
+  }
+  return &FieldDecl{
+    Name: name.(*Symbol),
+    Type_: FunTypeNode{argTypes, ret.(TypeNode)},
+    IsBlockParam: true,
+    Loc: c.Loc(),
+  }, nil
+}
+
+Argument <- KeyValue / PositionalValue
+
+KeyValue <- key:WordToken ColonToken _ value:Form {
+  return Keyed[Node]{Key: key.(string), Value: value.(Node), Positional: false}, nil
+}
+
+PositionalValue <- value:Form {
+  return Keyed[Node]{Key: "", Value: value.(Node), Positional: true}, nil
+}
+ColonToken <- ':'
+
+Type <- NonNull / AppliedType / NamedType / ListType / ObjectType / TypeVariable
+AppliedType <- base:NamedType ImmediateBracket _ args:(a:Type Sep { return a, nil })* last:Type? _ ']' {
+  return &AppliedTypeNode{
+    Base: base.(*NamedTypeNode),
+    Args: sliceOfAppend[TypeNode](args, last),
+    Loc: c.Loc(),
+  }, nil
+}
+NamedType <- qual:(n:NamedType DotToken { return n, nil })? name:UpperId {
+  var base *NamedTypeNode
+  if qual != nil {
+    base = qual.(*NamedTypeNode)
+  }
+  return &NamedTypeNode{
+    Base: base,
+    Name: name.(string),
+    Loc: c.Loc(),
+  }, nil
+}
+ListType <- '[' inner:Type ']' {
+  return ListTypeNode{inner.(TypeNode)}, nil
+}
+ObjectType <- "{{" _ fields:(f:ObjectTypeField Sep { return f, nil })* last:ObjectTypeField? _ "}}" {
+  return ObjectTypeNode{
+    Fields: sliceOfAppend[ObjectTypeField](fields, last),
+  }, nil
+}
+ObjectTypeField <- key:Id _ ColonToken _ type_:Type {
+  return ObjectTypeField{
+    Key: key.(string),
+    Type: type_.(TypeNode),
+  }, nil
+}
+NonNull <- inner:Type BangToken {
+  return NonNullTypeNode{inner.(TypeNode)}, nil
+}
+TypeVariable <- v:[a-z] {
+  return VariableTypeNode{v.([]byte)[0]}, nil
+}
+
+BangToken <- '!'
+
+// Precedence levels from lowest to highest
+DefaultExpr <- left:(RescueExpr / Term) _ DoubleInterroToken _ right:(DefaultExpr / Term) {
+  return &Default{
+    Left: left.(Node),
+    Right: right.(Node),
+    Loc: c.Loc(),
+  }, nil
+} / RescueExpr
+
+// Postfix error handling. `expr rescue { clauses }` recovers from an error
+// raised while evaluating expr, dispatching on the error's type and
+// re-raising when no clause matches; `expr rescue fallback` yields fallback
+// on any error. Binds tighter than `??`, looser than `or`, so
+// `x.contents rescue null ?? "default"` handles the error first, then the
+// null. A bare `{` after `rescue` always starts a clause block; `{{ }}`
+// record fallbacks are unaffected.
+RescueExpr <- left:(RescueExpr / Term) _ RescueToken _ handler:RescueHandler {
+  rescue := handler.(*RescueExpr)
+  rescue.Operand = left.(Node)
+  rescue.Loc = c.Loc()
+  return rescue, nil
+} / LogicalOrExpr
+
+RescueHandler <- clauses:RescueClauses {
+  return &RescueExpr{
+    Clauses: clauses.([]*CaseClause),
+  }, nil
+} / !BlockOpen fallback:(LogicalOrExpr / Term) {
+  return &RescueExpr{
+    Fallback: fallback.(Node),
+  }, nil
+}
+
+BlockOpen <- '{' !'{'
+
+// Zero clauses and bare-binding catch-alls parse here so inference can
+// reject them with targeted, source-highlighted errors; failing the parse
+// instead would backtrack into a useless generic syntax error.
+RescueClauses <- '{' _ cs:(clause:RescueClause Sep { return clause, nil })* last:RescueClause? _ '}' {
+  return sliceOfAppend[*CaseClause](cs, last), nil
+}
+
+// Rescue clauses are case clauses restricted to type patterns plus `else`:
+// `e: SomeError =>` binds and narrows, `e: Error =>` is the typed catch-all,
+// `else =>` discards. The old bare-binding catch-all gets a targeted error.
+RescueClause <- ElseToken _ ArrowToken _ expr:Form {
+  return &CaseClause{
+    Expr: expr.(Node),
+    IsElse: true,
+    Loc: c.Loc(),
+  }, nil
+} / binding:Symbol _ ColonToken _ typeName:Symbol _ ArrowToken _ expr:Form {
+  return &CaseClause{
+    Expr: expr.(Node),
+    Binding: binding.(*Symbol).Name,
+    TypePattern: typeName.(*Symbol),
+    Loc: c.Loc(),
+  }, nil
+} / binding:Symbol _ ArrowToken _ expr:Form {
+  return &CaseClause{
+    Expr: expr.(Node),
+    IsElse: true,
+    Binding: binding.(*Symbol).Name,
+    Loc: c.Loc(),
+  }, nil
+}
+
+LogicalOrExpr <- left:(LogicalOrExpr / Term) _ OrToken _ right:(LogicalAndExpr / Term) {
+  return &LogicalOr{
+    Left: left.(Node),
+    Right: right.(Node),
+    Loc: c.Loc(),
+  }, nil
+} / LogicalAndExpr
+
+LogicalAndExpr <- left:(LogicalAndExpr / Term) _ AndToken _ right:(EqualityExpr / Term) {
+  return &LogicalAnd{
+    Left: left.(Node),
+    Right: right.(Node),
+    Loc: c.Loc(),
+  }, nil
+} / EqualityExpr
+
+EqualityExpr <- left:(EqualityExpr / Term) _ op:EqualityOp _ right:(RelationalExpr / Term) {
+  switch op.(string) {
+  case "==":
+    return &Equality{
+      Left: left.(Node),
+      Right: right.(Node),
+      Loc: c.Loc(),
+    }, nil
+  case "!=":
+    return NewInequality(left.(Node), right.(Node), c.Loc()), nil
+  default:
+    return nil, fmt.Errorf("unknown equality operator: %s", op.(string))
+  }
+} / RelationalExpr
+
+EqualityOp <- "==" { return "==", nil } / "!=" { return "!=", nil }
+
+RelationalExpr <- left:(RelationalExpr / Term) _ op:RelationalOp _ right:(AdditiveExpr / Term) {
+  switch op.(string) {
+  case "<":
+    return NewLessThan(left.(Node), right.(Node), c.Loc()), nil
+  case "<=":
+    return NewLessThanEqual(left.(Node), right.(Node), c.Loc()), nil
+  case ">":
+    return NewGreaterThan(left.(Node), right.(Node), c.Loc()), nil
+  case ">=":
+    return NewGreaterThanEqual(left.(Node), right.(Node), c.Loc()), nil
+  default:
+    return nil, fmt.Errorf("unknown relational operator: %s", op.(string))
+  }
+} / AdditiveExpr
+
+RelationalOp <- "<=" { return "<=", nil } / ">=" { return ">=", nil } / "<" { return "<", nil } / ">" { return ">", nil }
+
+AdditiveExpr <- left:(AdditiveExpr / Term) _ op:AdditiveOp _ right:(MultiplicativeExpr / Term) {
+  switch op.(string) {
+  case "+":
+    return NewAddition(left.(Node), right.(Node), c.Loc()), nil
+  case "-":
+    return NewSubtraction(left.(Node), right.(Node), c.Loc()), nil
+  default:
+    return nil, fmt.Errorf("unknown additive operator: %s", op.(string))
+  }
+} / MultiplicativeExpr
+
+AdditiveOp <- "+" { return "+", nil } / "-" { return "-", nil }
+
+MultiplicativeExpr <- left:(MultiplicativeExpr / Term) _ op:MultiplicativeOp _ right:Term {
+  switch op.(string) {
+  case "*":
+    return NewMultiplication(left.(Node), right.(Node), c.Loc()), nil
+  case "/":
+    return NewDivision(left.(Node), right.(Node), c.Loc()), nil
+  case "%":
+    return NewModulo(left.(Node), right.(Node), c.Loc()), nil
+  default:
+    return nil, fmt.Errorf("unknown multiplicative operator: %s", op.(string))
+  }
+}
+
+MultiplicativeOp <- "*" { return "*", nil } / "/" { return "/", nil } / "%" { return "%", nil }
+
+DoubleInterroToken <- "??"
+
+DotToken <- '.'
+
+List <- '[' _ eles:(e:Form Sep { return e, nil })* last:Form? _ ']' {
+  return &List{
+    Elements: sliceOfAppend[Node](eles, last),
+    Loc: c.Loc(),
+  }, nil
+}
+
+MapLiteral <- '[' _ ColonToken _ ']' {
+  return &MapLiteral{Loc: c.Loc()}, nil
+} / '[' _ first:MapEntry rest:(Sep e:MapEntry { return e, nil })* Sep? _ ']' {
+  return &MapLiteral{
+    Entries: sliceOfPrepend[MapEntry](first, rest),
+    Loc: c.Loc(),
+  }, nil
+}
+
+MapEntry <- key:Form _ ColonToken _ value:Form {
+  return MapEntry{Key: key.(Node), Value: value.(Node)}, nil
+}
+
+ObjectLiteral <- "{{" _ vals:(v:ObjectField Sep { return v, nil })* last:ObjectField? _ "}}" {
+  var fields []*FieldDecl
+  for _, kv := range sliceOfAppend[Keyed[Node]](vals, last) {
+    fields = append(fields, &FieldDecl{
+      Name: &Symbol{
+        Name: kv.Key,
+        Loc: kv.Value.GetSourceLocation(),
+      },
+      Value: kv.Value,
+      Loc: kv.Value.GetSourceLocation(),
+    })
+  }
+  return &ObjectLiteral{
+    Fields: fields,
+    Loc: c.Loc(),
+  }, nil
+}
+
+// An object literal field is either an explicit `key: value` or shorthand
+// `name` (sugar for `name: name`), mirroring the bare-field form of object
+// selection.
+ObjectField <- KeyValue / ShorthandField
+
+ShorthandField <- name:Id {
+  return Keyed[Node]{
+    Key: name.(string),
+    // Equivalent to `name: name`; the value is the bare symbol, auto-called
+    // exactly as it would be when written out explicitly.
+    Value: &Symbol{Name: name.(string), AutoCall: true, Loc: c.Loc()},
+    Positional: false,
+  }, nil
+}
+
+Block <- '{' _ eles:(e:Expr FormSep { return e, nil })* last:Expr? _ '}' {
+  return &Block{
+    Forms: sliceOfAppend[Node](eles, last),
+    Loc: c.Loc(),
+  }, nil
+}
+
+
+HeadersBlock <- '{' _ eles:(e:HeaderField Sep { return e, nil })* last:HeaderField? _ '}' {
+  return &Block{
+    Forms: sliceOfAppend[Node](eles, last),
+    Loc: c.Loc(),
+  }, nil
+}
+
+// Literals
+
+Literal <- Float / Int / Boolean / TripleQuoteString / String / Template / Quoted / Null / SelfKeyword
+
+Float <- ((('0' / NonZeroDecimalDigit DecimalDigit*) '.' DecimalDigit+ Exponent?) / (('0' / NonZeroDecimalDigit DecimalDigit+) Exponent)) {
+  value, err := strconv.ParseFloat(string(c.text), 64)
+  if err != nil {
+    return nil, err
+  }
+  return &Float{
+    Value: value,
+    Text:  string(c.text),
+    Loc:   c.Loc(),
+  }, nil
+}
+
+Int <- ('0' / NonZeroDecimalDigit DecimalDigit*) {
+  value, err := strconv.ParseInt(string(c.text), 10, 64)
+  if err != nil {
+    return nil, err
+  }
+  return &Int{
+    Value: value,
+    Loc: c.Loc(),
+  }, nil
+}
+
+NonZeroDecimalDigit <- [1-9]
+
+DecimalDigit <- [0-9]
+
+Exponent <- 'e'i [+-]? DecimalDigit+
+
+TripleQuoteString <- TripleQuote content:ImmediateTripleQuoteStringContent TripleQuote {
+  return &String{
+    Value:        normalizeTripleQuoteString(content.([]byte)),
+    TripleQuoted: true,
+    Loc:          c.Loc(),
+  }, nil
+} / TripleQuote TripleQuote {
+  return &String{
+    Value:        "",
+    TripleQuoted: true,
+    Loc:          c.Loc(),
+  }, nil
+}
+
+ImmediateTripleQuoteStringContent <- ( [^"] / '\n' / '"' '"'? [^"])+ {
+  return c.text, nil
+}
+
+TripleQuote <- "\"\"\""
+
+
+String <- '"' ( ImmediateStringContent / ImmediateEscape )* ImmediateQuoteToken {
+  c.text = bytes.Replace(c.text, []byte(`\/`), []byte(`/`), -1)
+  value, err := strconv.Unquote(string(c.text))
+  if err != nil {
+    return nil, err
+  }
+  return &String{
+    Value: value,
+    Loc: c.Loc(),
+  }, nil
+}
+
+ImmediateQuoteToken <- '"'
+ImmediateStringContent <- [^\\"\n]+
+ImmediateEscape <- '\\' (
+    [abfnrtv"\\]
+  / 'x' [0-9a-f]i [0-9a-f]i
+  / 'u' [0-9a-f]i [0-9a-f]i [0-9a-f]i [0-9a-f]i
+  / 'U' [0-9a-f]i [0-9a-f]i [0-9a-f]i [0-9a-f]i [0-9a-f]i [0-9a-f]i [0-9a-f]i [0-9a-f]i
+  / [0-7] [0-7] [0-7]
+)
+
+// Backtick-delimited template strings with optional ${...} interpolations.
+// Single-line uses one backtick; multi-line uses three or more.
+Template <- MultiTemplate / SingleTemplate
+
+SingleTemplate <- '`' parts:SingleTemplatePart* '`' {
+  return makeTemplate(parts, 1, "", c.Loc()), nil
+}
+
+SingleTemplatePart <-
+    "\\${" {
+      return TemplatePart{Lit: "${"}, nil
+    }
+  / "${" _ e:Expr _ "}" {
+      return TemplatePart{Expr: e.(Node)}, nil
+    }
+  / ch:SingleTemplateContentChar {
+      return TemplatePart{Lit: ch.(string)}, nil
+    }
+
+SingleTemplateContentChar <- !"${" [^`\n] {
+  return string(c.text), nil
+}
+
+MultiTemplate <- ticks:MultiTemplateOpenToken #{
+  d, _ := c.state["fence_depth"].(int)
+  d++
+  c.state["fence_depth"] = d
+  c.state[templateFenceKey(d)] = len(ticks.([]byte))
+  return nil
+} lang:LangTagPart? parts:MultiTemplatePart* MultiTemplateCloseToken #{
+  d, _ := c.state["fence_depth"].(int)
+  delete(c.state, templateFenceKey(d))
+  c.state["fence_depth"] = d - 1
+  return nil
+} {
+  l := ""
+  if lang != nil {
+    l = lang.(string)
+  }
+  return makeTemplate(parts, len(ticks.([]byte)), l, c.Loc()), nil
+}
+
+MultiTemplateOpenToken <- '`' '`' '`' '`'* !'`' {
+  return c.text, nil
+}
+
+MultiTemplateCloseToken <- ticks:('`'+) !'`' &{
+  d, _ := c.state["fence_depth"].(int)
+  expected, _ := c.state[templateFenceKey(d)].(int)
+  return len(ticks.([]interface{})) == expected, nil
+}
+
+LangTagPart <- name:LangTagName LangTagTerminator {
+  return name, nil
+}
+LangTagName <- [A-Za-z] [A-Za-z0-9_-]* {
+  return string(c.text), nil
+}
+LangTagTerminator <- '\n'
+
+MultiTemplatePart <-
+    "\\${" {
+      return TemplatePart{Lit: "${"}, nil
+    }
+  / "${" _ e:Expr _ "}" {
+      return TemplatePart{Expr: e.(Node)}, nil
+    }
+  / ch:MultiTemplateContentChar {
+      return TemplatePart{Lit: ch.(string)}, nil
+    }
+
+MultiTemplateLongerBackticks <- ticks:('`'+) !'`' &{
+  d, _ := c.state["fence_depth"].(int)
+  expected, _ := c.state[templateFenceKey(d)].(int)
+  return len(ticks.([]interface{})) > expected, nil
+}
+
+MultiTemplateContentChar <- !MultiTemplateCloseToken !MultiTemplateLongerBackticks !"${" . {
+  return string(c.text), nil
+}
+
+DocString <- TripleQuote content:ImmediateTripleQuoteStringContent TripleQuote _ {
+  return normalizeTripleQuoteString(content.([]byte)), nil
+} / TripleQuote TripleQuote {
+  return "", nil
+}
+
+Quoted <- '%' quoter:WordToken '{' raw:QuotedRawToken '}' {
+  return &Quoted{
+    Quoter: quoter.(string),
+    Raw:    raw.(string),
+  }, nil
+}
+QuotedRawToken <- [^}]* {
+  return string(c.text), nil
+}
+
+Boolean <- TrueToken {
+  return &Boolean{
+    Value: true,
+    Loc: c.Loc(),
+  }, nil
+} / FalseToken {
+  return &Boolean{
+    Value: false,
+    Loc: c.Loc(),
+  }, nil
+}
+TrueToken <- "true" !WordChar
+FalseToken <- "false" !WordChar
+
+Null <- NullToken {
+  return &Null{
+    Loc: c.Loc(),
+  }, nil
+}
+NullToken <- "null" !WordChar
+
+SelfKeyword <- SelfToken {
+  return &SelfKeyword{
+    Loc: c.Loc(),
+  }, nil
+}
+SelfToken <- "self" !WordChar
+
+CommentToken <- '#' [^\n]* {
+  comments, _ := c.globalStore["comments"].(map[int]string)
+  if comments == nil {
+    comments = make(map[int]string)
+    c.globalStore["comments"] = comments
+  }
+  comments[c.pos.line] = string(c.text)
+  return nil, nil
+}
+
+// Additional language constructs
+
+// Vestigial recognition of the removed `try { } catch { }` block syntax.
+// It parses into a RescueExpr marked Legacy so `dang fmt` can rewrite it to
+// the postfix form, while inference warns with a migration hint
+// instead of a generic parse error. `try` is otherwise an ordinary
+// identifier.
+LegacyTryCatch <- TryToken _ body:Block _ CatchToken _ '{' _ cs:(clause:LegacyCatchClause Sep { return clause, nil })* last:LegacyCatchClause? _ '}' {
+  return &RescueExpr{
+    Operand: body.(*Block),
+    Clauses: sliceOfAppend[*CaseClause](cs, last),
+    Legacy: true,
+    Loc: c.Loc(),
+  }, nil
+}
+
+// The legacy clause grammar, bare-binding catch-all included, so old code
+// parses cleanly for rewriting.
+LegacyCatchClause <- binding:Symbol _ ColonToken _ typeName:Symbol _ ArrowToken _ expr:Form {
+  return &CaseClause{
+    Value: nil,
+    Expr: expr.(Node),
+    Binding: binding.(*Symbol).Name,
+    TypePattern: typeName.(*Symbol),
+    Loc: c.Loc(),
+  }, nil
+} / binding:Symbol _ ArrowToken _ expr:Form {
+  return &CaseClause{
+    Value: nil,
+    Expr: expr.(Node),
+    IsElse: true,
+    Binding: binding.(*Symbol).Name,
+    Loc: c.Loc(),
+  }, nil
+}
+
+TryToken <- "try" !WordChar
+CatchToken <- "catch" !WordChar
+RescueToken <- "rescue" !WordChar
+
+Raise <- RaiseToken _inlineSpace value:Form {
+  return &Raise{
+    Value: value.(Node),
+    Loc: c.Loc(),
+  }, nil
+}
+
+RaiseToken <- "raise" !WordChar
+
+Return <- ReturnToken _inlineSpace value:Form {
+  return &Return{
+    Value: value.(Node),
+    Loc: c.Loc(),
+  }, nil
+}
+
+ReturnToken <- "return" !WordChar
+
+Conditional <- IfToken _ '(' _ cond:Form _ ')' _ then_:Form else_:ElseClause? {
+  var elseNode Node
+  if else_ != nil {
+    elseNode = else_.(Node)
+  }
+  return &Conditional{
+    Condition: cond.(Node),
+    Then: then_.(Node),
+    Else: elseNode,
+    Loc: c.Loc(),
+  }, nil
+}
+
+ElseClause <- _ ElseToken _ body:Form {
+  return body, nil
+}
+
+IfToken <- "if" !WordChar
+ElseToken <- "else" !WordChar
+OrToken <- "or" !WordChar
+AndToken <- "and" !WordChar
+
+ArrowToken <- "=>"
+
+BlockArg <- '{' _ paramsAndArrow:(params:BlockParams _ ArrowToken { return params, nil })? _ node:Expr rest:(FormSep e:Expr { return e, nil })* _ '}' {
+  var args []*FieldDecl
+  if paramsAndArrow != nil {
+    args = paramsAndArrow.([]*FieldDecl)
+  }
+  return &BlockArg{
+    Args: args,
+    BodyNode: &Block{
+      Forms: sliceOfPrepend[Node](node, rest),
+      Loc: c.Loc(),
+    },
+    Loc: c.Loc(),
+  }, nil
+}
+
+BlockParams <- params:(p:BlockParam Sep { return p, nil })* last:BlockParam {
+  return sliceOfAppend[*FieldDecl](params, last), nil
+}
+
+BlockParam <- name:Symbol {
+  return &FieldDecl{
+    Name: name.(*Symbol),
+    Loc: c.Loc(),
+  }, nil
+}
+
+
+
+Case <- CaseToken _ operand:('(' _ expr:Form _ ')' { return expr, nil })? _ '{' _ cs:(clause:CaseClause Sep { return clause, nil })* last:CaseClause? _ '}' {
+  var expr Node
+  if operand != nil {
+    expr = operand.(Node)
+  } else {
+    // Desugar to case (true) when operand is omitted
+    expr = &Boolean{
+      Value: true,
+      Loc: c.Loc(),
+    }
+  }
+  return &Case{
+    Expr: expr,
+    NoOperand: operand == nil,
+    Clauses: sliceOfAppend[*CaseClause](cs, last),
+    Loc: c.Loc(),
+  }, nil
+}
+
+CaseClause <- ElseToken _ ArrowToken _ expr:Form {
+  // else => ... creates a clause that always matches
+  return &CaseClause{
+    Value: nil, // Value is not used for else clauses
+    Expr: expr.(Node),
+    IsElse: true,
+    Loc: c.Loc(),
+  }, nil
+} / binding:Symbol _ ColonToken _ typeName:Symbol _ ArrowToken _ expr:Form {
+  // binding: TypeName => ... creates a type pattern clause
+  return &CaseClause{
+    Value: nil,
+    Expr: expr.(Node),
+    Binding: binding.(*Symbol).Name,
+    TypePattern: typeName.(*Symbol),
+    Loc: c.Loc(),
+  }, nil
+} / value:Form _ ArrowToken _ expr:Form {
+  return &CaseClause{
+    Value: value.(Node),
+    Expr: expr.(Node),
+    IsElse: false,
+    Loc: c.Loc(),
+  }, nil
+}
+
+CaseToken <- "case" !WordChar
+
+Break <- BreakToken value:(_inlineSpace v:Form { return v, nil })? {
+  var val Node
+  if value != nil {
+    val = value.(Node)
+  }
+  return &Break{
+    Value: val,
+    Loc: c.Loc(),
+  }, nil
+}
+
+BreakToken <- "break" !WordChar
+
+Continue <- ContinueToken value:(_inlineSpace v:Form { return v, nil })? {
+  var val Node
+  if value != nil {
+    val = value.(Node)
+  }
+  return &Continue{
+    Value: val,
+    Loc: c.Loc(),
+  }, nil
+}
+
+ContinueToken <- "continue" !WordChar
+
+Reassignment <- target:Term _ op:AssignOp _ value:Form {
+  return &Reassignment{
+    Target: target.(Node),
+    Modifier: op.(string),
+    Value: value.(Node),
+    Loc: c.Loc(),
+  }, nil
+}
+
+AssignOp <- PlusEqualToken { return "+", nil } / EqualToken { return "=", nil }
+PlusEqualToken <- "+="
+EqualToken <- '='
+
+TypeHint <- expr:Term _ DoubleColonToken _ type_:Type {
+  return &TypeHint{
+    Expr: expr.(Node),
+    Type: type_.(TypeNode),
+    Loc: c.Loc(),
+  }, nil
+}
+
+DoubleColonToken <- "::"
+
+DirectiveDecl <- DirectiveToken _ name:DirectiveName _ args:ArgTypes? _ OnToken _ locations:DirectiveLocations {
+  var argTypes []*FieldDecl
+  if args != nil {
+    argTypes = args.([]*FieldDecl)
+  }
+  return &DirectiveDecl{
+    Name: name.(string),
+    Args: argTypes,
+    Locations: locations.([]DirectiveLocation),
+    Loc: c.Loc(),
+  }, nil
+}
+
+DirectiveApplication <- _ '@' scope:(s:NamedType DotToken { return s, nil })? name:Id args:ArgValues? {
+  var argValues []Keyed[Node]
+  if args != nil {
+    argValues = args.([]Keyed[Node])
+  }
+  var scopeNode *NamedTypeNode
+  if scope != nil {
+    scopeNode = scope.(*NamedTypeNode)
+  }
+  return &DirectiveApplication{
+    Scope: scopeNode,
+    Name: name.(string),
+    Args: argValues,
+    Loc: c.Loc(),
+  }, nil
+}
+
+PrefixDirectiveApplication <- '@' name:Id args:ArgValues? {
+  var argValues []Keyed[Node]
+  if args != nil {
+    argValues = args.([]Keyed[Node])
+  }
+  return &DirectiveApplication{
+    Name:     name.(string),
+    Args:     argValues,
+    IsPrefix: true,
+    Loc:      c.Loc(),
+  }, nil
+}
+
+DirectiveLocations <- first:DirectiveLocation rest:(_ '|' _ loc:DirectiveLocation { return loc, nil })* {
+  return sliceOfPrepend[DirectiveLocation](first, rest), nil
+}
+
+DirectiveLocation <- name:UpperId {
+  return DirectiveLocation{Name: name.(string)}, nil
+}
+
+DirectiveName <- '@' name:Id {
+  return name.(string), nil
+}
+
+DirectiveToken <- "directive" !WordChar
+OnToken <- "on" !WordChar
+
+Import <- ImportToken _ name:Symbol {
+  return &ImportDecl{
+    Name: name.(*Symbol),
+    Loc:  c.Loc(),
+  }, nil
+}
+ImportToken <- "import" !WordChar

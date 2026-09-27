@@ -1,0 +1,111 @@
+package dangv2
+
+import (
+	"context"
+	"github.com/iancoleman/strcase"
+	"github.com/vito/dang/v2/pkg/dang"
+	"log/slog"
+	"os"
+	"path/filepath"
+)
+
+// These two functions are copied verbatim from the pinned production baseline,
+// except for test-only symbol names, to measure both metadata passes fairly.
+func baselineRetainDangObjectDirectives(ctx context.Context, env dang.ValueScope, dir string) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".dang" {
+			continue
+		}
+		root, err := dang.ParseFile(filepath.Join(dir, entry.Name()))
+		if err != nil {
+			return err
+		}
+		file, ok := root.(*dang.FileBlock)
+		if !ok {
+			continue
+		}
+		for _, form := range file.Forms {
+			decl, ok := form.(*dang.ObjectDecl)
+			if !ok || len(decl.Directives) == 0 {
+				continue
+			}
+			value, found, err := env.Lookup(ctx, decl.Name.Name)
+			if err != nil {
+				return err
+			}
+			if constructor, ok := value.(*dang.ConstructorFunction); found && ok {
+				constructor.ObjectType.SetDirectives("", decl.Directives)
+			}
+		}
+	}
+	return nil
+}
+
+func baselineModuleDeclaredTypeNames(modSrcDir, moduleName string) []string {
+	seen := map[string]struct{}{}
+	var names []string
+	add := func(name string) {
+		if name == "" {
+			return
+		}
+		if _, ok := seen[name]; ok {
+			return
+		}
+		seen[name] = struct{}{}
+		names = append(names, name)
+	}
+
+	// The main object's local name matches the module name (capitalized camel
+	// case); NamespaceObject collapses it to the module's final name. Seed it
+	// unconditionally so a self-call returning the main type resolves even if
+	// the rest of the source fails to parse.
+	add(strcase.ToCamel(moduleName))
+
+	entries, err := os.ReadDir(modSrcDir)
+	if err != nil {
+		slog.Debug("ensureModuleSelfTypes: read module dir", "dir", modSrcDir, "error", err)
+		return names
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".dang" {
+			continue
+		}
+		root, err := dang.ParseFile(filepath.Join(modSrcDir, entry.Name()))
+		if err != nil {
+			slog.Debug("ensureModuleSelfTypes: parse module file", "file", entry.Name(), "error", err)
+			continue
+		}
+		file, ok := root.(*dang.FileBlock)
+		if !ok {
+			continue
+		}
+		// Only top-level type declarations become module types in the schema;
+		// types declared inside a body are not hoisted, so iterate the file's
+		// own forms rather than walking the AST recursively.
+		for _, form := range file.Forms {
+			switch decl := form.(type) {
+			case *dang.ObjectDecl:
+				if decl.Visibility >= dang.PublicVisibility && decl.Name != nil {
+					add(decl.Name.Name)
+				}
+			case *dang.InterfaceDecl:
+				if decl.Visibility >= dang.PublicVisibility && decl.Name != nil {
+					add(decl.Name.Name)
+				}
+			case *dang.EnumDecl:
+				if decl.Visibility >= dang.PublicVisibility && decl.Name != nil {
+					add(decl.Name.Name)
+				}
+			case *dang.ScalarDecl:
+				if decl.Visibility >= dang.PublicVisibility && decl.Name != nil {
+					add(decl.Name.Name)
+				}
+			}
+		}
+	}
+	return names
+}

@@ -1,0 +1,196 @@
+package dang
+
+// Experimental syntax-only cache. Inference mutates AST nodes and attaches
+// per-call clients, so cached templates must never escape to an evaluator.
+import (
+	"container/list"
+	"crypto/sha256"
+	"fmt"
+	"golang.org/x/sync/singleflight"
+	"os"
+	"reflect"
+	"sync"
+)
+
+const syntaxCacheEntries = 16
+const syntaxCacheMaxSource = 128 << 10
+
+type syntaxEntry struct {
+	key   [32]byte
+	block *FileBlock
+}
+
+var syntaxCache = struct {
+	sync.Mutex
+	entries map[[32]byte]*list.Element
+	lru     list.List
+	loading singleflight.Group
+}{entries: make(map[[32]byte]*list.Element)}
+
+// ParseFileCached returns a fresh syntax tree, keyed by source bytes rather
+// than pathname, mtime, module ID, schema, or workspace snapshot. All runtime
+// state is rebuilt normally. Failed parses use the ordinary diagnostic path.
+// This prototype uses checked reflection; an upstream implementation should
+// generate typed syntax cloning alongside the AST definitions.
+func ParseFileCached(filename string) (any, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > syntaxCacheMaxSource {
+		return ParseFileWithRecovery(filename, GlobalStore("filePath", filename))
+	}
+	key := sha256.Sum256(data)
+	load := func() *FileBlock {
+		syntaxCache.Lock()
+		defer syntaxCache.Unlock()
+		if elem := syntaxCache.entries[key]; elem != nil {
+			syntaxCache.lru.MoveToFront(elem)
+			return elem.Value.(syntaxEntry).block
+		}
+		return nil
+	}
+	template := load()
+	if template == nil {
+		result, parseErr, _ := syntaxCache.loading.Do(string(key[:]), func() (any, error) {
+			if block := load(); block != nil {
+				return block, nil
+			}
+			parsed, err := Parse("<cached>", data, GlobalStore("filePath", "<cached>"))
+			if err != nil {
+				return nil, err
+			}
+			block, ok := parsed.(*FileBlock)
+			if !ok {
+				return nil, fmt.Errorf("unexpected parse result %T", parsed)
+			}
+			if _, err := cloneSyntax(block, filename); err != nil {
+				return nil, err
+			}
+			syntaxCache.Lock()
+			defer syntaxCache.Unlock()
+			elem := syntaxCache.lru.PushFront(syntaxEntry{key, block})
+			syntaxCache.entries[key] = elem
+			if syntaxCache.lru.Len() > syntaxCacheEntries {
+				last := syntaxCache.lru.Back()
+				delete(syntaxCache.entries, last.Value.(syntaxEntry).key)
+				syntaxCache.lru.Remove(last)
+			}
+			return block, nil
+		})
+		if parseErr != nil {
+			return ParseFileWithRecovery(filename, GlobalStore("filePath", filename))
+		}
+		template = result.(*FileBlock)
+	}
+	return cloneSyntax(template, filename)
+}
+
+func cloneSyntax(block *FileBlock, filename string) (*FileBlock, error) {
+	type pointer struct {
+		typ  reflect.Type
+		addr uintptr
+	}
+	seen := make(map[pointer]reflect.Value)
+	remaining := 262144
+	var copyValue func(reflect.Value) (reflect.Value, error)
+	copyValue = func(src reflect.Value) (reflect.Value, error) {
+		remaining--
+		if remaining < 0 {
+			return reflect.Value{}, fmt.Errorf("syntax exceeds clone budget")
+		}
+		dst := reflect.New(src.Type()).Elem()
+		switch src.Kind() {
+		case reflect.Pointer:
+			if src.IsNil() {
+				return dst, nil
+			}
+			key := pointer{src.Type(), src.Pointer()}
+			if prior, ok := seen[key]; ok {
+				return prior, nil
+			}
+			dst.Set(reflect.New(src.Type().Elem()))
+			seen[key] = dst
+			value, err := copyValue(src.Elem())
+			if err != nil {
+				return reflect.Value{}, err
+			}
+			dst.Elem().Set(value)
+		case reflect.Interface:
+			if src.IsNil() {
+				return dst, nil
+			}
+			value, err := copyValue(src.Elem())
+			if err != nil {
+				return reflect.Value{}, err
+			}
+			dst.Set(value)
+		case reflect.Struct:
+			for i := 0; i < src.NumField(); i++ {
+				field := src.Type().Field(i)
+				if field.PkgPath != "" {
+					if !src.Field(i).IsZero() {
+						return reflect.Value{}, fmt.Errorf("nonzero private syntax field %s.%s", src.Type(), field.Name)
+					}
+					continue
+				}
+				value, err := copyValue(src.Field(i))
+				if err != nil {
+					return reflect.Value{}, err
+				}
+				dst.Field(i).Set(value)
+			}
+			if src.Type() == reflect.TypeFor[SourceLocation]() {
+				dst.FieldByName("Filename").SetString(filename)
+			}
+		case reflect.Slice:
+			if src.IsNil() {
+				return dst, nil
+			}
+			dst.Set(reflect.MakeSlice(src.Type(), src.Len(), src.Len()))
+			for i := 0; i < src.Len(); i++ {
+				value, err := copyValue(src.Index(i))
+				if err != nil {
+					return reflect.Value{}, err
+				}
+				dst.Index(i).Set(value)
+			}
+		case reflect.Map:
+			if src.IsNil() {
+				return dst, nil
+			}
+			dst.Set(reflect.MakeMapWithSize(src.Type(), src.Len()))
+			iter := src.MapRange()
+			for iter.Next() {
+				key, err := copyValue(iter.Key())
+				if err != nil {
+					return reflect.Value{}, err
+				}
+				value, err := copyValue(iter.Value())
+				if err != nil {
+					return reflect.Value{}, err
+				}
+				dst.SetMapIndex(key, value)
+			}
+		case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+			reflect.Float32, reflect.Float64, reflect.String:
+			dst.Set(src)
+		case reflect.Func:
+			// Parser constructors install stateless package-level operator
+			// functions here. No evaluator closures are present before inference.
+			if !src.IsNil() && src.Type() != reflect.TypeFor[BinaryOperatorEvaluator]() {
+				return reflect.Value{}, fmt.Errorf("unsupported syntax function %s", src.Type())
+			}
+			dst.Set(src)
+		default:
+			return reflect.Value{}, fmt.Errorf("unsupported syntax value %s", src.Type())
+		}
+		return dst, nil
+	}
+	value, err := copyValue(reflect.ValueOf(block))
+	if err != nil {
+		return nil, err
+	}
+	return value.Interface().(*FileBlock), nil
+}

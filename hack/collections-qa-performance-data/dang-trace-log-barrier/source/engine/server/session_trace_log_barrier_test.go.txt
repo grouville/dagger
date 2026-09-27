@@ -1,0 +1,329 @@
+package server
+
+import (
+	"context"
+	"errors"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/dagger/dagger/engine"
+	"github.com/dagger/dagger/engine/clientdb"
+	telemetry "github.com/dagger/otel-go"
+	"github.com/stretchr/testify/require"
+	otellog "go.opentelemetry.io/otel/log"
+	sdklog "go.opentelemetry.io/otel/sdk/log"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+)
+
+// Exercise the production session processors and their actual SQLite routing,
+// plus real PeriodicReaders (not an interface mock that merely counts methods).
+func TestSessionTraceLogBarrierAllOriginsAndFinalMetrics(t *testing.T) {
+	dbs := clientdb.NewDBs(t.TempDir())
+	srv := &Server{clientDBs: dbs, wcprofSpanCount: newWcprofSpanCounter()}
+	srv.telemetryPubSub = NewPubSub(srv)
+	sess := &daggerSession{
+		sessionID: "session", mainClientCallerID: "root",
+		clientRuntimes: map[string]*clientRuntime{}, telemetryPubSub: srv.telemetryPubSub,
+	}
+	var verifyMetrics []func(int64, []int64)
+	var setFinal []func()
+	for _, id := range []string{"root", "child", "sibling"} {
+		local, cloud := &finalCollectionExporter{}, &finalCollectionExporter{}
+		client, value, collections := finalCollectionClient(t, local, cloud)
+		value.Store(41)
+		client.clientRecord = &clientRecord{clientID: id, clientMetadata: &engine.ClientMetadata{SessionID: sess.sessionID, ClientID: id}}
+		if id != "root" {
+			client.parentClientIDs = []string{"root"}
+		}
+		sess.clientRuntimes[id] = client
+		verifyMetrics = append(verifyMetrics, func(count int64, want []int64) {
+			require.Equal(t, count, collections.Load(), "client %s", id)
+			for _, exporter := range []*finalCollectionExporter{local, cloud} {
+				values, _ := exporter.snapshot()
+				require.Equal(t, want, values, "client %s", id)
+			}
+		})
+		setFinal = append(setFinal, func() { value.Store(42) })
+	}
+	installTestClientRecords(sess)
+	sess.state.Store(sessionStateInitialized)
+	srv.daggerSessions = map[string]*daggerSession{sess.sessionID: sess}
+	srv.initializeSessionTelemetry(sess, nil)
+	var stopOnce sync.Once
+	var stopErr error
+	stop := func() error {
+		stopOnce.Do(func() { stopErr = sess.shutdownTelemetry(context.Background()) })
+		return stopErr
+	}
+	t.Cleanup(func() { require.NoError(t, stop()) })
+
+	ids := map[string]string{}
+	var endLive []func()
+	for _, id := range []string{"child", "sibling"} {
+		ctx := engine.ContextWithClientMetadata(t.Context(), sess.clientRuntimes[id].clientMetadata)
+		ctx = telemetry.WithLoggerProvider(ctx, sess.loggerProvider)
+		_, span := sess.tracerProvider.Tracer("barrier-test").Start(ctx, id)
+		ids[id] = span.SpanContext().SpanID().String()
+		endLive = append(endLive, func() { span.End() })
+		var rec otellog.Record
+		rec.SetTimestamp(time.Now())
+		rec.SetBody(otellog.StringValue(id))
+		telemetry.Logger(ctx, "barrier-test").Emit(ctx, rec)
+	}
+	// Calling from one sibling must retain the OTHER sibling's visibility too.
+	callCtx := engine.ContextWithClientMetadata(t.Context(), sess.clientRuntimes["child"].clientMetadata)
+	require.NoError(t, srv.FlushSessionTraceLogs(callCtx))
+	for _, verify := range verifyMetrics {
+		verify(0, nil)
+	}
+	for _, id := range []string{"root", "child", "sibling"} {
+		db, err := dbs.Open(t.Context(), id)
+		require.NoError(t, err)
+		spans, err := db.Read().SelectSpansSince(t.Context(), clientdb.SelectSpansSinceParams{Limit: 100})
+		require.NoError(t, err)
+		logs, err := db.Read().SelectLogsSince(t.Context(), clientdb.SelectLogsSinceParams{Limit: 100})
+		require.NoError(t, err)
+		require.NoError(t, db.Close())
+		seen := map[string]bool{}
+		for _, span := range spans {
+			seen[span.SpanID] = true
+		}
+		if id == "root" {
+			require.True(t, seen[ids["child"]])
+			require.True(t, seen[ids["sibling"]])
+			require.Len(t, logs, 2)
+		} else {
+			require.True(t, seen[ids[id]])
+			other := "child"
+			if id == "child" {
+				other = "sibling"
+			}
+			require.False(t, seen[ids[other]], "barrier must not change origin routing")
+			require.Len(t, logs, 1)
+		}
+	}
+	// Live start snapshots were visible before End. End updates and stdio EOF
+	// remain accepted and are made visible by the same session-wide barrier.
+	for _, end := range endLive {
+		end()
+	}
+	stdioCtx := telemetry.WithLoggerProvider(callCtx, sess.loggerProvider)
+	stdio := telemetry.SpanStdio(stdioCtx, "barrier-test")
+	require.NoError(t, stdio.Close())
+	require.NoError(t, srv.FlushSessionTraceLogs(callCtx))
+	rootDB, err := dbs.Open(t.Context(), "root")
+	require.NoError(t, err)
+	updated, err := rootDB.Read().SelectSpansSince(t.Context(), clientdb.SelectSpansSinceParams{Limit: 100})
+	require.NoError(t, err)
+	finalLogs, err := rootDB.Read().SelectLogsSince(t.Context(), clientdb.SelectLogsSinceParams{Limit: 100})
+	require.NoError(t, err)
+	require.NoError(t, rootDB.Close())
+	ended := map[string]bool{}
+	for _, span := range updated {
+		if span.EndTime.Valid {
+			ended[span.SpanID] = true
+		}
+	}
+	require.True(t, ended[ids["child"]])
+	require.True(t, ended[ids["sibling"]])
+	require.Len(t, finalLogs, 4, "both stdio EOF records must be delivered")
+	for _, verify := range verifyMetrics {
+		verify(0, nil)
+	}
+	// The existing API retains full collection semantics, including both readers.
+	require.NoError(t, srv.FlushSessionTelemetry(callCtx))
+	for _, verify := range verifyMetrics {
+		verify(2, []int64{41})
+	}
+	for _, set := range setFinal {
+		set()
+	}
+	require.NoError(t, stop())
+	for _, verify := range verifyMetrics {
+		verify(4, []int64{41, 42})
+	}
+}
+
+type barrierSpanProcessor struct{ flush func(context.Context) error }
+
+func (*barrierSpanProcessor) OnStart(context.Context, sdktrace.ReadWriteSpan) {}
+func (*barrierSpanProcessor) OnEnd(sdktrace.ReadOnlySpan)                     {}
+func (*barrierSpanProcessor) Shutdown(context.Context) error                  { return nil }
+func (p *barrierSpanProcessor) ForceFlush(ctx context.Context) error          { return p.flush(ctx) }
+
+type barrierLogProcessor struct{ flush func(context.Context) error }
+
+func (*barrierLogProcessor) Enabled(context.Context, sdklog.EnabledParameters) bool { return true }
+func (*barrierLogProcessor) OnEmit(context.Context, *sdklog.Record) error           { return nil }
+func (*barrierLogProcessor) Shutdown(context.Context) error                         { return nil }
+func (p *barrierLogProcessor) ForceFlush(ctx context.Context) error                 { return p.flush(ctx) }
+
+func TestSessionTraceLogBarrierRetainsOrderAndErrors(t *testing.T) {
+	t.Parallel()
+	traceErr, logErr := errors.New("trace failed"), errors.New("log failed")
+	var sequence []string
+	sess := &daggerSession{
+		tracerProvider: sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(&barrierSpanProcessor{flush: func(context.Context) error {
+			sequence = append(sequence, "trace")
+			return traceErr
+		}})),
+		loggerProvider: sdklog.NewLoggerProvider(sdklog.WithProcessor(&barrierLogProcessor{flush: func(context.Context) error {
+			sequence = append(sequence, "log")
+			return logErr
+		}})),
+	}
+	t.Cleanup(func() {
+		_ = sess.tracerProvider.Shutdown(context.Background())
+		_ = sess.loggerProvider.Shutdown(context.Background())
+	})
+	err := sess.FlushTraceLogs(t.Context(), "test")
+	require.ErrorIs(t, err, traceErr)
+	require.ErrorIs(t, err, logErr)
+	require.Equal(t, []string{"trace", "log"}, sequence, "a trace error must not skip log visibility")
+}
+
+func TestSessionTraceLogBarrierCancellation(t *testing.T) {
+	t.Parallel()
+	for _, phase := range []string{"trace", "log"} {
+		t.Run(phase, func(t *testing.T) {
+			entered := make(chan struct{})
+			blocked := func(ctx context.Context) error { close(entered); <-ctx.Done(); return ctx.Err() }
+			noop := func(context.Context) error { return nil }
+			traceFlush, logFlush := noop, noop
+			if phase == "trace" {
+				traceFlush = blocked
+			} else {
+				logFlush = blocked
+			}
+			sess := &daggerSession{
+				tracerProvider: sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(&barrierSpanProcessor{flush: traceFlush})),
+				loggerProvider: sdklog.NewLoggerProvider(sdklog.WithProcessor(&barrierLogProcessor{flush: logFlush})),
+			}
+			t.Cleanup(func() {
+				_ = sess.tracerProvider.Shutdown(context.Background())
+				_ = sess.loggerProvider.Shutdown(context.Background())
+			})
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			done := make(chan error, 1)
+			go func() { done <- sess.FlushTraceLogs(ctx, "test") }()
+			<-entered
+			select {
+			case err := <-done:
+				t.Fatalf("returned before blocked phase: %v", err)
+			default:
+			}
+			cancel()
+			require.ErrorIs(t, <-done, context.Canceled)
+		})
+	}
+}
+
+func TestSessionTraceLogBarrierDoesNotJoinUnrelatedMetricDrain(t *testing.T) {
+	t.Parallel()
+	entered, release := make(chan struct{}), make(chan struct{})
+	var enteredOnce, releaseOnce sync.Once
+	exporter := &finalCollectionExporter{export: func(ctx context.Context) error {
+		enteredOnce.Do(func() { close(entered) })
+		select {
+		case <-release:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}}
+	client, value, collections := finalCollectionClient(t, exporter)
+	client.clientRecord = &clientRecord{clientID: "unrelated"}
+	value.Store(42)
+	sess := &daggerSession{clientRuntimes: map[string]*clientRuntime{"unrelated": client}}
+	defer releaseOnce.Do(func() { close(release) })
+	shutdown := make(chan error, 1)
+	go func() { shutdown <- client.shutdownMetrics(t.Context()) }()
+	<-entered
+	// The narrow barrier may finish while unrelated metric reclamation remains
+	// blocked; no session/client metric ownership is transferred or discarded.
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	narrow := make(chan error, 1)
+	go func() { narrow <- sess.FlushTraceLogs(ctx, "test") }()
+	select {
+	case err := <-narrow:
+		require.NoError(t, err)
+	case <-ctx.Done():
+		t.Fatal("trace/log barrier waited for metric drain")
+	}
+	full := make(chan error, 1)
+	go func() { full <- sess.FlushTelemetry(t.Context(), "full test") }()
+	select {
+	case err := <-full:
+		t.Fatalf("full flush bypassed metric drain: %v", err)
+	case <-time.After(20 * time.Millisecond):
+	}
+	releaseOnce.Do(func() { close(release) })
+	require.NoError(t, <-shutdown)
+	require.NoError(t, <-full)
+	require.Equal(t, int64(1), collections.Load())
+	values, shutdowns := exporter.snapshot()
+	require.Equal(t, []int64{42}, values)
+	require.Equal(t, 1, shutdowns)
+}
+
+func TestSessionTraceLogBarrierRequiresExistingClient(t *testing.T) {
+	t.Parallel()
+	srv := &Server{}
+	require.Error(t, srv.FlushSessionTraceLogs(t.Context()))
+	ctx := engine.ContextWithClientMetadata(t.Context(), &engine.ClientMetadata{SessionID: "missing", ClientID: "missing"})
+	require.Error(t, srv.FlushSessionTraceLogs(ctx))
+}
+
+type barrierBlockingLogExporter struct {
+	entered chan struct{}
+	release chan struct{}
+	once    sync.Once
+	mu      sync.Mutex
+	bodies  []string
+}
+
+func (e *barrierBlockingLogExporter) Export(ctx context.Context, records []sdklog.Record) error {
+	e.once.Do(func() { close(e.entered) })
+	select {
+	case <-e.release:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	for _, record := range records {
+		e.bodies = append(e.bodies, record.Body().AsString())
+	}
+	return nil
+}
+func (*barrierBlockingLogExporter) ForceFlush(context.Context) error { return nil }
+func (*barrierBlockingLogExporter) Shutdown(context.Context) error   { return nil }
+
+func TestSessionTraceLogBarrierJoinsRealLogExport(t *testing.T) {
+	t.Parallel()
+	exporter := &barrierBlockingLogExporter{entered: make(chan struct{}), release: make(chan struct{})}
+	var releaseOnce sync.Once
+	defer releaseOnce.Do(func() { close(exporter.release) })
+	provider := sdklog.NewLoggerProvider(sdklog.WithProcessor(sdklog.NewBatchProcessor(exporter, sdklog.WithExportInterval(time.Hour))))
+	sess := &daggerSession{loggerProvider: provider}
+	t.Cleanup(func() { require.NoError(t, provider.Shutdown(context.Background())) })
+	var rec otellog.Record
+	rec.SetBody(otellog.StringValue("required-before-return"))
+	provider.Logger("barrier-test").Emit(t.Context(), rec)
+	done := make(chan error, 1)
+	go func() { done <- sess.FlushTraceLogs(t.Context(), "test") }()
+	<-exporter.entered
+	select {
+	case err := <-done:
+		t.Fatalf("barrier returned while its export is blocked: %v", err)
+	default:
+	}
+	releaseOnce.Do(func() { close(exporter.release) })
+	require.NoError(t, <-done)
+	exporter.mu.Lock()
+	defer exporter.mu.Unlock()
+	require.Equal(t, []string{"required-before-return"}, exporter.bodies)
+}

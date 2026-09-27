@@ -1,0 +1,55 @@
+package dangv2
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/vito/dang/v2/pkg/dang"
+)
+
+var metadataBenchmarkNames []string
+
+func BenchmarkDangRegistrationMetadata(b *testing.B) {
+	// Public source copies are fixed before the timed loop. No engine, module
+	// evaluation, global syntax cache or caller-schema reuse is involved.
+	fixtureDir := "/tmp/collections-perf/dang-registration-snapshot-v1/fixtures"
+	for _, file := range []string{"go.dang", "gomod.dang", "collection.dang"} {
+		b.Run(file, func(b *testing.B) {
+			data, err := os.ReadFile(filepath.Join(fixtureDir, file))
+			if err != nil {
+				b.Fatal(err)
+			}
+			dir := b.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, "main.dang"), data, 0600); err != nil {
+				b.Fatal(err)
+			}
+			// Parse before timing to reject broken input; source/page cache warmth is
+			// the same for both algorithms. This is not a cold-engine measurement.
+			if _, err := dang.ParseFile(filepath.Join(dir, "main.dang")); err != nil {
+				b.Fatal(err)
+			}
+			for _, mode := range []string{"baseline", "snapshot"} {
+				b.Run(mode, func(b *testing.B) {
+					env := dang.NewObject(nil)
+					b.ReportAllocs()
+					b.ResetTimer()
+					for b.Loop() {
+						if mode == "baseline" {
+							metadataBenchmarkNames = baselineModuleDeclaredTypeNames(dir, "example")
+							if err := baselineRetainDangObjectDirectives(b.Context(), env, dir); err != nil {
+								b.Fatal(err)
+							}
+						} else {
+							metadata := readDangRegistrationMetadata(dir, func(path string) (any, error) { return dang.ParseFile(path) })
+							metadataBenchmarkNames = metadata.declaredTypeNames("example")
+							if err := metadata.retainObjectDirectives(b.Context(), env); err != nil {
+								b.Fatal(err)
+							}
+						}
+					}
+				})
+			}
+		})
+	}
+}
