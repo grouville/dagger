@@ -130,6 +130,7 @@ go build -o /tmp/rcexp ./hack/rust-cache
 python3 hack/rust-cache/benchmark.py \
   --source hack/rust-cache/replay/testdata/workspace \
   --plan /tmp/rust-plan.json --replay-bin /tmp/rcexp \
+  --dagger-cli /tmp/dagger-rcexp \
   --out /tmp/rust-benchmark --runs 5
 ```
 
@@ -252,6 +253,57 @@ Median artifact-ready time was 262 milliseconds and time after that was
 76 milliseconds within a 506-millisecond command, with no compiler executions.
 These measurements locate remaining work in the surrounding command lifecycle;
 they do not establish edited-build or module-level parity.
+
+### CLI lifecycle follow-up
+
+Cloud export measurements found a 100-millisecond wait for the first trace batch,
+followed by connection setup and requests that could remain on the shutdown path
+of a short command. The CLI now flushes its first live Cloud span asynchronously
+while connecting to the engine. Later batches and final shutdown keep their
+existing policy; the initial flush has the Cloud request timeout. Commands without
+Cloud export are unaffected.
+
+- Nine alternating, uninstrumented diagnostic replays per implementation took
+  511 milliseconds median before and 480 afterward through loopback TCP;
+  through Docker they took 566 and 515 milliseconds. Compiler markers and all
+  11 artifact digests matched on every run.
+- Separate nine-run artifact-only comparisons with the change took
+  477 milliseconds through TCP versus 35 for matched Cargo (442 overhead), and
+  529 through Docker versus 35 for Cargo (495 overhead). Both met the
+  500-millisecond budget for this tiny unchanged fixture. The Docker margin is
+  small, and these separate runs do not measure the improvement by themselves.
+- Seven fresh application edits through Docker took 601 milliseconds median
+  versus 147 for matched Cargo (454 overhead). Each edit changed executable
+  behavior; only the application recompiled, all three libraries were reused,
+  and the replayed executable's output matched Cargo's. Replay ranged from
+  530 to 1,145 milliseconds, so this median does not promise the budget on every
+  edit. Native Cargo kept its default incremental setting; replay disabled it.
+- In nine instrumented before/after pairs, Cloud span requests increased from
+  19 to 22 total; log requests remained 18. Starting earlier can send an extra
+  live update that would otherwise be coalesced. This is the cost of overlapping
+  the first request with command work.
+- Successful and failing commands still delivered their final root status,
+  output, EOF records and execution metrics to a local OTLP receiver. A focused
+  regression and its race run also verify delivery of completed spans when the
+  initial request is blocked and the command context is canceled.
+- Five alternating captures per transport located remaining Docker connection
+  cost: 106 milliseconds median for connection versus 6 through TCP. Initial
+  client creation and session setup each took about 40 milliseconds through
+  Docker versus about 2 through TCP. These are diagnostic phase timings with
+  an additional OTLP exporter, rather than an unprofiled latency comparison.
+- A fresh-edit wcprof capture saw one compiler execution: 133 milliseconds in
+  the compiler process and 38 in container runtime startup. Its 26-query window
+  spanned 253 milliseconds within the 630-millisecond full command. The
+  remaining command time includes connection and telemetry drain; concurrent
+  query and wait totals should not be added to this wall-time breakdown.
+
+This pass used the same `main` source and Rust toolchain as the wcprof follow-up,
+with explicit cache retention on a fresh isolated engine. Keep the CLI pinned
+with `--dagger-cli` or `_EXPERIMENTAL_DAGGER_CLI_BIN` when benchmarking. The helper
+records its version and refuses an unpinned run, avoiding the SDK's download/PATH
+fallback. Runs that selected another CLI or overlapped test compilation were
+excluded. These tiny-fixture results do not establish performance for larger
+edited crates, remote engines or the official Rust module.
 
 Use an isolated engine with its debug endpoint enabled and a matching CLI.
 Warm the workload before capturing it. The helper records the full command's

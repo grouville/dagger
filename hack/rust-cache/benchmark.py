@@ -18,6 +18,8 @@ def main():
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--plan", type=Path, required=True)
     parser.add_argument("--replay-bin", type=Path, required=True)
+    parser.add_argument("--dagger-cli", type=Path, default=os.environ.get("_EXPERIMENTAL_DAGGER_CLI_BIN"),
+                        help="matching CLI binary; defaults to _EXPERIMENTAL_DAGGER_CLI_BIN")
     parser.add_argument("--out", type=Path, required=True, help="benchmark logs and results, outside source")
     parser.add_argument("--runs", type=int, default=5)
     parser.add_argument("--artifacts-only", action="store_true", help="time artifact export; verify compiler reuse separately afterward")
@@ -29,6 +31,8 @@ def main():
         parser.error("--runs must be positive and --budget nonnegative")
     if bool(args.cargo) != bool(args.rustc):
         parser.error("supply both --cargo and --rustc for a native comparison")
+    if args.dagger_cli is None:
+        parser.error("pin the matching CLI with --dagger-cli or _EXPERIMENTAL_DAGGER_CLI_BIN")
     source, plan_path, executable, output = (p.resolve() for p in (args.source, args.plan, args.replay_bin, args.out))
     if output.is_relative_to(source):
         parser.error("--out must be outside --source")
@@ -37,6 +41,12 @@ def main():
     # A benchmark run must not reuse an enclosing SDK's client session.
     for key in ("DAGGER_SESSION_PORT", "DAGGER_SESSION_TOKEN"):
         env.pop(key, None)
+    cli = args.dagger_cli.resolve()
+    env["_EXPERIMENTAL_DAGGER_CLI_BIN"] = str(cli)
+    try:
+        cli_version = subprocess.check_output([str(cli), "version", "--quiet"], text=True, env=env).strip()
+    except (OSError, subprocess.CalledProcessError) as error:
+        parser.error(f"cannot run the pinned CLI: {error}")
     if args.cargo:
         if "environment" not in plan:
             parser.error("recapture the plan to record its Cargo environment before a native comparison")
@@ -115,7 +125,8 @@ def main():
             replay_runs.append(result)
             print(f"replay {index + 1}: {result['wall_seconds']:.3f}s, all compiler operations reused", flush=True)
 
-    summary = {"rustc_version": plan["rustc_version"], "preparation": prepared, "replay_runs": replay_runs,
+    summary = {"dagger_cli": str(cli), "dagger_cli_version": cli_version,
+               "rustc_version": plan["rustc_version"], "preparation": prepared, "replay_runs": replay_runs,
                "replay_median_seconds": statistics.median(r["wall_seconds"] for r in replay_runs),
                "replay_incremental": False, "replay_diagnostics": not args.artifacts_only, "cargo_seconds": cargo_runs}
     if args.cargo:
