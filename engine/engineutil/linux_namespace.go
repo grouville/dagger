@@ -62,15 +62,29 @@ func runInNetNS[T any](
 	var nsPath string
 
 	// need this to extract the namespace file
-	var tmpSpec specs.Spec
+	// Start with a private network namespace, as the OCI base spec does. The
+	// host provider removes it; the none provider leaves it in place.
+	tmpSpec := specs.Spec{Linux: &specs.Linux{
+		Namespaces: []specs.LinuxNamespace{{Type: specs.NetworkNamespace}},
+	}}
 	if state.networkNamespace != nil {
 		if err := state.networkNamespace.Set(&tmpSpec); err != nil {
 			return zero, fmt.Errorf("failed to set network namespace: %w", err)
 		}
+		hasNetNS := false
 		for _, ns := range tmpSpec.Linux.Namespaces {
 			if ns.Type == specs.NetworkNamespace {
+				hasNetNS = true
 				nsPath = ns.Path
 			}
+		}
+		if !hasNetNS {
+			// Host-network setup already runs in the right namespace. Its
+			// telemetry listener is needed before a container PID exists.
+			if err := context.Cause(ctx); err != nil {
+				return zero, err
+			}
+			return fn()
 		}
 	}
 	namespaces := []specs.LinuxNamespace{
