@@ -223,6 +223,16 @@ func Parse(ctx context.Context, refString string) (_ Parsed, rerr error) {
 			}
 			repoRoot = knownRoot
 		}
+	} else if rootPath, ok := explicitGitURLRoot(gitParsed.ModPath, scheme); ok {
+		// A .git segment already defines a clone URL's repository boundary.
+		// Workspace module subpaths must not require unauthenticated import-
+		// path discovery, which also rejects a localhost Git server.
+		rootEndpoint := *endpoint
+		rootEndpoint.Path = strings.TrimPrefix(rootPath, endpoint.Host)
+		repoRoot = explicitGitRepoRoot(rootPath, scheme, &rootEndpoint)
+		if knownRoot, staticErr := vcs.RepoRootForImportPathStatic(rootPath, ""); staticErr == nil {
+			repoRoot = knownRoot
+		}
 	} else {
 		repoRoot, err = vcs.RepoRootForImportPath(gitParsed.ModPath, false)
 		if err != nil {
@@ -283,6 +293,23 @@ func Parse(ctx context.Context, refString string) (_ Parsed, rerr error) {
 	gitParsed.CloneRef = gitParsed.Scheme.Prefix() + cloneUser + repoRootWithPort
 
 	return gitParsed, nil
+}
+
+func explicitGitURLRoot(modPath string, scheme SchemeType) (string, bool) {
+	if scheme != SchemeHTTP && scheme != SchemeHTTPS {
+		return "", false
+	}
+	host, path, hasPath := strings.Cut(modPath, "/")
+	if !hasPath {
+		return "", false
+	}
+	if root, _, ok := strings.Cut(path, ".git/"); ok {
+		return host + "/" + root + ".git", true
+	}
+	if strings.HasSuffix(path, ".git") {
+		return modPath, true
+	}
+	return "", false
 }
 
 func isSCPLike(ref string) bool {

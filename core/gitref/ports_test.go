@@ -20,3 +20,20 @@ func TestExplicitGitURLPreservesTransportPort(t *testing.T) {
 		}
 	}
 }
+
+func TestExplicitGitURLModuleSubpath(t *testing.T) {
+	const revision = "0123456789012345678901234567890123456789"
+	for _, clone := range []string{
+		"http://localhost:8929/team/project.git",
+		"https://git.example.org:8443/team/project.git",
+		"https://git.example.git:8443/team/project.git",
+	} {
+		parsed, err := Parse(context.Background(), clone+"/ci@"+revision)
+		if err != nil {
+			t.Fatalf("Parse(%q): %v", clone, err)
+		}
+		if parsed.CloneRef != clone || parsed.SourceCloneRef != clone || parsed.RepoRootSubdir != "ci" || parsed.ModVersion != revision {
+			t.Fatalf("Parse(%q) lost repository boundary, port, subpath or revision: %+v", clone, parsed)
+		}
+	}
+}
