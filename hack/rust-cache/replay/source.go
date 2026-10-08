@@ -92,26 +92,43 @@ func (s Source) Directory(client *dagger.Client) *dagger.Directory {
 	return dir
 }
 
-func (s Source) Package(client *dagger.Client, root string, packages []model.Package) *dagger.Directory {
-	dir := client.Directory()
-	for _, name := range s.names() {
+// packageSources assigns each file once, rather than scanning the whole workspace
+// and every package root again for each compiler action. Nested packages own
+// their files; a parent package must not depend on a nested package's source.
+func (s Source) packageSources(packages []model.Package) map[string]Source {
+	roots := newPackageRoots(packages)
+	result := make(map[string]Source, len(packages))
+	for name, file := range s {
 		absolute := path.Join(model.SourceRoot, name)
-		if owner(packages, absolute) != root {
+		root := roots.owner(absolute)
+		if root == "" {
 			continue
 		}
-		rel := strings.TrimPrefix(strings.TrimPrefix(absolute, root), "/")
-		file := s[name]
-		dir = dir.WithNewFile(rel, file.Contents, dagger.DirectoryWithNewFileOpts{Permissions: file.Mode})
+		if result[root] == nil {
+			result[root] = Source{}
+		}
+		result[root][strings.TrimPrefix(absolute, root+"/")] = file
 	}
-	return dir
+	return result
 }
 
-func owner(packages []model.Package, filename string) string {
-	var root string
+type packageRoots map[string]struct{}
+
+func newPackageRoots(packages []model.Package) packageRoots {
+	roots := make(packageRoots, len(packages))
 	for _, pkg := range packages {
-		if model.Within(pkg.Root, filename) && len(pkg.Root) > len(root) {
-			root = pkg.Root
+		roots[pkg.Root] = struct{}{}
+	}
+	return roots
+}
+
+func (roots packageRoots) owner(filename string) string {
+	// Walk toward /src so the most deeply nested package wins. This costs
+	// directory depth, independently of the number of packages in the workspace.
+	for candidate := path.Clean(filename); model.Within(model.SourceRoot, candidate); candidate = path.Dir(candidate) {
+		if _, ok := roots[candidate]; ok {
+			return candidate
 		}
 	}
-	return root
+	return ""
 }

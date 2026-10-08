@@ -22,6 +22,7 @@ type Plan struct {
 	RustcVersion    string            `json:"rustc_version"`
 	ConfigDigest    string            `json:"config_digest"`
 	CargoArgs       []string          `json:"cargo_args"`
+	Environment     map[string]string `json:"environment"`
 	Packages        []Package         `json:"packages"`
 	Actions         []Action          `json:"actions"`
 	BaselineDigests map[string]string `json:"baseline_digests"`
@@ -46,6 +47,8 @@ type Action struct {
 	Inputs       []string          `json:"inputs"`
 	Outputs      []string          `json:"outputs"`
 	Dependencies []string          `json:"dependencies"`
+	// Diagnostic only; replay identities use compiler arguments and inputs.
+	CompilerSeconds float64 `json:"compiler_seconds,omitempty"`
 }
 
 // Option accepts both --name value and --name=value, as emitted by Cargo.

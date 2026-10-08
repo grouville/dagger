@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"dagger.io/dagger"
 	"github.com/dagger/dagger/hack/rust-cache/model"
@@ -38,6 +39,7 @@ func main() {
 }
 
 func run(ctx context.Context, args []string) error {
+	started := time.Now()
 	if len(args) == 0 {
 		return errors.New("usage: rcexp capture --source DIR --plan FILE [-- CARGO_BUILD_ARGS] | replay --source DIR --plan FILE --out DIR")
 	}
@@ -74,15 +76,19 @@ func run(ctx context.Context, args []string) error {
 			return err
 		}
 	}
+	phase := time.Now()
 	source, err := replay.ReadSource(*sourcePath)
 	if err != nil {
 		return err
 	}
+	timings := &replay.DriverTimings{SourceSeconds: time.Since(phase).Seconds()}
+	phase = time.Now()
 	client, err := dagger.Connect(ctx, dagger.WithLogOutput(os.Stderr), dagger.WithVersionOverride(version.Version(version.WithV())))
 	if err != nil {
 		return err
 	}
 	defer client.Close()
+	timings.ConnectSeconds = time.Since(phase).Seconds()
 	switch args[0] {
 	case "capture":
 		wrapper, cleanup, err := buildWrapper(ctx)
@@ -106,17 +112,23 @@ func run(ctx context.Context, args []string) error {
 		if err := readJSON(*planPath, &plan); err != nil {
 			return err
 		}
+		phase = time.Now()
 		graph, err := replay.Build(client, &plan, source)
 		if err != nil {
 			return err
 		}
+		timings.GraphSeconds = time.Since(phase).Seconds()
 		report, err := graph.Evaluate(ctx, *concurrency)
 		if err != nil {
 			return err
 		}
+		phase = time.Now()
 		if _, err := graph.Artifacts.Export(ctx, *outPath); err != nil {
 			return err
 		}
+		timings.ExportSeconds = time.Since(phase).Seconds()
+		timings.ReadySeconds = time.Since(started).Seconds()
+		report.Driver = timings
 		if *reportPath == "" {
 			*reportPath = *outPath + ".report.json"
 		}
@@ -124,6 +136,7 @@ func run(ctx context.Context, args []string) error {
 			return err
 		}
 		fmt.Fprintf(os.Stderr, "replayed %d compiler actions in %.3fs; capture time: %.3fs (excluded)\n", len(report.Actions), report.ReplaySeconds, plan.CaptureSeconds)
+		fmt.Fprintf(os.Stderr, "source %.3fs; connect %.3fs; graph %.3fs; export %.3fs; artifacts ready %.3fs (shutdown excluded)\n", timings.SourceSeconds, timings.ConnectSeconds, timings.GraphSeconds, timings.ExportSeconds, timings.ReadySeconds)
 		if *previousPath != "" {
 			var previous replay.Report
 			if err := readJSON(*previousPath, &previous); err != nil {

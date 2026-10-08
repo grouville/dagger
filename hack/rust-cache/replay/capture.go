@@ -79,7 +79,7 @@ func Capture(ctx context.Context, client *dagger.Client, source Source, opts Cap
 	if err != nil {
 		return nil, fmt.Errorf("Cargo capture failed: %w", err)
 	}
-	plan := &model.Plan{Version: model.Version, Image: image, RustcVersion: rustcVersion, ConfigDigest: source.ConfigDigest(), CargoArgs: opts.CargoArgs, Packages: packages, BaselineDigests: map[string]string{}}
+	plan := &model.Plan{Version: model.Version, Image: image, RustcVersion: rustcVersion, ConfigDigest: source.ConfigDigest(), CargoArgs: opts.CargoArgs, Environment: opts.Environment, Packages: packages, BaselineDigests: map[string]string{}}
 	for _, name := range names {
 		if !strings.HasSuffix(name, ".json") {
 			continue

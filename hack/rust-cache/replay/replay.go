@@ -15,7 +15,9 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const stampPath = "/rcexp-execution"
+// Keep diagnostics in a small directory. Engines without the contenthash file
+// fast path walk a file's parent; a marker at / scans the entire toolchain image.
+const stampPath = "/rcexp-meta/execution"
 
 type Operation struct {
 	Action    model.Action
@@ -30,15 +32,29 @@ type Graph struct {
 }
 
 type ActionReport struct {
-	ID        string            `json:"id"`
-	Crate     string            `json:"crate"`
-	Execution string            `json:"execution"`
-	Digests   map[string]string `json:"digests"`
+	ID            string            `json:"id"`
+	Crate         string            `json:"crate"`
+	Execution     string            `json:"execution"`
+	Digests       map[string]string `json:"digests"`
+	DemandSeconds float64           `json:"demand_seconds"`
+	DigestSeconds float64           `json:"digest_seconds"`
 }
 
 type Report struct {
 	ReplaySeconds float64        `json:"replay_seconds"`
 	Actions       []ActionReport `json:"actions"`
+	Driver        *DriverTimings `json:"driver,omitempty"`
+}
+
+// DriverTimings separates CLI setup and output transfer from graph evaluation.
+// ReadySeconds ends when artifact export completes; process shutdown is measured
+// externally when benchmarking the full user command.
+type DriverTimings struct {
+	SourceSeconds  float64 `json:"source_seconds"`
+	ConnectSeconds float64 `json:"connect_seconds"`
+	GraphSeconds   float64 `json:"graph_seconds"`
+	ExportSeconds  float64 `json:"export_seconds"`
+	ReadySeconds   float64 `json:"ready_seconds"`
 }
 
 // Build creates only recipes. The caller chooses when and on which engine to demand them.
@@ -54,8 +70,13 @@ func Build(client *dagger.Client, plan *model.Plan, source Source) (*Graph, erro
 	graph := &Graph{Artifacts: client.Directory()}
 	byID := map[string]Operation{}
 	artifacts := map[string][]*dagger.File{}
+	packageSources := source.packageSources(plan.Packages)
+	packageDirs := map[string]*dagger.Directory{}
 	for _, a := range actions {
-		ctr := base.WithMountedDirectory(a.PackageRoot, source.Package(client, a.PackageRoot, plan.Packages)).WithWorkdir(a.Cwd)
+		if packageDirs[a.PackageRoot] == nil {
+			packageDirs[a.PackageRoot] = packageSources[a.PackageRoot].Directory(client)
+		}
+		ctr := base.WithMountedDirectory(a.PackageRoot, packageDirs[a.PackageRoot]).WithWorkdir(a.Cwd)
 		// rustc discovers indirect dependencies through -L as well as --extern.
 		closure := map[string]bool{}
 		var collect func(string)
@@ -92,7 +113,7 @@ func Build(client *dagger.Client, plan *model.Plan, source Source) (*Graph, erro
 			ctr = ctr.WithoutEnvVariable(key)
 		}
 		// The nonce is an output, never an argument or a dependency input.
-		cmd := []string{"sh", "-ec", "mkdir -p \"$1\"; shift; cat /proc/sys/kernel/random/uuid > " + stampPath + "; exec \"$@\"", "rcexp", model.Option(a.Args, "--out-dir"), a.Compiler}
+		cmd := []string{"sh", "-ec", "mkdir -p \"$1\" " + path.Dir(stampPath) + "; shift; cat /proc/sys/kernel/random/uuid > " + stampPath + "; exec \"$@\"", "rcexp", model.Option(a.Args, "--out-dir"), a.Compiler}
 		cmd = append(cmd, a.Args...)
 		ctr = ctr.WithExec(cmd, noNesting())
 		op := Operation{Action: a, Container: ctr, Files: map[string]*dagger.File{}, Stamp: ctr.File(stampPath)}
@@ -144,11 +165,14 @@ func (g *Graph) Evaluate(ctx context.Context, concurrency int) (*Report, error) 
 				return ctx.Err()
 			}
 			defer func() { <-semaphore }()
+			started := time.Now()
 			marker, err := op.Stamp.Contents(ctx)
 			if err != nil {
 				return fmt.Errorf("compile %s: %w", op.Action.ID, err)
 			}
 			entry := ActionReport{ID: op.Action.ID, Crate: op.Action.Crate, Execution: strings.TrimSpace(marker), Digests: map[string]string{}}
+			entry.DemandSeconds = time.Since(started).Seconds()
+			started = time.Now()
 			for _, filename := range sortedKeys(op.Files) {
 				digest, err := op.Files[filename].Digest(ctx)
 				if err != nil {
@@ -156,6 +180,7 @@ func (g *Graph) Evaluate(ctx context.Context, concurrency int) (*Report, error) 
 				}
 				entry.Digests[filename] = digest
 			}
+			entry.DigestSeconds = time.Since(started).Seconds()
 			mutex.Lock()
 			report.Actions[i] = entry
 			mutex.Unlock()

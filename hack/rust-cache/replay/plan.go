@@ -64,12 +64,13 @@ func Validate(plan *model.Plan, source Source) error {
 	}
 	producers := map[string]string{}
 	ids := map[string]bool{}
+	roots := newPackageRoots(plan.Packages)
 	for _, a := range plan.Actions {
 		if a.ID == "" || ids[a.ID] {
 			return fmt.Errorf("duplicate or empty action ID %q", a.ID)
 		}
 		ids[a.ID] = true
-		if !model.Within(model.SourceRoot, a.Cwd) || owner(plan.Packages, a.PackageRoot) != a.PackageRoot {
+		if !model.Within(model.SourceRoot, a.Cwd) || roots.owner(a.PackageRoot) != a.PackageRoot {
 			return fmt.Errorf("action %s has an unknown package or working directory", a.ID)
 		}
 		if !path.IsAbs(a.Compiler) || model.Within(model.SourceRoot, a.Compiler) || model.Within(model.TargetRoot, a.Compiler) {
@@ -90,7 +91,7 @@ func Validate(plan *model.Plan, source Source) error {
 			return fmt.Errorf("action %s has no source inputs or outputs", a.ID)
 		}
 		for _, filename := range a.Inputs {
-			if owner(plan.Packages, filename) != a.PackageRoot {
+			if roots.owner(filename) != a.PackageRoot {
 				return fmt.Errorf("unsupported source input %s outside package %s", filename, a.PackageRoot)
 			}
 		}

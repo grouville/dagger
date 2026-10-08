@@ -16,6 +16,7 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/dagger/dagger/hack/rust-cache/model"
 )
@@ -46,9 +47,11 @@ func run(compiler string, args []string) error {
 	cmd.Stdin, cmd.Stdout = os.Stdin, os.Stdout
 	var stderr bytes.Buffer
 	cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
+	started := time.Now()
 	if err := cmd.Run(); err != nil {
 		return err
 	}
+	compilerSeconds := time.Since(started).Seconds()
 	if !record {
 		return nil
 	}
@@ -56,7 +59,7 @@ func run(compiler string, args []string) error {
 	if err != nil {
 		return err
 	}
-	a := model.Action{Crate: crate, Compiler: compiler, Args: args, Cwd: cwd, PackageRoot: os.Getenv("CARGO_MANIFEST_DIR")}
+	a := model.Action{Crate: crate, Compiler: compiler, Args: args, Cwd: cwd, PackageRoot: os.Getenv("CARGO_MANIFEST_DIR"), CompilerSeconds: compilerSeconds}
 	a.Outputs, err = artifacts(stderr.Bytes(), cwd)
 	if err != nil {
 		return err
