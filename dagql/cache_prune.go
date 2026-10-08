@@ -1304,7 +1304,12 @@ func pruneTargetBytes(policy CachePrunePolicy, usedBytes int64) (int64, bool) {
 	}
 	if policy.MinFreeSpace > 0 && policy.CurrentFreeSpace < policy.MinFreeSpace {
 		thresholdTriggered = true
-		target = max(target, policy.MinFreeSpace-policy.CurrentFreeSpace)
+		freeSpaceTarget := policy.MinFreeSpace - policy.CurrentFreeSpace
+		if policy.ReservedSpace > 0 {
+			// Disk pressure must not request reclaiming the reserved cache.
+			freeSpaceTarget = min(freeSpaceTarget, max(usedBytes-policy.ReservedSpace, 0))
+		}
+		target = max(target, freeSpaceTarget)
 	}
 	if hasKeepTarget && usedBytes > keepTargetBytes {
 		target = max(target, usedBytes-keepTargetBytes)

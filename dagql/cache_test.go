@@ -6563,6 +6563,60 @@ func TestCachePruneMinFreeSpaceUsesCurrentFreeSpace(t *testing.T) {
 	assert.Equal(t, int64(0), target)
 }
 
+func TestCachePruneMinFreeSpaceRespectsReservedSpace(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name     string
+		used     int64
+		reserved int64
+		target   int64
+	}{
+		{name: "below reserve", used: 100, reserved: 150, target: 0},
+		{name: "at reserve", used: 150, reserved: 150, target: 0},
+		{name: "above reserve", used: 200, reserved: 150, target: 50},
+		{name: "free space goal fits", used: 400, reserved: 150, target: 150},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			target, triggered := pruneTargetBytes(CachePrunePolicy{
+				ReservedSpace:    tc.reserved,
+				MinFreeSpace:     200,
+				CurrentFreeSpace: 50,
+			}, tc.used)
+			assert.Assert(t, triggered)
+			assert.Equal(t, tc.target, target)
+		})
+	}
+}
+
+func TestCachePruneDiskPressureKeepsCacheBelowReserve(t *testing.T) {
+	t.Parallel()
+
+	ctx := cacheTestContext(t.Context())
+	c, err := NewCache(ctx, "", nil, nil)
+	assert.NilError(t, err)
+	key := cacheTestIntCall("prune-disk-pressure-below-reserve")
+	_, err = c.GetOrInitCall(ctx, "test-session", noopTypeResolver{}, &CallRequest{
+		ResultCall:    key,
+		IsPersistable: true,
+	}, func(context.Context) (AnyResult, error) {
+		return cacheTestSizedIntResult(key, 1, 100, "snapshot://prune-below-reserve", nil), nil
+	})
+	assert.NilError(t, err)
+	cacheTestReleaseSession(t, c, ctx)
+
+	report, err := c.Prune(ctx, []CachePrunePolicy{{
+		All:              true,
+		ReservedSpace:    150,
+		MinFreeSpace:     200,
+		CurrentFreeSpace: 50,
+	}})
+	assert.NilError(t, err)
+	assert.Equal(t, 0, len(report.Entries))
+	assert.Equal(t, int64(0), report.ReclaimedBytes)
+	assert.Equal(t, 1, len(c.UsageEntriesAll(ctx)))
+}
+
 func TestCachePruneSessionOwnedEntriesAreNeverPruned(t *testing.T) {
 	t.Parallel()
 
