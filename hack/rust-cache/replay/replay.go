@@ -27,8 +27,16 @@ type Operation struct {
 }
 
 type Graph struct {
-	Operations []Operation
-	Artifacts  *dagger.Directory
+	Operations  []Operation
+	Artifacts   *dagger.Directory
+	Incremental *dagger.Directory
+}
+
+// BuildOptions exposes an explicit, single-crate incremental experiment. The
+// seed remains an ordinary cache-key input; this does not implement cache hints.
+type BuildOptions struct {
+	IncrementalCrate string
+	IncrementalSeed  *dagger.Directory
 }
 
 type ActionReport struct {
@@ -50,17 +58,30 @@ type Report struct {
 // ReadySeconds ends when artifact export completes; process shutdown is measured
 // externally when benchmarking the full user command.
 type DriverTimings struct {
-	SourceSeconds  float64 `json:"source_seconds"`
-	ConnectSeconds float64 `json:"connect_seconds"`
-	GraphSeconds   float64 `json:"graph_seconds"`
-	ExportSeconds  float64 `json:"export_seconds"`
-	ReadySeconds   float64 `json:"ready_seconds"`
+	SourceSeconds      float64 `json:"source_seconds"`
+	ConnectSeconds     float64 `json:"connect_seconds"`
+	GraphSeconds       float64 `json:"graph_seconds"`
+	ExportSeconds      float64 `json:"export_seconds"`
+	IncrementalSeconds float64 `json:"incremental_seconds,omitempty"`
+	ReadySeconds       float64 `json:"ready_seconds"`
 }
 
 // Build creates only recipes. The caller chooses when and on which engine to demand them.
 func Build(client *dagger.Client, plan *model.Plan, source Source) (*Graph, error) {
+	return BuildWithOptions(client, plan, source, BuildOptions{})
+}
+
+func BuildWithOptions(client *dagger.Client, plan *model.Plan, source Source, opts BuildOptions) (*Graph, error) {
 	if err := Validate(plan, source); err != nil {
 		return nil, err
+	}
+	if opts.IncrementalSeed != nil && opts.IncrementalCrate == "" {
+		return nil, fmt.Errorf("incremental seed requires a crate")
+	}
+	if opts.IncrementalCrate != "" {
+		if _, err := SeedCompatibility(plan, opts.IncrementalCrate); err != nil {
+			return nil, err
+		}
 	}
 	actions, err := ordered(plan.Actions)
 	if err != nil {
@@ -109,7 +130,21 @@ func Build(client *dagger.Client, plan *model.Plan, source Source) (*Graph, erro
 		// The nonce is an output, never an argument or a dependency input.
 		cmd := []string{"sh", "-ec", "mkdir -p \"$1\" " + path.Dir(stampPath) + "; shift; cat /proc/sys/kernel/random/uuid > " + stampPath + "; exec \"$@\"", "rcexp", model.Option(a.Args, "--out-dir"), a.Compiler}
 		cmd = append(cmd, a.Args...)
+		if a.Crate == opts.IncrementalCrate {
+			seed := opts.IncrementalSeed
+			if seed == nil {
+				seed = client.Directory()
+			}
+			ctr = ctr.WithMountedDirectory(incrementalPath, seed)
+			cmd = append(cmd, "-C", "incremental="+incrementalPath)
+		}
 		ctr = ctr.WithExec(compilerEnvironment(a, cmd), noNesting())
+		if a.Crate == opts.IncrementalCrate {
+			// Retain a standalone native Directory result. Container.directory
+			// is a transient projection whose runtime handle can disappear when
+			// the session closes; withDirectory is a persistable operation.
+			graph.Incremental = client.Directory().WithDirectory(".", ctr.Directory(incrementalPath))
+		}
 		op := Operation{Action: a, Container: ctr, Files: map[string]*dagger.File{}, Stamp: ctr.File(stampPath)}
 		for _, filename := range a.Outputs {
 			file := ctr.File(filename)

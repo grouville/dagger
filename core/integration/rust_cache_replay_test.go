@@ -192,12 +192,49 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 	flagsGraph, flagsReport := evaluate(a, flagsPlan, source)
 	require.Zero(t, flagsReport.Reused(cold))
 	require.Equal(t, "31 default\n", runBinary(a, flagsGraph, flagsPlan.Image))
+	// Preserve rustc's within-crate state as a native Directory. Seeding an
+	// edited build must leave the old snapshot immutable and unrelated crate
+	// results reusable. The experiment only enables incremental for the app.
+	incGraph, err := replay.BuildWithOptions(a, plan, source, replay.BuildOptions{IncrementalCrate: "app"})
+	require.NoError(t, err)
+	incCold, err := incGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	stateEntries, err := incGraph.Incremental.Entries(ctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, stateEntries)
+	stateDigest, err := incGraph.Incremental.Digest(ctx)
+	require.NoError(t, err)
+	incEditGraph, err := replay.BuildWithOptions(a, plan, appEdit, replay.BuildOptions{IncrementalCrate: "app", IncrementalSeed: incGraph.Incremental})
+	require.NoError(t, err)
+	incEdit, err := incEditGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.Equal(t, 3, incEdit.Reused(incCold))
+	require.Equal(t, "32 default\n", runBinary(a, incEditGraph, plan.Image))
+	incDepGraph, err := replay.BuildWithOptions(a, plan, baseEdit, replay.BuildOptions{IncrementalCrate: "app", IncrementalSeed: incGraph.Incremental})
+	require.NoError(t, err)
+	incDep, err := incDepGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.Equal(t, 1, incDep.Reused(incCold), "only the unrelated right crate remains reusable")
+	require.Equal(t, "32 default\n", runBinary(a, incDepGraph, plan.Image))
+	afterSeedDigest, err := incGraph.Incremental.Digest(ctx)
+	require.NoError(t, err)
+	require.Equal(t, stateDigest, afterSeedDigest, "seed snapshot must remain immutable")
 	var ids []string
-	for _, op := range graph.Operations {
+	seen := map[string]bool{}
+	for _, op := range append(append([]replay.Operation{}, graph.Operations...), incGraph.Operations...) {
 		id, err := op.Container.ID(ctx)
 		require.NoError(t, err)
+		if seen[string(id)] {
+			continue
+		}
+		seen[string(id)] = true
 		ids = append(ids, string(id))
 	}
+	// Compiler root filesystem outputs do not implicitly export every mount.
+	// Treat retained incremental state as a separate native cache output root.
+	stateID, err := incGraph.Incremental.ID(ctx)
+	require.NoError(t, err)
+	ids = append(ids, string(stateID))
 	var exported []transferFixtureMapping
 	require.NoError(t, transferFixtureSelected(ctx, a, "rust.json", ids, ids, &exported))
 	_, err = outer.Container().From(alpineImage).WithMountedCache("/source", aVolume).WithMountedCache("/destination", bVolume).
@@ -212,6 +249,20 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 		require.Equal(t, action.Digests, remote.Actions[i].Digests, action.Crate)
 	}
 	require.Equal(t, "31 default\n", runBinary(b, remoteGraph, plan.Image))
+	remoteIncGraph, err := replay.BuildWithOptions(b, plan, source, replay.BuildOptions{IncrementalCrate: "app"})
+	require.NoError(t, err)
+	remoteInc, err := remoteIncGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.Equal(t, 4, remoteInc.Reused(incCold), "native incremental compiler outputs must transfer without exec metadata")
+	remoteStateDigest, err := remoteIncGraph.Incremental.Digest(ctx)
+	require.NoError(t, err)
+	require.Equal(t, stateDigest, remoteStateDigest)
+	remoteEditGraph, err := replay.BuildWithOptions(b, plan, appEdit, replay.BuildOptions{IncrementalCrate: "app", IncrementalSeed: remoteIncGraph.Incremental})
+	require.NoError(t, err)
+	remoteEdit, err := remoteEditGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.Equal(t, 3, remoteEdit.Reused(remoteInc))
+	require.Equal(t, "32 default\n", runBinary(b, remoteEditGraph, plan.Image))
 	t.Logf("capture %.3fs; cold %.3fs; warm %.3fs; app edit %.3fs; dependency edit %.3fs; second engine %.3fs", plan.CaptureSeconds, cold.ReplaySeconds, warm.ReplaySeconds, appReport.ReplaySeconds, baseReport.ReplaySeconds, remote.ReplaySeconds)
 }
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare unchanged and edited multi-file crates with Cargo's incremental control."""
+"""Compare fresh crate edits with Cargo and optional native incremental snapshots."""
 
 import argparse
 import hashlib
@@ -41,6 +41,38 @@ def generate(source, modules, functions, codegen_units):
     main += [f"    total = total.wrapping_add(part_{module:04d}::compute(seed));" for module in range(modules)]
     main += ['    println!("{} {} {}", total, part_0000::EDIT, right::label());', "}"]
     (source / "app/src/main.rs").write_text("\n".join(main) + "\n")
+    return [("edited", source / "app/src/part_0000.rs", {"app"}, 1)]
+
+
+def generate_workspace(source, crates, shape, codegen_units):
+    """Separate one-crate invalidation from shared-dependency invalidation."""
+    source.mkdir()
+    names = [f"leaf_{index:04d}" for index in range(crates)]
+    members = ["shared", *names, "app"]
+    (source / "Cargo.toml").write_text(
+        "[workspace]\nmembers = " + json.dumps(members) +
+        f'\nresolver = "2"\n\n[profile.dev]\ncodegen-units = {codegen_units}\n')
+
+    def package(name, dependencies, code, binary=False):
+        root = source / name
+        (root / "src").mkdir(parents=True)
+        manifest = f'[package]\nname = "{name}"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\n'
+        manifest += "".join(f'{dep} = {{ path = "../{dep}" }}\n' for dep in dependencies)
+        (root / "Cargo.toml").write_text(manifest)
+        (root / "src" / ("main.rs" if binary else "lib.rs")).write_text(code)
+
+    package("shared", [], "pub const EDIT: u64 = 0;\npub fn value() -> u64 { EDIT }\n")
+    for index, name in enumerate(names):
+        dependency = names[index - 1] if shape == "chain" and index else "shared"
+        package(name, [dependency], "pub const EDIT: u64 = 0;\n" +
+                f"pub fn value() -> u64 {{ {dependency}::value().wrapping_add({index + 1}).wrapping_add(EDIT) }}\n")
+    leaves = names[-1:] if shape == "chain" else names
+    edited_leaf = leaves[-1]
+    expression = "0u64" + "".join(f".wrapping_add({name}::value())" for name in leaves)
+    package("app", ["shared", *leaves],
+            f'fn main() {{ println!("{{}} {{}} {{}}", {expression}, {edited_leaf}::EDIT, shared::EDIT); }}\n', binary=True)
+    return [("leaf_edited", source / edited_leaf / "src/lib.rs", {edited_leaf, "app"}, 1),
+            ("shared_edited", source / "shared/src/lib.rs", set(members), 2)]
 
 
 def main():
@@ -54,15 +86,23 @@ def main():
     parser.add_argument("--modules", type=int, default=128)
     parser.add_argument("--functions", type=int, default=8)
     parser.add_argument("--codegen-units", type=int, default=16, help="same codegen unit count for all three builds")
+    parser.add_argument("--incremental", action="store_true", help="also measure explicit native incremental seeds for the application")
+    parser.add_argument("--crates", type=int, default=0, help="generate this many library crates instead of one large application")
+    parser.add_argument("--shape", choices=("fanout", "chain"), default="fanout")
     args = parser.parse_args()
     if min(args.runs, args.modules, args.functions, args.codegen_units) < 1:
         parser.error("--runs, --modules, --functions and --codegen-units must be positive")
+    if args.crates < 0:
+        parser.error("--crates must be nonnegative")
     output = args.out.resolve()
     if output.is_relative_to(Path.cwd().resolve()):
         parser.error("keep generated workspaces and results outside the checkout")
     output.mkdir(parents=True, exist_ok=False)
     source = output / "source"
-    generate(source, args.modules, args.functions, args.codegen_units)
+    if args.crates:
+        scenarios = generate_workspace(source, args.crates, args.shape, args.codegen_units)
+    else:
+        scenarios = generate(source, args.modules, args.functions, args.codegen_units)
     env = dict(os.environ, _EXPERIMENTAL_DAGGER_CLI_BIN=str(args.dagger_cli.resolve()))
     for key in ("DAGGER_SESSION_PORT", "DAGGER_SESSION_TOKEN"):
         env.pop(key, None)
@@ -81,6 +121,8 @@ def main():
 
     executable = str(args.replay_bin.resolve())
     plan_path = output / "plan.json"
+    if args.crates:
+        run([str(cargo), "generate-lockfile", "--offline"], "lockfile", dict(env, RUSTC=str(compiler)), source)
     run([executable, "capture", "--source", str(source), "--plan", str(plan_path)], "capture")
     plan = json.loads(plan_path.read_text())
     if compiler_version != plan["rustc_version"].strip():
@@ -88,9 +130,9 @@ def main():
     env.update(plan["environment"] or {})
     replay = [executable, "replay", "--source", str(source), "--plan", str(plan_path)]
 
-    def diagnose(label):
+    def diagnose(label, extra=()):
         report = output / (label + ".json")
-        run([*replay, "--out", str(output / (label + "-artifacts")), "--report", str(report)], label)
+        run([*replay, *extra, "--out", str(output / (label + "-artifacts")), "--report", str(report)], label)
         return {a["id"]: a for a in json.loads(report.read_text())["actions"]}
 
     def tree(directory):
@@ -109,64 +151,92 @@ def main():
     captured = {path: digest for action in previous.values() for path, digest in action["digests"].items()}
     if captured != plan["baseline_digests"]:
         raise RuntimeError("initial replay differs from captured Cargo artifacts")
-    expected_tree = tree(output / "prepare-artifacts")
-    edits = source / "app/src/part_0000.rs"
-    original = edits.read_text()
+    def verify(observed, previous, expected, directory, verified):
+        if observed.keys() != previous.keys():
+            raise RuntimeError("compiler action set changed")
+        changed = []
+        for action_id, action in observed.items():
+            old = previous[action_id]
+            if action["execution"] != old["execution"]:
+                changed.append(action["crate"])
+            elif action["digests"] != old["digests"]:
+                raise RuntimeError("reused operation changed artifact contents")
+        if set(changed) != expected:
+            raise RuntimeError(f"unexpected compiler executions: {changed}, expected {sorted(expected)}")
+        if tree(directory) != tree(verified):
+            raise RuntimeError("measured export differs from verified artifacts")
+        return changed
+
+    state = output / "prepare-state.json"
+    previous_seeded = None
+    if args.incremental:
+        previous_seeded = diagnose("prepare-seeded", ["--incremental-crate", "app", "--state", str(state)])
     # Reusing deterministic edit values on the same engine can measure old
     # compiler results instead of fresh misses. Keep this run's values unique.
     edit_seed = secrets.randbits(48)
     summary = {"dagger_cli_version": cli_version, "rustc_version": compiler_version, "cargo_version": cargo_version,
                "modules": args.modules, "functions_per_module": args.functions, "codegen_units": args.codegen_units,
+               "library_crates": args.crates, "shape": args.shape if args.crates else None,
                "edit_seed": edit_seed,
-               "cargo_incremental": {"cargo_incremental": True, "cargo_full": False}, "replay_incremental": False}
+               "cargo_incremental": {"cargo_incremental": True, "cargo_full": False},
+               "replay_incremental": False, "replay_seeded_incremental_crates": ["app"] if args.incremental else []}
     kinds = ["cargo_incremental", "cargo_full", "replay"]
-    for scenario in ("unchanged", "edited"):
+    if args.incremental:
+        kinds.append("replay_seeded")
+    for scenario, edits, expected_changed, stdout_index in scenarios:
+        original = edits.read_text()
         rows = []
         for index in range(args.runs):
-            edit_value = edit_seed + index + 1 if scenario == "edited" else 0
-            if scenario == "edited":
-                edits.write_text(original.replace("pub const EDIT: u64 = 0;", f"pub const EDIT: u64 = {edit_value};"))
+            edit_value = edit_seed + index + 1
+            edits.write_text(original.replace("pub const EDIT: u64 = 0;", f"pub const EDIT: u64 = {edit_value};"))
             times = {}
             label = f"{scenario}-{index}"
             directory = output / (label + "-artifacts")
+            seeded_directory = output / (label + "-seeded-artifacts")
+            next_state = output / (label + "-state.json")
+            seed_args = ["--incremental-crate", "app", "--seed", str(state)]
             order = kinds[index % len(kinds):] + kinds[:index % len(kinds)]
             for kind in order:
                 if kind == "replay":
                     times[kind] = run([*replay, "--out", str(directory), "--artifacts-only"], label + "-" + kind)
+                elif kind == "replay_seeded":
+                    times[kind] = run([*replay, *seed_args, "--state", str(next_state),
+                                       "--out", str(seeded_directory), "--artifacts-only"], label + "-" + kind)
                 else:
                     times[kind] = run(native_command, label + "-" + kind, environments[kind], source)
-            if scenario == "unchanged" and tree(directory) != expected_tree:
-                raise RuntimeError("unchanged export contents or permissions differ")
             # Verification is outside all measured commands. It detects both
             # accidental recompilation and missed invalidation.
             observed = diagnose(label + "-verify")
-            if observed.keys() != previous.keys():
-                raise RuntimeError("compiler action set changed")
-            changed = []
-            for action_id, action in observed.items():
-                old = previous[action_id]
-                if action["execution"] != old["execution"]:
-                    changed.append(action["crate"])
-                elif action["digests"] != old["digests"]:
-                    raise RuntimeError("reused operation changed artifact contents")
-            if sorted(changed) != (["app"] if scenario == "edited" else []):
-                raise RuntimeError(f"unexpected compiler executions: {changed}")
-            if tree(directory) != tree(output / (label + "-verify-artifacts")):
-                raise RuntimeError("measured export differs from verified artifacts")
+            changed = verify(observed, previous, expected_changed, directory, output / (label + "-verify-artifacts"))
+            seeded_changed = None
+            if args.incremental:
+                seeded_label = label + "-seeded-verify"
+                seeded = diagnose(seeded_label, [*seed_args, "--state", str(output / (seeded_label + "-state.json"))])
+                seeded_changed = verify(seeded, previous_seeded, expected_changed, seeded_directory,
+                                        output / (seeded_label + "-artifacts"))
+                previous_seeded = seeded
+                state = next_state
             app = next(p for p in (directory / "debug/deps").glob("app-*") if p.is_file() and p.stat().st_mode & 0o111)
             stdout = subprocess.check_output([str(app)], env=env)
             for kind in environments:
                 if subprocess.check_output([str(output / kind / "debug/app")], env=env) != stdout:
                     raise RuntimeError(f"replay executable behavior differs from {kind}")
-            if stdout.split()[1] != str(edit_value).encode():
+            if args.incremental:
+                seeded_app = next(p for p in (seeded_directory / "debug/deps").glob("app-*") if p.is_file() and p.stat().st_mode & 0o111)
+                if subprocess.check_output([str(seeded_app)], env=env) != stdout:
+                    raise RuntimeError("seeded executable behavior differs from full replay")
+            if stdout.split()[stdout_index] != str(edit_value).encode():
                 raise RuntimeError("executable did not observe the source edit")
             previous = observed
-            rows.append({"seconds": times, "recompiled": changed, "stdout": stdout.decode()})
+            rows.append({"seconds": times, "recompiled": changed, "seeded_recompiled": seeded_changed,
+                         "stdout": stdout.decode(), "edit_value": edit_value})
             print(scenario, index + 1, {kind: round(value, 3) for kind, value in times.items()}, flush=True)
         medians = {kind: statistics.median(r["seconds"][kind] for r in rows) for kind in kinds}
         summary[scenario] = {"runs": rows, "median_seconds": medians,
                              "overhead_seconds": medians["replay"] - medians["cargo_incremental"],
                              "overhead_without_incremental_seconds": medians["replay"] - medians["cargo_full"]}
+        if args.incremental:
+            summary[scenario]["seeded_overhead_seconds"] = medians["replay_seeded"] - medians["cargo_incremental"]
         (output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
         print(scenario, medians, flush=True)
 

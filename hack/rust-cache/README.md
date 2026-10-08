@@ -355,12 +355,98 @@ python3 hack/rust-cache/benchmark_scale.py \
   --out /tmp/rust-scale --runs 5 --modules 128 --functions 8
 ```
 
-The next compiler experiment needs native `Directory` snapshots of rustc's
-incremental state, plus selection of a compatible seed for a changed build.
-Exact compiler-result hits should remain available regardless of seed selection.
-Compatibility, edited-build correctness and filesystem-only transfer need tests
-before this can become a general Rust-module backend. The source-tree change
-does not yet close the incremental compiler gap.
+### Native incremental snapshots
+
+Replay can now enable rustc incremental compilation for one named crate. It
+mounts a previous native `Directory` at `/rcexp-incremental` and retains the next
+state through a persistable `Directory.withDirectory` operation. This is native
+Dagger filesystem cache: rustc owns the state format and decides which internal
+queries to reuse; Dagger owns the immutable snapshots and compiler-result cache.
+No compiler `CacheVolume` is used.
+
+```sh
+# Prepare state once, then edit the source.
+/tmp/rcexp replay --source /tmp/rust-workspace --plan /tmp/rust-plan.json \
+  --out /tmp/rust-artifacts --artifacts-only \
+  --incremental-crate app --state /tmp/rust-state-before.json
+
+/tmp/rcexp replay --source /tmp/rust-workspace --plan /tmp/rust-plan.json \
+  --out /tmp/rust-edited-artifacts --artifacts-only \
+  --incremental-crate app --seed /tmp/rust-state-before.json \
+  --state /tmp/rust-state-after.json
+```
+
+The state JSON contains a compatibility fingerprint and an engine-local result
+handle, not compiler-state files. The handle remains usable while the engine
+retains that result; it is not a portable reference or an automatic seed index.
+The fingerprint excludes source contents and output digests, while keeping the
+captured compiler configuration and dependency graph configuration fixed. A
+different crate, toolchain, manifest configuration, flags or environment requires
+new state. The seed is still an ordinary exec input: selecting a different seed
+can change the result cache identity. Automatic seed selection and preserving
+exact hits independently of the seed remain future work.
+
+On the same 128-module fixture, five rotating-order fresh edits on the isolated
+Docker engine produced these medians:
+
+| Edited build | Full command |
+| --- | ---: |
+| Cargo, incremental | 535 ms |
+| Cargo, full | 2,643 ms |
+| Dagger replay, full | 3,496 ms |
+| Dagger replay, native incremental seed | 1,723 ms |
+
+Both replay variants reused all three libraries, recompiled the application,
+and matched the behavior of both Cargo controls. State materialization and the
+next reference write are included in the seeded command. The 1.77-second saving
+is a comparison within this run, rather than against the earlier 4.15-second
+baseline. The remaining median overhead versus Cargo incremental is 1.19 seconds.
+On an eight-module smoke fixture, seeded replay was slightly slower than full
+replay, so retaining state is not a universal win for small crates.
+
+A fresh seeded-edit wcprof capture took 1.39 seconds overall, with 617 milliseconds
+in rustc, 50 in runtime startup, and 30 rebuilt source-file snapshots. The query
+window spanned 989 milliseconds. These are one diagnostic capture, not an additive
+breakdown of the benchmark medians. Source import and command overhead still
+need work. The measured source-construction cost belongs to `withNewFile`
+snapshots, not filesync; compare native source-directory inputs before treating
+it as a filesync implementation problem.
+
+Reproduce the edited-build comparison by adding `--incremental` to
+`benchmark_scale.py`. It only measures fresh edits; initial builds prepare and
+verify the cache without serving as performance scenarios.
+
+### Many-crate workspaces
+
+The same helper accepts `--crates 100 --shape fanout` or `--shape chain` instead
+of a multi-file application. It measures a leaf-library edit and a shared-library
+edit separately. The fanout application depends on every leaf; each leaf depends
+on the shared library. A leaf edit must compile exactly that leaf and the app,
+while a shared edit must compile every action. The chain fixture uses the last
+library as its editable leaf. Every edit changes executable behavior, and the
+helper checks output against both Cargo controls and verifies execution markers.
+
+Three runs with 100 fanout libraries (102 compiler actions) exposed a separate
+scaling gap:
+
+| Edit | Cargo incremental | Cargo full | Dagger replay, full |
+| --- | ---: | ---: | ---: |
+| Leaf library | 298 ms | 249 ms | 4,443 ms |
+| Shared library | 903 ms | 812 ms | 24,403 ms |
+
+A fresh leaf-edit profile recorded 911 engine queries while executing only two
+compilers. Dependency and output assembly each expanded `Directory.withFiles`
+into chains of individual `withFile` operations. A fresh shared-edit profile
+took 19.47 seconds and showed an 8.82-second artifact-copy chain beneath export,
+plus runtime-start contention (102 starts, 641 milliseconds median). Concurrent
+query and runtime totals are not full-command wall time. These profiles identify
+artifact assembly, repeated query work and execution concurrency as candidates
+for the next experiments; they do not establish the benefit of an unimplemented
+optimization. The chain generator has not yet supplied a performance result.
+
+These remain synthetic workloads on Rust 1.77.2 with 16 explicit codegen units.
+They do not establish performance for the official Rust module or real projects
+with registry dependencies, build scripts, procedural macros or tests.
 
 Use an isolated engine with its debug endpoint enabled and a matching CLI.
 Warm the workload before capturing it. The helper records the full command's

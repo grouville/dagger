@@ -51,6 +51,9 @@ func run(ctx context.Context, args []string) error {
 	reportPath := flags.String("report", "", "replay report JSON")
 	previousPath := flags.String("previous", "", "previous report for counting reused operations")
 	artifactsOnly := flags.Bool("artifacts-only", false, "export replay artifacts without collecting diagnostic markers or digests")
+	incrementalCrate := flags.String("incremental-crate", "", "experimental: enable rustc incremental compilation for one crate")
+	seedPath := flags.String("seed", "", "previous native incremental state JSON")
+	statePath := flags.String("state", "", "write next native incremental state JSON")
 	concurrency := flags.Int("concurrency", 8, "maximum concurrent diagnostic evaluation operations")
 	env := environmentFlags{}
 	flags.Var(env, "env", "capture environment input KEY=VALUE (repeatable)")
@@ -72,7 +75,12 @@ func run(ctx context.Context, args []string) error {
 	if *concurrency < 1 {
 		return errors.New("--concurrency must be positive")
 	}
-	for _, output := range []string{*planPath, *outPath, *reportPath} {
+	if *incrementalCrate != "" || *seedPath != "" || *statePath != "" {
+		if args[0] != "replay" || *incrementalCrate == "" || *statePath == "" {
+			return errors.New("incremental experiment requires replay, --incremental-crate and --state")
+		}
+	}
+	for _, output := range []string{*planPath, *outPath, *reportPath, *statePath, *seedPath} {
 		if output == "" {
 			continue
 		}
@@ -117,7 +125,18 @@ func run(ctx context.Context, args []string) error {
 			return err
 		}
 		phase = time.Now()
-		graph, err := replay.Build(client, &plan, source)
+		opts := replay.BuildOptions{IncrementalCrate: *incrementalCrate}
+		if *seedPath != "" {
+			var seed replay.IncrementalState
+			if err := readJSON(*seedPath, &seed); err != nil {
+				return err
+			}
+			if err := seed.Validate(&plan, *incrementalCrate); err != nil {
+				return err
+			}
+			opts.IncrementalSeed = dagger.Ref[*dagger.Directory](client, dagger.ID(seed.DirectoryID))
+		}
+		graph, err := replay.BuildWithOptions(client, &plan, source, opts)
 		if err != nil {
 			return err
 		}
@@ -134,9 +153,36 @@ func run(ctx context.Context, args []string) error {
 			return err
 		}
 		timings.ExportSeconds = time.Since(phase).Seconds()
+		phase = time.Now()
+		if graph.Incremental != nil {
+			// Demand the filesystem part before publishing its ID. ID alone
+			// need not materialize the state and would defer its cost to a later run.
+			entries, err := graph.Incremental.Entries(ctx)
+			if err != nil {
+				return err
+			}
+			if len(entries) == 0 {
+				return errors.New("rustc produced no incremental state")
+			}
+			id, err := graph.Incremental.ID(ctx)
+			if err != nil {
+				return err
+			}
+			compatibility, err := replay.SeedCompatibility(&plan, *incrementalCrate)
+			if err != nil {
+				return err
+			}
+			if err := writeJSON(*statePath, replay.IncrementalState{Version: 1, Crate: *incrementalCrate, Compatibility: compatibility, DirectoryID: string(id)}); err != nil {
+				return err
+			}
+		}
+		if graph.Incremental != nil {
+			timings.IncrementalSeconds = time.Since(phase).Seconds()
+		}
 		timings.ReadySeconds = time.Since(started).Seconds()
 		if *artifactsOnly {
 			fmt.Fprintf(os.Stderr, "exported artifacts for %d compiler actions in %.3fs (shutdown excluded)\n", len(graph.Operations), timings.ReadySeconds)
+			fmt.Fprintf(os.Stderr, "source %.3fs; connect %.3fs; graph %.3fs; export %.3fs; incremental state %.3fs\n", timings.SourceSeconds, timings.ConnectSeconds, timings.GraphSeconds, timings.ExportSeconds, timings.IncrementalSeconds)
 			return nil
 		}
 		report.Driver = timings
