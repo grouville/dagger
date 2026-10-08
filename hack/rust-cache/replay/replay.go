@@ -32,11 +32,13 @@ type Graph struct {
 	Incremental *dagger.Directory
 }
 
-// BuildOptions exposes an explicit, single-crate incremental experiment. The
+// BuildOptions exposes incremental-state and artifact-layout experiments. The
 // seed remains an ordinary cache-key input; this does not implement cache hints.
 type BuildOptions struct {
-	IncrementalCrate string
-	IncrementalSeed  *dagger.Directory
+	IncrementalCrate    string
+	IncrementalSeed     *dagger.Directory
+	ArtifactLeafFiles   int
+	ArtifactDirectories bool
 }
 
 type ActionReport struct {
@@ -55,12 +57,13 @@ type Report struct {
 }
 
 // DriverTimings separates CLI setup and output transfer from graph evaluation.
-// ReadySeconds ends when artifact export completes; process shutdown is measured
-// externally when benchmarking the full user command.
+// ReadySeconds ends when artifacts and retained incremental state are ready;
+// process shutdown is measured externally with the full user command.
 type DriverTimings struct {
 	SourceSeconds      float64 `json:"source_seconds"`
 	ConnectSeconds     float64 `json:"connect_seconds"`
 	GraphSeconds       float64 `json:"graph_seconds"`
+	DemandSeconds      float64 `json:"demand_seconds,omitempty"`
 	ExportSeconds      float64 `json:"export_seconds"`
 	IncrementalSeconds float64 `json:"incremental_seconds,omitempty"`
 	ReadySeconds       float64 `json:"ready_seconds"`
@@ -78,6 +81,12 @@ func BuildWithOptions(client *dagger.Client, plan *model.Plan, source Source, op
 	if opts.IncrementalSeed != nil && opts.IncrementalCrate == "" {
 		return nil, fmt.Errorf("incremental seed requires a crate")
 	}
+	if opts.ArtifactLeafFiles < 0 {
+		return nil, fmt.Errorf("artifact leaf size must be nonnegative")
+	}
+	if opts.ArtifactDirectories && opts.ArtifactLeafFiles != 0 {
+		return nil, fmt.Errorf("artifact directories cannot be combined with file leaves")
+	}
 	if opts.IncrementalCrate != "" {
 		if _, err := SeedCompatibility(plan, opts.IncrementalCrate); err != nil {
 			return nil, err
@@ -91,6 +100,9 @@ func BuildWithOptions(client *dagger.Client, plan *model.Plan, source Source, op
 	graph := &Graph{Artifacts: client.Directory()}
 	byID := map[string]Operation{}
 	artifacts := map[string][]*dagger.File{}
+	nativeDirs := map[string]map[string]*dagger.Directory{}
+	nativeOutputs := map[string]map[string]bool{}
+	usedAsDependency := map[string]bool{}
 	packageSources := source.packageSources(plan.Packages)
 	packageDirs := map[string]*dagger.Directory{}
 	for _, a := range actions {
@@ -98,34 +110,49 @@ func BuildWithOptions(client *dagger.Client, plan *model.Plan, source Source, op
 			packageDirs[a.PackageRoot] = packageSources[a.PackageRoot].Directory(client)
 		}
 		ctr := base.WithMountedDirectory(a.PackageRoot, packageDirs[a.PackageRoot]).WithWorkdir(a.Cwd)
-		// rustc discovers indirect dependencies through -L as well as --extern.
-		closure := map[string]bool{}
-		var collect func(string)
-		collect = func(id string) {
-			if closure[id] {
-				return
+		dependencyDirs := map[string][]*dagger.Directory{}
+		for _, dep := range a.Dependencies {
+			usedAsDependency[dep] = true
+			if opts.ArtifactDirectories {
+				for dir, directory := range nativeDirs[dep] {
+					dependencyDirs[dir] = append(dependencyDirs[dir], directory)
+				}
 			}
-			closure[id] = true
-			for _, dep := range byID[id].Action.Dependencies {
+		}
+		if opts.ArtifactDirectories {
+			for _, dir := range sortedKeys(dependencyDirs) {
+				ctr = ctr.WithMountedDirectory(dir, mergeArtifactDirectories(dependencyDirs[dir]))
+			}
+		} else {
+			// rustc discovers indirect dependencies through -L as well as --extern.
+			closure := map[string]bool{}
+			var collect func(string)
+			collect = func(id string) {
+				if closure[id] {
+					return
+				}
+				closure[id] = true
+				for _, dep := range byID[id].Action.Dependencies {
+					collect(dep)
+				}
+			}
+			for _, dep := range a.Dependencies {
 				collect(dep)
 			}
-		}
-		for _, dep := range a.Dependencies {
-			collect(dep)
-		}
-		bundles := map[string][]*dagger.File{}
-		for _, id := range sortedKeys(closure) {
-			op := byID[id]
-			for _, filename := range sortedKeys(op.Files) {
-				// dep-info is bookkeeping, not a compiler dependency.
-				if path.Ext(filename) == ".d" {
-					continue
+			bundles := map[string][]*dagger.File{}
+			for _, id := range sortedKeys(closure) {
+				op := byID[id]
+				for _, filename := range sortedKeys(op.Files) {
+					// dep-info is bookkeeping, not a compiler dependency.
+					if path.Ext(filename) == ".d" {
+						continue
+					}
+					bundles[path.Dir(filename)] = append(bundles[path.Dir(filename)], op.Files[filename])
 				}
-				bundles[path.Dir(filename)] = append(bundles[path.Dir(filename)], op.Files[filename])
 			}
-		}
-		for _, dir := range sortedKeys(bundles) {
-			ctr = ctr.WithMountedDirectory(dir, client.Directory().WithFiles(".", bundles[dir]))
+			for _, dir := range sortedKeys(bundles) {
+				ctr = ctr.WithMountedDirectory(dir, filesDirectory(client, bundles[dir], opts.ArtifactLeafFiles))
+			}
 		}
 		// The nonce is an output, never an argument or a dependency input.
 		cmd := []string{"sh", "-ec", "mkdir -p \"$1\" " + path.Dir(stampPath) + "; shift; cat /proc/sys/kernel/random/uuid > " + stampPath + "; exec \"$@\"", "rcexp", model.Option(a.Args, "--out-dir"), a.Compiler}
@@ -146,6 +173,10 @@ func BuildWithOptions(client *dagger.Client, plan *model.Plan, source Source, op
 			graph.Incremental = client.Directory().WithDirectory(".", ctr.Directory(incrementalPath))
 		}
 		op := Operation{Action: a, Container: ctr, Files: map[string]*dagger.File{}, Stamp: ctr.File(stampPath)}
+		outputDirs := map[string]bool{}
+		for dir := range dependencyDirs {
+			outputDirs[dir] = true
+		}
 		for _, filename := range a.Outputs {
 			file := ctr.File(filename)
 			op.Files[filename] = file
@@ -153,15 +184,108 @@ func BuildWithOptions(client *dagger.Client, plan *model.Plan, source Source, op
 			if dir == model.TargetRoot {
 				dir = "."
 			}
-			artifacts[dir] = append(artifacts[dir], file)
+			if opts.ArtifactDirectories {
+				absoluteDir := path.Dir(filename)
+				outputDirs[absoluteDir] = true
+				if nativeOutputs[absoluteDir] == nil {
+					nativeOutputs[absoluteDir] = map[string]bool{}
+				}
+				nativeOutputs[absoluteDir][path.Base(filename)] = true
+			} else {
+				artifacts[dir] = append(artifacts[dir], file)
+			}
+		}
+		if opts.ArtifactDirectories {
+			nativeDirs[a.ID] = map[string]*dagger.Directory{}
+			for _, dir := range sortedKeys(outputDirs) {
+				nativeDirs[a.ID][dir] = ctr.Directory(dir)
+			}
 		}
 		byID[a.ID] = op
 		graph.Operations = append(graph.Operations, op)
 	}
+	if opts.ArtifactDirectories {
+		sinks := map[string][]*dagger.Directory{}
+		for _, action := range actions {
+			if usedAsDependency[action.ID] {
+				continue
+			}
+			for dir, directory := range nativeDirs[action.ID] {
+				sinks[dir] = append(sinks[dir], directory)
+			}
+		}
+		for _, dir := range sortedKeys(sinks) {
+			relative := strings.TrimPrefix(dir, model.TargetRoot+"/")
+			if relative == model.TargetRoot {
+				relative = "."
+			}
+			// Export exactly the captured artifact set, including dep-info.
+			// Whole dependency mounts also carry dep-info between compilers.
+			graph.Artifacts = graph.Artifacts.WithDirectory(relative, mergeArtifactDirectories(sinks[dir]),
+				dagger.DirectoryWithDirectoryOpts{Include: sortedKeys(nativeOutputs[dir])})
+		}
+		return graph, nil
+	}
 	for _, dir := range sortedKeys(artifacts) {
-		graph.Artifacts = graph.Artifacts.WithFiles(dir, artifacts[dir])
+		if opts.ArtifactLeafFiles == 0 || len(artifacts[dir]) <= opts.ArtifactLeafFiles {
+			graph.Artifacts = graph.Artifacts.WithFiles(dir, artifacts[dir])
+		} else {
+			graph.Artifacts = graph.Artifacts.WithDirectory(dir, filesDirectory(client, artifacts[dir], opts.ArtifactLeafFiles))
+		}
 	}
 	return graph, nil
+}
+
+// Bound the chains expanded by Directory.withFiles. Merging left before right
+// preserves the original later-file-wins behavior for duplicate basenames.
+func filesDirectory(client *dagger.Client, files []*dagger.File, leafSize int) *dagger.Directory {
+	if leafSize == 0 || len(files) <= leafSize {
+		return client.Directory().WithFiles(".", files)
+	}
+	middle := len(files) / 2
+	return client.Directory().
+		WithDirectory(".", filesDirectory(client, files[:middle], leafSize)).
+		WithDirectory(".", filesDirectory(client, files[middle:], leafSize))
+}
+
+// DemandFilesystem bounds actual compiler demand without reading exec metadata
+// or hashing artifacts. Each action completes before its dependents start.
+func (g *Graph) DemandFilesystem(ctx context.Context, concurrency int) error {
+	if concurrency < 1 {
+		return fmt.Errorf("compiler concurrency must be positive")
+	}
+	group, ctx := errgroup.WithContext(ctx)
+	semaphore := make(chan struct{}, concurrency)
+	done := map[string]chan struct{}{}
+	for _, op := range g.Operations {
+		done[op.Action.ID] = make(chan struct{})
+	}
+	for _, op := range g.Operations {
+		group.Go(func() error {
+			for _, dep := range op.Action.Dependencies {
+				select {
+				case <-done[dep]:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
+			select {
+			case semaphore <- struct{}{}:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+			defer func() { <-semaphore }()
+			// Demand the root-filesystem marker first, as Evaluate does. Starting
+			// with an artifact mount's Size caused an app to reexecute after a
+			// filesystem-only transfer in the experimental balanced layout.
+			if _, err := op.Stamp.Contents(ctx); err != nil {
+				return err
+			}
+			close(done[op.Action.ID])
+			return nil
+		})
+	}
+	return group.Wait()
 }
 
 // Keep environment values in the exec's cache identity without adding a

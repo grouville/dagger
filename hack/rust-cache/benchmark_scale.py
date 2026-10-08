@@ -89,11 +89,16 @@ def main():
     parser.add_argument("--incremental", action="store_true", help="also measure explicit native incremental seeds for the application")
     parser.add_argument("--crates", type=int, default=0, help="generate this many library crates instead of one large application")
     parser.add_argument("--shape", choices=("fanout", "chain"), default="fanout")
+    parser.add_argument("--artifact-leaf-files", type=int, default=0)
+    parser.add_argument("--artifact-directories", action="store_true")
+    parser.add_argument("--compiler-concurrency", type=int, default=0)
     args = parser.parse_args()
     if min(args.runs, args.modules, args.functions, args.codegen_units) < 1:
         parser.error("--runs, --modules, --functions and --codegen-units must be positive")
     if args.crates < 0:
         parser.error("--crates must be nonnegative")
+    if args.artifact_leaf_files < 0 or args.compiler_concurrency < 0:
+        parser.error("--artifact-leaf-files and --compiler-concurrency must be nonnegative")
     output = args.out.resolve()
     if output.is_relative_to(Path.cwd().resolve()):
         parser.error("keep generated workspaces and results outside the checkout")
@@ -129,6 +134,9 @@ def main():
         parser.error("native rustc differs from the captured toolchain")
     env.update(plan["environment"] or {})
     replay = [executable, "replay", "--source", str(source), "--plan", str(plan_path)]
+    replay += ["--artifact-leaf-files", str(args.artifact_leaf_files), "--compiler-concurrency", str(args.compiler_concurrency)]
+    if args.artifact_directories:
+        replay += ["--artifact-directories"]
 
     def diagnose(label, extra=()):
         report = output / (label + ".json")
@@ -177,6 +185,8 @@ def main():
     summary = {"dagger_cli_version": cli_version, "rustc_version": compiler_version, "cargo_version": cargo_version,
                "modules": args.modules, "functions_per_module": args.functions, "codegen_units": args.codegen_units,
                "library_crates": args.crates, "shape": args.shape if args.crates else None,
+               "artifact_leaf_files": args.artifact_leaf_files, "compiler_concurrency": args.compiler_concurrency,
+               "artifact_directories": args.artifact_directories,
                "edit_seed": edit_seed,
                "cargo_incremental": {"cargo_incremental": True, "cargo_full": False},
                "replay_incremental": False, "replay_seeded_incremental_crates": ["app"] if args.incremental else []}

@@ -386,6 +386,13 @@ new state. The seed is still an ordinary exec input: selecting a different seed
 can change the result cache identity. Automatic seed selection and preserving
 exact hits independently of the seed remain future work.
 
+The fresh-engine regression exports the retained incremental `Directory` as a
+separate native filesystem output root, alongside compiler outputs. Selecting a
+compiler's root filesystem alone does not implicitly export its writable mounts.
+The imported state keeps the same digest and seeds a subsequent edited build on
+the second engine. This tests transfer of the state itself; the JSON's engine-local
+handle is not transferred or reused on the second engine.
+
 On the same 128-module fixture, five rotating-order fresh edits on the isolated
 Docker engine produced these medians:
 
@@ -442,7 +449,137 @@ plus runtime-start contention (102 starts, 641 milliseconds median). Concurrent
 query and runtime totals are not full-command wall time. These profiles identify
 artifact assembly, repeated query work and execution concurrency as candidates
 for the next experiments; they do not establish the benefit of an unimplemented
-optimization. The chain generator has not yet supplied a performance result.
+optimization. Larger chain workspaces still need performance measurements.
+
+#### Balanced artifact bundles
+
+Replay also accepts `--artifact-leaf-files 64`. Dependency and exported artifact
+bundles split into a balanced tree with bounded `withFiles` leaves, joined with
+native `withDirectory` snapshots. This shortens copy chains while preserving
+file ordering and contents. Zero retains the original flat layout; the option
+does not change source-tree construction or enable incremental compilation.
+
+Three interleaved fresh edits per layout on the same 100-library fanout fixture
+produced these full-command medians:
+
+| Artifact layout | Leaf edit | Shared edit |
+| --- | ---: | ---: |
+| Flat | 4,040 ms | 19,719 ms |
+| 64-file leaves | 2,755 ms | 7,218 ms |
+| 16-file leaves | 2,196 ms | 7,233 ms |
+| 64-file leaves, compiler demand limited to eight | 2,287 ms | 7,619 ms |
+
+Each layout receives a different fresh source constant so it cannot reuse another
+layout's newly compiled result. The helper rotates layout order, alternates Cargo
+and replay order, and verifies compiler markers, exported bytes and permissions,
+and executable behavior outside the timed commands. Cargo incremental medians
+across layouts were 268–369 milliseconds for leaf edits and 718–790 milliseconds
+for shared edits. Some individual Cargo runs spiked above two seconds; all samples
+are retained. The 63% shared-edit reduction compares layouts within this run,
+rather than using the earlier 24.4-second baseline.
+
+A fresh 64-file shared-edit profile took 6.57 seconds overall. Export's critical
+path was 1.12 seconds, including 1.01 seconds in file-copy snapshots, versus the
+earlier flat profile's 8.91-second export. Runtime startup remained contended:
+102 starts with a 582-millisecond median. Limiting filesystem demand to eight
+reduced that per-start median to 66 milliseconds in a separate capture, but added
+102 `File.size` queries and took 9.22 seconds overall. Lower concurrent phase
+totals do not by themselves establish lower command latency. The demand limit
+remains an opt-in experiment (`--compiler-concurrency 8`), not a selected
+optimization. That initial demand experiment used artifact `File.size`; a
+fresh-engine regression found that demanding this mount before the compiler's
+root-filesystem marker could reexecute the app. The current demand helper uses
+the same marker-first filesystem path as diagnostic evaluation. The timing
+above describes the initial size-based experiment. Sixteen-file leaves did not
+improve shared edits over 64-file leaves.
+
+Reproduce the interleaved layout experiment using an existing many-crate capture:
+
+```sh
+python3 hack/rust-cache/benchmark_artifacts.py \
+  --workspace-run /tmp/rust-fanout100 \
+  --dagger-cli /tmp/dagger-rcexp --replay-bin /tmp/rcexp \
+  --cargo /path/to/cargo --rustc /path/to/rustc \
+  --out /tmp/rust-artifact-layouts --runs 3
+```
+
+`--workspace-run` must be a completed `benchmark_scale.py --crates` result.
+This experiment edits that generated workspace and reuses its native Cargo target
+directory. To benchmark one layout against both Cargo controls, pass
+`--artifact-leaf-files 64` directly to `benchmark_scale.py`.
+
+#### Direct compiler output snapshots
+
+The next experiment, `--artifact-directories`, uses each compiler's existing
+output-directory snapshot. That directory also contains its transitive inputs,
+so dependents only need snapshots from their direct dependencies. Balanced
+directory merges join independent branches. The final output combines terminal
+actions, including independent workspace crates, and filters to the exact captured
+artifact set. This removes repeated transitive graph walks, per-file projections,
+and most artifact-copy snapshots. Compiler inputs also carry dep-info files in
+this mode; the file-bundle variants exclude them. Both approaches still use native
+immutable Dagger snapshots, with no compiler cache volumes.
+
+Three further interleaved fresh edits on the same 100-library fanout fixture gave:
+
+| Artifact layout | Leaf edit | Shared edit |
+| --- | ---: | ---: |
+| 64-file leaves | 2,113 ms | 9,292 ms |
+| Direct compiler snapshots | 1,328 ms | 5,193 ms |
+| 64-file leaves, marker-first compiler demand limited to eight | 2,983 ms | 10,812 ms |
+
+The direct-snapshot improvement is 37% for leaf edits and 44% for shared edits
+within this comparison. Cargo incremental medians were 265–519 milliseconds
+for leaf edits and 1.02–1.25 seconds for shared edits. Individual Cargo runs still
+showed substantial spikes; all results are retained. Do not combine percentage
+gains from separate benchmark windows into one speedup claim.
+
+A fresh direct-snapshot shared-edit profile took 4.08 seconds overall and issued
+305 queries, versus 932 in the earlier 64-file profile. It executed all 102
+compilers and used 101 directory-copy snapshots, with no `withFile` artifact-copy
+chain. Export now demands the compilers lazily, so its 3.27-second critical path
+includes compilation, unlike the file-bundle export phase. On that path, directory
+copies accounted for 159 milliseconds; root-filesystem setup accounted for 1.04
+seconds, runtime startup 637 milliseconds, base-spec generation 465 milliseconds,
+and compiler processes 472 milliseconds. These are critical-path contributions
+from one capture, not concurrent phase totals or a breakdown of the benchmark
+medians. Runtime preparation is now the larger opportunity.
+
+A subsequent three-run interleaved demand-limit comparison retained unrestricted
+demand: direct snapshots took 1.20 seconds for leaf edits and 4.40 seconds for
+shared edits, versus 1.59/4.83 seconds with a limit of eight and 1.58/4.67 seconds
+with a limit of 32. Cargo shared-edit medians were 631–695 milliseconds. Reducing
+startup contention through extra per-action requests did not improve the complete
+command in either artifact representation.
+
+With direct snapshots on the 128-module application, three rotating-order fresh
+edits also preserved the incremental-state benefit:
+
+| Edited build | Full command |
+| --- | ---: |
+| Cargo, incremental | 510 ms |
+| Cargo, full | 2,293 ms |
+| Direct snapshots, full rustc rebuild | 2,990 ms |
+| Direct snapshots, native incremental seed | 1,099 ms |
+
+Every edit recompiled the app, reused all three libraries and matched both Cargo
+controls. Retaining the next state is included. The remaining median overhead
+versus Cargo incremental is 589 milliseconds. A 24-library chain smoke run also
+verified leaf and shared invalidation, artifact bytes and executable behavior;
+one sample does not establish chain-workspace performance.
+
+The focused fresh-engine regression checks direct snapshots and balanced file
+bundles against captured Cargo artifact digests and the original assembled
+directory. It also checks multiple independent terminal actions, transferred
+compiler-result reuse, unchanged incremental-state digest after transfer, and a
+subsequent edited build using that state. The remote transfer fixture establishes
+correctness, not remote build latency.
+
+Add `--artifact-directories` to `benchmark_scale.py`, with `--incremental` to
+include the explicit seed variant. It cannot be combined with nonzero
+`--artifact-leaf-files`. Use `benchmark_artifacts.py --variants balanced64 directories`
+to interleave just these two layouts. The default interleaved comparison is flat,
+64-file leaves and direct snapshots; optional demand limits remain experiments.
 
 These remain synthetic workloads on Rust 1.77.2 with 16 explicit codegen units.
 They do not establish performance for the official Rust module or real projects

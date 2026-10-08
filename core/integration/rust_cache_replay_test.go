@@ -146,6 +146,38 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 		}
 	}
 	require.Equal(t, "31 default\n", runBinary(a, graph, plan.Image))
+	// Force small leaves so this fixture exercises artifact-tree merges too.
+	// Bounded filesystem demand must produce the same bytes as captured Cargo.
+	balancedOptions := replay.BuildOptions{ArtifactLeafFiles: 2}
+	balancedGraph, err := replay.BuildWithOptions(a, plan, source, balancedOptions)
+	require.NoError(t, err)
+	require.NoError(t, balancedGraph.DemandFilesystem(ctx, 2))
+	balancedCold, err := balancedGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	for _, action := range balancedCold.Actions {
+		for filename, digest := range action.Digests {
+			require.Equal(t, plan.BaselineDigests[filename], digest, filename)
+		}
+	}
+	// Check the assembled directory itself, beyond each compiler's outputs.
+	flatArtifacts, err := graph.Artifacts.Digest(ctx)
+	require.NoError(t, err)
+	balancedArtifacts, err := balancedGraph.Artifacts.Digest(ctx)
+	require.NoError(t, err)
+	require.Equal(t, flatArtifacts, balancedArtifacts)
+	directoryOptions := replay.BuildOptions{ArtifactDirectories: true}
+	directoryGraph, err := replay.BuildWithOptions(a, plan, source, directoryOptions)
+	require.NoError(t, err)
+	directoryCold, err := directoryGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	for _, action := range directoryCold.Actions {
+		for filename, digest := range action.Digests {
+			require.Equal(t, plan.BaselineDigests[filename], digest, filename)
+		}
+	}
+	directoryArtifacts, err := directoryGraph.Artifacts.Digest(ctx)
+	require.NoError(t, err)
+	require.Equal(t, flatArtifacts, directoryArtifacts)
 	_, warm := evaluate(a, plan, source)
 	require.Equal(t, 4, warm.Reused(cold))
 	coldMarkers := markers(cold)
@@ -156,6 +188,19 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 	appGraph, appReport := evaluate(a, plan, appEdit)
 	require.Equal(t, 3, appReport.Reused(cold))
 	require.Equal(t, "32 default\n", runBinary(a, appGraph, plan.Image))
+	balancedEditGraph, err := replay.BuildWithOptions(a, plan, appEdit, balancedOptions)
+	require.NoError(t, err)
+	require.NoError(t, balancedEditGraph.DemandFilesystem(ctx, 2))
+	balancedEdit, err := balancedEditGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.Equal(t, 3, balancedEdit.Reused(balancedCold))
+	require.Equal(t, "32 default\n", runBinary(a, balancedEditGraph, plan.Image))
+	directoryEditGraph, err := replay.BuildWithOptions(a, plan, appEdit, directoryOptions)
+	require.NoError(t, err)
+	directoryEdit, err := directoryEditGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.Equal(t, 3, directoryEdit.Reused(directoryCold))
+	require.Equal(t, "32 default\n", runBinary(a, directoryEditGraph, plan.Image))
 	baseEdit := cloneRustSource(source)
 	baseFile := baseEdit["base/src/lib.rs"]
 	baseFile.Contents = strings.ReplaceAll(baseFile.Contents, "10", "11")
@@ -192,10 +237,31 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 	flagsGraph, flagsReport := evaluate(a, flagsPlan, source)
 	require.Zero(t, flagsReport.Reused(cold))
 	require.Equal(t, "31 default\n", runBinary(a, flagsGraph, flagsPlan.Image))
+	// A workspace can have terminal crates that the app does not depend on.
+	// Consolidating compiler snapshots must export those independent roots too.
+	independentSource := cloneRustSource(source)
+	manifest := independentSource["Cargo.toml"]
+	manifest.Contents = strings.Replace(manifest.Contents, `"app"]`, `"app", "unused"]`, 1)
+	independentSource["Cargo.toml"] = manifest
+	lock := independentSource["Cargo.lock"]
+	lock.Contents += "\n[[package]]\nname = \"unused\"\nversion = \"0.1.0\"\n"
+	independentSource["Cargo.lock"] = lock
+	independentSource["unused/Cargo.toml"] = replay.SourceFile{Contents: "[package]\nname = \"unused\"\nversion = \"0.1.0\"\nedition = \"2021\"\n", Mode: 0644}
+	independentSource["unused/src/lib.rs"] = replay.SourceFile{Contents: "pub fn value() -> u32 { 99 }\n", Mode: 0644}
+	independentPlan, err := replay.Capture(ctx, a, independentSource, replay.CaptureOptions{Wrapper: wrapper})
+	require.NoError(t, err)
+	require.Len(t, independentPlan.Actions, 5)
+	independentGraph, err := replay.BuildWithOptions(a, independentPlan, independentSource, directoryOptions)
+	require.NoError(t, err)
+	for filename, expected := range independentPlan.BaselineDigests {
+		actual, err := independentGraph.Artifacts.File(strings.TrimPrefix(filename, model.TargetRoot+"/")).Digest(ctx)
+		require.NoError(t, err)
+		require.Equal(t, expected, actual, filename)
+	}
 	// Preserve rustc's within-crate state as a native Directory. Seeding an
 	// edited build must leave the old snapshot immutable and unrelated crate
 	// results reusable. The experiment only enables incremental for the app.
-	incGraph, err := replay.BuildWithOptions(a, plan, source, replay.BuildOptions{IncrementalCrate: "app"})
+	incGraph, err := replay.BuildWithOptions(a, plan, source, replay.BuildOptions{IncrementalCrate: "app", ArtifactDirectories: true})
 	require.NoError(t, err)
 	incCold, err := incGraph.Evaluate(ctx, 4)
 	require.NoError(t, err)
@@ -204,13 +270,13 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 	require.NotEmpty(t, stateEntries)
 	stateDigest, err := incGraph.Incremental.Digest(ctx)
 	require.NoError(t, err)
-	incEditGraph, err := replay.BuildWithOptions(a, plan, appEdit, replay.BuildOptions{IncrementalCrate: "app", IncrementalSeed: incGraph.Incremental})
+	incEditGraph, err := replay.BuildWithOptions(a, plan, appEdit, replay.BuildOptions{IncrementalCrate: "app", IncrementalSeed: incGraph.Incremental, ArtifactDirectories: true})
 	require.NoError(t, err)
 	incEdit, err := incEditGraph.Evaluate(ctx, 4)
 	require.NoError(t, err)
 	require.Equal(t, 3, incEdit.Reused(incCold))
 	require.Equal(t, "32 default\n", runBinary(a, incEditGraph, plan.Image))
-	incDepGraph, err := replay.BuildWithOptions(a, plan, baseEdit, replay.BuildOptions{IncrementalCrate: "app", IncrementalSeed: incGraph.Incremental})
+	incDepGraph, err := replay.BuildWithOptions(a, plan, baseEdit, replay.BuildOptions{IncrementalCrate: "app", IncrementalSeed: incGraph.Incremental, ArtifactDirectories: true})
 	require.NoError(t, err)
 	incDep, err := incDepGraph.Evaluate(ctx, 4)
 	require.NoError(t, err)
@@ -221,20 +287,24 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 	require.Equal(t, stateDigest, afterSeedDigest, "seed snapshot must remain immutable")
 	var ids []string
 	seen := map[string]bool{}
-	for _, op := range append(append([]replay.Operation{}, graph.Operations...), incGraph.Operations...) {
-		id, err := op.Container.ID(ctx)
-		require.NoError(t, err)
-		if seen[string(id)] {
-			continue
+	for _, selected := range []*replay.Graph{graph, incGraph, balancedGraph, directoryGraph} {
+		for _, op := range selected.Operations {
+			id, err := op.Container.ID(ctx)
+			require.NoError(t, err)
+			if seen[string(id)] {
+				continue
+			}
+			seen[string(id)] = true
+			ids = append(ids, string(id))
 		}
-		seen[string(id)] = true
-		ids = append(ids, string(id))
 	}
 	// Compiler root filesystem outputs do not implicitly export every mount.
-	// Treat retained incremental state as a separate native cache output root.
-	stateID, err := incGraph.Incremental.ID(ctx)
-	require.NoError(t, err)
-	ids = append(ids, string(stateID))
+	// Export retained state and assembled artifacts as separate native roots.
+	for _, output := range []*dagger.Directory{incGraph.Incremental, balancedGraph.Artifacts, directoryGraph.Artifacts} {
+		id, err := output.ID(ctx)
+		require.NoError(t, err)
+		ids = append(ids, string(id))
+	}
 	var exported []transferFixtureMapping
 	require.NoError(t, transferFixtureSelected(ctx, a, "rust.json", ids, ids, &exported))
 	_, err = outer.Container().From(alpineImage).WithMountedCache("/source", aVolume).WithMountedCache("/destination", bVolume).
@@ -249,7 +319,24 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 		require.Equal(t, action.Digests, remote.Actions[i].Digests, action.Crate)
 	}
 	require.Equal(t, "31 default\n", runBinary(b, remoteGraph, plan.Image))
-	remoteIncGraph, err := replay.BuildWithOptions(b, plan, source, replay.BuildOptions{IncrementalCrate: "app"})
+	remoteBalancedGraph, err := replay.BuildWithOptions(b, plan, source, balancedOptions)
+	require.NoError(t, err)
+	require.NoError(t, remoteBalancedGraph.DemandFilesystem(ctx, 2))
+	remoteBalanced, err := remoteBalancedGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.Equal(t, markers(balancedCold), markers(remoteBalanced), "balanced bundles must reuse transferred filesystem outputs")
+	remoteBalancedDigest, err := remoteBalancedGraph.Artifacts.Digest(ctx)
+	require.NoError(t, err)
+	require.Equal(t, balancedArtifacts, remoteBalancedDigest)
+	remoteDirectoryGraph, err := replay.BuildWithOptions(b, plan, source, directoryOptions)
+	require.NoError(t, err)
+	remoteDirectory, err := remoteDirectoryGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.Equal(t, markers(directoryCold), markers(remoteDirectory), "whole compiler snapshots must reuse transferred filesystem outputs")
+	remoteDirectoryDigest, err := remoteDirectoryGraph.Artifacts.Digest(ctx)
+	require.NoError(t, err)
+	require.Equal(t, directoryArtifacts, remoteDirectoryDigest)
+	remoteIncGraph, err := replay.BuildWithOptions(b, plan, source, replay.BuildOptions{IncrementalCrate: "app", ArtifactDirectories: true})
 	require.NoError(t, err)
 	remoteInc, err := remoteIncGraph.Evaluate(ctx, 4)
 	require.NoError(t, err)
@@ -257,7 +344,7 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 	remoteStateDigest, err := remoteIncGraph.Incremental.Digest(ctx)
 	require.NoError(t, err)
 	require.Equal(t, stateDigest, remoteStateDigest)
-	remoteEditGraph, err := replay.BuildWithOptions(b, plan, appEdit, replay.BuildOptions{IncrementalCrate: "app", IncrementalSeed: remoteIncGraph.Incremental})
+	remoteEditGraph, err := replay.BuildWithOptions(b, plan, appEdit, replay.BuildOptions{IncrementalCrate: "app", IncrementalSeed: remoteIncGraph.Incremental, ArtifactDirectories: true})
 	require.NoError(t, err)
 	remoteEdit, err := remoteEditGraph.Evaluate(ctx, 4)
 	require.NoError(t, err)

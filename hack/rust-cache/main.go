@@ -54,6 +54,9 @@ func run(ctx context.Context, args []string) error {
 	incrementalCrate := flags.String("incremental-crate", "", "experimental: enable rustc incremental compilation for one crate")
 	seedPath := flags.String("seed", "", "previous native incremental state JSON")
 	statePath := flags.String("state", "", "write next native incremental state JSON")
+	artifactLeafFiles := flags.Int("artifact-leaf-files", 0, "experimental: bound artifact-copy chains (0 keeps flat bundles)")
+	artifactDirectories := flags.Bool("artifact-directories", false, "experimental: reuse whole compiler output snapshots")
+	compilerConcurrency := flags.Int("compiler-concurrency", 0, "experimental: bound filesystem compiler demand (0 lets export demand the whole graph)")
 	concurrency := flags.Int("concurrency", 8, "maximum concurrent diagnostic evaluation operations")
 	env := environmentFlags{}
 	flags.Var(env, "env", "capture environment input KEY=VALUE (repeatable)")
@@ -74,6 +77,15 @@ func run(ctx context.Context, args []string) error {
 	}
 	if *concurrency < 1 {
 		return errors.New("--concurrency must be positive")
+	}
+	if *artifactLeafFiles < 0 || *compilerConcurrency < 0 {
+		return errors.New("--artifact-leaf-files and --compiler-concurrency must be nonnegative")
+	}
+	if *artifactDirectories && *artifactLeafFiles != 0 {
+		return errors.New("--artifact-directories cannot be combined with --artifact-leaf-files")
+	}
+	if args[0] != "replay" && (*artifactLeafFiles != 0 || *compilerConcurrency != 0 || *artifactDirectories) {
+		return errors.New("artifact and compiler concurrency experiments require replay")
 	}
 	if *incrementalCrate != "" || *seedPath != "" || *statePath != "" {
 		if args[0] != "replay" || *incrementalCrate == "" || *statePath == "" {
@@ -125,7 +137,7 @@ func run(ctx context.Context, args []string) error {
 			return err
 		}
 		phase = time.Now()
-		opts := replay.BuildOptions{IncrementalCrate: *incrementalCrate}
+		opts := replay.BuildOptions{IncrementalCrate: *incrementalCrate, ArtifactLeafFiles: *artifactLeafFiles, ArtifactDirectories: *artifactDirectories}
 		if *seedPath != "" {
 			var seed replay.IncrementalState
 			if err := readJSON(*seedPath, &seed); err != nil {
@@ -141,6 +153,13 @@ func run(ctx context.Context, args []string) error {
 			return err
 		}
 		timings.GraphSeconds = time.Since(phase).Seconds()
+		if *compilerConcurrency != 0 {
+			phase = time.Now()
+			if err := graph.DemandFilesystem(ctx, *compilerConcurrency); err != nil {
+				return err
+			}
+			timings.DemandSeconds = time.Since(phase).Seconds()
+		}
 		var report *replay.Report
 		if !*artifactsOnly {
 			report, err = graph.Evaluate(ctx, *concurrency)
@@ -182,7 +201,7 @@ func run(ctx context.Context, args []string) error {
 		timings.ReadySeconds = time.Since(started).Seconds()
 		if *artifactsOnly {
 			fmt.Fprintf(os.Stderr, "exported artifacts for %d compiler actions in %.3fs (shutdown excluded)\n", len(graph.Operations), timings.ReadySeconds)
-			fmt.Fprintf(os.Stderr, "source %.3fs; connect %.3fs; graph %.3fs; export %.3fs; incremental state %.3fs\n", timings.SourceSeconds, timings.ConnectSeconds, timings.GraphSeconds, timings.ExportSeconds, timings.IncrementalSeconds)
+			fmt.Fprintf(os.Stderr, "source %.3fs; connect %.3fs; graph %.3fs; demand %.3fs; export %.3fs; incremental state %.3fs\n", timings.SourceSeconds, timings.ConnectSeconds, timings.GraphSeconds, timings.DemandSeconds, timings.ExportSeconds, timings.IncrementalSeconds)
 			return nil
 		}
 		report.Driver = timings
