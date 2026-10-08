@@ -541,6 +541,9 @@ func initEngineTelemetry(ctx context.Context) (context.Context, func(error)) {
 		name = os.Getenv(TraceNameEnv)
 	}
 	ctx, span := Tracer().Start(ctx, name)
+	if cloud.configured() {
+		startCloudTraceExport(ctx, telemetry.SpanProcessors[cloud.spans])
+	}
 
 	// Set up global slog to log to the primary span output.
 	slog.SetDefault(slog.SpanLogger(ctx, InstrumentationLibrary))
@@ -565,4 +568,17 @@ func initEngineTelemetry(ctx context.Context) (context.Context, func(error)) {
 		telemetry.EndWithCause(span, &rerr)
 		telemetry.Close()
 	}
+}
+
+// Start the first Cloud request while the command connects and runs. Waiting
+// for the normal batch interval can leave its connection setup on the shutdown
+// path of a short command. Later updates keep the normal batching policy.
+func startCloudTraceExport(ctx context.Context, processor sdktrace.SpanProcessor) {
+	go func() {
+		flushCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), enginetel.CloudExportTimeout)
+		defer cancel()
+		if err := processor.ForceFlush(flushCtx); err != nil {
+			otel.Handle(err)
+		}
+	}()
 }
