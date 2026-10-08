@@ -270,9 +270,10 @@ func Parse(ctx context.Context, refString string) (_ Parsed, rerr error) {
 		cloneUser += "@"
 	}
 
-	// For SSH URLs, inject port after host if it is defined: ssh://user@host:port/path
+	// Import-path roots omit ports. Preserve the explicit transport port in
+	// clone URLs, including self-managed Git hosts reached over HTTP(S).
 	repoRootWithPort := gitParsed.RepoRoot.Root
-	if gitParsed.Scheme == SchemeSSH && endpoint.Port > 0 {
+	if endpoint.Port > 0 && (gitParsed.Scheme == SchemeSSH || gitParsed.Scheme == SchemeHTTP || gitParsed.Scheme == SchemeHTTPS) {
 		if host, rest, ok := strings.Cut(repoRootWithPort, "/"); ok {
 			repoRootWithPort = fmt.Sprintf("%s:%d/%s", host, endpoint.Port, rest)
 		}
