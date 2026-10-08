@@ -24,6 +24,8 @@ type SourceFile struct {
 // Source is a content snapshot, independent of host/session directory handles.
 type Source map[string]SourceFile
 
+const sourceLeafFiles = 64
+
 func ReadSource(root string) (Source, error) {
 	files := Source{}
 	err := filepath.WalkDir(root, func(filename string, entry fs.DirEntry, walkErr error) error {
@@ -84,12 +86,23 @@ func (s Source) names() []string {
 }
 
 func (s Source) Directory(client *dagger.Client) *dagger.Directory {
-	dir := client.Directory()
-	for _, name := range s.names() {
-		file := s[name]
-		dir = dir.WithNewFile(name, file.Contents, dagger.DirectoryWithNewFileOpts{Permissions: file.Mode})
+	var build func([]string) *dagger.Directory
+	build = func(names []string) *dagger.Directory {
+		dir := client.Directory()
+		// A linear recipe invalidates every later snapshot when an early
+		// file's content changes. Bound that chain and merge independent
+		// subtrees. Small sources retain their single-ID query path.
+		if len(names) > sourceLeafFiles {
+			middle := len(names) / 2
+			return dir.WithDirectory(".", build(names[:middle])).WithDirectory(".", build(names[middle:]))
+		}
+		for _, name := range names {
+			file := s[name]
+			dir = dir.WithNewFile(name, file.Contents, dagger.DirectoryWithNewFileOpts{Permissions: file.Mode})
+		}
+		return dir
 	}
-	return dir
+	return build(s.names())
 }
 
 // packageSources assigns each file once, rather than scanning the whole workspace

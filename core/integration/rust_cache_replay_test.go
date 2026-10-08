@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path"
@@ -51,6 +52,51 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 	a, b := start(aVolume), start(bVolume)
 	source, err := replay.Fixture()
 	require.NoError(t, err)
+	// Keep the compiler replay and cross-engine transfer on the larger-tree
+	// path too. These resources leave the fixture's executable unchanged.
+	for i := range 80 {
+		source[fmt.Sprintf("app/resources/%02d.txt", i)] = replay.SourceFile{Contents: fmt.Sprintf("resource %d\n", i), Mode: 0644}
+	}
+	// Exercise the larger source tree with repeated basenames, nested paths,
+	// empty/UTF-8 contents and mixed permissions. Export checks the filesystem
+	// independently of the recipe layout; prior snapshots must stay immutable.
+	many := replay.Source{}
+	for i := range 80 {
+		many[fmt.Sprintf("nested/%02d/resource.txt", i)] = replay.SourceFile{Contents: fmt.Sprintf("file %d\n", i), Mode: 0644}
+	}
+	many["empty.txt"] = replay.SourceFile{Contents: "", Mode: 0600}
+	many["space dir/run.sh"] = replay.SourceFile{Contents: "#!/bin/sh\nprintf 'héllo\\n'\n", Mode: 0751}
+	originalDirectory := many.Directory(a)
+	checkSource := func(directory *dagger.Directory, expected replay.Source) {
+		root := t.TempDir()
+		_, err := directory.Export(ctx, root)
+		require.NoError(t, err)
+		count := 0
+		err = filepath.WalkDir(root, func(filename string, entry os.DirEntry, walkErr error) error {
+			if walkErr != nil || entry.IsDir() {
+				return walkErr
+			}
+			name, err := filepath.Rel(root, filename)
+			require.NoError(t, err)
+			file, present := expected[filepath.ToSlash(name)]
+			require.True(t, present, name)
+			contents, err := os.ReadFile(filename)
+			require.NoError(t, err)
+			require.Equal(t, file.Contents, string(contents), name)
+			info, err := entry.Info()
+			require.NoError(t, err)
+			require.Equal(t, os.FileMode(file.Mode), info.Mode().Perm(), name)
+			count++
+			return nil
+		})
+		require.NoError(t, err)
+		require.Equal(t, len(expected), count)
+	}
+	checkSource(originalDirectory, many)
+	editedSource := cloneRustSource(many)
+	editedSource["nested/00/resource.txt"] = replay.SourceFile{Contents: "edited\n", Mode: 0600}
+	checkSource(editedSource.Directory(a), editedSource)
+	checkSource(originalDirectory, many)
 	wrapperPath := filepath.Join(t.TempDir(), "rustc-wrapper")
 	build := exec.CommandContext(ctx, "go", "build", "-trimpath", "-o", wrapperPath, "./hack/rust-cache/wrapper")
 	build.Dir = "../.."
