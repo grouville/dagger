@@ -305,6 +305,63 @@ fallback. Runs that selected another CLI or overlapped test compilation were
 excluded. These tiny-fixture results do not establish performance for larger
 edited crates, remote engines or the official Rust module.
 
+### Larger edited crates
+
+`benchmark_scale.py` generates many source modules inside one application crate,
+with the same three path-library dependencies. It compares full artifact-only
+commands with native Cargo using incremental compilation both on and off.
+All builds use the same explicit codegen-unit count: Cargo otherwise changes
+that default with incremental compilation, as described in the
+[Cargo profile reference](https://doc.rust-lang.org/cargo/reference/profiles.html#codegen-units).
+Each edited run uses a fresh random constant, recorded in the summary, so a repeat
+on the same engine cannot accidentally measure a previously compiled edit.
+
+The initial five-run comparison used 128 source modules with eight functions
+each, 16 codegen units, Rust 1.77.2 and the same `main` engine/modified CLI as the
+lifecycle pass. Median full-command times were:
+
+| Scenario | Native Cargo, incremental | Native Cargo, full | Original replay |
+| --- | ---: | ---: | ---: |
+| Unchanged | 25 ms | 14 ms | 479 ms |
+| One source-file edit | 487 ms | 2,341 ms | 4,149 ms |
+
+Every edit changed executable behavior. All three library markers were reused,
+and replay output matched both Cargo controls. The result shows two costs:
+rustc's missing incremental state and avoidable source preparation.
+
+A fresh-edit wcprof capture found 128 `Directory.withNewFile` snapshots taking
+1.08 seconds before compilation. The flat recipe invalidated every subsequent
+file after an early source edit. Source recipes now form a balanced tree with at
+most 64 files per leaf. For an existing-file content or permission edit, unchanged
+subtrees can be reused. File additions/deletions may also change the partitions.
+The smaller sources retain their existing recipe.
+
+A 16-file-leaf experiment reduced edited replay from 4.25 to 3.03 seconds in five
+alternating pairs, but increased unchanged replay from 504 to 619 milliseconds.
+The chosen 64-file leaves reduced rebuilt file snapshots from 128 to 30, with four
+directory merges and six extra queries (32 versus 26). Its later wall-time runs
+had substantial host-load drift and do not establish a reliable latency gain.
+The filesystem regression checks nested paths, repeated basenames, empty/UTF-8
+files, permissions and immutable old snapshots. The compiler regression now uses
+a larger source tree and verifies filesystem-only reuse on a second engine.
+
+Reproduce with a prebuilt driver and matching CLI; keep the generated workspace
+and captures outside the checkout:
+
+```sh
+python3 hack/rust-cache/benchmark_scale.py \
+  --dagger-cli /tmp/dagger-rcexp --replay-bin /tmp/rcexp \
+  --cargo /path/to/cargo --rustc /path/to/rustc \
+  --out /tmp/rust-scale --runs 5 --modules 128 --functions 8
+```
+
+The next compiler experiment needs native `Directory` snapshots of rustc's
+incremental state, plus selection of a compatible seed for a changed build.
+Exact compiler-result hits should remain available regardless of seed selection.
+Compatibility, edited-build correctness and filesystem-only transfer need tests
+before this can become a general Rust-module backend. The source-tree change
+does not yet close the incremental compiler gap.
+
 Use an isolated engine with its debug endpoint enabled and a matching CLI.
 Warm the workload before capturing it. The helper records the full command's
 wall time and fetches the engine recording after completion, leaving captures
