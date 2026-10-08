@@ -77,8 +77,9 @@ Keep plans, reports and exported outputs outside the source directory.
 ## Supported boundary
 
 This first experiment supports Linux/amd64, path-only workspaces contained in the
-source directory, and library/binary compilation with incremental compilation
-disabled. Source resources must be regular UTF-8 files. Source inputs outside
+source directory, and library/binary compilation. Incremental compilation is
+disabled by default; an explicit native seed can enable it for one named crate.
+Source resources must be regular UTF-8 files. Source inputs outside
 their package roots, registry/git dependencies, build scripts, proc macros,
 test compilation, custom targets and symlinks are rejected. `target` and `.git`
 directories are excluded. Package inputs are deliberately coarse: every file
@@ -111,11 +112,13 @@ transfer and process shutdown. A cached compiler operation alone does not meet
 that target. The native backend, its integration into the Rust module, and the
 module's command UX need separate measurements and end-to-end tests.
 
-The backend remains unfinished. It reuses whole compiler invocations and does
-not yet preserve rustc's incremental state within an edited crate. Native Cargo
-enables this by default for development builds, so disabling it cannot establish
-parity on larger edited crates. Registry dependencies, build scripts, proc macros
-and test actions also need support before general module integration.
+The backend remains unfinished. It reuses whole compiler invocations and can
+preserve rustc's incremental state within one edited crate using an explicit
+native seed. Automatic selection and state retention across all workspace crates
+remain unfinished. The native Cargo controls enable incremental compilation,
+so disabling it cannot establish parity on larger edited crates. Registry
+dependencies, build scripts, proc macros and test actions also need support
+before general module integration.
 
 Replay reports separate source reading, connection, graph construction,
 evaluation and export. `driver.ready_seconds` stops when artifact export
@@ -584,6 +587,60 @@ to interleave just these two layouts. The default interleaved comparison is flat
 These remain synthetic workloads on Rust 1.77.2 with 16 explicit codegen units.
 They do not establish performance for the official Rust module or real projects
 with registry dependencies, build scripts, procedural macros or tests.
+
+#### Engine experiment controls
+
+`benchmark_artifacts.py` also accepts repeatable `--engine NAME=RUNNER_HOST`
+arguments. It uses direct compiler snapshots on every engine and the same CLI
+and replay binary, gives each engine a different fresh edit, rotates execution
+order, and retains the normal Cargo, invalidation and artifact checks. Engine
+comparisons cannot be combined with `--variants`. For example:
+
+```sh
+python3 hack/rust-cache/benchmark_artifacts.py \
+  --workspace-run /tmp/rust-fanout100 \
+  --dagger-cli /tmp/dagger-rcexp --replay-bin /tmp/rcexp \
+  --cargo /path/to/cargo --rustc /path/to/rustc \
+  --out /tmp/rust-engine-comparison --runs 3 \
+  --engine baseline=docker-container://rust-baseline \
+  --engine candidate=docker-container://rust-candidate
+```
+
+Further disposable engine experiments did not establish a useful shared-edit
+latency improvement. A CPU profile attributed 13.9% of samples to snapshot-lease
+synchronization, motivating one database transaction for a snapshot's retained
+resources. An additional engine semaphore limited finite compiler executions to
+eight. On freshly prepared engines, three rotating edits gave shared-edit medians
+of 5.62 seconds for the baseline, 5.75 for transaction batching, and 6.47 for
+batching with the execution limit. Cargo medians were 0.98, 1.02 and 4.03 seconds;
+individual Cargo samples reached ten seconds, exposing substantial host noise.
+These engine patches were not selected or added to this branch.
+
+A separate three-run comparison tested sharing one sealed `runc` executable
+within an engine. The disposable wrapper used runc 1.4.2's own executable-sealing
+helper and verified its required seals; it did not disable the runtime's sealing
+check. Leaf-edit medians were 1.071 seconds for the original runtime and 1.051 for
+the shared executable. Shared-edit medians were 4.658 and 4.644 seconds, with Cargo
+at 0.702 and 0.698 seconds. All invalidation, artifact and executable checks passed.
+One profile showed less time in runtime startup, but complete-command latency
+did not improve. This wrapper experiment was also not selected. Read-only source
+mounts likewise failed to show a useful improvement in an earlier five-run trial.
+
+The next substantial opportunities are automatic native incremental state,
+importing native source directories instead of constructing per-file snapshots,
+and reducing the entire compiler setup path, including root-filesystem and
+specification preparation. Any seed-selection mechanism must preserve exact
+result reuse and compiler compatibility; an ordinary seed mount still changes
+the action identity.
+
+Dependency scheduling has another unmeasured limitation. Cargo starts dependent
+libraries once their dependencies' compiler metadata is ready, before machine-code
+generation finishes, as described in the
+[Rust compiler guide](https://rustc-dev-guide.rust-lang.org/backend/libs-and-metadata.html#pipelining).
+Replay's dependency snapshots currently wait for the complete compiler execution.
+A long-chain edited-build experiment should measure this lost overlap before
+adding early output support or a separate metadata compilation pass, which could
+duplicate compiler work.
 
 Use an isolated engine with its debug endpoint enabled and a matching CLI.
 Warm the workload before capturing it. The helper records the full command's

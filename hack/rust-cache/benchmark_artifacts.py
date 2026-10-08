@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Interleave artifact-layout experiments on a captured many-crate workspace."""
+"""Interleave artifact-layout or engine experiments on a captured many-crate workspace."""
 
 import argparse
 import hashlib
@@ -27,12 +27,22 @@ def main():
     parser.add_argument("--rustc", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--runs", type=int, default=3)
+    parser.add_argument("--engine", action="append", default=[], metavar="NAME=RUNNER_HOST",
+                        help="compare isolated engines using direct compiler snapshots (repeatable)")
     parser.add_argument("--variants", nargs="+",
                         choices=("flat", "balanced64", "balanced16", "balanced64_c8", "directories", "directories_c8", "directories_c32"),
-                        default=("flat", "balanced64", "directories"))
+                        help="artifact layouts; defaults to flat, balanced64, directories")
     args = parser.parse_args()
     if args.runs < 1:
         parser.error("--runs must be positive")
+    if args.engine and args.variants:
+        parser.error("--engine cannot be combined with --variants")
+    engines = {}
+    for specification in args.engine:
+        name, separator, host = specification.partition("=")
+        if not separator or not re.fullmatch(r"[A-Za-z0-9_-]+", name) or not host or name in engines:
+            parser.error("--engine requires a unique NAME=RUNNER_HOST with a filename-safe name")
+        engines[name] = host
     workspace = args.workspace_run.resolve()
     metadata = json.loads((workspace / "summary.json").read_text())
     if not metadata["library_crates"]:
@@ -55,9 +65,11 @@ def main():
     for key in ("CARGO_BUILD_BUILD_DIR", "RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER"):
         native_env.pop(key, None)
     native = [str(args.cargo.resolve()), "build", "--workspace", "--locked", "--offline", *plan.get("cargo_args", [])]
-    available = {"flat": (0, 0), "balanced64": (64, 0), "balanced16": (16, 0), "balanced64_c8": (64, 8),
-                 "directories": (0, 0), "directories_c8": (0, 8), "directories_c32": (0, 32)}
-    variants = {name: available[name] for name in args.variants}
+    available = {"flat": (0, 0, False), "balanced64": (64, 0, False), "balanced16": (16, 0, False),
+                 "balanced64_c8": (64, 8, False), "directories": (0, 0, True),
+                 "directories_c8": (0, 8, True), "directories_c32": (0, 32, True)}
+    variants = ({name: (0, 0, True) for name in engines} if engines else
+                {name: available[name] for name in (args.variants or ("flat", "balanced64", "directories"))})
     replay = [str(args.replay_bin.resolve()), "replay", "--source", str(source), "--plan", str(plan_path)]
 
     def run(command, label, environment=env, cwd=None):
@@ -67,13 +79,17 @@ def main():
         return time.monotonic() - started
 
     def command(variant):
-        leaves, concurrency = variants[variant]
+        leaves, concurrency, directories = variants[variant]
         return [*replay, "--artifact-leaf-files", str(leaves), "--compiler-concurrency", str(concurrency),
-                *(["--artifact-directories"] if variant.startswith("directories") else [])]
+                *(["--artifact-directories"] if directories else [])]
+
+    def engine_environment(variant):
+        return dict(env, _EXPERIMENTAL_DAGGER_RUNNER_HOST=engines[variant]) if engines else env
 
     def diagnose(variant, label):
         report = output / (label + ".json")
-        run([*command(variant), "--out", str(output / (label + "-artifacts")), "--report", str(report)], label)
+        run([*command(variant), "--out", str(output / (label + "-artifacts")), "--report", str(report)],
+            label, engine_environment(variant))
         return {a["id"]: a for a in json.loads(report.read_text())["actions"]}
 
     def edit(filename, value):
@@ -87,7 +103,8 @@ def main():
     seed = secrets.randbits(48)
     summary = {"workspace_run": str(workspace), "rustc_version": version,
                "dagger_cli_version": subprocess.check_output([str(args.dagger_cli.resolve()), "version", "--quiet"], env=env, text=True).strip(),
-               "variants": {k: {"artifact_leaf_files": v[0], "compiler_concurrency": v[1], "artifact_directories": k.startswith("directories")} for k, v in variants.items()},
+               "variants": {k: {"artifact_leaf_files": v[0], "compiler_concurrency": v[1], "artifact_directories": v[2],
+                                **({"runner_host": engines[k]} if engines else {})} for k, v in variants.items()},
                "edit_seed": seed}
     sequence = 0
     for scenario, filename, expected, stdout_index in (
@@ -114,7 +131,8 @@ def main():
                     if kind == "cargo":
                         times[kind] = run(native, label + "-cargo", native_env, source)
                     else:
-                        times[kind] = run([*command(variant), "--out", str(directory), "--artifacts-only"], label)
+                        times[kind] = run([*command(variant), "--out", str(directory), "--artifacts-only"],
+                                          label, engine_environment(variant))
                 observed = diagnose(variant, label + "-verify")
                 changed = {a["crate"] for key, a in observed.items() if a["execution"] != previous[variant][key]["execution"]}
                 if changed != expected:
