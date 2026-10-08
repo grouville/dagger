@@ -106,16 +106,10 @@ func Build(client *dagger.Client, plan *model.Plan, source Source) (*Graph, erro
 		for _, dir := range sortedKeys(bundles) {
 			ctr = ctr.WithMountedDirectory(dir, client.Directory().WithFiles(".", bundles[dir]))
 		}
-		for _, key := range sortedKeys(a.Env) {
-			ctr = ctr.WithEnvVariable(key, a.Env[key])
-		}
-		for _, key := range a.UnsetEnv {
-			ctr = ctr.WithoutEnvVariable(key)
-		}
 		// The nonce is an output, never an argument or a dependency input.
 		cmd := []string{"sh", "-ec", "mkdir -p \"$1\" " + path.Dir(stampPath) + "; shift; cat /proc/sys/kernel/random/uuid > " + stampPath + "; exec \"$@\"", "rcexp", model.Option(a.Args, "--out-dir"), a.Compiler}
 		cmd = append(cmd, a.Args...)
-		ctr = ctr.WithExec(cmd, noNesting())
+		ctr = ctr.WithExec(compilerEnvironment(a, cmd), noNesting())
 		op := Operation{Action: a, Container: ctr, Files: map[string]*dagger.File{}, Stamp: ctr.File(stampPath)}
 		for _, filename := range a.Outputs {
 			file := ctr.File(filename)
@@ -133,6 +127,25 @@ func Build(client *dagger.Client, plan *model.Plan, source Source) (*Graph, erro
 		graph.Artifacts = graph.Artifacts.WithFiles(dir, artifacts[dir])
 	}
 	return graph, nil
+}
+
+// Keep environment values in the exec's cache identity without adding a
+// container recipe step for every variable. Values are argv, never shell source.
+// The pinned toolchain supplies GNU env, including its -u option.
+func compilerEnvironment(a model.Action, command []string) []string {
+	args := []string{"/usr/bin/env"}
+	unset := map[string]bool{}
+	for _, key := range a.UnsetEnv {
+		args = append(args, "-u", key)
+		unset[key] = true
+	}
+	args = append(args, "--")
+	for _, key := range sortedKeys(a.Env) {
+		if !unset[key] {
+			args = append(args, key+"="+a.Env[key])
+		}
+	}
+	return append(args, command...)
 }
 
 // Evaluate reads filesystem outputs only. Reading exec metadata (Sync/Stdout)

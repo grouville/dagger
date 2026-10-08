@@ -50,7 +50,8 @@ func run(ctx context.Context, args []string) error {
 	outPath := flags.String("out", "", "replay artifact directory")
 	reportPath := flags.String("report", "", "replay report JSON")
 	previousPath := flags.String("previous", "", "previous report for counting reused operations")
-	concurrency := flags.Int("concurrency", 8, "maximum concurrent replay operations")
+	artifactsOnly := flags.Bool("artifacts-only", false, "export replay artifacts without collecting diagnostic markers or digests")
+	concurrency := flags.Int("concurrency", 8, "maximum concurrent diagnostic evaluation operations")
 	env := environmentFlags{}
 	flags.Var(env, "env", "capture environment input KEY=VALUE (repeatable)")
 	if err := flags.Parse(args[1:]); err != nil {
@@ -64,6 +65,9 @@ func run(ctx context.Context, args []string) error {
 	}
 	if args[0] == "replay" && (len(flags.Args()) > 0 || len(env) > 0) {
 		return errors.New("replay uses the recorded compiler configuration; recapture to change Cargo options or environment")
+	}
+	if *artifactsOnly && (args[0] != "replay" || *reportPath != "" || *previousPath != "") {
+		return errors.New("--artifacts-only requires replay without --report or --previous")
 	}
 	if *concurrency < 1 {
 		return errors.New("--concurrency must be positive")
@@ -118,9 +122,12 @@ func run(ctx context.Context, args []string) error {
 			return err
 		}
 		timings.GraphSeconds = time.Since(phase).Seconds()
-		report, err := graph.Evaluate(ctx, *concurrency)
-		if err != nil {
-			return err
+		var report *replay.Report
+		if !*artifactsOnly {
+			report, err = graph.Evaluate(ctx, *concurrency)
+			if err != nil {
+				return err
+			}
 		}
 		phase = time.Now()
 		if _, err := graph.Artifacts.Export(ctx, *outPath); err != nil {
@@ -128,6 +135,10 @@ func run(ctx context.Context, args []string) error {
 		}
 		timings.ExportSeconds = time.Since(phase).Seconds()
 		timings.ReadySeconds = time.Since(started).Seconds()
+		if *artifactsOnly {
+			fmt.Fprintf(os.Stderr, "exported artifacts for %d compiler actions in %.3fs (shutdown excluded)\n", len(graph.Operations), timings.ReadySeconds)
+			return nil
+		}
 		report.Driver = timings
 		if *reportPath == "" {
 			*reportPath = *outPath + ".report.json"

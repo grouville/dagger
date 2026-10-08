@@ -63,7 +63,11 @@ Pass Cargo build options after `--`, for example `-- --features left/extra` or
 inputs, for example `--env RCE_LABEL=custom`. These are recorded in the plan;
 recapture to change build options or environment. `--image` selects a toolchain
 at capture time; its resolved digest is recorded. The default matches the
-repository's pinned Rust SDK image. Replay concurrency defaults to eight.
+repository's pinned Rust SDK image. Diagnostic evaluation concurrency defaults
+to eight. Add `--artifacts-only` to replay to demand and export the artifact
+directory directly, without marker/digest queries or a report. This models the
+artifact-returning path a Rust module would use; it cannot be combined with
+`--report` or `--previous`.
 
 Plans record the compiler invocations and graph, not source or build artifacts.
 Replay reads the current package sources. Cargo manifests, lockfiles, `.cargo`
@@ -79,6 +83,12 @@ their package roots, registry/git dependencies, build scripts, proc macros,
 test compilation, custom targets and symlinks are rejected. `target` and `.git`
 directories are excluded. Package inputs are deliberately coarse: every file
 owned by the package participates in its cache identity.
+
+The toolchain image must provide `/usr/bin/env` with `-u` support, as the default
+Bookworm image does. Captured environment variables and removals are passed as
+exec arguments instead of individual container configuration operations. They
+still enter the cache identity, and literal values are never parsed as shell
+source. An explicit removal takes precedence over a captured assignment.
 
 This is a compiler replay experiment, not a replacement for normal Cargo builds.
 Build-script execution, dependency downloads, proc macros and test execution are
@@ -128,6 +138,14 @@ all compiler markers and preserves artifact digests. Its wall times include
 shutdown and artifact export. Preparation and capture are excluded from warm
 measurements. Logs, reports, artifacts and a summary are kept under `--out`.
 
+Add `--artifacts-only` to the benchmark to time the artifact-returning command.
+After each measured command, it compares exported bytes and permissions with
+preparation, then runs a separate diagnostic command to verify every compiler
+marker and digest. The summary stores that command under `verification`; its
+time is excluded from the artifact-only measurement. A changed marker detects
+a compiler rerun by either command. The default benchmark includes diagnostics
+in the measured command.
+
 For a native Cargo comparison, recapture with the current wrapper and add
 `--cargo /path/to/cargo --rustc /path/to/rustc`. The script requires the captured
 compiler version and matching Cargo version, uses the captured Cargo arguments
@@ -176,6 +194,86 @@ image `localhost/dagger-go-taskforce:review`
 (`v1.0.0-beta.15+5939a5d3.dirty`), not a general Rust performance claim. Source
 grouping now scales better; cached-result demand, command startup/shutdown,
 edited-build overhead and rustc incremental-state reuse remain work to do.
+
+### wcprof follow-up
+
+The next pass used engine and CLI source at `ea21cf49162d1eb9ae5749ea38813ee84cee7537`
+on `main` (development version `v1.0.0-beta.17`), with the installed beta 16
+runtime. This includes the merged file-checksum fix. The Rust driver was built
+with that checkout's SDK. Both profiler engines were isolated from other work;
+the underlying host was shared.
+
+- A warm diagnostic replay issued 41 engine queries and traversed 821 cached
+  `Container.withEnvVariable` calls for four compiler actions. Moving environment
+  setup into exec arguments removed those calls. In nine alternating before/after
+  runs, median graph evaluation fell from 125 to 83 milliseconds. All compiler
+  markers were reused, and all 11 artifact digests matched the Cargo capture.
+- Nine artifact-only commands took 535 milliseconds median versus 33 milliseconds
+  for matched native Cargo. The 502-millisecond overhead still missed the
+  500-millisecond budget. Exported contents, permissions and all compiler markers
+  were checked after each measurement.
+- Nine alternating runs per transport against the same warmed engine took
+  535 milliseconds through Docker's exec tunnel and 429 milliseconds through
+  direct loopback TCP. Compiler results were shared across transports. This
+  isolates roughly 100 milliseconds of connection cost; it does not establish
+  performance for remote TCP engines. Post-export time remained about
+  290–310 milliseconds, so transport alone does not account for teardown.
+- The artifact-only wcprof capture contained 26 engine queries across a
+  66-millisecond interval, within a 477-millisecond full command. wcprof currently
+  instruments queries and execs rather than the complete CLI lifecycle.
+  Summed concurrent self times must not be treated as wall time.
+- In the fresh app-edit capture before the environment change, the compiler
+  process took 133 milliseconds and container runtime startup took 36 milliseconds.
+  Only the application recompiled; the three library markers were reused.
+  This is a phase breakdown, not a paired native Cargo edit benchmark.
+
+The filesystem-only cache-transfer regression also passed against this `main`
+engine: captured Cargo artifacts matched replay, source/resource/flag/environment
+changes rebuilt the expected operations, and a second fresh engine reused all
+four compilation markers from transferred filesystem parts.
+
+A subsequent warm benchmark failed its reuse check after the engine pruned the
+unchanged compiler results. Logs showed free-space-pressure pruning on the shared
+host. The pruning target did not honor `reservedSpace` for `minFreeSpace` pressure;
+the accompanying engine fix caps that target at cache usage above the reserve.
+Regression tests reproduce both the incorrect target and removal of a cache
+already below its reserve. This addresses retention, rather than warm query
+latency. Keep the reuse checks enabled when benchmarking: byte-identical rebuilt
+artifacts alone do not establish a cache hit.
+
+With explicit retention on another isolated, unpatched `main` engine (4 GiB
+reserved, 8 GiB maximum, `minFreeSpace: 0`), all nine artifact-only replays through
+loopback TCP reused all compiler markers. Median full-command time was
+684 milliseconds versus 21 milliseconds for matched Cargo: 663 milliseconds
+overhead, still outside the budget. The shared host was under substantial I/O
+pressure; this run is not comparable to the earlier alternating transport run.
+Median artifact-ready time was 262 milliseconds and time after that was
+432 milliseconds. A follow-up warm wcprof recording saw 26 queries over
+76 milliseconds within a 506-millisecond command, with no compiler executions.
+These measurements locate remaining work in the surrounding command lifecycle;
+they do not establish edited-build or module-level parity.
+
+Use an isolated engine with its debug endpoint enabled and a matching CLI.
+Warm the workload before capturing it. The helper records the full command's
+wall time and fetches the engine recording after completion, leaving captures
+outside the workspace:
+
+```sh
+python3 hack/rust-cache/profile.py \
+  --debug-url http://127.0.0.1:6060 --out /tmp/rust-warm-profile -- \
+  /tmp/rcexp replay --source /tmp/rust-workspace \
+  --plan /tmp/rust-plan.json --out /tmp/rust-profile-artifacts --artifacts-only
+```
+
+Repeat after a fresh source edit with a different capture directory. The helper
+also captures failed commands and returns their exit status. Profiled wall times
+are diagnostic; use unprofiled alternating runs to compare implementations.
+Analyze `profile.ndjson` with the engine-lab `wcprof-report` helper built from
+the same engine source. Start with `classes`, then `critpath` filtered to
+`^session.serveQuery$`, and `waits`. The
+[engine-lab workflow](../../.dagger/modules/engine-lab/skills/engine-lab/SKILL.md)
+describes those views and their limits. Capture dumps and temporary CLI probes
+are not committed.
 
 ## Verify
 
