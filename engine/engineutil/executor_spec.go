@@ -511,18 +511,24 @@ func (c *Client) setupRootfs(ctx context.Context, state *execState) error {
 		}
 	}
 
-	rootMountable, err := state.rootMount.Src.Mount(ctx, false)
+	mountCtx, getMountsOp := wcprof.BeginOp(ctx, wcprof.OpKindExecPhase, "exec.rootfsGetMounts", wcprof.OpOpts{Ident: state.id})
+	rootMountable, err := state.rootMount.Src.Mount(mountCtx, false)
 	if err != nil {
+		getMountsOp.EndErr(err)
 		return fmt.Errorf("get rootfs mountable: %w", err)
 	}
 	rootMnts, releaseRootMount, err := rootMountable.Mount()
+	getMountsOp.EndErr(err)
 	if err != nil {
 		return fmt.Errorf("get rootfs mount: %w", err)
 	}
 	if releaseRootMount != nil {
 		state.cleanups.Add("release rootfs mount", releaseRootMount)
 	}
-	if err := mount.All(rootMnts, state.rootfsPath); err != nil {
+	_, rootMountOp := wcprof.BeginOp(ctx, wcprof.OpKindExecPhase, "exec.rootfsMountRoot", wcprof.OpOpts{Ident: state.id})
+	err = mount.All(rootMnts, state.rootfsPath)
+	rootMountOp.EndErr(err)
+	if err != nil {
 		return fmt.Errorf("mount rootfs: %w", err)
 	}
 
@@ -608,7 +614,9 @@ func (c *Client) setupRootfs(ctx context.Context, state *execState) error {
 
 	for _, mnt := range state.nonRootMounts {
 		mnt, recursiveReadOnly := consumeRecursiveReadOnlyOption(mnt)
+		_, resolveOp := wcprof.BeginOp(ctx, wcprof.OpKindExecPhase, "exec.rootfsResolveInput", wcprof.OpOpts{Ident: state.id})
 		dstPath, err := fs.RootPath(state.spec.Root.Path, mnt.Target)
+		resolveOp.EndErr(err)
 		if err != nil {
 			return fmt.Errorf("mount %s points to invalid target: %w", mnt.Target, err)
 		}
@@ -649,7 +657,10 @@ func (c *Client) setupRootfs(ctx context.Context, state *execState) error {
 			}
 		}
 
-		if err := mnt.Mount(state.spec.Root.Path); err != nil {
+		_, bindMountOp := wcprof.BeginOp(ctx, wcprof.OpKindExecPhase, "exec.rootfsMountInput", wcprof.OpOpts{Ident: state.id})
+		err = mnt.Mount(state.spec.Root.Path)
+		bindMountOp.EndErr(err)
+		if err != nil {
 			return fmt.Errorf("mount to rootfs %s: %w", mnt.Target, err)
 		}
 		overlayIncompatDir := overlay.VolatileIncompatDir(mnt)
