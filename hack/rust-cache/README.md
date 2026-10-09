@@ -818,6 +818,51 @@ Cargo controls took 0.64 and 0.63 seconds. All six validation exports reused all
 wcprof capture measured 341 milliseconds on the history-read critical path.
 The whole-command gain is modest, despite the larger cost of the original copy.
 
+The current batch writes artifacts, incremental state and execution markers into
+one mounted native snapshot. History retains that snapshot directly, avoiding
+the three directory joins previously used to collect outputs after compilation.
+The exported artifact view contains only `target`; the worker removes its private
+dependency hardlinks after all compilers finish. Inputs still include both the
+selected seed and retained artifacts, and per-crate history keys remain separate.
+The artifact directory is a view into that same snapshot, so retaining it also
+retains the sibling incremental state. Filesystem export still selects only the
+captured artifacts; remote transfer size and storage impact need measurement.
+
+Fresh-edit speedups for this layout are not established. An initial experiment
+that removed only the final artifact copy took 1.08 versus 1.03 seconds for leaf
+edits and 2.74 versus 3.06 seconds for shared edits. Cargo's shared-edit controls
+ranged from 0.76 to 5.54 seconds as unrelated Go builds increased CPU and I/O
+contention. A subsequent comparison of the unified layout was stopped under that
+contention. Its completed leaf checks preserved all 305 captured outputs, their
+permissions, executable behavior, and exactly 100/102 finished-result hits.
+The profile still identifies the copy chain as work to remove; it does not
+establish a full-command speedup.
+
+The unified layout passed the full compiler replay integration scenario,
+including edited builds after transferring native history to a fresh engine.
+Its separate shared-edit profile reduced the history-read copy chain from five
+operations to two (645 versus 296 milliseconds in these two captures). Overall
+timings were still affected by other work. In the unified capture, artifacts and
+history were ready after 2.407 seconds but the process took 5.044 seconds. Engine
+logs attribute 2.448 seconds to flushing session Cloud telemetry before closing.
+That is a separate end-to-end cost to investigate, rather than compilation or
+snapshot persistence work.
+
+Compare driver implementations on one isolated engine with fresh edits:
+
+```sh
+python3 hack/rust-cache/benchmark_artifacts.py \
+  --workspace-run /tmp/rust-workspace-benchmark \
+  --driver baseline=/tmp/rcexp-before --driver candidate=/tmp/rcexp-after \
+  --dagger-cli /tmp/dagger-rcexp --cargo /path/to/cargo --rustc /path/to/rustc \
+  --out /tmp/rust-driver-comparison --runs 5 --history-warmups 4
+```
+
+Each driver has its own history. Four preparation edits fill the bounded history
+index before measuring expiry. The harness checks which crates recompiled,
+finished-result reuse, exported bytes and permissions, and executable behavior
+against Cargo; the diagnostic evaluations are outside the timed command.
+
 Longer edit sequences produced source-key changes for unchanged packages, but
 the original trigger remains unresolved. The first proposed fix changed the
 unused `internal/buildkit/cache/contenthash` package and cannot explain those
@@ -831,8 +876,23 @@ same files using SHA-256 instead of the importer's XXH3 hashes, changing directo
 digests. The scoped fix saves the existing records for owned immutable snapshots
 in the native checkpoint; filesync hashing is unchanged. The regression imports
 real files and checks their digests after two SQLite checkpoint reloads. This
-fix addresses restart stability; it has not yet been tied to the long-edit
-misses or measured for performance.
+fix addresses restart stability; it has not been tied to the long-edit misses.
+An independent test on main and the scoped fix also verified downstream action
+reuse: the original action survives restart on both, but a previously untouched
+identical source projection executes again only on main. That integration
+regression fails on main and passes with the fix. The standalone
+[test-only repro](https://github.com/grouville/dagger/tree/repro/native-contenthash-restart)
+and [fix](https://github.com/grouville/dagger/tree/fix/persist-native-content-hashes)
+are on the fork; no PR has been opened.
+
+Ten alternating clean-restart samples on a 20,020-file fixture missed 10/10
+equivalent-directory actions on main and reused 10/10 with the fix. Median hash
+plus action evaluation fell from 492 to 300 milliseconds; the full SDK probe
+fell from 1.692 to 1.467 seconds, excluding Docker restart. The filesystem caches
+and earlier actions were warm. These are synthetic restart measurements, not
+Rust build speedups. The checkpoint added about 1.05 MB of hash records.
+Cache-close medians increased from 637 to 686 milliseconds with overlapping
+ranges; this is a noisy observation including other checkpoint work.
 
 ## Verify
 

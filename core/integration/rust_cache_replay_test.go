@@ -370,12 +370,38 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 	batchOptions := func(client *dagger.Client, input replay.Source) replay.BuildOptions {
 		return replay.BuildOptions{SourceDirectory: input.Directory(client), BatchCompiler: client.Host().File(batchBinary), BatchWorkers: 4}
 	}
+	checkBatchArtifacts := func(graph *replay.Graph) {
+		root := t.TempDir()
+		_, err := graph.Artifacts.Export(ctx, root)
+		require.NoError(t, err)
+		expected := map[string]bool{}
+		for _, action := range plan.Actions {
+			for _, output := range action.Outputs {
+				expected[strings.TrimPrefix(output, model.TargetRoot+"/")] = true
+			}
+		}
+		count := 0
+		err = filepath.WalkDir(root, func(filename string, entry os.DirEntry, walkErr error) error {
+			if walkErr != nil || entry.IsDir() {
+				return walkErr
+			}
+			name, err := filepath.Rel(root, filename)
+			require.NoError(t, err)
+			require.True(t, expected[filepath.ToSlash(name)], "unexpected compiler state or private dependency file: %s", name)
+			count++
+			return nil
+		})
+		require.NoError(t, err)
+		require.Equal(t, len(expected), count)
+		require.NoDirExists(t, filepath.Join(root, ".rcexp-private"))
+	}
 	batchGraph, err := replay.BuildAutomatic(ctx, a, plan, source, batchOptions(a, source), nil)
 	require.NoError(t, err)
 	batchCold, err := batchGraph.Evaluate(ctx, 4)
 	require.NoError(t, err)
 	require.Len(t, batchCold.Batch, 4)
 	require.Equal(t, "31 default\n", runBinary(a, batchGraph, plan.Image))
+	checkBatchArtifacts(batchGraph)
 	batchEditGraph, err := replay.BuildAutomatic(ctx, a, plan, appEdit, batchOptions(a, appEdit), batchGraph.History)
 	require.NoError(t, err)
 	batchEdited, err := batchEditGraph.Evaluate(ctx, 4)
@@ -384,6 +410,7 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 	require.Equal(t, 3, batchEdited.Reused(batchCold))
 	require.Len(t, batchEdited.Batch, 1)
 	require.Equal(t, "32 default\n", runBinary(a, batchEditGraph, plan.Image))
+	checkBatchArtifacts(batchEditGraph)
 	foreignRead := cloneRustSource(source)
 	foreignFile := foreignRead["app/src/main.rs"]
 	foreignFile.Contents += "\nconst _: &str = include_str!(\"../../right/Cargo.toml\");\n"
@@ -558,6 +585,7 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 	require.NoError(t, err)
 	require.Equal(t, 1, remoteBatchEditGraph.HistoryHits)
 	require.Equal(t, markers(batchEdited)["right"], markers(remoteBatchEdited)["right"])
+	checkBatchArtifacts(remoteBatchEditGraph)
 	require.Len(t, remoteBatchEdited.Batch, 3)
 	require.Equal(t, "32 default\n", runBinary(b, remoteBatchEditGraph, plan.Image))
 	remoteGraph, remote := evaluate(b, plan, source)

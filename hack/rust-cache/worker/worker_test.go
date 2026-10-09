@@ -1,11 +1,43 @@
 package worker
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
 	"github.com/dagger/dagger/hack/rust-cache/model"
 )
+
+func TestCleanupPrivateTargetsPreservesPublishedArtifacts(t *testing.T) {
+	target := t.TempDir()
+	private := filepath.Join(target, ".rcexp-private", "crate", "debug", "deps")
+	if err := os.MkdirAll(private, 0755); err != nil {
+		t.Fatal(err)
+	}
+	produced := filepath.Join(private, "artifact")
+	if err := os.WriteFile(produced, []byte("compiled output"), 0751); err != nil {
+		t.Fatal(err)
+	}
+	published := filepath.Join(target, "artifact")
+	if err := publish(produced, published); err != nil {
+		t.Fatal(err)
+	}
+	if err := cleanupPrivateTargets(target); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(target, ".rcexp-private")); !os.IsNotExist(err) {
+		t.Fatalf("private targets remain: %v", err)
+	}
+	contents, err := os.ReadFile(published)
+	if err != nil || string(contents) != "compiled output" {
+		t.Fatalf("published output lost: %q, %v", contents, err)
+	}
+	info, err := os.Stat(published)
+	if err != nil || info.Mode().Perm() != 0751 {
+		t.Fatalf("published output mode changed: %v, %v", info, err)
+	}
+}
 
 func TestMetadataAllowsLibraryButBinaryWaitsForTransitiveCodegen(t *testing.T) {
 	a := model.Action{ID: "a", Outputs: []string{"a.rmeta"}}

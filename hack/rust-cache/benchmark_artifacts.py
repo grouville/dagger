@@ -21,12 +21,16 @@ def tree(directory):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workspace-run", type=Path, required=True, help="existing benchmark_scale.py result")
-    parser.add_argument("--replay-bin", type=Path, required=True)
+    parser.add_argument("--replay-bin", type=Path)
+    parser.add_argument("--driver", action="append", default=[], metavar="NAME=REPLAY_BIN",
+                        help="compare native batch driver implementations on one engine (repeatable)")
     parser.add_argument("--dagger-cli", type=Path, required=True)
     parser.add_argument("--cargo", type=Path, required=True)
     parser.add_argument("--rustc", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--runs", type=int, default=3)
+    parser.add_argument("--history-warmups", type=int, default=1,
+                        help="preparation edits per automatic-history variant; use 4 to measure index expiry")
     parser.add_argument("--engine", action="append", default=[], metavar="NAME=RUNNER_HOST",
                         help="compare isolated engines using direct compiler snapshots (repeatable)")
     parser.add_argument("--variants", nargs="+",
@@ -35,8 +39,23 @@ def main():
     args = parser.parse_args()
     if args.runs < 1:
         parser.error("--runs must be positive")
+    if args.history_warmups < 1:
+        parser.error("--history-warmups must be positive")
     if args.engine and args.variants:
         parser.error("--engine cannot be combined with --variants")
+    if args.driver and (args.engine or args.variants or args.replay_bin):
+        parser.error("--driver cannot be combined with --engine, --variants or --replay-bin")
+    if not args.driver and args.replay_bin is None:
+        parser.error("provide --replay-bin or --driver")
+    drivers = {}
+    for specification in args.driver:
+        name, separator, filename = specification.partition("=")
+        if not separator or not re.fullmatch(r"[A-Za-z0-9_-]+", name) or not filename or name in drivers:
+            parser.error("--driver requires a unique NAME=REPLAY_BIN with a filename-safe name")
+        driver = Path(filename).resolve()
+        if not driver.is_file():
+            parser.error(f"driver does not exist: {driver}")
+        drivers[name] = driver
     engines = {}
     for specification in args.engine:
         name, separator, host = specification.partition("=")
@@ -77,9 +96,9 @@ def main():
                  "directories_native_auto": settings(directories=True, native_sources=True, automatic=True),
                  "native_auto_batch": settings(directories=True, native_sources=True, automatic=True, batch=True),
                  "native_auto_batch_no_pipeline": settings(directories=True, native_sources=True, automatic=True, batch=True, no_pipelining=True)}
-    variants = ({name: settings(directories=True) for name in engines} if engines else
+    variants = ({name: available["native_auto_batch"] for name in drivers} if drivers else
+                {name: settings(directories=True) for name in engines} if engines else
                 {name: available[name] for name in (args.variants or ("flat", "balanced64", "directories"))})
-    replay = [str(args.replay_bin.resolve()), "replay", "--source", str(source), "--plan", str(plan_path)]
 
     def run(command, label, environment=env, cwd=None):
         started = time.monotonic()
@@ -89,6 +108,8 @@ def main():
 
     def command(variant):
         options = variants[variant]
+        driver = drivers[variant] if drivers else args.replay_bin.resolve()
+        replay = [str(driver), "replay", "--source", str(source), "--plan", str(plan_path)]
         return [*replay, "--artifact-leaf-files", str(options["artifact_leaf_files"]),
                 "--compiler-concurrency", str(options["compiler_concurrency"]),
                 *(["--artifact-directories"] if options["artifact_directories"] else []),
@@ -129,13 +150,21 @@ def main():
     summary = {"workspace_run": str(workspace), "rustc_version": version,
                "dagger_cli_version": subprocess.check_output([str(args.dagger_cli.resolve()), "version", "--quiet"], env=env, text=True).strip(),
                "variants": {k: {**v,
-                                **({"runner_host": engines[k]} if engines else {})} for k, v in variants.items()},
-               "edit_seed": seed}
+                                **({"runner_host": engines[k]} if engines else {}),
+                                **({"replay_bin": str(drivers[k])} if drivers else {})} for k, v in variants.items()},
+               "edit_seed": seed, "history_warmups": args.history_warmups}
     sequence = 0
     for scenario, filename, expected, stdout_index in scenarios:
         for _, editable, _, _ in scenarios:
             edit(editable, 0)
-        previous = {variant: diagnose(variant, scenario + "-prepare-" + variant) for variant in variants}
+        previous = {}
+        for variant in variants:
+            warmups = args.history_warmups if variants[variant]["automatic_incremental"] else 1
+            for index in range(warmups):
+                if warmups > 1:
+                    sequence += 1
+                    edit(filename, seed + sequence)
+                previous[variant] = diagnose(variant, f"{scenario}-prepare-{variant}-{index}")
         run(native, scenario + "-prepare-cargo", native_env, source)
         rows = []
         names = list(variants)

@@ -22,7 +22,15 @@ import (
 )
 
 const Root = "/rcexp-batch"
-const IncrementalRoot = "/rcexp-incremental"
+const OutputRoot = "/rcexp-results"
+const TargetRoot = OutputRoot + "/target"
+const IncrementalRoot = OutputRoot + "/incremental"
+const ActionsRoot = OutputRoot + "/actions"
+
+// ArtifactPath locates a captured /target output in the retained native tree.
+func ArtifactPath(filename string) string {
+	return privatePath(TargetRoot, filename)
+}
 
 type Request struct {
 	Actions      []model.Action  `json:"actions"`
@@ -106,7 +114,16 @@ func Run(ctx context.Context, request Request) ([]Timing, error) {
 			return nil, failure
 		}
 	}
+	// Published outputs are hard links. All compilers have finished, so their
+	// private dependency views can be removed without deleting those outputs.
+	if err := cleanupPrivateTargets(TargetRoot); err != nil {
+		return nil, fmt.Errorf("clean private compiler targets: %w", err)
+	}
 	return timings, nil
+}
+
+func cleanupPrivateTargets(target string) error {
+	return os.RemoveAll(path.Join(target, ".rcexp-private"))
 }
 
 func ready(action model.Action, all map[string]model.Action, complete, metadata map[string]bool, pipelining bool) bool {
@@ -156,11 +173,11 @@ func sortedIDs(actions map[string]model.Action) []string {
 
 func compile(ctx context.Context, action model.Action, dependencies []model.Action, packages []model.Package, events chan<- event) {
 	started := time.Now()
-	private := path.Join(model.TargetRoot, ".rcexp-private", Token(action.ID))
+	private := path.Join(TargetRoot, ".rcexp-private", Token(action.ID))
 	observer := metadataObserver{started: started, notify: func() error {
 		for _, output := range action.Outputs {
 			if path.Ext(output) == ".rmeta" {
-				if err := publish(privatePath(private, output), output); err != nil {
+				if err := publish(privatePath(private, output), ArtifactPath(output)); err != nil {
 					return err
 				}
 			}
@@ -220,11 +237,11 @@ func compile(ctx context.Context, action model.Action, dependencies []model.Acti
 			}
 		}
 		for _, output := range action.Outputs {
-			if err := publish(privatePath(private, output), output); err != nil {
+			if err := publish(privatePath(private, output), ArtifactPath(output)); err != nil {
 				return err
 			}
 		}
-		marker := path.Join(Root, "actions", Token(action.ID), "execution")
+		marker := path.Join(ActionsRoot, Token(action.ID), "execution")
 		if err := os.MkdirAll(path.Dir(marker), 0755); err != nil {
 			return err
 		}
@@ -269,7 +286,7 @@ func prepareDependencies(private string, action model.Action, actions []model.Ac
 			if err := os.MkdirAll(path.Dir(destination), 0755); err != nil {
 				return err
 			}
-			if err := os.Link(output, destination); err != nil && !os.IsNotExist(err) {
+			if err := os.Link(ArtifactPath(output), destination); err != nil && !os.IsNotExist(err) {
 				return err
 			}
 		}

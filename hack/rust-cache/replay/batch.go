@@ -56,15 +56,14 @@ func buildBatch(client *dagger.Client, plan *model.Plan, source Source, opts Bui
 	if len(seeds) > 0 {
 		incremental = mergeArtifactDirectories(seeds)
 	}
+	state := client.Directory().WithDirectory("target", target).WithDirectory("incremental", incremental)
 	container := client.Container(dagger.ContainerOpts{Platform: "linux/amd64"}).From(plan.Image).
 		WithMountedDirectory(model.SourceRoot, workspace).
-		WithMountedDirectory(model.TargetRoot, target).
-		WithMountedDirectory(worker.IncrementalRoot, incremental).
+		WithMountedDirectory(worker.OutputRoot, state).
 		WithMountedFile(worker.Root+"/runner", opts.BatchCompiler).
 		WithNewFile(worker.Root+"/request.json", string(contents), dagger.ContainerWithNewFileOpts{Permissions: 0600}).
 		WithExec([]string{worker.Root + "/runner", "worker", worker.Root + "/request.json"}, noNesting())
 	graph := &Graph{results: map[string]*dagger.Directory{}, BatchTrace: container.File(worker.Root + "/timings.json")}
-	var allOutputs []string
 	for _, action := range actions {
 		retained := opts.automatic.hits[action.ID]
 		operation := Operation{Action: action, Files: map[string]*dagger.File{}}
@@ -73,25 +72,23 @@ func buildBatch(client *dagger.Client, plan *model.Plan, source Source, opts Bui
 			operation.Stamp = retained.stamp
 		} else {
 			operation.Container = container
-			operation.Stamp = container.File(path.Join(worker.Root, "actions", worker.Token(action.ID), "execution"))
+			operation.Stamp = container.File(path.Join(worker.ActionsRoot, worker.Token(action.ID), "execution"))
 		}
 		for _, output := range action.Outputs {
 			if operation.Container == nil {
 				operation.Files[output] = retained.target.File(targetRelative(output))
 			} else {
-				operation.Files[output] = container.File(output)
+				operation.Files[output] = container.File(worker.ArtifactPath(output))
 			}
-			allOutputs = append(allOutputs, targetRelative(output))
 		}
 		graph.Operations = append(graph.Operations, operation)
 	}
-	graph.Artifacts = client.Directory().WithDirectory(".", container.Directory(model.TargetRoot),
-		dagger.DirectoryWithDirectoryOpts{Include: allOutputs})
-	// Retain the batch's three output trees once. Manifest entries point to
-	// individual crates inside them, avoiding N copies and N-level joins of
-	// incremental state. The per-crate logical keys remain independent.
-	graph.batchSnapshot = client.Directory().WithDirectory("target", graph.Artifacts).
-		WithDirectory("incremental", container.Directory(worker.IncrementalRoot)).
-		WithDirectory("actions", container.Directory(worker.Root+"/actions"))
+	// The worker publishes only captured outputs and removes its private
+	// compiler trees after success. Reuse that snapshot rather than copying
+	// every artifact into a newly filtered directory.
+	graph.Artifacts = container.Directory(worker.TargetRoot)
+	// Outputs, incremental state and markers share one mounted snapshot.
+	// Manifest entries still select each crate's results independently.
+	graph.batchSnapshot = container.Directory(worker.OutputRoot)
 	return graph, nil
 }
