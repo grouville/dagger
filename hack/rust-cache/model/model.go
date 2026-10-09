@@ -49,6 +49,9 @@ type Action struct {
 	Dependencies []string          `json:"dependencies"`
 	// Diagnostic only; replay identities use compiler arguments and inputs.
 	CompilerSeconds float64 `json:"compiler_seconds,omitempty"`
+	// Capture diagnostics for Cargo's metadata/code-generation overlap.
+	CompilerStartedUnixNanos int64   `json:"compiler_started_unix_nanos,omitempty"`
+	MetadataSeconds          float64 `json:"metadata_seconds,omitempty"`
 }
 
 // Option accepts both --name value and --name=value, as emitted by Cargo.

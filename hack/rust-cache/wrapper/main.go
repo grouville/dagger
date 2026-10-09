@@ -46,8 +46,9 @@ func run(compiler string, args []string) error {
 	cmd := exec.Command(compiler, args...)
 	cmd.Stdin, cmd.Stdout = os.Stdin, os.Stdout
 	var stderr bytes.Buffer
-	cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
 	started := time.Now()
+	timing := artifactTiming{started: started}
+	cmd.Stderr = io.MultiWriter(os.Stderr, &stderr, &timing)
 	if err := cmd.Run(); err != nil {
 		return err
 	}
@@ -59,7 +60,8 @@ func run(compiler string, args []string) error {
 	if err != nil {
 		return err
 	}
-	a := model.Action{Crate: crate, Compiler: compiler, Args: args, Cwd: cwd, PackageRoot: os.Getenv("CARGO_MANIFEST_DIR"), CompilerSeconds: compilerSeconds}
+	a := model.Action{Crate: crate, Compiler: compiler, Args: args, Cwd: cwd, PackageRoot: os.Getenv("CARGO_MANIFEST_DIR"),
+		CompilerSeconds: compilerSeconds, CompilerStartedUnixNanos: started.UnixNano(), MetadataSeconds: timing.metadataSeconds}
 	a.Outputs, err = artifacts(stderr.Bytes(), cwd)
 	if err != nil {
 		return err
@@ -111,6 +113,39 @@ func run(compiler string, args []string) error {
 		return err
 	}
 	return os.Rename(f.Name(), path.Join(dir, a.ID+".json"))
+}
+
+// rustc announces metadata on stderr before finishing code generation. Preserve
+// the original stream and handle messages split across writes without rescanning
+// the complete diagnostic buffer. Timing remains capture-only information.
+type artifactTiming struct {
+	started         time.Time
+	pending         []byte
+	metadataSeconds float64
+}
+
+func (t *artifactTiming) Write(data []byte) (int, error) {
+	if t.metadataSeconds != 0 {
+		return len(data), nil
+	}
+	t.pending = append(t.pending, data...)
+	for {
+		end := bytes.IndexByte(t.pending, '\n')
+		if end < 0 {
+			break
+		}
+		var message struct {
+			Type string `json:"$message_type"`
+			Emit string `json:"emit"`
+		}
+		if json.Unmarshal(t.pending[:end], &message) == nil && message.Type == "artifact" && message.Emit == "metadata" {
+			t.metadataSeconds = time.Since(t.started).Seconds()
+			t.pending = nil
+			break
+		}
+		t.pending = t.pending[end+1:]
+	}
+	return len(data), nil
 }
 
 func artifactMessages(args []string) []string {

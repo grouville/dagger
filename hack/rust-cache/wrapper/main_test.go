@@ -3,7 +3,31 @@ package main
 import (
 	"reflect"
 	"testing"
+	"time"
 )
+
+func TestArtifactTimingHandlesFragmentedMetadataMessages(t *testing.T) {
+	observer := artifactTiming{started: time.Now().Add(-time.Second)}
+	for _, chunk := range []string{"diagnostic\n{\"$message_type\":\"arti", "fact\",\"emit\":\"metadata\"}"} {
+		if _, err := observer.Write([]byte(chunk)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if observer.metadataSeconds != 0 {
+		t.Fatal("incomplete message announced metadata")
+	}
+	if _, err := observer.Write([]byte("\n")); err != nil {
+		t.Fatal(err)
+	}
+	if observer.metadataSeconds < 1 {
+		t.Fatal("metadata readiness was not recorded")
+	}
+	first := observer.metadataSeconds
+	_, err := observer.Write([]byte("{\"$message_type\":\"artifact\",\"emit\":\"metadata\"}\n"))
+	if err != nil || observer.metadataSeconds != first {
+		t.Fatal("a later message replaced initial readiness")
+	}
+}
 
 func TestEnvironmentInputs(t *testing.T) {
 	label := "value"

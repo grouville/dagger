@@ -35,12 +35,27 @@ func SeedCompatibility(plan *model.Plan, crate string) (string, error) {
 	if matches != 1 {
 		return "", fmt.Errorf("incremental crate %q must select exactly one compiler action, got %d", crate, matches)
 	}
+	configuration := recipeConfiguration(plan)
+	data, err := json.Marshal(struct {
+		Crate string
+		Plan  model.Plan
+	}{crate, configuration})
+	if err != nil {
+		return "", err
+	}
+	digest := sha256.Sum256(data)
+	return hex.EncodeToString(digest[:]), nil
+}
+
+func recipeConfiguration(plan *model.Plan) model.Plan {
 	configuration := *plan
 	configuration.Actions = slices.Clone(plan.Actions)
 	configuration.BaselineDigests = nil
 	configuration.CaptureSeconds = 0
 	for i := range configuration.Actions {
 		configuration.Actions[i].CompilerSeconds = 0
+		configuration.Actions[i].CompilerStartedUnixNanos = 0
+		configuration.Actions[i].MetadataSeconds = 0
 		configuration.Actions[i].Inputs = nil
 	}
 	slices.SortFunc(configuration.Actions, func(a, b model.Action) int {
@@ -52,15 +67,7 @@ func SeedCompatibility(plan *model.Plan, crate string) (string, error) {
 		}
 		return 0
 	})
-	data, err := json.Marshal(struct {
-		Crate string
-		Plan  model.Plan
-	}{crate, configuration})
-	if err != nil {
-		return "", err
-	}
-	digest := sha256.Sum256(data)
-	return hex.EncodeToString(digest[:]), nil
+	return configuration
 }
 
 func (s IncrementalState) Validate(plan *model.Plan, crate string) error {
