@@ -818,13 +818,21 @@ Cargo controls took 0.64 and 0.63 seconds. All six validation exports reused all
 wcprof capture measured 341 milliseconds on the history-read critical path.
 The whole-command gain is modest, despite the larger cost of the original copy.
 
-Longer edit sequences exposed an engine content-hash bug. `SetCacheContext`
-copied imported hashes to the committed snapshot's in-memory context but did not
-persist them on its metadata. LRU eviction then forced a filesystem scan using
-a different file hash format, changing source keys for unchanged packages.
-The engine fix persists the destination context before adding it to the LRU.
-Focused regression tests cover eviction and persistence errors. This is a cache
-identity fix beyond the Rust prototype, not a compiler-cache workaround.
+Longer edit sequences produced source-key changes for unchanged packages, but
+the original trigger remains unresolved. The first proposed fix changed the
+unused `internal/buildkit/cache/contenthash` package and cannot explain those
+misses. The active importer uses `engine/contenthash`, which already saves its
+records before publishing them to the memory cache. Ordinary eviction passes a
+regression test against the real importer.
+
+A separate restart repro found that the native snapshot checkpoint omitted
+imported per-path hash records. Reopening the snapshot manager then rescans the
+same files using SHA-256 instead of the importer's XXH3 hashes, changing directory
+digests. The scoped fix saves the existing records for owned immutable snapshots
+in the native checkpoint; filesync hashing is unchanged. The regression imports
+real files and checks their digests after two SQLite checkpoint reloads. This
+fix addresses restart stability; it has not yet been tied to the long-edit
+misses or measured for performance.
 
 ## Verify
 
