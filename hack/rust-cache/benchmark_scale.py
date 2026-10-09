@@ -44,7 +44,7 @@ def generate(source, modules, functions, codegen_units):
     return [("edited", source / "app/src/part_0000.rs", {"app"}, 1)]
 
 
-def generate_workspace(source, crates, shape, codegen_units):
+def generate_workspace(source, crates, shape, codegen_units, library_functions=0):
     """Separate one-crate invalidation from shared-dependency invalidation."""
     source.mkdir()
     names = [f"leaf_{index:04d}" for index in range(crates)]
@@ -59,6 +59,20 @@ def generate_workspace(source, crates, shape, codegen_units):
         manifest = f'[package]\nname = "{name}"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\n'
         manifest += "".join(f'{dep} = {{ path = "../{dep}" }}\n' for dep in dependencies)
         (root / "Cargo.toml").write_text(manifest)
+        if not binary:
+            # Exported functions force substantial library code generation
+            # without changing the edit checks in the application.
+            for function in range(library_functions):
+                salt = function + 1
+                code += f"""\n#[inline(never)]
+pub fn compute_{function}(seed: u64) -> u64 {{
+    let mut values = [seed.wrapping_add({salt}); 16];
+    for (index, value) in values.iter_mut().enumerate() {{
+        *value = value.rotate_left(index as u32).wrapping_mul({salt * 2 + 1});
+    }}
+    values.iter().fold(0, |sum, value| sum ^ value)
+}}
+"""
         (root / "src" / ("main.rs" if binary else "lib.rs")).write_text(code)
 
     package("shared", [], "pub const EDIT: u64 = 0;\npub fn value() -> u64 { EDIT }\n")
@@ -88,15 +102,19 @@ def main():
     parser.add_argument("--codegen-units", type=int, default=16, help="same codegen unit count for all three builds")
     parser.add_argument("--incremental", action="store_true", help="also measure explicit native incremental seeds for the application")
     parser.add_argument("--crates", type=int, default=0, help="generate this many library crates instead of one large application")
+    parser.add_argument("--library-functions", type=int, default=0, help="export this many additional functions per generated library for code-generation overlap experiments")
     parser.add_argument("--shape", choices=("fanout", "chain"), default="fanout")
     parser.add_argument("--artifact-leaf-files", type=int, default=0)
     parser.add_argument("--artifact-directories", action="store_true")
+    parser.add_argument("--native-sources", action="store_true")
     parser.add_argument("--compiler-concurrency", type=int, default=0)
     args = parser.parse_args()
     if min(args.runs, args.modules, args.functions, args.codegen_units) < 1:
         parser.error("--runs, --modules, --functions and --codegen-units must be positive")
-    if args.crates < 0:
-        parser.error("--crates must be nonnegative")
+    if args.crates < 0 or args.library_functions < 0:
+        parser.error("--crates and --library-functions must be nonnegative")
+    if args.library_functions and not args.crates:
+        parser.error("--library-functions requires --crates")
     if args.artifact_leaf_files < 0 or args.compiler_concurrency < 0:
         parser.error("--artifact-leaf-files and --compiler-concurrency must be nonnegative")
     output = args.out.resolve()
@@ -105,7 +123,7 @@ def main():
     output.mkdir(parents=True, exist_ok=False)
     source = output / "source"
     if args.crates:
-        scenarios = generate_workspace(source, args.crates, args.shape, args.codegen_units)
+        scenarios = generate_workspace(source, args.crates, args.shape, args.codegen_units, args.library_functions)
     else:
         scenarios = generate(source, args.modules, args.functions, args.codegen_units)
     env = dict(os.environ, _EXPERIMENTAL_DAGGER_CLI_BIN=str(args.dagger_cli.resolve()))
@@ -137,6 +155,8 @@ def main():
     replay += ["--artifact-leaf-files", str(args.artifact_leaf_files), "--compiler-concurrency", str(args.compiler_concurrency)]
     if args.artifact_directories:
         replay += ["--artifact-directories"]
+    if args.native_sources:
+        replay += ["--native-sources"]
 
     def diagnose(label, extra=()):
         report = output / (label + ".json")
@@ -185,8 +205,10 @@ def main():
     summary = {"dagger_cli_version": cli_version, "rustc_version": compiler_version, "cargo_version": cargo_version,
                "modules": args.modules, "functions_per_module": args.functions, "codegen_units": args.codegen_units,
                "library_crates": args.crates, "shape": args.shape if args.crates else None,
+               "library_functions": args.library_functions,
                "artifact_leaf_files": args.artifact_leaf_files, "compiler_concurrency": args.compiler_concurrency,
                "artifact_directories": args.artifact_directories,
+               "native_sources": args.native_sources,
                "edit_seed": edit_seed,
                "cargo_incremental": {"cargo_incremental": True, "cargo_full": False},
                "replay_incremental": False, "replay_seeded_incremental_crates": ["app"] if args.incremental else []}

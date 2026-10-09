@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,6 +12,7 @@ import (
 
 	"dagger.io/dagger"
 	"dagger.io/dagger/engineconn"
+	"github.com/dagger/dagger/dagql/call"
 	"github.com/dagger/dagger/hack/rust-cache/model"
 	"github.com/dagger/dagger/hack/rust-cache/replay"
 	"github.com/dagger/dagger/internal/buildkit/identity"
@@ -93,6 +95,33 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 		require.Equal(t, len(expected), count)
 	}
 	checkSource(originalDirectory, many)
+	// Native inputs preserve modes and nested-package ownership. Build-state
+	// directories must be excluded before projecting the package roots.
+	nativeRoot := t.TempDir()
+	owned := replay.Source{
+		"Cargo.toml":            {Contents: "workspace", Mode: 0644},
+		"app/src/main.rs":       {Contents: "app", Mode: 0664},
+		"app/nested/src/lib.rs": {Contents: "nested", Mode: 0600},
+		"app2/src/lib.rs":       {Contents: "sibling", Mode: 0751},
+		"app/target/binary":     {Contents: "excluded build state", Mode: 0600},
+		".git/config":           {Contents: "excluded git state", Mode: 0600},
+	}
+	for name, file := range owned {
+		filename := filepath.Join(nativeRoot, name)
+		require.NoError(t, os.MkdirAll(filepath.Dir(filename), 0755))
+		require.NoError(t, os.WriteFile(filename, []byte(file.Contents), os.FileMode(file.Mode)))
+		require.NoError(t, os.Chmod(filename, os.FileMode(file.Mode)))
+	}
+	packages := []model.Package{{Root: "/src"}, {Root: "/src/app"}, {Root: "/src/app/nested"}, {Root: "/src/app2"}}
+	projections := replay.PackageDirectories(a.Host().Directory(nativeRoot, dagger.HostDirectoryOpts{Exclude: []string{"**/.git", "**/target"}}), packages)
+	for root, expected := range map[string]replay.Source{
+		"/src":            {"Cargo.toml": owned["Cargo.toml"]},
+		"/src/app":        {"src/main.rs": owned["app/src/main.rs"]},
+		"/src/app/nested": {"src/lib.rs": owned["app/nested/src/lib.rs"]},
+		"/src/app2":       {"src/lib.rs": owned["app2/src/lib.rs"]},
+	} {
+		checkSource(projections[root], expected)
+	}
 	editedSource := cloneRustSource(many)
 	editedSource["nested/00/resource.txt"] = replay.SourceFile{Contents: "edited\n", Mode: 0600}
 	checkSource(editedSource.Directory(a), editedSource)
@@ -285,6 +314,149 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 	afterSeedDigest, err := incGraph.Incremental.Digest(ctx)
 	require.NoError(t, err)
 	require.Equal(t, stateDigest, afterSeedDigest, "seed snapshot must remain immutable")
+	// Automatic history keeps whole results independent of the seed selected
+	// for a later miss. Reverting an edit must reuse the original compiler,
+	// even though the latest incremental state came from the edited source.
+	automaticOptions := replay.BuildOptions{SourceDirectory: source.Directory(a)}
+	automaticGraph, err := replay.BuildAutomatic(ctx, a, plan, source, automaticOptions, nil)
+	require.NoError(t, err)
+	automaticCold, err := automaticGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	_, err = automaticGraph.History.File("manifest.json").Contents(ctx)
+	require.NoError(t, err)
+	historyDigest, err := automaticGraph.History.Digest(ctx)
+	require.NoError(t, err)
+	automaticEditGraph, err := replay.BuildAutomatic(ctx, a, plan, appEdit,
+		replay.BuildOptions{SourceDirectory: appEdit.Directory(a)}, automaticGraph.History)
+	require.NoError(t, err)
+	automaticEdit, err := automaticEditGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.Equal(t, 3, automaticEdit.Reused(automaticCold))
+	require.Equal(t, 3, automaticEditGraph.HistoryHits)
+	require.Equal(t, "32 default\n", runBinary(a, automaticEditGraph, plan.Image))
+	_, err = automaticEditGraph.History.File("manifest.json").Contents(ctx)
+	require.NoError(t, err)
+	automaticRevertGraph, err := replay.BuildAutomatic(ctx, a, plan, source, automaticOptions, automaticEditGraph.History)
+	require.NoError(t, err)
+	automaticRevert, err := automaticRevertGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.Equal(t, 4, automaticRevertGraph.HistoryHits)
+	require.Equal(t, 4, automaticRevert.Reused(automaticCold))
+	require.Equal(t, "31 default\n", runBinary(a, automaticRevertGraph, plan.Image))
+	afterHistoryDigest, err := automaticGraph.History.Digest(ctx)
+	require.NoError(t, err)
+	require.Equal(t, historyDigest, afterHistoryDigest, "retained history must remain immutable")
+	reference, err := automaticEditGraph.HistoryReference(ctx)
+	require.NoError(t, err)
+	loadedHistory, err := reference.Load(ctx, a)
+	require.NoError(t, err)
+	loadedDigest, err := loadedHistory.Digest(ctx)
+	require.NoError(t, err)
+	editedDigest, err := automaticEditGraph.History.Digest(ctx)
+	require.NoError(t, err)
+	require.Equal(t, editedDigest, loadedDigest)
+	reference.ManifestDigest = strings.Repeat("0", 64)
+	_, err = reference.Load(ctx, a)
+	require.ErrorIs(t, err, replay.ErrHistoryUnavailable, "foreign or recycled local handles must be acceleration misses")
+	// Batch misses share one execution while retaining each crate's outputs and
+	// state independently. Check the edit path and reject new cross-package
+	// reads, which would otherwise escape the per-package logical cache key.
+	batchBinary := filepath.Join(t.TempDir(), "rcexp")
+	buildBatch := exec.CommandContext(ctx, "go", "build", "-trimpath", "-o", batchBinary, "./hack/rust-cache")
+	buildBatch.Dir = "../.."
+	buildBatch.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=linux", "GOARCH=amd64")
+	output, err = buildBatch.CombinedOutput()
+	require.NoError(t, err, string(output))
+	batchOptions := func(client *dagger.Client, input replay.Source) replay.BuildOptions {
+		return replay.BuildOptions{SourceDirectory: input.Directory(client), BatchCompiler: client.Host().File(batchBinary), BatchWorkers: 4}
+	}
+	batchGraph, err := replay.BuildAutomatic(ctx, a, plan, source, batchOptions(a, source), nil)
+	require.NoError(t, err)
+	batchCold, err := batchGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.Len(t, batchCold.Batch, 4)
+	require.Equal(t, "31 default\n", runBinary(a, batchGraph, plan.Image))
+	batchEditGraph, err := replay.BuildAutomatic(ctx, a, plan, appEdit, batchOptions(a, appEdit), batchGraph.History)
+	require.NoError(t, err)
+	batchEdited, err := batchEditGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.Equal(t, 3, batchEditGraph.HistoryHits)
+	require.Equal(t, 3, batchEdited.Reused(batchCold))
+	require.Len(t, batchEdited.Batch, 1)
+	require.Equal(t, "32 default\n", runBinary(a, batchEditGraph, plan.Image))
+	foreignRead := cloneRustSource(source)
+	foreignFile := foreignRead["app/src/main.rs"]
+	foreignFile.Contents += "\nconst _: &str = include_str!(\"../../right/Cargo.toml\");\n"
+	foreignRead["app/src/main.rs"] = foreignFile
+	foreignGraph, err := replay.BuildAutomatic(ctx, a, plan, foreignRead, batchOptions(a, foreignRead), batchEditGraph.History)
+	require.NoError(t, err)
+	_, err = foreignGraph.Artifacts.Entries(ctx)
+	require.Error(t, err, "batch input visibility must not widen the supported source boundary")
+	for _, op := range foreignGraph.Operations {
+		if op.Action.Crate == "app" {
+			_, err = op.Container.Sync(ctx)
+			requireErrOut(t, err, "outside package")
+		}
+	}
+	undeclared := cloneRustSource(source)
+	undeclaredFile := undeclared["left/src/lib.rs"]
+	undeclaredFile.Contents += "\nextern crate right;\n"
+	undeclared["left/src/lib.rs"] = undeclaredFile
+	undeclaredGraph, err := replay.BuildAutomatic(ctx, a, plan, undeclared, batchOptions(a, undeclared), batchEditGraph.History)
+	require.NoError(t, err)
+	_, err = undeclaredGraph.Artifacts.Entries(ctx)
+	require.Error(t, err, "a compiler must not discover unrelated libraries in the batch's shared output directory")
+	for _, op := range undeclaredGraph.Operations {
+		if op.Action.Crate == "left" {
+			_, err = op.Container.Sync(ctx)
+			requireErrOut(t, err, "can't find crate for")
+		}
+	}
+	// Five versions exceed the four-entry index. A retained version stays an
+	// exact hit; the evicted version recompiles without losing other crates.
+	prunedHistory := batchEditGraph.History
+	var secondSource replay.Source
+	var secondReport *replay.Report
+	for value := 2; value <= 4; value++ {
+		input := cloneRustSource(source)
+		file := input["app/src/main.rs"]
+		file.Contents = strings.ReplaceAll(file.Contents, "left::value() + right::value()", fmt.Sprintf("left::value() + right::value() + %d", value))
+		input["app/src/main.rs"] = file
+		next, err := replay.BuildAutomatic(ctx, a, plan, input, batchOptions(a, input), prunedHistory)
+		require.NoError(t, err)
+		report, err := next.Evaluate(ctx, 4)
+		require.NoError(t, err)
+		require.Equal(t, 3, next.HistoryHits)
+		require.Equal(t, fmt.Sprintf("%d default\n", 31+value), runBinary(a, next, plan.Image))
+		prunedHistory = next.History
+		if value == 2 {
+			secondSource, secondReport = input, report
+		}
+	}
+	retainedGraph, err := replay.BuildAutomatic(ctx, a, plan, secondSource, batchOptions(a, secondSource), prunedHistory)
+	require.NoError(t, err)
+	retainedReport, err := retainedGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.Equal(t, 4, retainedGraph.HistoryHits)
+	require.Equal(t, 4, retainedReport.Reused(secondReport))
+	evictedGraph, err := replay.BuildAutomatic(ctx, a, plan, source, batchOptions(a, source), prunedHistory)
+	require.NoError(t, err)
+	evictedReport, err := evictedGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.Equal(t, 3, evictedGraph.HistoryHits)
+	require.Equal(t, 3, evictedReport.Reused(batchCold))
+	require.Equal(t, "31 default\n", runBinary(a, evictedGraph, plan.Image))
+	var firstEditedBatch struct {
+		Current string `json:"current_batch"`
+	}
+	firstManifest, err := batchEditGraph.History.File("manifest.json").Contents(ctx)
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal([]byte(firstManifest), &firstEditedBatch))
+	require.NotEmpty(t, firstEditedBatch.Current)
+	retainedBatches, err := evictedGraph.History.Directory("batches").Entries(ctx)
+	require.NoError(t, err)
+	require.Len(t, retainedBatches, 5, "one unchanged-library batch plus four application versions")
+	require.NotContains(t, retainedBatches, firstEditedBatch.Current, "the expired batch must be removed from the native snapshot")
 	var ids []string
 	seen := map[string]bool{}
 	for _, selected := range []*replay.Graph{graph, incGraph, balancedGraph, directoryGraph} {
@@ -305,6 +477,12 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 		require.NoError(t, err)
 		ids = append(ids, string(id))
 	}
+	historyID, err := automaticEditGraph.History.ID(ctx)
+	require.NoError(t, err)
+	ids = append(ids, string(historyID))
+	batchHistoryID, err := batchEditGraph.History.ID(ctx)
+	require.NoError(t, err)
+	ids = append(ids, string(batchHistoryID))
 	var exported []transferFixtureMapping
 	require.NoError(t, transferFixtureSelected(ctx, a, "rust.json", ids, ids, &exported))
 	_, err = outer.Container().From(alpineImage).WithMountedCache("/source", aVolume).WithMountedCache("/destination", bVolume).
@@ -313,6 +491,75 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 	var imported []transferFixtureMapping
 	require.NoError(t, transferFixture(ctx, b, "import", "rust.json", []string{}, &imported))
 	require.NotEmpty(t, imported)
+	var historyOrdinal uint64
+	var decodedHistoryID call.ID
+	require.NoError(t, decodedHistoryID.Decode(string(historyID)))
+	var foundHistory bool
+	for _, value := range exported {
+		// Export mappings identify every row; only import mappings mark roots.
+		if value.ResultID == decodedHistoryID.EngineResultID() {
+			historyOrdinal = uint64(value.Ordinal)
+			foundHistory = true
+		}
+	}
+	require.True(t, foundHistory, "export must include the native history root")
+	var importedHistory *dagger.Directory
+	for _, value := range imported {
+		if uint64(value.Ordinal) == historyOrdinal {
+			importedHistory = dagger.Ref[*dagger.Directory](b, dagger.ID(value.Handle))
+		}
+	}
+	require.NotNil(t, importedHistory)
+	transferredHistoryDigest, err := importedHistory.Digest(ctx)
+	require.NoError(t, err)
+	editedHistoryDigest, err := automaticEditGraph.History.Digest(ctx)
+	require.NoError(t, err)
+	require.Equal(t, editedHistoryDigest, transferredHistoryDigest)
+	remoteAutomaticGraph, err := replay.BuildAutomatic(ctx, b, plan, appEdit,
+		replay.BuildOptions{SourceDirectory: appEdit.Directory(b)}, importedHistory)
+	require.NoError(t, err)
+	remoteAutomatic, err := remoteAutomaticGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.Equal(t, 4, remoteAutomaticGraph.HistoryHits)
+	require.Equal(t, markers(automaticEdit), markers(remoteAutomatic), "portable history must preserve all compiler results")
+	remoteAutomaticEditGraph, err := replay.BuildAutomatic(ctx, b, plan, baseEdit,
+		replay.BuildOptions{SourceDirectory: baseEdit.Directory(b)}, importedHistory)
+	require.NoError(t, err)
+	remoteAutomaticEdit, err := remoteAutomaticEditGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.Equal(t, 1, remoteAutomaticEditGraph.HistoryHits)
+	require.Equal(t, markers(automaticEdit)["right"], markers(remoteAutomaticEdit)["right"])
+	require.Equal(t, "32 default\n", runBinary(b, remoteAutomaticEditGraph, plan.Image))
+	var decodedBatchID call.ID
+	require.NoError(t, decodedBatchID.Decode(string(batchHistoryID)))
+	var batchOrdinal uint64
+	for _, value := range exported {
+		if value.ResultID == decodedBatchID.EngineResultID() {
+			batchOrdinal = uint64(value.Ordinal)
+		}
+	}
+	require.NotZero(t, batchOrdinal)
+	var importedBatchHistory *dagger.Directory
+	for _, value := range imported {
+		if uint64(value.Ordinal) == batchOrdinal {
+			importedBatchHistory = dagger.Ref[*dagger.Directory](b, dagger.ID(value.Handle))
+		}
+	}
+	require.NotNil(t, importedBatchHistory)
+	remoteBatchGraph, err := replay.BuildAutomatic(ctx, b, plan, appEdit, batchOptions(b, appEdit), importedBatchHistory)
+	require.NoError(t, err)
+	remoteBatch, err := remoteBatchGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.Equal(t, 4, remoteBatchGraph.HistoryHits)
+	require.Equal(t, markers(batchEdited), markers(remoteBatch))
+	remoteBatchEditGraph, err := replay.BuildAutomatic(ctx, b, plan, baseEdit, batchOptions(b, baseEdit), importedBatchHistory)
+	require.NoError(t, err)
+	remoteBatchEdited, err := remoteBatchEditGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.Equal(t, 1, remoteBatchEditGraph.HistoryHits)
+	require.Equal(t, markers(batchEdited)["right"], markers(remoteBatchEdited)["right"])
+	require.Len(t, remoteBatchEdited.Batch, 3)
+	require.Equal(t, "32 default\n", runBinary(b, remoteBatchEditGraph, plan.Image))
 	remoteGraph, remote := evaluate(b, plan, source)
 	require.Equal(t, 4, remote.Reused(cold), "all compiler execution markers must come from engine A")
 	for i, action := range cold.Actions {

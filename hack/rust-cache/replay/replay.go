@@ -3,6 +3,7 @@ package replay
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path"
 	"slices"
@@ -12,6 +13,7 @@ import (
 
 	"dagger.io/dagger"
 	"github.com/dagger/dagger/hack/rust-cache/model"
+	"github.com/dagger/dagger/hack/rust-cache/worker"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -27,9 +29,14 @@ type Operation struct {
 }
 
 type Graph struct {
-	Operations  []Operation
-	Artifacts   *dagger.Directory
-	Incremental *dagger.Directory
+	Operations    []Operation
+	Artifacts     *dagger.Directory
+	Incremental   *dagger.Directory
+	History       *dagger.Directory
+	HistoryHits   int
+	BatchTrace    *dagger.File
+	batchSnapshot *dagger.Directory
+	results       map[string]*dagger.Directory
 }
 
 // BuildOptions exposes incremental-state and artifact-layout experiments. The
@@ -39,6 +46,15 @@ type BuildOptions struct {
 	IncrementalSeed     *dagger.Directory
 	ArtifactLeafFiles   int
 	ArtifactDirectories bool
+	// SourceDirectory supplies an already imported workspace snapshot. Source
+	// still validates the captured configuration and supported project boundary.
+	SourceDirectory *dagger.Directory
+	// BatchCompiler is the rcexp executable, used to schedule cache misses in
+	// one container. Automatic history still retains results separately.
+	BatchCompiler     *dagger.File
+	BatchWorkers      int
+	BatchNoPipelining bool
+	automatic         *automaticInputs
 }
 
 type ActionReport struct {
@@ -51,9 +67,10 @@ type ActionReport struct {
 }
 
 type Report struct {
-	ReplaySeconds float64        `json:"replay_seconds"`
-	Actions       []ActionReport `json:"actions"`
-	Driver        *DriverTimings `json:"driver,omitempty"`
+	ReplaySeconds float64         `json:"replay_seconds"`
+	Actions       []ActionReport  `json:"actions"`
+	Driver        *DriverTimings  `json:"driver,omitempty"`
+	Batch         []worker.Timing `json:"batch,omitempty"`
 }
 
 // DriverTimings separates CLI setup and output transfer from graph evaluation.
@@ -66,6 +83,7 @@ type DriverTimings struct {
 	DemandSeconds      float64 `json:"demand_seconds,omitempty"`
 	ExportSeconds      float64 `json:"export_seconds"`
 	IncrementalSeconds float64 `json:"incremental_seconds,omitempty"`
+	HistorySeconds     float64 `json:"history_seconds,omitempty"`
 	ReadySeconds       float64 `json:"ready_seconds"`
 }
 
@@ -77,6 +95,12 @@ func Build(client *dagger.Client, plan *model.Plan, source Source) (*Graph, erro
 func BuildWithOptions(client *dagger.Client, plan *model.Plan, source Source, opts BuildOptions) (*Graph, error) {
 	if err := Validate(plan, source); err != nil {
 		return nil, err
+	}
+	if opts.BatchCompiler != nil {
+		if opts.automatic == nil {
+			return nil, fmt.Errorf("batch compilation requires automatic native history")
+		}
+		return buildBatch(client, plan, source, opts)
 	}
 	if opts.IncrementalSeed != nil && opts.IncrementalCrate == "" {
 		return nil, fmt.Errorf("incremental seed requires a crate")
@@ -97,7 +121,7 @@ func BuildWithOptions(client *dagger.Client, plan *model.Plan, source Source, op
 		return nil, err
 	}
 	base := client.Container(dagger.ContainerOpts{Platform: "linux/amd64"}).From(plan.Image)
-	graph := &Graph{Artifacts: client.Directory()}
+	graph := &Graph{Artifacts: client.Directory(), results: map[string]*dagger.Directory{}}
 	byID := map[string]Operation{}
 	artifacts := map[string][]*dagger.File{}
 	nativeDirs := map[string]map[string]*dagger.Directory{}
@@ -105,6 +129,9 @@ func BuildWithOptions(client *dagger.Client, plan *model.Plan, source Source, op
 	usedAsDependency := map[string]bool{}
 	packageSources := source.packageSources(plan.Packages)
 	packageDirs := map[string]*dagger.Directory{}
+	if opts.SourceDirectory != nil {
+		packageDirs = PackageDirectories(opts.SourceDirectory, plan.Packages)
+	}
 	for _, a := range actions {
 		if packageDirs[a.PackageRoot] == nil {
 			packageDirs[a.PackageRoot] = packageSources[a.PackageRoot].Directory(client)
@@ -157,15 +184,24 @@ func BuildWithOptions(client *dagger.Client, plan *model.Plan, source Source, op
 		// The nonce is an output, never an argument or a dependency input.
 		cmd := []string{"sh", "-ec", "mkdir -p \"$1\" " + path.Dir(stampPath) + "; shift; cat /proc/sys/kernel/random/uuid > " + stampPath + "; exec \"$@\"", "rcexp", model.Option(a.Args, "--out-dir"), a.Compiler}
 		cmd = append(cmd, a.Args...)
-		if a.Crate == opts.IncrementalCrate {
+		var retained *retainedResult
+		if opts.automatic != nil {
+			retained = opts.automatic.hits[a.ID]
+		}
+		if retained == nil && (a.Crate == opts.IncrementalCrate || opts.automatic != nil) {
 			seed := opts.IncrementalSeed
+			if opts.automatic != nil {
+				seed = opts.automatic.seeds[a.ID]
+			}
 			if seed == nil {
 				seed = client.Directory()
 			}
 			ctr = ctr.WithMountedDirectory(incrementalPath, seed)
 			cmd = append(cmd, "-C", "incremental="+incrementalPath)
 		}
-		ctr = ctr.WithExec(compilerEnvironment(a, cmd), noNesting())
+		if retained == nil {
+			ctr = ctr.WithExec(compilerEnvironment(a, cmd), noNesting())
+		}
 		if a.Crate == opts.IncrementalCrate {
 			// Retain a standalone native Directory result. Container.directory
 			// is a transient projection whose runtime handle can disappear when
@@ -173,12 +209,25 @@ func BuildWithOptions(client *dagger.Client, plan *model.Plan, source Source, op
 			graph.Incremental = client.Directory().WithDirectory(".", ctr.Directory(incrementalPath))
 		}
 		op := Operation{Action: a, Container: ctr, Files: map[string]*dagger.File{}, Stamp: ctr.File(stampPath)}
+		outputDirectory := ctr.Directory
+		outputFile := ctr.File
+		if retained != nil {
+			graph.HistoryHits++
+			op.Container = nil
+			op.Stamp = retained.stamp
+			outputDirectory = func(dir string, _ ...dagger.ContainerDirectoryOpts) *dagger.Directory {
+				return retained.target.Directory(targetRelative(dir))
+			}
+			outputFile = func(filename string, _ ...dagger.ContainerFileOpts) *dagger.File {
+				return retained.target.File(targetRelative(filename))
+			}
+		}
 		outputDirs := map[string]bool{}
 		for dir := range dependencyDirs {
 			outputDirs[dir] = true
 		}
 		for _, filename := range a.Outputs {
-			file := ctr.File(filename)
+			file := outputFile(filename)
 			op.Files[filename] = file
 			dir := strings.TrimPrefix(path.Dir(filename), model.TargetRoot+"/")
 			if dir == model.TargetRoot {
@@ -198,7 +247,21 @@ func BuildWithOptions(client *dagger.Client, plan *model.Plan, source Source, op
 		if opts.ArtifactDirectories {
 			nativeDirs[a.ID] = map[string]*dagger.Directory{}
 			for _, dir := range sortedKeys(outputDirs) {
-				nativeDirs[a.ID][dir] = ctr.Directory(dir)
+				nativeDirs[a.ID][dir] = outputDirectory(dir)
+			}
+		}
+		if opts.automatic != nil {
+			if retained == nil {
+				bundle := client.Directory().WithFile("execution", op.Stamp).
+					WithDirectory("incremental", ctr.Directory(incrementalPath))
+				for _, dir := range sortedKeys(nativeDirs[a.ID]) {
+					relative := strings.TrimPrefix(dir, model.TargetRoot+"/")
+					if dir == model.TargetRoot {
+						relative = "."
+					}
+					bundle = bundle.WithDirectory(path.Join("target", relative), nativeDirs[a.ID][dir])
+				}
+				graph.results[a.ID] = bundle
 			}
 		}
 		byID[a.ID] = op
@@ -315,7 +378,7 @@ func (g *Graph) Evaluate(ctx context.Context, concurrency int) (*Report, error) 
 	}
 	started := time.Now()
 	report := &Report{Actions: make([]ActionReport, len(g.Operations))}
-	group, ctx := errgroup.WithContext(ctx)
+	group, actionCtx := errgroup.WithContext(ctx)
 	semaphore := make(chan struct{}, concurrency)
 	done := map[string]chan struct{}{}
 	for _, op := range g.Operations {
@@ -327,18 +390,18 @@ func (g *Graph) Evaluate(ctx context.Context, concurrency int) (*Report, error) 
 			for _, dep := range op.Action.Dependencies {
 				select {
 				case <-done[dep]:
-				case <-ctx.Done():
-					return ctx.Err()
+				case <-actionCtx.Done():
+					return actionCtx.Err()
 				}
 			}
 			select {
 			case semaphore <- struct{}{}:
-			case <-ctx.Done():
-				return ctx.Err()
+			case <-actionCtx.Done():
+				return actionCtx.Err()
 			}
 			defer func() { <-semaphore }()
 			started := time.Now()
-			marker, err := op.Stamp.Contents(ctx)
+			marker, err := op.Stamp.Contents(actionCtx)
 			if err != nil {
 				return fmt.Errorf("compile %s: %w", op.Action.ID, err)
 			}
@@ -346,7 +409,7 @@ func (g *Graph) Evaluate(ctx context.Context, concurrency int) (*Report, error) 
 			entry.DemandSeconds = time.Since(started).Seconds()
 			started = time.Now()
 			for _, filename := range sortedKeys(op.Files) {
-				digest, err := op.Files[filename].Digest(ctx)
+				digest, err := op.Files[filename].Digest(actionCtx)
 				if err != nil {
 					return err
 				}
@@ -364,6 +427,15 @@ func (g *Graph) Evaluate(ctx context.Context, concurrency int) (*Report, error) 
 		return nil, err
 	}
 	report.ReplaySeconds = time.Since(started).Seconds()
+	if g.BatchTrace != nil {
+		contents, err := g.BatchTrace.Contents(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal([]byte(contents), &report.Batch); err != nil {
+			return nil, err
+		}
+	}
 	slices.SortFunc(report.Actions, func(a, b ActionReport) int { return strings.Compare(a.ID, b.ID) })
 	return report, nil
 }

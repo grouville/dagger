@@ -16,6 +16,7 @@ import (
 	"dagger.io/dagger"
 	"github.com/dagger/dagger/hack/rust-cache/model"
 	"github.com/dagger/dagger/hack/rust-cache/replay"
+	"github.com/dagger/dagger/hack/rust-cache/worker"
 	"github.com/dagger/dagger/internal/version"
 )
 
@@ -43,6 +44,20 @@ func run(ctx context.Context, args []string) error {
 	if len(args) == 0 {
 		return errors.New("usage: rcexp capture --source DIR --plan FILE [-- CARGO_BUILD_ARGS] | replay --source DIR --plan FILE --out DIR")
 	}
+	if args[0] == "worker" {
+		if len(args) != 2 {
+			return errors.New("worker requires a compiler request")
+		}
+		var request worker.Request
+		if err := readJSON(args[1], &request); err != nil {
+			return err
+		}
+		timings, err := worker.Run(ctx, request)
+		if err != nil {
+			return err
+		}
+		return writeJSON(worker.Root+"/timings.json", timings)
+	}
 	flags := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	sourcePath := flags.String("source", "", "path-only Cargo workspace")
 	planPath := flags.String("plan", "", "captured plan JSON (outside the source directory)")
@@ -56,6 +71,11 @@ func run(ctx context.Context, args []string) error {
 	statePath := flags.String("state", "", "write next native incremental state JSON")
 	artifactLeafFiles := flags.Int("artifact-leaf-files", 0, "experimental: bound artifact-copy chains (0 keeps flat bundles)")
 	artifactDirectories := flags.Bool("artifact-directories", false, "experimental: reuse whole compiler output snapshots")
+	nativeSources := flags.Bool("native-sources", false, "experimental: import source directories instead of constructing individual files")
+	autoHistoryPath := flags.String("auto-incremental", "", "experimental: automatically retain compiler results and incremental state in a native history index (local reference JSON)")
+	batchCompiler := flags.Bool("batch", false, "experimental: run compiler misses in one container, retaining native per-crate results")
+	batchWorkers := flags.Int("batch-workers", 8, "maximum parallel compiler processes in a batch")
+	batchNoPipelining := flags.Bool("batch-no-pipelining", false, "experimental: wait for complete dependencies inside the batch")
 	compilerConcurrency := flags.Int("compiler-concurrency", 0, "experimental: bound filesystem compiler demand (0 lets export demand the whole graph)")
 	concurrency := flags.Int("concurrency", 8, "maximum concurrent diagnostic evaluation operations")
 	env := environmentFlags{}
@@ -84,7 +104,7 @@ func run(ctx context.Context, args []string) error {
 	if *artifactDirectories && *artifactLeafFiles != 0 {
 		return errors.New("--artifact-directories cannot be combined with --artifact-leaf-files")
 	}
-	if args[0] != "replay" && (*artifactLeafFiles != 0 || *compilerConcurrency != 0 || *artifactDirectories) {
+	if args[0] != "replay" && (*artifactLeafFiles != 0 || *compilerConcurrency != 0 || *artifactDirectories || *nativeSources) {
 		return errors.New("artifact and compiler concurrency experiments require replay")
 	}
 	if *incrementalCrate != "" || *seedPath != "" || *statePath != "" {
@@ -92,7 +112,13 @@ func run(ctx context.Context, args []string) error {
 			return errors.New("incremental experiment requires replay, --incremental-crate and --state")
 		}
 	}
-	for _, output := range []string{*planPath, *outPath, *reportPath, *statePath, *seedPath} {
+	if *autoHistoryPath != "" && (args[0] != "replay" || *incrementalCrate != "" || *seedPath != "" || *statePath != "" || *artifactLeafFiles != 0) {
+		return errors.New("--auto-incremental requires replay without an explicit seed or file bundles")
+	}
+	if *batchWorkers < 1 || (*batchCompiler && *autoHistoryPath == "") || (*batchNoPipelining && !*batchCompiler) {
+		return errors.New("batch compilation requires --auto-incremental and positive --batch-workers; --batch-no-pipelining requires --batch")
+	}
+	for _, output := range []string{*planPath, *outPath, *reportPath, *statePath, *seedPath, *autoHistoryPath} {
 		if output == "" {
 			continue
 		}
@@ -138,6 +164,18 @@ func run(ctx context.Context, args []string) error {
 		}
 		phase = time.Now()
 		opts := replay.BuildOptions{IncrementalCrate: *incrementalCrate, ArtifactLeafFiles: *artifactLeafFiles, ArtifactDirectories: *artifactDirectories}
+		if *batchCompiler {
+			executable, err := os.Executable()
+			if err != nil {
+				return err
+			}
+			opts.BatchCompiler = client.Host().File(executable)
+			opts.BatchWorkers = *batchWorkers
+			opts.BatchNoPipelining = *batchNoPipelining
+		}
+		if *nativeSources {
+			opts.SourceDirectory = client.Host().Directory(*sourcePath, dagger.HostDirectoryOpts{Exclude: []string{"**/.git", "**/target"}})
+		}
 		if *seedPath != "" {
 			var seed replay.IncrementalState
 			if err := readJSON(*seedPath, &seed); err != nil {
@@ -148,7 +186,25 @@ func run(ctx context.Context, args []string) error {
 			}
 			opts.IncrementalSeed = dagger.Ref[*dagger.Directory](client, dagger.ID(seed.DirectoryID))
 		}
-		graph, err := replay.BuildWithOptions(client, &plan, source, opts)
+		var graph *replay.Graph
+		if *autoHistoryPath != "" {
+			var previous *dagger.Directory
+			var reference replay.HistoryReference
+			if err := readJSON(*autoHistoryPath, &reference); err == nil {
+				previous, err = reference.Load(ctx, client)
+				if errors.Is(err, replay.ErrHistoryUnavailable) {
+					fmt.Fprintln(os.Stderr, "native history is unavailable; rebuilding with empty incremental state")
+					previous = nil
+				} else if err != nil {
+					return err
+				}
+			} else if !errors.Is(err, os.ErrNotExist) {
+				return err
+			}
+			graph, err = replay.BuildAutomatic(ctx, client, &plan, source, opts, previous)
+		} else {
+			graph, err = replay.BuildWithOptions(client, &plan, source, opts)
+		}
 		if err != nil {
 			return err
 		}
@@ -197,6 +253,18 @@ func run(ctx context.Context, args []string) error {
 		}
 		if graph.Incremental != nil {
 			timings.IncrementalSeconds = time.Since(phase).Seconds()
+		}
+		if graph.History != nil {
+			phase = time.Now()
+			reference, err := graph.HistoryReference(ctx)
+			if err != nil {
+				return err
+			}
+			if err := writeJSON(*autoHistoryPath, reference); err != nil {
+				return err
+			}
+			timings.HistorySeconds = time.Since(phase).Seconds()
+			fmt.Fprintf(os.Stderr, "native history reused %d/%d compiler results; retain %.3fs\n", graph.HistoryHits, len(graph.Operations), timings.HistorySeconds)
 		}
 		timings.ReadySeconds = time.Since(started).Seconds()
 		if *artifactsOnly {
@@ -276,5 +344,17 @@ func writeJSON(filename string, value any) error {
 	if err := os.MkdirAll(filepath.Dir(filename), 0755); err != nil {
 		return err
 	}
-	return os.WriteFile(filename, append(data, '\n'), 0600)
+	temporary, err := os.CreateTemp(filepath.Dir(filename), ".rcexp-*.json")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(temporary.Name())
+	if _, err := temporary.Write(append(data, '\n')); err != nil {
+		temporary.Close()
+		return err
+	}
+	if err := temporary.Close(); err != nil {
+		return err
+	}
+	return os.Rename(temporary.Name(), filename)
 }

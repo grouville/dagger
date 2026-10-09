@@ -4,6 +4,11 @@
 a Dagger operation. Package source and dependency artifacts are explicit inputs;
 compiled artifacts are immutable outputs. No compiler cache volumes are used.
 
+The new experimental path imports native source directories, automatically
+retains rustc incremental state, and can run compiler misses together with Cargo's
+metadata overlap. Completed results remain reusable per crate. These options are
+described below; none changes the Rust module's default behavior.
+
 This follows the Go package replay described in
 [dagger/dagger#14555](https://github.com/dagger/dagger/pull/14555) and
 [#14557](https://github.com/dagger/dagger/pull/14557).
@@ -78,7 +83,8 @@ Keep plans, reports and exported outputs outside the source directory.
 
 This first experiment supports Linux/amd64, path-only workspaces contained in the
 source directory, and library/binary compilation. Incremental compilation is
-disabled by default; an explicit native seed can enable it for one named crate.
+disabled by default. An explicit native seed enables it for one named crate;
+`--auto-incremental` enables automatic retention for all compiler actions.
 Source resources must be regular UTF-8 files. Source inputs outside
 their package roots, registry/git dependencies, build scripts, proc macros,
 test compilation, custom targets and symlinks are rejected. `target` and `.git`
@@ -112,17 +118,19 @@ transfer and process shutdown. A cached compiler operation alone does not meet
 that target. The native backend, its integration into the Rust module, and the
 module's command UX need separate measurements and end-to-end tests.
 
-The backend remains unfinished. It reuses whole compiler invocations and can
-preserve rustc's incremental state within one edited crate using an explicit
-native seed. Automatic selection and state retention across all workspace crates
-remain unfinished. The native Cargo controls enable incremental compilation,
-so disabling it cannot establish parity on larger edited crates. Registry
+The backend remains unfinished. Automatic state selection and retention work
+across captured crates, and the history Directory can be transferred to another
+engine. Discovering the latest history automatically on a remote engine and
+integrating the backend into the Rust module remain work to do. The native Cargo
+controls enable incremental compilation, so disabling it cannot establish parity
+on larger edited crates. Registry
 dependencies, build scripts, proc macros and test actions also need support
 before general module integration.
 
 Replay reports separate source reading, connection, graph construction,
-evaluation and export. `driver.ready_seconds` stops when artifact export
-finishes; it excludes report writing and process shutdown. Per-action
+evaluation, export and native state retention. `driver.ready_seconds` stops when
+artifacts and retained state are ready; it excludes report writing and process
+shutdown. Per-action
 `demand_seconds` includes Dagger's recipe and filesystem work as well as any
 compilation, while `digest_seconds` measures the subsequent digest queries.
 
@@ -386,8 +394,8 @@ The fingerprint excludes source contents and output digests, while keeping the
 captured compiler configuration and dependency graph configuration fixed. A
 different crate, toolchain, manifest configuration, flags or environment requires
 new state. The seed is still an ordinary exec input: selecting a different seed
-can change the result cache identity. Automatic seed selection and preserving
-exact hits independently of the seed remain future work.
+can change the result cache identity. The automatic-history mode below preserves
+finished results through a separate native index before selecting a seed.
 
 The fresh-engine regression exports the retained incremental `Directory` as a
 separate native filesystem output root, alongside compiler outputs. Selecting a
@@ -664,10 +672,165 @@ the same engine source. Start with `classes`, then `critpath` filtered to
 describes those views and their limits. Capture dumps and temporary CLI probes
 are not committed.
 
+### Native sources and automatic history
+
+Use a prebuilt driver and keep the history reference outside the source tree:
+
+```sh
+/tmp/rcexp replay --source /tmp/rust-workspace --plan /tmp/rust-plan.json \
+  --out /tmp/rust-artifacts --artifacts-only --native-sources \
+  --auto-incremental /tmp/rust-history.json
+```
+
+Run the same command after an edit. The reference file contains an engine-local
+Directory ID and the history manifest's digest. Compiler outputs and incremental
+state stay inside native Dagger snapshots. A missing or foreign local handle
+falls back to an empty history; malformed reference files fail with an error.
+The file is replaced atomically after the build and state retention succeed.
+Concurrent writers can lose history updates, so use separate references for
+independent build streams for now.
+
+The index checks the compiler configuration, the actual package source digest,
+and direct dependency keys before selecting incremental state. It retains four
+finished versions per compiler action. Reverting a recent edit reuses the old
+finished result even when the newest state came from another source version.
+On a miss, the newest compatible state is an ordinary exec input. No input is
+ignored in Dagger's cache key. Rustc decides which internal computations remain
+valid. Diagnostic capture timings are excluded from compatibility fingerprints.
+
+`--native-sources` imports one workspace Directory and projects package roots.
+It preserves modes and excludes nested packages from their parents' inputs.
+This removes the per-file `withNewFile` construction. The API accepts an existing
+workspace Directory through `BuildOptions.SourceDirectory`; callers must supply
+the same supported source/configuration snapshot and exclude `target` and `.git`.
+
+`Graph.History` is the portable value: transfer its native snapshots and pass the
+imported Directory to `BuildAutomatic` on the destination engine. The local JSON
+ID alone is not portable. This prototype does not discover a shared remote
+history index. Histories must come from this builder; a caller-supplied manifest
+is not an authenticated compiler-cache record. Index pruning removes references
+to old results; engine garbage collection controls their physical lifetime.
+
+The latest three interleaved fresh edits of the 128-module application took 1.04
+seconds median with automatic state and native sources, versus 2.75 seconds for
+full native-source replay and 0.50 seconds for Cargo. Adding batching also took
+1.04 seconds, providing no gain for the single compiler miss. All three libraries
+stayed reusable. This is a local synthetic result on the shared host and the same main
+engine/Rust 1.77.2 control described above, not a module or remote-latency result.
+
+### Batching compiler misses
+
+Add `--batch` to that command to run only the compiler misses in one container:
+
+```sh
+/tmp/rcexp replay --source /tmp/rust-workspace --plan /tmp/rust-plan.json \
+  --out /tmp/rust-artifacts --artifacts-only --native-sources \
+  --auto-incremental /tmp/rust-batch-history.json --batch
+```
+
+The runner starts at most eight rustc processes at once (`--batch-workers`).
+Libraries can start when their dependencies announce completed metadata. Binaries
+wait for the machine code of every transitive dependency. This follows
+[rustc's documented pipelining](https://rustc-dev-guide.rust-lang.org/backend/libs-and-metadata.html#pipelining).
+`--batch-no-pipelining` keeps the same execution and retention layout while
+waiting for whole dependency compilations, providing a comparison control.
+
+Each compiler searches a private target directory containing hard links to only
+its captured dependency closure. Metadata is published before code generation
+finishes; complete artifacts are published after success. Dep-info paths are
+normalized back to `/target`. New source reads outside package ownership fail
+the entire batch before history publication. These checks keep shared execution
+from introducing dependencies absent from a crate's logical cache key.
+
+The batch retains its output, incremental-state and marker trees once. Individual
+index entries point into those native snapshots. This avoids copying every
+crate's state through a separate result tree and multiple merge levels. A batch
+failure publishes no successful history update. The runner binary and scheduling
+options enter the history compatibility fingerprint.
+
+This trades separate Dagger execs for one exec of the missed subset. The native
+index still reuses completed results per crate, but losing that index loses this
+per-crate lookup. Batching is optional; it is not a general engine optimization
+or a change to Dagger's exec-cache semantics.
+
+In three interleaved fresh edits of the 100-library fanout workspace:
+
+| Edit | Full native-source replay | Automatic native batch | Native Cargo |
+| --- | ---: | ---: | ---: |
+| One leaf | 1.26 s | 1.13 s | 0.22 s |
+| Shared dependency | 3.98 s | 2.13 s | 0.70 s |
+
+Full-command times include state retention, source import, output export and
+shutdown. Marker changes identified exactly two affected crates for leaf edits
+and all 102 actions for shared edits. Executable behavior matched Cargo, and
+exported bytes/modes matched separate verification exports. These runs do not
+meet the Cargo-plus-0.5-second target.
+
+The first batch implementation took 9.18 seconds for the shared edit. Its first
+edited run spent 4.90 seconds retaining state. Grouped native snapshots reduced
+that phase to 0.39 seconds in the first revised run. Automatic state with a
+separate exec/result bundle per tiny crate regressed to 17.39 seconds median in
+the earlier window. Retaining incremental state alone is not a workspace-wide
+performance improvement; the many-crate layout matters.
+
+Compare modes on an existing `benchmark_scale.py` fixture:
+
+```sh
+python3 hack/rust-cache/benchmark_artifacts.py \
+  --workspace-run /tmp/rust-workspace-benchmark --replay-bin /tmp/rcexp \
+  --dagger-cli /tmp/dagger-rcexp --cargo /path/to/cargo --rustc /path/to/rustc \
+  --out /tmp/rust-batch-comparison --runs 3 \
+  --variants directories_native directories_native_auto native_auto_batch
+```
+
+Capture records compiler start, completion and first metadata notification times.
+`pipeline_report.py PLAN` reports Cargo's observed overlap and two compiler-only
+dependency paths. `--batch REPORT` analyzes a batched replay's recorded misses.
+The ideal paths ignore engine work and CPU limits; they are not predicted command
+wall times. Generate deeper, heavier library chains with
+`benchmark_scale.py --crates 24 --shape chain --library-functions 64`.
+
+On that heavier chain, three interleaved shared edits took 1.86 seconds median
+with pipelining and 2.04 seconds with it disabled, using the same incremental
+state and batch layout. Cargo medians were 0.96 and 0.94 seconds, respectively.
+One non-pipelined sample took 5.45 seconds and remains in the reported data;
+the other two took about 2.04 seconds. A separate fresh-edit diagnostic recorded
+24 dependent libraries starting before their producers completed, across a
+1.07-second compiler window. The observed overlap confirms the scheduling works;
+it does not remove the remaining command overhead.
+
+A fresh shared-edit wcprof capture on the instrumented main engine recorded one
+batch exec: 628 milliseconds in the worker, 51 milliseconds starting the runtime,
+and 1.2 milliseconds across the newly measured root-filesystem mount phases.
+Reading the retained history manifest had a 472-millisecond critical path,
+mostly native copies; pruning one expired batch accounted for 346 milliseconds.
+The corresponding full replay had 102 execs, with runtime-start durations around
+494 milliseconds median under contention. Concurrent span totals are not wall
+time. The batch has largely avoided that startup cost; history retention is now
+an important remaining cost in this fixture.
+
+Once an edit expires a single history batch, removing that directory from the
+previous snapshot avoids rebuilding the whole retained tree through a filtered
+copy. Three interleaved shared edits after four preparation versions took 1.95
+seconds median with this removal versus 2.06 seconds with the filtered copy;
+Cargo controls took 0.64 and 0.63 seconds. All six validation exports reused all
+102 finished results and matched their timed exports byte for byte. A later
+wcprof capture measured 341 milliseconds on the history-read critical path.
+The whole-command gain is modest, despite the larger cost of the original copy.
+
+Longer edit sequences exposed an engine content-hash bug. `SetCacheContext`
+copied imported hashes to the committed snapshot's in-memory context but did not
+persist them on its metadata. LRU eviction then forced a filesystem scan using
+a different file hash format, changing source keys for unchanged packages.
+The engine fix persists the destination context before adding it to the LRU.
+Focused regression tests cover eviction and persistence errors. This is a cache
+identity fix beyond the Rust prototype, not a compiler-cache workaround.
+
 ## Verify
 
 ```sh
 go test ./hack/rust-cache/...
+python3 -m unittest discover -s hack/rust-cache -p '*_test.py'
 dagger api call engine-dev test --pkg ./core/integration \
   --run='TestRemoteCacheTransferSuite/TestRustCompilerReplay'
 ```
@@ -676,3 +839,7 @@ The integration scenario checks Cargo/replay artifact equality, executable
 behavior, unchanged and edited builds, resource changes, feature/flag/environment
 invalidation, and reuse on a second clean engine through the repository's remote
 cache transfer fixture. Only the test infrastructure uses persistent volumes.
+It also checks native source ownership/modes, automatic result reuse on edits
+and reverts, stale local references, bounded history retention, batch dependency
+visibility, rejected source reads, and native history transfer followed by an
+edited build on the second engine.

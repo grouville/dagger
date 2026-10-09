@@ -76,6 +76,16 @@ func (s Source) ConfigDigest() string {
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
+func (s Source) ContentDigest() string {
+	hash := sha256.New()
+	for _, name := range s.names() {
+		file := s[name]
+		fmt.Fprintf(hash, "%s\x00%d\x00%d\x00", name, file.Mode, len(file.Contents))
+		hash.Write([]byte(file.Contents))
+	}
+	return hex.EncodeToString(hash.Sum(nil))
+}
+
 func (s Source) names() []string {
 	names := make([]string, 0, len(s))
 	for name := range s {
@@ -123,6 +133,34 @@ func (s Source) packageSources(packages []model.Package) map[string]Source {
 		result[root][strings.TrimPrefix(absolute, root+"/")] = file
 	}
 	return result
+}
+
+// PackageDirectories projects a native workspace snapshot with the same file
+// ownership as packageSources. Remove only immediate nested packages: each
+// removal already excludes its descendants, avoiding a scan per source file.
+// The caller must exclude target and .git directories from the input snapshot.
+func PackageDirectories(source *dagger.Directory, packages []model.Package) map[string]*dagger.Directory {
+	roots := newPackageRoots(packages)
+	children := map[string][]string{}
+	for root := range roots {
+		if parent := roots.owner(path.Dir(root)); parent != "" {
+			children[parent] = append(children[parent], strings.TrimPrefix(root, parent+"/"))
+		}
+	}
+	directories := make(map[string]*dagger.Directory, len(roots))
+	for root := range roots {
+		relative := strings.TrimPrefix(root, model.SourceRoot+"/")
+		if root == model.SourceRoot {
+			relative = "."
+		}
+		directory := source.Directory(relative)
+		sort.Strings(children[root])
+		for _, child := range children[root] {
+			directory = directory.WithoutDirectory(child)
+		}
+		directories[root] = directory
+	}
+	return directories
 }
 
 type packageRoots map[string]struct{}

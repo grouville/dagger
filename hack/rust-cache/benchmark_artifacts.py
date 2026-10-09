@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Interleave artifact-layout or engine experiments on a captured many-crate workspace."""
+"""Interleave artifact, source-import or engine experiments on a captured workspace."""
 
 import argparse
 import hashlib
@@ -20,7 +20,7 @@ def tree(directory):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workspace-run", type=Path, required=True, help="existing benchmark_scale.py --crates result")
+    parser.add_argument("--workspace-run", type=Path, required=True, help="existing benchmark_scale.py result")
     parser.add_argument("--replay-bin", type=Path, required=True)
     parser.add_argument("--dagger-cli", type=Path, required=True)
     parser.add_argument("--cargo", type=Path, required=True)
@@ -30,7 +30,7 @@ def main():
     parser.add_argument("--engine", action="append", default=[], metavar="NAME=RUNNER_HOST",
                         help="compare isolated engines using direct compiler snapshots (repeatable)")
     parser.add_argument("--variants", nargs="+",
-                        choices=("flat", "balanced64", "balanced16", "balanced64_c8", "directories", "directories_c8", "directories_c32"),
+                        choices=("flat", "balanced64", "balanced16", "balanced64_c8", "directories", "directories_c8", "directories_c32", "directories_native", "directories_auto", "directories_native_auto", "native_auto_batch", "native_auto_batch_no_pipeline"),
                         help="artifact layouts; defaults to flat, balanced64, directories")
     args = parser.parse_args()
     if args.runs < 1:
@@ -45,8 +45,6 @@ def main():
         engines[name] = host
     workspace = args.workspace_run.resolve()
     metadata = json.loads((workspace / "summary.json").read_text())
-    if not metadata["library_crates"]:
-        parser.error("--workspace-run must contain a many-crate workspace")
     source, plan_path = workspace / "source", workspace / "plan.json"
     plan = json.loads(plan_path.read_text())
     output = args.out.resolve()
@@ -65,10 +63,21 @@ def main():
     for key in ("CARGO_BUILD_BUILD_DIR", "RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER"):
         native_env.pop(key, None)
     native = [str(args.cargo.resolve()), "build", "--workspace", "--locked", "--offline", *plan.get("cargo_args", [])]
-    available = {"flat": (0, 0, False), "balanced64": (64, 0, False), "balanced16": (16, 0, False),
-                 "balanced64_c8": (64, 8, False), "directories": (0, 0, True),
-                 "directories_c8": (0, 8, True), "directories_c32": (0, 32, True)}
-    variants = ({name: (0, 0, True) for name in engines} if engines else
+    def settings(leaves=0, concurrency=0, directories=False, native_sources=False, automatic=False, batch=False, no_pipelining=False):
+        return {"artifact_leaf_files": leaves, "compiler_concurrency": concurrency,
+                "artifact_directories": directories, "native_sources": native_sources,
+                "automatic_incremental": automatic, "batch": batch, "batch_no_pipelining": no_pipelining}
+
+    available = {"flat": settings(), "balanced64": settings(leaves=64), "balanced16": settings(leaves=16),
+                 "balanced64_c8": settings(leaves=64, concurrency=8), "directories": settings(directories=True),
+                 "directories_c8": settings(directories=True, concurrency=8),
+                 "directories_c32": settings(directories=True, concurrency=32),
+                 "directories_native": settings(directories=True, native_sources=True),
+                 "directories_auto": settings(directories=True, automatic=True),
+                 "directories_native_auto": settings(directories=True, native_sources=True, automatic=True),
+                 "native_auto_batch": settings(directories=True, native_sources=True, automatic=True, batch=True),
+                 "native_auto_batch_no_pipeline": settings(directories=True, native_sources=True, automatic=True, batch=True, no_pipelining=True)}
+    variants = ({name: settings(directories=True) for name in engines} if engines else
                 {name: available[name] for name in (args.variants or ("flat", "balanced64", "directories"))})
     replay = [str(args.replay_bin.resolve()), "replay", "--source", str(source), "--plan", str(plan_path)]
 
@@ -79,17 +88,28 @@ def main():
         return time.monotonic() - started
 
     def command(variant):
-        leaves, concurrency, directories = variants[variant]
-        return [*replay, "--artifact-leaf-files", str(leaves), "--compiler-concurrency", str(concurrency),
-                *(["--artifact-directories"] if directories else [])]
+        options = variants[variant]
+        return [*replay, "--artifact-leaf-files", str(options["artifact_leaf_files"]),
+                "--compiler-concurrency", str(options["compiler_concurrency"]),
+                *(["--artifact-directories"] if options["artifact_directories"] else []),
+                *(["--native-sources"] if options["native_sources"] else []),
+                *(["--batch"] if options["batch"] else []),
+                *(["--batch-no-pipelining"] if options["batch_no_pipelining"] else []),
+                *(["--auto-incremental", str(output / (variant + "-history.json"))] if options["automatic_incremental"] else [])]
 
     def engine_environment(variant):
         return dict(env, _EXPERIMENTAL_DAGGER_RUNNER_HOST=engines[variant]) if engines else env
 
-    def diagnose(variant, label):
+    def diagnose(variant, label, expect_finished_hits=False):
         report = output / (label + ".json")
         run([*command(variant), "--out", str(output / (label + "-artifacts")), "--report", str(report)],
             label, engine_environment(variant))
+        if expect_finished_hits and variants[variant]["automatic_incremental"]:
+            hits = re.findall(r"native history reused (\d+)/(\d+) compiler results",
+                              (output / (label + ".log")).read_text())
+            expected_hits = (str(len(plan["actions"])), str(len(plan["actions"])))
+            if not hits or hits[-1] != expected_hits:
+                raise RuntimeError(f"{label}: validation did not reuse every finished result: {hits}")
         return {a["id"]: a for a in json.loads(report.read_text())["actions"]}
 
     def edit(filename, value):
@@ -98,20 +118,23 @@ def main():
             raise RuntimeError(f"expected one edit point in {filename}")
         filename.write_text(contents)
 
-    leaf = f"leaf_{metadata['library_crates'] - 1:04d}"
-    leaf_file, shared_file = source / leaf / "src/lib.rs", source / "shared/src/lib.rs"
+    if metadata["library_crates"]:
+        leaf = f"leaf_{metadata['library_crates'] - 1:04d}"
+        leaf_file, shared_file = source / leaf / "src/lib.rs", source / "shared/src/lib.rs"
+        scenarios = (("leaf_edited", leaf_file, {leaf, "app"}, 1),
+                     ("shared_edited", shared_file, {a["crate"] for a in plan["actions"]}, 2))
+    else:
+        scenarios = (("edited", source / "app/src/part_0000.rs", {"app"}, 1),)
     seed = secrets.randbits(48)
     summary = {"workspace_run": str(workspace), "rustc_version": version,
                "dagger_cli_version": subprocess.check_output([str(args.dagger_cli.resolve()), "version", "--quiet"], env=env, text=True).strip(),
-               "variants": {k: {"artifact_leaf_files": v[0], "compiler_concurrency": v[1], "artifact_directories": v[2],
+               "variants": {k: {**v,
                                 **({"runner_host": engines[k]} if engines else {})} for k, v in variants.items()},
                "edit_seed": seed}
     sequence = 0
-    for scenario, filename, expected, stdout_index in (
-            ("leaf_edited", leaf_file, {leaf, "app"}, 1),
-            ("shared_edited", shared_file, {a["crate"] for a in plan["actions"]}, 2)):
-        edit(leaf_file, 0)
-        edit(shared_file, 0)
+    for scenario, filename, expected, stdout_index in scenarios:
+        for _, editable, _, _ in scenarios:
+            edit(editable, 0)
         previous = {variant: diagnose(variant, scenario + "-prepare-" + variant) for variant in variants}
         run(native, scenario + "-prepare-cargo", native_env, source)
         rows = []
@@ -133,7 +156,7 @@ def main():
                     else:
                         times[kind] = run([*command(variant), "--out", str(directory), "--artifacts-only"],
                                           label, engine_environment(variant))
-                observed = diagnose(variant, label + "-verify")
+                observed = diagnose(variant, label + "-verify", expect_finished_hits=True)
                 changed = {a["crate"] for key, a in observed.items() if a["execution"] != previous[variant][key]["execution"]}
                 if changed != expected:
                     raise RuntimeError(f"{label}: recompiled {sorted(changed)}, expected {sorted(expected)}")
