@@ -14,7 +14,6 @@ import (
 	"dagger.io/dagger"
 	"github.com/dagger/dagger/hack/rust-cache/model"
 	"github.com/dagger/dagger/hack/rust-cache/worker"
-	"golang.org/x/sync/errgroup"
 )
 
 const historyVersion = 1
@@ -175,23 +174,9 @@ func BuildAutomatic(ctx context.Context, client *dagger.Client, plan *model.Plan
 		opts.SourceDirectory = dagger.Ref[*dagger.Directory](client, dagger.ID(id))
 		// Hash the actual immutable inputs, rather than trusting a caller's
 		// separate Source map to describe the imported snapshot.
-		directories := PackageDirectories(opts.SourceDirectory, plan.Packages)
-		roots := sortedKeys(directories)
-		hashes := make([]string, len(roots))
-		group, groupCtx := errgroup.WithContext(ctx)
-		group.SetLimit(8)
-		for i, root := range roots {
-			group.Go(func() error {
-				key, err := directories[root].Digest(groupCtx)
-				hashes[i] = key
-				return err
-			})
-		}
-		if err := group.Wait(); err != nil {
+		sourceKeys, err = PackageDigests(ctx, client, id, plan.Packages)
+		if err != nil {
 			return nil, err
-		}
-		for i, root := range roots {
-			sourceKeys[root] = hashes[i]
 		}
 	} else {
 		for root, files := range sources {

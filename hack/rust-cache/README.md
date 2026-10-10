@@ -891,8 +891,28 @@ removing the intermediate wrapping directory and its copy. A fresh shared-edit
 wcprof capture confirms three directory copies instead of four. Runtime startup
 took 40 milliseconds, while the history-read critical path took 186 milliseconds.
 The previous unified capture recorded 117 query requests, including 102 package
-digests, and 215 milliseconds constructing the driver graph. Reducing source-hash
-requests and copying incremental inputs are the next experiments.
+digests, and 215 milliseconds constructing the driver graph.
+
+Package digests now share one API request instead of one request per package.
+The query uses the same native package projections and hashes; its aliases only
+shape the response. The integration test compares these hashes with individual
+SDK calls, including nested packages, excluded directories and escaped paths.
+A five-pair comparison with fresh edits and four history preparation versions
+gave these full-command medians:
+
+| Edit | Separate hash requests | One hash request | Cargo |
+| --- | ---: | ---: | ---: |
+| One leaf | 0.754 s | 0.746 s | 0.214–0.221 s |
+| Shared dependency | 1.646 s | 1.568 s | 0.640–0.641 s |
+
+Graph construction medians fell from 173 to 140 milliseconds for leaf edits and
+from 209 to 162 milliseconds for shared edits. The leaf command timings overlap;
+the shared-edit median improved by about 5%. All 20 edited builds retained their
+histories and passed artifact, reuse and executable checks. These local runs used
+the same Rust compiler, workers and engine as above. The benchmark engine kept
+GC enabled with 20 GB reserved, 30 GB maximum usage and 100 GB minimum free space
+to avoid evicting the prepared history under host-wide disk pressure. Remote
+request-latency benefits have not been measured.
 
 A separate five-pair engine comparison with the same unified driver found no
 measurable benefit from mount sharing: medians stayed at 0.85 seconds for leaf

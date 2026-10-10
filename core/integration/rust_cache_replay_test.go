@@ -99,12 +99,13 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 	// directories must be excluded before projecting the package roots.
 	nativeRoot := t.TempDir()
 	owned := replay.Source{
-		"Cargo.toml":            {Contents: "workspace", Mode: 0644},
-		"app/src/main.rs":       {Contents: "app", Mode: 0664},
-		"app/nested/src/lib.rs": {Contents: "nested", Mode: 0600},
-		"app2/src/lib.rs":       {Contents: "sibling", Mode: 0751},
-		"app/target/binary":     {Contents: "excluded build state", Mode: 0600},
-		".git/config":           {Contents: "excluded git state", Mode: 0600},
+		"Cargo.toml":             {Contents: "workspace", Mode: 0644},
+		"app/src/main.rs":        {Contents: "app", Mode: 0664},
+		"app/nested/src/lib.rs":  {Contents: "nested", Mode: 0600},
+		"app2/src/lib.rs":        {Contents: "sibling", Mode: 0751},
+		"space \"héllo\"/lib.rs": {Contents: "escaped package path", Mode: 0644},
+		"app/target/binary":      {Contents: "excluded build state", Mode: 0600},
+		".git/config":            {Contents: "excluded git state", Mode: 0600},
 	}
 	for name, file := range owned {
 		filename := filepath.Join(nativeRoot, name)
@@ -112,14 +113,23 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 		require.NoError(t, os.WriteFile(filename, []byte(file.Contents), os.FileMode(file.Mode)))
 		require.NoError(t, os.Chmod(filename, os.FileMode(file.Mode)))
 	}
-	packages := []model.Package{{Root: "/src"}, {Root: "/src/app"}, {Root: "/src/app/nested"}, {Root: "/src/app2"}}
-	projections := replay.PackageDirectories(a.Host().Directory(nativeRoot, dagger.HostDirectoryOpts{Exclude: []string{"**/.git", "**/target"}}), packages)
+	packages := []model.Package{{Root: "/src"}, {Root: "/src/app"}, {Root: "/src/app/nested"}, {Root: "/src/app2"}, {Root: "/src/space \"héllo\""}}
+	nativeDirectory := a.Host().Directory(nativeRoot, dagger.HostDirectoryOpts{Exclude: []string{"**/.git", "**/target"}})
+	projections := replay.PackageDirectories(nativeDirectory, packages)
+	nativeID, err := nativeDirectory.ID(ctx)
+	require.NoError(t, err)
+	digests, err := replay.PackageDigests(ctx, a, nativeID, packages)
+	require.NoError(t, err)
 	for root, expected := range map[string]replay.Source{
-		"/src":            {"Cargo.toml": owned["Cargo.toml"]},
-		"/src/app":        {"src/main.rs": owned["app/src/main.rs"]},
-		"/src/app/nested": {"src/lib.rs": owned["app/nested/src/lib.rs"]},
-		"/src/app2":       {"src/lib.rs": owned["app2/src/lib.rs"]},
+		"/src":                 {"Cargo.toml": owned["Cargo.toml"]},
+		"/src/app":             {"src/main.rs": owned["app/src/main.rs"]},
+		"/src/app/nested":      {"src/lib.rs": owned["app/nested/src/lib.rs"]},
+		"/src/app2":            {"src/lib.rs": owned["app2/src/lib.rs"]},
+		"/src/space \"héllo\"": {"lib.rs": owned["space \"héllo\"/lib.rs"]},
 	} {
+		digest, err := projections[root].Digest(ctx)
+		require.NoError(t, err)
+		require.Equal(t, digest, digests[root], "batched hashing must preserve the native digest for %s", root)
 		checkSource(projections[root], expected)
 	}
 	editedSource := cloneRustSource(many)

@@ -1,6 +1,7 @@
 package replay
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 
 	"dagger.io/dagger"
 	"github.com/dagger/dagger/hack/rust-cache/model"
+	"github.com/dagger/querybuilder"
 )
 
 type SourceFile struct {
@@ -140,6 +142,24 @@ func (s Source) packageSources(packages []model.Package) map[string]Source {
 // removal already excludes its descendants, avoiding a scan per source file.
 // The caller must exclude target and .git directories from the input snapshot.
 func PackageDirectories(source *dagger.Directory, packages []model.Package) map[string]*dagger.Directory {
+	projections := packageProjections(packages)
+	directories := make(map[string]*dagger.Directory, len(projections))
+	for root, projection := range projections {
+		directory := source.Directory(projection.path)
+		for _, child := range projection.children {
+			directory = directory.WithoutDirectory(child)
+		}
+		directories[root] = directory
+	}
+	return directories
+}
+
+type packageProjection struct {
+	path     string
+	children []string
+}
+
+func packageProjections(packages []model.Package) map[string]packageProjection {
 	roots := newPackageRoots(packages)
 	children := map[string][]string{}
 	for root := range roots {
@@ -147,20 +167,64 @@ func PackageDirectories(source *dagger.Directory, packages []model.Package) map[
 			children[parent] = append(children[parent], strings.TrimPrefix(root, parent+"/"))
 		}
 	}
-	directories := make(map[string]*dagger.Directory, len(roots))
+	projections := make(map[string]packageProjection, len(roots))
 	for root := range roots {
 		relative := strings.TrimPrefix(root, model.SourceRoot+"/")
 		if root == model.SourceRoot {
 			relative = "."
 		}
-		directory := source.Directory(relative)
 		sort.Strings(children[root])
-		for _, child := range children[root] {
-			directory = directory.WithoutDirectory(child)
-		}
-		directories[root] = directory
+		projections[root] = packageProjection{path: relative, children: children[root]}
 	}
-	return directories
+	return projections
+}
+
+// PackageDigests hashes the same native projections as PackageDirectories in
+// one request. Aliases change the response shape, not the directory cache keys.
+func PackageDigests(ctx context.Context, client *dagger.Client, sourceID dagger.ID, packages []model.Package) (map[string]string, error) {
+	projections := packageProjections(packages)
+	roots := sortedKeys(projections)
+	keys := make(map[string]string, len(roots))
+	if len(roots) == 0 {
+		return keys, nil
+	}
+	fields := make([]string, len(roots))
+	for i, root := range roots {
+		projection := projections[root]
+		query := querybuilder.Query().SelectWithAlias(fmt.Sprintf("p%d", i), "directory").Arg("path", projection.path)
+		for _, child := range projection.children {
+			query = query.Select("withoutDirectory").Arg("path", child)
+		}
+		field, err := query.Select("digest").Build(ctx)
+		if err != nil {
+			return nil, err
+		}
+		fields[i] = strings.TrimSuffix(strings.TrimPrefix(field, "{"), "}")
+	}
+	type digestResult struct {
+		Digest           string
+		WithoutDirectory *digestResult
+	}
+	var response map[string]*digestResult
+	err := client.QueryBuilder().Select("node").Arg("id", sourceID).InlineFragment("Directory").
+		SelectMultiple(fields...).Bind(&response).Execute(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for i, root := range roots {
+		result := response[fmt.Sprintf("p%d", i)]
+		for range projections[root].children {
+			if result == nil {
+				break
+			}
+			result = result.WithoutDirectory
+		}
+		if result == nil || result.Digest == "" {
+			return nil, fmt.Errorf("missing native source digest for %s", root)
+		}
+		keys[root] = result.Digest
+	}
+	return keys, nil
 }
 
 type packageRoots map[string]struct{}
