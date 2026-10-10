@@ -338,7 +338,7 @@ func BuildAutomatic(ctx context.Context, client *dagger.Client, plan *model.Plan
 	}
 	var updates []*dagger.Directory
 	if graph.batchSnapshot != nil {
-		updates = append(updates, client.Directory().WithDirectory("batches/"+batchID, graph.batchSnapshot))
+		history = history.WithDirectory("batches/"+batchID, graph.batchSnapshot)
 	}
 	for _, action := range actions {
 		if inputs.hits[action.ID] == nil && graph.batchSnapshot == nil {
@@ -352,7 +352,7 @@ func BuildAutomatic(ctx context.Context, client *dagger.Client, plan *model.Plan
 	if err != nil {
 		return nil, err
 	}
-	if previous != nil && len(updates) == 0 && len(exclude) == 0 {
+	if previous != nil && graph.batchSnapshot == nil && len(updates) == 0 && len(exclude) == 0 {
 		oldContents, err := json.Marshal(old)
 		if err != nil {
 			return nil, err

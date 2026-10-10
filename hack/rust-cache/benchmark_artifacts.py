@@ -32,7 +32,9 @@ def main():
     parser.add_argument("--history-warmups", type=int, default=1,
                         help="preparation edits per automatic-history variant; use 4 to measure index expiry")
     parser.add_argument("--engine", action="append", default=[], metavar="NAME=RUNNER_HOST",
-                        help="compare isolated engines using direct compiler snapshots (repeatable)")
+                        help="compare isolated engines with the same replay implementation (repeatable)")
+    parser.add_argument("--engine-variant", choices=("directories", "native_auto_batch"), default="directories",
+                        help="replay mode for --engine; defaults to direct compiler snapshots")
     parser.add_argument("--variants", nargs="+",
                         choices=("flat", "balanced64", "balanced16", "balanced64_c8", "directories", "directories_c8", "directories_c32", "directories_native", "directories_auto", "directories_native_auto", "native_auto_batch", "native_auto_batch_no_pipeline"),
                         help="artifact layouts; defaults to flat, balanced64, directories")
@@ -97,14 +99,25 @@ def main():
                  "native_auto_batch": settings(directories=True, native_sources=True, automatic=True, batch=True),
                  "native_auto_batch_no_pipeline": settings(directories=True, native_sources=True, automatic=True, batch=True, no_pipelining=True)}
     variants = ({name: available["native_auto_batch"] for name in drivers} if drivers else
-                {name: settings(directories=True) for name in engines} if engines else
+                {name: available[args.engine_variant] for name in engines} if engines else
                 {name: available[name] for name in (args.variants or ("flat", "balanced64", "directories"))})
 
     def run(command, label, environment=env, cwd=None):
+        def pressure():
+            return {name: int(path.read_text().splitlines()[0].split("total=")[1])
+                    for name in ("cpu", "io") if (path := Path("/proc/pressure") / name).exists()}
+
+        before = pressure()
         started = time.monotonic()
         with (output / (label + ".log")).open("w") as log:
             subprocess.run(command, env=environment, cwd=cwd, stdout=log, stderr=subprocess.STDOUT, check=True)
-        return time.monotonic() - started
+        wall = time.monotonic() - started
+        after = pressure()
+        with (output / "pressure.jsonl").open("a") as log:
+            log.write(json.dumps({"label": label, "wall_seconds": wall,
+                                  "stall_fraction": {name: (after[name] - before[name]) / (wall * 1_000_000)
+                                                     for name in before}}) + "\n")
+        return wall
 
     def command(variant):
         options = variants[variant]
@@ -185,6 +198,9 @@ def main():
                     else:
                         times[kind] = run([*command(variant), "--out", str(directory), "--artifacts-only"],
                                           label, engine_environment(variant))
+                        if (variants[variant]["automatic_incremental"] and
+                                "native history is unavailable" in (output / (label + ".log")).read_text()):
+                            raise RuntimeError(f"{label}: history was evicted; this is not a warm edited build")
                 observed = diagnose(variant, label + "-verify", expect_finished_hits=True)
                 changed = {a["crate"] for key, a in observed.items() if a["execution"] != previous[variant][key]["execution"]}
                 if changed != expected:

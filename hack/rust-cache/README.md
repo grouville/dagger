@@ -828,7 +828,7 @@ The artifact directory is a view into that same snapshot, so retaining it also
 retains the sibling incremental state. Filesystem export still selects only the
 captured artifacts; remote transfer size and storage impact need measurement.
 
-Fresh-edit speedups for this layout are not established. An initial experiment
+Initial fresh-edit measurements for this layout were inconclusive. An experiment
 that removed only the final artifact copy took 1.08 versus 1.03 seconds for leaf
 edits and 2.74 versus 3.06 seconds for shared edits. Cargo's shared-edit controls
 ranged from 0.76 to 5.54 seconds as unrelated Go builds increased CPU and I/O
@@ -861,7 +861,52 @@ python3 hack/rust-cache/benchmark_artifacts.py \
 Each driver has its own history. Four preparation edits fill the bounded history
 index before measuring expiry. The harness checks which crates recompiled,
 finished-result reuse, exported bytes and permissions, and executable behavior
-against Cargo; the diagnostic evaluations are outside the timed command.
+against Cargo; the diagnostic evaluations are outside the timed command. Linux
+CPU and I/O pressure measurements are saved with the results. A timed automatic
+build that loses its previous history now fails the comparison, rather than
+being reported as a warm edited build.
+
+Five rotating fresh edits per variant on an engine with Erik's merged
+[read-only mount sharing](https://github.com/dagger/dagger/pull/14619), pinned to
+`1fa708f7f`, gave these full-command medians:
+
+| Edit | Earlier filtered layout | Unified snapshot | Direct history insertion | Cargo |
+| --- | ---: | ---: | ---: | ---: |
+| One leaf | 0.94 s | 0.85 s | 0.84 s | 0.21–0.22 s |
+| Shared dependency | 1.84 s | 1.70 s | 1.68 s | 0.64–0.65 s |
+
+Both compiler inputs and incremental history were warm; every source edit was
+new. All 30 timed builds retained their histories. Leaf edits rebuilt two crates,
+shared edits rebuilt all 102, and each subsequent validation reused 102/102
+finished results and matched exported bytes, modes and Cargo behavior. These
+synthetic local runs used Rust 1.77.2 and eight compiler workers on a shared host.
+The unified layout improved medians by about 8–9% in this comparison. The smaller
+additional differences from direct history insertion overlap ordinary variation.
+The Cargo-plus-0.5-second target remains unmet. The direct insertion also passed
+the full replay integration scenario, including edit reverts, history expiry and
+an edited build after transferring native history to a fresh engine.
+
+Direct history insertion puts the batch snapshot at its final history path,
+removing the intermediate wrapping directory and its copy. A fresh shared-edit
+wcprof capture confirms three directory copies instead of four. Runtime startup
+took 40 milliseconds, while the history-read critical path took 186 milliseconds.
+The previous unified capture recorded 117 query requests, including 102 package
+digests, and 215 milliseconds constructing the driver graph. Reducing source-hash
+requests and copying incremental inputs are the next experiments.
+
+A separate five-pair engine comparison with the same unified driver found no
+measurable benefit from mount sharing: medians stayed at 0.85 seconds for leaf
+edits and 1.74 seconds for shared edits. One baseline sample took 19.98 seconds
+after cache pruning removed its history and the Rust image was downloaded again.
+That sample remains in the results; the newer warm-history check rejects this
+case. Neither result establishes performance on remote engines or the cost of
+transferring the unified snapshot's sibling incremental state.
+
+To compare engine versions with the same native batch implementation, use
+`--replay-bin /tmp/rcexp`, `--engine before=tcp://127.0.0.1:1234`,
+`--engine after=tcp://127.0.0.1:1235` and `--engine-variant native_auto_batch`
+instead of `--driver`. Keep compiler, worker count and cache policy identical on
+both engines.
 
 Longer edit sequences produced source-key changes for unchanged packages, but
 the original trigger remains unresolved. The first proposed fix changed the
@@ -883,7 +928,9 @@ identical source projection executes again only on main. That integration
 regression fails on main and passes with the fix. The standalone
 [test-only repro](https://github.com/grouville/dagger/tree/repro/native-contenthash-restart)
 and [fix](https://github.com/grouville/dagger/tree/fix/persist-native-content-hashes)
-are on the fork; no PR has been opened.
+are on the fork. The scoped fix is now
+[draft PR #14622](https://github.com/dagger/dagger/pull/14622), following the
+closed PR that changed the unused package.
 
 Ten alternating clean-restart samples on a 20,020-file fixture missed 10/10
 equivalent-directory actions on main and reused 10/10 with the fix. Median hash
