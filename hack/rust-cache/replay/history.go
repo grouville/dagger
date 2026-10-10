@@ -86,8 +86,13 @@ type automaticInputs struct {
 	hits        map[string]*retainedResult
 	seeds       map[string]*dagger.Directory
 	artifacts   *dagger.Directory
-	batchSeeds  []*dagger.Directory
+	batchSeeds  []batchSeed
 	batchSeeded map[string]bool
+}
+
+type batchSeed struct {
+	directory *dagger.Directory
+	include   []string
 }
 
 func (entry historyEntry) result(previous *dagger.Directory, action model.Action, outputs []string, client *dagger.Client) *retainedResult {
@@ -253,8 +258,10 @@ func BuildAutomatic(ctx context.Context, client *dagger.Client, plan *model.Plan
 		next.Actions[action.ID] = selected
 	}
 	for _, group := range sortedKeys(seedGroups) {
-		inputs.batchSeeds = append(inputs.batchSeeds, client.Directory().WithDirectory(".", previous.Directory("batches/"+group+"/incremental"),
-			dagger.DirectoryWithDirectoryOpts{Include: seedGroups[group]}))
+		inputs.batchSeeds = append(inputs.batchSeeds, batchSeed{
+			directory: previous.Directory("batches/" + group + "/incremental"),
+			include:   seedGroups[group],
+		})
 	}
 	if inputs.artifacts != nil && len(missingOutputs) > 0 {
 		for _, overlay := range overlays {

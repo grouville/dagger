@@ -914,6 +914,25 @@ GC enabled with 20 GB reserved, 30 GB maximum usage and 100 GB minimum free spac
 to avoid evicting the prepared history under host-wide disk pressure. Remote
 request-latency benefits have not been measured.
 
+Selected incremental state is also copied directly into the compiler input
+snapshot, avoiding a filtered intermediate directory. A shared-edit wcprof
+capture reduced the input-copy critical path from 173 to 106 milliseconds and
+the total number of evaluated directory copies from three to two. Compiler time
+was similar, at 635 and 643 milliseconds. Two three-driver comparisons and a
+separate five-pair comparison passed every reuse and artifact check, including
+histories assembled from multiple batches. Their command timings included
+substantial host I/O stalls and session-close outliers, so they do not establish
+a reliable end-to-end speedup for this additional change. The full two-engine
+integration scenario also passes with both optimizations.
+
+A further experiment mounted the entire compatible previous batch directly and
+removed stale outputs before compiling. Five pairs showed no shared-edit gain
+(1.738 s copied versus 1.744 s mounted), while leaf medians increased from 0.950
+to 1.091 seconds. It removed the input copy, but separate profiles also recorded
+longer process exit and history persistence; the cause is unresolved. This
+experiment is not retained because the extra behavior has no demonstrated
+end-to-end benefit.
+
 A separate five-pair engine comparison with the same unified driver found no
 measurable benefit from mount sharing: medians stayed at 0.85 seconds for leaf
 edits and 1.74 seconds for shared edits. One baseline sample took 19.98 seconds

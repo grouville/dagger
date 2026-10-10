@@ -20,7 +20,7 @@ func buildBatch(client *dagger.Client, plan *model.Plan, source Source, opts Bui
 	}
 	var missing []model.Action
 	var targets []*dagger.Directory
-	seeds := append([]*dagger.Directory(nil), opts.automatic.batchSeeds...)
+	var seeds []*dagger.Directory
 	for _, action := range actions {
 		if retained := opts.automatic.hits[action.ID]; retained != nil {
 			if opts.automatic.artifacts == nil {
@@ -57,6 +57,11 @@ func buildBatch(client *dagger.Client, plan *model.Plan, source Source, opts Bui
 		incremental = mergeArtifactDirectories(seeds)
 	}
 	state := client.Directory().WithDirectory("target", target).WithDirectory("incremental", incremental)
+	for _, seed := range opts.automatic.batchSeeds {
+		// Copy only the selected crates into their final input path. An
+		// intermediate filtered directory would copy the same state twice.
+		state = state.WithDirectory("incremental", seed.directory, dagger.DirectoryWithDirectoryOpts{Include: seed.include})
+	}
 	container := client.Container(dagger.ContainerOpts{Platform: "linux/amd64"}).From(plan.Image).
 		WithMountedDirectory(model.SourceRoot, workspace).
 		WithMountedDirectory(worker.OutputRoot, state).
