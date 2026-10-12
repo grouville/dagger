@@ -950,6 +950,42 @@ addresses cleanup scaling, without establishing a substantial Rust command
 speedup. The snapshot suite, race detector, vet and two-engine Rust replay
 integration pass. The larger source-import and filesystem-copy costs remain.
 
+The CLI now demands artifact export and native history together, then publishes
+the local history pointer after both succeed. Previously history evaluation
+started after export, putting expired-batch removal and the archive copy after
+compilation. A shared-edit profile moved 82 milliseconds of expired-batch
+removal into compiler preparation; compiler time stayed at about 640 milliseconds.
+The snapshot layout, result keys and incremental-seed selection are unchanged.
+History timing now includes its concurrent wait for compilation and must not be
+added to export timing.
+
+Two five-pair comparisons on main `f9d7e23a3` plus the lease-cleanup experiment
+gave these full-command medians, including shutdown:
+
+| Cloud export | Edit | Serial outputs | Concurrent outputs | Cargo |
+| --- | --- | ---: | ---: | ---: |
+| Enabled | One leaf | 0.750 s | 0.870 s | 0.211–0.218 s |
+| Enabled | Shared dependency | 1.633 s | 1.448 s | 0.628–0.668 s |
+| Disabled for both drivers | One leaf | 0.679 s | 0.568 s | 0.210–0.219 s |
+| Disabled for both drivers | Shared dependency | 1.401 s | 1.327 s | 0.646–0.656 s |
+
+Inputs and incremental history were warm, with four preparation versions and
+new source edits in every sample. All 40 edited builds retained history and
+passed recompilation, artifact, permission and executable checks. The first
+comparison had slow shutdown samples; its leaf artifacts-and-history-ready
+median improved from 0.610 to 0.581 seconds, while full-command time worsened.
+A separate profile finished that work in 0.612 seconds but took 40.630 seconds
+to exit, logging telemetry export and drain timeouts. The repeat used an empty
+temporary client configuration and no cloud token for both drivers; it measures
+local build performance without cloud export. These runs still do not establish
+remote-engine performance or meet Cargo plus 0.5 seconds for shared edits.
+
+Real CLI checks verify that failed artifact export and a compiler error both
+leave the previous history pointer intact, followed by successful recovery and
+102/102 finished-result reuse. Focused race tests, vet, and cold and edited runs
+of the race-instrumented CLI pass. An independent preflight-overlap experiment
+showed no consistent command benefit and is not retained.
+
 A separate five-pair engine comparison with the same unified driver found no
 measurable benefit from mount sharing: medians stayed at 0.85 seconds for leaf
 edits and 1.74 seconds for shared edits. One baseline sample took 19.98 seconds

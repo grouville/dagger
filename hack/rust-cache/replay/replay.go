@@ -76,6 +76,7 @@ type Report struct {
 // DriverTimings separates CLI setup and output transfer from graph evaluation.
 // ReadySeconds ends when artifacts and retained incremental state are ready;
 // process shutdown is measured externally with the full user command.
+// ExportSeconds and HistorySeconds are concurrent demands, not additive phases.
 type DriverTimings struct {
 	SourceSeconds      float64 `json:"source_seconds"`
 	ConnectSeconds     float64 `json:"connect_seconds"`

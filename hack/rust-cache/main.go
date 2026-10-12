@@ -18,6 +18,7 @@ import (
 	"github.com/dagger/dagger/hack/rust-cache/replay"
 	"github.com/dagger/dagger/hack/rust-cache/worker"
 	"github.com/dagger/dagger/internal/version"
+	"golang.org/x/sync/errgroup"
 )
 
 type environmentFlags map[string]string
@@ -223,11 +224,28 @@ func run(ctx context.Context, args []string) error {
 				return err
 			}
 		}
-		phase = time.Now()
-		if _, err := graph.Artifacts.Export(ctx, *outPath); err != nil {
+		// Demand history alongside artifacts so pruning old results can overlap
+		// compilation.
+		var historyReference replay.HistoryReference
+		outputs, outputCtx := errgroup.WithContext(ctx)
+		outputs.Go(func() error {
+			started := time.Now()
+			_, err := graph.Artifacts.Export(outputCtx, *outPath)
+			timings.ExportSeconds = time.Since(started).Seconds()
+			return err
+		})
+		if graph.History != nil {
+			outputs.Go(func() error {
+				started := time.Now()
+				var err error
+				historyReference, err = graph.HistoryReference(outputCtx)
+				timings.HistorySeconds = time.Since(started).Seconds()
+				return err
+			})
+		}
+		if err := outputs.Wait(); err != nil {
 			return err
 		}
-		timings.ExportSeconds = time.Since(phase).Seconds()
 		phase = time.Now()
 		if graph.Incremental != nil {
 			// Demand the filesystem part before publishing its ID. ID alone
@@ -255,16 +273,11 @@ func run(ctx context.Context, args []string) error {
 			timings.IncrementalSeconds = time.Since(phase).Seconds()
 		}
 		if graph.History != nil {
-			phase = time.Now()
-			reference, err := graph.HistoryReference(ctx)
-			if err != nil {
+			// Publish the local pointer only after both demands succeed.
+			if err := writeJSON(*autoHistoryPath, historyReference); err != nil {
 				return err
 			}
-			if err := writeJSON(*autoHistoryPath, reference); err != nil {
-				return err
-			}
-			timings.HistorySeconds = time.Since(phase).Seconds()
-			fmt.Fprintf(os.Stderr, "native history reused %d/%d compiler results; retain %.3fs\n", graph.HistoryHits, len(graph.Operations), timings.HistorySeconds)
+			fmt.Fprintf(os.Stderr, "native history reused %d/%d compiler results; retain %.3fs (overlaps export)\n", graph.HistoryHits, len(graph.Operations), timings.HistorySeconds)
 		}
 		timings.ReadySeconds = time.Since(started).Seconds()
 		if *artifactsOnly {
