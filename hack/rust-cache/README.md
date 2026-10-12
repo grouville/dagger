@@ -933,6 +933,23 @@ longer process exit and history persistence; the cause is unresolved. This
 experiment is not retained because the extra behavior has no demonstrated
 end-to-end benefit.
 
+A separate [engine follow-up](https://github.com/grouville/dagger/tree/experiment/snapshot-lease-cleanup)
+on upstream main `f9d7e23a3` indexes the snapshots held by each owner. Removing
+one owner previously scanned every tracked snapshot under the manager lock.
+A profile on the long-lived experiment engine attributed 17% of sampled engine
+CPU to this cleanup. A manager benchmark with 8,192 unrelated snapshots reduced
+one-snapshot attach/release from 226 to about 2 microseconds, adding 16 bytes and
+one allocation for that owner's list. Existing locks and deletion order remain.
+
+Two five-pair engine comparisons passed all 40 fresh edited-build checks. The
+first leaf median improved by 103 milliseconds, but the repeat barely changed:
+leaf edits took 0.753 versus 0.748 seconds, shared edits 1.561 versus 1.552 seconds.
+Matched fresh-engine profiles reduced lease-cleanup CPU from 170 to 40
+milliseconds across eight shared edits; total sampled CPU was similar. This
+addresses cleanup scaling, without establishing a substantial Rust command
+speedup. The snapshot suite, race detector, vet and two-engine Rust replay
+integration pass. The larger source-import and filesystem-copy costs remain.
+
 A separate five-pair engine comparison with the same unified driver found no
 measurable benefit from mount sharing: medians stayed at 0.85 seconds for leaf
 edits and 1.74 seconds for shared edits. One baseline sample took 19.98 seconds
