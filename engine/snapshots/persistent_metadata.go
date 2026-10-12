@@ -89,6 +89,9 @@ func (cm *snapshotManager) LoadPersistentMetadata(rows PersistentMetadataRows) e
 	if cm.snapshotOwnerLeases == nil {
 		cm.snapshotOwnerLeases = make(map[string]map[string]struct{})
 	}
+	if cm.ownerLeaseSnapshots == nil {
+		cm.ownerLeaseSnapshots = make(map[string][]string)
+	}
 
 	return nil
 }
@@ -368,7 +371,11 @@ func (cm *snapshotManager) addSnapshotOwner(snapshotID, leaseID string, attached
 	if cm.snapshotOwnerLeases[snapshotID] == nil {
 		cm.snapshotOwnerLeases[snapshotID] = make(map[string]struct{})
 	}
+	if _, exists := cm.snapshotOwnerLeases[snapshotID][leaseID]; exists {
+		return nil
+	}
 	cm.snapshotOwnerLeases[snapshotID][leaseID] = struct{}{}
+	cm.ownerLeaseSnapshots[leaseID] = append(cm.ownerLeaseSnapshots[leaseID], snapshotID)
 	return nil
 }
 
@@ -386,12 +393,15 @@ func (cm *snapshotManager) RemoveLease(ctx context.Context, leaseID string) erro
 	}
 
 	cm.mu.Lock()
-	for snapshotID, leaseIDs := range cm.snapshotOwnerLeases {
+	// Visit this owner's snapshots rather than scanning every retained snapshot.
+	for _, snapshotID := range cm.ownerLeaseSnapshots[leaseID] {
+		leaseIDs := cm.snapshotOwnerLeases[snapshotID]
 		delete(leaseIDs, leaseID)
 		if len(leaseIDs) == 0 {
 			delete(cm.snapshotOwnerLeases, snapshotID)
 		}
 	}
+	delete(cm.ownerLeaseSnapshots, leaseID)
 	cm.mu.Unlock()
 
 	return nil

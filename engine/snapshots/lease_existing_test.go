@@ -40,6 +40,45 @@ func requireSnapshotGone(t *testing.T, store *testutil.Store, snapshotID string)
 	}
 }
 
+func TestRemoveLeasePreservesOtherOwners(t *testing.T) {
+	ctx := context.Background()
+	store := testutil.NewStore(t)
+	parent, parentOwner := store.Build(t, nil, "parent", "shared parent")
+	child, childOwner := store.Build(t, parent, "child", "removed child")
+	unrelated, _ := store.Build(t, nil, "unrelated", "kept separately")
+	defer unrelated.Release(ctx)
+	parentID, childID := parent.SnapshotID(), child.SnapshotID()
+
+	require.NoError(t, store.Manager.AttachLease(ctx, "removed", childID))
+	require.NoError(t, store.Manager.AttachLease(ctx, "kept", parentID))
+	dropOwner(t, store, child, childOwner)
+	dropOwner(t, store, parent, parentOwner)
+	require.NoError(t, store.Manager.RemoveLease(ctx, "removed"))
+	store.GC(t)
+	requireSnapshotGone(t, store, childID)
+	require.True(t, snapshotPresent(t, store, parentID))
+	testutil.CheckFile(t, unrelated, "unrelated", "kept separately")
+
+	// A new blob attaches only to the surviving owner, not the removed one.
+	exportOnce(t, store, parentID)
+	_, _, blobs := leaseResources(t, store, "kept")
+	require.Len(t, blobs, 1)
+
+	// Reuse an owner ID, including duplicate attachment and an already deleted
+	// underlying lease. Neither case should leave ownership records behind.
+	require.NoError(t, store.Manager.AttachLease(ctx, "removed", parentID))
+	require.NoError(t, store.Manager.AttachLease(ctx, "removed", parentID))
+	require.NoError(t, store.Manager.RemoveLease(ctx, "kept"))
+	store.GC(t)
+	require.True(t, snapshotPresent(t, store, parentID))
+	require.NoError(t, store.Leases.Delete(ctx, leases.Lease{ID: "removed"}))
+	require.NoError(t, store.Manager.RemoveLease(ctx, "removed"))
+	require.NoError(t, store.Manager.RemoveLease(ctx, "removed"))
+	store.GC(t)
+	requireSnapshotGone(t, store, parentID)
+	testutil.CheckFile(t, unrelated, "unrelated", "kept separately")
+}
+
 // The reused snapshot must survive its donor's release and GC until the
 // result's owner lease attaches, as a freshly created snapshot does.
 func TestLeaseExistingSnapshotSurvivesDonorRelease(t *testing.T) {

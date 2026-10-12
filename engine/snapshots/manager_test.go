@@ -307,7 +307,7 @@ func (sn *applySnapshotDiffTestSnapshotter) Merge(ctx context.Context, key strin
 	return nil
 }
 
-func newApplySnapshotDiffTestManager(t *testing.T) *snapshotManager {
+func newApplySnapshotDiffTestManager(t testing.TB) *snapshotManager {
 	t.Helper()
 
 	sn := newApplySnapshotDiffTestSnapshotter()
@@ -321,6 +321,7 @@ func newApplySnapshotDiffTestManager(t *testing.T) *snapshotManager {
 		importedLayerByBlob:    map[ImportedLayerBlobKey]string{},
 		importedLayerByDiff:    map[ImportedLayerDiffKey]string{},
 		snapshotOwnerLeases:    map[string]map[string]struct{}{},
+		ownerLeaseSnapshots:    map[string][]string{},
 		ownerLeaseLocker:       locker.New(),
 	}
 }

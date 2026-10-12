@@ -142,6 +142,7 @@ type snapshotManager struct {
 	importedLayerByBlob    map[ImportedLayerBlobKey]string
 	importedLayerByDiff    map[ImportedLayerDiffKey]string
 	snapshotOwnerLeases    map[string]map[string]struct{}
+	ownerLeaseSnapshots    map[string][]string
 	importLayerLocker      keyedLocker
 	exportLayerLocker      keyedLocker
 	ownerLeaseLocker       *locker.Locker
@@ -169,6 +170,7 @@ func NewSnapshotManager(opt SnapshotManagerOpt) (SnapshotManager, error) {
 		importedLayerByBlob:    make(map[ImportedLayerBlobKey]string),
 		importedLayerByDiff:    make(map[ImportedLayerDiffKey]string),
 		snapshotOwnerLeases:    make(map[string]map[string]struct{}),
+		ownerLeaseSnapshots:    make(map[string][]string),
 		ownerLeaseLocker:       locker.New(),
 		backgroundReleases:     newBackgroundReleases(maxPendingReleases),
 		localMounter:           opt.LocalMounter,
