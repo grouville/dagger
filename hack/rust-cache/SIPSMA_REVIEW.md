@@ -66,6 +66,9 @@ The organization-wide scan also found
 memoization to that repository's client generators. It is merged, but clients
 must be regenerated against a v1 schema declaring `@reevaluate` to receive the
 optimization. It does not make our existing generated client faster by itself.
+The subsequent [SDK comparison](SDK_COMPARISON.md) forward-ports the prototype,
+passes the native transfer integration, and finds no repeatable command speedup;
+the captured request count is unchanged.
 The scan returned 111 PRs updated since October 1, including 13 outside
 `dagger/dagger`; the other cross-repository work concerns remote-cache service
 deployment, storage, telemetry and CI rather than a published `gcexp` repository.

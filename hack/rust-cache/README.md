@@ -17,6 +17,11 @@ Erik's `gcexp` implementation was unavailable when this experiment was written.
 The [current goal](ROADMAP.md) and [review of Sipsma's engine performance PRs](SIPSMA_REVIEW.md)
 track the remaining work and distinguish improvements already in our reference
 engine from candidates that still need edited-build measurements.
+The [current SDK comparison](SDK_COMPARISON.md) verifies the forward port and
+explains why ID memoization has not improved this batched path in our measurements.
+The [source mount comparison](SOURCE_MOUNT_COMPARISON.md) tests avoiding a mutable
+snapshot output for compiler inputs; host contention leaves its latency benefit
+unproven.
 
 The existing [dagger-rust module](https://github.com/grouville/dagger-rust) is
 the Cargo-facing layer: checks, toolchain selection and final artifact publishing.
