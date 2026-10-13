@@ -986,6 +986,44 @@ leave the previous history pointer intact, followed by successful recovery and
 of the race-instrumented CLI pass. An independent preflight-overlap experiment
 showed no consistent command benefit and is not retained.
 
+An opt-in [engine experiment](https://github.com/grouville/dagger/tree/experiment/native-directory-digest-path)
+adds `Directory.digest(path:)`. The prototype's `--source-digest-paths` flag uses
+it to hash package directories without creating a separate native `Directory`
+result for each package. Packages containing nested packages keep their existing
+filtered projections. The hashes still describe immutable native snapshots;
+the query form does not change logical compilation keys or ignore exec inputs.
+This flag requires the modified engine and remains disabled by default.
+
+Two five-pair comparisons used the same Go executable and one freshly started
+engine, toggling only this flag. Inputs and incremental state were warm, with
+four preparation versions and new edits in every timed sample. Traces, logs and
+metrics stayed enabled, directed to a local Docker receiver with a test token
+and empty temporary client configuration. Full-command medians include shutdown:
+
+| Comparison | Edit | Package projections | Direct paths | Cargo |
+| --- | --- | ---: | ---: | ---: |
+| First | One leaf | 0.609 s | 0.577 s | 0.211–0.213 s |
+| Repeat | One leaf | 0.609 s | 0.569 s | 0.208–0.209 s |
+| First | Shared dependency | 1.326 s | 1.270 s | 0.641–0.654 s |
+| Repeat | Shared dependency | 1.333 s | 1.289 s | 0.627–0.658 s |
+
+All 40 edited-build checks passed. Graph construction medians decreased by
+14–28 milliseconds. A shared-edit profile removed 102 package-directory
+selections and reduced the source-hash query from 30 to 10 milliseconds;
+summed concurrent operation times are not wall-clock savings. Changing back
+to projection hashes reused 102/102 finished results. This is a modest local
+gain; shared edits still exceed Cargo plus 0.5 seconds. Internet export and
+remote-engine performance are not established by the local receiver.
+
+The engine regression compares imported and constructed trees, permissions,
+empty directories, scoped parents, Unicode and quoted paths, symbolic links,
+and errors for missing paths and files. It also preserves existing default
+digest tests. The complete two-engine Rust replay test passes with direct
+hashing enabled, including an edit after transferring native history. Focused
+race tests and vet pass. A separate direct-directory seed-selection experiment
+showed no command benefit (leaf 0.567/0.569 s, shared 1.233/1.256 s) and was
+discarded. These checks do not complete the SDK work needed for a public API.
+
 A separate five-pair engine comparison with the same unified driver found no
 measurable benefit from mount sharing: medians stayed at 0.85 seconds for leaf
 edits and 1.74 seconds for shared edits. One baseline sample took 19.98 seconds

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -182,6 +183,10 @@ func packageProjections(packages []model.Package) map[string]packageProjection {
 // PackageDigests hashes the same native projections as PackageDirectories in
 // one request. Aliases change the response shape, not the directory cache keys.
 func PackageDigests(ctx context.Context, client *dagger.Client, sourceID dagger.ID, packages []model.Package) (map[string]string, error) {
+	return packageDigests(ctx, client, sourceID, packages, false)
+}
+
+func packageDigests(ctx context.Context, client *dagger.Client, sourceID dagger.ID, packages []model.Package, directPaths bool) (map[string]string, error) {
 	projections := packageProjections(packages)
 	roots := sortedKeys(projections)
 	keys := make(map[string]string, len(roots))
@@ -192,10 +197,15 @@ func PackageDigests(ctx context.Context, client *dagger.Client, sourceID dagger.
 	for i, root := range roots {
 		projection := projections[root]
 		query := querybuilder.Query().SelectWithAlias(fmt.Sprintf("p%d", i), "directory").Arg("path", projection.path)
-		for _, child := range projection.children {
-			query = query.Select("withoutDirectory").Arg("path", child)
+		if directPaths && len(projection.children) == 0 {
+			query = querybuilder.Query().SelectWithAlias(fmt.Sprintf("p%d", i), "digest").Arg("path", projection.path)
+		} else {
+			for _, child := range projection.children {
+				query = query.Select("withoutDirectory").Arg("path", child)
+			}
+			query = query.Select("digest")
 		}
-		field, err := query.Select("digest").Build(ctx)
+		field, err := query.Build(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -205,14 +215,29 @@ func PackageDigests(ctx context.Context, client *dagger.Client, sourceID dagger.
 		Digest           string
 		WithoutDirectory *digestResult
 	}
-	var response map[string]*digestResult
+	var response map[string]json.RawMessage
 	err := client.QueryBuilder().Select("node").Arg("id", sourceID).InlineFragment("Directory").
 		SelectMultiple(fields...).Bind(&response).Execute(ctx)
 	if err != nil {
 		return nil, err
 	}
 	for i, root := range roots {
-		result := response[fmt.Sprintf("p%d", i)]
+		value := response[fmt.Sprintf("p%d", i)]
+		if directPaths && len(projections[root].children) == 0 {
+			var digest string
+			if err := json.Unmarshal(value, &digest); err != nil {
+				return nil, err
+			}
+			if digest == "" {
+				return nil, fmt.Errorf("missing native source digest for %s", root)
+			}
+			keys[root] = digest
+			continue
+		}
+		var result *digestResult
+		if err := json.Unmarshal(value, &result); err != nil {
+			return nil, err
+		}
 		for range projections[root].children {
 			if result == nil {
 				break

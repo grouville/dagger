@@ -73,6 +73,7 @@ func run(ctx context.Context, args []string) error {
 	artifactLeafFiles := flags.Int("artifact-leaf-files", 0, "experimental: bound artifact-copy chains (0 keeps flat bundles)")
 	artifactDirectories := flags.Bool("artifact-directories", false, "experimental: reuse whole compiler output snapshots")
 	nativeSources := flags.Bool("native-sources", false, "experimental: import source directories instead of constructing individual files")
+	sourceDigestPaths := flags.Bool("source-digest-paths", false, "experimental: hash package paths directly (requires the modified engine)")
 	autoHistoryPath := flags.String("auto-incremental", "", "experimental: automatically retain compiler results and incremental state in a native history index (local reference JSON)")
 	batchCompiler := flags.Bool("batch", false, "experimental: run compiler misses in one container, retaining native per-crate results")
 	batchWorkers := flags.Int("batch-workers", 8, "maximum parallel compiler processes in a batch")
@@ -119,6 +120,9 @@ func run(ctx context.Context, args []string) error {
 	if *batchWorkers < 1 || (*batchCompiler && *autoHistoryPath == "") || (*batchNoPipelining && !*batchCompiler) {
 		return errors.New("batch compilation requires --auto-incremental and positive --batch-workers; --batch-no-pipelining requires --batch")
 	}
+	if *sourceDigestPaths && (!*nativeSources || *autoHistoryPath == "") {
+		return errors.New("--source-digest-paths requires --native-sources and --auto-incremental")
+	}
 	for _, output := range []string{*planPath, *outPath, *reportPath, *statePath, *seedPath, *autoHistoryPath} {
 		if output == "" {
 			continue
@@ -164,7 +168,12 @@ func run(ctx context.Context, args []string) error {
 			return err
 		}
 		phase = time.Now()
-		opts := replay.BuildOptions{IncrementalCrate: *incrementalCrate, ArtifactLeafFiles: *artifactLeafFiles, ArtifactDirectories: *artifactDirectories}
+		opts := replay.BuildOptions{
+			IncrementalCrate:    *incrementalCrate,
+			ArtifactLeafFiles:   *artifactLeafFiles,
+			ArtifactDirectories: *artifactDirectories,
+			SourceDigestPaths:   *sourceDigestPaths,
+		}
 		if *batchCompiler {
 			executable, err := os.Executable()
 			if err != nil {

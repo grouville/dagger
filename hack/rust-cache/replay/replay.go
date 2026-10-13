@@ -49,6 +49,8 @@ type BuildOptions struct {
 	// SourceDirectory supplies an already imported workspace snapshot. Source
 	// still validates the captured configuration and supported project boundary.
 	SourceDirectory *dagger.Directory
+	// SourceDigestPaths requires the experimental Directory.digest(path:) API.
+	SourceDigestPaths bool
 	// BatchCompiler is the rcexp executable, used to schedule cache misses in
 	// one container. Automatic history still retains results separately.
 	BatchCompiler     *dagger.File

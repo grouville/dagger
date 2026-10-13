@@ -378,7 +378,12 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 	output, err = buildBatch.CombinedOutput()
 	require.NoError(t, err, string(output))
 	batchOptions := func(client *dagger.Client, input replay.Source) replay.BuildOptions {
-		return replay.BuildOptions{SourceDirectory: input.Directory(client), BatchCompiler: client.Host().File(batchBinary), BatchWorkers: 4}
+		return replay.BuildOptions{
+			SourceDirectory:   input.Directory(client),
+			SourceDigestPaths: os.Getenv("_DAGGER_TEST_RUST_DIGEST_PATHS") == "1",
+			BatchCompiler:     client.Host().File(batchBinary),
+			BatchWorkers:      4,
+		}
 	}
 	checkBatchArtifacts := func(graph *replay.Graph) {
 		root := t.TempDir()

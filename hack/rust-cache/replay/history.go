@@ -179,7 +179,7 @@ func BuildAutomatic(ctx context.Context, client *dagger.Client, plan *model.Plan
 		opts.SourceDirectory = dagger.Ref[*dagger.Directory](client, dagger.ID(id))
 		// Hash the actual immutable inputs, rather than trusting a caller's
 		// separate Source map to describe the imported snapshot.
-		sourceKeys, err = PackageDigests(ctx, client, id, plan.Packages)
+		sourceKeys, err = packageDigests(ctx, client, id, plan.Packages, opts.SourceDigestPaths)
 		if err != nil {
 			return nil, err
 		}
