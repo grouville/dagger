@@ -5,6 +5,12 @@ incremental build time plus 0.5 seconds for the complete command. Preserve
 compiler results and incremental state as native immutable Dagger snapshots,
 including reuse across engines.
 
+Measure the complete Rust module command as the final performance target. Its
+cache should be expressed as native Dagger objects, with compiler outputs and
+incremental state carried by immutable directories. Standalone replay timings
+are diagnostic evidence; integration into the module and its user workflow is
+required before calling the work complete.
+
 Use Erik Sipsma's Go cache experiments and engine PRs as references. Review the
 actual changes, check which are already in the measured engine, and use CPU
 profiles and wcprof's critical path to find remaining costs throughout the

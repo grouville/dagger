@@ -22,6 +22,9 @@ explains why ID memoization has not improved this batched path in our measuremen
 The [source mount comparison](SOURCE_MOUNT_COMPARISON.md) tests avoiding a mutable
 snapshot output for compiler inputs; host contention leaves its latency benefit
 unproven.
+The [latest wcprof measurements](WCPROF_OCT13.md) separate compiler work from
+source preparation, snapshot copies and publication, including a large-crate
+fixture and the 102-action workspace.
 
 The existing [dagger-rust module](https://github.com/grouville/dagger-rust) is
 the Cargo-facing layer: checks, toolchain selection and final artifact publishing.
