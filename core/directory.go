@@ -26,6 +26,7 @@ import (
 	bkcontenthash "github.com/dagger/dagger/engine/contenthash"
 	bkcache "github.com/dagger/dagger/engine/snapshots"
 	enginetel "github.com/dagger/dagger/engine/telemetry"
+	"github.com/dagger/dagger/engine/wcprof"
 	bkclient "github.com/dagger/dagger/internal/buildkit/client"
 	"github.com/dagger/dagger/util/layercopy"
 	"github.com/dagger/dagger/util/patternmatcher"
@@ -2507,12 +2508,14 @@ func (dir *Directory) withDirectory(
 	if err != nil {
 		return fmt.Errorf("failed to get current query: %w", err)
 	}
+	newCtx, newOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "directory.withDirectory.newSnapshot", wcprof.OpOpts{})
 	newRef, err := query.SnapshotManager().New(
-		ctx,
+		newCtx,
 		parentRef,
 		bkcache.WithRecordType(bkclient.UsageRecordTypeRegular),
 		bkcache.WithDescription("Directory.withDirectory"),
 	)
+	newOp.EndErr(err)
 	if err != nil {
 		return fmt.Errorf("snapshotmanager.New failed: %w", err)
 	}
@@ -2520,7 +2523,8 @@ func (dir *Directory) withDirectory(
 
 	destDir = directoryWithDirectoryDest(ourDir, destDir)
 	var usage snapshots.Usage
-	if err := MountRef(ctx, newRef, func(destRoot string, destMnt *mount.Mount) error {
+	mountCtx, mountOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "directory.withDirectory.mountAndCopy", wcprof.OpOpts{})
+	err = MountRef(mountCtx, newRef, func(destRoot string, destMnt *mount.Mount) error {
 		var ownership *Ownership
 		if owner != "" {
 			var err error
@@ -2553,18 +2557,25 @@ func (dir *Directory) withDirectory(
 			}
 		} else {
 			if err := MountRef(ctx, srcRef, func(srcRoot string, srcMnt *mount.Mount) error {
-				return copier.Copy(ctx, layercopy.Mount{Root: srcRoot, Mount: srcMnt}, srcDir, destDir, opts)
+				copyCtx, copyOp := wcprof.BeginOp(mountCtx, wcprof.OpKindInternal, "directory.withDirectory.copy", wcprof.OpOpts{})
+				copyErr := copier.Copy(copyCtx, layercopy.Mount{Root: srcRoot, Mount: srcMnt}, srcDir, destDir, opts)
+				copyOp.EndErr(copyErr)
+				return copyErr
 			}, mountRefAsReadOnly); err != nil {
 				return err
 			}
 		}
 		usage, err = copier.Usage()
 		return err
-	}); err != nil {
+	})
+	mountOp.EndErr(err)
+	if err != nil {
 		return err
 	}
 
-	ref, err := newRef.CommitWithUsage(ctx, usage)
+	commitCtx, commitOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "directory.withDirectory.commit", wcprof.OpOpts{})
+	ref, err := newRef.CommitWithUsage(commitCtx, usage)
+	commitOp.EndErr(err)
 	if err != nil {
 		return fmt.Errorf("failed to commit copied directory: %w", err)
 	}

@@ -1953,7 +1953,7 @@ func (c *Cache) resultSnapshotLeaseCleanup(res *sharedResult) OnReleaseFunc {
 	}
 }
 
-func (c *Cache) syncResultSnapshotLeases(ctx context.Context, res *sharedResult) error {
+func (c *Cache) syncResultSnapshotLeases(ctx context.Context, res *sharedResult) (rerr error) {
 	if c == nil || c.snapshotManager == nil || res == nil || res.id == 0 {
 		return nil
 	}
@@ -1965,11 +1965,16 @@ func (c *Cache) syncResultSnapshotLeases(ctx context.Context, res *sharedResult)
 	wcprof.Lock(ctx, &res.leaseSyncMu, "dagql.sharedResult.leaseSyncMu")
 	defer res.leaseSyncMu.Unlock()
 
-	links, err := desiredSnapshotLinksForResult(ctx, res, true)
+	collectCtx, collectOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dagql.collectSnapshotOwnerLinks", wcprof.OpOpts{})
+	links, err := desiredSnapshotLinksForResult(collectCtx, res, true)
+	collectOp.EndErr(err)
 	if err != nil {
 		return err
 	}
 
+	syncCtx, syncOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dagql.syncSnapshotOwnerLinks", wcprof.OpOpts{})
+	defer func() { syncOp.EndErr(rerr) }()
+	ctx = syncCtx
 	oldLinks := res.loadSnapshotOwnerLinks()
 
 	oldByKey := make(map[snapshotOwnerKey]PersistedSnapshotRefLink, len(oldLinks))
