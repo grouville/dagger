@@ -388,6 +388,12 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 			BatchWorkers:      4,
 		}
 	}
+	buildNativeBatch := func(client *dagger.Query, input replay.Source, previous *dagger.Directory) (*replay.Graph, error) {
+		opts := batchOptions(client, input)
+		native := opts.SourceDirectory
+		opts.SourceDirectory = nil
+		return replay.BuildNativeAutomatic(ctx, client, plan, native, opts, previous)
+	}
 	checkBatchArtifacts := func(graph *replay.Graph) {
 		root := t.TempDir()
 		_, err := graph.Artifacts.Export(ctx, root)
@@ -413,14 +419,21 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 		require.Equal(t, len(expected), count)
 		require.NoDirExists(t, filepath.Join(root, ".rcexp-private"))
 	}
-	batchGraph, err := replay.BuildAutomatic(ctx, a, plan, source, batchOptions(a, source), nil)
+	// Validate configuration from the actual module input, without trusting a
+	// separately supplied host Source map to describe that snapshot.
+	changedConfiguration := source.Directory(a).WithNewFile("Cargo.toml", source["Cargo.toml"].Contents+"\n# changed native configuration\n")
+	configurationOptions := batchOptions(a, source)
+	configurationOptions.SourceDirectory = nil
+	_, err = replay.BuildNativeAutomatic(ctx, a, plan, changedConfiguration, configurationOptions, nil)
+	require.ErrorContains(t, err, "build configuration changed")
+	batchGraph, err := buildNativeBatch(a, source, nil)
 	require.NoError(t, err)
 	batchCold, err := batchGraph.Evaluate(ctx, 4)
 	require.NoError(t, err)
 	require.Len(t, batchCold.Batch, 4)
 	require.Equal(t, "31 default\n", runBinary(a, batchGraph, plan.Image))
 	checkBatchArtifacts(batchGraph)
-	batchEditGraph, err := replay.BuildAutomatic(ctx, a, plan, appEdit, batchOptions(a, appEdit), batchGraph.History)
+	batchEditGraph, err := buildNativeBatch(a, appEdit, batchGraph.History)
 	require.NoError(t, err)
 	batchEdited, err := batchEditGraph.Evaluate(ctx, 4)
 	require.NoError(t, err)
@@ -433,7 +446,7 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 	foreignFile := foreignRead["app/src/main.rs"]
 	foreignFile.Contents += "\nconst _: &str = include_str!(\"../../right/Cargo.toml\");\n"
 	foreignRead["app/src/main.rs"] = foreignFile
-	foreignGraph, err := replay.BuildAutomatic(ctx, a, plan, foreignRead, batchOptions(a, foreignRead), batchEditGraph.History)
+	foreignGraph, err := buildNativeBatch(a, foreignRead, batchEditGraph.History)
 	require.NoError(t, err)
 	_, err = foreignGraph.Artifacts.Entries(ctx)
 	require.Error(t, err, "batch input visibility must not widen the supported source boundary")
@@ -447,7 +460,7 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 	undeclaredFile := undeclared["left/src/lib.rs"]
 	undeclaredFile.Contents += "\nextern crate right;\n"
 	undeclared["left/src/lib.rs"] = undeclaredFile
-	undeclaredGraph, err := replay.BuildAutomatic(ctx, a, plan, undeclared, batchOptions(a, undeclared), batchEditGraph.History)
+	undeclaredGraph, err := buildNativeBatch(a, undeclared, batchEditGraph.History)
 	require.NoError(t, err)
 	_, err = undeclaredGraph.Artifacts.Entries(ctx)
 	require.Error(t, err, "a compiler must not discover unrelated libraries in the batch's shared output directory")
@@ -467,7 +480,7 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 		file := input["app/src/main.rs"]
 		file.Contents = strings.ReplaceAll(file.Contents, "left::value() + right::value()", fmt.Sprintf("left::value() + right::value() + %d", value))
 		input["app/src/main.rs"] = file
-		next, err := replay.BuildAutomatic(ctx, a, plan, input, batchOptions(a, input), prunedHistory)
+		next, err := buildNativeBatch(a, input, prunedHistory)
 		require.NoError(t, err)
 		report, err := next.Evaluate(ctx, 4)
 		require.NoError(t, err)
@@ -478,13 +491,13 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 			secondSource, secondReport = input, report
 		}
 	}
-	retainedGraph, err := replay.BuildAutomatic(ctx, a, plan, secondSource, batchOptions(a, secondSource), prunedHistory)
+	retainedGraph, err := buildNativeBatch(a, secondSource, prunedHistory)
 	require.NoError(t, err)
 	retainedReport, err := retainedGraph.Evaluate(ctx, 4)
 	require.NoError(t, err)
 	require.Equal(t, 4, retainedGraph.HistoryHits)
 	require.Equal(t, 4, retainedReport.Reused(secondReport))
-	evictedGraph, err := replay.BuildAutomatic(ctx, a, plan, source, batchOptions(a, source), prunedHistory)
+	evictedGraph, err := buildNativeBatch(a, source, prunedHistory)
 	require.NoError(t, err)
 	evictedReport, err := evictedGraph.Evaluate(ctx, 4)
 	require.NoError(t, err)
@@ -591,13 +604,13 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 		}
 	}
 	require.NotNil(t, importedBatchHistory)
-	remoteBatchGraph, err := replay.BuildAutomatic(ctx, b, plan, appEdit, batchOptions(b, appEdit), importedBatchHistory)
+	remoteBatchGraph, err := buildNativeBatch(b, appEdit, importedBatchHistory)
 	require.NoError(t, err)
 	remoteBatch, err := remoteBatchGraph.Evaluate(ctx, 4)
 	require.NoError(t, err)
 	require.Equal(t, 4, remoteBatchGraph.HistoryHits)
 	require.Equal(t, markers(batchEdited), markers(remoteBatch))
-	remoteBatchEditGraph, err := replay.BuildAutomatic(ctx, b, plan, baseEdit, batchOptions(b, baseEdit), importedBatchHistory)
+	remoteBatchEditGraph, err := buildNativeBatch(b, baseEdit, importedBatchHistory)
 	require.NoError(t, err)
 	remoteBatchEdited, err := remoteBatchEditGraph.Evaluate(ctx, 4)
 	require.NoError(t, err)
