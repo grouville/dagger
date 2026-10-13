@@ -1,6 +1,7 @@
 package dangshared
 
 import (
+	"bytes"
 	"context"
 	"net/http"
 	"sync/atomic"
@@ -10,6 +11,7 @@ import (
 	"github.com/dagger/dagger/core"
 	"github.com/dagger/dagger/dagql"
 	"github.com/dagger/dagger/engine"
+	"github.com/dagger/dagger/engine/wcprof"
 	"github.com/stretchr/testify/require"
 )
 
@@ -77,8 +79,11 @@ func TestWithNestedClientServerClosesRegisteredTransportWithoutRequest(t *testin
 		ClientSecretToken: "secret",
 	}
 
+	wcprof.EnsureRecorder()
+	ctx, op := wcprof.BeginOp(wcprof.ContextWithProfiling(scopedContext(t, "executable-client")), wcprof.OpKindCallExec, "Rust.check", wcprof.OpOpts{})
+	require.NotNil(t, op)
 	out, err := WithNestedClientServer(
-		scopedContext(t, "executable-client"),
+		ctx,
 		query,
 		metadata,
 		false,
@@ -86,7 +91,19 @@ func TestWithNestedClientServerClosesRegisteredTransportWithoutRequest(t *testin
 		dagql.ObjectResult[*core.Module]{},
 		func(context.Context, graphql.Client) ([]byte, error) { return []byte("ok"), nil },
 	)
+	op.EndErr(err)
 	require.NoError(t, err)
+	var dump bytes.Buffer
+	require.NoError(t, wcprof.Active().WriteDump(&dump, false))
+	header, events, err := wcprof.ReadDump(&dump)
+	require.NoError(t, err)
+	var linked bool
+	for _, event := range events {
+		if event.Type == "link" && event.ParentID == op.ID() && event.LinkKind == "nested_client" && header.Strings[event.IdentID] == metadata.ClientID {
+			linked = true
+		}
+	}
+	require.True(t, linked, "profiled Dang calls must include their nested client work")
 	require.Equal(t, []byte("ok"), out)
 	require.True(t, srv.registered.Load(), "registration must happen before user code can exit")
 	require.Zero(t, srv.served.Load(), "the no-request path must not initialize through HTTP")
