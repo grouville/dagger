@@ -1557,6 +1557,11 @@ func (lazy *DirectoryChownLazy) EncodePersisted(ctx context.Context, enc *dagql.
 }
 
 func (dir *Directory) Digest(ctx context.Context, self dagql.ObjectResult[*Directory]) (string, error) {
+	return dir.DigestPath(ctx, self, ".")
+}
+
+// DigestPath hashes a subdirectory without creating a separate Directory result.
+func (dir *Directory) DigestPath(ctx context.Context, self dagql.ObjectResult[*Directory], subdir string) (string, error) {
 	snapshot, err := dir.Snapshot.GetOrEval(ctx, self.Result)
 	if err != nil {
 		return "", fmt.Errorf("failed to evaluate directory: %w", err)
@@ -1567,6 +1572,30 @@ func (dir *Directory) Digest(ctx context.Context, self dagql.ObjectResult[*Direc
 	dirPath, err := dir.Dir.GetOrEval(ctx, self.Result)
 	if err != nil {
 		return "", fmt.Errorf("failed to get directory path: %w", err)
+	}
+	if cleanDotsAndSlashes(subdir) != "" {
+		srv, err := CurrentDagqlServer(ctx)
+		if err != nil {
+			return "", err
+		}
+		info, err := dir.Stat(ctx, self, srv, subdir, false)
+		if err != nil {
+			return "", RestoreErrPath(err, subdir)
+		}
+		if info.FileType != FileTypeDirectory {
+			return "", notADirectoryError{fmt.Errorf("path %s is a file, not a directory", subdir)}
+		}
+		dirPath = path.Join(dirPath, subdir)
+		parentCall, err := self.ResultCall()
+		if err != nil {
+			return "", err
+		}
+		if parentCall.ContentDigest() != "" {
+			// Match directory(path)'s content-hash canonicalization, including
+			// following a trailing symlink to a directory.
+			dgst, err := GetContentHashFromDirectory(ctx, snapshot, dirPath)
+			return dgst.String(), err
+		}
 	}
 
 	digest, err := bkcontenthash.Checksum(

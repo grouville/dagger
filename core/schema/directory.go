@@ -87,7 +87,8 @@ func (s *directorySchema) Install(srv *dagql.Server) {
 				`Return the directory's digest.
 				The format of the digest is not guaranteed to be stable between releases of Dagger.
 				It is guaranteed to be stable between invocations of the same Dagger engine.`,
-			),
+			).
+			Args(dagql.Arg("path").Doc(`Subdirectory to hash, relative to this directory.`)),
 		dagql.NodeFunc("file", s.file).
 			Doc(`Retrieve a file at the given path.`).
 			Args(
@@ -847,8 +848,10 @@ func (s *directorySchema) withPatchFile(ctx context.Context, parent dagql.Object
 	return dagql.NewObjectResultForCurrentCall(ctx, srv, dir)
 }
 
-func (s *directorySchema) digest(ctx context.Context, parent dagql.ObjectResult[*core.Directory], args struct{}) (dagql.String, error) {
-	digest, err := parent.Self().Digest(ctx, parent)
+func (s *directorySchema) digest(ctx context.Context, parent dagql.ObjectResult[*core.Directory], args struct {
+	Path string `default:"."`
+}) (dagql.String, error) {
+	digest, err := parent.Self().DigestPath(ctx, parent, args.Path)
 	if err != nil {
 		return "", err
 	}

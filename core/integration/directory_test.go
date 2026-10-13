@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/dagger/dagger/engine/engineutil"
+	"github.com/dagger/querybuilder"
 	"github.com/stretchr/testify/require"
 
 	"dagger.io/dagger"
@@ -1685,6 +1686,46 @@ func (DirectorySuite) TestDigest(ctx context.Context, t *testctx.T) {
 		require.NoError(t, err)
 		require.Equal(t, "sha256:0e5db88383bce812f795689f5318a2b2f4fde740ef31c2a2365a46368aafddd2", digest)
 	})
+}
+
+func (DirectorySuite) TestDigestPaths(ctx context.Context, t *testctx.T) {
+	c := connect(ctx, t)
+	constructed := sdkcore.NewQuery(c).Directory().
+		WithNewDirectory("empty", sdkcore.DirectoryWithNewDirectoryOpts{Permissions: 0751}).
+		WithNewDirectory("space \"héllo\"", sdkcore.DirectoryWithNewDirectoryOpts{Permissions: 0701}).
+		WithNewFile("outer/nested/file", "héllo", sdkcore.DirectoryWithNewFileOpts{Permissions: 0600}).
+		WithNewFile("root-file", "root").
+		WithSymlink("outer", "link").
+		WithSymlink("root-file", "file-link")
+	root := t.TempDir()
+	_, err := constructed.Export(ctx, root)
+	require.NoError(t, err)
+	for name, source := range map[string]*sdkcore.Directory{
+		"constructed": constructed,
+		"imported":    sdkcore.NewQuery(c).Host().Directory(root),
+	} {
+		t.Run(name, func(ctx context.Context, t *testctx.T) {
+			for _, selected := range []string{".", "outer"} {
+				parent := source.Directory(selected)
+				id, err := parent.ID(ctx)
+				require.NoError(t, err)
+				paths := []string{"", ".", "/", "outer", "outer/nested", "empty", "space \"héllo\"", "link", "missing", "root-file", "file-link"}
+				if selected == "outer" {
+					paths = []string{".", "nested", "../empty", "nested/file", "missing"}
+				}
+				for _, path := range paths {
+					want, wantErr := parent.Directory(path).Digest(ctx)
+					var got string
+					gotErr := querybuilder.Query().Client(c.GraphQLClient()).Select("node").Arg("id", id).InlineFragment("Directory").
+						Select("digest").Arg("path", path).Bind(&got).Execute(ctx)
+					require.Equal(t, wantErr == nil, gotErr == nil, "selected %q, path %q: %v / %v", selected, path, wantErr, gotErr)
+					if wantErr == nil {
+						require.Equal(t, want, got, "selected %q, path %q", selected, path)
+					}
+				}
+			}
+		})
+	}
 }
 
 func (DirectorySuite) TestDirectoryName(ctx context.Context, t *testctx.T) {
