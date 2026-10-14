@@ -107,3 +107,8 @@ and the open
 The logging queue is another
 candidate for edited-build measurements; its reported edited-build benefit is
 suggestive, so do not assume it improves this workload before testing it.
+
+The [follow-up profile](NATIVE_PROFILE_FOLLOWUP.md) narrows graph construction
+to about 14 ms in the small fixture and evaluates a telemetry metadata decoding
+experiment. The converter improves, but the matched command-level measurement
+does not establish a latency win, so it remains an isolated experiment.
