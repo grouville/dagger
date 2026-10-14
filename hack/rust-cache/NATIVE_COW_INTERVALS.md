@@ -95,6 +95,10 @@ reuse 4/4 actions without host cache state.
 
 ## Next experiment
 
+The later [whole-input comparison](NATIVE_WHOLE_INPUT.md) tests this direction.
+It keeps storage near original copying but slows edited commands, so it is not
+selected.
+
 The gain is too small to justify selecting either interval with its storage
 and compaction costs. Test constructing one fresh input snapshot per build,
 using the complete selected batch where appropriate and removing rebuilt outputs

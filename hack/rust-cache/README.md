@@ -62,6 +62,10 @@ The [compaction-interval comparison](NATIVE_COW_INTERVALS.md) measures copying,
 eight-build and four-build policies together. Four builds improve the shared-edit
 median by 4.5% over copying, with no established leaf benefit. Their sampled peak
 filesystem usage is still 50% higher than copying, so neither policy is selected.
+The [whole-input comparison](NATIVE_WHOLE_INPUT.md) keeps filesystem usage near
+the original copying path and shortens snapshot chains, but slows both edited
+scenarios. It is rejected as a performance optimization. Extending native cache
+integration to the normal build/test entrypoints remains required.
 
 The existing [dagger-rust module](https://github.com/grouville/dagger-rust) is
 the Cargo-facing layer: checks, toolchain selection and final artifact publishing.
