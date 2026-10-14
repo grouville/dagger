@@ -71,6 +71,21 @@ copies, query handling and module orchestration remain larger measured targets.
 This study changes no production executor behavior and establishes no new Rust
 build speedup.
 
+The later 102-crate shared-edit profile on the checkpoint branch confirms this
+limit. The compiler helper's critical path is 955 ms; its two runtime starts
+account for 24.91 ms (2.6%). Directory copies account for 109.26 ms, and nested
+query handling accounts for 62.42 ms. This is one diagnostic capture, not a
+latency comparison. The profile is
+`/tmp/rust-cache-sipsma-review/module-checkpoint-102/profile-shared-after.wcprof.ndjson`.
+
+Starting a fresh command within an already-running container is a different
+experiment from starting a fresh container. The executor has an `Exec` path,
+but the compiler actions currently use `Run`, which sets up each action's
+mounts and captures its outputs when execution finishes. A prepared-container
+experiment would need to preserve those per-action filesystem and output
+semantics. Removing the graph-building helper would avoid one runtime start
+and could also avoid some protocol work; its total benefit remains unmeasured.
+
 ## Reproduce
 
 Use an idle, isolated engine with wcprof and a CLI pointed at that same engine.
