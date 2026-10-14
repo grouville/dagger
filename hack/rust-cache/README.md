@@ -53,6 +53,11 @@ incremental snapshot history.
 The [native checkpoint experiment](NATIVE_CHECKPOINT.md) keeps the latest cache's
 retained graph bounded across twenty edits. Corrected restart and transfer checks
 pass; general API safety and command-speed improvements remain unproven.
+The [native snapshot branching experiment](NATIVE_BATCH_COW.md) removes the large
+incremental-state copy and improves 102-crate shared edits by 4.4% in ten paired
+normal CLI runs. Leaf edits show no reliable gain, and the current compaction
+interval retains 34% more accounted snapshot bytes in the matched storage sample.
+It remains isolated pending a shorter-interval comparison.
 
 The existing [dagger-rust module](https://github.com/grouville/dagger-rust) is
 the Cargo-facing layer: checks, toolchain selection and final artifact publishing.
