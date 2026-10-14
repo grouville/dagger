@@ -1,0 +1,34 @@
+--- a/pkg/dang/eval.go
++++ b/pkg/dang/eval.go
+@@ -2752,0 +2753,15 @@
++	return runDirProfiled(ctx, dirPath, isDebug, nil)
++}
++
++// RunDirProfiled reports diagnostic directory-evaluation phases.
++func RunDirProfiled(ctx context.Context, dirPath string, isDebug bool, begin func(context.Context, string) (context.Context, func(error))) (ValueScope, error) {
++	return runDirProfiled(ctx, dirPath, isDebug, begin)
++}
++
++func runDirProfiled(ctx context.Context, dirPath string, isDebug bool, begin func(context.Context, string) (context.Context, func(error))) (ValueScope, error) {
++	phase := func(ctx context.Context, name string) (context.Context, func(error)) {
++		if begin == nil {
++			return ctx, func(error) {}
++		}
++		return begin(ctx, name)
++	}
+@@ -2758,0 +2774 @@
++	_, parseDone := phase(ctx, "parse")
+@@ -2759,0 +2776 @@
++	parseDone(err)
+@@ -2788 +2805,4 @@
+-	if err := InferDirectoryFiles(ctx, blocks, typeScope, fresh); err != nil {
++	inferCtx, inferDone := phase(ctx, "infer")
++	err = InferDirectoryFiles(inferCtx, blocks, typeScope, fresh)
++	inferDone(err)
++	if err != nil {
+@@ -2806 +2826,4 @@
+-	if err := evaluateDirectoryFiles(ctx, blocks, valueScope); err != nil {
++	evalPhaseCtx, evalDone := phase(ctx, "evaluate")
++	err = evaluateDirectoryFiles(evalPhaseCtx, blocks, valueScope)
++	evalDone(err)
++	if err != nil {
