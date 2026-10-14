@@ -86,6 +86,26 @@ experiment would need to preserve those per-action filesystem and output
 semantics. Removing the graph-building helper would avoid one runtime start
 and could also avoid some protocol work; its total benefit remains unmeasured.
 
+## Preparation can outweigh the process start
+
+The native Rust test integration provides a concrete example: changing five
+captured test environments from 158 individual container operations to one
+argument array per command reduces an eight-pair edited-command median from
+1.236 s to 1.063 s. A separate final-code series confirms 1.236 s to 1.075 s,
+with all eight pairs faster and lower host pressure. Both versions still start
+seven fresh executions; their runtime creation totals stay in the tens of
+milliseconds. The improvement is graph preparation,
+not faster process creation. Correctness checks cover runtime data edits, custom
+harness filesystem effects and documentation tests. See
+[the native build/test report](NATIVE_BUILD_TEST.md) for the method, host pressure
+and remaining compatibility limits.
+
+For a startup-specific experiment, remove one helper launch before designing a
+persistent worker. That can remove both runtime creation and its protocol work.
+A prepared container would still need per-action mounts, environment, cancellation
+and immutable output capture. Neither direction has a measured full-command
+benefit yet.
+
 ## Reproduce
 
 Use an idle, isolated engine with wcprof and a CLI pointed at that same engine.
