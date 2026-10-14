@@ -30,7 +30,7 @@ expected two or 102 crates. Untimed fresh API probes recover every ordinary
 check's output with 102/102 hits; neither variant uses a metadata directory.
 
 Both shared-edit profiles have zero dropped events and no open operations.
-Nested requests fall from 100 to 92, and `Query.node` calls from 83 to 67.
+Nested requests fall from 100 to 92, and `Query.node` calls from 83 to 74.
 Check execution outside recorded nested work falls from 131.6 to 106.8 ms in
 these two captures. Other preparation work varies enough to leave the complete
 profile slightly slower, 1.28 versus 1.33 seconds. These are phase observations,
