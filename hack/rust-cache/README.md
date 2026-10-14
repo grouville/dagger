@@ -58,6 +58,10 @@ incremental-state copy and improves 102-crate shared edits by 4.4% in ten paired
 normal CLI runs. Leaf edits show no reliable gain, and the current compaction
 interval retains 34% more accounted snapshot bytes in the matched storage sample.
 It remains isolated pending a shorter-interval comparison.
+The [compaction-interval comparison](NATIVE_COW_INTERVALS.md) measures copying,
+eight-build and four-build policies together. Four builds improve the shared-edit
+median by 4.5% over copying, with no established leaf benefit. Their sampled peak
+filesystem usage is still 50% higher than copying, so neither policy is selected.
 
 The existing [dagger-rust module](https://github.com/grouville/dagger-rust) is
 the Cargo-facing layer: checks, toolchain selection and final artifact publishing.

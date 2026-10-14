@@ -6,6 +6,10 @@ fixture, shared edits improve from 1.405 s to 1.344 s median across ten pairs;
 nine pairs improve. Leaf edits show no reliable gain. The prototype stays
 separate: its current compaction policy retains more snapshot data.
 
+The later [three-way interval comparison](NATIVE_COW_INTERVALS.md) includes a
+four-build policy and filesystem allocation measurements across the cycle.
+It confirms a modest shared-edit gain and a remaining storage tradeoff.
+
 The module branch is
 [`grouville/dagger-rust:experiment/native-batch-cow`](https://github.com/grouville/dagger-rust/tree/experiment/native-batch-cow),
 commit `9ea2e57`, based on `d1aaf93`. Both timing variants use the same engine,
