@@ -273,3 +273,9 @@ a new dependency edit on the fresh receiver. This proves the representation's
 correctness and portability. A latency improvement, bounded physical ancestry
 and automatic module discovery remain unmeasured. The branch is
 [`experiment/rust-native-cache-objects`](https://github.com/grouville/dagger/tree/experiment/rust-native-cache-objects).
+
+The actual Rust module's native backend now passes edited reuse and transferred
+cache reuse. A subsequent alternating five-pair edited-command measurement
+reduces the integration from 1.154 to 0.845 seconds, with native Cargo check at
+0.174 seconds. The implementation changes, correctness tests and remaining
+limits are in [NATIVE_MODULE_OCT13.md](NATIVE_MODULE_OCT13.md).
