@@ -42,6 +42,9 @@ result reconstruction, with fewer nested requests but mixed command timings.
 The [primitive array response experiment](NATIVE_SCALAR_ARRAYS.md) removes the
 source-path list's individual item cache entries; host contention leaves its
 complete-command latency benefit unproven.
+The [fresh-process startup study](FRESH_PROCESS_START.md) isolates sequential
+and concurrent starts on warm caches and explains the remaining Rust helper
+dependency.
 
 The existing [dagger-rust module](https://github.com/grouville/dagger-rust) is
 the Cargo-facing layer: checks, toolchain selection and final artifact publishing.
