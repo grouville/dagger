@@ -93,3 +93,8 @@ Artifacts under /tmp/rust-cache-sipsma-review:
 The flawed source-switching series remain in module-native-102-direct-comparison
 and module-native-102-direct-paired. Do not use their timings as evidence of
 a performance win.
+
+The [incremental-mount experiment](NATIVE_INCREMENTAL_MOUNTS.md) removes much
+of the state-copy cost and passes native transfer, but extra snapshot-reference
+queries offset the benefit. It remains isolated while query overhead and the
+normal automatic cache workflow are developed.
