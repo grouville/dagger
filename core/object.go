@@ -531,7 +531,23 @@ func (obj *ModuleObject) AttachDependencyResults(
 	if err != nil {
 		return nil, err
 	}
+	var parentCall *dagql.ResultCall
+	if self != nil {
+		parentCall, err = self.ResultCall()
+		if err != nil {
+			return nil, fmt.Errorf("module object attach owned results: resolve parent call: %w", err)
+		}
+	}
+	fields, err := obj.attachFields(ctx, parentCall, attach)
+	return append(owned, fields...), err
+}
 
+func (obj *ModuleObject) attachFields(
+	ctx context.Context,
+	parentCall *dagql.ResultCall,
+	attach func(dagql.AnyResult) (dagql.AnyResult, error),
+) ([]dagql.AnyResult, error) {
+	var owned []dagql.AnyResult
 	if obj.Module.Self() != nil {
 		// The object's class resolves its fields against this module, and its
 		// provider scopes it for every call. The object must own it: the
@@ -564,15 +580,6 @@ func (obj *ModuleObject) AttachDependencyResults(
 			owned = append(owned, deps...)
 		}
 		return owned, nil
-	}
-
-	var parentCall *dagql.ResultCall
-	if self != nil {
-		call, err := self.ResultCall()
-		if err != nil {
-			return nil, fmt.Errorf("module object attach owned results: resolve parent call: %w", err)
-		}
-		parentCall = call
 	}
 
 	modInst := NewUserMod(obj.Module)
@@ -618,6 +625,15 @@ func attachTypedModuleObjectValue(
 	attach func(dagql.AnyResult) (dagql.AnyResult, error),
 ) (any, []dagql.AnyResult, error) {
 	switch x := modType.(type) {
+	case *ModuleObjectType:
+		if fields, ok := val.(map[string]any); ok {
+			// Inline state is already owned by its containing object. Attach its
+			// resource handles directly: attaching a child under parent.field
+			// and making the parent own it would create an ownership cycle.
+			inline := &ModuleObject{Module: x.mod, TypeDef: x.typeDef, Fields: maps.Clone(fields)}
+			owned, err := inline.attachFields(ctx, dagql.CurrentCall(ctx), attach)
+			return inline.Fields, owned, err
+		}
 	case *NullableType:
 		if val == nil {
 			return nil, nil, nil

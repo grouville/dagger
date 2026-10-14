@@ -1267,13 +1267,13 @@ func TestModuleObjectAttachDependencyResultsPreservesInlineMap(t *testing.T) {
 		return sc.AttachResult(ctx, "test-session", dag, detached)
 	})
 	assert.NilError(t, err)
-	// The object owns its module and the child result created for the
-	// inline field.
-	assert.Equal(t, len(deps), 2)
-	_, isModule := deps[0].(dagql.ObjectResult[*Module])
-	assert.Assert(t, isModule, "first dependency is the object's module, got %T", deps[0])
-	_, isChild := deps[1].Unwrap().(*ModuleObject)
-	assert.Assert(t, isChild, "second dependency is the inline child, got %T", deps[1].Unwrap())
+	// A plain inline object needs only its module, without a separate child
+	// result whose provenance would retain the containing object.
+	assert.Assert(t, len(deps) > 0)
+	for _, dep := range deps {
+		_, isModule := dep.(dagql.ObjectResult[*Module])
+		assert.Assert(t, isModule, "unexpected dependency for plain inline state: %T", dep)
+	}
 	assert.DeepEqual(t, obj.Fields["child"], inline)
 	// ParentFields is sent as raw JSON to the SDK function. It must remain
 	// an inline object, even though attachment created a dependency result.
