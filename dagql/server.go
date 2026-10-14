@@ -2434,6 +2434,18 @@ func (s *Server) resolvePath(ctx context.Context, self AnyObjectResult, sel Sele
 		results := make([]any, length) // TODO subtle: favor [] over null result
 
 		if len(sel.Subselections) == 0 {
+			// Primitive values are already materialized with their parent. JSON
+			// output needs no item identity; explicit Nth loads still use the cache.
+			switch values := enum.(type) {
+			case Array[String]:
+				return primitiveArrayOutput(ctx, val, values)
+			case Array[Int]:
+				return primitiveArrayOutput(ctx, val, values)
+			case Array[Float]:
+				return primitiveArrayOutput(ctx, val, values)
+			case Array[Boolean]:
+				return primitiveArrayOutput(ctx, val, values)
+			}
 			// No subselections - resolve serially (fast path, no goroutine overhead)
 			for nth := 1; nth <= length; nth++ {
 				elemVal, err := s.loadNthValue(ctx, val, nth, false)
@@ -2499,6 +2511,54 @@ func (s *Server) resolvePath(ctx context.Context, self AnyObjectResult, sel Sele
 	}
 
 	return s.Resolve(ctx, node, sel.Subselections...)
+}
+
+func primitiveArrayOutput[T interface {
+	Typed
+	String | Int | Float | Boolean
+}](ctx context.Context, parent AnyResult, values Array[T]) (output []any, rerr error) {
+	if shared := parent.cacheSharedResult(); shared != nil && shared.id != 0 {
+		md, err := engine.ClientMetadataFromContext(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if md.SessionID == "" {
+			return nil, fmt.Errorf("serialize primitive array: empty session ID")
+		}
+		cache, err := EngineCache(ctx)
+		if err != nil {
+			return nil, err
+		}
+		op, err := cache.beginSessionOperation(md.SessionID)
+		if err != nil {
+			return nil, err
+		}
+		cache.egraphMu.RLock()
+		generation := shared.requiredSessionResourcesGen.Load()
+		bound := cache.sessionSatisfiesResourceRequirementsLocked(md.SessionID, shared)
+		cache.egraphMu.RUnlock()
+		defer func() {
+			if rerr == nil && !cache.sessionStillSatisfiesResourceRequirements(md.SessionID, shared, generation) {
+				output = nil
+				rerr = fmt.Errorf("serialize primitive array: session %q has not bound the required resources", md.SessionID)
+			}
+			if op.finish(rerr == nil) {
+				output = nil
+				rerr = fmt.Errorf("serialize primitive array: %w", ErrCacheSessionReleased)
+			}
+		}()
+		if !bound {
+			return nil, fmt.Errorf("serialize primitive array: session %q has not bound the required resources", md.SessionID)
+		}
+	}
+	output = make([]any, len(values))
+	for i, value := range values {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		output[i] = value
+	}
+	return output, nil
 }
 
 // ToSelectable converts an AnyResult to an AnyObjectResult if possible.
