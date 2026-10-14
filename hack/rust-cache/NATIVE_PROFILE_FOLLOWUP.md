@@ -28,6 +28,103 @@ it is not proof of slower rustc. The diagnostic logs arrive asynchronously,
 so a collector file read immediately after a command can include late records
 from the prior command; use trace identity before aggregating individual runs.
 
+## Nested execution and container startup
+
+Rebuilding the wcprof report tool from the profile checkout restores the
+nested-client links that the old report binary omitted. In
+`module-native-profile-direct-object/edited-1.wcprof.ndjson`, the Go helper's
+394.2 ms workload includes its nested API calls and compiler execution; its
+own time is only 29.1 ms. The compiler worker's workload is 184.6 ms.
+
+The Rust `nativeCheck` call's critical path is 611.9 ms, including:
+
+| Work | Time on the call's critical path |
+| --- | ---: |
+| Compiler worker and Go helper's own work | 213.7 ms |
+| Rust module's own work | 107.0 ms |
+| Creating the two containers in runc | 89.8 ms |
+| Nested query handling | 54.0 ms |
+| Starting Dagger init | 25.9 ms |
+| Spawning the commands | 11.7 ms |
+
+These are one profile's exclusive contributions, not medians or a complete
+command breakdown. Source imports and module loading also happen outside
+this call. Runtime startup excludes the separately recorded root filesystem,
+network, mount preparation and command-spawn phases. The images and engine
+caches are warm; the container processes are fresh.
+
+Sipsma's [runtime change #14607](https://github.com/dagger/dagger/pull/14607)
+merged after this capture. It replaces runc with crun and reports startup
+falling from 31–35 ms to 7–8 ms per exec on arm64. The measured Rust engine
+still uses runc. The already batched compiler worker avoids starting a
+separate container for each crate.
+
+### Runtime comparison through the native module
+
+An isolated engine branch applies #14607 to the existing benchmark control,
+with the same init, SDK, compiler and private profiling instrumentation.
+Both engines start with separate fresh state, then prepare the same module
+and native cache history. The runtime experiment uses the official static
+`crun-1.30.1-linux-amd64-disable-systemd` release binary, verified against its
+published SHA-256 (`e7b059390e27d0f283e1debbe89d9c5847870f3d8325f31ccd954533fdd6ea78`).
+It reports seccomp and eBPF support. This tests the runtime change; it does
+not reproduce engine-dev's musl build of crun.
+
+The first five-pair command series has up to 51% I/O pressure and variable
+Cargo controls. Its medians, 1.080 s versus 0.868 s, cannot establish a
+212 ms runtime benefit. Preserve it as the initial noisy series.
+
+Two subsequent profiled pairs show the two runtime starts falling from
+75.5 and 102.8 ms in runc to 21.8 and 21.4 ms in crun. Both starts lie on
+the native-check critical path. Each compiler worker takes 180–190 ms;
+the Go helper's workload includes the worker and must not be added again.
+All four captures have no dropped events and reuse three of four actions.
+
+A final unprofiled series reuses those prepared states and alternates five
+pairs of fresh host edits. Every variant receives a different edit, and
+Cargo runs first and second in alternating pairs. Telemetry stays enabled
+through the local receiver.
+
+| Complete edited command | runc | crun |
+| --- | ---: | ---: |
+| Native Rust module, median | 816.5 ms | 775.0 ms |
+| Module range | 801.9–829.9 ms | 760.8–834.1 ms |
+| Native Cargo check, median | 185.7 ms | 184.7 ms |
+
+The median reduction is 41.5 ms, about 5.1%; four of five pairs improve.
+All ten compilations reuse three unchanged actions. Maximum host I/O pressure
+is 2.2%, and CPU pressure is 8.3%. The small series and overlapping ranges
+limit the precision of the command-level estimate. The profiled startup
+reduction is much clearer than the complete-command reduction.
+
+Processes remain fresh and isolated. Compiler results and incremental state
+remain native Dagger snapshots. Runtime compatibility and wcprof timestamp
+tests pass. Cold preparation and invalid-source failure without publishing
+cache metadata pass on both engines. This experiment introduces no new
+upstream PR: the runtime change is already merged.
+
+The remaining Go helper command-spawn phase is 11–15 ms in these captures.
+[Nonblocking nested-session setup #14608](https://github.com/dagger/dagger/pull/14608)
+is another relevant change; it is not included in this runtime comparison.
+The compiler worker already disables nesting. Reusing a long-lived module
+or compiler process would need explicit handling of per-call state,
+filesystem isolation and cache output publication; no such change is made
+by this experiment.
+
+Branch: [`experiment/rust-cache-crun`](https://github.com/grouville/dagger/tree/experiment/rust-cache-crun).
+Artifacts under `/tmp/rust-cache-sipsma-review`: `module-native-runtime-paired`
+(noisy initial series), `module-native-runtime-profile`, and
+`module-native-runtime-confirmation`. The local reproduction harness is
+`measure_runtime_pairs.py`; the final series uses `--runs 5 --initial-states
+/tmp/rust-cache-sipsma-review/module-native-runtime-profile`.
+
+The input-ID experiment also removes six requests in each of two profiled
+edited commands: 81 to 75 `session.serveQuery` calls and 63 to 57 `Query.node`
+calls, with no dropped events. It retains IDs already supplied when decoding
+Directory inputs. Its noisy command timings do not establish a speedup;
+the hand-edited generated binding remains an isolated prototype, not a
+finished generator change.
+
 ## Telemetry metadata experiment
 
 Span rows repeat their resource and instrumentation-scope JSON. The experiment
@@ -67,8 +164,8 @@ command-latency improvement, despite the clear converter microbenchmark gain.
 Keep this as an experiment; it is not selected by the normal performance
 implementation and no PR is warranted from this series alone.
 
-Next: instrument the nested execution interval and module startup, then measure
-the many-crate and shared-edit cases through the actual module. Automatic
+Next: measure the remaining module startup and query costs, then the many-crate
+and shared-edit cases through the actual module. Automatic
 plan/cache discovery and the ordinary check workflow remain required. The warm
 fresh-control module still exceeds Cargo by about 603 ms, above the 500 ms
 target. Engine age and retained heap also deserve a matched lifecycle test;

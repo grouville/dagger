@@ -109,6 +109,9 @@ candidate for edited-build measurements; its reported edited-build benefit is
 suggestive, so do not assume it improves this workload before testing it.
 
 The [follow-up profile](NATIVE_PROFILE_FOLLOWUP.md) narrows graph construction
-to about 14 ms in the small fixture and evaluates a telemetry metadata decoding
-experiment. The converter improves, but the matched command-level measurement
-does not establish a latency win, so it remains an isolated experiment.
+to about 14 ms in the small fixture. Its crun comparison, using the now-merged
+[runtime change #14607](https://github.com/dagger/dagger/pull/14607), cuts the
+two container starts from 76–103 ms to 21–22 ms. Five unprofiled edited pairs
+reduce the complete command's median from 816 to 775 ms; four pairs improve.
+The separate telemetry converter experiment improves its microbenchmark, but
+the matched command-level measurement does not establish a latency win.
