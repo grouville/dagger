@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/dagger/dagger/core"
@@ -14,6 +15,100 @@ import (
 	"github.com/dagger/dagger/internal/buildkit/util/compression"
 	"github.com/stretchr/testify/require"
 )
+
+func snapshotCheckpointSelector() dagql.Selector {
+	return dagql.Selector{Field: "checkpoint", Args: []dagql.NamedInput{
+		{Name: "snapshotIdentity", Value: dagql.NewBoolean(true)},
+	}}
+}
+
+type checkpointReadObservedRef struct {
+	bkcache.ImmutableRef
+	mounts atomic.Int64
+}
+
+func (ref *checkpointReadObservedRef) Mount(ctx context.Context, readonly bool) (bkcache.MountableRef, error) {
+	ref.mounts.Add(1)
+	return ref.ImmutableRef.Mount(ctx, readonly)
+}
+
+func TestDirectorySnapshotCheckpointDoesNotReadContents(t *testing.T) {
+	store := testutil.NewStore(t)
+	ctx, cache, srv := scratchTestCache(t, store, "", "producer")
+	installDirectoryCheckpoint(srv)
+	ref, _ := store.Build(t, nil, "value.txt", "immutable value")
+	observed := &checkpointReadObservedRef{ImmutableRef: ref}
+	producer := checkpointTestSource(t, ctx, cache, srv, "producer", "producerDirectory", observed)
+	var checkpoint dagql.ObjectResult[*core.Directory]
+	require.NoError(t, srv.Select(ctx, producer, &checkpoint, snapshotCheckpointSelector()))
+	call, err := checkpoint.ResultCall()
+	require.NoError(t, err)
+	require.Equal(t, "__checkpointDirectory", call.Field)
+	// Checkpoint creation must not mount the contents to derive its identity.
+	require.Zero(t, observed.mounts.Load())
+	snapshot, ok := checkpoint.Self().Snapshot.Peek()
+	require.True(t, ok)
+	require.Equal(t, ref.SnapshotID(), snapshot.SnapshotID())
+}
+
+func TestDirectorySnapshotCheckpointSeparatesSnapshotsAndSubpaths(t *testing.T) {
+	store := testutil.NewStore(t)
+	ctx, cache, srv := scratchTestCache(t, store, "", "producer")
+	installDirectoryCheckpoint(srv)
+	first, _ := store.Build(t, nil, "a/value.txt", "first")
+	second, _ := store.Build(t, nil, "a/value.txt", "second")
+	shared, err := store.Manager.PinSnapshot(ctx, first.SnapshotID())
+	require.NoError(t, err)
+	sources := []dagql.ObjectResult[*core.Directory]{
+		checkpointTestSource(t, ctx, cache, srv, "producer", "firstDirectory", first),
+		checkpointTestSource(t, ctx, cache, srv, "producer", "sameSnapshotDirectory", shared),
+		checkpointTestSource(t, ctx, cache, srv, "producer", "differentDirectory", second),
+	}
+	var results []dagql.ObjectResult[*core.Directory]
+	for _, source := range sources {
+		var checkpoint dagql.ObjectResult[*core.Directory]
+		require.NoError(t, srv.Select(ctx, source, &checkpoint, snapshotCheckpointSelector()))
+		results = append(results, checkpoint)
+	}
+	firstID, err := results[0].ID()
+	require.NoError(t, err)
+	sameID, err := results[1].ID()
+	require.NoError(t, err)
+	differentID, err := results[2].ID()
+	require.NoError(t, err)
+	require.Equal(t, firstID.EngineResultID(), sameID.EngineResultID())
+	require.NotEqual(t, firstID.EngineResultID(), differentID.EngineResultID())
+	// A view into the same snapshot is a distinct value when its path differs.
+	view := &core.Directory{Platform: sources[0].Self().Platform,
+		Dir: new(core.LazyAccessor[string, *core.Directory]), Snapshot: new(core.LazyAccessor[bkcache.ImmutableRef, *core.Directory])}
+	view.SetPath("/a")
+	viewRef, err := store.Manager.PinSnapshot(ctx, first.SnapshotID())
+	require.NoError(t, err)
+	view.SetSnapshot(viewRef)
+	frame := &dagql.ResultCall{Kind: dagql.ResultCallKindField, Field: "subdirectoryView", Type: dagql.NewResultCallType(view.Type())}
+	value, err := cache.GetOrInitCall(ctx, "producer", srv, &dagql.CallRequest{ResultCall: frame}, func(context.Context) (dagql.AnyResult, error) {
+		return dagql.NewObjectResultForCall(view, srv, frame)
+	})
+	require.NoError(t, err)
+	var selected dagql.ObjectResult[*core.Directory]
+	require.NoError(t, srv.Select(ctx, value.(dagql.ObjectResult[*core.Directory]), &selected, snapshotCheckpointSelector()))
+	selectedID, err := selected.ID()
+	require.NoError(t, err)
+	require.NotEqual(t, firstID.EngineResultID(), selectedID.EngineResultID())
+}
+
+func checkpointModes() []struct {
+	name     string
+	selector dagql.Selector
+} {
+	return []struct {
+		name     string
+		selector dagql.Selector
+	}{
+		{"content", dagql.Selector{Field: "checkpoint"}},
+		{"snapshot", snapshotCheckpointSelector()},
+	}
+}
 
 func checkpointTestSource(t *testing.T, ctx context.Context, cache *dagql.Cache, srv *dagql.Server, session, name string, ref bkcache.ImmutableRef) dagql.ObjectResult[*core.Directory] {
 	t.Helper()
@@ -30,6 +125,13 @@ func checkpointTestSource(t *testing.T, ctx context.Context, cache *dagql.Cache,
 }
 
 func TestDirectoryCheckpointOwnsSnapshotAfterProducerRelease(t *testing.T) {
+	for _, mode := range checkpointModes() {
+		t.Run(mode.name, func(t *testing.T) { testDirectoryCheckpointOwnsSnapshotAfterProducerRelease(t, mode.selector) })
+	}
+}
+
+func testDirectoryCheckpointOwnsSnapshotAfterProducerRelease(t *testing.T, selector dagql.Selector) {
+	t.Helper()
 	store := testutil.NewStore(t)
 	ctx, cache, srv := scratchTestCache(t, store, "", "producer")
 	installDirectoryCheckpoint(srv)
@@ -38,7 +140,7 @@ func TestDirectoryCheckpointOwnsSnapshotAfterProducerRelease(t *testing.T) {
 	producerID, err := producer.ID()
 	require.NoError(t, err)
 	var checkpoint dagql.ObjectResult[*core.Directory]
-	require.NoError(t, srv.Select(ctx, producer, &checkpoint, dagql.Selector{Field: "checkpoint"}))
+	require.NoError(t, srv.Select(ctx, producer, &checkpoint, selector))
 	checkpointID, err := checkpoint.ID()
 	require.NoError(t, err)
 	require.NotEqual(t, producerID.EngineResultID(), checkpointID.EngineResultID())
@@ -58,6 +160,13 @@ func TestDirectoryCheckpointOwnsSnapshotAfterProducerRelease(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "__checkpointDirectory", record.Call.Field)
 	require.Nil(t, record.Call.Receiver)
+	if len(selector.Args) == 0 {
+		// The optional mode must preserve the existing persisted cache key.
+		require.Len(t, record.Call.Args, 3)
+		for _, arg := range record.Call.Args {
+			require.NotEqual(t, "snapshot", arg.Name)
+		}
+	}
 	require.NoError(t, release(ctx))
 	_, err = cache.Prune(ctx, []dagql.CachePrunePolicy{{All: true}})
 	require.NoError(t, err)
@@ -69,6 +178,13 @@ func TestDirectoryCheckpointOwnsSnapshotAfterProducerRelease(t *testing.T) {
 }
 
 func TestDirectoryCheckpointSurvivesRestart(t *testing.T) {
+	for _, mode := range checkpointModes() {
+		t.Run(mode.name, func(t *testing.T) { testDirectoryCheckpointSurvivesRestart(t, mode.selector) })
+	}
+}
+
+func testDirectoryCheckpointSurvivesRestart(t *testing.T, selector dagql.Selector) {
+	t.Helper()
 	store := testutil.NewStore(t)
 	db := filepath.Join(t.TempDir(), "cache.db")
 	ctx, cache, srv := scratchTestCache(t, store, db, "producer")
@@ -76,7 +192,7 @@ func TestDirectoryCheckpointSurvivesRestart(t *testing.T) {
 	ref, _ := store.Build(t, nil, "value.txt", "saved value")
 	producer := checkpointTestSource(t, ctx, cache, srv, "producer", "producerDirectory", ref)
 	var checkpoint dagql.ObjectResult[*core.Directory]
-	require.NoError(t, srv.Select(ctx, producer, &checkpoint, dagql.Selector{Field: "checkpoint"}))
+	require.NoError(t, srv.Select(ctx, producer, &checkpoint, selector))
 	id, err := checkpoint.ID()
 	require.NoError(t, err)
 	require.NoError(t, cache.ReleaseSession(ctx, "producer"))
@@ -94,6 +210,13 @@ func TestDirectoryCheckpointSurvivesRestart(t *testing.T) {
 }
 
 func TestDirectoryCheckpointRefusesSessionResourceDependencies(t *testing.T) {
+	for _, mode := range checkpointModes() {
+		t.Run(mode.name, func(t *testing.T) { testDirectoryCheckpointRefusesSessionResourceDependencies(t, mode.selector) })
+	}
+}
+
+func testDirectoryCheckpointRefusesSessionResourceDependencies(t *testing.T, selector dagql.Selector) {
+	t.Helper()
 	store := testutil.NewStore(t)
 	ctx, cache, srv := scratchTestCache(t, store, "", "producer")
 	installDirectoryCheckpoint(srv)
@@ -112,18 +235,25 @@ func TestDirectoryCheckpointRefusesSessionResourceDependencies(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, cache.AddExplicitDependency(ctx, producer, guard, "guarded input"))
 	var checkpoint dagql.ObjectResult[*core.Directory]
-	err = srv.Select(ctx, producer, &checkpoint, dagql.Selector{Field: "checkpoint"})
+	err = srv.Select(ctx, producer, &checkpoint, selector)
 	require.ErrorContains(t, err, "without session resources or services")
 }
 
 func TestDirectoryCheckpointTransfersWithoutProducerHistory(t *testing.T) {
+	for _, mode := range checkpointModes() {
+		t.Run(mode.name, func(t *testing.T) { testDirectoryCheckpointTransfersWithoutProducerHistory(t, mode.selector) })
+	}
+}
+
+func testDirectoryCheckpointTransfersWithoutProducerHistory(t *testing.T, selector dagql.Selector) {
+	t.Helper()
 	aStore, bStore := testutil.NewStore(t), testutil.NewStore(t)
 	ctx, cache, srv := scratchTestCache(t, aStore, "", "producer")
 	installDirectoryCheckpoint(srv)
 	ref, _ := aStore.Build(t, nil, "value.txt", "transferred value")
 	producer := checkpointTestSource(t, ctx, cache, srv, "producer", "producerDirectory", ref)
 	var checkpoint dagql.ObjectResult[*core.Directory]
-	require.NoError(t, srv.Select(ctx, producer, &checkpoint, dagql.Selector{Field: "checkpoint"}))
+	require.NoError(t, srv.Select(ctx, producer, &checkpoint, selector))
 	reader, receiver, readerServer := scratchTestCache(t, bStore, "", "reader")
 	installDirectoryCheckpoint(readerServer)
 	err := cache.WithExportedValues(ctx, dagql.ValueSelection{
@@ -165,6 +295,13 @@ func (m *checkpointHookManager) PinSnapshot(ctx context.Context, id string) (bkc
 }
 
 func TestDirectoryCheckpointCancellationAfterPin(t *testing.T) {
+	for _, mode := range checkpointModes() {
+		t.Run(mode.name, func(t *testing.T) { testDirectoryCheckpointCancellationAfterPin(t, mode.selector) })
+	}
+}
+
+func testDirectoryCheckpointCancellationAfterPin(t *testing.T, selector dagql.Selector) {
+	t.Helper()
 	store := testutil.NewStore(t)
 	ctx, cache, srv := scratchTestCache(t, store, "", "producer")
 	installDirectoryCheckpoint(srv)
@@ -174,7 +311,7 @@ func TestDirectoryCheckpointCancellationAfterPin(t *testing.T) {
 	manager := &checkpointHookManager{SnapshotManager: store.Manager, afterPin: func(context.Context) { cancel() }}
 	srv.Root().(dagql.ObjectResult[*core.Query]).Self().Server.(*scratchTestServer).manager = manager
 	var checkpoint dagql.ObjectResult[*core.Directory]
-	err := srv.Select(canceled, producer, &checkpoint, dagql.Selector{Field: "checkpoint"})
+	err := srv.Select(canceled, producer, &checkpoint, selector)
 	require.ErrorIs(t, err, context.Canceled)
 	require.NoError(t, cache.ReleaseSession(ctx, "producer"))
 	_, err = cache.Prune(ctx, []dagql.CachePrunePolicy{{All: true}})
@@ -183,6 +320,13 @@ func TestDirectoryCheckpointCancellationAfterPin(t *testing.T) {
 }
 
 func TestDirectoryCheckpointConcurrentPublication(t *testing.T) {
+	for _, mode := range checkpointModes() {
+		t.Run(mode.name, func(t *testing.T) { testDirectoryCheckpointConcurrentPublication(t, mode.selector) })
+	}
+}
+
+func testDirectoryCheckpointConcurrentPublication(t *testing.T, selector dagql.Selector) {
+	t.Helper()
 	store := testutil.NewStore(t)
 	ctx, cache, srv := scratchTestCache(t, store, "", "producer")
 	installDirectoryCheckpoint(srv)
@@ -199,7 +343,7 @@ func TestDirectoryCheckpointConcurrentPublication(t *testing.T) {
 		group.Go(func() {
 			<-start
 			var checkpoint dagql.ObjectResult[*core.Directory]
-			err := srv.Select(ctx, producer, &checkpoint, dagql.Selector{Field: "checkpoint"})
+			err := srv.Select(ctx, producer, &checkpoint, selector)
 			var number uint64
 			if err == nil {
 				id, idErr := checkpoint.ID()
@@ -229,6 +373,13 @@ func TestDirectoryCheckpointConcurrentPublication(t *testing.T) {
 }
 
 func TestDirectoryCheckpointRefusesResourceGrowthDuringPin(t *testing.T) {
+	for _, mode := range checkpointModes() {
+		t.Run(mode.name, func(t *testing.T) { testDirectoryCheckpointRefusesResourceGrowthDuringPin(t, mode.selector) })
+	}
+}
+
+func testDirectoryCheckpointRefusesResourceGrowthDuringPin(t *testing.T, selector dagql.Selector) {
+	t.Helper()
 	store := testutil.NewStore(t)
 	ctx, cache, srv := scratchTestCache(t, store, "", "producer")
 	installDirectoryCheckpoint(srv)
@@ -251,6 +402,6 @@ func TestDirectoryCheckpointRefusesResourceGrowthDuringPin(t *testing.T) {
 	}}
 	srv.Root().(dagql.ObjectResult[*core.Query]).Self().Server.(*scratchTestServer).manager = manager
 	var checkpoint dagql.ObjectResult[*core.Directory]
-	err = srv.Select(ctx, producer, &checkpoint, dagql.Selector{Field: "checkpoint"})
+	err = srv.Select(ctx, producer, &checkpoint, selector)
 	require.ErrorContains(t, err, "without session resources or services")
 }

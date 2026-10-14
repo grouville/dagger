@@ -13,8 +13,13 @@ type checkpointSourceKey struct{}
 
 type checkpointDirectoryArgs struct {
 	Digest   string
+	Snapshot string `default:""`
 	Path     string
 	Platform core.Platform
+}
+
+type checkpointSourceDirectoryArgs struct {
+	SnapshotIdentity bool `default:"false"`
 }
 
 func installDirectoryCheckpoint(srv *dagql.Server) {
@@ -24,11 +29,12 @@ func installDirectoryCheckpoint(srv *dagql.Server) {
 	}.Install(srv)
 	dagql.Fields[*core.Directory]{
 		dagql.NodeFunc("checkpoint", checkpointSourceDirectory).
+			Args(dagql.Arg("snapshotIdentity").Doc("Use the committed snapshot identity rather than hashing its contents. This preserves ownership while giving up deduplication between distinct snapshots with identical contents.")).
 			View(AfterVersion("v1.0.0-0")),
 	}.Install(srv)
 }
 
-func checkpointSourceDirectory(ctx context.Context, source dagql.ObjectResult[*core.Directory], _ struct{}) (dagql.ObjectResult[*core.Directory], error) {
+func checkpointSourceDirectory(ctx context.Context, source dagql.ObjectResult[*core.Directory], args checkpointSourceDirectoryArgs) (dagql.ObjectResult[*core.Directory], error) {
 	var result dagql.ObjectResult[*core.Directory]
 	cache, err := dagql.EngineCache(ctx)
 	if err != nil {
@@ -40,9 +46,18 @@ func checkpointSourceDirectory(ctx context.Context, source dagql.ObjectResult[*c
 	if err := checkCheckpointResources(ctx, cache, source); err != nil {
 		return result, err
 	}
-	digest, err := source.Self().DigestPath(ctx, source, ".")
-	if err != nil {
-		return result, err
+	var digest, snapshotIdentity string
+	if args.SnapshotIdentity {
+		snapshot, ok := source.Self().Snapshot.Peek()
+		if !ok || snapshot == nil {
+			return result, fmt.Errorf("checkpoint source snapshot is not materialized")
+		}
+		snapshotIdentity = snapshot.SnapshotID()
+	} else {
+		digest, err = source.Self().DigestPath(ctx, source, ".")
+		if err != nil {
+			return result, err
+		}
 	}
 	path, err := source.Self().PathOrEval(ctx, source)
 	if err != nil {
@@ -53,11 +68,15 @@ func checkpointSourceDirectory(ctx context.Context, source dagql.ObjectResult[*c
 		return result, err
 	}
 	ctx = context.WithValue(ctx, checkpointSourceKey{}, source)
-	err = srv.Select(ctx, srv.Root(), &result, dagql.Selector{Field: "__checkpointDirectory", Args: []dagql.NamedInput{
+	identityArgs := []dagql.NamedInput{
 		{Name: "digest", Value: dagql.NewString(digest)},
 		{Name: "path", Value: dagql.NewString(path)},
 		{Name: "platform", Value: source.Self().Platform},
-	}})
+	}
+	if snapshotIdentity != "" {
+		identityArgs = append(identityArgs, dagql.NamedInput{Name: "snapshot", Value: dagql.NewString(snapshotIdentity)})
+	}
+	err = srv.Select(ctx, srv.Root(), &result, dagql.Selector{Field: "__checkpointDirectory", Args: identityArgs})
 	return result, err
 }
 
@@ -70,6 +89,9 @@ func checkpointDirectory(ctx context.Context, _ dagql.ObjectResult[*core.Query],
 	snapshot, ok := source.Self().Snapshot.Peek()
 	if !ok || snapshot == nil {
 		return result, fmt.Errorf("checkpoint source snapshot is not materialized")
+	}
+	if args.Snapshot != "" && args.Snapshot != snapshot.SnapshotID() {
+		return result, fmt.Errorf("checkpoint source snapshot identity changed")
 	}
 	query, err := core.CurrentQuery(ctx)
 	if err != nil {
