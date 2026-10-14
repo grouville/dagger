@@ -47,6 +47,9 @@ complete-command latency benefit unproven.
 The [fresh-process startup study](FRESH_PROCESS_START.md) isolates sequential
 and concurrent starts on warm caches and explains the remaining Rust helper
 dependency.
+The [helper input follow-up](NATIVE_HELPER_INPUTS.md) combines three requests
+without establishing a latency gain. Its correctness checks find and fix normal
+versus test binary publication, with a real `CARGO_BIN_EXE` integration test.
 The [cache retention study](NATIVE_CACHE_RETENTION.md) reproduces a module-object
 ownership cycle on upstream main and separates its fix from the remaining
 incremental snapshot history.
