@@ -31,6 +31,9 @@ benefit unproven and exposes snapshot-lease contention for further investigation
 The [snapshot ownership profiles](NATIVE_SNAPSHOT_LEASES.md) locate those waits
 in container publication rather than lease database updates, and measure mounting
 the worker request as a native File.
+The [automatic plan integration](NATIVE_PLAN_SELECTION.md) retains the plan in
+the native cache, refreshes it for Cargo graph changes and runs the normal check
+without a manual plan. Automatic previous-cache indexing is still required.
 
 The existing [dagger-rust module](https://github.com/grouville/dagger-rust) is
 the Cargo-facing layer: checks, toolchain selection and final artifact publishing.
