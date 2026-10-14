@@ -163,24 +163,66 @@ func (a *Artifacts) ForDimensionKeys(dimension string) *Artifacts {
 	if !a.hasCollections() || len(a.Selector.ExcludedURIs) > 0 {
 		return a
 	}
+	// Index ancestors by their path and dimension prefixes. Looking up a
+	// candidate then depends on its depth, rather than the number of artifacts.
+	ancestors := &artifactDimensionKeyIndex{}
+	for _, entry := range a.Entries {
+		dims := collectionDimensions(entry)
+		if !a.matchesDimensionFilters(dims) || !slices.ContainsFunc(dims, func(d *ArtifactDimension) bool { return d.Identifier == dimension }) {
+			continue
+		}
+		node := ancestors
+		for _, field := range entry.Path {
+			node = node.child(field)
+		}
+		if node.dimensions == nil {
+			node.dimensions = &artifactDimensionKeyIndex{}
+		}
+		node = node.dimensions
+		for _, dim := range dims {
+			node = node.child(dim.Identifier)
+		}
+		node.present = true
+	}
 	return a.filter(func(candidate *Artifact) bool {
 		childDims := collectionDimensions(candidate)
-		for _, ancestor := range a.Entries {
-			parentDims := collectionDimensions(ancestor)
-			if len(ancestor.Path) > len(candidate.Path) || len(parentDims) > len(childDims) ||
-				len(ancestor.Path) == len(candidate.Path) && len(parentDims) == len(childDims) {
-				continue
+		path := ancestors
+		for depth := 0; path != nil; depth++ {
+			dims := path.dimensions
+			for i := 0; dims != nil; i++ {
+				if dims.present && (depth < len(candidate.Path) || i < len(childDims)) {
+					return false
+				}
+				if i == len(childDims) {
+					break
+				}
+				dims = dims.children[childDims[i].Identifier]
 			}
-			if !slices.Equal(ancestor.Path, candidate.Path[:len(ancestor.Path)]) || !a.matchesDimensionFilters(parentDims) ||
-				!slices.ContainsFunc(parentDims, func(d *ArtifactDimension) bool { return d.Identifier == dimension }) {
-				continue
+			if depth == len(candidate.Path) {
+				break
 			}
-			if slices.EqualFunc(parentDims, childDims[:len(parentDims)], func(a, b *ArtifactDimension) bool { return a.Identifier == b.Identifier }) {
-				return false
-			}
+			path = path.children[candidate.Path[depth]]
 		}
 		return true
 	})
+}
+
+type artifactDimensionKeyIndex struct {
+	children   map[string]*artifactDimensionKeyIndex
+	dimensions *artifactDimensionKeyIndex
+	present    bool
+}
+
+func (n *artifactDimensionKeyIndex) child(key string) *artifactDimensionKeyIndex {
+	if n.children == nil {
+		n.children = map[string]*artifactDimensionKeyIndex{}
+	}
+	child := n.children[key]
+	if child == nil {
+		child = &artifactDimensionKeyIndex{}
+		n.children[key] = child
+	}
+	return child
 }
 
 // DimensionItems projects artifacts to the collection item that
