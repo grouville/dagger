@@ -37,6 +37,8 @@ without a manual plan; that branch still requires callers to supply previous sta
 The [automatic cache discovery prototype](NATIVE_CACHE_DISCOVERY.md) now recovers
 previous native state through ordinary edited checks on one running engine.
 Persistence, remote discovery and storage policy remain unfinished.
+The [ordinary check result experiment](NATIVE_CHECK_RESULT.md) removes unused
+result reconstruction, with fewer nested requests but mixed command timings.
 
 The existing [dagger-rust module](https://github.com/grouville/dagger-rust) is
 the Cargo-facing layer: checks, toolchain selection and final artifact publishing.
