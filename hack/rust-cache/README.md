@@ -28,6 +28,9 @@ fixture and the 102-action workspace.
 The [native configuration experiment](NATIVE_CONFIGURATION.md) removes repeated
 configuration exports; its same-code confirmation leaves the complete-command
 benefit unproven and exposes snapshot-lease contention for further investigation.
+The [snapshot ownership profiles](NATIVE_SNAPSHOT_LEASES.md) locate those waits
+in container publication rather than lease database updates, and measure mounting
+the worker request as a native File.
 
 The existing [dagger-rust module](https://github.com/grouville/dagger-rust) is
 the Cargo-facing layer: checks, toolchain selection and final artifact publishing.
