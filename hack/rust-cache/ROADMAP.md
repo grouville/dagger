@@ -33,6 +33,12 @@ Priorities:
    real Cargo workspaces, build scripts, procedural macros and tests.
 5. Integrate the proven design into the official Rust module and its normal user
    workflow. Users should not have to create one Dagger module per crate.
+6. Expose package selection as a collection within the module and include its
+   discovery, selection and execution costs in the performance target. Share
+   Cargo graph discovery and compiler scheduling across selected items; avoid
+   starting a helper or container per package. Compare selected-package commands
+   with matching Cargo package selections, and whole-collection commands with
+   workspace Cargo commands.
 
 Keep useful engine fixes separate, with focused regression tests and an
 adversarial review. Push experiments to Guillaume's fork; open new upstream PRs

@@ -54,6 +54,10 @@ The [directory copy experiment](NATIVE_COPY_PARENTS.md) reuses parents already
 resolved by the traversal, including filtered incremental-state copies. A focused
 benchmark improves by 18%; complete-command measurements remain mixed under host
 contention, so the change stays isolated for review.
+The [test execution experiment](NATIVE_TEST_BATCH.md) runs captured commands in
+one fresh execution. Two small-workspace series save 77 ms per edit; all twelve
+many-package edit pairs improve substantially. It preserves test behavior and
+native compiler reuse while exposing snapshot-context work for a separate fix.
 The [procedural-macro input study](NATIVE_PROC_MACRO_INPUTS.md) reproduces hidden
 file reads and missing-file checks that rustc does not record. A kernel probe
 observes them at much lower cost than syscall tracing; native macro support still
