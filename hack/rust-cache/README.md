@@ -25,6 +25,9 @@ unproven.
 The [latest wcprof measurements](WCPROF_OCT13.md) separate compiler work from
 source preparation, snapshot copies and publication, including a large-crate
 fixture and the 102-action workspace.
+The [native configuration experiment](NATIVE_CONFIGURATION.md) removes repeated
+configuration exports; its same-code confirmation leaves the complete-command
+benefit unproven and exposes snapshot-lease contention for further investigation.
 
 The existing [dagger-rust module](https://github.com/grouville/dagger-rust) is
 the Cargo-facing layer: checks, toolchain selection and final artifact publishing.
