@@ -33,7 +33,10 @@ in container publication rather than lease database updates, and measure mountin
 the worker request as a native File.
 The [automatic plan integration](NATIVE_PLAN_SELECTION.md) retains the plan in
 the native cache, refreshes it for Cargo graph changes and runs the normal check
-without a manual plan. Automatic previous-cache indexing is still required.
+without a manual plan; that branch still requires callers to supply previous state.
+The [automatic cache discovery prototype](NATIVE_CACHE_DISCOVERY.md) now recovers
+previous native state through ordinary edited checks on one running engine.
+Persistence, remote discovery and storage policy remain unfinished.
 
 The existing [dagger-rust module](https://github.com/grouville/dagger-rust) is
 the Cargo-facing layer: checks, toolchain selection and final artifact publishing.
