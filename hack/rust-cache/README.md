@@ -50,6 +50,10 @@ dependency.
 The [helper input follow-up](NATIVE_HELPER_INPUTS.md) combines three requests
 without establishing a latency gain. Its correctness checks find and fix normal
 versus test binary publication, with a real `CARGO_BIN_EXE` integration test.
+The [directory copy experiment](NATIVE_COPY_PARENTS.md) reuses parents already
+resolved by the traversal, including filtered incremental-state copies. A focused
+benchmark improves by 18%; complete-command measurements remain mixed under host
+contention, so the change stays isolated for review.
 The [procedural-macro input study](NATIVE_PROC_MACRO_INPUTS.md) reproduces hidden
 file reads and missing-file checks that rustc does not record. A kernel probe
 observes them at much lower cost than syscall tracing; native macro support still
