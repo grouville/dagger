@@ -50,6 +50,10 @@ dependency.
 The [helper input follow-up](NATIVE_HELPER_INPUTS.md) combines three requests
 without establishing a latency gain. Its correctness checks find and fix normal
 versus test binary publication, with a real `CARGO_BIN_EXE` integration test.
+The [procedural-macro input study](NATIVE_PROC_MACRO_INPUTS.md) reproduces hidden
+file reads and missing-file checks that rustc does not record. A kernel probe
+observes them at much lower cost than syscall tracing; native macro support still
+requires a complete dependency recorder.
 The [cache retention study](NATIVE_CACHE_RETENTION.md) reproduces a module-object
 ownership cycle on upstream main and separates its fix from the remaining
 incremental snapshot history.

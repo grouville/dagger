@@ -1,0 +1,26 @@
+// Diagnostic only. A process name and 256-byte raw paths are insufficient for
+// cache dependency identity. This records open/stat results without suspending
+// rustc; production tracking needs exec ownership and complete path resolution.
+BEGIN { printf("READY\n"); }
+
+tracepoint:syscalls:sys_enter_openat /comm == "rustc"/ {
+    @opens[tid] = str(args->filename, 256);
+    @open_pending[tid] = 1;
+}
+
+tracepoint:syscalls:sys_exit_openat /@open_pending[tid]/ {
+    printf("OPEN %d %d %s\n", pid, args->ret, @opens[tid]);
+    delete(@opens[tid]);
+    delete(@open_pending[tid]);
+}
+
+tracepoint:syscalls:sys_enter_statx /comm == "rustc"/ {
+    @stats[tid] = str(args->filename, 256);
+    @stat_pending[tid] = 1;
+}
+
+tracepoint:syscalls:sys_exit_statx /@stat_pending[tid]/ {
+    printf("STAT %d %d %s\n", pid, args->ret, @stats[tid]);
+    delete(@stats[tid]);
+    delete(@stat_pending[tid]);
+}
