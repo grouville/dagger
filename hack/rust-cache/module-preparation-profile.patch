@@ -1,0 +1,53 @@
+diff --git a/core/sdk/dang/v2/helpers.go b/core/sdk/dang/v2/helpers.go
+index 02832f36b..2ae047d61 100644
+--- a/core/sdk/dang/v2/helpers.go
++++ b/core/sdk/dang/v2/helpers.go
+@@ -27,0 +28 @@ import (
++	"github.com/dagger/dagger/engine/wcprof"
+@@ -61 +62,4 @@ func (r *runtime) eval(
+-		return dang.RunDir(ctx, modSrcDir, false)
++		return dang.RunDirProfiled(ctx, modSrcDir, false, func(ctx context.Context, phase string) (context.Context, func(error)) {
++			phaseCtx, op := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.runSource."+phase, wcprof.OpOpts{})
++			return phaseCtx, op.EndErr
++		})
+@@ -109,0 +114,2 @@ func evalDangSource(
++	ctx, evalOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.evalSource", wcprof.OpOpts{Ident: modSource.Self().ModuleName})
++	defer evalOp.End(wcprof.OutcomeOK)
+@@ -112 +118,3 @@ func evalDangSource(
+-		f, err := schemaFile.Self().Open(ctx, dagql.ObjectResult[*core.File]{Result: schemaFile})
++		openCtx, openOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.openSchema", wcprof.OpOpts{})
++		f, err := schemaFile.Self().Open(openCtx, dagql.ObjectResult[*core.File]{Result: schemaFile})
++		openOp.EndErr(err)
+@@ -117 +125,4 @@ func evalDangSource(
+-		if err := json.NewDecoder(f).Decode(&intro); err != nil {
++		_, decodeOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.decodeSchema", wcprof.OpOpts{})
++		err = json.NewDecoder(f).Decode(&intro)
++		decodeOp.EndErr(err)
++		if err != nil {
+@@ -147 +158,2 @@ func evalDangSource(
+-		err = modCtx.Self().Mount(ctx, modCtx, func(path string) error {
++		mountCtx, mountOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.prepareSource", wcprof.OpOpts{})
++		err = modCtx.Self().Mount(mountCtx, modCtx, func(path string) error {
+@@ -159,0 +172 @@ func evalDangSource(
++			_, typesOp := wcprof.BeginOp(mountCtx, wcprof.OpKindInternal, "dang.selfTypes", wcprof.OpOpts{})
+@@ -160,0 +174 @@ func evalDangSource(
++			typesOp.End(wcprof.OutcomeOK)
+@@ -162 +176,3 @@ func evalDangSource(
+-			env, err = runSource(ctx, modSrcDir)
++			runCtx, runOp := wcprof.BeginOp(mountCtx, wcprof.OpKindInternal, "dang.runSource", wcprof.OpOpts{})
++			env, err = runSource(runCtx, modSrcDir)
++			runOp.EndErr(err)
+@@ -169 +185,4 @@ func evalDangSource(
+-			return retainDangObjectDirectives(ctx, env, modSrcDir, forTypeDefs)
++			_, directivesOp := wcprof.BeginOp(mountCtx, wcprof.OpKindInternal, "dang.retainDirectives", wcprof.OpOpts{})
++			err := retainDangObjectDirectives(ctx, env, modSrcDir, forTypeDefs)
++			directivesOp.EndErr(err)
++			return err
+@@ -170,0 +190 @@ func evalDangSource(
++		mountOp.EndErr(err)
+@@ -180 +200,4 @@ func evalDangSource(
+-		return withEnv(ctx, env)
++		callCtx, callOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.invoke", wcprof.OpOpts{})
++		output, err := withEnv(callCtx, env)
++		callOp.EndErr(err)
++		return output, err
