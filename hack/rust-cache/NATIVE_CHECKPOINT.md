@@ -184,3 +184,60 @@ Artifacts under `/tmp/rust-cache-sipsma-review` include
 `positive-copy-filter-transfer-*.log`, `positive-copy-filter-grouped-*.log` and
 `positive-copy-filter-control-restarted-digests.log`. The paired timing script
 `measure_positive_copy_filter_pairs.py` is prepared but has not run.
+
+## Comparison with persistent imported hashes
+
+Both engine variants now include the reviewed native hash-persistence fix.
+The control is `86c94a5d9` on `experiment/native-checkpoint-persistent`; the
+candidate adds only the copy-filter change, `406295341d` on
+`experiment/positive-copy-filter-persistent`. One merge conflict retained both
+the newer owner-lease index and the hash-record restoration. Fresh volumes run
+on 16272/16100 and 16273/16101; the two older volumes remain intact.
+
+Focused native metadata and cache-persistence race tests pass, as does the full
+layercopy race suite. The actual Rust module writer passes its cold/edit/revert
+and configuration checks. Transfer to the fresh candidate reuses 4/4 results,
+then 3/4 after an edit. Transfer and edit also pass after candidate restart.
+Both engines preserve all eight grouped original/edit hashes across restart.
+The candidate hash confirmation runs sequentially on a restored fixture: an
+earlier comparison overlapped a source edit and is excluded from this evidence.
+
+The outer experimental RustNativeCache object ID is not restored after restart.
+Reconstructing it from its saved plan, manifest and native Directory fields
+reuses 4/4 results; a new host edit then reuses 3/4. This verifies persisted
+compiler state, not automatic cache discovery across engine restarts. That
+remains part of the unfinished Rust module workflow.
+
+Five alternating pairs measure new leaf/shared edits through the normal CLI,
+with independent histories, Cargo targets and unique source edits. Telemetry
+stays enabled locally and wcprof is off during timing. Every timed Cargo call
+rebuilds the expected two or 102 crates; every untimed follow-up probe recovers
+the CLI command's published 102/102 results.
+
+| Edited-command median | Control | Copy-filter candidate | Cargo, control tree | Cargo, candidate tree |
+| --- | ---: | ---: | ---: | ---: |
+| Leaf | 0.879 s | 0.874 s | 0.094 s | 0.090 s |
+| Shared | 1.448 s | 1.428 s | 0.483 s | 0.469 s |
+
+Three leaf pairs and two shared pairs improve. Maximum CPU/I/O stall is
+25.1%/29.3%. The small median changes do not establish a command-speed gain.
+The filter microbenchmark's reduced work remains valid; keep this engine
+experiment isolated pending stronger complete-command evidence.
+
+Both subsequent wcprof captures contain zero dropped events and no unfinished
+operations. Total copy work is 101.49 ms in the control and 120.77 ms in the
+candidate. The candidate's critical path attributes only 12.03 ms directly to
+copying because it instead waits 132.41 ms on snapshot ownership synchronization.
+The holder spends 135.28 ms waiting for the lazy snapshot body; lease attachment
+after that wait takes about 0.59 ms. These overlapping intervals must not be
+added, and the apparent reduction in critical-path copy time is not work saved.
+The optimization changes no locks. Removing this wait without preserving
+snapshot ownership would not address the copy work it is waiting for.
+
+Artifacts are under `/tmp/rust-cache-sipsma-review`:
+`module-positive-copy-filter-persistent-102`,
+`measure_positive_copy_filter_persistent_pairs.py`,
+`checkpoint-persistent-*-transfer-*.log`,
+`checkpoint-persistent-*-grouped-*-confirmation.log`,
+`checkpoint-persistent-host-edit-*.log`, `checkpoint-persistent-race.log` and
+`positive-copy-filter-persistent-race.log`. No new PR is opened.
