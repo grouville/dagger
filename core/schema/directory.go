@@ -28,6 +28,7 @@ type directorySchema struct{}
 var _ SchemaResolvers = &directorySchema{}
 
 func (s *directorySchema) Install(srv *dagql.Server) {
+	installDirectoryCheckpoint(srv)
 	dagql.Fields[*core.Query]{
 		dagql.NodeFunc("directory", s.directory).
 			WithInput(engineDefaultPlatformInput).
