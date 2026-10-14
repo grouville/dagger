@@ -45,6 +45,9 @@ complete-command latency benefit unproven.
 The [fresh-process startup study](FRESH_PROCESS_START.md) isolates sequential
 and concurrent starts on warm caches and explains the remaining Rust helper
 dependency.
+The [cache retention study](NATIVE_CACHE_RETENTION.md) reproduces a module-object
+ownership cycle on upstream main and separates its fix from the remaining
+incremental snapshot history.
 
 The existing [dagger-rust module](https://github.com/grouville/dagger-rust) is
 the Cargo-facing layer: checks, toolchain selection and final artifact publishing.
