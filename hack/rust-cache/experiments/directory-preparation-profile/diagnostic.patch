@@ -1,0 +1,86 @@
+diff --git a/core/directory.go b/core/directory.go
+index 4a05259df..2884d4667 100644
+--- a/core/directory.go
++++ b/core/directory.go
+@@ -1368 +1368,3 @@ func (lazy *DirectorySubdirectoryLazy) Evaluate(ctx context.Context, dir *Direct
+-			info, err := lazy.Parent.Self().Stat(ctx, lazy.Parent, srv, lazy.Subdir, false)
++			statCtx, statOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "directory.subdirectory.stat", wcprof.OpOpts{Ident: lazy.Subdir})
++			info, err := lazy.Parent.Self().Stat(statCtx, lazy.Parent, srv, lazy.Subdir, false)
++			statOp.EndErr(err)
+@@ -1397 +1399,3 @@ func (lazy *DirectorySubdirectoryLazy) Evaluate(ctx context.Context, dir *Direct
+-		reopened, err := query.SnapshotManager().GetBySnapshotID(ctx, parentSnapshot.SnapshotID(), bkcache.NoUpdateLastUsed)
++		reopenCtx, reopenOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "directory.subdirectory.reopen", wcprof.OpOpts{Ident: parentSnapshot.SnapshotID()})
++		reopened, err := query.SnapshotManager().GetBySnapshotID(reopenCtx, parentSnapshot.SnapshotID(), bkcache.NoUpdateLastUsed)
++		reopenOp.EndErr(err)
+diff --git a/core/schema/directory.go b/core/schema/directory.go
+index a74483ec5..72d071022 100644
+--- a/core/schema/directory.go
++++ b/core/schema/directory.go
+@@ -20,0 +21 @@ import (
++	"github.com/dagger/dagger/engine/wcprof"
+@@ -2062 +2063,3 @@ func maintainContentHashing[A any](
+-		res, err := fn(ctx, parent, args)
++		resolveCtx, resolveOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "directory.contentHash.resolve", wcprof.OpOpts{})
++		res, err := fn(resolveCtx, parent, args)
++		resolveOp.EndErr(err)
+@@ -2066,0 +2070,2 @@ func maintainContentHashing[A any](
++		frameCtx, frameOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "directory.contentHash.readFrame", wcprof.OpOpts{})
++		_ = frameCtx
+@@ -2067,0 +2073 @@ func maintainContentHashing[A any](
++		frameOp.EndErr(err)
+@@ -2076 +2082,4 @@ func maintainContentHashing[A any](
+-				if err := lazy(ctx); err != nil {
++				evalCtx, evalOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "directory.contentHash.evaluate", wcprof.OpOpts{})
++				err := lazy(evalCtx)
++				evalOp.EndErr(err)
++				if err != nil {
+@@ -2088 +2097,7 @@ func maintainContentHashing[A any](
+-			dgst, err := core.GetContentHashFromDirectory(ctx, snapshot, dirPath)
++			identity := dirPath
++			if snapshot != nil {
++				identity = snapshot.SnapshotID() + ":" + dirPath
++			}
++			hashCtx, hashOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "directory.contentHash.checksum", wcprof.OpOpts{Ident: identity})
++			dgst, err := core.GetContentHashFromDirectory(hashCtx, snapshot, dirPath)
++			hashOp.EndErr(err)
+@@ -2092 +2107,3 @@ func maintainContentHashing[A any](
+-			res, err = res.WithContentDigest(ctx, dgst)
++			digestCtx, digestOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "directory.contentHash.publish", wcprof.OpOpts{})
++			res, err = res.WithContentDigest(digestCtx, dgst)
++			digestOp.EndErr(err)
+diff --git a/engine/contenthash/checksum.go b/engine/contenthash/checksum.go
+index 9e8bf0b4a..b4d331053 100644
+--- a/engine/contenthash/checksum.go
++++ b/engine/contenthash/checksum.go
+@@ -15,0 +16 @@ import (
++	"github.com/dagger/dagger/engine/wcprof"
+@@ -149 +150,4 @@ func (cm *cacheManager) Checksum(ctx context.Context, ref cache.ImmutableRef, p
+-func (cm *cacheManager) GetCacheContext(ctx context.Context, md cache.RefMetadata) (CacheContext, error) {
++func (cm *cacheManager) GetCacheContext(ctx context.Context, md cache.RefMetadata) (_ CacheContext, rerr error) {
++	ctx, op := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "contenthash.getContext", wcprof.OpOpts{Ident: md.ID()})
++	defer func() { op.EndErr(rerr) }()
++	lookupWait := wcprof.BeginWaitIdent(ctx, "contenthash.lookup:"+md.ID(), wcprof.WaitReasonLock)
+@@ -150,0 +155 @@ func (cm *cacheManager) GetCacheContext(ctx context.Context, md cache.RefMetadat
++	lookupWait.End()
+@@ -155,0 +161 @@ func (cm *cacheManager) GetCacheContext(ctx context.Context, md cache.RefMetadat
++		stateWait := wcprof.BeginWaitIdent(ctx, "contenthash.context:"+md.ID(), wcprof.WaitReasonLock)
+@@ -156,0 +163 @@ func (cm *cacheManager) GetCacheContext(ctx context.Context, md cache.RefMetadat
++		stateWait.End()
+@@ -817 +824,3 @@ func containsWildcards(name string) bool {
+-func (cc *cacheContext) lazyChecksum(ctx context.Context, m *mount, p string, followTrailing bool) (digest.Digest, error) {
++func (cc *cacheContext) lazyChecksum(ctx context.Context, m *mount, p string, followTrailing bool) (_ digest.Digest, rerr error) {
++	ctx, op := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "contenthash.lazyChecksum", wcprof.OpOpts{Ident: cc.md.ID() + ":" + p})
++	defer func() { op.EndErr(rerr) }()
+@@ -821,0 +831 @@ func (cc *cacheContext) lazyChecksum(ctx context.Context, m *mount, p string, fo
++	readWait := wcprof.BeginWaitIdent(ctx, "contenthash.read:"+cc.md.ID(), wcprof.WaitReasonLock)
+@@ -822,0 +833 @@ func (cc *cacheContext) lazyChecksum(ctx context.Context, m *mount, p string, fo
++	readWait.End()
+@@ -837,0 +849 @@ func (cc *cacheContext) lazyChecksum(ctx context.Context, m *mount, p string, fo
++	writeWait := wcprof.BeginWaitIdent(ctx, "contenthash.write:"+cc.md.ID(), wcprof.WaitReasonLock)
+@@ -838,0 +851 @@ func (cc *cacheContext) lazyChecksum(ctx context.Context, m *mount, p string, fo
++	writeWait.End()
+@@ -852 +865,3 @@ func (cc *cacheContext) lazyChecksum(ctx context.Context, m *mount, p string, fo
+-	cr, err := cc.scanChecksum(ctx, m, p, followTrailing)
++	scanCtx, scanOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "contenthash.scanChecksum", wcprof.OpOpts{Ident: cc.md.ID() + ":" + p})
++	cr, err := cc.scanChecksum(scanCtx, m, p, followTrailing)
++	scanOp.EndErr(err)
