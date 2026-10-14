@@ -34,9 +34,11 @@ the worker request as a native File.
 The [automatic plan integration](NATIVE_PLAN_SELECTION.md) retains the plan in
 the native cache, refreshes it for Cargo graph changes and runs the normal check
 without a manual plan; that branch still requires callers to supply previous state.
-The [automatic cache discovery prototype](NATIVE_CACHE_DISCOVERY.md) now recovers
-previous native state through ordinary edited checks on one running engine.
-Persistence, remote discovery and storage policy remain unfinished.
+The [automatic cache discovery prototype](NATIVE_CACHE_DISCOVERY.md) recovers
+previous native state through ordinary edited checks. A separate durable-index
+experiment also restores it automatically after a clean engine restart and
+keeps the latest snapshot closure bounded across twenty edits. Remote discovery,
+checkpoint cost and the final storage policy remain unfinished.
 The [ordinary check result experiment](NATIVE_CHECK_RESULT.md) removes unused
 result reconstruction, with fewer nested requests but mixed command timings.
 The [primitive array response experiment](NATIVE_SCALAR_ARRAYS.md) removes the
@@ -49,8 +51,8 @@ The [cache retention study](NATIVE_CACHE_RETENTION.md) reproduces a module-objec
 ownership cycle on upstream main and separates its fix from the remaining
 incremental snapshot history.
 The [native checkpoint experiment](NATIVE_CHECKPOINT.md) keeps the latest cache's
-retained graph bounded across twenty edits; API safety and command latency remain
-unverified.
+retained graph bounded across twenty edits. Corrected restart and transfer checks
+pass; general API safety and command-speed improvements remain unproven.
 
 The existing [dagger-rust module](https://github.com/grouville/dagger-rust) is
 the Cargo-facing layer: checks, toolchain selection and final artifact publishing.

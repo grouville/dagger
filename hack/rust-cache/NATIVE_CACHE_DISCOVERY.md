@@ -100,3 +100,64 @@ and `measure_native_hints_102.py`.
 The full goal remains open: persistent and remote state discovery, retention
 and transfer costs, real dependencies, build scripts, procedural macros and
 tests, and further latency reductions through the official module.
+
+## Automatic discovery after restart
+
+A separate engine experiment now saves the bounded latest-result index in the
+same SQLite transaction as the native cache graph. It preserves the existing
+module/project namespace and LRU order, with at most 128 keys. The Rust module
+code is unchanged: the selected cache fields still become ordinary explicit
+compilation inputs.
+
+At checkpoint, clean hint values without session-resource requirements acquire
+ordinary prunable cache roots. Shutdown saves those values before releasing the
+index's memory holds. Restored lookup metadata does not pin unused values;
+pruning a referenced value becomes an acceleration miss and removes the stale
+lookup. Values requiring a session resource are excluded from this index's
+durable checkpoint. Existing resource checks still apply when loading values.
+
+A focused restart test fails on the original implementation and passes with
+the prototype. Race checks cover repeated reopenings, latest publication,
+namespace separation, values without an existing persistence root, bounded LRU
+restoration, pruning of unused restored values, session-resource exclusion and
+the existing concurrent replacement/read and persistence behavior.
+
+The actual Rust module runs without supplying a plan, manifest, cache IDs or
+previous-cache argument from the test driver:
+
+| Action | Reused compiler results |
+| --- | ---: |
+| First check | 0/4 |
+| New app edit | 3/4 |
+| Restart engine, then check | 4/4 |
+| New app edit after restart | 3/4 |
+
+The ordinary `dagger check rust:check` entrypoint also passes. A new process
+recovers its published state with 4/4 reuse after engine restart, and an edited
+ordinary check publishes state recoverable with 4/4 reuse. No cache metadata is
+saved outside the engine. An initial probe ran from the project directory while
+its driver expected the Rust module directory; that failed before loading the
+module and is excluded from the corrected check.
+
+Twenty unique edits each reuse 3/4 results. After pruning at edits 5, 10 and 20,
+the latest cache's closure stays at 307 results and 59 distinct snapshot
+references; each subsequent check reuses 4/4. No mutual ownership cycles appear.
+Evicting all project hints and fully pruning removes every Rust compilation and
+cache object. These figures describe retained graph references, not unique
+physical bytes or remote transfer costs.
+
+This remains an isolated prototype. It establishes automatic recovery after a
+clean engine restart, not crash durability or remote latest-state discovery.
+Checkpoint cost and complete edited-command latency have not been compared for
+this change. The namespace policy, promotion of hint roots and concurrent
+checkpoint/resource changes still need review before adopting a general API.
+Registry dependencies, build scripts, procedural macros and tests remain outside
+the supported experimental subset.
+
+Engine branch:
+[experiment/persistent-native-cache-hints](https://github.com/grouville/dagger/tree/experiment/persistent-native-cache-hints),
+commit `ba5861200`, based on `86c94a5d9`. The module is the unchanged checkpoint
+branch at `d1aaf93`. Artifacts under `/tmp/rust-cache-sipsma-review` include
+`persistent-cache-hint-*-race.log`, `persistent-cache-hint-repro.log`,
+`persistent-hints-module-*.log`, `persistent-hints-normal-cli-*.log`,
+`persistent-hints-retention` and `check_persistent_hints_retention.py`.
