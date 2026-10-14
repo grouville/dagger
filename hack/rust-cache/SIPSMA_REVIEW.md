@@ -73,6 +73,32 @@ The scan returned 111 PRs updated since October 1, including 13 outside
 `dagger/dagger`; the other cross-repository work concerns remote-cache service
 deployment, storage, telemetry and CI rather than a published `gcexp` repository.
 
+## Published Go replay prototype
+
+The subsequent fork-branch scan located Sipsma's prototype in
+[`gocache-bench-gcexp`, commit 4ebfa5f](https://github.com/sipsma/dagger/tree/4ebfa5f6619d61fa495844c2f1bac6ef788b923f/.dagger/modules/gcexp).
+The earlier organization-wide PR search did not locate this fork branch.
+
+Its [`replay.go`](https://github.com/sipsma/dagger/blob/4ebfa5f6619d61fa495844c2f1bac6ef788b923f/.dagger/modules/gcexp/replay.go)
+replays `go build -n` as one native Dagger execution per package. Each action
+mounts filtered source files and native dependency archives; compiler actions
+disable Dagger nesting. Module downloads are native directory outputs keyed
+on `go.mod` and `go.sum`. The documented scope is Go build with cgo disabled
+and no `go:embed`; this is explicitly a measurement prototype.
+
+These choices match the Rust experiment's native inputs/outputs and disabled
+compiler nesting. Our many-crate backend batches misses into one compiler
+container to avoid repeated launch costs while retaining per-crate result
+keys and incremental snapshots. Its layered Go alternative also seeds a
+normal directory output containing external-dependency compiler state. That
+is a useful model for dependency preparation, but it does not solve selecting
+the latest incremental state for edited local Rust crates automatically.
+
+The [native module follow-up](NATIVE_PROFILE_FOLLOWUP.md) records the later
+crun and nonblocking-helper comparisons. These supersede the earlier "what
+to test next" status for those changes; keep measurements from different
+workloads and engine versions separate.
+
 ## Rust comparison of the telemetry PRs
 
 The candidate adds Sipsma's production commits `ab042e582` (#14626) and

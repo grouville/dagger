@@ -125,6 +125,37 @@ Directory inputs. Its noisy command timings do not establish a speedup;
 the hand-edited generated binding remains an isolated prototype, not a
 finished generator change.
 
+## Nonblocking session-helper comparison
+
+The next isolated branch adds the merged session-startup change #14608 and
+its helper cleanup follow-up #14655 to the crun control. Both engines have
+fresh state and matching init/session helper binaries. Focused race tests
+pass in `cmd/init`, `engine/engineutil` and `engine/server`, covering startup,
+failure, cancellation, fd plumbing, registration order and teardown. The
+init import-check subprocess needs `GOFLAGS=-buildvcs=false` in this local
+worktree, as the engine build does; its initial failure was VCS stamping.
+
+The first two profiled pairs have heavy disk contention. They establish
+the phase change, not a command speedup: the Go helper's spawn falls from
+11–13 ms to 1–2 ms, but its first API request waits for session attachables.
+One capture records a 13.27 ms wait there. The worker already disables
+Dagger nesting and has no corresponding helper startup to overlap.
+
+Five subsequent unprofiled pairs give medians of 728.9 ms before and 723.8 ms
+after; Cargo medians are 172.1 and 175.2 ms. Module ranges overlap
+(712–734 ms versus 703–795 ms). Maximum I/O pressure is 33.4%, so the 5.1 ms
+difference does not establish a whole-command benefit. All ten commands
+reuse three of four actions, and both variants pass cold compilation and
+invalid-source failure without publishing cache metadata.
+
+Keep this result separate from crun's startup improvement. The shorter
+spawn phase mostly moves necessary readiness work to the module's first
+API call; subsequent optimization should target work that remains on the
+critical path. Artifacts: `module-native-nested-profile`,
+`module-native-nested-confirmation`, and `nested-start-tests-configured.log`
+under `/tmp/rust-cache-sipsma-review`. Engine branch:
+[`experiment/rust-cache-nested-nonblocking`](https://github.com/grouville/dagger/tree/experiment/rust-cache-nested-nonblocking).
+
 ## Telemetry metadata experiment
 
 Span rows repeat their resource and instrumentation-scope JSON. The experiment
@@ -164,8 +195,9 @@ command-latency improvement, despite the clear converter microbenchmark gain.
 Keep this as an experiment; it is not selected by the normal performance
 implementation and no PR is warranted from this series alone.
 
-Next: measure the remaining module startup and query costs, then the many-crate
-and shared-edit cases through the actual module. Automatic
+The [many-crate module comparison](NATIVE_SCALE_OCT13.md) now measures both
+leaf and shared edits and identifies compiler-state copies and query handling
+as concrete next targets. Automatic
 plan/cache discovery and the ordinary check workflow remain required. The warm
 fresh-control module still exceeds Cargo by about 603 ms, above the 500 ms
 target. Engine age and retained heap also deserve a matched lifecycle test;
