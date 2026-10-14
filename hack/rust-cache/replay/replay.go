@@ -33,6 +33,7 @@ type Graph struct {
 	Artifacts     *dagger.Directory
 	Incremental   *dagger.Directory
 	History       *dagger.Directory
+	Cache         *NativeCache
 	HistoryHits   int
 	BatchTrace    *dagger.File
 	batchSnapshot *dagger.Directory
@@ -57,6 +58,7 @@ type BuildOptions struct {
 	BatchWorkers      int
 	BatchNoPipelining bool
 	automatic         *automaticInputs
+	nativeCache       *NativeCache
 }
 
 type ActionReport struct {

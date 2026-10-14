@@ -442,6 +442,44 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 	require.Len(t, batchEdited.Batch, 1)
 	require.Equal(t, "32 default\n", runBinary(a, batchEditGraph, plan.Image))
 	checkBatchArtifacts(batchEditGraph)
+	buildObjectCache := func(client *dagger.Query, input replay.Source, previous *replay.NativeCache) (*replay.Graph, error) {
+		opts := batchOptions(client, input)
+		native := opts.SourceDirectory
+		opts.SourceDirectory = nil
+		return replay.BuildNativeCached(ctx, client, plan, native, opts, previous)
+	}
+	objectColdGraph, err := buildObjectCache(a, source, nil)
+	require.NoError(t, err)
+	objectCold, err := objectColdGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.NotNil(t, objectColdGraph.Cache)
+	require.Nil(t, objectColdGraph.History, "object caching must not construct a history archive")
+	objectEditGraph, err := buildObjectCache(a, appEdit, objectColdGraph.Cache)
+	require.NoError(t, err)
+	objectEdited, err := objectEditGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.Equal(t, 3, objectEditGraph.HistoryHits)
+	require.Equal(t, 3, objectEdited.Reused(objectCold))
+	require.Equal(t, "32 default\n", runBinary(a, objectEditGraph, plan.Image))
+	checkBatchArtifacts(objectEditGraph)
+	objectRevertGraph, err := buildObjectCache(a, source, objectEditGraph.Cache)
+	require.NoError(t, err)
+	objectReverted, err := objectRevertGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.Equal(t, markers(objectCold), markers(objectReverted), "reverting must preserve exact object-cache hits")
+	objectHistory := objectEditGraph.Cache
+	for value := 2; value <= 4; value++ {
+		input := cloneRustSource(source)
+		file := input["app/src/main.rs"]
+		file.Contents = strings.ReplaceAll(file.Contents, "left::value() + right::value()", fmt.Sprintf("left::value() + right::value() + %d", value))
+		input["app/src/main.rs"] = file
+		next, err := buildObjectCache(a, input, objectHistory)
+		require.NoError(t, err)
+		_, err = next.Evaluate(ctx, 4)
+		require.NoError(t, err)
+		objectHistory = next.Cache
+	}
+	require.Len(t, objectHistory.Batches, 5, "one unchanged-library batch plus four application versions")
 	foreignRead := cloneRustSource(source)
 	foreignFile := foreignRead["app/src/main.rs"]
 	foreignFile.Contents += "\nconst _: &str = include_str!(\"../../right/Cargo.toml\");\n"
@@ -541,6 +579,13 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 	batchHistoryID, err := batchEditGraph.History.ID(ctx)
 	require.NoError(t, err)
 	ids = append(ids, string(batchHistoryID))
+	objectSnapshotIDs := map[string]string{}
+	for _, batch := range objectEditGraph.Cache.Batches {
+		id, err := batch.Snapshot.ID(ctx)
+		require.NoError(t, err)
+		objectSnapshotIDs[batch.ID] = string(id)
+		ids = append(ids, string(id))
+	}
 	var exported []transferFixtureMapping
 	require.NoError(t, transferFixtureSelected(ctx, aConnection, "rust.json", ids, ids, &exported))
 	_, err = outer.Container().From(alpineImage).WithMountedCache("/source", aVolume).WithMountedCache("/destination", bVolume).
@@ -619,6 +664,38 @@ func (RemoteCacheTransferSuite) TestRustCompilerReplay(ctx context.Context, t *t
 	checkBatchArtifacts(remoteBatchEditGraph)
 	require.Len(t, remoteBatchEdited.Batch, 3)
 	require.Equal(t, "32 default\n", runBinary(b, remoteBatchEditGraph, plan.Image))
+	importedObjects := &replay.NativeCache{Manifest: objectEditGraph.Cache.Manifest}
+	for _, batch := range objectEditGraph.Cache.Batches {
+		var decoded call.ID
+		require.NoError(t, decoded.Decode(objectSnapshotIDs[batch.ID]))
+		var ordinal uint64
+		for _, mapping := range exported {
+			if mapping.ResultID == decoded.EngineResultID() {
+				ordinal = uint64(mapping.Ordinal)
+			}
+		}
+		require.NotZero(t, ordinal)
+		var snapshot *dagger.Directory
+		for _, mapping := range imported {
+			if uint64(mapping.Ordinal) == ordinal {
+				snapshot = dagger.Ref[*dagger.Directory](b, dagger.ID(mapping.Handle))
+			}
+		}
+		require.NotNil(t, snapshot)
+		importedObjects.Batches = append(importedObjects.Batches, replay.NativeCacheBatch{ID: batch.ID, Snapshot: snapshot})
+	}
+	remoteObjectGraph, err := buildObjectCache(b, appEdit, importedObjects)
+	require.NoError(t, err)
+	remoteObjects, err := remoteObjectGraph.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.Equal(t, markers(objectEdited), markers(remoteObjects))
+	remoteObjectEdit, err := buildObjectCache(b, baseEdit, importedObjects)
+	require.NoError(t, err)
+	_, err = remoteObjectEdit.Evaluate(ctx, 4)
+	require.NoError(t, err)
+	require.Equal(t, 1, remoteObjectEdit.HistoryHits)
+	require.Equal(t, "32 default\n", runBinary(b, remoteObjectEdit, plan.Image))
+	checkBatchArtifacts(remoteObjectEdit)
 	remoteGraph, remote := evaluate(b, plan, source)
 	require.Equal(t, 4, remote.Reused(cold), "all compiler execution markers must come from engine A")
 	for i, action := range cold.Actions {

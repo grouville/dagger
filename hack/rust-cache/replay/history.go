@@ -95,12 +95,12 @@ type batchSeed struct {
 	include   []string
 }
 
-func (entry historyEntry) result(previous *dagger.Directory, action model.Action, outputs []string, client *dagger.Query) *retainedResult {
+func (entry historyEntry) result(directory func(string) *dagger.Directory, action model.Action, outputs []string, client *dagger.Query) *retainedResult {
 	if entry.Batch == "" {
-		bundle := previous.Directory("results/" + entry.Key)
+		bundle := directory("results/" + entry.Key)
 		return &retainedResult{target: bundle.Directory("target"), state: bundle.Directory("incremental"), stamp: bundle.File("execution")}
 	}
-	bundle := previous.Directory("batches/" + entry.Batch)
+	bundle := directory("batches/" + entry.Batch)
 	return &retainedResult{
 		target: client.Directory().WithDirectory(".", bundle.Directory("target"), dagger.DirectoryWithDirectoryOpts{Include: outputs}),
 		state:  bundle.Directory("incremental/" + worker.Token(action.ID)),
@@ -141,15 +141,35 @@ func BuildAutomatic(ctx context.Context, client *dagger.Query, plan *model.Plan,
 	}
 	opts.ArtifactDirectories = true
 	old := historyManifest{Version: historyVersion, Actions: map[string][]historyEntry{}}
+	var lookup func(string) *dagger.Directory
 	if previous != nil {
-		contents, err := previous.File("manifest.json").Contents(ctx)
+		lookup = previous.Directory
+	}
+	var previousContents string
+	if opts.nativeCache != nil {
+		if previous != nil {
+			return nil, fmt.Errorf("cannot combine directory history and object history")
+		}
+		lookup = opts.nativeCache.directory
+		previousContents = opts.nativeCache.Manifest
+	} else if previous != nil {
+		var err error
+		previousContents, err = previous.File("manifest.json").Contents(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("load native build history: %w", err)
 		}
+	}
+	if previous != nil || previousContents != "" {
+		contents := previousContents
 		if err := json.Unmarshal([]byte(contents), &old); err != nil {
 			return nil, fmt.Errorf("decode native build history: %w", err)
 		}
 		if err := old.validate(); err != nil {
+			return nil, err
+		}
+	}
+	if opts.nativeCache != nil {
+		if err := opts.nativeCache.validate(old); err != nil {
 			return nil, err
 		}
 	}
@@ -191,7 +211,7 @@ func BuildAutomatic(ctx context.Context, client *dagger.Query, plan *model.Plan,
 	inputs := &automaticInputs{hits: map[string]*retainedResult{}, seeds: map[string]*dagger.Directory{}, batchSeeded: map[string]bool{}}
 	seedGroups := map[string][]string{}
 	if old.CurrentBatch != "" {
-		inputs.artifacts = previous.Directory("batches/" + old.CurrentBatch + "/target")
+		inputs.artifacts = lookup("batches/" + old.CurrentBatch + "/target")
 	}
 	var overlays []*dagger.Directory
 	var missingOutputs []string
@@ -226,7 +246,7 @@ func BuildAutomatic(ctx context.Context, client *dagger.Query, plan *model.Plan,
 		selectedEntry := historyEntry{Key: key, Compatibility: compatibility}
 		for _, entry := range entries {
 			if entry.Key == key && entry.Compatibility == compatibility {
-				inputs.hits[action.ID] = entry.result(previous, action, closures[action.ID], client)
+				inputs.hits[action.ID] = entry.result(lookup, action, closures[action.ID], client)
 				selectedEntry = entry
 				if inputs.artifacts != nil && entries[0].Key != key {
 					overlays = append(overlays, inputs.hits[action.ID].target)
@@ -237,7 +257,7 @@ func BuildAutomatic(ctx context.Context, client *dagger.Query, plan *model.Plan,
 		if inputs.hits[action.ID] == nil {
 			for _, entry := range entries {
 				if entry.Compatibility == compatibility {
-					inputs.seeds[action.ID] = entry.result(previous, action, closures[action.ID], client).state
+					inputs.seeds[action.ID] = entry.result(lookup, action, closures[action.ID], client).state
 					if entry.Batch != "" && opts.BatchCompiler != nil {
 						seedGroups[entry.Batch] = append(seedGroups[entry.Batch], worker.Token(action.ID)+"/**")
 						inputs.batchSeeded[action.ID] = true
@@ -259,7 +279,7 @@ func BuildAutomatic(ctx context.Context, client *dagger.Query, plan *model.Plan,
 	}
 	for _, group := range sortedKeys(seedGroups) {
 		inputs.batchSeeds = append(inputs.batchSeeds, batchSeed{
-			directory: previous.Directory("batches/" + group + "/incremental"),
+			directory: lookup("batches/" + group + "/incremental"),
 			include:   seedGroups[group],
 		})
 	}
@@ -302,6 +322,24 @@ func BuildAutomatic(ctx context.Context, client *dagger.Query, plan *model.Plan,
 				keepBatches[entry.Batch] = true
 			}
 		}
+	}
+	if opts.nativeCache != nil {
+		contents, err := json.Marshal(next)
+		if err != nil {
+			return nil, err
+		}
+		cache := &NativeCache{Manifest: string(contents)}
+		for _, id := range sortedKeys(keepBatches) {
+			var snapshot *dagger.Directory
+			if id == batchID {
+				snapshot = graph.batchSnapshot
+			} else {
+				snapshot = opts.nativeCache.snapshots[id]
+			}
+			cache.Batches = append(cache.Batches, NativeCacheBatch{ID: id, Snapshot: snapshot})
+		}
+		graph.Cache = cache
+		return graph, nil
 	}
 	var exclude []string
 	for _, entries := range old.Actions {
