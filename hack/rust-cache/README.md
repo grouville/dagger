@@ -48,6 +48,9 @@ dependency.
 The [cache retention study](NATIVE_CACHE_RETENTION.md) reproduces a module-object
 ownership cycle on upstream main and separates its fix from the remaining
 incremental snapshot history.
+The [native checkpoint experiment](NATIVE_CHECKPOINT.md) keeps the latest cache's
+retained graph bounded across twenty edits; API safety and command latency remain
+unverified.
 
 The existing [dagger-rust module](https://github.com/grouville/dagger-rust) is
 the Cargo-facing layer: checks, toolchain selection and final artifact publishing.
