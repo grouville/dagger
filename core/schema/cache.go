@@ -6,6 +6,7 @@ import (
 
 	"github.com/dagger/dagger/core"
 	"github.com/dagger/dagger/dagql"
+	"github.com/dagger/dagger/engine"
 )
 
 type cacheSchema struct{}
@@ -18,6 +19,12 @@ func (s *cacheSchema) Name() string {
 
 func (s *cacheSchema) Install(srv *dagql.Server) {
 	dagql.Fields[*core.Query]{
+		dagql.NodeFunc("nativeCacheHint", s.nativeCacheHint).
+			DoNotCache("Reads the current experimental native cache hint.").
+			View(AfterVersion("v1.0.0-0")),
+		dagql.NodeFunc("saveNativeCacheHint", s.saveNativeCacheHint).
+			DoNotCache("Updates the experimental native cache hint.").
+			View(AfterVersion("v1.0.0-0")),
 		dagql.NodeFuncWithDynamicInputs("cacheVolume", s.cacheVolume, s.cacheVolumeCacheKey).
 			IsPersistable().
 			Doc("Constructs a cache volume for a given cache key.").
@@ -35,6 +42,79 @@ func (s *cacheSchema) Install(srv *dagql.Server) {
 	}.Install(srv)
 
 	dagql.Fields[*core.CacheVolume]{}.Install(srv)
+}
+
+func nativeCacheHintKey(ctx context.Context, parent dagql.ObjectResult[*core.Query], key string) (string, error) {
+	m, err := parent.Self().CurrentModule(ctx)
+	if err != nil && !errors.Is(err, core.ErrNoCurrentModule) {
+		return "", err
+	}
+	namespace, err := namespaceFromModule(ctx, m.Self())
+	if err != nil {
+		return "", err
+	}
+	return namespace + "\x00" + key, nil
+}
+
+func (s *cacheSchema) nativeCacheHint(ctx context.Context, parent dagql.ObjectResult[*core.Query], args struct {
+	Key string
+}) (dagql.Nullable[dagql.AnyID], error) {
+	var missing dagql.Nullable[dagql.AnyID]
+	key, err := nativeCacheHintKey(ctx, parent, args.Key)
+	if err != nil {
+		return missing, err
+	}
+	cache, err := dagql.EngineCache(ctx)
+	if err != nil {
+		return missing, err
+	}
+	srv, err := core.CurrentDagqlServer(ctx)
+	if err != nil {
+		return missing, err
+	}
+	md, err := engine.ClientMetadataFromContext(ctx)
+	if err != nil {
+		return missing, err
+	}
+	res, err := cache.LoadCacheHint(ctx, key, md.SessionID, srv)
+	if err != nil || res == nil {
+		return missing, err
+	}
+	id, err := res.ID()
+	if err != nil {
+		return missing, err
+	}
+	return dagql.NonNull(dagql.NewAnyID(id)), nil
+}
+
+func (s *cacheSchema) saveNativeCacheHint(ctx context.Context, parent dagql.ObjectResult[*core.Query], args struct {
+	Key   string
+	Value dagql.AnyID
+}) (dagql.Boolean, error) {
+	key, err := nativeCacheHintKey(ctx, parent, args.Key)
+	if err != nil {
+		return false, err
+	}
+	srv, err := core.CurrentDagqlServer(ctx)
+	if err != nil {
+		return false, err
+	}
+	var value dagql.AnyObjectResult
+	if err := srv.Select(ctx, parent, &value, dagql.Selector{Field: "node", Args: []dagql.NamedInput{{Name: "id", Value: args.Value}}}); err != nil {
+		return false, err
+	}
+	cache, err := dagql.EngineCache(ctx)
+	if err != nil {
+		return false, err
+	}
+	number, err := cache.PersistedResultID(value)
+	if err != nil {
+		return false, err
+	}
+	if err := cache.SaveCacheHint(ctx, key, number); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 type cacheArgs struct {

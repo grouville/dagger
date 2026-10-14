@@ -2198,6 +2198,8 @@ func wipeSQLiteFiles(dbPath string) error {
 }
 
 type Cache struct {
+	cacheHints cacheHintIndex
+
 	partFixture              atomic.Pointer[partFixtureState]
 	testTransferCopied       func(uint64)
 	testTransferPlanPrepared func(int) error
@@ -5187,6 +5189,7 @@ func (c *Cache) CloseWithShutdownError(ctx context.Context, cause error) error {
 			slog.Error("dagql cache close failed waiting for quiescence; persistence will remain dirty", "err", err)
 			c.closeErr = errors.Join(c.closeErr, fmt.Errorf("wait for dagql cache quiescence: %w", err))
 		}
+		c.closeErr = errors.Join(c.closeErr, c.clearCacheHints(context.WithoutCancel(ctx)))
 		// The registered preparation root outlives the worker and every
 		// decoded row until the drain has finished.
 		c.clearPartPreparationContext()
@@ -5234,6 +5237,7 @@ func (c *Cache) CloseDiscardingPersistence() error {
 		// The discard path is the boot reset, before sharing is enabled:
 		// this closes admission and has nothing to drain.
 		c.closeSnapshotSharing()
+		c.closeErr = errors.Join(c.closeErr, c.clearCacheHints(context.Background()))
 		slog.Info(
 			"discarding dagql cache without persistence",
 			"hasSQLDB", c.sqlDB != nil,
