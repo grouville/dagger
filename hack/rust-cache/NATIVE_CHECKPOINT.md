@@ -82,3 +82,105 @@ on `350752bc2`. Rust module checkout: `/tmp/dagger-rust-module-checkpoint`, comm
 results and profiles are under `module-checkpoint-102` in that review directory.
 Focused race output is `checkpoint-final-race.log`; real module transfer logs are
 `checkpoint-transfer-writer.log` and `checkpoint-transfer-reader.log`.
+
+## Batching checkpoint requests
+
+A separate Rust module experiment publishes all retained batches in one aliased
+query, using the same Directory IDs and checkpoint calls. It preserves the
+manifest's batch ordering and fails publication if a checkpoint is missing.
+It changes no engine code or compiler inputs.
+
+The actual module writer passes cold, normal-check, edit, revert, configuration
+refresh and rejection checks. A receiver on a separate engine reads the
+transferred cache fields, reuses 4/4 results, then reuses 3/4 after a new edit.
+The writer uses a new project key: its first attempt reused an earlier default
+project hint and returned 4/4 hits where the test expected a cold 0/4 result.
+
+Five alternating pairs compare sequential and batched publication on the same
+engine, with new leaf/shared edits, separate project histories and Cargo targets.
+All 20 timed Cargo commands rebuild the expected two or 102 crates; all 20
+untimed follow-up probes recover the normal CLI's published 102/102 results.
+
+| Edited command median | Sequential requests | One request | Cargo, control tree | Cargo, batch tree |
+| --- | ---: | ---: | ---: | ---: |
+| Leaf | 0.855 s | 0.860 s | 0.088 s | 0.086 s |
+| Shared | 1.383 s | 1.392 s | 0.476 s | 0.477 s |
+
+Only two of five pairs improve in either scenario. Maximum observed CPU/I/O
+stall is 32.9%/32.4%. This experiment establishes fewer requests, not a latency
+improvement, and stays isolated.
+
+Both wcprof captures have zero dropped events and no unfinished operations.
+Nested requests fall from 106 to 101; all six checkpoint calls remain, with five
+hits. New checkpoint work still takes about 49 ms. Directory copies remain
+about 93–105 ms on the helper's critical path. Removing five round trips does
+not remove those costs.
+
+Rust branch:
+[experiment/native-checkpoint-batch](https://github.com/grouville/dagger-rust/tree/experiment/native-checkpoint-batch),
+commit `76f927b`. Artifacts are under
+`/tmp/rust-cache-sipsma-review/module-checkpoint-batch-102`; the script is
+`measure_checkpoint_batch_pairs.py`. Correctness logs are
+`checkpoint-batch-transfer-writer-isolated.log` and
+`checkpoint-batch-transfer-reader.log` in the same review directory.
+
+## Inheriting include matches while copying
+
+The next isolated engine experiment avoids scanning every include pattern for
+every descendant of a directory that already matched. A positive include match
+is inherited by the whole subtree. Negated include patterns still use the
+existing matcher; explicit file selections, excludes and gitignore checks still
+run for each entry. No filesystem metadata, hash format, cache key or locking
+changes are involved.
+
+The production change adds nine lines and removes four in
+`util/layercopy/filter.go`. A focused test compares results with Moby's original
+matcher for positive includes, excludes, explicit selections and negations.
+The complete `util/layercopy` suite passes under the race detector.
+
+Three benchmark repetitions use a precomputed descendant path, like the real
+copier. These medians measure the filter alone, with no filesystem copying:
+
+| Include patterns | Existing matcher | Inherited match | Existing allocation | Inherited allocation |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 81 ns | 69 ns | 1 B | 0 B |
+| 16 | 200 ns | 66 ns | 16 B | 0 B |
+| 128 | 960 ns | 67 ns | 128 B | 0 B |
+| 1024 | 7,046 ns | 66 ns | 1,024 B | 0 B |
+
+This establishes constant work after a positive ancestor match. It does not
+establish a complete Rust command improvement. The candidate engine passes the
+real module writer's cold/edit/revert and configuration checks. Its transfer
+check exposed a separate baseline problem, so ordinary-command timing remains
+pending.
+
+### Restart mismatch found before timing
+
+The receiver's initial transfer check reports 0/4 reused results. Configuration
+and normalized compiler recipes agree with the writer; returned compatibility
+keys agree too, but all four package-result keys differ. The compiler's grouped
+package-digest query shows different hashes across the engines for identical
+source files. Individual cached Directory digest calls hide that difference.
+
+Restarting the unmodified control binary reproduces the same four grouped hash
+changes and makes them match the candidate. The initial transferred build then
+passes 4/4; its subsequent edit still reports 0/4 instead of 3/4. A grouped
+original/edit diagnostic preserves unchanged library hashes on the restarted
+control, while the candidate's previously cached edited view returns the earlier
+hashes. This mixes cached and freshly scanned identities on the old engine base.
+
+The benchmark base `ef3698006` does not include the separate native
+hash-persistence fix. Next, integrate the reviewed persistence change into both
+engine variants and repeat transfer, edit and restart checks before timing.
+The copy-filter experiment stays isolated. Neither a general latency gain nor
+end-to-end transfer correctness is claimed for it yet.
+
+Engine checkout: `/tmp/dagger-rust-positive-copy-filter`, branch
+`experiment/inherit-positive-copy-filter`. It runs on the owned receiver at
+16271/16099, using that container's existing volume and runtime helpers. The
+previous binary is backed up as `positive-filter-receiver-original-engine`.
+Artifacts under `/tmp/rust-cache-sipsma-review` include
+`positive-copy-filter-race.log`, `positive-copy-filter-bench-*-final.log`,
+`positive-copy-filter-transfer-*.log`, `positive-copy-filter-grouped-*.log` and
+`positive-copy-filter-control-restarted-digests.log`. The paired timing script
+`measure_positive_copy_filter_pairs.py` is prepared but has not run.
