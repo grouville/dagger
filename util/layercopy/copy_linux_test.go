@@ -4,6 +4,7 @@ package layercopy
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -447,6 +448,36 @@ func TestCopyDirectoryFollowsOverlayDestSymlinkDir(t *testing.T) {
 	link, err := os.Readlink(filepath.Join(viewRoot, "usr", "lib64"))
 	require.NoError(t, err)
 	require.Equal(t, "lib", link)
+}
+
+func TestCopyDirectoryChildrenUseResolvedSymlinkParent(t *testing.T) {
+	for _, filter := range []Filter{{}, {Include: []string{"nested/deep/**"}}} {
+		t.Run(fmt.Sprint(filter.Include), func(t *testing.T) { testCopyDirectoryChildrenUseResolvedSymlinkParent(t, filter) })
+	}
+}
+
+func testCopyDirectoryChildrenUseResolvedSymlinkParent(t *testing.T, filter Filter) {
+	t.Parallel()
+	root := t.TempDir()
+	srcRoot, dstRoot := filepath.Join(root, "src"), filepath.Join(root, "dst")
+	require.NoError(t, os.MkdirAll(filepath.Join(srcRoot, "nested", "deep"), 0o751))
+	require.NoError(t, os.WriteFile(filepath.Join(srcRoot, "nested", "deep", "file"), []byte("copied"), 0o640))
+	require.NoError(t, os.MkdirAll(filepath.Join(dstRoot, "real", "child"), 0o755))
+	require.NoError(t, os.Symlink("real", filepath.Join(dstRoot, "alias")))
+	require.NoError(t, os.Symlink("child", filepath.Join(dstRoot, "real", "nested")))
+	copier, err := NewCopier(Mount{Root: dstRoot})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, copier.Close()) })
+	require.NoError(t, copier.Copy(context.Background(), Mount{Root: srcRoot}, "/", "/alias", CopyOptions{Filter: filter, CopyDirContents: true, ReplaceExisting: true}))
+	contents, err := os.ReadFile(filepath.Join(dstRoot, "real", "child", "deep", "file"))
+	require.NoError(t, err)
+	require.Equal(t, "copied", string(contents))
+	link, err := os.Readlink(filepath.Join(dstRoot, "real", "nested"))
+	require.NoError(t, err)
+	require.Equal(t, "child", link)
+	info, err := os.Stat(filepath.Join(dstRoot, "real", "child", "deep"))
+	require.NoError(t, err)
+	require.Equal(t, os.FileMode(0o751), info.Mode().Perm())
 }
 
 func TestMkdirReplaceExistingOverlayLowerFile(t *testing.T) {

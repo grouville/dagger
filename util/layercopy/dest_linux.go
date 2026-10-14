@@ -148,6 +148,49 @@ func (d *destination) ensureDir(destPath string, src *sourceEntry, opts CopyOpti
 	return d.createDir(destPath, src, opts)
 }
 
+// Children of a resolved parent need no ancestor lookup. A symlink at the
+// final component still requires the normal bounded path resolution.
+func (d *destination) ensureDirIn(destPath string, parent resolvedParent, src *sourceEntry, opts CopyOptions, overwriteMetadata bool) (string, bool, error) {
+	if !parent.ok {
+		return d.ensureDir(destPath, src, opts, overwriteMetadata)
+	}
+	rel := filepath.Join(parent.rel, filepath.Base(cleanContainerPath(destPath)))
+	viewPath := filepath.Join(d.viewRoot, rel)
+	info, err := os.Lstat(viewPath)
+	if err == nil {
+		if !info.IsDir() {
+			return d.ensureDir(destPath, src, opts, overwriteMetadata)
+		}
+		realPath, materialized, err := d.materializeExistingDir(rel, viewPath)
+		if err != nil {
+			return "", false, err
+		}
+		if overwriteMetadata || materialized {
+			if err := d.applyMetadataPath(realPath, src, opts); err != nil {
+				return "", false, err
+			}
+		}
+		return rel, false, nil
+	}
+	if !os.IsNotExist(err) {
+		return "", false, err
+	}
+	realPath := filepath.Join(d.writeRoot, rel)
+	if err := os.Mkdir(realPath, mkdirMode(src, opts)); err != nil {
+		// Overlay replacement and unexpected existing entries keep the
+		// original behavior, including opaque directory handling.
+		if os.IsExist(err) {
+			return d.ensureDir(destPath, src, opts, overwriteMetadata)
+		}
+		return "", false, err
+	}
+	if err := d.applyMetadataPath(realPath, src, opts); err != nil {
+		return "", false, err
+	}
+	d.markMaterialized(rel)
+	return rel, true, nil
+}
+
 func (d *destination) ensureExistingDir(destPath string, src *sourceEntry, opts CopyOptions, overwriteMetadata bool) (string, bool, error) {
 	viewPath, err := rootPath(d.viewRoot, destPath, true)
 	if err != nil {

@@ -18,6 +18,7 @@ import (
 type pendingDir struct {
 	entry    sourceEntry
 	destPath string
+	parent   resolvedParent
 }
 
 func NewCopier(dest Mount) (*Copier, error) {
@@ -232,20 +233,24 @@ func (c *Copier) copyEntry(
 		childParent := resolvedParent{}
 		var realDirPath string
 		if include {
-			if err := c.ensurePending(pending, opts); err != nil {
+			pendingParent, err := c.ensurePending(pending, opts)
+			if err != nil {
 				return err
+			}
+			if !parent.ok && len(pending) > 0 && cleanContainerPath(pending[len(pending)-1].destPath) == cleanContainerPath(filepath.Dir(destPath)) {
+				parent = pendingParent
 			}
 			if _, err := c.dest.removeForReplace(destPath, parent, ent.Info, opts); err != nil {
 				return err
 			}
-			rel, _, err := c.dest.ensureDir(destPath, &ent, opts, true)
+			rel, _, err := c.dest.ensureDirIn(destPath, parent, &ent, opts, true)
 			if err != nil {
 				return err
 			}
 			childParent = resolvedParent{rel: rel, ok: true}
 			realDirPath = filepath.Join(c.dest.writeRoot, rel)
 		} else {
-			childPending = append(childPending, pendingDir{entry: ent, destPath: destPath})
+			childPending = append(childPending, pendingDir{entry: ent, destPath: destPath, parent: parent})
 		}
 
 		if !matcher.shouldDescend(ent.Rel, state) {
@@ -274,19 +279,29 @@ func (c *Copier) copyEntry(
 	if !include {
 		return nil
 	}
-	if err := c.ensurePending(pending, opts); err != nil {
+	pendingParent, err := c.ensurePending(pending, opts)
+	if err != nil {
 		return err
+	}
+	if !parent.ok && len(pending) > 0 && cleanContainerPath(pending[len(pending)-1].destPath) == cleanContainerPath(filepath.Dir(destPath)) {
+		parent = pendingParent
 	}
 	return c.copyNode(ent, destPath, parent, opts)
 }
 
-func (c *Copier) ensurePending(pending []pendingDir, opts CopyOptions) error {
+func (c *Copier) ensurePending(pending []pendingDir, opts CopyOptions) (resolvedParent, error) {
+	var parent resolvedParent
 	for _, dir := range pending {
-		if _, _, err := c.dest.ensureDir(dir.destPath, &dir.entry, opts, true); err != nil {
-			return err
+		if dir.parent.ok {
+			parent = dir.parent
 		}
+		rel, _, err := c.dest.ensureDirIn(dir.destPath, parent, &dir.entry, opts, true)
+		if err != nil {
+			return resolvedParent{}, err
+		}
+		parent = resolvedParent{rel: rel, ok: true}
 	}
-	return nil
+	return parent, nil
 }
 
 func (c *Copier) copyNode(ent sourceEntry, destPath string, parent resolvedParent, opts CopyOptions) error {

@@ -12,6 +12,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Compiler state copies select crate subtrees with token/** patterns. The token
+// directory itself is excluded and is created when a child first matches.
+func BenchmarkCopySelectedIncrementalDirs(b *testing.B) {
+	root := b.TempDir()
+	srcRoot, dstRoot := filepath.Join(root, "src"), filepath.Join(root, "dst")
+	require.NoError(b, os.Mkdir(srcRoot, 0o755))
+	require.NoError(b, os.Mkdir(dstRoot, 0o755))
+	var includes []string
+	for i := range 102 {
+		token := fmt.Sprintf("%064d", i)
+		dir := filepath.Join(srcRoot, token, "session")
+		require.NoError(b, os.MkdirAll(dir, 0o755))
+		for _, name := range []string{"dep-graph.bin", "query-cache.bin"} {
+			require.NoError(b, os.WriteFile(filepath.Join(dir, name), []byte("state"), 0o644))
+		}
+		includes = append(includes, token+"/**")
+	}
+	opts := CopyOptions{Filter: Filter{Include: includes}, CopyDirContents: true, ReplaceExisting: true}
+	for b.Loop() {
+		copier, err := NewCopier(Mount{Root: dstRoot})
+		require.NoError(b, err)
+		require.NoError(b, copier.Copy(context.Background(), Mount{Root: srcRoot}, "/", "/incremental", opts))
+		require.NoError(b, copier.Close())
+	}
+}
+
 // buildBenchTree writes a tree approximating a source repository: a fixed
 // branching factor down to the given depth, with filesPerDir regular files at
 // every level. Depth matters as much as file count here, because destination
