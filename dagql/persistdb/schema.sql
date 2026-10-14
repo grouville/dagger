@@ -94,6 +94,13 @@ CREATE TABLE IF NOT EXISTS snapshot_content_hashes (
     data BLOB NOT NULL
 ) STRICT, WITHOUT ROWID;
 
+CREATE TABLE IF NOT EXISTS cache_hints (
+    key TEXT PRIMARY KEY,
+    result_id INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    FOREIGN KEY(result_id) REFERENCES results(id) ON DELETE CASCADE
+) STRICT, WITHOUT ROWID;
+
 CREATE TABLE IF NOT EXISTS imported_layer_blob_index (
     parent_snapshot_id TEXT NOT NULL,
     blob_digest TEXT NOT NULL,

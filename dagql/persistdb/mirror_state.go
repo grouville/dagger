@@ -109,6 +109,7 @@ const clearMirrorEqClasses = `DELETE FROM eq_classes`
 
 func (q *Queries) ClearMirrorState(ctx context.Context) error {
 	for _, stmt := range []string{
+		`DELETE FROM cache_hints`,
 		clearMirrorImportedLayerDiffIndex,
 		clearMirrorImportedLayerBlobIndex,
 		clearMirrorSnapshotContentLinks,

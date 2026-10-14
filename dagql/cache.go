@@ -5189,7 +5189,6 @@ func (c *Cache) CloseWithShutdownError(ctx context.Context, cause error) error {
 			slog.Error("dagql cache close failed waiting for quiescence; persistence will remain dirty", "err", err)
 			c.closeErr = errors.Join(c.closeErr, fmt.Errorf("wait for dagql cache quiescence: %w", err))
 		}
-		c.closeErr = errors.Join(c.closeErr, c.clearCacheHints(context.WithoutCancel(ctx)))
 		// The registered preparation root outlives the worker and every
 		// decoded row until the drain has finished.
 		c.clearPartPreparationContext()
@@ -5203,6 +5202,7 @@ func (c *Cache) CloseWithShutdownError(ctx context.Context, cause error) error {
 				c.closeErr = errors.Join(c.closeErr, err)
 			}
 		}
+		c.closeErr = errors.Join(c.closeErr, c.clearCacheHints(context.WithoutCancel(ctx)))
 		if c.closeErr != nil {
 			if closeErr := closeCacheDBs(c.sqlDB, c.pdb); closeErr != nil {
 				slog.Error("failed to close dagql persistence databases after cache close error", "err", closeErr)

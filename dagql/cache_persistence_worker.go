@@ -60,10 +60,15 @@ func (c *Cache) persistCurrentState(ctx context.Context) error {
 //nolint:gocyclo // intrinsically long state machine; refactoring would hurt clarity
 func (c *Cache) snapshotPersistState(ctx context.Context) (persistStateSnapshot, error) {
 	var snapshot persistStateSnapshot
+	snapshot.cacheHints = c.snapshotCacheHints(ctx)
 
 	c.egraphMu.RLock()
 	snapshot.nextResultID = c.nextSharedResultID
 	selectedResultIDs, persistedRootIDs := c.snapshotPersistedRootClosureLocked()
+	snapshot.cacheHints = slices.DeleteFunc(snapshot.cacheHints, func(hint persistdb.MirrorCacheHint) bool {
+		_, selected := selectedResultIDs[sharedResultID(hint.ResultID)]
+		return !selected
+	})
 
 	addEqClassID := func(eqClassIDs map[eqClassID]struct{}, eqID eqClassID) {
 		eqID = c.eqClassRootLocked(eqID)
@@ -468,6 +473,12 @@ func (c *Cache) applyPersistStateSnapshot(ctx context.Context, snapshot persistS
 		if err := q.InsertMirrorPersistedEdge(ctx, row); err != nil {
 			_ = tx.Rollback()
 			return fmt.Errorf("insert persisted_edge (%d): %w", row.ResultID, err)
+		}
+	}
+	for _, row := range snapshot.cacheHints {
+		if err := q.InsertMirrorCacheHint(ctx, row); err != nil {
+			_ = tx.Rollback()
+			return fmt.Errorf("insert cache hint %q: %w", row.Key, err)
 		}
 	}
 	for _, result := range snapshot.results {

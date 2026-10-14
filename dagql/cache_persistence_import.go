@@ -71,6 +71,10 @@ func (c *Cache) importPersistedState(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("list mirror imported_layer_diff_index: %w", err)
 	}
+	cacheHintRows, err := c.pdb.ListMirrorCacheHints(ctx)
+	if err != nil {
+		return fmt.Errorf("list mirror cache_hints: %w", err)
+	}
 
 	if len(resultRows) == 0 && len(eqClassRows) == 0 && len(termRows) == 0 {
 		return c.reconcileEmptyOwnerLeases(ctx)
@@ -631,7 +635,10 @@ func (c *Cache) importPersistedState(ctx context.Context) error {
 		}
 	}
 
-	return c.settleRestoredOffers(ctx, finalOffers)
+	if err := c.settleRestoredOffers(ctx, finalOffers); err != nil {
+		return err
+	}
+	return c.restoreCacheHints(ctx, cacheHintRows)
 }
 
 func normalizeImportedDigest(raw string) digest.Digest {

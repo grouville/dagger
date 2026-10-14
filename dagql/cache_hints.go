@@ -5,9 +5,10 @@ import (
 	"context"
 	"errors"
 	"sync"
+
+	"github.com/dagger/dagger/dagql/persistdb"
 )
 
-// This experimental index survives client sessions, not engine restarts.
 // Hints select acceleration inputs; callers must still validate them and
 // include the selected value in the ordinary recipe identity.
 const maxCacheHints = 128
@@ -65,7 +66,9 @@ func (c *Cache) SaveCacheHint(ctx context.Context, key string, number uint64) er
 	c.cacheHints.entries[key] = c.cacheHints.order.PushFront(&cacheHint{key: key, number: number, release: release})
 	c.cacheHints.mu.Unlock()
 	if previous != nil {
-		return previous.release(ctx)
+		if previous.release != nil {
+			return previous.release(ctx)
+		}
 	}
 	return nil
 }
@@ -92,6 +95,11 @@ func (c *Cache) LoadCacheHint(ctx context.Context, key, sessionID string, srv *S
 	_, release, err := c.HoldEntry(ctx, hint.number)
 	if err == nil {
 		c.cacheHints.order.MoveToFront(elem)
+	} else if errors.Is(err, ErrUnknownEntry) {
+		delete(c.cacheHints.entries, key)
+		c.cacheHints.order.Remove(elem)
+		c.cacheHints.mu.Unlock()
+		return nil, nil
 	}
 	c.cacheHints.mu.Unlock()
 	if err != nil {
@@ -109,7 +117,48 @@ func (c *Cache) clearCacheHints(ctx context.Context) error {
 	c.cacheHints.mu.Unlock()
 	var err error
 	for _, elem := range hints {
-		err = errors.Join(err, elem.Value.(*cacheHint).release(ctx))
+		if release := elem.Value.(*cacheHint).release; release != nil {
+			err = errors.Join(err, release(ctx))
+		}
 	}
 	return err
+}
+
+// snapshotCacheHints retains published values through the ordinary, prunable
+// cache roots before copying the bounded index into a durable checkpoint.
+// The hint lock precedes the graph lock, as it does when reading a hint.
+func (c *Cache) snapshotCacheHints(ctx context.Context) []persistdb.MirrorCacheHint {
+	c.cacheHints.mu.Lock()
+	defer c.cacheHints.mu.Unlock()
+	c.egraphMu.Lock()
+	defer c.egraphMu.Unlock()
+	var rows []persistdb.MirrorCacheHint
+	for elem := c.cacheHints.order.Front(); elem != nil; elem = elem.Next() {
+		hint := elem.Value.(*cacheHint)
+		res := c.resultsByID[sharedResultID(hint.number)]
+		if res == nil || res.attachmentState() != resultAttachmentClean ||
+			(res.requiredSessionResources != nil && res.requiredSessionResources.Size() != 0) {
+			continue
+		}
+		c.upsertPersistedEdgeLocked(ctx, res, res.expiresAtUnix, false)
+		rows = append(rows, persistdb.MirrorCacheHint{Key: hint.key, ResultID: int64(hint.number), Position: int64(len(rows))})
+	}
+	return rows
+}
+
+func (c *Cache) restoreCacheHints(ctx context.Context, rows []persistdb.MirrorCacheHint) error {
+	c.cacheHints.mu.Lock()
+	defer c.cacheHints.mu.Unlock()
+	for _, row := range rows {
+		if len(c.cacheHints.entries) == maxCacheHints {
+			break
+		}
+		if c.cacheHints.entries == nil {
+			c.cacheHints.entries = make(map[string]*list.Element)
+		}
+		// Restored lookup metadata does not pin unused values. Ordinary
+		// persisted roots remain prunable until a live reader claims them.
+		c.cacheHints.entries[row.Key] = c.cacheHints.order.PushBack(&cacheHint{key: row.Key, number: uint64(row.ResultID)})
+	}
+	return nil
 }
