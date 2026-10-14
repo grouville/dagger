@@ -1775,12 +1775,29 @@ func (dir *Directory) WithNewFile(ctx context.Context, parent dagql.ObjectResult
 	if err != nil {
 		return err
 	}
+	var writtenPath string
+	var createdDirectories []string
+	var preserveHashRecords bool
 	err = MountRef(ctx, newRef, func(root string, _ *mount.Mount) error {
 		resolvedDest, err := containerdfs.RootPath(root, path.Join(parentDir, dest))
 		if err != nil {
 			return err
 		}
 		destPathDir, _ := filepath.Split(resolvedDest)
+		for at := filepath.Dir(destPathDir); at != root; at = filepath.Dir(at) {
+			_, statErr := os.Lstat(at)
+			if statErr == nil {
+				break
+			}
+			if !os.IsNotExist(statErr) {
+				return statErr
+			}
+			relative, err := filepath.Rel(root, at)
+			if err != nil {
+				return err
+			}
+			createdDirectories = append(createdDirectories, filepath.ToSlash(relative))
+		}
 		err = os.MkdirAll(filepath.Dir(destPathDir), 0755)
 		if err != nil {
 			return err
@@ -1812,6 +1829,18 @@ func (dir *Directory) WithNewFile(ctx context.Context, parent dagql.ObjectResult
 				return fmt.Errorf("failed to set chown %s: err", resolvedDest)
 			}
 		}
+		writtenPath, err = filepath.Rel(root, resolvedDest)
+		if err != nil {
+			return err
+		}
+		info, err := os.Lstat(resolvedDest)
+		if err != nil {
+			return err
+		}
+		// A write through a hard link can change other paths. Keep the full
+		// rescan for that case until all affected aliases can be invalidated.
+		stat, ok := info.Sys().(*syscall.Stat_t)
+		preserveHashRecords = ok && stat.Nlink == 1
 
 		return nil
 	})
@@ -1821,6 +1850,18 @@ func (dir *Directory) WithNewFile(ctx context.Context, parent dagql.ObjectResult
 	snapshot, err := newRef.Commit(ctx)
 	if err != nil {
 		return err
+	}
+	if parentSnapshot != nil && preserveHashRecords {
+		parentMD, parentOK := any(parentSnapshot).(bkcache.RefMetadata)
+		childMD, childOK := any(snapshot).(bkcache.RefMetadata)
+		if !parentOK || !childOK {
+			_ = snapshot.Release(context.WithoutCancel(ctx))
+			return fmt.Errorf("withNewFile hash metadata: unexpected snapshot type")
+		}
+		if err := bkcontenthash.CopyCacheContextForFileWrite(ctx, parentMD, childMD, filepath.ToSlash(writtenPath), createdDirectories); err != nil {
+			_ = snapshot.Release(context.WithoutCancel(ctx))
+			return err
+		}
 	}
 	dir.SetSnapshot(snapshot)
 	return nil

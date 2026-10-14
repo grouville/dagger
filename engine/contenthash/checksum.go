@@ -61,6 +61,46 @@ func SetCacheContext(ctx context.Context, md cache.RefMetadata, cc CacheContext)
 	return getDefaultManager().SetCacheContext(ctx, md, cc)
 }
 
+// CopyCacheContextForFileWrite carries unchanged hash records into a child
+// snapshot. The changed regular file and newly created directories are scanned
+// lazily; their ancestors' content digests are invalidated. The parent's radix
+// tree remains immutable and does not receive the child's changes.
+func CopyCacheContextForFileWrite(ctx context.Context, source, destination cache.RefMetadata, filename string, createdDirectories []string) error {
+	parentContext, err := getDefaultManager().GetCacheContext(ctx, source)
+	if err != nil {
+		return err
+	}
+	parent := parentContext.(*cacheContext)
+	parent.mu.Lock()
+	if parent.txn != nil {
+		parent.commitActiveTransaction()
+	}
+	tree := parent.tree
+	parent.mu.Unlock()
+	if tree.Len() == 0 {
+		return nil
+	}
+	child := &cacheContext{
+		md: cacheMetadata{destination}, tree: tree,
+		dirtyMap: map[string]struct{}{}, linkMap: map[string][][]byte{},
+	}
+	child.txn = tree.Txn()
+	for _, directory := range createdDirectories {
+		key := convertPathToKey(keyPath(directory))
+		child.txn.Insert(key, &CacheRecord{Type: CacheRecordTypeDir})
+		child.txn.Insert(append(key, 0), &CacheRecord{Type: CacheRecordTypeDirHeader})
+	}
+	filename = keyPath(filename)
+	child.txn.Insert(convertPathToKey(filename), &CacheRecord{Type: CacheRecordTypeFile})
+	parentPath := path.Dir(filename)
+	if parentPath == "/" {
+		parentPath = ""
+	}
+	child.dirtyMap[parentPath] = struct{}{}
+	child.commitActiveTransaction()
+	return getDefaultManager().SetCacheContext(ctx, destination, child)
+}
+
 func ClearCacheContext(md cache.RefMetadata) {
 	getDefaultManager().clearCacheContext(md.ID())
 }
