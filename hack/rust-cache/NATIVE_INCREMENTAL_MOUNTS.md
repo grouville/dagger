@@ -73,3 +73,63 @@ Artifacts under /tmp/rust-cache-sipsma-review:
 - module-native-102-incremental-mounts: original series and profiles.
 - module-native-102-incremental-mounts-known-ids: final series and profiles.
 - measure_native_102_incremental_mounts_known_ids.py: local reproduction harness.
+
+## Materialized-ID follow-up
+
+An isolated prototype retains Directory/File IDs when decoding module inputs,
+and returns already resolved output handles without querying their IDs again.
+Its generated bindings are hand-edited; the output helper round-trips through
+JSON. This is diagnostic code, not a finished SDK change. A general change
+would need generator coverage and an explicit distinction between resolved
+handles and recipe IDs that must still be evaluated.
+
+Five alternating pairs again use independent sources, Cargo targets and native
+histories. The control uses combined snapshots; the candidate includes separate
+incremental mounts and the ID prototype, so these command timings do not isolate
+the ID change. All 20 Cargo rebuild sets match the expected 2 or 102 crates;
+native hit counts and the failed-compilation publication tripwire pass.
+
+| Edited command median | Control | Separate state plus ID prototype |
+| --- | ---: | ---: |
+| Leaf | 0.971 s | 0.981 s |
+| Leaf Cargo | 0.091 s | 0.090 s |
+| Shared | 1.475 s | 1.390 s |
+| Shared Cargo | 0.496 s | 0.466 s |
+
+Four of five leaf pairs and three of five shared pairs improve, despite the
+leaf median worsening by 11 ms. Maximum timed CPU/I/O pressure is 25.2%/21.6%.
+These mixed results do not establish a general command improvement.
+
+Both candidate profiles now have 86 session requests, versus 87 in the control;
+the earlier split-state version had 112. All four captures have zero dropped
+events. The shared profile attributes 10.7 ms to copying, versus 112.1 ms in
+the control, but query handling remains 161.2 ms and the Rust module's own
+critical-path contribution is 107.8 ms. Preserve the prototype for investigation
+before selecting this layout or changing generated SDK behavior.
+
+Artifacts: `module-native-102-materialized-ids` and
+`measure_native_102_materialized_ids.py` under `/tmp/rust-cache-sipsma-review`.
+
+## What fresh-process startup still costs
+
+The four new profiles run on the same crun engine with warm images and cache,
+fresh CLI sessions, edited sources, and fresh helper/worker processes. The two
+runtime starts together take 19.3, 21.9, 22.4 and 27.3 ms. These are per-profile
+totals for both starts, not individual-container times. Init and command spawn
+are recorded separately: normally another 6–10 ms combined here, with one
+shared capture at 18.5 ms. Filesystem and mount preparation are also separate.
+
+The older roughly 90 ms runtime total came from runc. The crun comparison in
+[NATIVE_PROFILE_FOLLOWUP.md](NATIVE_PROFILE_FOLLOWUP.md) already reduced that
+phase substantially and measured a 41.5 ms complete-command median reduction.
+Further runtime tuning can help, but removing the remaining runtime-start cost
+would save only about 20–30 ms in these captures. It cannot explain the current
+gap to Cargo on its own.
+
+Keep fresh rustc processes while reducing snapshot preparation and repeated API
+requests. The worker already batches changed crates into one container. Moving
+the helper's graph orchestration into the existing module runtime could remove
+another container plus its own work, but that needs an implementation experiment
+and a complexity assessment. A persistent worker would add filesystem reset,
+cancellation and lifetime management; the profiles do not yet justify making
+that the default design.
