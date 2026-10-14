@@ -39,6 +39,9 @@ previous native state through ordinary edited checks on one running engine.
 Persistence, remote discovery and storage policy remain unfinished.
 The [ordinary check result experiment](NATIVE_CHECK_RESULT.md) removes unused
 result reconstruction, with fewer nested requests but mixed command timings.
+The [primitive array response experiment](NATIVE_SCALAR_ARRAYS.md) removes the
+source-path list's individual item cache entries; host contention leaves its
+complete-command latency benefit unproven.
 
 The existing [dagger-rust module](https://github.com/grouville/dagger-rust) is
 the Cargo-facing layer: checks, toolchain selection and final artifact publishing.
