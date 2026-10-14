@@ -135,11 +135,16 @@ func (m *matcher) includePath(rel string, abs string, info os.FileInfo, parent m
 		_, include = m.only[rel]
 	}
 	if m.include != nil {
-		matched, includeInfo, err := m.include.MatchesUsingParentResults(rel, parent.include)
-		if err != nil {
-			return false, state, err
+		// A positive match includes the entire subtree. Without negated
+		// include patterns, descendants cannot change that result.
+		matched := parent.includeMatched
+		if !matched || m.include.Exclusions() {
+			var err error
+			matched, state.include, err = m.include.MatchesUsingParentResults(rel, parent.include)
+			if err != nil {
+				return false, state, err
+			}
 		}
-		state.include = includeInfo
 		state.includeMatched = matched
 		include = include && matched
 	}
