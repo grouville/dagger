@@ -1,0 +1,72 @@
+--- /dev/null
++++ b/pkg/dang/choice_stats_test.go
+@@ -0,0 +1,69 @@
++package dang
++
++import (
++	"os"
++	"testing"
++)
++
++func TestChoiceStatisticsOptIn(t *testing.T) {
++	source := []byte("pub result = [1, 2, 3].map { value => value + 1 }\n")
++	plain, err := Parse("test.dang", source)
++	if err != nil {
++		t.Fatal(err)
++	}
++	stats := &Stats{}
++	counted, err := Parse("test.dang", source, Statistics(stats, "no match"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	if Format(plain.(Node)) != Format(counted.(Node)) || stats.ExprCnt == 0 || len(stats.ChoiceAltCnt) == 0 {
++		t.Fatal("requested statistics must preserve the syntax tree and record counts")
++	}
++	p := newParser("test.dang", source)
++	undo := Statistics(&Stats{}, "no match")(p)
++	undo(p)
++	if _, err := p.parse(g); err != nil {
++		t.Fatal(err)
++	}
++	if len(p.ChoiceAltCnt) != 0 || p.ExprCnt == 0 {
++		t.Fatal("restoring default options must disable choice counters and retain expression counts")
++	}
++	for _, test := range []struct {
++		source []byte
++		opts   []Option
++	}{
++		{source: []byte("pub =")},
++		{source: source, opts: []Option{MaxExpressions(10)}},
++	} {
++		_, plainErr := Parse("test.dang", test.source, test.opts...)
++		_, countedErr := Parse("test.dang", test.source, append(test.opts, Statistics(&Stats{}, "no match"))...)
++		if plainErr == nil || countedErr == nil || plainErr.Error() != countedErr.Error() {
++			t.Fatal("choice statistics must preserve parse errors and expression limits")
++		}
++	}
++}
++
++func BenchmarkRustModuleParser(b *testing.B) {
++	source, err := os.ReadFile(os.Getenv("DANG_PERF_SOURCE"))
++	if err != nil {
++		b.Fatal(err)
++	}
++	for _, enabled := range []bool{true, false} {
++		name := "default"
++		if enabled {
++			name = "statistics"
++		}
++		b.Run(name, func(b *testing.B) {
++			b.ReportAllocs()
++			for range b.N {
++				var opts []Option
++				if enabled {
++					opts = append(opts, Statistics(&Stats{}, "no match"))
++				}
++				if _, err := Parse("main.dang", source, opts...); err != nil {
++					b.Fatal(err)
++				}
++			}
++		})
++	}
++}

@@ -21,9 +21,11 @@ Priorities:
 1. Measure fresh leaf and shared-library edits in both large crates and many-crate
    workspaces, with native Cargo as the control. Keep telemetry enabled; local
    receiver measurements do not establish production Cloud latency.
-2. Reduce source preparation, snapshot copying, runtime startup and telemetry
-   work where profiles show they delay the complete command. Validate each
-   experiment with matched, alternating runs and correctness checks.
+2. Profile every layer: CLI and module loading, source import and hashes, graph
+   construction, snapshot ownership and copying, mounts and container startup,
+   compiler scheduling, cache retention and transfer, and telemetry. Reduce the
+   work that delays the complete command. Validate each experiment with matched,
+   alternating runs and correctness checks.
 3. Preserve automatic incremental seed selection, compiled-result reuse and
    Cargo's overlap between dependent compilations. Never exclude compiler inputs
    from the cache key without proving correctness.

@@ -163,3 +163,113 @@ including changed configuration rejection, incremental edits, exact hits,
 pruning, undeclared input rejection and edits after cache transfer. This prepares
 the module boundary; the Rust module still uses its existing backend until the
 actual entrypoints, history discovery and supported Cargo workflows are wired.
+
+## Dang runtime parsing in the real module
+
+A matched five-pair series compares the profiler-linked module engine with the
+same engine plus Sipsma's PR #14649. That change avoids two additional source
+parses on each Dang function call. The module code, compiler, telemetry receiver
+and Cargo command remain the same. Four fresh preparation edits per engine are
+excluded; every timed invocation makes a new application edit. An invalid Rust
+edit fails on both engines, confirming that source changes and compiler errors
+reach the real `dagger check rust:check` entrypoint.
+
+| Median of five edited commands | Before | With PR #14649 |
+| --- | ---: | ---: |
+| Complete Dagger command | 1,501 ms | 1,318 ms |
+| Complete native Cargo check | 314 ms | 323 ms |
+| Check execution self-time, with nested queries linked | 427 ms | 187 ms |
+| Check start to its first nested API query | 423 ms | 181 ms |
+| Cargo/rsync worker | 453 ms | 437 ms |
+| Container runtime start, included above the worker | 64 ms | 87 ms |
+
+The full-command median improves by 183 milliseconds, about 12%. The phase
+measurements support a reduction before the module's first nested API query;
+they do not attribute all remaining self-time to parsing. Medians are separate
+measurements and must not be added. All ten commands pass, with 1,427 recorded
+operations, 17 API queries and zero dropped profiling events each.
+
+The timings overlap: before ranges from 1.228 to 1.777 seconds, after from 1.219
+to 1.514 seconds. Host-wide CPU pressure is substantial during several samples,
+and I/O pressure varies. Keep all samples and treat this short profiled series
+as encouraging evidence rather than a precise production speedup. Native Cargo
+and Dagger both run `cargo check`; these numbers do not measure the prototype's
+native compiler cache, which is not yet selected by the Rust module.
+
+The next runtime measurement is an engine CPU profile during fresh module
+edits, to locate the remaining computation. The compiler worker also includes
+source reconciliation and Cargo bookkeeping; its gap from native Cargo is not
+proof of slower rustc. Command logs, wcprof captures, pressure samples and the
+analysis are in `/tmp/rust-cache-sipsma-review/module-comparison`.
+
+A second five-pair series repeats the same fresh-edit workflow without wcprof
+recording, keeping telemetry enabled. Complete-command medians are 925/673
+milliseconds for Dagger and 209/190 milliseconds for native Cargo,
+before/after. Dagger ranges are 861–1,149 and 650–1,011 milliseconds; all ten
+checks pass and both invalid-source tripwires fail as expected. This supports
+the direction of the profiled result without using profiler timings as the
+user's expected latency. These remain short local-engine series. The faster
+module still stores Cargo's state in its existing cache volumes; native replay
+integration has not yet been measured through this command.
+
+An engine CPU profile during sixteen fresh edits records 1.24 seconds of parser
+work across the capture. Of that, 270 milliseconds pass through ordered-choice
+statistics collection, including repeated string formatting and map updates.
+The generated Dang parser collects those statistics by default. This motivates
+a parser experiment that keeps statistics available when requested, without
+caching mutable syntax or invocation state. CPU samples are aggregate work,
+not an additive wall-time breakdown. The profile and command logs are in
+`/tmp/rust-cache-sipsma-review/module-cpu`.
+
+## Optional parser counters: complete-command experiment
+
+The experiment makes ordered-choice counters opt-in through Pigeon's existing
+`Statistics` option. Requested counters still work, and restoring an option
+restores its previous counter setting. Expression counting and limits remain
+active. The generator source produces exactly the patched Dang parser used by
+the measured engine; this is not a syntax-tree cache or a telemetry change.
+
+The focused regression fails on the original parser and passes with the patch.
+The existing Dang package tests also pass. Five parser benchmark samples on the
+Rust module source show 110.35/67.41 milliseconds with/without requested counters,
+425,775/284,873 allocations and 20.42/18.34 MB per parse. The same binary runs both
+modes. This locates the allocation cost; it is not the command-level result.
+
+A separate five-pair series compares the engine containing PR #14649 with the
+same engine and the patched parser. It records no wcprof events during timing,
+and retains the local telemetry receiver. Every timed command has a new source
+edit. Both engines receive four preparation edits, and the new engine's initial
+toolchain preparation is excluded.
+
+| Median of five edited commands | Control | Optional counters |
+| --- | ---: | ---: |
+| Complete Dagger check | 695 ms | 637 ms |
+| Complete native Cargo check | 181 ms | 183 ms |
+| Dagger range | 643–713 ms | 623–657 ms |
+
+All ten checks pass; invalid source fails on both engines. Every paired Dagger
+sample is faster with the experiment. The median difference is 58 milliseconds,
+about 8%. Host-wide CPU pressure stays between 1–4% during these Dagger samples;
+I/O pressure stays below 7%. Keep the short-series limitation, and do not add
+its gain to the earlier series as though they shared identical conditions.
+
+These are warm local-engine checks using the module's existing Cargo cache
+volumes. They do not establish native compiler-cache module integration or
+remote-engine performance. Reproduction patches and the regression are in
+[experiments/dang-choice-stats](experiments/dang-choice-stats/README.md), with
+raw data in `/tmp/rust-cache-sipsma-review/module-choice-stats-comparison-unprofiled`.
+
+## Retaining compiler snapshots without an archive
+
+The module backend experiment now offers `BuildNativeCached`: it retains a
+manifest string and native batch-directory fields instead of copying each new
+compiler batch into a combined history directory. Exact-result lookup and
+incremental seed selection use the existing logic and execution cache keys.
+Expired batch references are dropped from the object list.
+
+Its full two-engine integration test passes, covering source edits, exact
+reversion hits, pruning, transfer of the retained metadata and directories, and
+a new dependency edit on the fresh receiver. This proves the representation's
+correctness and portability. A latency improvement, bounded physical ancestry
+and automatic module discovery remain unmeasured. The branch is
+[`experiment/rust-native-cache-objects`](https://github.com/grouville/dagger/tree/experiment/rust-native-cache-objects).

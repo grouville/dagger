@@ -1,0 +1,45 @@
+--- a/pkg/dang/dang.peg.go
++++ b/pkg/dang/dang.peg.go
+@@ -11930,15 +11930,21 @@
+ //	}
+ //	fmt.Println(string(b))
+ func Statistics(stats *Stats, choiceNoMatch string) Option {
++	return choiceStatistics(stats, choiceNoMatch, true)
++}
++
++func choiceStatistics(stats *Stats, choiceNoMatch string, enabled bool) Option {
+ 	return func(p *parser) Option {
+ 		oldStats := p.Stats
+ 		p.Stats = stats
+ 		oldChoiceNoMatch := p.choiceNoMatch
+ 		p.choiceNoMatch = choiceNoMatch
++		oldEnabled := p.collectChoiceStats
++		p.collectChoiceStats = enabled
+ 		if p.Stats.ChoiceAltCnt == nil {
+ 			p.Stats.ChoiceAltCnt = make(map[string]map[string]int)
+ 		}
+-		return Statistics(oldStats, oldChoiceNoMatch)
++		return choiceStatistics(oldStats, oldChoiceNoMatch, oldEnabled)
+ 	}
+ }
+ 
+@@ -12358,7 +12364,8 @@
+ 
+ 	*Stats
+ 
+-	choiceNoMatch string
++	choiceNoMatch      string
++	collectChoiceStats bool
+ 	// recovery expression stack, keeps track of the currently available recovery expression, these are traversed in reverse
+ 	recoveryStack []map[string]any
+ }
+@@ -12995,6 +13002,9 @@
+ }
+ 
+ func (p *parser) incChoiceAltCnt(ch *choiceExpr, altI int) {
++	if !p.collectChoiceStats {
++		return
++	}
+ 	choiceIdent := fmt.Sprintf("%s %d:%d", p.rstack[len(p.rstack)-1].name, ch.pos.line, ch.pos.col)
+ 	m := p.ChoiceAltCnt[choiceIdent]
+ 	if m == nil {

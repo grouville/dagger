@@ -1,0 +1,90 @@
+--- a/builder/static_code.go
++++ b/builder/static_code.go
+@@ -92,15 +92,21 @@
+ //	}
+ //	fmt.Println(string(b))
+ func Statistics(stats *Stats, choiceNoMatch string) Option {
++	return choiceStatistics(stats, choiceNoMatch, true)
++}
++
++func choiceStatistics(stats *Stats, choiceNoMatch string, enabled bool) Option {
+ 	return func(p *parser) Option {
+ 		oldStats := p.Stats
+ 		p.Stats = stats
+ 		oldChoiceNoMatch := p.choiceNoMatch
+ 		p.choiceNoMatch = choiceNoMatch
++		oldEnabled := p.collectChoiceStats
++		p.collectChoiceStats = enabled
+ 		if p.Stats.ChoiceAltCnt == nil {
+ 			p.Stats.ChoiceAltCnt = make(map[string]map[string]int)
+ 		}
+-		return Statistics(oldStats, oldChoiceNoMatch)
++		return choiceStatistics(oldStats, oldChoiceNoMatch, oldEnabled)
+ 	}
+ }
+ 
+@@ -563,7 +569,8 @@
+ 
+ 	*Stats
+ 
+-	choiceNoMatch string
++	choiceNoMatch      string
++	collectChoiceStats bool
+ 	// recovery expression stack, keeps track of the currently available recovery expression, these are traversed in reverse
+ 	recoveryStack []map[string]any
+ }
+@@ -1314,6 +1321,9 @@
+ // ==template== {{ if not .Optimize }}
+ 
+ func (p *parser) incChoiceAltCnt(ch *choiceExpr, altI int) {
++	if !p.collectChoiceStats {
++		return
++	}
+ 	choiceIdent := fmt.Sprintf("%s %d:%d", p.rstack[len(p.rstack)-1].name, ch.pos.line, ch.pos.col)
+ 	m := p.ChoiceAltCnt[choiceIdent]
+ 	if m == nil {
+--- a/builder/generated_static_code.go
++++ b/builder/generated_static_code.go
+@@ -74,15 +74,21 @@
+ //	}
+ //	fmt.Println(string(b))
+ func Statistics(stats *Stats, choiceNoMatch string) Option {
++	return choiceStatistics(stats, choiceNoMatch, true)
++}
++
++func choiceStatistics(stats *Stats, choiceNoMatch string, enabled bool) Option {
+ 	return func(p *parser) Option {
+ 		oldStats := p.Stats
+ 		p.Stats = stats
+ 		oldChoiceNoMatch := p.choiceNoMatch
+ 		p.choiceNoMatch = choiceNoMatch
++		oldEnabled := p.collectChoiceStats
++		p.collectChoiceStats = enabled
+ 		if p.Stats.ChoiceAltCnt == nil {
+ 			p.Stats.ChoiceAltCnt = make(map[string]map[string]int)
+ 		}
+-		return Statistics(oldStats, oldChoiceNoMatch)
++		return choiceStatistics(oldStats, oldChoiceNoMatch, oldEnabled)
+ 	}
+ }
+ 
+@@ -545,7 +551,8 @@
+ 
+ 	*Stats
+ 
+-	choiceNoMatch string
++	choiceNoMatch      string
++	collectChoiceStats bool
+ 	// recovery expression stack, keeps track of the currently available recovery expression, these are traversed in reverse
+ 	recoveryStack []map[string]any
+ }
+@@ -1296,6 +1303,9 @@
+ // ==template== {{ if not .Optimize }}
+ 
+ func (p *parser) incChoiceAltCnt(ch *choiceExpr, altI int) {
++	if !p.collectChoiceStats {
++		return
++	}
+ 	choiceIdent := fmt.Sprintf("%s %d:%d", p.rstack[len(p.rstack)-1].name, ch.pos.line, ch.pos.col)
+ 	m := p.ChoiceAltCnt[choiceIdent]
+ 	if m == nil {
