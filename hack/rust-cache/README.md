@@ -9,7 +9,9 @@ retains rustc incremental state, and can run compiler misses together with Cargo
 metadata overlap. Completed results remain reusable per crate. These options are
 described below; none changes the Rust module's default behavior.
 
-The [collection and telemetry follow-up](NATIVE_COLLECTION_TELEMETRY.md) fixes incomplete collection listings, reduces their rendering cost, and measures a narrower engine decoder improvement on real source edits. It also identifies contention during result publication as the next target; ordinary build and test gains remain mixed.
+The [batch metadata follow-up](NATIVE_BATCH_METADATA.md) makes the expanded 1,026-package listing faster in all sixteen edited pairs across two histories. The confirmation reduces median latency from 5.28 to 4.08 seconds and engine CPU use by about 40%; ordinary build/test latency remains mixed. The edited-check profile identifies source import and package discovery as the next targets.
+
+The earlier [collection and telemetry follow-up](NATIVE_COLLECTION_TELEMETRY.md) fixes incomplete collection listings, reduces their rendering cost, and measures a narrower engine decoder improvement on real source edits.
 
 The [snapshot notification experiment](NATIVE_SNAPSHOT_NOTIFICATIONS.md) removes unnecessary graph-lock waits but establishes no complete-command speedup. Full wcprof, CPU and runtime captures point instead toward repeated metadata work and the volume of result publications.
 
