@@ -781,7 +781,7 @@ func fetchSpanBatch(ctx context.Context, db *clientdb.DB, since int64, limit int
 		}
 	}
 	return spans[len(spans)-1].ID, &coltracepb.ExportTraceServiceRequest{
-		ResourceSpans: telemetry.SpansToPB(clientdb.ReadOnlySpans(kept)),
+		ResourceSpans: clientdb.SpansToPB(kept),
 	}, len(spans), nil
 }
 
