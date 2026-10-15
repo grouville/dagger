@@ -1,0 +1,62 @@
+critpath of op 11098: 161.62ms
+on-path time by class (sums to the roots' duration; concurrent work off the path gets nothing):
+     on_path      % segments  kind class
+     73.94ms  45.7%        1  exec_phase exec.workload
+     18.00ms  11.1%        1  session_phase session.query
+     17.91ms  11.1%        4  internal directory.withDirectory.copy
+      5.28ms   3.3%        4  internal directory.withDirectory.mountAndCopy
+      4.36ms   2.7%        6  internal dagql.publishResult
+      4.28ms   2.6%       17  internal dagql.attachSnapshotLease
+      3.31ms   2.0%        4  internal directory.withDirectory.commit
+      2.83ms   1.7%        1  exec exec.run
+      2.78ms   1.7%        1  exec_phase exec.runtimeStart
+      2.23ms   1.4%        1  exec_phase exec.initStart
+      2.21ms   1.4%        1  call Container.withNewFile
+      2.16ms   1.3%        2  lazy Directory.directory
+      1.98ms   1.2%        4  internal directory.withDirectory.newSnapshot
+      1.85ms   1.1%        1  call Container.directory
+      1.72ms   1.1%        1  exec_phase withExec.applyOutputs
+      1.68ms   1.0%        1  exec_phase withExec.prepareMounts
+      1.66ms   1.0%        3  lazy Container.withMountedDirectory
+      1.28ms   0.8%        4  lazy Directory.withDirectory
+  … 38 more classes (raise `top`)
+
+path of the longest (offsets from its start; `dur` on the path, `own` not in any blocker):
++0ns dur 161.62ms own 18.00ms  11098 session_phase session.query [ok]
+  +13.37ms dur 2.15ms own 443.9µs  11107 call Container.withMountedDirectory [executed] (exec 11108)
+    +13.50ms dur 1.46ms own 926.9µs  11109 lazy Container.withMountedDirectory [ok]
+    +15.26ms dur 242.2µs own 242.2µs  11114 internal dagql.publishResult [ok]
+  +16.03ms dur 1.80ms own 523.4µs  11118 call Container.withMountedFile [executed] (exec 11119)
+  +20.79ms dur 4.04ms own 2.21ms  11129 call Container.withNewFile [executed] (exec 11130)
+    +20.98ms dur 999.3µs own 456.1µs  11131 lazy Container.withMountedFile [ok]
+    +23.72ms..+24.80ms … 2 shorter segments, 831.4µs: call Query.file:1 internal dagql.publishResult:1
+  +27.09ms dur 5.01ms own 1.85ms  11152 call Container.directory [executed] (exec 11153)
+    +29.13ms dur 2.94ms own 2.94ms  11158 internal dagql.publishResult [ok]
+  +32.46ms dur 129.14ms own 170.1µs  11162 call Directory.sync [do_not_cache]
+    +32.48ms dur 128.97ms own 952.0µs  11163 lazy Container.directory [ok]
+      +32.60ms dur 127.82ms own 771.7µs  11164 lazy Container.withExec [ok]
+        +33.90ms dur 35.25ms own 347.9µs  11178 lazy Container.withNewFile [ok]
+          +34.01ms dur 33.61ms own 285.2µs  11179 lazy Container.withMountedDirectory [ok]
+            +34.10ms dur 33.04ms own 344.1µs  11180 lazy Directory.withDirectory [ok]
+              +34.20ms dur 1.84ms own 1.84ms  11181 lazy Directory.directory [ok]
+              +36.04ms dur 27.00ms own 317.4µs  11195 lazy Directory.withDirectory [ok]
+                +36.18ms dur 25.16ms own 320.3µs  11196 lazy Directory.withDirectory [ok]
+                  +36.29ms dur 13.57ms own 300.6µs  11197 lazy Directory.withDirectory [ok]
+                    +37.73ms dur 10.48ms own 1.93ms  11208 internal directory.withDirectory.mountAndCopy [ok]
+                      +38.05ms dur 8.55ms own 8.55ms  11209 internal directory.withDirectory.copy [ok]
+                  +50.57ms dur 9.22ms own 2.20ms  11216 internal directory.withDirectory.mountAndCopy [ok]
+                    +51.38ms dur 7.02ms own 7.02ms  11217 internal directory.withDirectory.copy [ok]
+              +63.62ms dur 2.87ms own 623.7µs  11232 internal directory.withDirectory.mountAndCopy [ok]
+                +63.90ms dur 2.25ms own 2.25ms  11233 internal directory.withDirectory.copy [ok]
+        +69.59ms dur 1.68ms own 1.68ms  11260 exec_phase withExec.prepareMounts [ok]
+        +71.30ms dur 86.34ms own 2.83ms  11261 exec exec.run [ok]
+          +71.34ms..+73.35ms … 16 shorter segments, 1.02ms: exec_phase exec.createCWD:1 exec_phase exec.enableGPU:1 exec_phase exec.filterEnvs:1 +13 more
+          +72.07ms dur 984.0µs own 984.0µs  11267 exec_phase exec.setupRootfs [ok]
+          +73.35ms dur 81.52ms own 777.3µs  11279 exec_phase exec.runContainer [ok]
+            +74.42ms dur 2.78ms own 2.78ms  11281 exec_phase exec.runtimeStart [ok]
+            +77.20ms dur 77.50ms own 0ns  11282 exec_phase exec.processRun [ok]
+              +77.20ms dur 2.23ms own 2.23ms  11283 exec_phase exec.initStart [ok]
+              +80.02ms dur 73.94ms own 73.94ms  11285 exec_phase exec.workload [ok]
+        +157.79ms dur 1.72ms own 1.72ms  11287 exec_phase withExec.applyOutputs [ok]
+(34 segments not shown: runs of them totaling under 1% of the path, 17.02ms)
+(runs of sub-1% segments totaling 1%+ show their largest members, the rest as "… N shorter"; ▸ N: N segments not expanded, raise `depth` or re-root with `op`; (exec N): a call folded with its call_exec op N)

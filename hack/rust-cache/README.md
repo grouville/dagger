@@ -88,6 +88,11 @@ The [content-keyed syntax follow-up](NATIVE_PARSE_CACHE_CONTENT.md) preserves
 our parser prototype's reuse when a module is remounted under a different path.
 The controlled parsing phase falls from 80 ms to 2.9 ms after mount expiry;
 full-command comparisons remain mixed, so the library variant stays isolated.
+The [Go call-metadata follow-up](NATIVE_GO_CALL_METADATA.md) removes 25 startup
+requests from the compiler submodule through a general Go generator change.
+The measured metadata interval falls from 24.7 ms to 6.2 ms. Generated-code
+and native-cache checks pass, while complete-command gains remain modest and
+shared edits slow down; the change stays isolated on separate fork branches.
 The [procedural-macro input study](NATIVE_PROC_MACRO_INPUTS.md) reproduces hidden
 file reads and missing-file checks that rustc does not record. A kernel probe
 observes them at much lower cost than syscall tracing; native macro support still
