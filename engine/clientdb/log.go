@@ -6,7 +6,6 @@ import (
 	telemetry "github.com/dagger/otel-go"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/instrumentation"
-	sdkresource "go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/trace"
 	otlpcommonv1 "go.opentelemetry.io/proto/otlp/common/v1"
 	otlplogsv1 "go.opentelemetry.io/proto/otlp/logs/v1"
@@ -27,37 +26,59 @@ func LogsToPB(dbLog []Log) []*otlplogsv1.ResourceLogs {
 		is instrumentation.Scope
 	}
 	ssm := make(map[key]*otlplogsv1.ScopeLogs)
+	type resourceJSONKey struct {
+		schemaURL string
+		json      string
+	}
+	type decodedResource struct {
+		key attribute.Distinct
+		pb  *otlpresourcev1.Resource
+	}
+	type decodedScope struct {
+		scope instrumentation.Scope
+		pb    *otlpcommonv1.InstrumentationScope
+	}
+	// These caches belong to this batch. Failed decodes remain per-record
+	// errors, and the next batch cannot inherit stale metadata.
+	resourceCache := make(map[resourceJSONKey]decodedResource)
+	scopeCache := make(map[string]decodedScope)
 
 	var resources int
 	for _, sd := range dbLog {
-		var res *sdkresource.Resource
-		var resPb otlpresourcev1.Resource
-		if err := protojson.Unmarshal(sd.Resource, &resPb); err != nil {
-			slog.Error("failed to unmarshal log resource", "error", err, "log", sd)
-			continue
-		} else {
-			res = telemetry.ResourceFromPB(sd.ResourceSchemaURL, &resPb)
+		resourceKey := resourceJSONKey{schemaURL: sd.ResourceSchemaURL, json: string(sd.Resource)}
+		res, ok := resourceCache[resourceKey]
+		if !ok {
+			pb := &otlpresourcev1.Resource{}
+			if err := protojson.Unmarshal(sd.Resource, pb); err != nil {
+				slog.Error("failed to unmarshal log resource", "error", err, "log", sd)
+				continue
+			}
+			res = decodedResource{key: telemetry.ResourceFromPB(sd.ResourceSchemaURL, pb).Equivalent(), pb: pb}
+			resourceCache[resourceKey] = res
 		}
-		var scope instrumentation.Scope
-		var scopePb otlpcommonv1.InstrumentationScope
-		if err := protojson.Unmarshal(sd.InstrumentationScope, &scopePb); err != nil {
-			slog.Error("failed to unmarshal instrumentation scope", "error", err, "log", sd)
-			continue
-		} else {
-			scope = telemetry.InstrumentationScopeFromPB(&scopePb)
+		scopeKey := string(sd.InstrumentationScope)
+		decoded, ok := scopeCache[scopeKey]
+		if !ok {
+			pb := &otlpcommonv1.InstrumentationScope{}
+			if err := protojson.Unmarshal(sd.InstrumentationScope, pb); err != nil {
+				slog.Error("failed to unmarshal instrumentation scope", "error", err, "log", sd)
+				continue
+			}
+			decoded = decodedScope{scope: telemetry.InstrumentationScopeFromPB(pb), pb: pb}
+			scopeCache[scopeKey] = decoded
 		}
-		rKey := res.Equivalent()
+		rKey := res.key
 		k := key{
 			r:  rKey,
-			is: scope,
+			is: decoded.scope,
 		}
 		scopeLog, iOk := ssm[k]
 		if !iOk {
 			// Either the resource or instrumentation scope were unknown.
 			scopeLog = &otlplogsv1.ScopeLogs{
-				Scope:      &scopePb,
+				Scope:      proto.Clone(decoded.pb).(*otlpcommonv1.InstrumentationScope),
 				LogRecords: []*otlplogsv1.LogRecord{},
-				SchemaUrl:  scope.SchemaURL,
+				SchemaUrl:  decoded.scope.SchemaURL,
 			}
 		}
 		var bodyPb otlpcommonv1.AnyValue
@@ -100,9 +121,9 @@ func LogsToPB(dbLog []Log) []*otlplogsv1.ResourceLogs {
 			resources++
 			// The resource was unknown.
 			rs = &otlplogsv1.ResourceLogs{
-				Resource:  &resPb,
+				Resource:  res.pb,
 				ScopeLogs: []*otlplogsv1.ScopeLogs{scopeLog},
-				SchemaUrl: res.SchemaURL(),
+				SchemaUrl: sd.ResourceSchemaURL,
 			}
 			rsm[rKey] = rs
 			continue
