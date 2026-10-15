@@ -109,6 +109,14 @@ publication falls from 409 ms to 0.63 ms in the actual engine capture. With that
 fix, grouped hashing saves 131 ms per large-leaf pair after swapping histories.
 The module and API remain experimental; shared edits show little benefit and
 the complete-command target remains unmet.
+The [preparation follow-up](NATIVE_PREPARATION_FOLLOWUP.md) separates Go work,
+engine requests and a lease-attachment outlier. Six repeats show sub-millisecond
+transactions, while reading the large plan repeatedly costs about 115 ms. The
+[plan file-transfer experiment](NATIVE_PLAN_FILE_TRANSFER.md) does not preserve
+its initial command gain after swapping histories and remains unselected. A
+separate [literal-display fix](NATIVE_LITERAL_DISPLAY.md) replaces quadratic
+string concatenation on main while preserving all telemetry text; its full
+command effect remains to be measured.
 The [procedural-macro input study](NATIVE_PROC_MACRO_INPUTS.md) reproduces hidden
 file reads and missing-file checks that rustc does not record. A kernel probe
 observes them at much lower cost than syscall tracing; native macro support still

@@ -1,0 +1,309 @@
+diff --git a/compiler/main.go b/compiler/main.go
+index 8d50f20..65ed76e 100644
+--- a/compiler/main.go
++++ b/compiler/main.go
+@@ -105,6 +105,9 @@ func (m *RustCompiler) Compile(ctx context.Context,
+ 	// +optional
+ 	noIncremental bool,
+ ) (*Compilation, error) {
++	ctx, diagnosticDone := replay.DiagnosticCompile(ctx)
++	defer diagnosticDone()
++	step := replay.DiagnosticSteps(ctx, "compile")
+ 	if plan == nil && !automaticPlan {
+ 		return nil, fmt.Errorf("compiler plan is required")
+ 	}
+@@ -113,11 +116,14 @@ func (m *RustCompiler) Compile(ctx context.Context,
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	step("source")
+ 	var recipe model.Plan
+ 	if plan != nil {
+ 		contents, readErr := plan.Contents(ctx)
++		step("plan-file")
+ 		if readErr == nil {
+ 			readErr = json.Unmarshal([]byte(contents), &recipe)
++			step("plan-decode")
+ 		}
+ 		if readErr != nil && !automaticPlan {
+ 			return nil, fmt.Errorf("read compiler plan: %w", readErr)
+@@ -126,6 +132,7 @@ func (m *RustCompiler) Compile(ctx context.Context,
+ 			recipe = model.Plan{}
+ 		}
+ 	}
++	step("read-plan")
+ 	resolvedImage := ""
+ 	if image != "" {
+ 		resolvedImage, err = dag.Container().From(image).ImageRef(ctx)
+@@ -133,6 +140,7 @@ func (m *RustCompiler) Compile(ctx context.Context,
+ 			return nil, err
+ 		}
+ 	}
++	step("image")
+ 	if automaticPlan {
+ 		if resolvedImage == "" || (command != "check" && command != "build" && command != "test") {
+ 			return nil, fmt.Errorf("automatic plans require an image and a Cargo build, check or test command")
+@@ -171,6 +179,7 @@ func (m *RustCompiler) Compile(ctx context.Context,
+ 			plan = dag.File("plan.json", string(contents))
+ 		}
+ 	}
++	step("plan-match")
+ 	capturedCommand := recipe.CargoCommand
+ 	if capturedCommand == "" {
+ 		capturedCommand = "build"
+@@ -184,6 +193,7 @@ func (m *RustCompiler) Compile(ctx context.Context,
+ 	if resolvedImage != "" && resolvedImage != recipe.Image {
+ 		return nil, fmt.Errorf("toolchain image differs from the compiler plan")
+ 	}
++	step("validate-options")
+ 	var retained *replay.NativeCache
+ 	if previousManifest != "" {
+ 		if len(previousTokens) != len(previousSnapshots) {
+@@ -200,10 +210,12 @@ func (m *RustCompiler) Compile(ctx context.Context,
+ 	} else if len(previousTokens) != 0 || len(previousSnapshots) != 0 {
+ 		return nil, fmt.Errorf("compiler cache directories require a manifest")
+ 	}
++	step("retained-directories")
+ 	runner, err := m.tools().File("/out/worker").ID(ctx)
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	step("tools")
+ 	graph, err := replay.BuildNativeCached(ctx, query, &recipe, native, replay.BuildOptions{
+ 		BatchCompiler: core.Ref[*core.File](query, core.ID(runner)), BatchWorkers: workers, BatchNoIncremental: noIncremental,
+ 		SourceDigestPaths: true,
+@@ -211,6 +223,7 @@ func (m *RustCompiler) Compile(ctx context.Context,
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	step("build-graph")
+ 	ready, err := graph.Artifacts.Sync(ctx)
+ 	if err != nil {
+ 		return nil, err
+@@ -219,6 +232,7 @@ func (m *RustCompiler) Compile(ctx context.Context,
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	step("compile-sync")
+ 	cache := &Cache{Plan: plan, Manifest: graph.Cache.Manifest}
+ 	for _, batch := range graph.Cache.Batches {
+ 		id, err := batch.Snapshot.ID(ctx)
+@@ -243,6 +257,7 @@ func (m *RustCompiler) Compile(ctx context.Context,
+ 		cache.Tokens = append(cache.Tokens, batch.ID)
+ 		cache.Snapshots = append(cache.Snapshots, dagger.Ref[*dagger.Directory](dag, dagger.ID(saved.Checkpoint.ID)))
+ 	}
++	step("checkpoint")
+ 	published := dag.Directory()
+ 	for _, publication := range recipe.Publications {
+ 		published = published.WithFile(publication.Path,
+@@ -264,12 +279,13 @@ func (m *RustCompiler) Compile(ctx context.Context,
+ 		}
+ 		tests = dagger.Ref[*dagger.Container](dag, dagger.ID(id))
+ 	}
++	step("test-recipe")
+ 	return &Compilation{Artifacts: dagger.Ref[*dagger.Directory](dag, dagger.ID(artifacts)), Published: published, Tests: tests, Cache: cache,
+ 		Hits: graph.HistoryHits, Actions: len(recipe.Actions)}, nil
+ }
+ 
+ func nativeQuery() *core.Query {
+-	return new(core.Query).WithGraphQLQuery(querybuilder.Query().Client(dag.GraphQLClient()))
++	return new(core.Query).WithGraphQLQuery(querybuilder.Query().Client(replay.DiagnosticQueries(dag.GraphQLClient())))
+ }
+ 
+ func nativeDirectory(ctx context.Context, query *core.Query, directory *dagger.Directory) (*core.Directory, error) {
+diff --git a/compiler/replay/diagnostic.go b/compiler/replay/diagnostic.go
+new file mode 100644
+index 0000000..fdbfc62
+--- /dev/null
++++ b/compiler/replay/diagnostic.go
+@@ -0,0 +1,73 @@
++package replay
++
++import (
++	"context"
++	"encoding/json"
++	"fmt"
++	"os"
++	"sync"
++	"time"
++
++	"github.com/Khan/genqlient/graphql"
++)
++
++type diagnosticKey struct{}
++
++type diagnosticEvent struct {
++	Phase        string  `json:"phase"`
++	StartMS      float64 `json:"start_ms"`
++	DurationMS   float64 `json:"duration_ms"`
++	RequestBytes int     `json:"request_bytes,omitempty"`
++}
++
++type diagnosticProfile struct {
++	start  time.Time
++	mu     sync.Mutex
++	events []diagnosticEvent
++}
++
++func DiagnosticCompile(ctx context.Context) (context.Context, func()) {
++	p := &diagnosticProfile{start: time.Now()}
++	return context.WithValue(ctx, diagnosticKey{}, p), func() {
++		p.mu.Lock()
++		defer p.mu.Unlock()
++		data, _ := json.Marshal(struct {
++			TotalMS float64           `json:"total_ms"`
++			Events  []diagnosticEvent `json:"events"`
++		}{float64(time.Since(p.start)) / float64(time.Millisecond), p.events})
++		fmt.Fprintf(os.Stderr, "RUST_COMPILE_DIAGNOSTIC %s\n", data)
++	}
++}
++
++func DiagnosticSteps(ctx context.Context, prefix string) func(string) {
++	p, _ := ctx.Value(diagnosticKey{}).(*diagnosticProfile)
++	last := time.Now()
++	return func(name string) {
++		end := time.Now()
++		if p != nil {
++			p.record(prefix+"."+name, last, end, 0)
++		}
++		last = end
++	}
++}
++
++func (p *diagnosticProfile) record(phase string, start, end time.Time, size int) {
++	p.mu.Lock()
++	defer p.mu.Unlock()
++	p.events = append(p.events, diagnosticEvent{phase, float64(start.Sub(p.start)) / float64(time.Millisecond), float64(end.Sub(start)) / float64(time.Millisecond), size})
++}
++
++type diagnosticQueries struct{ graphql.Client }
++
++func DiagnosticQueries(client graphql.Client) graphql.Client {
++	return &diagnosticQueries{client}
++}
++
++func (q *diagnosticQueries) MakeRequest(ctx context.Context, req *graphql.Request, response *graphql.Response) error {
++	start := time.Now()
++	err := q.Client.MakeRequest(ctx, req, response)
++	if p, _ := ctx.Value(diagnosticKey{}).(*diagnosticProfile); p != nil {
++		p.record("graphql.request", start, time.Now(), len(req.Query))
++	}
++	return err
++}
+diff --git a/compiler/replay/history.go b/compiler/replay/history.go
+index 37fd403..53b8440 100644
+--- a/compiler/replay/history.go
++++ b/compiler/replay/history.go
+@@ -133,12 +133,14 @@ func targetRelative(filename string) string {
+ // claiming to contain compiler results. Callers retain/transfer History as a
+ // native Directory. A local ID file alone is neither portable nor a remote index.
+ func BuildAutomatic(ctx context.Context, client *dagger.Query, plan *model.Plan, source Source, opts BuildOptions, previous *dagger.Directory) (*Graph, error) {
++	step := DiagnosticSteps(ctx, "history")
+ 	if err := validateBuild(plan, source, opts); err != nil {
+ 		return nil, err
+ 	}
+ 	if opts.IncrementalCrate != "" || opts.IncrementalSeed != nil || opts.ArtifactLeafFiles != 0 {
+ 		return nil, fmt.Errorf("automatic history cannot be combined with an explicit seed or file bundles")
+ 	}
++	step("validate")
+ 	opts.ArtifactDirectories = true
+ 	old := historyManifest{Version: historyVersion, Actions: map[string][]historyEntry{}}
+ 	var lookup func(string) *dagger.Directory
+@@ -173,6 +175,7 @@ func BuildAutomatic(ctx context.Context, client *dagger.Query, plan *model.Plan,
+ 			return nil, err
+ 		}
+ 	}
++	step("manifest")
+ 	var workerDigest string
+ 	if opts.BatchCompiler != nil {
+ 		var err error
+@@ -181,6 +184,7 @@ func BuildAutomatic(ctx context.Context, client *dagger.Query, plan *model.Plan,
+ 			return nil, err
+ 		}
+ 	}
++	step("worker-digest")
+ 	configurationInputs := []any{recipeConfiguration(plan), workerDigest, opts.BatchWorkers, opts.BatchNoPipelining}
+ 	if opts.BatchNoIncremental {
+ 		configurationInputs = append(configurationInputs, "no-incremental")
+@@ -193,6 +197,7 @@ func BuildAutomatic(ctx context.Context, client *dagger.Query, plan *model.Plan,
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	step("configuration")
+ 	sources := source.packageSources(plan.Packages)
+ 	sourceKeys := map[string]string{}
+ 	if opts.SourceDirectory != nil {
+@@ -212,6 +217,7 @@ func BuildAutomatic(ctx context.Context, client *dagger.Query, plan *model.Plan,
+ 			sourceKeys[root] = files.ContentDigest()
+ 		}
+ 	}
++	step("package-digests")
+ 	inputs := &automaticInputs{hits: map[string]*retainedResult{}, seeds: map[string]*dagger.Directory{}, batchSeeded: map[string]bool{}}
+ 	seedGroups := map[string][]string{}
+ 	if old.CurrentBatch != "" {
+@@ -297,11 +303,13 @@ func BuildAutomatic(ctx context.Context, client *dagger.Query, plan *model.Plan,
+ 			inputs.artifacts = client.Directory()
+ 		}
+ 	}
++	step("select-results")
+ 	opts.automatic = inputs
+ 	graph, err := BuildWithOptions(client, plan, source, opts)
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	step("batch-graph")
+ 	var batchID string
+ 	if graph.batchSnapshot != nil {
+ 		batchID, err = historyDigest(rand.Text())
+@@ -342,6 +350,7 @@ func BuildAutomatic(ctx context.Context, client *dagger.Query, plan *model.Plan,
+ 			}
+ 			cache.Batches = append(cache.Batches, NativeCacheBatch{ID: id, Snapshot: snapshot})
+ 		}
++		step("manifest-output")
+ 		graph.Cache = cache
+ 		return graph, nil
+ 	}
+diff --git a/compiler/replay/native.go b/compiler/replay/native.go
+index ac7706b..2075018 100644
+--- a/compiler/replay/native.go
++++ b/compiler/replay/native.go
+@@ -42,6 +42,7 @@ func CaptureNative(ctx context.Context, client *dagger.Query, source *dagger.Dir
+ // Conservatively recapture on any path addition/removal, including new targets
+ // or build scripts that Cargo would otherwise discover outside the old graph.
+ func NativePlanMatches(ctx context.Context, source *dagger.Directory, plan *model.Plan, opts CaptureOptions) (bool, error) {
++	step := DiagnosticSteps(ctx, "plan-match")
+ 	if plan == nil || plan.NativeConfigDigest == "" || plan.NativeSourcePaths == nil || !planOptionsMatch(plan, opts) {
+ 		return false, nil
+ 	}
+@@ -52,6 +53,7 @@ func NativePlanMatches(ctx context.Context, source *dagger.Directory, plan *mode
+ 	if err != nil {
+ 		return false, fmt.Errorf("hash native Cargo configuration: %w", err)
+ 	}
++	step("config-digest")
+ 	if digest != plan.NativeConfigDigest {
+ 		return false, nil
+ 	}
+@@ -59,6 +61,7 @@ func NativePlanMatches(ctx context.Context, source *dagger.Directory, plan *mode
+ 	if err != nil {
+ 		return false, fmt.Errorf("read native source paths: %w", err)
+ 	}
++	step("glob")
+ 	slices.Sort(paths)
+ 	return slices.Equal(paths, plan.NativeSourcePaths), nil
+ }
+@@ -81,6 +84,7 @@ func planOptionsMatch(plan *model.Plan, opts CaptureOptions) bool {
+ // come from source itself. The caller excludes .git and target from source and
+ // retains Graph.History as a Directory.
+ func BuildNativeAutomatic(ctx context.Context, client *dagger.Query, plan *model.Plan, source *dagger.Directory, opts BuildOptions, previous *dagger.Directory) (*Graph, error) {
++	step := DiagnosticSteps(ctx, "native")
+ 	if source == nil {
+ 		return nil, fmt.Errorf("native source directory is required")
+ 	}
+@@ -100,6 +104,7 @@ func BuildNativeAutomatic(ctx context.Context, client *dagger.Query, plan *model
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	step("configuration")
+ 	opts.SourceDirectory = source
+ 	return BuildAutomatic(ctx, client, plan, configuration, opts, previous)
+ }

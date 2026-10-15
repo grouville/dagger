@@ -1,0 +1,42 @@
+--- a/engine/snapshots/persistent_metadata.go
++++ b/engine/snapshots/persistent_metadata.go
+@@ -10,6 +10,7 @@
+ 	"github.com/containerd/containerd/v2/core/leases"
+ 	"github.com/containerd/containerd/v2/core/metadata/boltutil"
+ 	cerrdefs "github.com/containerd/errdefs"
++	"github.com/dagger/dagger/engine/wcprof"
+ 	digest "github.com/opencontainers/go-digest"
+ 	pkgerrors "github.com/pkg/errors"
+ 	bolt "go.etcd.io/bbolt"
+@@ -317,15 +318,29 @@
+ // would have been. committed reports whether they were: false only when the
+ // transaction itself failed and rolled back. fn must not take cm.mu: holders
+ // of cm.mu wait on metadata writes.
+-func (cm *snapshotManager) writeLease(ctx context.Context, fn func(context.Context) error) (committed bool, _ error) {
++func (cm *snapshotManager) writeLease(ctx context.Context, fn func(context.Context) error) (committed bool, rerr error) {
++	ctx, operation := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "snapshot.ownerLease.transaction", wcprof.OpOpts{})
++	defer func() { operation.EndErr(rerr) }()
+ 	if cm.metadataDB == nil {
+ 		return true, fn(ctx)
+ 	}
++	_, waiting := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "snapshot.ownerLease.transactionWait", wcprof.OpOpts{})
++	var commit *wcprof.Op
++	entered := false
+ 	var fnErr error
+ 	err := cm.metadataDB.Update(func(tx *bolt.Tx) error {
+-		fnErr = fn(boltutil.WithTransaction(ctx, tx))
++		entered = true
++		waiting.EndErr(nil)
++		writeCtx, writing := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "snapshot.ownerLease.mutate", wcprof.OpOpts{})
++		fnErr = fn(boltutil.WithTransaction(writeCtx, tx))
++		writing.EndErr(fnErr)
++		_, commit = wcprof.BeginOp(ctx, wcprof.OpKindInternal, "snapshot.ownerLease.commit", wcprof.OpOpts{})
+ 		return nil
+ 	})
++	if !entered {
++		waiting.EndErr(err)
++	}
++	commit.EndErr(err)
+ 	if err != nil {
+ 		return false, stderrors.Join(fnErr, pkgerrors.Wrap(err, "commit owner lease writes"))
+ 	}
