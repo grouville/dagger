@@ -2,10 +2,12 @@ package core
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/dagger/dagger/dagql"
 	"github.com/dagger/dagger/dagql/call"
+	"github.com/dagger/dagger/engine"
 	"github.com/stretchr/testify/require"
 )
 
@@ -131,6 +133,52 @@ func TestSchemaBuilderServerLivesInSessionMemo(t *testing.T) {
 	other, err := deps.Schema(client(NewSchemaBuilderMemo()))
 	require.NoError(t, err)
 	require.NotSame(t, srv, other, "another session builds its own")
+}
+
+type clientForkTestMod struct{ artifactProbeMod }
+
+func (m *clientForkTestMod) Install(ctx context.Context, dag *dagql.Server, opts ...InstallOpts) error {
+	if err := m.artifactProbeMod.Install(ctx, dag, opts...); err != nil {
+		return err
+	}
+	dagql.Fields[*Query]{dagql.Func("marker", func(_ context.Context, root *Query, _ struct{}) (dagql.String, error) {
+		return root.ConstructorArgs["marker"].(dagql.String), nil
+	}).DoNotCache("Read this client's query root.")}.Install(dag)
+	return nil
+}
+
+func TestSchemaBuilderClientForksShareInstallation(t *testing.T) {
+	cache, err := dagql.NewCache(t.Context(), "", nil, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, cache.Close(context.Background())) })
+	ctx := dagql.ContextWithCache(t.Context(), cache)
+	mod := &clientForkTestMod{}
+	server := &memoTestServer{mockServer: &mockServer{}, session: NewSchemaBuilderMemo()}
+	template := NewSchemaBuilder(&Query{Server: server}, []Mod{mod})
+	const clients = 8
+	var wg sync.WaitGroup
+	var markers [clients]dagql.String
+	var errs [clients]error
+	for i := range clients {
+		wg.Go(func() {
+			root := &Query{Server: server, ConstructorArgs: map[string]dagql.Input{"marker": dagql.String(string(rune('a' + i)))}}
+			ctx := ContextWithQuery(ctx, root)
+			ctx = engine.ContextWithClientMetadata(ctx, &engine.ClientMetadata{ClientID: string(rune('a' + i)), SessionID: "forks"})
+			fork, err := template.ForkForClient(root).Schema(ctx)
+			if err != nil {
+				errs[i] = err
+				return
+			}
+			errs[i] = fork.Select(ctx, fork.Root(), &markers[i], dagql.Selector{Field: "marker"})
+		})
+	}
+	wg.Wait()
+	for i := range clients {
+		require.NoError(t, errs[i])
+		require.Equal(t, dagql.String(string(rune('a'+i))), markers[i])
+	}
+	require.Equal(t, 1, mod.installs, "the session installs the module set once")
+	require.Nil(t, template.lazilyLoadedServer, "the cached module keeps no session server")
 }
 
 // With no session to hold it, the server is built for the one call.

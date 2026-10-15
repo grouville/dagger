@@ -1575,11 +1575,11 @@ func (srv *Server) initializeClientRuntime(
 		coreMod = coreSchemaBase.CoreMod(coreView)
 
 		client.defaultDeps = core.NewSchemaBuilder(client.dagqlRoot, []core.Mod{coreMod})
-		servedMods := client.mod.Self().Deps.WithRoot(client.dagqlRoot)
+		servedMods := client.mod.Self().Deps
 		if len(client.mod.Self().ObjectDefs) > 0 {
 			servedMods = servedMods.Append(core.NewUserMod(client.mod))
 		}
-		client.servedMods = servedMods.ClientOwned()
+		client.servedMods = servedMods.ForkForClient(client.dagqlRoot)
 	} else {
 		client.pendingWorkspaceLoad = true
 		if clientMD := client.clientMetadata; clientMD != nil && len(clientMD.ExtraModules) > 0 {

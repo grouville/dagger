@@ -59,6 +59,9 @@ type SchemaBuilder struct {
 	// clientOwned marks a builder that may keep the server it builds. It is
 	// never copied: every derived builder starts unowned.
 	clientOwned bool
+	// A nested client forks this session-owned module registry onto its own
+	// query root. Derived module sets must build their own registry.
+	schemaTemplate *SchemaBuilder
 
 	lazilyLoadedServer *dagql.Server
 	loadSchemaErr      error
@@ -93,6 +96,15 @@ func (b *SchemaBuilder) Clone() *SchemaBuilder {
 func (b *SchemaBuilder) ClientOwned() *SchemaBuilder {
 	cp := b.Clone()
 	cp.clientOwned = true
+	return cp
+}
+
+// ForkForClient shares module installation within the session while keeping
+// the client's query root and subsequent schema changes independent.
+func (b *SchemaBuilder) ForkForClient(root *Query) *SchemaBuilder {
+	cp := b.WithRoot(root)
+	cp.clientOwned = true
+	cp.schemaTemplate = b.Clone()
 	return cp
 }
 
@@ -381,6 +393,18 @@ func (b *SchemaBuilder) lazilyLoadSchema(ctx context.Context) (loadedSchema *dag
 		b.loadSchemaErr = rerr
 		b.loadSchemaFailed.Store(rerr != nil)
 	}()
+	if b.schemaTemplate != nil {
+		template, err := b.schemaTemplate.Schema(ctx)
+		if err != nil {
+			return nil, err
+		}
+		fork, err := template.Fork(ctx, b.root)
+		if err != nil {
+			return nil, err
+		}
+		InstallCoreSchemaLoaders(fork)
+		return fork, nil
+	}
 
 	var nonEntrypoints, entrypoints []modDepEntry
 	for _, e := range b.entries {
