@@ -559,7 +559,8 @@ func decodePersistedScalarEnvelope(env PersistedResultEnvelope, call *ResultCall
 	return persistedNullableView(res, call), nil
 }
 
-// decodePersistedListEnvelope decodes a list envelope item by item.
+// decodePersistedListEnvelope keeps plain scalar lists compact and decodes
+// other lists item by item.
 func decodePersistedListEnvelope(ctx context.Context, dec *PersistDecodeContext, env PersistedResultEnvelope, call *ResultCall) (AnyResult, error) {
 	if call == nil {
 		return nil, fmt.Errorf("decode list envelope: missing authoritative call")
@@ -571,20 +572,21 @@ func decodePersistedListEnvelope(ctx context.Context, dec *PersistDecodeContext,
 	if err != nil {
 		return nil, fmt.Errorf("decode list envelope element type: %w", err)
 	}
-	items := make([]AnyResult, 0, len(env.Items))
-	for i, itemEnv := range env.Items {
-		itemCall := persistedListItemCall(call, i+1)
-		itemCtx := ContextWithCall(ctx, itemCall)
-		itemRes, err := decodePersistedResultEnvelope(itemCtx, dec.item(itemCall, i), itemEnv, false)
-		if err != nil {
-			return nil, fmt.Errorf("decode list item %d: %w", i+1, err)
+	values, compact := decodePersistedScalarArray(dec.Server(), env.Items, call, elem)
+	if !compact {
+		items := make([]AnyResult, 0, len(env.Items))
+		for i, itemEnv := range env.Items {
+			itemCall := persistedListItemCall(call, i+1)
+			itemCtx := ContextWithCall(ctx, itemCall)
+			itemRes, err := decodePersistedResultEnvelope(itemCtx, dec.item(itemCall, i), itemEnv, false)
+			if err != nil {
+				return nil, fmt.Errorf("decode list item %d: %w", i+1, err)
+			}
+			items = append(items, itemRes)
 		}
-		items = append(items, itemRes)
+		values = DynamicResultArrayOutput{Elem: elem, Values: items}
 	}
-	res, err := NewResultForCall(DynamicResultArrayOutput{
-		Elem:   elem,
-		Values: items,
-	}, call)
+	res, err := NewResultForCall(values, call)
 	if err != nil {
 		return nil, err
 	}

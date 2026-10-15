@@ -22,6 +22,11 @@ func walkInlineValues(res AnyResult, frame *ResultCall, path PersistedRefPath, r
 		if frame == nil || frame.Type == nil || frame.Type.Elem == nil {
 			return fmt.Errorf("inline list: missing authoritative list call")
 		}
+		// The compact decoder admits only inline builtin scalar values, which
+		// cannot carry snapshot owners, part hosts, or release hooks.
+		if _, ok := list.(persistedScalarArray); ok {
+			return nil
+		}
 		for i := 1; i <= list.Len(); i++ {
 			item, err := list.NthValue(i, frame)
 			if err != nil {

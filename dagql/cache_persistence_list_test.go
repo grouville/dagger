@@ -96,7 +96,8 @@ func TestPersistedNestedListSurvivesRepeatedRestore(t *testing.T) {
 		require.NotZero(t, value.cacheSharedResult().id)
 		inline := items[1].Unwrap().(DynamicResultArrayOutput).Values[0]
 		require.Zero(t, inline.cacheSharedResult().id)
-		leaf := inline.Unwrap().(DynamicResultArrayOutput).Values[1]
+		leaf, err := inline.Unwrap().(Enumerable).NthValue(2, nil)
+		require.NoError(t, err)
 		require.Zero(t, leaf.cacheSharedResult().id)
 		require.Equal(t, Typed(Int(9)), leaf.Unwrap())
 	}
