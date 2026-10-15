@@ -5,9 +5,9 @@ import (
 	"fmt"
 )
 
-// walkInlineValues reads only held values and declared list/nullable structure.
+// walkInlineOwners visits held inline values that can own snapshots or parts.
 // Separately attached items are ownership boundaries, not inline values.
-func walkInlineValues(res AnyResult, frame *ResultCall, path PersistedRefPath, root bool, visit func(AnyResult, PersistedRefPath) error) error {
+func walkInlineOwners(res AnyResult, frame *ResultCall, path PersistedRefPath, root bool, visit func(AnyResult, PersistedRefPath) error) error {
 	if res == nil {
 		return nil
 	}
@@ -22,12 +22,18 @@ func walkInlineValues(res AnyResult, frame *ResultCall, path PersistedRefPath, r
 		if frame == nil || frame.Type == nil || frame.Type.Elem == nil {
 			return fmt.Errorf("inline list: missing authoritative list call")
 		}
+		// Primitive arrays cannot own snapshots, part hosts, or release hooks.
+		// Avoid constructing item call frames, which copy the producer's arguments.
+		switch list.(type) {
+		case Array[String], Array[Int], Array[Float], Array[Boolean]:
+			return nil
+		}
 		for i := 1; i <= list.Len(); i++ {
 			item, err := list.NthValue(i, frame)
 			if err != nil {
 				return err
 			}
-			if err := walkInlineValues(item, persistedListItemCall(frame, i), path.Field("items").Index(i-1), false, visit); err != nil {
+			if err := walkInlineOwners(item, persistedListItemCall(frame, i), path.Field("items").Index(i-1), false, visit); err != nil {
 				return err
 			}
 		}
@@ -76,7 +82,7 @@ func collectSnapshotOwnerLinks(ctx context.Context, self Typed, frame *ResultCal
 	}
 	var links []PersistedSnapshotRefLink
 	var versions capturedOutputVersions
-	err := walkInlineValues(newDetachedResult(frame, self), frame, nil, true, func(value AnyResult, path PersistedRefPath) error {
+	err := walkInlineOwners(newDetachedResult(frame, self), frame, nil, true, func(value AnyResult, path PersistedRefPath) error {
 		self := value.Unwrap()
 		if reader, ok := self.(SnapshotOwnerReader); forSync && ok {
 			_, local, err := reader.ReadSnapshotOwner(ctx)
