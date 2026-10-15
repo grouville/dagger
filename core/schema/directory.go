@@ -90,6 +90,9 @@ func (s *directorySchema) Install(srv *dagql.Server) {
 				It is guaranteed to be stable between invocations of the same Dagger engine.`,
 			).
 			Args(dagql.Arg("path").Doc(`Subdirectory to hash, relative to this directory.`)),
+		dagql.NodeFunc("digests", s.digests).
+			Doc(`Return subdirectory digests in the same order as the given paths.`).
+			Args(dagql.Arg("paths").Doc(`Subdirectories to hash, relative to this directory.`)),
 		dagql.NodeFunc("file", s.file).
 			Doc(`Retrieve a file at the given path.`).
 			Args(
@@ -858,6 +861,20 @@ func (s *directorySchema) digest(ctx context.Context, parent dagql.ObjectResult[
 	}
 
 	return dagql.NewString(digest), nil
+}
+
+func (s *directorySchema) digests(ctx context.Context, parent dagql.ObjectResult[*core.Directory], args struct {
+	Paths []string
+}) (dagql.Array[dagql.String], error) {
+	digests := make([]string, len(args.Paths))
+	for i, subdir := range args.Paths {
+		digest, err := parent.Self().DigestPath(ctx, parent, subdir)
+		if err != nil {
+			return nil, err
+		}
+		digests[i] = digest
+	}
+	return dagql.NewStringArray(digests...), nil
 }
 
 type dirFileArgs struct {

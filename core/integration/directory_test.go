@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -1713,6 +1714,7 @@ func (DirectorySuite) TestDigestPaths(ctx context.Context, t *testctx.T) {
 				if selected == "outer" {
 					paths = []string{".", "nested", "../empty", "nested/file", "missing"}
 				}
+				var batchPaths, batchDigests []string
 				for _, path := range paths {
 					want, wantErr := parent.Directory(path).Digest(ctx)
 					var got string
@@ -1721,8 +1723,30 @@ func (DirectorySuite) TestDigestPaths(ctx context.Context, t *testctx.T) {
 					require.Equal(t, wantErr == nil, gotErr == nil, "selected %q, path %q: %v / %v", selected, path, wantErr, gotErr)
 					if wantErr == nil {
 						require.Equal(t, want, got, "selected %q, path %q", selected, path)
+						batchPaths = append(batchPaths, path)
+						batchDigests = append(batchDigests, want)
+					} else {
+						var digests []string
+						err := querybuilder.Query().Client(c.GraphQLClient()).Select("node").Arg("id", id).InlineFragment("Directory").
+							Select("digests").Arg("paths", []string{".", path}).Bind(&digests).Execute(ctx)
+						require.Error(t, err, "selected %q, path %q", selected, path)
 					}
 				}
+				// Preserve ordering and repeated paths; a set or sorted result
+				// would silently assign package digests to the wrong inputs.
+				slices.Reverse(batchPaths)
+				slices.Reverse(batchDigests)
+				batchPaths = append(batchPaths, batchPaths[0])
+				batchDigests = append(batchDigests, batchDigests[0])
+				var got []string
+				err = querybuilder.Query().Client(c.GraphQLClient()).Select("node").Arg("id", id).InlineFragment("Directory").
+					Select("digests").Arg("paths", batchPaths).Bind(&got).Execute(ctx)
+				require.NoError(t, err)
+				require.Equal(t, batchDigests, got)
+				err = querybuilder.Query().Client(c.GraphQLClient()).Select("node").Arg("id", id).InlineFragment("Directory").
+					Select("digests").Arg("paths", []string{}).Bind(&got).Execute(ctx)
+				require.NoError(t, err)
+				require.Empty(t, got)
 			}
 		})
 	}
