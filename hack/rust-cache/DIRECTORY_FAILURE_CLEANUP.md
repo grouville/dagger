@@ -24,8 +24,8 @@ deferred release runs. Release uses the manager's existing lock order, and a
 cleanup error is joined with the original operation error. No ref is published
 by this failing path.
 
-This prevents retained snapshots after errors. No steady-state command speedup
-has been measured or claimed. Batching package exclusions is the measured
+This releases the unreturned mutable reference after errors. Filesystem usage
+and steady-state command speedups have not been measured. Batching package exclusions is the measured
 performance improvement; this is an independently reviewable engine fix found
 while investigating its failure case.
 
