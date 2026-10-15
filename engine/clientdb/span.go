@@ -30,7 +30,37 @@ type readOnlySpan struct {
 	// Have to embed the interface to get private(). Goofy.
 	sdktrace.ReadOnlySpan
 
-	DB *Span
+	DB       *Span
+	resource *resource.Resource
+	scope    *instrumentation.Scope
+}
+
+// ReadOnlySpans shares decoded resource and scope metadata within one batch.
+// Records remain separate; a later batch decodes its own metadata.
+func ReadOnlySpans(spans []Span) []sdktrace.ReadOnlySpan {
+	resources := map[string]*resource.Resource{}
+	scopes := map[string]*instrumentation.Scope{}
+	result := make([]sdktrace.ReadOnlySpan, 0, len(spans))
+	for i := range spans {
+		ro := &readOnlySpan{DB: &spans[i]}
+		resourceKey := string(spans[i].Resource)
+		if res, ok := resources[resourceKey]; ok {
+			ro.resource = res
+		} else {
+			ro.resource = ro.Resource()
+			resources[resourceKey] = ro.resource
+		}
+		scopeKey := string(spans[i].InstrumentationScope)
+		scope, ok := scopes[scopeKey]
+		if !ok {
+			decoded := ro.InstrumentationScope()
+			scope = &decoded
+			scopes[scopeKey] = scope
+		}
+		ro.scope = scope
+		result = append(result, ro)
+	}
+	return result
 }
 
 var _ sdktrace.ReadOnlySpan = (*readOnlySpan)(nil)
@@ -192,6 +222,9 @@ func (ros *readOnlySpan) ChildSpanCount() int {
 
 // Resource returns the resource associated with the span
 func (ros *readOnlySpan) Resource() *resource.Resource {
+	if ros.resource != nil {
+		return ros.resource
+	}
 	res := &otlpresourcev1.Resource{}
 	if err := protojson.Unmarshal(ros.DB.Resource, res); err != nil {
 		slog.Warn("failed to unmarshal resource", "error", err)
@@ -208,6 +241,9 @@ func (ros *readOnlySpan) InstrumentationLibrary() instrumentation.Library {
 
 // InstrumentationScope returns the instrumentation scope
 func (ros *readOnlySpan) InstrumentationScope() instrumentation.Scope {
+	if ros.scope != nil {
+		return *ros.scope
+	}
 	// Assuming instrumentation scope is stored as JSON and needs to be parsed
 	is := &otlpcommonv1.InstrumentationScope{}
 	if err := protojson.Unmarshal(ros.DB.InstrumentationScope, is); err != nil {
