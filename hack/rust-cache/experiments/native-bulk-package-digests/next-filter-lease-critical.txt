@@ -1,0 +1,33 @@
+critpath of op 13194: 1.42s
+on-path time by class (sums to the roots' duration; concurrent work off the path gets nothing):
+     on_path      % segments  kind class
+       1.18s  83.0%        1  internal dagql.attachSnapshotLease
+    108.04ms   7.6%        1  internal directory.withDirectory.copy
+     95.75ms   6.7%        1  call Directory.filter
+     19.64ms   1.4%        1  internal directory.withDirectory.mountAndCopy
+     16.04ms   1.1%        1  internal directory.withDirectory.commit
+     658.6µs   0.0%        1  session_phase session.query
+     531.2µs   0.0%        1  internal directory.withDirectory.newSnapshot
+     412.2µs   0.0%        3  internal dagql.publishResult
+     154.8µs   0.0%        1  lazy Directory.withDirectory
+     120.9µs   0.0%        1  call Directory.digest
+     112.3µs   0.0%        1  call Directory.withDirectory
+      57.3µs   0.0%        1  call Query.node
+      15.0µs   0.0%        1  call Module._implementationScoped
+      12.4µs   0.0%        1  call Query.directory
+      11.6µs   0.0%        1  internal dagql.collectSnapshotOwnerLinks
+       4.2µs   0.0%        1  internal dagql.syncSnapshotOwnerLinks
+       2.9µs   0.0%        1  internal dagql.snapshotLeaseLockHeld
+
+path of the longest (offsets from its start; `dur` on the path, `own` not in any blocker):
++0ns dur 1.42s own 658.6µs  13194 session_phase session.query [ok]
+  +324.6µs dur 1.42s own 95.75ms  13197 call Directory.filter [executed] (exec 13198)
+    +872.2µs dur 1.32s own 154.8µs  13206 lazy Directory.withDirectory [ok]
+      +1.48ms dur 127.68ms own 19.64ms  13208 internal directory.withDirectory.mountAndCopy [ok]
+        +1.77ms dur 108.04ms own 108.04ms  13209 internal directory.withDirectory.copy [ok]
+      +129.16ms dur 16.04ms own 16.04ms  13210 internal directory.withDirectory.commit [ok]
+      +145.22ms dur 1.18s own 2.9µs  13211 internal dagql.snapshotLeaseLockHeld [ok]
+        +145.24ms dur 1.18s own 4.2µs  13213 internal dagql.syncSnapshotOwnerLinks [ok]
+          +145.24ms dur 1.18s own 1.18s  13214 internal dagql.attachSnapshotLease [ok]
+(7 segments not shown: runs of them totaling under 1% of the path, 1.27ms)
+(runs of sub-1% segments totaling 1%+ show their largest members, the rest as "… N shorter"; ▸ N: N segments not expanded, raise `depth` or re-root with `op`; (exec N): a call folded with its call_exec op N)

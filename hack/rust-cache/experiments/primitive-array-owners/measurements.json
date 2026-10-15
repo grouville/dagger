@@ -1,0 +1,223 @@
+{
+  "base_main": "5d313bf2e326ad8297f4abb1f75cb432944b2c26",
+  "fix_commit": "d87815ce1",
+  "benchmark": {
+    "command": "go test -run '^Test(InlinePrimitiveNamedOwner|PrimitiveArrayRequiresListDeclaration)$' -bench '^BenchmarkPrimitiveArrayOwners$' -benchtime=3x -count=3 -benchmem ./dagql",
+    "samples": {
+      "before": {
+        "128/snapshot_links": [
+          {
+            "nanoseconds": 3603929.0,
+            "bytes": 6901216,
+            "allocations": 35467
+          },
+          {
+            "nanoseconds": 3157470.0,
+            "bytes": 6901296,
+            "allocations": 35468
+          },
+          {
+            "nanoseconds": 3203204.0,
+            "bytes": 6901189,
+            "allocations": 35467
+          }
+        ],
+        "128/part_hosts": [
+          {
+            "nanoseconds": 2909328.0,
+            "bytes": 6888496,
+            "allocations": 35586
+          },
+          {
+            "nanoseconds": 3005318.0,
+            "bytes": 6888496,
+            "allocations": 35586
+          },
+          {
+            "nanoseconds": 3144659.0,
+            "bytes": 6888485,
+            "allocations": 35586
+          }
+        ],
+        "512/snapshot_links": [
+          {
+            "nanoseconds": 46050255.0,
+            "bytes": 106901469,
+            "allocations": 535055
+          },
+          {
+            "nanoseconds": 44554942.0,
+            "bytes": 106899600,
+            "allocations": 535052
+          },
+          {
+            "nanoseconds": 43930503.0,
+            "bytes": 106899520,
+            "allocations": 535051
+          }
+        ],
+        "512/part_hosts": [
+          {
+            "nanoseconds": 44382042.0,
+            "bytes": 106852485,
+            "allocations": 535555
+          },
+          {
+            "nanoseconds": 43855916.0,
+            "bytes": 106852421,
+            "allocations": 535554
+          },
+          {
+            "nanoseconds": 44053227.0,
+            "bytes": 106852384,
+            "allocations": 535554
+          }
+        ],
+        "1024/snapshot_links": [
+          {
+            "nanoseconds": 193354691.0,
+            "bytes": 424561552,
+            "allocations": 2118670
+          },
+          {
+            "nanoseconds": 199789974.0,
+            "bytes": 424561776,
+            "allocations": 2118672
+          },
+          {
+            "nanoseconds": 179522941.0,
+            "bytes": 424561701,
+            "allocations": 2118671
+          }
+        ],
+        "1024/part_hosts": [
+          {
+            "nanoseconds": 185206818.0,
+            "bytes": 424468736,
+            "allocations": 2119684
+          },
+          {
+            "nanoseconds": 197070258.0,
+            "bytes": 424468725,
+            "allocations": 2119684
+          },
+          {
+            "nanoseconds": 192590225.0,
+            "bytes": 424469034,
+            "allocations": 2119686
+          }
+        ]
+      },
+      "after": {
+        "128/snapshot_links": [
+          {
+            "nanoseconds": 14265.0,
+            "bytes": 27072,
+            "allocations": 139
+          },
+          {
+            "nanoseconds": 11315.0,
+            "bytes": 27072,
+            "allocations": 139
+          },
+          {
+            "nanoseconds": 12710.0,
+            "bytes": 27072,
+            "allocations": 139
+          }
+        ],
+        "128/part_hosts": [
+          {
+            "nanoseconds": 1860.0,
+            "bytes": 32,
+            "allocations": 2
+          },
+          {
+            "nanoseconds": 903.0,
+            "bytes": 32,
+            "allocations": 2
+          },
+          {
+            "nanoseconds": 897.7,
+            "bytes": 32,
+            "allocations": 2
+          }
+        ],
+        "512/snapshot_links": [
+          {
+            "nanoseconds": 48036.0,
+            "bytes": 104512,
+            "allocations": 523
+          },
+          {
+            "nanoseconds": 42906.0,
+            "bytes": 104512,
+            "allocations": 523
+          },
+          {
+            "nanoseconds": 25559.0,
+            "bytes": 104512,
+            "allocations": 523
+          }
+        ],
+        "512/part_hosts": [
+          {
+            "nanoseconds": 1188.0,
+            "bytes": 32,
+            "allocations": 2
+          },
+          {
+            "nanoseconds": 862.7,
+            "bytes": 32,
+            "allocations": 2
+          },
+          {
+            "nanoseconds": 964.7,
+            "bytes": 32,
+            "allocations": 2
+          }
+        ],
+        "1024/snapshot_links": [
+          {
+            "nanoseconds": 122816.0,
+            "bytes": 207424,
+            "allocations": 1035
+          },
+          {
+            "nanoseconds": 51380.0,
+            "bytes": 207424,
+            "allocations": 1035
+          },
+          {
+            "nanoseconds": 75789.0,
+            "bytes": 207424,
+            "allocations": 1035
+          }
+        ],
+        "1024/part_hosts": [
+          {
+            "nanoseconds": 1140.0,
+            "bytes": 32,
+            "allocations": 2
+          },
+          {
+            "nanoseconds": 1083.0,
+            "bytes": 32,
+            "allocations": 2
+          },
+          {
+            "nanoseconds": 931.3,
+            "bytes": 32,
+            "allocations": 2
+          }
+        ]
+      }
+    }
+  },
+  "correctness": {
+    "new_adversarial_guards": "PASS before and after; custom String-named values retain snapshot links, part host binding and exactly one release hook; invalid list declarations still fail",
+    "race": "PASS: Inline, PrimitiveArray, SnapshotOwner and NthValue test groups",
+    "lifetime_race": "PASS: PartHost, PersistedLists and PersistedSecondSave test groups",
+    "real_engine": "API integration race passes with the fast path; 1026/1026 preexisting compilation results survive a clean restart and both hashing paths"
+  }
+}

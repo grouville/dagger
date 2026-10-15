@@ -102,6 +102,13 @@ The [retained-source copy experiment](NATIVE_PACKAGE_FILTER.md) replaces removal
 of nested packages with a filtered copy. The package-hash phase gets shorter,
 but complete-command comparisons do not establish a repeatable gain, so the
 selected projection remains unchanged.
+The [grouped package-hash experiment](NATIVE_BULK_PACKAGE_DIGESTS.md) exposes
+quadratic copying while publishing a primitive array. Its
+[standalone ownership fix](NATIVE_PRIMITIVE_ARRAY_OWNERS.md) is based on main;
+publication falls from 409 ms to 0.63 ms in the actual engine capture. With that
+fix, grouped hashing saves 131 ms per large-leaf pair after swapping histories.
+The module and API remain experimental; shared edits show little benefit and
+the complete-command target remains unmet.
 The [procedural-macro input study](NATIVE_PROC_MACRO_INPUTS.md) reproduces hidden
 file reads and missing-file checks that rustc does not record. A kernel probe
 observes them at much lower cost than syscall tracing; native macro support still

@@ -1,0 +1,15 @@
+critpath of op 13346: 606.73ms
+on-path time by class (sums to the roots' duration; concurrent work off the path gets nothing):
+     on_path      % segments  kind class
+    408.79ms  67.4%        1  internal dagql.publishResult
+    145.36ms  24.0%        1  session_phase session.query
+     52.49ms   8.7%        1  call Directory.digests
+      64.8µs   0.0%        1  call Query.node
+      20.6µs   0.0%        1  call Module._implementationScoped
+
+path of the longest (offsets from its start; `dur` on the path, `own` not in any blocker):
++0ns dur 606.73ms own 145.36ms  13346 session_phase session.query [ok]
+  +1.81ms dur 461.28ms own 52.49ms  13349 call Directory.digests [executed] (exec 13350)
+    +54.27ms dur 408.79ms own 408.79ms  13351 internal dagql.publishResult [ok]
+(1 segments not shown: runs of them totaling under 1% of the path, 85.4µs)
+(runs of sub-1% segments totaling 1%+ show their largest members, the rest as "… N shorter"; ▸ N: N segments not expanded, raise `depth` or re-root with `op`; (exec N): a call folded with its call_exec op N)
