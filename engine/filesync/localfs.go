@@ -282,7 +282,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 		if doHandle {
 			relPathFound.Store(true)
 			applied := appliedChange.result()
-			if err := cacheCtx.HandleChange(applied.kind, dir, applied.stat, nil); err != nil {
+			if err := cacheCtx.HandleChange(applied.kind, dir, local.contentHashStat(applied.stat), nil); err != nil {
 				return fmt.Errorf("failed to handle change in content hasher: %w", err)
 			}
 		}
@@ -384,7 +384,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 				if doHandle {
 					relPathFound.Store(true)
 					applied := appliedChange.result()
-					if err := cacheCtx.HandleChange(applied.kind, path, applied.stat, nil); err != nil {
+					if err := cacheCtx.HandleChange(applied.kind, path, local.contentHashStat(applied.stat), nil); err != nil {
 						return fmt.Errorf("failed to handle change in content hasher: %w", err)
 					}
 				}
@@ -414,7 +414,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 				if doHandle {
 					relPathFound.Store(true)
 					applied := appliedChange.result()
-					if err := cacheCtx.HandleChange(applied.kind, path, applied.stat, nil); err != nil {
+					if err := cacheCtx.HandleChange(applied.kind, path, local.contentHashStat(applied.stat), nil); err != nil {
 						return fmt.Errorf("failed to handle change in content hasher: %w", err)
 					}
 				}
@@ -481,7 +481,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 					if doHandle {
 						relPathFound.Store(true)
 						applied := appliedChange.result()
-						if err := cacheCtx.HandleChange(applied.kind, path, applied.stat, nil); err != nil {
+						if err := cacheCtx.HandleChange(applied.kind, path, local.contentHashStat(applied.stat), nil); err != nil {
 							return fmt.Errorf("failed to handle change in content hasher: %w", err)
 						}
 					}
@@ -540,7 +540,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 			if doHandle {
 				relPathFound.Store(true)
 				applied := appliedChange.result()
-				if err := cacheCtx.HandleChange(applied.kind, path, applied.stat, nil); err != nil {
+				if err := cacheCtx.HandleChange(applied.kind, path, local.contentHashStat(applied.stat), nil); err != nil {
 					return fmt.Errorf("failed to handle change in content hasher: %w", err)
 				}
 			}
@@ -573,7 +573,7 @@ func (local *localFS) Sync( //nolint:gocyclo
 		if doHandle {
 			relPathFound.Store(true)
 			applied := appliedChange.result()
-			if err := cacheCtx.HandleChange(applied.kind, path, applied.stat, nil); err != nil {
+			if err := cacheCtx.HandleChange(applied.kind, path, local.contentHashStat(applied.stat), nil); err != nil {
 				return nil, "", fmt.Errorf("failed to handle change in content hasher: %w", err)
 			}
 		}
@@ -759,6 +759,28 @@ func (local *localFS) toRootPath(path string) string {
 // the cache key to use for an operation on a given path (where path is relative to local.subdir)
 func (local *localFS) cacheKey(path string) string {
 	return local.toRootPath(path)
+}
+
+// Content-hash paths are relative to the copied subtree. Hardlink targets
+// arrive relative to the sync root and must use that same subtree namespace.
+// Keep the mirror's stat intact: another import can share its cached change.
+func (local *localFS) contentHashStat(info *HashedStatInfo) *HashedStatInfo {
+	if local.copyPath == "" || info.Linkname == "" || info.Mode()&os.ModeSymlink != 0 {
+		return info
+	}
+	base := cleanLocalCopyPath(local.copyPath)
+	if base == "" {
+		return info
+	}
+	link, ok := strings.CutPrefix(cleanLocalCopyPath(info.Linkname), base+string(filepath.Separator))
+	if !ok {
+		return info
+	}
+	stat := *info.Stat
+	stat.Linkname = link
+	rebased := *info
+	rebased.Stat = &stat
+	return &rebased
 }
 
 // GetPreviousChange is called when the differ identifies that our cache and the client's filesystem match at this path.
