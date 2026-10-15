@@ -1,5 +1,10 @@
 package dagql
 
+import (
+	"encoding/json"
+	"fmt"
+)
+
 // persistedScalarArray retains plain values and one independent producer call.
 // Like the result-backed decoder, NthValue uses the recorded call even when
 // its caller supplies no frame or a different one.
@@ -10,6 +15,25 @@ type persistedScalarArray struct {
 
 func (a persistedScalarArray) NthValue(i int, _ *ResultCall) (AnyResult, error) {
 	return a.DynamicArrayOutput.NthValue(i, a.frame)
+}
+
+// encodeItems preserves the scalar envelopes without materializing element
+// results again while saving the compact representation.
+func (a persistedScalarArray) encodeItems() ([]PersistedResultEnvelope, []PersistedSnapshotRefLink, error) {
+	items := make([]PersistedResultEnvelope, len(a.Values))
+	for i, value := range a.Values {
+		payload, err := json.Marshal(value)
+		if err != nil {
+			return nil, nil, fmt.Errorf("encode persisted list item %d envelope: encode scalar_json payload: %w", i+1, err)
+		}
+		items[i] = PersistedResultEnvelope{
+			Version:    persistedResultEnvelopeVersion,
+			Kind:       persistedResultKindScalar,
+			TypeName:   value.Type().Name(),
+			ScalarJSON: payload,
+		}
+	}
+	return items, nil, nil
 }
 
 // decodePersistedScalarArray avoids a detached result and cloned call for every

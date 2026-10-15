@@ -137,21 +137,27 @@ func TestPersistedScalarArrayValidationAndResources(t *testing.T) {
 	})
 }
 
+func persistedScalarArrayBenchmarkInput(b *testing.B, size int) (*ResultCall, PersistedResultEnvelope) {
+	b.Helper()
+	frame := persistCodecFrame("strings", Array[String]{})
+	inputs := make([]*ResultCallLiteral, size)
+	env := PersistedResultEnvelope{Version: persistedResultEnvelopeVersion, Kind: persistedResultKindList, TypeName: "String", Items: make([]PersistedResultEnvelope, size)}
+	for i := range size {
+		inputs[i] = &ResultCallLiteral{Kind: ResultCallLiteralKindString, StringValue: fmt.Sprintf("crate_%04d", i)}
+		payload, err := json.Marshal(fmt.Sprintf("digest-%d", i))
+		if err != nil {
+			b.Fatal(err)
+		}
+		env.Items[i] = PersistedResultEnvelope{Version: persistedResultEnvelopeVersion, Kind: persistedResultKindScalar, TypeName: "String", ScalarJSON: payload}
+	}
+	frame.Args = []*ResultCallArg{{Name: "paths", Value: &ResultCallLiteral{Kind: ResultCallLiteralKindList, ListItems: inputs}}}
+	return frame, env
+}
+
 func BenchmarkPersistedScalarArrayRestore(b *testing.B) {
 	for _, size := range []int{128, 512, 1024} {
 		b.Run(fmt.Sprint(size), func(b *testing.B) {
-			frame := persistCodecFrame("strings", Array[String]{})
-			inputs := make([]*ResultCallLiteral, size)
-			env := PersistedResultEnvelope{Version: persistedResultEnvelopeVersion, Kind: persistedResultKindList, TypeName: "String", Items: make([]PersistedResultEnvelope, size)}
-			for i := range size {
-				inputs[i] = &ResultCallLiteral{Kind: ResultCallLiteralKindString, StringValue: fmt.Sprintf("crate_%04d", i)}
-				payload, err := json.Marshal(fmt.Sprintf("digest-%d", i))
-				if err != nil {
-					b.Fatal(err)
-				}
-				env.Items[i] = PersistedResultEnvelope{Version: persistedResultEnvelopeVersion, Kind: persistedResultKindScalar, TypeName: "String", ScalarJSON: payload}
-			}
-			frame.Args = []*ResultCallArg{{Name: "paths", Value: &ResultCallLiteral{Kind: ResultCallLiteralKindList, ListItems: inputs}}}
+			frame, env := persistedScalarArrayBenchmarkInput(b, size)
 			var result AnyResult
 			b.ReportAllocs()
 			for b.Loop() {
@@ -162,6 +168,25 @@ func BenchmarkPersistedScalarArrayRestore(b *testing.B) {
 				}
 			}
 			runtime.KeepAlive(result)
+		})
+	}
+}
+
+func BenchmarkPersistedScalarArraySave(b *testing.B) {
+	for _, size := range []int{128, 512, 1024} {
+		b.Run(fmt.Sprint(size), func(b *testing.B) {
+			frame, env := persistedScalarArrayBenchmarkInput(b, size)
+			result, err := DefaultPersistedSelfCodec.DecodeResult(b.Context(), nil, 0, frame, env)
+			if err != nil {
+				b.Fatal(err)
+			}
+			b.ReportAllocs()
+			for b.Loop() {
+				encoded, err := DefaultPersistedSelfCodec.EncodeResult(b.Context(), nil, result)
+				if err != nil || len(encoded.Envelope.Items) != size {
+					b.Fatalf("items=%d err=%v", len(encoded.Envelope.Items), err)
+				}
+			}
 		})
 	}
 }
