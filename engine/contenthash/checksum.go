@@ -43,6 +43,10 @@ func getDefaultManager() *cacheManager {
 // key for root, "/" for the root header
 
 type ChecksumOpts struct {
+	// EntryPaths hashes full paths relative to a directory, together with entry
+	// types and existing metadata/content digests. It follows the base directory
+	// symlink but keeps child symlinks unless FollowLinks is set.
+	EntryPaths      bool
 	FollowLinks     bool
 	Wildcard        bool
 	IncludePatterns []string
@@ -131,6 +135,9 @@ type cacheManager struct {
 func (cm *cacheManager) Checksum(ctx context.Context, ref cache.ImmutableRef, p string, opts ChecksumOpts) (digest.Digest, error) {
 	if ref == nil {
 		if p == "/" {
+			if opts.EntryPaths {
+				return checksumEntries(p, nil), nil
+			}
 			return digest.FromBytes(nil), nil
 		}
 		return "", errors.Errorf("%s: no such file or directory", p)
@@ -450,10 +457,13 @@ func (cc *cacheContext) Checksum(ctx context.Context, mountable cache.Mountable,
 	m := &mount{mountable: mountable}
 	defer m.clean()
 
-	if !opts.Wildcard && len(opts.IncludePatterns) == 0 && len(opts.ExcludePatterns) == 0 {
+	if !opts.EntryPaths && !opts.Wildcard && len(opts.IncludePatterns) == 0 && len(opts.ExcludePatterns) == 0 {
 		return cc.lazyChecksum(ctx, m, p, opts.FollowLinks)
 	}
 
+	if opts.EntryPaths && opts.Wildcard {
+		return "", errors.New("entry checksums require a directory base path")
+	}
 	includedPaths, err := cc.includedPaths(ctx, m, p, opts)
 	if err != nil {
 		return "", err
@@ -469,6 +479,9 @@ func (cc *cacheContext) Checksum(ctx context.Context, mountable cache.Mountable,
 				includedPaths[i].record = &CacheRecord{Digest: dgst}
 			}
 		}
+	}
+	if opts.EntryPaths {
+		return checksumEntries(p, includedPaths), nil
 	}
 	if len(includedPaths) == 0 {
 		return digest.FromBytes([]byte{}), nil
@@ -487,6 +500,26 @@ func (cc *cacheContext) Checksum(ctx context.Context, mountable cache.Mountable,
 		digester.Hash().Write([]byte(w.record.Digest))
 	}
 	return digester.Digest(), nil
+}
+
+// checksumEntries is distinct from directory and wildcard-copy checksums.
+// Full relative paths make the tree structure part of the key. Root metadata
+// is excluded, as it belongs to the containing directory, not one of its entries.
+func checksumEntries(base string, entries []*includedPath) digest.Digest {
+	h := digest.Canonical.Digester()
+	_, _ = io.WriteString(h.Hash(), "dagger.entry-checksum.v1\x00")
+	base = keyPath(base)
+	for _, entry := range entries {
+		rel := strings.TrimPrefix(strings.TrimPrefix(entry.path, base), "/")
+		if rel == "" {
+			continue
+		}
+		_, _ = io.WriteString(h.Hash(), rel)
+		_, _ = h.Hash().Write([]byte{0, byte(entry.record.Type)})
+		_, _ = io.WriteString(h.Hash(), entry.record.Digest.String())
+		_, _ = h.Hash().Write([]byte{0})
+	}
+	return h.Digest()
 }
 
 //nolint:gocyclo // intrinsically long state machine; refactoring would hurt clarity
@@ -563,9 +596,12 @@ func (cc *cacheContext) includedPaths(ctx context.Context, m *mount, p string, o
 		// involves a symlink. That will match fsutil behavior of
 		// calling functions such as stat and walk.
 		var cr *CacheRecord
-		k, cr, err = getFollowLinks(root, k, false)
+		k, cr, err = getFollowLinks(root, k, opts.EntryPaths)
 		if err != nil {
 			return nil, err
+		}
+		if opts.EntryPaths && (cr == nil || cr.Type != CacheRecordTypeDir) {
+			return nil, errors.Errorf("entry checksum base %q is not a directory", p)
 		}
 		keyOk = (cr != nil)
 	}
@@ -620,6 +656,14 @@ func (cc *cacheContext) includedPaths(ctx context.Context, m *mount, p string, o
 			fn = fn[:len(fn)-1]
 			if fn == p && endsInSep {
 				// We don't include the metadata header for a source dir which ends with a separator
+				k, _, keyOk = iter.Next()
+				continue
+			}
+		}
+
+		if opts.EntryPaths {
+			if record, ok := root.Get(k); ok && record.Type == CacheRecordTypeDir {
+				// Entry checksums use directory headers, not recursive content hashes.
 				k, _, keyOk = iter.Next()
 				continue
 			}

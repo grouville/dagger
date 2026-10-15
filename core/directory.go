@@ -1612,6 +1612,28 @@ func (dir *Directory) DigestPath(ctx context.Context, self dagql.ObjectResult[*D
 	return digest.String(), nil
 }
 
+// DigestEntries hashes selected native records without creating a filtered snapshot.
+func (dir *Directory) DigestEntries(ctx context.Context, self dagql.ObjectResult[*Directory], include, exclude []string) (string, error) {
+	snapshot, err := dir.Snapshot.GetOrEval(ctx, self.Result)
+	if err != nil {
+		return "", err
+	}
+	dirPath, err := dir.Dir.GetOrEval(ctx, self.Result)
+	if err != nil {
+		return "", err
+	}
+	if dirPath == "" || dirPath == "." {
+		dirPath = "/"
+	}
+	dgst, err := bkcontenthash.Checksum(ctx, snapshot, dirPath, bkcontenthash.ChecksumOpts{
+		EntryPaths: true, IncludePatterns: include, ExcludePatterns: exclude,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to checksum directory entries: %w", err)
+	}
+	return dgst.String(), nil
+}
+
 func (dir *Directory) Entries(ctx context.Context, self dagql.ObjectResult[*Directory], src string) ([]string, error) {
 	paths := []string{}
 	useSlash := SupportsDirSlash(ctx)

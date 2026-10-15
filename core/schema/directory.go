@@ -90,6 +90,8 @@ func (s *directorySchema) Install(srv *dagql.Server) {
 				It is guaranteed to be stable between invocations of the same Dagger engine.`,
 			).
 			Args(dagql.Arg("path").Doc(`Subdirectory to hash, relative to this directory.`)),
+		dagql.NodeFunc("digestEntries", s.digestEntries).
+			Doc(`Return a digest of matching entries, including their relative paths, metadata and containing directories.`),
 		dagql.NodeFunc("digests", s.digests).
 			Doc(`Return subdirectory digests in the same order as the given paths.`).
 			Args(dagql.Arg("paths").Doc(`Subdirectories to hash, relative to this directory.`)),
@@ -861,6 +863,14 @@ func (s *directorySchema) digest(ctx context.Context, parent dagql.ObjectResult[
 	}
 
 	return dagql.NewString(digest), nil
+}
+
+func (s *directorySchema) digestEntries(ctx context.Context, parent dagql.ObjectResult[*core.Directory], args struct {
+	Include []string `default:"[]"`
+	Exclude []string `default:"[]"`
+}) (dagql.String, error) {
+	dgst, err := parent.Self().DigestEntries(ctx, parent, args.Include, args.Exclude)
+	return dagql.NewString(dgst), err
 }
 
 func (s *directorySchema) digests(ctx context.Context, parent dagql.ObjectResult[*core.Directory], args struct {
