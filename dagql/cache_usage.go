@@ -3,6 +3,7 @@ package dagql
 import (
 	"context"
 	"errors"
+	"maps"
 	"slices"
 
 	"github.com/dagger/dagger/engine/slog"
@@ -92,15 +93,14 @@ func cacheUsageInputLocked(res *sharedResult) cacheUsageMeasurementInput {
 	state := res.loadPayloadState()
 	input := cacheUsageMeasurementInput{
 		resultID: res.id, row: res, payloadRevision: state.payloadRevision,
-		existingSizeByID: make(map[string]int64, len(res.cacheUsageSizeByIdentity)),
 	}
 	if state.hasValue && state.self != nil {
 		input.self = state.self
 	} else {
 		input.snapshotLinks = cloneSnapshotRefLinks(state.snapshotOwnerLinks)
 	}
-	for identity, size := range res.cacheUsageSizeByIdentity {
-		input.existingSizeByID[identity] = size
+	if len(res.cacheUsageSizeByIdentity) != 0 {
+		input.existingSizeByID = maps.Clone(res.cacheUsageSizeByIdentity)
 	}
 	return input
 }
