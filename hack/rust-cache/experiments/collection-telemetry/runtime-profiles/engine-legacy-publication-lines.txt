@@ -1,0 +1,349 @@
+Total: 947.45s
+ROUTINE ======================== github.com/dagger/dagger/dagql.(*Cache).initCompletedResult in /tmp/dagger-filesync-snapshot-seeds/dagql/cache.go
+         0    111.01s (flat, cum) 11.72% of Total
+         .          .   6702:	}
+         .          .   6703:
+         .          .   6704:	if c.testBeforePublicationIndex != nil {
+         .          .   6705:		c.testBeforePublicationIndex(oc)
+         .          .   6706:	}
+         .     49.43s   6707:	c.egraphMu.Lock()
+         .          .   6708:	// One current entry per recipe (cache_current_entry.go). A fresh value is
+         .          .   6709:	// indexed under the recipe of its stored frame, unless that recipe
+         .          .   6710:	// already has a current entry: then it adopts a live one (D1), waits for
+         .          .   6711:	// one still attaching, replaces an expired one that nothing uses in place,
+         .          .   6712:	// or retires an expired one that something uses (D9). An entry known only
+         .          .   6713:	// through holdings has no value to adopt: the new value is stored into
+         .          .   6714:	// it, as merge stores a record.
+         .          .   6715:	var (
+         .          .   6716:		adoptedCurrent  bool
+         .          .   6717:		replacedInPlace bool
+         .          .   6718:		unindexed       bool
+         .          .   6719:		replaced        replacedValue
+         .          .   6720:		discardedValue  OnReleaseFunc
+         .          .   6721:		releaseQueue    collectionQueue
+         .          .   6722:		replaceErr      error
+         .          .   6723:	)
+         .          .   6724:	// The recipe is the stored frame's: the value's own frame, or, for a call
+         .          .   6725:	// answered with nothing, the request frame indexing stores on the row.
+         .          .   6726:	recipeDigest := responseDigest
+         .          .   6727:	if recipeDigest == "" {
+         .          .   6728:		recipeDigest = requestDigest
+         .          .   6729:	}
+         .          .   6730:	for !resWasCacheBacked {
+         .          .   6731:		// Each decision reads the clock under the lock that makes it: an
+         .          .   6732:		// entry can expire while this publication waits for the lock or for
+         .          .   6733:		// an attachment, and the new value's expiries count from the
+         .          .   6734:		// decision.
+         .          .   6735:		now = time.Now()
+         .          .   6736:		oc.persistedEdgeExpiresAtUnix = candidateSharedResultExpiryUnix(now.Unix(), oc.ttlSeconds)
+         .          .   6737:		cur := c.currentEntryForRecipeLocked(recipeDigest)
+         .          .   6738:		if req.ListItem {
+         .          .   6739:			// A list item read adopts only the item its list recorded for
+         .          .   6740:			// the position (cache_list_items.go). Another entry of the
+         .          .   6741:			// item's recipe stays as it is, and the new item registers
+         .          .   6742:			// beside it.
+         .          .   6743:			item := c.listItemLocked(req, now.Unix())
+         .          .   6744:			if item == nil {
+         .          .   6745:				unindexed = cur != nil
+         .          .   6746:				break
+         .          .   6747:			}
+         .          .   6748:			cur = item
+         .          .   6749:		}
+         .          .   6750:		if cur == nil {
+         .          .   6751:			break
+         .          .   6752:		}
+         .          .   6753:		if !cur.noValueLocked() && !c.resultExpiredAtLocked(cur, now.Unix()) {
+         .          .   6754:			if cur.attachmentState() == resultAttachmentOpen {
+         .          .   6755:				cur.attachDepsMu.Lock()
+         .          .   6756:				waitCh := cur.attachDepsWaitCh
+         .          .   6757:				cur.attachDepsMu.Unlock()
+         .          .   6758:				var released <-chan struct{}
+         .          .   6759:				if state := c.sessionLifecycle(sessionID); state != nil {
+         .          .   6760:					released = state.released
+         .          .   6761:				}
+         .          .   6762:				c.egraphMu.Unlock()
+         .          .   6763:				if c.testPublicationWaitsOnAttachment != nil {
+         .          .   6764:					c.testPublicationWaitsOnAttachment(cur)
+         .          .   6765:				}
+         .          .   6766:				select {
+         .          .   6767:				case <-waitCh:
+         .          .   6768:					c.egraphMu.Lock()
+         .          .   6769:					continue
+         .          .   6770:				case <-released:
+         .          .   6771:				case <-ctx.Done():
+         .          .   6772:				}
+         .          .   6773:				// This publication's session was released, or its caller left,
+         .          .   6774:				// while another session's attachment is open. Waiting on would
+         .          .   6775:				// hold the session's release open for as long as that
+         .          .   6776:				// attachment lasts, so the value registers beside the entry,
+         .          .   6777:				// not indexed, as for a session that does not cover the
+         .          .   6778:				// entry's requirements.
+         .          .   6779:				c.egraphMu.Lock()
+         .          .   6780:				unindexed = true
+         .          .   6781:				break
+         .          .   6782:			}
+         .          .   6783:			// A late explicit dependency can raise the entry's requirements
+         .          .   6784:			// without changing its recipe. A session that does not cover
+         .          .   6785:			// them publishes its own value, not indexed, as it would without
+         .          .   6786:			// D1, and hits it from then on.
+         .          .   6787:			if !c.sessionSatisfiesResourceRequirementsLocked(sessionID, cur) {
+         .          .   6788:				unindexed = true
+         .          .   6789:				break
+         .          .   6790:			}
+         .          .   6791:			// The adopted entry's handoff hold is taken in this critical
+         .          .   6792:			// section, as the cache-backed adoption above does.
+         .          .   6793:			discardedValue = oc.res.onRelease
+         .          .   6794:			resultCallDeps = nil
+         .          .   6795:			oc.res = cur
+         .          .   6796:			c.incrementIncomingOwnershipLocked(ctx, oc.res)
+         .          .   6797:			oc.handoffHoldActive = true
+         .          .   6798:			if c.testAfterHandoffHoldAcquired != nil {
+         .          .   6799:				c.testAfterHandoffHoldAcquired(oc)
+         .          .   6800:			}
+         .          .   6801:			resWasCacheBacked = true
+         .          .   6802:			adoptedCurrent = true
+         .          .   6803:			break
+         .          .   6804:		}
+         .          .   6805:		if c.resultInUseLocked(cur) {
+         .          .   6806:			c.retireResultLocked(cur)
+         .          .   6807:			break
+         .          .   6808:		}
+         .          .   6809:		replaced, releaseQueue, replaceErr = c.replaceResultValueInPlaceLocked(ctx, cur, oc.res, oc.persistedEdgeExpiresAtUnix)
+         .          .   6810:		oc.res = cur
+         .          .   6811:		replacedInPlace = true
+         .          .   6812:		break
+         .          .   6813:	}
+         .          .   6814:	// A returned cache-backed result can already be visible to lookups.
+         .          .   6815:	// TTL merge policy for shared results:
+         .          .   6816:	// - 0 means "no TTL for this writer", not necessarily "never expire globally".
+         .          .   6817:	// - if any writer provides TTL, we keep the earliest non-zero expiry.
+         .          .   6818:	// - 0 only remains when all writers are 0.
+         .          .   6819:	oc.res.expiresAtUnix = mergeSharedResultExpiryUnix(
+         .          .   6820:		oc.res.expiresAtUnix,
+         .          .   6821:		candidateSharedResultExpiryUnix(now.Unix(), oc.ttlSeconds),
+         .          .   6822:	)
+         .          .   6823:	notify, notifyOwner := c.beginShareNotificationsLocked()
+         .          .   6824:	resultCall := oc.res.loadResultCall()
+         .          .   6825:	indexErr := c.indexWaitResultInEgraphLocked(
+         .          .   6826:		ctx,
+         .          .   6827:		requestForIndex.ResultCall,
+         .          .   6828:		resultCall,
+         .          .   6829:		requestDigest,
+         .          .   6830:		responseDigest,
+         .          .   6831:		requestSelf,
+         .          .   6832:		requestInputs,
+         .          .   6833:		requestInputRefs,
+         .          .   6834:		resultTermSelf,
+         .          .   6835:		resultTermInputs,
+         .          .   6836:		resultTermRefs,
+         .          .   6837:		hasResultTerm,
+         .          .   6838:		oc.res,
+         .          .   6839:	)
+         .          .   6840:	// Indexing registers the fresh result and makes it lookup-visible, but
+         .          .   6841:	// nothing owns it until the handoff hold below, so a failure anywhere in
+         .          .   6842:	// this critical section must roll the partial publication back before
+         .          .   6843:	// unlocking; the error itself still propagates loudly. Adopted results
+         .          .   6844:	// (resWasCacheBacked) are owned by others and pinned by the handoff hold
+         .          .   6845:	// taken at adoption, so they are never rolled back.
+         .          .   6846:	failPartialPublication := func(cause error) error {
+         .          .   6847:		if resWasCacheBacked {
+         .          .   6848:			c.flushShareNotificationsLocked(ctx, notify, notifyOwner)
+         .          .   6849:			c.egraphMu.Unlock()
+         .          .   6850:			if adoptedCurrent {
+         .          .   6851:				cause = errors.Join(cause, runOnReleaseFuncs(context.WithoutCancel(ctx), []OnReleaseFunc{discardedValue}))
+         .          .   6852:			}
+         .          .   6853:			return cause
+         .          .   6854:		}
+         .          .   6855:		cleanupCtx := context.WithoutCancel(ctx)
+         .          .   6856:		var replacedErr error
+         .          .   6857:		if replacedInPlace {
+         .          .   6858:			// A replaced entry is rolled back like a fresh one: its retention
+         .          .   6859:			// edge, which kept the old value, goes with it, and so does the
+         .          .   6860:			// ownership its old value's dependency edges held.
+         .          .   6861:			delete(c.persistedEdgesByResult, oc.res.id)
+         .          .   6862:			releaseQueue, replacedErr = c.releaseReplacedDependenciesLocked(cleanupCtx, replaced, releaseQueue)
+         .          .   6863:		}
+         .          .   6864:		releases, rollbackErr := c.rollbackPartialPublicationLocked(cleanupCtx, oc.res)
+         .          .   6865:		if replacedInPlace {
+         .          .   6866:			collectReleases, collectErr := c.collectUnownedResultsLocked(cleanupCtx, releaseQueue)
+         .          .   6867:			releases = append(append(releases, replaced.release), collectReleases...)
+         .          .   6868:			replacedErr = errors.Join(replacedErr, collectErr)
+         .          .   6869:		}
+         .          .   6870:		// Roll back first, then flush: queueing enumerates each class's
+         .          .   6871:		// current registered members, so the removed row cannot be retained
+         .          .   6872:		// and the surviving members stay valid.
+         .          .   6873:		c.flushShareNotificationsLocked(ctx, notify, notifyOwner)
+         .          .   6874:		c.egraphMu.Unlock()
+         .          .   6875:		return errors.Join(cause, rollbackErr, replacedErr, runOnReleaseFuncs(cleanupCtx, releases))
+         .          .   6876:	}
+         .          .   6877:	if replaceErr != nil {
+         .          .   6878:		return failPartialPublication(replaceErr)
+         .          .   6879:	}
+         .          .   6880:	if indexErr != nil {
+         .          .   6881:		return failPartialPublication(indexErr)
+         .          .   6882:	}
+         .          .   6883:	if !resWasCacheBacked && !replacedInPlace && !unindexed {
+         .          .   6884:		c.indexRecipeLocked(recipeDigest, oc.res)
+         .          .   6885:	}
+         .          .   6886:	// A session that does not cover the recorded item's requirements keeps
+         .          .   6887:	// its new item beside it, unrecorded.
+         .          .   6888:	if req.ListItem && !resWasCacheBacked && c.listItemLocked(req, now.Unix()) == nil {
+         .          .   6889:		c.recordListItemLocked(req, oc.res)
+         .          .   6890:	}
+         .          .   6891:	for _, dep := range resultCallDeps {
+         .          .   6892:		depID := dep.resultID
+         .          .   6893:		depRes := c.resultsByID[depID]
+         .          .   6894:		if depRes == nil {
+         .          .   6895:			return failPartialPublication(fmt.Errorf("retain result call ref %d: missing cached result", depID))
+         .          .   6896:		}
+         .          .   6897:		if oc.res.deps == nil {
+         .          .   6898:			oc.res.deps = make(map[sharedResultID]struct{})
+         .          .   6899:		}
+         .          .   6900:		if _, alreadyHeld := oc.res.deps[depID]; alreadyHeld {
+         .          .   6901:			continue
+         .          .   6902:		}
+         .          .   6903:		oc.res.deps[depID] = struct{}{}
+         .          .   6904:		oc.res.dependencyOwnershipRevision++
+         .          .   6905:		c.rememberDependencyEdgeLocked(oc.res, depRes)
+         .          .   6906:		c.incrementIncomingOwnershipLocked(ctx, depRes)
+         .          .   6907:		c.traceResultCallDepAdded(ctx, oc.res.id, depID, dep.path)
+         .          .   6908:	}
+         .          .   6909:	if _, err := c.recomputeRequiredSessionResourcesLocked(oc.res); err != nil {
+         .          .   6910:		return failPartialPublication(err)
+         .          .   6911:	}
+         .          .   6912:	// The cache-backed path already took the handoff hold when it adopted the
+         .          .   6913:	// canonical result above; only fresh results take it here.
+         .          .   6914:	if !oc.handoffHoldActive {
+         .          .   6915:		c.incrementIncomingOwnershipLocked(ctx, oc.res)
+         .          .   6916:		oc.handoffHoldActive = true
+         .          .   6917:		if c.testAfterHandoffHoldAcquired != nil {
+         .          .   6918:			c.testAfterHandoffHoldAcquired(oc)
+         .          .   6919:		}
+         .          .   6920:	}
+         .          .   6921:	var replacedReleases []OnReleaseFunc
+         .          .   6922:	if replacedInPlace {
+         .          .   6923:		// The new value's dependency edges and the handoff hold are in place:
+         .          .   6924:		// the old value's edges can go now without collecting a dependency
+         .          .   6925:		// both values share, or the entry itself.
+         .          .   6926:		var depErr, collectErr error
+         .          .   6927:		releaseQueue, depErr = c.releaseReplacedDependenciesLocked(ctx, replaced, releaseQueue)
+         .          .   6928:		replacedReleases, collectErr = c.collectUnownedResultsLocked(context.WithoutCancel(ctx), releaseQueue)
+         .          .   6929:		if err := errors.Join(depErr, collectErr); err != nil {
+         .          .   6930:			c.flushShareNotificationsLocked(ctx, notify, notifyOwner)
+         .          .   6931:			c.egraphMu.Unlock()
+         .          .   6932:			return errors.Join(err, runOnReleaseFuncs(context.WithoutCancel(ctx), replacedReleases))
+         .          .   6933:		}
+         .          .   6934:	}
+         .          .   6935:	if !resWasCacheBacked {
+         .          .   6936:		oc.res.attachDepsMu.Lock()
+         .          .   6937:		oc.res.attachDepsWaitCh = make(chan struct{})
+         .          .   6938:		oc.res.attachDepsErr = nil
+         .          .   6939:		oc.res.attachDepsMu.Unlock()
+         .          .   6940:	}
+         .          .   6941:	// The first E unlock of this publication, after direct-edge validation,
+         .          .   6942:	// handoff ownership and attachment-barrier setup are all decided. A queue
+         .          .   6943:	// hold taken here can retain a registered row for one pass if the
+         .          .   6944:	// unlocked attachment or sync below then fails; the probe skips that
+         .          .   6945:	// unfinished publication and releasing the cohort ends the retention.
+         .          .   6946:	c.flushShareNotificationsLocked(ctx, notify, notifyOwner)
+         .          .   6947:	shareDuplicates := c.takeShareDuplicateHoldsLocked()
+         .          .   6948:	c.egraphMu.Unlock()
+         .          .   6949:	c.releaseShareDuplicateHolds(ctx, shareDuplicates)
+         .          .   6950:
+         .          .   6951:	// failAttachment rolls back a publication whose value failed to attach
+         .          .   6952:	// or sync after the critical section, and drops its handoff hold. An
+         .          .   6953:	// entry this publication registered or replaced leaves the recipe index,
+         .          .   6954:	// and a replaced one also loses the retention edge that kept its old
+         .          .   6955:	// value; either is collected unless a reader that hit it while its
+         .          .   6956:	// attachment was open still holds it. The barrier latches the error,
+         .          .   6957:	// classified when the publishing session's own release refused an
+         .          .   6958:	// attachment-time claim.
+         .          .   6959:	failAttachment := func(err error, refusedByRelease bool) error {
+         .          .   6960:		cleanupCtx := context.WithoutCancel(ctx)
+         .          .   6961:		c.egraphMu.Lock()
+         .          .   6962:		if !resWasCacheBacked {
+         .          .   6963:			c.unindexRecipesLocked(oc.res)
+         .          .   6964:		}
+         .          .   6965:		var (
+         .          .   6966:			queue  []*sharedResult
+         .          .   6967:			decErr error
+         .          .   6968:		)
+         .          .   6969:		if replacedInPlace {
+         .          .   6970:			if _, retained := c.persistedEdgesByResult[oc.res.id]; retained {
+         .          .   6971:				delete(c.persistedEdgesByResult, oc.res.id)
+         .          .   6972:				queue, decErr = c.decrementIncomingOwnershipLocked(ctx, oc.res, queue)
+         .          .   6973:			}
+         .          .   6974:		}
+         .          .   6975:		queue, holdErr := c.decrementIncomingOwnershipLocked(ctx, oc.res, queue)
+         .          .   6976:		collectReleases, collectErr := c.collectUnownedResultsLocked(cleanupCtx, queue)
+         .          .   6977:		c.egraphMu.Unlock()
+         .          .   6978:		oc.handoffHoldActive = false
+         .          .   6979:		attachErr := errors.Join(err, decErr, holdErr, collectErr, runOnReleaseFuncs(cleanupCtx, collectReleases))
+         .          .   6980:		barrierErr := attachErr
+         .          .   6981:		if refusedByRelease {
+         .          .   6982:			barrierErr = fmt.Errorf("%w: %w", errAttachRefusedByProducerRelease, attachErr)
+         .          .   6983:		}
+         .          .   6984:		finishAttachDeps(barrierErr)
+         .          .   6985:		return attachErr
+         .          .   6986:	}
+         .          .   6987:
+         .          .   6988:	if adoptedCurrent {
+         .          .   6989:		// The recipe's live entry was adopted: the new value is not
+         .          .   6990:		// published, so it is released through its normal release path.
+         .          .   6991:		if objVal, ok := oc.val.(AnyObjectResult); ok {
+         .          .   6992:			oc.res.setObjClass(objVal.ObjectType())
+         .          .   6993:		}
+         .          .   6994:		if err := runOnReleaseFuncs(context.WithoutCancel(ctx), []OnReleaseFunc{discardedValue}); err != nil {
+         .          .   6995:			return err
+         .          .   6996:		}
+         .          .   6997:	}
+         .          .   6998:	if replacedInPlace {
+         .          .   6999:		err := errors.Join(
+         .          .   7000:			runOnReleaseFuncs(context.WithoutCancel(ctx), replacedReleases),
+         .          .   7001:			c.finishValueReplacement(context.WithoutCancel(ctx), oc.res, replaced.release),
+         .          .   7002:		)
+         .          .   7003:		if err != nil {
+         .          .   7004:			return failAttachment(err, false)
+         .          .   7005:		}
+         .          .   7006:	}
+         .          .   7007:
+         .          .   7008:	// Adoption reuses the existing dependency graph. Reattaching would mutate
+         .          .   7009:	// an object that other calls may already be reading.
+         .          .   7010:	if !resWasCacheBacked {
+         .     18.95s   7011:		if err := c.attachDependencyResults(ctx, sessionID, resolver, oc.res, oc.val); err != nil {
+         .          .   7012:			// Attachment runs under the publishing session, so a session-release
+         .          .   7013:			// refusal in the hook's own error chain can only be that session's
+         .          .   7014:			// release. Latch the classified form on the barrier for parked
+         .          .   7015:			// readers; the classification reads the hook error alone, so the
+         .          .   7016:			// joined cleanup errors cannot reclassify a genuine failure. The
+         .          .   7017:			// publishing invocation keeps the unclassified attachment error.
+         .          .   7018:			return failAttachment(err, errors.Is(err, ErrCacheSessionReleased))
+         .          .   7019:		}
+         .          .   7020:	}
+         .          .   7021:	if err := func() error {
+         .          .   7022:		if !resWasCacheBacked {
+         .          .   7023:			if err := c.attachInlineHosts(oc.res, oc.val); err != nil {
+         .          .   7024:				return err
+         .          .   7025:			}
+         .          .   7026:		}
+         .          .   7027:		return c.syncResultSnapshotLeases(ctx, oc.res)
+         .          .   7028:	}(); err != nil {
+         .          .   7029:		return failAttachment(err, false)
+         .          .   7030:	}
+         .          .   7031:	if !adoptedCurrent {
+         .          .   7032:		// An adopted entry already carries its own value's registration.
+         .    21.06us   7033:		c.registerLazyEvaluation(oc.res, oc.val)
+         .          .   7034:	}
+         .          .   7035:	finishAttachDeps(nil)
+         .          .   7036:	// Eager completion: attachment, lease synchronization and lazy
+         .          .   7037:	// registration have all succeeded, and the publication handoff hold still
+         .          .   7038:	// protects the row. An attachment or sync failure above returns before
+         .          .   7039:	// this point and produces no completion notification. An adopted entry
+         .          .   7040:	// was announced when it was published.
+         .          .   7041:	if !adoptedCurrent {
+         .     42.64s   7042:		c.notifySnapshotShareCompletion(ctx, oc.res)
+         .          .   7043:	}
+         .          .   7044:
+         .          .   7045:	return nil
+         .          .   7046:}
+         .          .   7047:

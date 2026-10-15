@@ -1,0 +1,58 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"os"
+	"slices"
+	"strings"
+
+	daggerclient "dagger.io/dagger"
+	core "dagger.io/dagger/core"
+	"github.com/dagger/querybuilder"
+)
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+func run() error {
+	sourcePath := flag.String("source", "", "workspace path")
+	image := flag.String("image", "rust:1.77-bookworm@sha256:83101f6985c93e1e6501b3375de188ee3d2cbb89968bcc91611591f9f447bd42", "toolchain image")
+	expected := flag.String("expected", "", "comma-separated workspace names")
+	flag.Parse()
+	ctx := context.Background()
+	client, err := daggerclient.Connect(ctx)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	base := querybuilder.Query().Client(client.GraphQLClient())
+	var served bool
+	if err := base.Select("serveModule").Arg("address", ".").Bind(&served).Execute(ctx); err != nil {
+		return err
+	}
+	source := core.NewQuery(client).Host().Directory(*sourcePath, core.HostDirectoryOpts{Exclude: []string{".git", "target", "dagger.toml", "dagger.lock"}})
+	id, err := source.ID(ctx)
+	if err != nil {
+		return err
+	}
+	var names []string
+	if err := base.Select("rust").Arg("image", *image).Arg("locked", true).Select("packages").Arg("source", id).Select("keys").Bind(&names).Execute(ctx); err != nil {
+		return err
+	}
+	if *expected != "" {
+		got := slices.Clone(names)
+		want := strings.Split(*expected, ",")
+		slices.Sort(got)
+		slices.Sort(want)
+		if !slices.Equal(got, want) {
+			return fmt.Errorf("packages %v, want %v", got, want)
+		}
+	}
+	return json.NewEncoder(os.Stdout).Encode(names)
+}
