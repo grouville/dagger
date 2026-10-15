@@ -5,6 +5,7 @@ import (
 	"iter"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/opencontainers/go-digest"
 	"github.com/vektah/gqlparser/v2/ast"
@@ -285,15 +286,19 @@ func (lit *LiteralList) Modules() []*Module {
 }
 
 func (lit *LiteralList) Display() string {
-	list := "["
+	if len(lit.values) == 0 {
+		return "[]"
+	}
+	var list strings.Builder
+	list.WriteByte('[')
 	for i, val := range lit.values {
 		if i > 0 {
-			list += ","
+			list.WriteByte(',')
 		}
-		list += val.Display()
+		list.WriteString(val.Display())
 	}
-	list += "]"
-	return list
+	list.WriteByte(']')
+	return list.String()
 }
 
 func (lit *LiteralList) ToInput() any {
@@ -373,15 +378,21 @@ func (lit *LiteralObject) Modules() []*Module {
 }
 
 func (lit *LiteralObject) Display() string {
-	obj := "{"
+	if len(lit.values) == 0 {
+		return "{}"
+	}
+	var obj strings.Builder
+	obj.WriteByte('{')
 	for i, field := range lit.values {
 		if i > 0 {
-			obj += ","
+			obj.WriteByte(',')
 		}
-		obj += field.pb.Name + ": " + field.value.Display()
+		obj.WriteString(field.pb.Name)
+		obj.WriteString(": ")
+		obj.WriteString(field.value.Display())
 	}
-	obj += "}"
-	return obj
+	obj.WriteByte('}')
+	return obj.String()
 }
 
 func (lit *LiteralObject) ToInput() any {
