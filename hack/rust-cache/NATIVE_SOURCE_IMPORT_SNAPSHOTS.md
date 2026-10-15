@@ -53,6 +53,43 @@ The crossover does not complete: its eighth candidate collection command is canc
 
 Measured host I/O stalls peak at 46.0% in the first series and 19.7% in the crossover; engine stalls peak at 17.0% and 2.0%. These are warm interactive measurements with prospective admission, not cold-start or throughput results. The repeated large-workspace gain is supported by the component profiles and both histories. Small and shared-edit benefits remain unproven, and the Cargo-plus-0.5-second target remains unmet.
 
-After cancellation, direct native compilation completes the two pending small-workspace edits without collection discovery. Final checks recover 130/130, 1,026/1,026 and 6/6 results on both histories, with the expected preceding batches. The hint index and parent chains are bounded in the tests; matched storage, restart and transfer measurements of this source-import variant are still required before selecting it. No PR is open.
+After cancellation, direct native compilation completes the two pending small-workspace edits without collection discovery. Final checks recover 130/130, 1,026/1,026 and 6/6 results on both histories, with the expected preceding batches. The hint index and parent chains are bounded in the tests. The follow-up below measures physical storage and checks transfer correctness on the current engine; remote transfer latency remains unmeasured. No PR is open.
 
 [Data and drivers](experiments/native-source-import-snapshots/measurements.json) preserve both cohorts, the incomplete command, pressure and admission records, complete profile summaries, correctness checks and the diagnostic switch.
+
+## Verification on the current experimental engine
+
+The follow-up uses the cumulative engine with compact scalar restoration enabled, module `cd6d25e`, and the buffered artifact-list CLI. Batch telemetry metadata and the attribute-array decoder are enabled in both arms. Source seeds are the only option switched between commands. Both Dagger arms use the same physical source directory and compiler-cache history; every command makes a fresh used source edit. Telemetry stays enabled and wcprof stays disabled during timing. These are warm edited commands, not cold builds or unchanged replays.
+
+After two preparation rounds, eight rotating comparisons give:
+
+| Command | Full copy | Snapshot seed | Native Cargo | Faster seed observations |
+| --- | ---: | ---: | ---: | ---: |
+| 1,026-crate leaf edit | 2.130 s | 1.924 s | 0.839 s | 5/8 |
+| Small Rust test collection | 1.088 s | 1.040 s | 0.531 s | 6/8 |
+
+All observations remain in the results. Median paired savings are 296 ms and 16 ms respectively; these differ from subtracting the column medians. The seeded large-workspace commands include 2.94 s, 2.64 s and 5.05 s observations. Host I/O stalls reach 54.3%, and engine stalls reach 15.3%, despite quiet admission before each command. The large-workspace result supports further work on this option; it does not establish a general or tail-latency improvement. The Cargo-plus-0.5-second target remains unmet.
+
+Four separate wcprof captures have no dropped events or open operations. The large source import takes 711/437 ms with full copies and 189/202 ms with seeds. One seeded command still takes 4.36 s: its import stays at 202 ms, while check execution takes 3.11 s and package discovery takes 707 ms. A nested `withExec.applyOutputs` operation takes 1.08 s. These timings locate further work in execution and snapshot publication; `dang.invoke` includes helper execution and engine requests and must not be read as interpreter CPU time.
+
+### Physical storage
+
+A separate public-API verifier imports 19 fresh versions of the real 1,026-crate source tree per arm. Distinct marker files prevent content-hash lookup from reusing the other arm's snapshots. Both sessions keep the results owned until inspection. A brief pause of the owned engine makes the snapshot metadata copy consistent; the engine is unpaused before measuring the actual overlay directories with `du`.
+
+| Retained sources | Full copy | Snapshot seed |
+| --- | ---: | ---: |
+| All 19 versions | 309.1 MiB | 49.1 MiB |
+| Latest version, immediately before a reset | 16.27 MiB | 16.39 MiB |
+| Latest version, immediately after a reset | 16.27 MiB | 16.27 MiB |
+
+Physical and recorded sizes agree. Actual ancestry follows depths `0..8, 0..8, 0`: three full copies and sixteen small changes instead of nineteen full copies. Retaining the latest version immediately before a reset costs 128 KiB more than its full-copy counterpart. These are measurements of imported sources, not total engine or compiler-cache storage.
+
+### Transfer and cleanup
+
+[The added test](https://github.com/grouville/dagger/commit/19eda9248) exports a real derived snapshot chain and imports it into independent native snapshot stores, with and without an existing prefix. It compares complete physical trees, including file permissions and timestamps. A consumer that already has the base reads only the new layer. On this test fixture, uncompressed layer sizes are 625,664 bytes for the base, 628,224 bytes for the edited cold transfer, and 2,560 bytes for the warm transfer. This is a correctness and transfer-size test, not a remote latency benchmark.
+
+The test reopens both snapshot managers, discards the source hint index, checks the durable snapshots after garbage collection, and checks that the next edit falls back to a full copy. After releasing their owners, every producer snapshot is collected despite the hint. The full filesync package passes under race detection in 13.398 s. The store uses native snapshots and real tar/apply operations without mount syscalls; the separate storage check exercises actual overlayfs imports.
+
+With source seeds enabled, the six existing Rust histories recover every compiled result before and after a clean restart of the actual overlayfs engine: 130/130, 1,026/1,026 and 6/6 on both histories. The same binary and volume are retained, while the process-local seed index starts empty. The engine exits successfully and receives no forced-stop deadline. This verifies compilation reuse after a real process restart; it does not measure restart performance or automatic remote cache discovery.
+
+The test and prototype are pushed on the fork; no PR is open. [Current evidence and drivers](experiments/native-source-import-snapshots-current/provenance.json) include all command samples, pressure records, four profiles, selected snapshot metadata, physical sizes, source and test logs. The initial storage harness closed its sessions before inspection, so its `noCache` results had already been released; the corrected harness keeps the owners alive until measurement.
