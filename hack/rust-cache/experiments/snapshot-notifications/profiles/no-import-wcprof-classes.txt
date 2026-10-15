@@ -1,0 +1,39 @@
+classes: 31352 ops in 184 classes (all ops) over 4.18s, self_tot 470.26s (summed across concurrent ops); sorted by self
+(left out: 54795 internal-kind ops, self_tot 121.12s; kind: "internal" ranks them)
+   count   self_tot  self_p50  self_max    dur_tot   dur_p50   dur_max   dup  kind class               outcomes
+    3078    109.06s   23.77ms  288.55ms    125.03s   28.65ms  307.17ms     0  call ArtifactDimensionKey.key executed:3078
+    3078    108.31s   23.09ms  294.65ms    126.40s   28.52ms  317.13ms     0  call ArtifactDimensionKey.dimensionKeys executed:3078
+    3078     84.30s   15.44ms  316.05ms     96.90s   19.86ms  316.09ms     0  call ArtifactDimensionKey.dimension executed:3078
+    1026     45.99s   31.82ms  286.20ms     51.63s   37.00ms  286.28ms     0  call Artifact.items      executed:1026
+    1026     37.29s   25.07ms  228.67ms     43.02s   29.59ms  269.85ms     0  call Artifact.dimensionKeys executed:1026
+    1026     36.57s   25.50ms  259.34ms     42.18s   30.73ms  269.36ms     0  call Artifact.description executed:1026
+    1026     25.87s   14.67ms  230.46ms     30.42s   18.06ms  286.41ms     0  call Artifact.uri        executed:1026
+    3078      5.39s   274.7µs   53.05ms      5.39s   274.7µs   53.05ms     0  call_exec ArtifactDimensionKey.dimensionKeys ok:3078
+    3078      4.75s   139.0µs   52.88ms      4.75s   139.0µs   52.88ms     0  call_exec ArtifactDimensionKey.key ok:3078
+    3078      4.31s    70.4µs   52.81ms      4.31s    70.4µs   52.81ms     0  call_exec ArtifactDimensionKey.dimension ok:3078
+    1026      1.94s   151.9µs   34.75ms      1.94s   151.9µs   34.75ms     0  call_exec Artifact.items ok:1026
+    1026      1.70s   179.3µs   53.31ms      1.70s   179.3µs   53.31ms     0  call_exec Artifact.description ok:1026
+    1026      1.47s    88.3µs   53.28ms      1.47s    88.3µs   53.28ms     0  call_exec Artifact.uri   ok:1026
+    1026      1.44s   160.3µs   33.88ms      1.44s   160.3µs   33.88ms     0  call_exec Artifact.dimensionKeys ok:1026
+       3   486.88ms   25.06ms  445.69ms   486.98ms   25.10ms  445.72ms     0  call_exec Host.directory ok:3
+       1   457.82ms  457.82ms  457.82ms   457.82ms  457.82ms  457.82ms     0  exec_phase exec.workload ok:1
+      25   141.30ms   206.8µs   22.35ms   161.05ms   400.6µs   24.83ms     0  call ArtifactPath.pathDefinitions executed:25
+      16   136.08ms   388.9µs   42.12ms      4.66s    3.63ms     3.89s     0  session_phase session.query ok:16
+      53    80.71ms   143.8µs   10.22ms   106.43ms   212.1µs   10.27ms     0  call String.dimensions   executed:53
+      25    73.93ms   607.4µs   11.23ms   122.54ms    2.93ms   14.30ms     0  call ArtifactPath.loadError executed:25
+      25    71.39ms   261.5µs   22.81ms    93.73ms   341.5µs   22.98ms     0  call ArtifactPath.moduleName executed:25
+      25    52.21ms   577.7µs    8.23ms    86.65ms    2.78ms    9.69ms     0  call ArtifactPath.dimensions executed:25
+      25    38.42ms   126.8µs    9.70ms    62.02ms   449.3µs   11.69ms     0  call ArtifactPath.uri    executed:25
+      25    37.82ms    71.2µs   10.95ms    37.82ms    71.2µs   10.95ms     0  call_exec ArtifactPath.loadError ok:25
+       2    26.88ms   10.62ms   16.26ms    47.08ms   17.47ms   29.61ms     0  call_exec ModuleSource.asModule ok:2
+      25    24.48ms   115.9µs    8.85ms    24.48ms   115.9µs    8.85ms     0  call_exec ArtifactPath.dimensions ok:25
+       2    20.06ms    7.42ms   12.64ms    88.36ms   17.10ms   71.26ms     0  call_exec Workspace.artifacts ok:2
+      53    17.10ms    38.3µs    9.76ms    17.10ms    38.3µs    9.76ms     0  call_exec String.dimensions ok:53
+      25    14.09ms    64.8µs    7.74ms    14.09ms    64.8µs    7.74ms     0  call_exec ArtifactPath.moduleName ok:25
+       1    14.05ms   14.05ms   14.05ms   633.44ms  633.44ms  633.44ms     0  call rust:Rust.packages  executed:1
+       1    13.65ms   13.65ms   13.65ms   619.38ms  619.38ms  619.38ms     0  call_exec rust:Rust.packages ok:1
+      25    13.04ms    52.7µs    3.49ms    13.04ms    52.7µs    3.49ms     0  call_exec ArtifactPath.uri ok:25
+       2    10.53ms    4.61ms    5.92ms    55.65ms   24.37ms   31.28ms     0  call_exec Query.moduleSource ok:2
+      25    10.26ms    59.8µs    7.58ms    10.26ms    59.8µs    7.58ms     0  call_exec ArtifactPath.pathDefinitions ok:25
+       1     9.82ms    9.82ms    9.82ms   482.31ms  482.31ms  482.31ms     0  exec exec.run            ok:1
+… 149 more classes (raise `top`)

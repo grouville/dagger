@@ -1,0 +1,114 @@
+critpath of 11 ops matching all ops (outermost matches only): 4.14s summed
+on-path time by class (sums to the roots' duration; concurrent work off the path gets nothing):
+     on_path      % segments  kind class
+    669.95ms  16.2%       59  call Artifact.items
+    595.18ms  14.4%        1  internal dang.invoke
+    486.35ms  11.8%       40  call ArtifactDimensionKey.dimension
+    470.94ms  11.4%        2  call Host.directory
+    464.86ms  11.2%       47  call ArtifactDimensionKey.dimensionKeys
+    464.26ms  11.2%      184  internal dagql.publishResult
+    323.17ms   7.8%       41  call ArtifactDimensionKey.key
+    178.75ms   4.3%       22  call Artifact.dimensionKeys
+    153.14ms   3.7%       20  call Artifact.description
+    105.55ms   2.6%       11  session_phase session.query
+     51.08ms   1.2%       10  call Artifact.uri
+     26.98ms   0.7%        2  call ModuleSource.asModule
+     20.19ms   0.5%        3  call Workspace.artifacts
+     13.70ms   0.3%        1  call rust:Rust.packages
+     12.93ms   0.3%        9  call ArtifactPath.loadError
+     10.49ms   0.3%        5  call String.dimensions
+     10.25ms   0.2%       12  call ArtifactPath.pathDefinitions
+      9.45ms   0.2%        6  call ArtifactPath.moduleName
+      8.43ms   0.2%        1  call Artifacts.items
+      6.67ms   0.2%        9  call ArtifactDimension.identifier
+      5.78ms   0.1%        2  call Query.moduleSource
+      4.30ms   0.1%        7  call ArtifactDimension.collectionType
+      4.24ms   0.1%       11  session_phase session.workspaceLoad
+      3.60ms   0.1%       11  session_phase session.schemaBuild
+      2.71ms   0.1%        4  call ArtifactPath.dimensions
+      2.59ms   0.1%        1  internal dang.runSource.infer
+      2.50ms   0.1%      420  call TypeDef.withOptional
+      2.37ms   0.1%        1  internal dang.runSource.parse
+      2.20ms   0.1%      389  call Query.typeDef
+      2.09ms   0.1%        8  call Query.node
+      1.98ms   0.0%        5  call Query.__objectTypeDef
+      1.87ms   0.0%        1  internal dang.decodeSchema
+      1.52ms   0.0%       11  call ArtifactPath.uri
+      1.21ms   0.0%      188  call TypeDef.withObject
+      1.13ms   0.0%       16  call Module._implementationScoped
+  … 62 more classes (raise `top`)
+
+path of the longest (offsets from its start; `dur` on the path, `own` not in any blocker):
++0ns dur 3.89s own 9.8µs  87024 session_phase session.serveQuery [ok]
+  +23.2µs dur 3.89s own 40.58ms  87028 session_phase session.query [ok]
+    +348.3µs dur 1.09s own 8.43ms  87032 call Artifacts.items [executed] (exec 87033)
+      +6.81ms dur 447.05ms own 852.1µs  87247 call Workspace.directory [executed] (exec 87248)
+        +7.05ms dur 446.13ms own 445.77ms  87250 call Host.directory [executed] (exec 87251)
+      +454.74ms dur 633.44ms own 13.70ms  87266 call rust:Rust.packages [executed] (exec 87267)
+        +469.24ms dur 604.43ms own 494.1µs  87559 internal dang.evalSource [ok]
+          +478.09ms dur 595.18ms own 595.18ms  87569 internal dang.invoke [ok]
+    +1.10s..+1.48s … 50 shorter segments, 255.98ms: call ArtifactDimensionKey.dimensionKeys:16 call Artifact.items:10 call Artifact.dimensionKeys:6 +4 more
+    +1.24s dur 21.25ms own 18.95ms  99036 call Artifact.items [executed] (exec 99452)
+    +1.30s dur 35.16ms own 35.16ms  100769 call ArtifactDimensionKey.key [executed] (exec 101933)
+    +1.38s dur 20.65ms own 20.65ms  103673 call Artifact.items [executed] (exec 104348)
+    +1.44s dur 22.55ms own 22.55ms  105920 call ArtifactDimensionKey.dimensionKeys [executed] (exec 107701)
+    +1.46s dur 23.71ms own 23.71ms  106636 call Artifact.items [executed] (exec 107546)
+    +1.48s dur 58.08ms own 6.51ms  107557 call Artifact.items [executed] (exec 108073)
+      +1.49s dur 51.57ms own 51.57ms  108074 internal dagql.publishResult [ok]
+    +1.54s..+1.60s … 11 shorter segments, 37.49ms: call ArtifactDimensionKey.dimensionKeys:4 call Artifact.items:3 call ArtifactDimensionKey.dimension:2 +2 more
+    +1.55s dur 17.80ms own 17.80ms  110347 call Artifact.description [executed] (exec 111182)
+    +1.60s dur 79.74ms own 10.22ms  112248 call Artifact.items [executed] (exec 112811)
+      +1.61s dur 69.52ms own 69.52ms  112929 internal dagql.publishResult [ok]
+    +1.68s dur 27.28ms own 11.70ms  115686 call Artifact.items [executed] (exec 116224)
+    +1.70s..+1.72s … 2 shorter segments, 14.70ms: call Artifact.items:2
+    +1.72s dur 71.38ms own 49.60ms  117489 call Artifact.items [executed] (exec 118621)
+    +1.79s..+2.05s … 27 shorter segments, 136.87ms: call ArtifactDimensionKey.dimension:9 call ArtifactDimensionKey.key:7 call Artifact.dimensionKeys:3 +3 more
+    +1.81s dur 18.62ms own 18.62ms  120468 call Artifact.items [executed] (exec 121297)
+    +1.84s dur 22.04ms own 22.04ms  121831 call Artifact.items [executed] (exec 122716)
+    +1.89s dur 25.88ms own 25.88ms  124507 call Artifact.items [executed] (exec 125167)
+    +1.99s dur 20.01ms own 33.5µs  128737 call Artifact.items [executed] (exec 128739)
+    +2.01s dur 33.63ms own 33.63ms  130063 call Artifact.items [executed] (exec 131230)
+    +2.05s dur 38.93ms own 38.93ms  131432 call Artifact.items [executed] (exec 132105)
+    +2.09s..+2.14s … 13 shorter segments, 32.00ms: call ArtifactDimensionKey.dimension:4 call ArtifactDimensionKey.key:3 call ArtifactDimensionKey.dimensionKeys:2 +4 more
+    +2.09s dur 22.23ms own 22.23ms  133148 call ArtifactDimensionKey.dimension [executed] (exec 134154)
+    +2.14s dur 16.18ms own 5.18ms  135426 call Artifact.items [executed] (exec 135825)
+    +2.16s dur 57.78ms own 42.51ms  136693 call Artifact.items [executed] (exec 138097)
+    +2.21s dur 29.97ms own 29.97ms  138553 call ArtifactDimensionKey.dimension [executed] (exec 138951)
+    +2.24s..+2.33s … 18 shorter segments, 35.81ms: call Artifact.items:5 call ArtifactDimensionKey.dimensionKeys:4 call Artifact.description:3 +3 more
+    +2.24s dur 22.93ms own 22.93ms  139278 call Artifact.items [executed] (exec 139481)
+    +2.28s dur 12.11ms own 12.11ms  140545 call Artifact.description [executed] (exec 141280)
+    +2.30s dur 10.93ms own 10.93ms  142025 call ArtifactDimensionKey.dimensionKeys [executed] (exec 144218)
+    +2.33s dur 83.58ms own 13.48ms  143174 call Artifact.items [executed] (exec 143713)
+      +2.34s dur 70.10ms own 70.10ms  143715 internal dagql.publishResult [ok]
+    +2.41s..+2.46s … 4 shorter segments, 20.74ms: call ArtifactDimensionKey.key:3 call Artifact.description:1
+    +2.41s dur 29.82ms own 29.82ms  144482 call ArtifactDimensionKey.dimensionKeys [executed] (exec 145283)
+    +2.46s dur 77.28ms own 74.91ms  145518 call ArtifactDimensionKey.dimensionKeys [executed] (exec 146174)
+    +2.54s dur 63.16ms own 63.16ms  146752 call ArtifactDimensionKey.dimension [executed] (exec 148086)
+    +2.60s..+2.68s … 11 shorter segments, 26.02ms: call Artifact.dimensionKeys:3 call Artifact.items:3 call ArtifactDimensionKey.dimension:3 +1 more
+    +2.61s dur 16.13ms own 16.13ms  148071 call Artifact.items [executed] (exec 148538)
+    +2.62s dur 36.26ms own 36.26ms  148385 call Artifact.items [executed] (exec 148749)
+    +2.68s dur 41.14ms own 24.13ms  149925 call Artifact.description [executed] (exec 150370)
+    +2.76s dur 52.30ms own 52.30ms  151412 call Artifact.description [executed] (exec 151414)
+    +2.81s..+2.91s … 8 shorter segments, 26.78ms: call Artifact.items:2 call ArtifactDimensionKey.dimensionKeys:2 call ArtifactDimensionKey.key:2 +2 more
+    +2.82s dur 37.75ms own 37.75ms  152624 call ArtifactDimensionKey.dimensionKeys [executed] (exec 153021)
+    +2.87s dur 34.51ms own 34.51ms  152761 call ArtifactDimensionKey.key [executed] (exec 153273)
+    +2.91s dur 72.86ms own 65.68ms  152835 call Artifact.items [executed] (exec 153280)
+    +3.01s dur 43.09ms own 43.09ms  154445 call Artifact.dimensionKeys [executed] (exec 154936)
+    +3.07s dur 55.67ms own 55.67ms  155876 call Artifact.items [executed] (exec 156875)
+    +3.13s..+3.21s … 9 shorter segments, 28.63ms: call Artifact.items:3 call ArtifactDimensionKey.dimensionKeys:3 call ArtifactDimensionKey.dimension:2 +1 more
+    +3.13s dur 27.87ms own 27.87ms  156591 call ArtifactDimensionKey.dimensionKeys [executed] (exec 156888)
+    +3.17s dur 30.34ms own 5.66ms  157057 call Artifact.items [executed] (exec 157312)
+    +3.21s dur 226.95ms own 163.33ms  158626 call ArtifactDimensionKey.dimension [executed] (exec 160907)
+      +3.38s dur 63.61ms own 63.61ms  160909 internal dagql.publishResult [ok]
+    +3.44s..+3.63s … 17 shorter segments, 86.85ms: call Artifact.items:4 call Artifact.uri:4 call ArtifactDimensionKey.key:3 +4 more
+    +3.45s dur 17.88ms own 17.88ms  162280 call Artifact.description [executed] (exec 163319)
+    +3.47s dur 35.27ms own 35.27ms  162646 call ArtifactDimensionKey.dimensionKeys [executed] (exec 163510)
+    +3.56s dur 33.81ms own 33.81ms  164585 call ArtifactDimensionKey.dimension [executed] (exec 165219)
+    +3.59s dur 13.12ms own 13.12ms  165044 call ArtifactDimensionKey.dimension [executed] (exec 165296)
+    +3.63s dur 25.84ms own 25.84ms  165820 call Artifact.dimensionKeys [executed] (exec 166729)
+    +3.65s dur 57.26ms own 57.26ms  166455 call ArtifactDimensionKey.dimensionKeys [executed] (exec 167049)
+    +3.73s dur 39.47ms own 39.47ms  167642 call ArtifactDimensionKey.key [executed] (exec 168696)
+    +3.77s dur 47.94ms own 34.26ms  168830 call ArtifactDimensionKey.key [executed] (exec 168866)
+    +3.82s dur 39.70ms own 39.63ms  169920 call ArtifactDimensionKey.key [executed] (exec 170333)
+(551 segments not shown: runs of them totaling under 1% of the path, 287.81ms)
+(runs of sub-1% segments totaling 1%+ show their largest members, the rest as "… N shorter"; ▸ N: N segments not expanded, raise `depth` or re-root with `op`; (exec N): a call folded with its call_exec op N)

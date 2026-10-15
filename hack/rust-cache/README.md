@@ -11,6 +11,8 @@ described below; none changes the Rust module's default behavior.
 
 The [collection and telemetry follow-up](NATIVE_COLLECTION_TELEMETRY.md) fixes incomplete collection listings, reduces their rendering cost, and measures a narrower engine decoder improvement on real source edits. It also identifies contention during result publication as the next target; ordinary build and test gains remain mixed.
 
+The [snapshot notification experiment](NATIVE_SNAPSHOT_NOTIFICATIONS.md) removes unnecessary graph-lock waits but establishes no complete-command speedup. Full wcprof, CPU and runtime captures point instead toward repeated metadata work and the volume of result publications.
+
 This follows the Go package replay described in
 [dagger/dagger#14555](https://github.com/dagger/dagger/pull/14555) and
 [#14557](https://github.com/dagger/dagger/pull/14557).

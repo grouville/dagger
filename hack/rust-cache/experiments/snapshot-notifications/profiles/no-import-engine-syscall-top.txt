@@ -1,0 +1,41 @@
+File: dagger-engine-snapshot-completion
+Type: delay
+Showing nodes accounting for 31.87s, 98.87% of 32.24s total
+Dropped 925 nodes (cum <= 0.16s)
+Showing top 35 nodes out of 49
+      flat  flat%   sum%        cum   cum%
+       30s 93.05% 93.05%        30s 93.05%  runtime.(*profBuf).read
+     1.12s  3.48% 96.54%      1.12s  3.48%  syscall.write
+     0.47s  1.46% 98.00%      0.47s  1.46%  internal/syscall/unix.Waitid
+     0.28s  0.87% 98.87%      0.28s  0.87%  syscall.read
+         0     0% 98.87%      0.20s  0.61%  bufio.(*Writer).Write
+         0     0% 98.87%      0.47s  1.46%  github.com/containerd/go-runc.(*defaultMonitor).Start.func1
+         0     0% 98.87%      0.23s  0.72%  github.com/dagger/dagger/core.(*ClientFilesyncMirror).Snapshot
+         0     0% 98.87%      0.35s  1.08%  github.com/dagger/dagger/core.AroundFunc
+         0     0% 98.87%      0.37s  1.14%  github.com/dagger/dagger/core.AroundFunc.func1
+         0     0% 98.87%      0.23s  0.72%  github.com/dagger/dagger/core/schema.(*hostSchema).directory
+         0     0% 98.87%      0.24s  0.73%  github.com/dagger/dagger/dagql.(*Cache).getOrInitCallInner.func1
+         0     0% 98.87%      0.72s  2.22%  github.com/dagger/dagger/dagql.(*Server).Resolve.(*ErrorPool).Go.func3
+         0     0% 98.87%      0.72s  2.22%  github.com/dagger/dagger/dagql.(*Server).Resolve.func1
+         0     0% 98.87%      0.72s  2.22%  github.com/dagger/dagger/dagql.(*Server).resolvePath
+         0     0% 98.87%      0.23s  0.72%  github.com/dagger/dagger/dagql.NodeFuncWithDynamicInputs[go.shape.*uint8,go.shape.struct { Path string; github.com/dagger/dagger/core.CopyFilter; github.com/dagger/dagger/core/schema.HostDirCacheConfig; GitIgnoreRoot string "internal:\"true\" default:\"\""; FollowPaths []string "internal:\"true\" default:\"[]\""; Gitignore bool "default:\"false\"" },go.shape.struct { Result = github.com/dagger/dagger/dagql.Result[*github.com/dagger/dagger/core.Directory]; github.com/dagger/dagger/dagql.class github.com/dagger/dagger/dagql.Class[*github.com/dagger/dagger/core.Directory] }].func1
+         0     0% 98.87%      0.72s  2.22%  github.com/dagger/dagger/dagql.ObjectResult[go.shape.*uint8].Select
+         0     0% 98.87%      0.72s  2.22%  github.com/dagger/dagger/dagql.ObjectResult[go.shape.*uint8].call
+         0     0% 98.87%      0.37s  1.14%  github.com/dagger/dagger/dagql.ObjectResult[go.shape.*uint8].call.func1
+         0     0% 98.87%      0.24s  0.73%  github.com/dagger/dagger/dagql.ObjectResult[go.shape.*uint8].call.func2
+         0     0% 98.87%      0.23s  0.72%  github.com/dagger/dagger/engine/filesync.(*FileSyncer).Snapshot
+         0     0% 98.87%      0.23s  0.72%  github.com/dagger/dagger/engine/filesync.(*FileSyncer).snapshot
+         0     0% 98.87%      0.23s  0.72%  github.com/dagger/dagger/engine/filesync.(*FileSyncer).sync
+         0     0% 98.87%      0.23s  0.72%  github.com/dagger/dagger/engine/filesync.(*localFS).Sync
+         0     0% 98.87%      0.72s  2.22%  github.com/dagger/dagger/engine/slog.InfoContext
+         0     0% 98.87%      0.21s  0.64%  github.com/dagger/dagger/util/layercopy.(*Copier).Copy
+         0     0% 98.87%      0.21s  0.64%  github.com/dagger/dagger/util/layercopy.(*Copier).copy
+         0     0% 98.87%      0.20s  0.63%  github.com/dagger/dagger/util/layercopy.(*Copier).copyEntry
+         0     0% 98.87%      0.23s  0.71%  github.com/prometheus/procfs.Proc.ProcSMapsRollup
+         0     0% 98.87%      0.23s  0.71%  github.com/prometheus/procfs/internal/util.ReadFileNoStat
+         0     0% 98.87%      0.72s  2.22%  github.com/sourcegraph/conc.(*WaitGroup).Go.func1
+         0     0% 98.87%      0.72s  2.22%  github.com/sourcegraph/conc/panics.(*Catcher).Try
+         0     0% 98.87%      0.72s  2.22%  github.com/sourcegraph/conc/pool.(*Pool).worker
+         0     0% 98.87%      0.28s  0.87%  internal/poll.(*FD).Read
+         0     0% 98.87%      1.12s  3.48%  internal/poll.(*FD).Write
+         0     0% 98.87%      0.23s  0.71%  io.(*LimitedReader).Read

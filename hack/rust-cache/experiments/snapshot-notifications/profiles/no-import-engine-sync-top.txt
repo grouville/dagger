@@ -1,0 +1,41 @@
+File: dagger-engine-snapshot-completion
+Type: delay
+Showing nodes accounting for 1448885.96ms, 99.87% of 1450838.16ms total
+Dropped 776 nodes (cum <= 7254.19ms)
+Showing top 35 nodes out of 81
+      flat  flat%   sum%        cum   cum%
+570129.08ms 39.30% 39.30% 570129.08ms 39.30%  sync.(*WaitGroup).Wait
+310092.62ms 21.37% 60.67% 310092.62ms 21.37%  runtime.selectgo
+279511.06ms 19.27% 79.94% 279511.06ms 19.27%  sync.(*RWMutex).Lock
+73762.41ms  5.08% 85.02% 73762.41ms  5.08%  runtime.chanrecv1
+50090.01ms  3.45% 88.47% 416653.71ms 28.72%  github.com/dagger/dagger/dagql.(*Cache).getOrInitCallInner
+42812.10ms  2.95% 91.42% 42812.10ms  2.95%  log/slog.(*commonHandler).handle
+35941.23ms  2.48% 93.90% 38831.81ms  2.68%  github.com/dagger/dagger/dagql.(*Cache).getOrInitCallInner.func1
+29946.55ms  2.06% 95.96% 123939.29ms  8.54%  github.com/dagger/dagger/dagql.(*Cache).wait.func1
+27675.67ms  1.91% 97.87% 27675.67ms  1.91%  runtime.chanrecv2
+24613.71ms  1.70% 99.57% 281070.15ms 19.37%  github.com/dagger/dagger/dagql.(*Cache).wait
+ 3892.05ms  0.27% 99.84% 66265.44ms  4.57%  github.com/dagger/dagger/engine/wcprof.(*stringTable).intern
+  417.96ms 0.029% 99.87% 31219.39ms  2.15%  github.com/dagger/dagger/dagql.(*Cache).resultState
+    1.52ms 0.0001% 99.87% 26772.35ms  1.85%  github.com/dagger/dagger/engine/wcprof.BeginOp
+         0     0% 99.87% 10001.12ms  0.69%  github.com/dagger/dagger/core.(*Services).StartBindings.func1.1.1
+         0     0% 99.87% 23207.65ms  1.60%  github.com/dagger/dagger/core.AroundFunc
+         0     0% 99.87% 50965.44ms  3.51%  github.com/dagger/dagger/core.AroundFunc.func1
+         0     0% 99.87% 31219.39ms  2.15%  github.com/dagger/dagger/core.recordCacheEvidence
+         0     0% 99.87% 418840.97ms 28.87%  github.com/dagger/dagger/dagql.(*Cache).GetOrInitCall
+         0     0% 99.87% 30801.44ms  2.12%  github.com/dagger/dagger/dagql.(*Cache).captureRowRecord
+         0     0% 99.87%  9077.09ms  0.63%  github.com/dagger/dagger/dagql.(*Cache).captureRowRecord.func1
+         0     0% 99.87% 30801.44ms  2.12%  github.com/dagger/dagger/dagql.(*Cache).completePartKeys
+         0     0% 99.87% 418840.97ms 28.87%  github.com/dagger/dagger/dagql.(*Cache).getOrInitCall
+         0     0% 99.87% 93517.42ms  6.45%  github.com/dagger/dagger/dagql.(*Cache).initCompletedResult
+         0     0% 99.87% 45874.97ms  3.16%  github.com/dagger/dagger/dagql.(*Cache).lookupCacheForRequest
+         0     0% 99.87% 27540.08ms  1.90%  github.com/dagger/dagger/dagql.(*Cache).releaseOngoingCallHandoff
+         0     0% 99.87% 24002.96ms  1.65%  github.com/dagger/dagger/dagql.(*Cache).syncResultSnapshotLeases
+         0     0% 99.87% 48376.42ms  3.33%  github.com/dagger/dagger/dagql.(*Cache).trackSessionResult
+         0     0% 99.87% 31219.39ms  2.15%  github.com/dagger/dagger/dagql.(*CacheDecision).ResultState
+         0     0% 99.87% 409149.43ms 28.20%  github.com/dagger/dagger/dagql.(*Server).Resolve
+         0     0% 99.87% 493596.45ms 34.02%  github.com/dagger/dagger/dagql.(*Server).Resolve.(*ErrorPool).Go.func3
+         0     0% 99.87% 493596.45ms 34.02%  github.com/dagger/dagger/dagql.(*Server).Resolve.func1
+         0     0% 99.87% 144334.34ms  9.95%  github.com/dagger/dagger/dagql.(*Server).loadNthValue
+         0     0% 99.87% 497414.84ms 34.28%  github.com/dagger/dagger/dagql.(*Server).resolvePath
+         0     0% 99.87% 549593.15ms 37.88%  github.com/dagger/dagger/dagql.(*Server).resolvePath.(*ErrorPool).Go.func4
+         0     0% 99.87% 549593.15ms 37.88%  github.com/dagger/dagger/dagql.(*Server).resolvePath.func3
