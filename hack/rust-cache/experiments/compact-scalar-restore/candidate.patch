@@ -1,0 +1,536 @@
+From 34f7e54b9d05ab927c7432b886c7f06c12320b1d Mon Sep 17 00:00:00 2001
+From: Guillaume de Rouville <guillaume@dagger.io>
+Date: Thu, 15 Oct 2026 15:41:48 -0700
+Subject: [PATCH 1/2] dagql: keep restored builtin scalar lists compact
+
+Signed-off-by: Guillaume de Rouville <guillaume@dagger.io>
+---
+ dagql/cache_inline_value.go                  |   5 +
+ dagql/cache_persistence_list_test.go         |   3 +-
+ dagql/cache_persistence_scalar_array.go      |  66 ++++++++
+ dagql/cache_persistence_scalar_array_test.go | 167 +++++++++++++++++++
+ dagql/cache_persistence_self.go              |  28 ++--
+ 5 files changed, 255 insertions(+), 14 deletions(-)
+ create mode 100644 dagql/cache_persistence_scalar_array.go
+ create mode 100644 dagql/cache_persistence_scalar_array_test.go
+
+diff --git a/dagql/cache_inline_value.go b/dagql/cache_inline_value.go
+index 1a72361a0e..54be87a3c5 100644
+--- a/dagql/cache_inline_value.go
++++ b/dagql/cache_inline_value.go
+@@ -22,6 +22,11 @@ func walkInlineValues(res AnyResult, frame *ResultCall, path PersistedRefPath, r
+ 		if frame == nil || frame.Type == nil || frame.Type.Elem == nil {
+ 			return fmt.Errorf("inline list: missing authoritative list call")
+ 		}
++		// The compact decoder admits only inline builtin scalar values, which
++		// cannot carry snapshot owners, part hosts, or release hooks.
++		if _, ok := list.(persistedScalarArray); ok {
++			return nil
++		}
+ 		for i := 1; i <= list.Len(); i++ {
+ 			item, err := list.NthValue(i, frame)
+ 			if err != nil {
+diff --git a/dagql/cache_persistence_list_test.go b/dagql/cache_persistence_list_test.go
+index e976355c46..13105b0e8e 100644
+--- a/dagql/cache_persistence_list_test.go
++++ b/dagql/cache_persistence_list_test.go
+@@ -96,7 +96,8 @@ func TestPersistedNestedListSurvivesRepeatedRestore(t *testing.T) {
+ 		require.NotZero(t, value.cacheSharedResult().id)
+ 		inline := items[1].Unwrap().(DynamicResultArrayOutput).Values[0]
+ 		require.Zero(t, inline.cacheSharedResult().id)
+-		leaf := inline.Unwrap().(DynamicResultArrayOutput).Values[1]
++		leaf, err := inline.Unwrap().(Enumerable).NthValue(2, nil)
++		require.NoError(t, err)
+ 		require.Zero(t, leaf.cacheSharedResult().id)
+ 		require.Equal(t, Typed(Int(9)), leaf.Unwrap())
+ 	}
+diff --git a/dagql/cache_persistence_scalar_array.go b/dagql/cache_persistence_scalar_array.go
+new file mode 100644
+index 0000000000..ea26d6b13a
+--- /dev/null
++++ b/dagql/cache_persistence_scalar_array.go
+@@ -0,0 +1,66 @@
++package dagql
++
++// persistedScalarArray retains plain values and one independent producer call.
++// Like the result-backed decoder, NthValue uses the recorded call even when
++// its caller supplies no frame or a different one.
++type persistedScalarArray struct {
++	DynamicArrayOutput
++	frame *ResultCall
++}
++
++func (a persistedScalarArray) NthValue(i int, _ *ResultCall) (AnyResult, error) {
++	return a.DynamicArrayOutput.NthValue(i, a.frame)
++}
++
++// decodePersistedScalarArray avoids a detached result and cloned call for every
++// inline builtin scalar. Other lists retain the general decoder, including its
++// validation and errors for malformed payloads.
++func decodePersistedScalarArray(dag *Server, items []PersistedResultEnvelope, frame *ResultCall, elem Typed) (Typed, bool) {
++	typ := frame.Type.Elem
++	if len(items) == 0 || !typ.NonNull || typ.Elem != nil || !persistedBuiltinScalarName(typ.NamedType) {
++		return nil, false
++	}
++	var decoder InputDecoder
++	if dag != nil {
++		if scalar, ok := dag.ScalarType(typ.NamedType); ok {
++			switch scalar.(type) {
++			case String, Int, Float, Boolean:
++				decoder = scalar
++			default:
++				return nil, false
++			}
++		}
++	}
++	for _, item := range items {
++		if item.Version != persistedResultEnvelopeVersion || item.Kind != persistedResultKindScalar || item.TypeName != typ.NamedType ||
++			item.ResultID != 0 || item.SessionResourceHandle != "" || item.Imported ||
++			len(item.PendingOffers) != 0 || len(item.StoredParts) != 0 || len(item.ObjectJSON) != 0 || len(item.Items) != 0 {
++			return nil, false
++		}
++	}
++	values := make([]Typed, len(items))
++	for i, item := range items {
++		raw, err := DecodeLosslessJSON(item.ScalarJSON)
++		if err != nil {
++			return nil, false
++		}
++		var value Typed
++		if decoder != nil {
++			input, err := decoder.DecodeInput(raw)
++			if err != nil {
++				return nil, false
++			}
++			value = input
++		} else {
++			value, err = decodeBuiltinPersistedScalar(item.TypeName, raw)
++			if err != nil {
++				return nil, false
++			}
++		}
++		values[i] = value
++	}
++	return persistedScalarArray{
++		DynamicArrayOutput: DynamicArrayOutput{Elem: elem, Values: values},
++		frame:              frame.clone(),
++	}, true
++}
+diff --git a/dagql/cache_persistence_scalar_array_test.go b/dagql/cache_persistence_scalar_array_test.go
+new file mode 100644
+index 0000000000..6fda761e9c
+--- /dev/null
++++ b/dagql/cache_persistence_scalar_array_test.go
+@@ -0,0 +1,167 @@
++package dagql
++
++import (
++	"encoding/json"
++	"fmt"
++	"math"
++	"path/filepath"
++	"reflect"
++	"runtime"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++func TestPersistedScalarArrayValuesAndCalls(t *testing.T) {
++	ctx := setupPersistCodecTest(t)
++	for _, value := range []Typed{
++		Array[String]{"", "é\n<>", "escaped\""},
++		Array[Int]{math.MinInt64, 9007199254740993, math.MaxInt64},
++		Array[Float]{Float(math.Copysign(0, -1)), 1e-300, 1e300},
++		Array[Boolean]{true, false},
++	} {
++		t.Run(value.Type().String(), func(t *testing.T) {
++			frame := persistCodecFrame("values", value)
++			original, err := NewResultForCall(value, frame)
++			require.NoError(t, err)
++			encoding, err := DefaultPersistedSelfCodec.EncodeResult(ctx, nil, original)
++			require.NoError(t, err)
++			for _, srv := range []*Server{nil, CurrentDagqlServer(ctx)} {
++				decoded, err := DefaultPersistedSelfCodec.DecodeResult(ctx, srv, 0, frame, encoding.Envelope)
++				require.NoError(t, err)
++				wantJSON, err := json.Marshal(value)
++				require.NoError(t, err)
++				gotJSON, err := json.Marshal(decoded.Unwrap())
++				require.NoError(t, err)
++				require.Equal(t, wantJSON, gotJSON)
++				want := original.Unwrap().(Enumerable)
++				got := decoded.Unwrap().(Enumerable)
++				for i := 1; i <= want.Len(); i++ {
++					wantItem, err := want.NthValue(i, frame)
++					require.NoError(t, err)
++					for _, supplied := range []*ResultCall{nil, cacheTestIntCall("unrelated")} {
++						item, err := got.NthValue(i, supplied)
++						require.NoError(t, err)
++						require.Equal(t, wantItem.Unwrap(), item.Unwrap())
++						require.Equal(t, wantItem.cacheSharedResult().loadResultCall(), item.cacheSharedResult().loadResultCall())
++					}
++				}
++				again, err := DefaultPersistedSelfCodec.EncodeResult(ctx, nil, decoded)
++				require.NoError(t, err)
++				require.Equal(t, encoding, again)
++			}
++		})
++	}
++}
++
++func TestPersistedScalarArrayCallIsolationAndAssignment(t *testing.T) {
++	ctx := setupPersistCodecTest(t)
++	frame := persistCodecFrame("strings", Array[String]{})
++	frame.Args = []*ResultCallArg{{Name: "arg", Value: &ResultCallLiteral{Kind: ResultCallLiteralKindString, StringValue: "original"}}}
++	original, err := NewResultForCall(Array[String]{"a", "b"}, frame)
++	require.NoError(t, err)
++	encoding, err := DefaultPersistedSelfCodec.EncodeResult(ctx, nil, original)
++	require.NoError(t, err)
++	decoded, err := DefaultPersistedSelfCodec.DecodeResult(ctx, nil, 0, frame, encoding.Envelope)
++	require.NoError(t, err)
++	frame.Field, frame.Args[0].Value.StringValue = "mutated", "mutated"
++	list := decoded.Unwrap().(Enumerable)
++	first, err := list.NthValue(1, nil)
++	require.NoError(t, err)
++	first.cacheSharedResult().loadResultCall().Args[0].Value.StringValue = "mutated child"
++	second, err := list.NthValue(2, nil)
++	require.NoError(t, err)
++	require.Equal(t, "strings", second.cacheSharedResult().loadResultCall().Field)
++	require.Equal(t, "original", second.cacheSharedResult().loadResultCall().Args[0].Value.StringValue)
++	var assigned []string
++	require.NoError(t, decoded.Unwrap().(Setter).SetField(reflect.ValueOf(&assigned).Elem()))
++	require.Equal(t, []string{"a", "b"}, assigned)
++	_, err = list.NthValue(0, nil)
++	require.ErrorContains(t, err, "out of bounds")
++	_, err = list.NthValue(3, nil)
++	require.ErrorContains(t, err, "out of bounds")
++}
++
++func TestPersistedInlineScalarArrayRepeatedRestore(t *testing.T) {
++	path := filepath.Join(t.TempDir(), "cache.db")
++	ctx, cache, srv := persistedListTestCache(t, path)
++	value := Array[String]{"one", "two"}
++	res := persistedListTestResult(t, ctx, cache, srv, "plain-strings", value)
++	id, err := cache.PersistedResultID(res)
++	require.NoError(t, err)
++	original := persistedListTestEncoding(t, ctx, cache, res)
++	for range 2 {
++		require.NoError(t, cache.ReleaseSession(ctx, "test-session"))
++		require.NoError(t, cache.Close(ctx))
++		ctx, cache, srv = persistedListTestCache(t, path)
++		res, err = cache.LoadResultByResultID(ctx, "test-session", srv, id)
++		require.NoError(t, err)
++		list := res.Unwrap().(Enumerable)
++		for i, expected := range value {
++			item, err := list.NthValue(i+1, nil)
++			require.NoError(t, err)
++			require.Equal(t, expected, item.Unwrap())
++		}
++		require.Equal(t, original, persistedListTestEncoding(t, ctx, cache, res))
++	}
++}
++
++func TestPersistedScalarArrayValidationAndResources(t *testing.T) {
++	ctx := setupPersistCodecTest(t)
++	frame := persistCodecFrame("strings", Array[String]{})
++	item := PersistedResultEnvelope{Version: persistedResultEnvelopeVersion, Kind: persistedResultKindScalar, TypeName: "String", ScalarJSON: json.RawMessage(`"value"`)}
++	t.Run("item version remains validated", func(t *testing.T) {
++		invalid := item
++		invalid.Version--
++		env := PersistedResultEnvelope{Version: persistedResultEnvelopeVersion, Kind: persistedResultKindList, Items: []PersistedResultEnvelope{invalid}}
++		_, err := DefaultPersistedSelfCodec.DecodeResult(ctx, nil, 0, frame, env)
++		require.ErrorContains(t, err, "unsupported version")
++	})
++	t.Run("invalid scalar keeps its item error", func(t *testing.T) {
++		invalid := item
++		invalid.ScalarJSON = json.RawMessage(`{"invalid":true}`)
++		env := PersistedResultEnvelope{Version: persistedResultEnvelopeVersion, Kind: persistedResultKindList, Items: []PersistedResultEnvelope{item, invalid}}
++		_, err := DefaultPersistedSelfCodec.DecodeResult(ctx, nil, 0, frame, env)
++		require.ErrorContains(t, err, "decode list item 2: decode scalar_json envelope builtin input")
++	})
++	t.Run("item resource requirement survives", func(t *testing.T) {
++		resource := item
++		resource.SessionResourceHandle = "resource-handle"
++		env := PersistedResultEnvelope{Version: persistedResultEnvelopeVersion, Kind: persistedResultKindList, Items: []PersistedResultEnvelope{item, resource}}
++		decoded, err := DefaultPersistedSelfCodec.DecodeResult(ctx, nil, 0, frame, env)
++		require.NoError(t, err)
++		child, err := decoded.Unwrap().(Enumerable).NthValue(2, nil)
++		require.NoError(t, err)
++		require.Equal(t, resource.SessionResourceHandle, child.cacheSharedResult().sessionResourceHandle)
++		require.True(t, child.cacheSharedResult().requiredSessionResources.Contains(resource.SessionResourceHandle))
++	})
++}
++
++func BenchmarkPersistedScalarArrayRestore(b *testing.B) {
++	for _, size := range []int{128, 512, 1024} {
++		b.Run(fmt.Sprint(size), func(b *testing.B) {
++			frame := persistCodecFrame("strings", Array[String]{})
++			inputs := make([]*ResultCallLiteral, size)
++			env := PersistedResultEnvelope{Version: persistedResultEnvelopeVersion, Kind: persistedResultKindList, TypeName: "String", Items: make([]PersistedResultEnvelope, size)}
++			for i := range size {
++				inputs[i] = &ResultCallLiteral{Kind: ResultCallLiteralKindString, StringValue: fmt.Sprintf("crate_%04d", i)}
++				payload, err := json.Marshal(fmt.Sprintf("digest-%d", i))
++				if err != nil {
++					b.Fatal(err)
++				}
++				env.Items[i] = PersistedResultEnvelope{Version: persistedResultEnvelopeVersion, Kind: persistedResultKindScalar, TypeName: "String", ScalarJSON: payload}
++			}
++			frame.Args = []*ResultCallArg{{Name: "paths", Value: &ResultCallLiteral{Kind: ResultCallLiteralKindList, ListItems: inputs}}}
++			var result AnyResult
++			b.ReportAllocs()
++			for b.Loop() {
++				var err error
++				result, err = DefaultPersistedSelfCodec.DecodeResult(b.Context(), nil, 0, frame, env)
++				if err != nil {
++					b.Fatal(err)
++				}
++			}
++			runtime.KeepAlive(result)
++		})
++	}
++}
+diff --git a/dagql/cache_persistence_self.go b/dagql/cache_persistence_self.go
+index 9afe325be3..6cc1601495 100644
+--- a/dagql/cache_persistence_self.go
++++ b/dagql/cache_persistence_self.go
+@@ -559,7 +559,8 @@ func decodePersistedScalarEnvelope(env PersistedResultEnvelope, call *ResultCall
+ 	return persistedNullableView(res, call), nil
+ }
+ 
+-// decodePersistedListEnvelope decodes a list envelope item by item.
++// decodePersistedListEnvelope keeps plain scalar lists compact and decodes
++// other lists item by item.
+ func decodePersistedListEnvelope(ctx context.Context, dec *PersistDecodeContext, env PersistedResultEnvelope, call *ResultCall) (AnyResult, error) {
+ 	if call == nil {
+ 		return nil, fmt.Errorf("decode list envelope: missing authoritative call")
+@@ -571,20 +572,21 @@ func decodePersistedListEnvelope(ctx context.Context, dec *PersistDecodeContext,
+ 	if err != nil {
+ 		return nil, fmt.Errorf("decode list envelope element type: %w", err)
+ 	}
+-	items := make([]AnyResult, 0, len(env.Items))
+-	for i, itemEnv := range env.Items {
+-		itemCall := persistedListItemCall(call, i+1)
+-		itemCtx := ContextWithCall(ctx, itemCall)
+-		itemRes, err := decodePersistedResultEnvelope(itemCtx, dec.item(itemCall, i), itemEnv, false)
+-		if err != nil {
+-			return nil, fmt.Errorf("decode list item %d: %w", i+1, err)
++	values, compact := decodePersistedScalarArray(dec.Server(), env.Items, call, elem)
++	if !compact {
++		items := make([]AnyResult, 0, len(env.Items))
++		for i, itemEnv := range env.Items {
++			itemCall := persistedListItemCall(call, i+1)
++			itemCtx := ContextWithCall(ctx, itemCall)
++			itemRes, err := decodePersistedResultEnvelope(itemCtx, dec.item(itemCall, i), itemEnv, false)
++			if err != nil {
++				return nil, fmt.Errorf("decode list item %d: %w", i+1, err)
++			}
++			items = append(items, itemRes)
+ 		}
+-		items = append(items, itemRes)
++		values = DynamicResultArrayOutput{Elem: elem, Values: items}
+ 	}
+-	res, err := NewResultForCall(DynamicResultArrayOutput{
+-		Elem:   elem,
+-		Values: items,
+-	}, call)
++	res, err := NewResultForCall(values, call)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+-- 
+2.43.0
+
+
+From 376e7c3249ae973f16c170c5619272bb9c35d151 Mon Sep 17 00:00:00 2001
+From: Guillaume de Rouville <guillaume@dagger.io>
+Date: Thu, 15 Oct 2026 15:57:23 -0700
+Subject: [PATCH 2/2] dagql: save restored scalar arrays without rebuilding
+ item calls
+
+Signed-off-by: Guillaume de Rouville <guillaume@dagger.io>
+---
+ dagql/cache_persistence_scalar_array.go      | 24 +++++++++
+ dagql/cache_persistence_scalar_array_test.go | 49 ++++++++++++++-----
+ dagql/cache_persistence_self.go              | 51 ++++++++++++--------
+ 3 files changed, 92 insertions(+), 32 deletions(-)
+
+diff --git a/dagql/cache_persistence_scalar_array.go b/dagql/cache_persistence_scalar_array.go
+index ea26d6b13a..02db164888 100644
+--- a/dagql/cache_persistence_scalar_array.go
++++ b/dagql/cache_persistence_scalar_array.go
+@@ -1,5 +1,10 @@
+ package dagql
+ 
++import (
++	"encoding/json"
++	"fmt"
++)
++
+ // persistedScalarArray retains plain values and one independent producer call.
+ // Like the result-backed decoder, NthValue uses the recorded call even when
+ // its caller supplies no frame or a different one.
+@@ -12,6 +17,25 @@ func (a persistedScalarArray) NthValue(i int, _ *ResultCall) (AnyResult, error)
+ 	return a.DynamicArrayOutput.NthValue(i, a.frame)
+ }
+ 
++// encodeItems preserves the scalar envelopes without materializing element
++// results again while saving the compact representation.
++func (a persistedScalarArray) encodeItems() ([]PersistedResultEnvelope, []PersistedSnapshotRefLink, error) {
++	items := make([]PersistedResultEnvelope, len(a.Values))
++	for i, value := range a.Values {
++		payload, err := json.Marshal(value)
++		if err != nil {
++			return nil, nil, fmt.Errorf("encode persisted list item %d envelope: encode scalar_json payload: %w", i+1, err)
++		}
++		items[i] = PersistedResultEnvelope{
++			Version:    persistedResultEnvelopeVersion,
++			Kind:       persistedResultKindScalar,
++			TypeName:   value.Type().Name(),
++			ScalarJSON: payload,
++		}
++	}
++	return items, nil, nil
++}
++
+ // decodePersistedScalarArray avoids a detached result and cloned call for every
+ // inline builtin scalar. Other lists retain the general decoder, including its
+ // validation and errors for malformed payloads.
+diff --git a/dagql/cache_persistence_scalar_array_test.go b/dagql/cache_persistence_scalar_array_test.go
+index 6fda761e9c..d459a34886 100644
+--- a/dagql/cache_persistence_scalar_array_test.go
++++ b/dagql/cache_persistence_scalar_array_test.go
+@@ -137,21 +137,27 @@ func TestPersistedScalarArrayValidationAndResources(t *testing.T) {
+ 	})
+ }
+ 
++func persistedScalarArrayBenchmarkInput(b *testing.B, size int) (*ResultCall, PersistedResultEnvelope) {
++	b.Helper()
++	frame := persistCodecFrame("strings", Array[String]{})
++	inputs := make([]*ResultCallLiteral, size)
++	env := PersistedResultEnvelope{Version: persistedResultEnvelopeVersion, Kind: persistedResultKindList, TypeName: "String", Items: make([]PersistedResultEnvelope, size)}
++	for i := range size {
++		inputs[i] = &ResultCallLiteral{Kind: ResultCallLiteralKindString, StringValue: fmt.Sprintf("crate_%04d", i)}
++		payload, err := json.Marshal(fmt.Sprintf("digest-%d", i))
++		if err != nil {
++			b.Fatal(err)
++		}
++		env.Items[i] = PersistedResultEnvelope{Version: persistedResultEnvelopeVersion, Kind: persistedResultKindScalar, TypeName: "String", ScalarJSON: payload}
++	}
++	frame.Args = []*ResultCallArg{{Name: "paths", Value: &ResultCallLiteral{Kind: ResultCallLiteralKindList, ListItems: inputs}}}
++	return frame, env
++}
++
+ func BenchmarkPersistedScalarArrayRestore(b *testing.B) {
+ 	for _, size := range []int{128, 512, 1024} {
+ 		b.Run(fmt.Sprint(size), func(b *testing.B) {
+-			frame := persistCodecFrame("strings", Array[String]{})
+-			inputs := make([]*ResultCallLiteral, size)
+-			env := PersistedResultEnvelope{Version: persistedResultEnvelopeVersion, Kind: persistedResultKindList, TypeName: "String", Items: make([]PersistedResultEnvelope, size)}
+-			for i := range size {
+-				inputs[i] = &ResultCallLiteral{Kind: ResultCallLiteralKindString, StringValue: fmt.Sprintf("crate_%04d", i)}
+-				payload, err := json.Marshal(fmt.Sprintf("digest-%d", i))
+-				if err != nil {
+-					b.Fatal(err)
+-				}
+-				env.Items[i] = PersistedResultEnvelope{Version: persistedResultEnvelopeVersion, Kind: persistedResultKindScalar, TypeName: "String", ScalarJSON: payload}
+-			}
+-			frame.Args = []*ResultCallArg{{Name: "paths", Value: &ResultCallLiteral{Kind: ResultCallLiteralKindList, ListItems: inputs}}}
++			frame, env := persistedScalarArrayBenchmarkInput(b, size)
+ 			var result AnyResult
+ 			b.ReportAllocs()
+ 			for b.Loop() {
+@@ -165,3 +171,22 @@ func BenchmarkPersistedScalarArrayRestore(b *testing.B) {
+ 		})
+ 	}
+ }
++
++func BenchmarkPersistedScalarArraySave(b *testing.B) {
++	for _, size := range []int{128, 512, 1024} {
++		b.Run(fmt.Sprint(size), func(b *testing.B) {
++			frame, env := persistedScalarArrayBenchmarkInput(b, size)
++			result, err := DefaultPersistedSelfCodec.DecodeResult(b.Context(), nil, 0, frame, env)
++			if err != nil {
++				b.Fatal(err)
++			}
++			b.ReportAllocs()
++			for b.Loop() {
++				encoded, err := DefaultPersistedSelfCodec.EncodeResult(b.Context(), nil, result)
++				if err != nil || len(encoded.Envelope.Items) != size {
++					b.Fatalf("items=%d err=%v", len(encoded.Envelope.Items), err)
++				}
++			}
++		})
++	}
++}
+diff --git a/dagql/cache_persistence_self.go b/dagql/cache_persistence_self.go
+index 6cc1601495..fa6c4d588c 100644
+--- a/dagql/cache_persistence_self.go
++++ b/dagql/cache_persistence_self.go
+@@ -281,26 +281,9 @@ func encodePersistedResultEnvelope(ctx context.Context, enc *PersistEncodeContex
+ 		if parentCall.Type == nil || parentCall.Type.Elem == nil {
+ 			return PersistedResultEncoding{}, fmt.Errorf("encode persisted list: recorded call type %s does not declare a list", parentCall.Type.toAST())
+ 		}
+-		itemEnvs := make([]PersistedResultEnvelope, 0, enumerable.Len())
+-		var itemLinks []PersistedSnapshotRefLink
+-		for i := 1; i <= enumerable.Len(); i++ {
+-			item, err := enumerable.NthValue(i, parentCall)
+-			if err != nil {
+-				return PersistedResultEncoding{}, fmt.Errorf("encode persisted list item %d: %w", i, err)
+-			}
+-			itemCall := persistedListItemCall(parentCall, i)
+-			itemEnc := enc.item(itemCall, i-1)
+-			if item != nil {
+-				if itemShared := item.cacheSharedResult(); itemShared != nil && itemShared.id != 0 {
+-					itemEnc.resultID = uint64(itemShared.id)
+-				}
+-			}
+-			itemEncoding, err := encodePersistedResultEnvelope(ctx, itemEnc, item, false)
+-			if err != nil {
+-				return PersistedResultEncoding{}, fmt.Errorf("encode persisted list item %d envelope: %w", i, err)
+-			}
+-			itemEnvs = append(itemEnvs, itemEncoding.Envelope)
+-			itemLinks = append(itemLinks, itemEncoding.SnapshotLinks...)
++		itemEnvs, itemLinks, err := encodePersistedListItems(ctx, enc, enumerable, parentCall)
++		if err != nil {
++			return PersistedResultEncoding{}, err
+ 		}
+ 		return PersistedResultEncoding{
+ 			Envelope: PersistedResultEnvelope{
+@@ -336,6 +319,34 @@ func encodePersistedResultEnvelope(ctx context.Context, enc *PersistEncodeContex
+ 	}, nil
+ }
+ 
++func encodePersistedListItems(ctx context.Context, enc *PersistEncodeContext, enumerable Enumerable, parentCall *ResultCall) ([]PersistedResultEnvelope, []PersistedSnapshotRefLink, error) {
++	if values, ok := enumerable.(persistedScalarArray); ok {
++		return values.encodeItems()
++	}
++	itemEnvs := make([]PersistedResultEnvelope, 0, enumerable.Len())
++	var itemLinks []PersistedSnapshotRefLink
++	for i := 1; i <= enumerable.Len(); i++ {
++		item, err := enumerable.NthValue(i, parentCall)
++		if err != nil {
++			return nil, nil, fmt.Errorf("encode persisted list item %d: %w", i, err)
++		}
++		itemCall := persistedListItemCall(parentCall, i)
++		itemEnc := enc.item(itemCall, i-1)
++		if item != nil {
++			if itemShared := item.cacheSharedResult(); itemShared != nil && itemShared.id != 0 {
++				itemEnc.resultID = uint64(itemShared.id)
++			}
++		}
++		itemEncoding, err := encodePersistedResultEnvelope(ctx, itemEnc, item, false)
++		if err != nil {
++			return nil, nil, fmt.Errorf("encode persisted list item %d envelope: %w", i, err)
++		}
++		itemEnvs = append(itemEnvs, itemEncoding.Envelope)
++		itemLinks = append(itemLinks, itemEncoding.SnapshotLinks...)
++	}
++	return itemEnvs, itemLinks, nil
++}
++
+ // encodePersistedAbsentValue writes an absent value. An attached absent row
+ // is checked against its recorded declaration at capture: a nil value under a
+ // non-null declaration fails the save naming the owner instead of writing a
+-- 
+2.43.0
+

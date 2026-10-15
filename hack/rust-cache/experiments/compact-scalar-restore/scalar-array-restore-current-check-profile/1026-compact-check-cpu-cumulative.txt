@@ -1,0 +1,34 @@
+File: dagger-engine-compact-scalar-restore-v2
+Build ID: 5e8ff846f3bcf192377945ef60d2f94f9e582e55
+Type: cpu
+Time: 2026-10-15 16:29:42 PDT
+Duration: 10s, Total samples = 4.91s (49.09%)
+Showing nodes accounting for 1.10s, 22.40% of 4.91s total
+Dropped 731 nodes (cum <= 0.02s)
+Showing top 25 nodes out of 510
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%      2.87s 58.45%  github.com/dagger/dagger/engine/server.(*Server).gc
+         0     0%     0%      2.87s 58.45%  github.com/dagger/dagger/engine/server.(*Server).gcAfterSessionCompletion
+         0     0%     0%      2.87s 58.45%  github.com/dagger/dagger/engine/server.(*Server).gcLocked
+         0     0%     0%      2.87s 58.45%  github.com/dagger/dagger/engine/server.NewServer.After.throttle.func3.1
+         0     0%     0%      2.86s 58.25%  github.com/dagger/dagger/engine/server.(*Server).pruneLocalCacheLocked
+         0     0%     0%      2.84s 57.84%  github.com/dagger/dagger/dagql.(*Cache).Prune
+         0     0%     0%      2.16s 43.99%  github.com/dagger/dagger/dagql.(*Cache).measurePruneState
+     0.02s  0.41%  0.41%      1.24s 25.25%  github.com/dagger/dagger/dagql.(*Cache).collectUsageMeasurementInputs
+         0     0%  0.41%      1.20s 24.44%  github.com/dagger/dagger/dagql.(*Cache).measureAllResultSizes
+     1.05s 21.38% 21.79%      1.05s 21.38%  internal/runtime/syscall/linux.Syscall6
+         0     0% 21.79%         1s 20.37%  syscall.RawSyscall6
+         0     0% 21.79%      0.96s 19.55%  github.com/dagger/dagger/dagql.(*Cache).snapshotPruneStateCancelable
+         0     0% 21.79%      0.70s 14.26%  os.ignoringEINTR (inline)
+     0.02s  0.41% 22.20%      0.62s 12.63%  github.com/dagger/dagger/dagql.buildCacheUsageMeasurements
+         0     0% 22.20%      0.62s 12.63%  go.etcd.io/bbolt.(*DB).View
+         0     0% 22.20%      0.61s 12.42%  github.com/containerd/containerd/v2/core/metadata.(*DB).GarbageCollect
+         0     0% 22.20%      0.61s 12.42%  github.com/dagger/dagger/engine/server.(*snapshotGarbage).Collect
+     0.01s   0.2% 22.40%      0.60s 12.22%  syscall.Syscall6
+         0     0% 22.40%      0.59s 12.02%  github.com/containerd/containerd/v2/core/metadata.(*DB).getMarked
+         0     0% 22.40%      0.59s 12.02%  github.com/containerd/containerd/v2/core/metadata.(*DB).getMarked.func1
+         0     0% 22.40%      0.55s 11.20%  github.com/containerd/continuity/fs.DiskUsage (inline)
+         0     0% 22.40%      0.55s 11.20%  github.com/containerd/continuity/fs.diskUsage
+         0     0% 22.40%      0.55s 11.20%  path/filepath.Walk
+         0     0% 22.40%      0.55s 11.20%  path/filepath.walk
+         0     0% 22.40%      0.52s 10.59%  github.com/dagger/dagger/engine/snapshots.(*mergeSnapshotter).Usage

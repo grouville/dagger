@@ -1,0 +1,18 @@
+--- FAIL: TestPersistedNestedListSurvivesRepeatedRestore (0.07s)
+panic: interface conversion: dagql.Typed is dagql.persistedScalarArray, not dagql.DynamicResultArrayOutput [recovered, repanicked]
+
+goroutine 68 [running]:
+testing.tRunner.func1.2({0x6198b60, 0xc0008b4e40})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/testing/testing.go:1974 +0x419
+testing.tRunner.func1()
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/testing/testing.go:1977 +0x67f
+panic({0x6198b60?, 0xc0008b4e40?})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/panic.go:860 +0x13a
+github.com/dagger/dagger/dagql.TestPersistedNestedListSurvivesRepeatedRestore(0xc000850b48)
+	/tmp/dagger-restore-builtin-scalar-arrays/dagql/cache_persistence_list_test.go:99 +0xdab
+testing.tRunner(0xc000850b48, 0x6d9ad00)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/testing/testing.go:2036 +0x21d
+created by testing.(*T).Run in goroutine 1
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/testing/testing.go:2101 +0xb13
+FAIL	github.com/dagger/dagger/dagql	0.326s
+FAIL

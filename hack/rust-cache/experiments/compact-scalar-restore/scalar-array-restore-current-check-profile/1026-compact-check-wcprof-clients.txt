@@ -1,0 +1,14 @@
+clients: 10567 ops (all ops) from 5 clients over 1.77s; ops started per 177.06ms bucket:
+client                          ops   self_tot |  +0.0s  +0.2s  +0.4s  +0.5s  +0.7s  +0.9s  +1.1s  +1.2s  +1.4s  +1.6s
+tucf7pdkc318qdna95o7jrvdh      7409   622.73ms |    917      0    293      0   6180      0      0      0      0     19
+(none)                         1027      2.06s |    194      0     22     99    234     56    134    116      0    172
+M67M3SXWW3TYQGN2S24POSUTTT      790   257.17ms |      0      0      0      0    272    231    109      2      0    176
+RRVL5VZLINNP7SQXL23DIY62BN      738    74.91ms |      0      0      0      0    402      0      0      0      0    336
+MMPLYOSI5KCLVRLFIWRJ5YP3UJ      603    31.02ms |      0      0      0    560     43      0      0      0      0      0
+
+top classes per client:
+  tucf7pdkc318qdna95o7jrvdh [+0ns..+1.77s]: 3399× call Query.typeDef (self 11.41ms), 3205× call TypeDef.withKind (self 11.33ms), 350× call TypeDef.withOptional (self 1.82ms), 152× call TypeDef.withObject (self 731.5µs), 40× call TypeDef.withListOf (self 284.6µs), +112 more
+  (none) [+7.19ms..+1.77s]: 187× internal dagql.collectSnapshotOwnerLinks (self 1.00ms), 187× internal dagql.snapshotLeaseLockHeld (self 227.4µs), 187× internal dagql.syncSnapshotOwnerLinks (self 357.7µs), 148× internal dagql.publishResult (self 75.76ms), 39× internal snapshot.ownerLease.commit (self 2.16ms), +47 more
+  M67M3SXWW3TYQGN2S24POSUTTT [+859.48ms..+1.72s]: 72× session_phase session.modulesLoad (self 49.7µs), 72× session_phase session.query (self 113.98ms), 72× session_phase session.schemaBuild (self 1.56ms), 72× session_phase session.serveQuery (self 565.2µs), 72× session_phase session.workspaceLoad (self 49.5µs), +80 more
+  RRVL5VZLINNP7SQXL23DIY62BN [+800.68ms..+1.77s]: 154× call Query.typeDef (self 915.2µs), 150× call TypeDef.withOptional (self 596.2µs), 79× call TypeDef.withKind (self 337.0µs), 66× call Module._implementationScoped (self 1.04ms), 40× call TypeDef.withListOf (self 160.0µs), +35 more
+  MMPLYOSI5KCLVRLFIWRJ5YP3UJ [+533.34ms..+731.55ms]: 174× call TypeDef.withOptional (self 643.3µs), 159× call Query.typeDef (self 576.2µs), 76× call TypeDef.withObject (self 275.5µs), 63× call TypeDef.withKind (self 210.5µs), 20× call TypeDef.withListOf (self 84.5µs), +35 more
