@@ -1,0 +1,45 @@
+File: dagger-engine-entry-checksum
+Build ID: c778a3eab6336e09218f07c0e47f2d0f6b41a4b1
+Type: cpu
+Time: 2026-10-15 07:23:50 PDT
+Duration: 12s, Total samples = 6.58s (54.83%)
+Active filters:
+   focus=engine/filesync|util/layercopy
+Showing nodes accounting for 1.20s, 18.24% of 6.58s total
+Showing top 35 nodes out of 363
+      flat  flat%   sum%        cum   cum%
+     1.18s 17.93% 17.93%      1.18s 17.93%  internal/runtime/syscall/linux.Syscall6
+         0     0% 17.93%      1.15s 17.48%  syscall.RawSyscall6
+         0     0% 17.93%         1s 15.20%  github.com/dagger/dagger/util/layercopy.(*Copier).Copy
+         0     0% 17.93%      0.99s 15.05%  github.com/dagger/dagger/util/layercopy.(*Copier).copy
+     0.01s  0.15% 18.09%      0.98s 14.89%  github.com/dagger/dagger/util/layercopy.(*Copier).copyEntry
+         0     0% 18.09%      0.87s 13.22%  github.com/dagger/dagger/core.(*ClientFilesyncMirror).Snapshot
+         0     0% 18.09%      0.87s 13.22%  github.com/dagger/dagger/core/schema.(*hostSchema).directory
+         0     0% 18.09%      0.87s 13.22%  github.com/dagger/dagger/dagql.(*Cache).getOrInitCallInner.func1
+         0     0% 18.09%      0.87s 13.22%  github.com/dagger/dagger/dagql.NodeFuncWithDynamicInputs[go.shape.*uint8,go.shape.struct { Path string; github.com/dagger/dagger/core.CopyFilter; github.com/dagger/dagger/core/schema.HostDirCacheConfig; GitIgnoreRoot string "internal:\"true\" default:\"\""; FollowPaths []string "internal:\"true\" default:\"[]\""; Gitignore bool "default:\"false\"" },go.shape.struct { Result = github.com/dagger/dagger/dagql.Result[*github.com/dagger/dagger/core.Directory]; github.com/dagger/dagger/dagql.class github.com/dagger/dagger/dagql.Class[*github.com/dagger/dagger/core.Directory] }].func1
+         0     0% 18.09%      0.87s 13.22%  github.com/dagger/dagger/dagql.ObjectResult[go.shape.*uint8].call.func2
+         0     0% 18.09%      0.87s 13.22%  github.com/dagger/dagger/engine/filesync.(*FileSyncer).Snapshot
+         0     0% 18.09%      0.87s 13.22%  github.com/dagger/dagger/engine/filesync.(*FileSyncer).snapshot
+         0     0% 18.09%      0.87s 13.22%  github.com/dagger/dagger/engine/filesync.(*FileSyncer).sync
+         0     0% 18.09%      0.86s 13.07%  github.com/dagger/dagger/engine/filesync.(*localFS).Sync
+         0     0% 18.09%      0.75s 11.40%  os.ignoringEINTR (inline)
+         0     0% 18.09%      0.60s  9.12%  syscall.Syscall6
+         0     0% 18.09%      0.55s  8.36%  syscall.Syscall
+         0     0% 18.09%      0.53s  8.05%  github.com/dagger/dagger/util/layercopy.(*Copier).copyNode
+     0.01s  0.15% 18.24%      0.51s  7.75%  github.com/dagger/dagger/util/layercopy.(*Copier).copyRegular
+         0     0% 18.24%      0.46s  6.99%  golang.org/x/sync/errgroup.(*Group).Go.func1
+         0     0% 18.24%      0.36s  5.47%  github.com/dagger/dagger/engine/filesync.pathWalk (inline)
+         0     0% 18.24%      0.36s  5.47%  path/filepath.WalkDir
+         0     0% 18.24%      0.36s  5.47%  path/filepath.walkDir
+         0     0% 18.24%      0.33s  5.02%  github.com/dagger/dagger/core.(*Directory).LazyEvalFunc.func1.1
+         0     0% 18.24%      0.33s  5.02%  github.com/dagger/dagger/core.(*Directory).WithDirectory (inline)
+         0     0% 18.24%      0.33s  5.02%  github.com/dagger/dagger/core.(*Directory).evaluateLazy
+         0     0% 18.24%      0.33s  5.02%  github.com/dagger/dagger/core.(*Directory).evaluateLazy.(*filesystemOutput).evaluateLazy.func2
+         0     0% 18.24%      0.33s  5.02%  github.com/dagger/dagger/core.(*Directory).withDirectory
+         0     0% 18.24%      0.33s  5.02%  github.com/dagger/dagger/core.(*Directory).withDirectory.func1
+         0     0% 18.24%      0.33s  5.02%  github.com/dagger/dagger/core.(*DirectoryWithDirectoryLazy).Evaluate
+         0     0% 18.24%      0.33s  5.02%  github.com/dagger/dagger/core.(*DirectoryWithDirectoryLazy).Evaluate.func1
+         0     0% 18.24%      0.33s  5.02%  github.com/dagger/dagger/core.(*LazyState).Evaluate
+         0     0% 18.24%      0.33s  5.02%  github.com/dagger/dagger/core.(*filesystemOutput).evaluateLazy (inline)
+         0     0% 18.24%      0.33s  5.02%  github.com/dagger/dagger/core.(*filesystemOutput).lazyEvalFunc.func3
+         0     0% 18.24%      0.33s  5.02%  github.com/dagger/dagger/core.MountRef

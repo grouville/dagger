@@ -1,0 +1,16 @@
+automatic cache actions=1026 hits=1026
+== TRACE ==  ✔ PASSED
+dagger api with-session -- /tmp/rust-cache-sipsma-review/native-batch-runtime-inspect -automatic-cache -cache-key native-literal-display-1026-before -expected-actions 1026 -expected-hits 1026 -source /tmp/rust-native-literal-display-1026-before check /tmp/rust-cache-sipsma-review/root-projection-no-host-state  0.7s
+
+✔ connect 0.0s
+
+✔ serveModule(address: "."): Void 0.1s
+
+✔ Host.directory(path: "/tmp/rust-native-literal-display-1026-before", exclude: [".git", "target", "dagger.toml", "dagger.lock"]): Directory! 0.4s
+
+$ rust(image: "rust:1.77-bookworm@sha256:83101f6985c93e1e6501b3375de188ee3d2cbb89968bcc91611591f9f447bd42", cacheKey: "native-literal-display-1026-before", locked: true): Rust! 0.0s CACHED
+✔ .nativeCheck(
+  ┆ source: Host.directory(path: "/tmp/rust-native-literal-display-1026-before", exclude: [".git", "target", "dagger.toml", "dagger.lock"]): Directory!
+  ): RustNativeCompilation! 0.1s
+
+Setup tracing by running "dagger cloud signup". To hide set DAGGER_NO_NAG=1

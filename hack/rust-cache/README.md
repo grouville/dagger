@@ -134,6 +134,14 @@ and derived hash representations. Worker inputs remain identical and all
 206 ms per pair; a quiet-start confirmation saves 155 ms with eight winning
 pairs. The noisy crossover and small collection remain mixed. Both changes
 are isolated on fork branches pending wider API and portability validation.
+The [plan-transfer follow-up](NATIVE_CONFIG_PLAN_FILE_TRANSFER.md) repeats the
+metadata experiment on that stack. Large-plan requests fall from 69–73 ms to
+18–23 ms; a quiet-start edited-command confirmation saves 44 ms per pair with
+six faster pairs out of eight. Small-collection results remain mixed. A separate
+[source-import profile](NATIVE_SOURCE_IMPORT_PROFILE.md) finds 410–421 ms spent
+importing the large workspace, including 261–265 ms in the immutable-copy phase.
+It motivates a bounded incremental-import experiment; no filesync change or
+speedup is claimed yet.
 The [procedural-macro input study](NATIVE_PROC_MACRO_INPUTS.md) reproduces hidden
 file reads and missing-file checks that rustc does not record. A kernel probe
 observes them at much lower cost than syscall tracing; native macro support still
