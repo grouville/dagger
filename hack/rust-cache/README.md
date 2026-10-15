@@ -75,6 +75,9 @@ The [compiler dependency index](NATIVE_WORKER_INDEX.md) replaces a lookup table
 rebuilt for every compilation with one immutable table per batch. A 1,026-crate
 shared edit remains faster after swapping cache histories; leaf edits and the
 small package collection show no repeatable gain.
+The [direct package-hash follow-up](NATIVE_PACKAGE_DIGESTS.md) removes one
+directory projection per crate. Large leaf edits save 346 ms in the
+matched crossover; the small collection slows, so the variant stays isolated.
 The [procedural-macro input study](NATIVE_PROC_MACRO_INPUTS.md) reproduces hidden
 file reads and missing-file checks that rustc does not record. A kernel probe
 observes them at much lower cost than syscall tracing; native macro support still
