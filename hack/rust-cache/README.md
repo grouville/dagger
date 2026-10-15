@@ -125,6 +125,15 @@ main-based fix reduces the 1,024-element benchmark from 186 ms and 425 MB to
 large-leaf command pair, with all eight pairs faster and all native results
 retained. The small collection has no established gain; the command target
 remains unmet.
+The [native configuration guard](NATIVE_CONFIG_ENTRY_CHECKSUM.md) avoids copying
+unchanged Cargo configuration after every source edit. A separate experimental
+entry-checksum API reduces actual validation requests from about 200 ms to
+6–7 ms. A canonical fallback preserves existing plan decisions across imported
+and derived hash representations. Worker inputs remain identical and all
+1,026 compiled results survive adoption. The first large-leaf series saves
+206 ms per pair; a quiet-start confirmation saves 155 ms with eight winning
+pairs. The noisy crossover and small collection remain mixed. Both changes
+are isolated on fork branches pending wider API and portability validation.
 The [procedural-macro input study](NATIVE_PROC_MACRO_INPUTS.md) reproduces hidden
 file reads and missing-file checks that rustc does not record. A kernel probe
 observes them at much lower cost than syscall tracing; native macro support still
