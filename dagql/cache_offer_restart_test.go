@@ -109,6 +109,7 @@ func TestOfferPendingRestartAndForward(t *testing.T) {
 	// A to B forwards the pending offer without typed decode or bytes.
 	path := filepath.Join(t.TempDir(), "b.db")
 	bctx, b := reopenTransferTestCache(t, path)
+	require.False(t, b.importedResultSeen.Load())
 	mappingReply, err := b.MergeValues(bctx, cloudCacheID, exportTestBundle(t, actx, a, receiver))
 	mapping := mappingReply.Imported()
 	require.NoError(t, err)
@@ -130,6 +131,7 @@ func TestOfferPendingRestartAndForward(t *testing.T) {
 
 	// Restart restores a fresh owner with the same references and no request.
 	bctx, b = reopenTransferTestCache(t, path)
+	require.True(t, b.importedResultSeen.Load(), "restored imported rows still receive completion notifications")
 	transport := newContentTestTransport()
 	transport.serve("https://renewed.invalid/restart/0", chain.blobs[0])
 	transport.serve("https://renewed.invalid/restart/1", chain.blobs[1])

@@ -2226,9 +2226,12 @@ type Cache struct {
 	operationWaitCh        chan struct{}
 
 	// Early snapshot sharing. Every field here is guarded by egraphMu (E)
-	// except the wake channel, which is a nonblocking signal. See
+	// except the atomic import flag and the nonblocking wake channel. See
 	// cache_snapshot_sharing.go.
-	shareAdmission     snapshotShareAdmission
+	shareAdmission snapshotShareAdmission
+	// importedResultSeen is conservative after collection or replacement.
+	// False means that no snapshot-sharing receiver has been registered.
+	importedResultSeen atomic.Bool
 	shareNotify        *snapshotShareNotifications
 	sharePending       map[eqClassID]*snapshotShareItem
 	shareQueue         []eqClassID
@@ -5311,6 +5314,9 @@ func (c *Cache) cacheMetadataEstimateLocked() CacheMetadataEstimate {
 
 // putResultLocked registers res under its ID. Requires egraphMu for writing.
 func (c *Cache) putResultLocked(res *sharedResult) {
+	if res.imported {
+		c.importedResultSeen.Store(true)
+	}
 	old := c.resultsByID[res.id]
 	if old == res {
 		return

@@ -153,6 +153,12 @@ func shareTestAwaitHolds(t *testing.T, c *Cache, res AnyResult, want int64) {
 	}
 }
 
+// These fixtures turn existing local rows into receivers without a live import.
+func shareTestMarkImported(c *Cache, row *sharedResult) {
+	row.imported = true
+	c.importedResultSeen.Store(true)
+}
+
 // shareTestEncodedReceiver makes res an encoded, imported row with a pending
 // snapshot part, which is what an imported row looks like before any demand.
 func shareTestEncodedReceiver(t *testing.T, ctx context.Context, c *Cache, res AnyResult) {
@@ -163,7 +169,7 @@ func shareTestEncodedReceiver(t *testing.T, ctx context.Context, c *Cache, res A
 	row.payloadMu.Lock()
 	row.hasValue, row.self = false, nil
 	row.persistedEnvelope = &record.Envelope
-	row.imported = true
+	shareTestMarkImported(c, row)
 	row.payloadRevision++
 	row.payloadMu.Unlock()
 }
@@ -279,7 +285,7 @@ func TestSnapshotSharingTriggers(t *testing.T) {
 	ctx, c, srv := transferTestCache(t)
 	donor := persistedListTestResult(t, ctx, c, srv, "donor", &transferTestValue{Text: "snapshot"})
 	receiver := persistedListTestResult(t, ctx, c, srv, "receiver", &transferTestValue{Text: "pending"})
-	receiver.cacheSharedResult().imported = true
+	shareTestMarkImported(c, receiver.cacheSharedResult())
 
 	content := digest.FromString("shared-content")
 	require.NoError(t, c.TeachContentDigest(ctx, donor, content))
@@ -477,7 +483,7 @@ func TestSnapshotSharingTriggerSites(t *testing.T) {
 		ctx, c, srv := transferTestCache(t)
 		donor := persistedListTestResult(t, ctx, c, srv, "donor", &transferTestValue{Text: "snapshot"})
 		receiver := persistedListTestResult(t, ctx, c, srv, "receiver", &transferTestValue{Text: "pending"})
-		receiver.cacheSharedResult().imported = true
+		shareTestMarkImported(c, receiver.cacheSharedResult())
 		shareTestUnite(t, ctx, c, "off", donor, receiver)
 		pending, members := shareTestQueueDepth(c)
 		require.Zero(t, pending)
@@ -990,7 +996,7 @@ func TestSnapshotSharingTypedServiceReceiverNeedsRegistration(t *testing.T) {
 	// A typed imported receiver: decoded, not encoded, so its preparation
 	// reconstructs the donated descriptor's services.
 	c.egraphMu.Lock()
-	receiver.cacheSharedResult().imported = true
+	shareTestMarkImported(c, receiver.cacheSharedResult())
 	c.egraphMu.Unlock()
 	partTestEquivalent(t, c, receiver, donor)
 
@@ -1025,7 +1031,7 @@ func TestSnapshotSharingTypedReceiverDecodesWithPreparationServer(t *testing.T) 
 	donor := persistedListTestResult(t, ctx, c, srv, "prepared-donor", newShareTestValue("donor", map[string]sharePartState{"fs": {Snapshot: "fs-snap"}}))
 	receiver := persistedListTestResult(t, ctx, c, srv, "prepared-receiver", newShareTestValue("receiver", map[string]sharePartState{"fs": {}}))
 	c.egraphMu.Lock()
-	receiver.cacheSharedResult().imported = true
+	shareTestMarkImported(c, receiver.cacheSharedResult())
 	c.egraphMu.Unlock()
 	partTestEquivalent(t, c, receiver, donor)
 	shareTestUnite(t, ctx, c, "typed-prepared", donor, receiver)
@@ -1047,7 +1053,7 @@ func TestSnapshotSharingTypedReceiverFillsOnePartPerPass(t *testing.T) {
 	donor := persistedListTestResult(t, ctx, c, srv, "typed-donor", newShareTestValue("donor", map[string]sharePartState{"fs": {Snapshot: "fs-snap"}, "mount": {Snapshot: "mount-snap"}}))
 	receiver := persistedListTestResult(t, ctx, c, srv, "typed-receiver", newShareTestValue("receiver", map[string]sharePartState{"fs": {}, "mount": {}}))
 	c.egraphMu.Lock()
-	receiver.cacheSharedResult().imported = true
+	shareTestMarkImported(c, receiver.cacheSharedResult())
 	c.egraphMu.Unlock()
 	partTestEquivalent(t, c, receiver, donor)
 	shareTestUnite(t, ctx, c, "typed-one-per-pass", donor, receiver)
@@ -1246,7 +1252,7 @@ func TestSnapshotSharingCancelAfterPublicationDeliversReceipt(t *testing.T) {
 	receiver := persistedListTestResult(t, ctx, c, srv, "publish-receiver", receiverValue)
 	row := receiver.cacheSharedResult()
 	c.egraphMu.Lock()
-	row.imported = true
+	shareTestMarkImported(c, row)
 	c.egraphMu.Unlock()
 	partTestEquivalent(t, c, receiver, donor)
 	receiverHolds := shareTestHolds(c, receiver)
@@ -1460,11 +1466,13 @@ func TestSnapshotSharingImportTriggers(t *testing.T) {
 
 	t.Run("live import queues the imported classes", func(t *testing.T) {
 		ctx, b, _, _ := shareTestCache(t)
+		require.False(t, b.importedResultSeen.Load())
 		barrier := newSharePassBarrier(b)
 		mappingReply, err := b.MergeValues(ctx, cloudCacheID, bundle)
 		mapping := mappingReply.Imported()
 		require.NoError(t, err)
 		require.Len(t, mapping, 1)
+		require.True(t, b.importedResultSeen.Load(), "the first import enables completion notifications")
 		require.Equal(t, 0, barrier.awaitPass(t), "the import queued a cohort; with no donor it plans nothing")
 	})
 	for name, arm := range map[string]func(*Cache, context.CancelFunc){
@@ -1571,7 +1579,7 @@ func TestSnapshotSharingTypedIneligibleFirstAddress(t *testing.T) {
 	}))
 	receiver := persistedListTestResult(t, ctx, c, srv, "ineligible-receiver", newShareTestValue("receiver", map[string]sharePartState{"fs": {}, "mount": {}}))
 	c.egraphMu.Lock()
-	receiver.cacheSharedResult().imported = true
+	shareTestMarkImported(c, receiver.cacheSharedResult())
 	c.egraphMu.Unlock()
 	partTestEquivalent(t, c, receiver, donor)
 	shareTestUnite(t, ctx, c, "typed-ineligible-first", donor, receiver)
@@ -1598,7 +1606,7 @@ func TestSnapshotSharingTypedSuccessorHoldsTheDonor(t *testing.T) {
 	receiver := persistedListTestResult(t, ctx, c, srv, "window-receiver", receiverValue)
 	donorRow := donor.cacheSharedResult()
 	c.egraphMu.Lock()
-	receiver.cacheSharedResult().imported = true
+	shareTestMarkImported(c, receiver.cacheSharedResult())
 	c.egraphMu.Unlock()
 	partTestEquivalent(t, c, receiver, donor)
 	shareTestUnite(t, ctx, c, "typed-successor", donor, receiver)

@@ -1155,6 +1155,7 @@ type mergeReplacement struct {
 func (c *Cache) installMergedRecordLocked(res *sharedResult, row *mergeRow) {
 	rec := row.rec
 	res.imported = true
+	c.importedResultSeen.Store(true)
 	res.storedRecordBytes = row.recordBytes
 	res.expiresAtUnix = row.value.ExpiresAtUnix
 	res.sessionResourceHandle = rec.Envelope.SessionResourceHandle

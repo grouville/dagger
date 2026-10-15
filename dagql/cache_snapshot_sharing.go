@@ -277,6 +277,9 @@ func (c *Cache) notifySnapshotShareCompletion(ctx context.Context, row *sharedRe
 	if c == nil || row == nil {
 		return
 	}
+	if !c.importedResultSeen.Load() {
+		return
+	}
 	if c.shareAdmissionState() != snapshotShareOn {
 		return
 	}
