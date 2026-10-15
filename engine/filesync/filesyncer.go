@@ -2,6 +2,7 @@ package filesync
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -21,14 +22,18 @@ import (
 
 type FileSyncer struct {
 	cacheManager bkcache.SnapshotManager
+	seeds        *SnapshotSeeds
+	seedScope    string
 }
 
 type FileSyncerOpt struct {
 	CacheAccessor bkcache.SnapshotManager
+	SnapshotSeeds *SnapshotSeeds
+	SeedScope     string
 }
 
 func NewFileSyncer(opt FileSyncerOpt) *FileSyncer {
-	return &FileSyncer{cacheManager: opt.CacheAccessor}
+	return &FileSyncer{cacheManager: opt.CacheAccessor, seeds: opt.SnapshotSeeds, seedScope: opt.SeedScope}
 }
 
 type SnapshotOpts struct {
@@ -133,6 +138,19 @@ func (ls *FileSyncer) sync(
 	local, err := newLocalFS(sharedState, clientPath, opts.IncludePatterns, opts.ExcludePatterns, opts.FollowPaths, opts.RelativePath)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to create local fs: %w", err)
+	}
+	if ls.seeds != nil {
+		// A cache buster changes request evaluation, not the imported tree.
+		opts.CacheBuster = ""
+		key, err := json.Marshal(struct {
+			Mirror string
+			Path   string
+			Opts   SnapshotOpts
+		}{ls.seedScope, drive + clientPath, opts})
+		if err != nil {
+			return nil, "", err
+		}
+		local.seeds, local.seedScope = ls.seeds, string(key)
 	}
 	return local.Sync(ctx, remote, ls.cacheManager, false)
 }

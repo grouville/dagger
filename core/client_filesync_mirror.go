@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/dagger/dagger/engine/filesync"
@@ -16,6 +17,8 @@ import (
 
 	"github.com/dagger/dagger/dagql"
 )
+
+var importedSnapshotSeeds filesync.SnapshotSeeds
 
 type ClientFilesyncMirror struct {
 	foreignUninitialized bool
@@ -227,9 +230,16 @@ func (m *ClientFilesyncMirror) Snapshot(
 	defer func() {
 		_ = release(context.WithoutCancel(ctx))
 	}()
-	return filesync.NewFileSyncer(filesync.FileSyncerOpt{
+	syncOpts := filesync.FileSyncerOpt{
 		CacheAccessor: query.SnapshotManager(),
-	}).Snapshot(ctx, sharedState, callerConn, clientPath, opts)
+	}
+	if os.Getenv("_DAGGER_EXPERIMENTAL_FILESYNC_SNAPSHOT_SEEDS") == "1" {
+		m.mu.Lock()
+		syncOpts.SeedScope = m.snapshot.SnapshotID()
+		m.mu.Unlock()
+		syncOpts.SnapshotSeeds = &importedSnapshotSeeds
+	}
+	return filesync.NewFileSyncer(syncOpts).Snapshot(ctx, sharedState, callerConn, clientPath, opts)
 }
 
 func (m *ClientFilesyncMirror) acquire(ctx context.Context, query *Query) (_ *filesync.MirrorSharedState, release func(context.Context) error, err error) {

@@ -82,9 +82,11 @@ type localFS struct {
 
 	// filterFS is the fs that applies the include/exclude patterns to our view of the current
 	// cache filesystem at <rootPath>/<subdir>
-	filterFS fsutil.FS
-	includes []string // the include patterns we're using for this sync
-	excludes []string // the exclude patterns we're using for this sync
+	filterFS  fsutil.FS
+	includes  []string // the include patterns we're using for this sync
+	excludes  []string // the exclude patterns we're using for this sync
+	seeds     *SnapshotSeeds
+	seedScope string
 }
 
 func newLocalFS(sharedState *MirrorSharedState, subdir string, includes, excludes, followPaths []string, copyPath string) (*localFS, error) {
@@ -613,6 +615,35 @@ func (local *localFS) Sync( //nolint:gocyclo
 		}
 	}
 
+	var seedRecords map[string]snapshotSeedRecord
+	seedDepth := 0
+	if local.seeds != nil {
+		seedRecords = local.snapshotSeedRecords(cachedResults, only)
+		if seed, ok := local.seeds.get(local.seedScope); ok && len(seedRecords) != 0 {
+			if changed, ok := seed.changedPaths(seedRecords); ok {
+				parent, err := cacheManager.LeaseExistingSnapshot(ctx, seed.id)
+				if err == nil {
+					defer parent.Release(context.WithoutCancel(ctx))
+					derived, err := cacheManager.New(ctx, parent)
+					if err == nil {
+						previous := newCopyRef
+						newCopyRef = derived
+						if err := previous.Release(context.WithoutCancel(ctx)); err != nil {
+							return nil, "", err
+						}
+						// changed paths are already relative to the copied root.
+						only = changed
+						seedDepth = seed.depth + 1
+					} else {
+						bklog.G(ctx).Debugf("cannot derive local import from snapshot %s: %v", seed.id, err)
+					}
+				} else {
+					bklog.G(ctx).Debugf("local import snapshot seed %s unavailable: %v", seed.id, err)
+				}
+			}
+		}
+	}
+
 	copyRefMntable, err := newCopyRef.Mount(ctx, false)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to get mountable: %w", err)
@@ -668,6 +699,10 @@ func (local *localFS) Sync( //nolint:gocyclo
 		}
 	}()
 
+	copyOnly := localCopyOnlyPaths(only, local.copyPath)
+	if seedDepth != 0 {
+		copyOnly = only
+	}
 	if err := copier.Copy(ctx,
 		layercopy.Mount{Root: filepath.Join(local.rootPath, local.subdir)},
 		local.copyPath,
@@ -675,11 +710,12 @@ func (local *localFS) Sync( //nolint:gocyclo
 		layercopy.CopyOptions{
 			Filter: layercopy.Filter{
 				// Only copy files that we know about changes for.
-				Only: localCopyOnlyPaths(only, local.copyPath),
+				Only: copyOnly,
 			},
 			DisableXAttrs:          true,
 			CopyDirContents:        true,
 			DisableSourceHardlinks: true,
+			ReplaceExisting:        seedDepth != 0,
 			XAttrErrorHandler: func(dst, src, key string, err error) error {
 				if key != "" {
 					bklog.G(ctx).Debugf("xattr %q error during local import copy from %q to %q: %v", key, src, dst, err)
@@ -741,6 +777,9 @@ func (local *localFS) Sync( //nolint:gocyclo
 	}
 	if err := finalMD.SetDescription(fmt.Sprintf("local dir %s (include: %v) (exclude %v)", local.subdir, local.includes, local.excludes)); err != nil {
 		return nil, "", fmt.Errorf("failed to set description: %w", err)
+	}
+	if len(seedRecords) != 0 {
+		local.seeds.put(local.seedScope, snapshotSeed{id: finalRef.SnapshotID(), records: seedRecords, depth: seedDepth})
 	}
 
 	return finalRef, dgst, nil
