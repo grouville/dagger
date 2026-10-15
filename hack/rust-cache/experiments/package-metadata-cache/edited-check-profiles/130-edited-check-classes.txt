@@ -1,0 +1,29 @@
+classes: 3741 ops in 233 classes (all ops) over 608.74ms, self_tot 575.44ms (summed across concurrent ops); sorted by self
+(left out: 865 internal-kind ops, self_tot 476.48ms; kind: "internal" ranks them)
+   count   self_tot  self_p50  self_max    dur_tot   dur_p50   dur_max   dup  kind class               outcomes
+       2   138.47ms   65.90ms   72.57ms   379.67ms   65.90ms  313.77ms     0  exec_phase exec.workload ok:2
+       3    93.17ms   17.46ms   61.76ms    93.26ms   17.49ms   61.78ms     0  call_exec Host.directory ok:3
+     126    64.10ms   126.2µs    8.59ms      1.20s   243.0µs  513.60ms     0  session_phase session.query ok:126
+       1    41.97ms   41.97ms   41.97ms    42.14ms   42.14ms   42.14ms     0  lazy Directory.withoutFiles ok:1
+       2    28.85ms   10.73ms   18.12ms    51.09ms   19.24ms   31.84ms     0  call_exec ModuleSource.asModule ok:2
+       1    17.51ms   17.51ms   17.51ms   440.40ms  440.40ms  440.40ms     0  call_exec Check.sync     ok:1
+     108    14.78ms    44.4µs    3.05ms    20.73ms    58.4µs    3.93ms     0  call Query.node          do_not_cache:108
+     126    11.50ms     796ns    7.11ms    14.84ms     796ns    9.29ms     0  session_phase session.schemaBuild ok:126
+       2    11.07ms    3.70ms    7.37ms    52.11ms   23.76ms   28.35ms     0  call_exec Query.moduleSource ok:2
+     164     8.85ms     9.7µs    3.47ms     9.02ms     9.7µs    3.47ms     0  call Module._implementationScoped hit:162 executed:2
+       1     8.77ms    8.77ms    8.77ms     8.77ms    8.77ms    8.77ms     0  call_exec Directory.digests ok:1
+       1     8.13ms    8.13ms    8.13ms    71.39ms   71.39ms   71.39ms     0  call_exec Workspace.artifacts ok:1
+       2     7.10ms    3.53ms    3.57ms     7.10ms    3.53ms    3.57ms     0  exec_phase exec.runtimeStart ok:2
+       5     5.93ms   294.8µs    3.22ms   139.25ms   34.68ms   35.06ms     0  lazy Container.withNewFile ok:5
+       2     5.69ms    2.55ms    3.13ms   407.05ms   79.01ms  328.04ms     0  exec exec.run            ok:2
+       1     5.57ms    5.57ms    5.57ms    70.97ms   70.97ms   70.97ms     0  call Artifact.value      do_not_cache:1
+       1     5.50ms    5.50ms    5.50ms     5.50ms    5.50ms    5.50ms     0  call File.export         do_not_cache:1
+       1     4.46ms    4.46ms    4.46ms     4.64ms    4.64ms    4.64ms     0  call rust-compiler:RustCompilerCompilation.cache executed:1
+     126     4.30ms     573ns    4.22ms     4.30ms     573ns    4.22ms     0  session_phase session.workspaceLoad ok:126
+       1     4.03ms    4.03ms    4.03ms     4.11ms    4.11ms    4.11ms     0  call rust-compiler:RustCompilerCompilation.hits executed:1
+       1     3.89ms    3.89ms    3.89ms     3.94ms    3.94ms    3.94ms     0  call rust-compiler:RustCompilerCompilation.published executed:1
+       2     3.84ms    1.84ms    1.99ms     3.84ms    1.84ms    1.99ms     0  exec_phase exec.initStart ok:2
+     776     3.74ms     3.7µs    49.6µs     4.00ms     3.7µs   198.7µs     0  call TypeDef.withOptional hit:769 executed:7
+       2     3.74ms    1.58ms    2.15ms     3.74ms    1.58ms    2.15ms     0  exec_phase withExec.prepareMounts ok:2
+       2     3.41ms    1.08ms    2.32ms     3.41ms    1.08ms    2.32ms     0  exec_phase withExec.applyOutputs ok:2
+… 208 more classes (raise `top`)

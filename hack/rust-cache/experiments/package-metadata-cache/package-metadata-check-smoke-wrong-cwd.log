@@ -1,0 +1,26 @@
+2026/10/15 12:17:56 WARN failed to open git repository err="core.repositoryformatversion does not support extension: worktreeconfig"
+== TRACE ==  ✘ FAILED
+dagger-artifact-list-buffered check rust:packages/check  15.7s
+! exit code 1
+! dag://?check=docs/load: loading module "/home/dagger/dagger_otra/.dagger/modules/docs-dev": failed to get module definition for module "docs": failed to call module "docs" to get functions: call constructor: exit code: 1
+! go: downloading github.com/netlify/open-api/v2 v2.36.0
+! main.go:15:2: github.com/netlify/open-api/v2@v2.36.0: Get "https://proxy.golang.org/github.com/netlify/open-api/v2/@v/v2.36.0.zip": dial tcp 192.178.142.141:443: connect: no route to host
+! dag://?check=release/load: loading module "/home/dagger/dagger_otra/.dagger/modules/release": failed to load dependencies as modules: failed to load module dependencies: failed to get module definition for module "docs-dev": failed to call module "docs-dev" to get functions: call constructor: exit code: 1
+! go: downloading github.com/netlify/open-api/v2 v2.36.0
+! main.go:15:2: github.com/netlify/open-api/v2@v2.36.0: Get "https://proxy.golang.org/github.com/netlify/open-api/v2/@v/v2.36.0.zip": dial tcp 192.178.142.141:443: connect: no route to host
+
+== CHECKS ==  ✘ 2 failed
+✘ dag://?check=docs/load 0.0s ERROR
+  ✘ dag://?check=docs/load 0.0s ERROR
+  ! loading module "/home/dagger/dagger_otra/.dagger/modules/docs-dev": failed to get module definition for module "docs": failed to call module "docs" to get functions: call constructor: exit code: 1
+    go: downloading github.com/netlify/open-api/v2 v2.36.0
+    main.go:15:2: github.com/netlify/open-api/v2@v2.36.0: Get "https://proxy.golang.org/github.com/netlify/open-api/v2/@v/v2.36.0.zip": dial tcp 192.178.142.141:443: connect: no route to host
+✘ dag://?check=release/load 0.0s ERROR
+  ✘ dag://?check=release/load 0.0s ERROR
+  ! loading module "/home/dagger/dagger_otra/.dagger/modules/release": failed to load dependencies as modules: failed to load module dependencies: failed to get module definition for module "docs-dev": failed to call module "docs-dev" to get functions: call constructor: exit code: 1
+    go: downloading github.com/netlify/open-api/v2 v2.36.0
+    main.go:15:2: github.com/netlify/open-api/v2@v2.36.0: Get "https://proxy.golang.org/github.com/netlify/open-api/v2/@v/v2.36.0.zip": dial tcp 192.178.142.141:443: connect: no route to host
+
+== RUN LOCALLY ==
+dagger check "dag://?check=docs/load"
+dagger check "dag://?check=release/load"

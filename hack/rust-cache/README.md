@@ -9,7 +9,9 @@ retains rustc incremental state, and can run compiler misses together with Cargo
 metadata overlap. Completed results remain reusable per crate. These options are
 described below; none changes the Rust module's default behavior.
 
-The [batch metadata follow-up](NATIVE_BATCH_METADATA.md) makes the expanded 1,026-package listing faster in all sixteen edited pairs across two histories. The confirmation reduces median latency from 5.28 to 4.08 seconds and engine CPU use by about 40%; ordinary build/test latency remains mixed. The edited-check profile identifies source import and package discovery as the next targets.
+The [package discovery prototype](NATIVE_PACKAGE_METADATA_CACHE.md) reuses workspace names across Rust content edits. Large edited checks improve in fifteen of sixteen pairs, saving 527–720 ms per pair across two histories. A direct-check control shows a roughly 20 ms penalty, and the fingerprint still needs a general native contract; the branch remains isolated.
+
+The earlier [batch metadata follow-up](NATIVE_BATCH_METADATA.md) makes the expanded 1,026-package listing faster in all sixteen edited pairs across two histories. The confirmation reduces median latency from 5.28 to 4.08 seconds and engine CPU use by about 40%; ordinary build/test latency remains mixed.
 
 The earlier [collection and telemetry follow-up](NATIVE_COLLECTION_TELEMETRY.md) fixes incomplete collection listings, reduces their rendering cost, and measures a narrower engine decoder improvement on real source edits.
 

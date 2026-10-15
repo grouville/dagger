@@ -1,0 +1,34 @@
+wcprof dump: 4606 ops, 259 waits, 2 links over 608.74ms; dropped events: 0; open ops: 0
+calls: 2893 (hit:2542 do_not_cache:211 executed:139 joined:1)
+top clients (of 4) by ops:
+       ops   self_tot  active               client
+      1448   203.45ms  +0ns..+608.74ms      mftpv9atslq65jua1huauxd36
+      1343    67.00ms  +210.02ms..+605.04ms  YGK32QAPCZEI4GLEVX2AOYOPWF
+       919   643.79ms  +7.23ms..+608.69ms   (none)
+       896   137.68ms  +263.88ms..+569.75ms  ZYAKQ5HCEEPZNUBHMDLPGTBY3V
+top classes (of 233) by count:
+     count   self_tot  kind class
+       776     3.74ms  call TypeDef.withOptional
+       739     3.25ms  call Query.typeDef
+       313     1.31ms  call TypeDef.withKind
+       310     1.63ms  call TypeDef.withObject
+       164     8.85ms  call Module._implementationScoped
+       126     90.9µs  session_phase session.modulesLoad
+       126    64.10ms  session_phase session.query
+       126    11.50ms  session_phase session.schemaBuild
+       126    850.7µs  session_phase session.serveQuery
+       126     4.30ms  session_phase session.workspaceLoad
+top classes by self time:
+     count   self_tot  kind class
+         2   138.47ms  exec_phase exec.workload
+         3    93.17ms  call_exec Host.directory
+       126    64.10ms  session_phase session.query
+         1    41.97ms  lazy Directory.withoutFiles
+         2    28.85ms  call_exec ModuleSource.asModule
+         1    17.51ms  call_exec Check.sync
+       108    14.78ms  call Query.node
+       126    11.50ms  session_phase session.schemaBuild
+         2    11.07ms  call_exec Query.moduleSource
+       164     8.85ms  call Module._implementationScoped
+(left out: 865 internal-kind ops, self_tot 476.48ms; kind: "internal" ranks them)
+(times are relative to the first recorded op; self = duration minus child ops and waits; self_tot sums it across ops, concurrent ones included, so it can exceed wall time)

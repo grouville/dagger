@@ -1,0 +1,15 @@
+== TRACE ==  ✘ FAILED
+dagger-artifact-list-buffered check rust:packages/check  0.4s
+! exit code 1
+! dag://?check=rust/packages/check&rust-package=base&rust-package=app: exit code: 1
+
+== CHECKS ==  ✘ 1 failed
+✘ dag://?check=rust/packages/check&rust-package=base&rust-package=app 0.2s ERROR
+  ✘ withExec /rcexp-batch/runner worker /rcexp-batch/request.json (disableDaggerInDagger: true) 0.1s ERROR
+  ┃ {"$message_type":"diagnostic","message":"expected one of `!` or `::`, found `is`","code":null,"level":"error","spans":[{"file_name":"app/src/lib.rs","byte_start":5,"byte_end":7,"line_start":1,"line_end":1,"column_start":6,"column_end":8,"is_primary":true,"text":[{"text":"this is invalid Rust","highlight_start":6,"highlight_end":8}],"label":"expected one of `!` or `::`","suggested_replacement":null,"suggestion_applicability":null,"expansion":null}],"children":[],"rendered":"\u001b[0m\u001b[1m\u001b[38;5;9merror\u001b[0m\u001b[0m\u001b[1m: expected one of `!` or `::`, found `is`\u001b[0m\n\u001b[0m \u001b[0m\u001b[0m\u001b[1m\u001b[38;5;12m--> \u001b[0m\u001b[0mapp/src/lib.rs:1:6\u001b[0m\n\u001b[0m  \u001b[0m\u001b[0m\u001b[1m\u001b[38;5;12m|\u001b[0m\n\u001b[0m\u001b[1m\u001b[38;5;12m1\u001b[0m\u001b[0m \u001b[0m\u001b[0m\u001b[1m\u001b[38;5;12m|\u001b[0m\u001b[0m \u001b[0m\u001b[0mthis is invalid Rust\u001b[0m\n\u001b[0m  \u001b[0m\u001b[0m\u001b[1m\u001b[38;5;12m| \u001b[0m\u001b[0m     \u001b[0m\u001b[0m\u001b[1m\u001b[38;5;9m^^\u001b[0m\u001b[0m \u001b[0m\u001b[0m\u001b[1m\u001b[38;5;9mexpected one of `!` or `::`\u001b[0m\n\n"}
+  ┃ {"$message_type":"diagnostic","message":"aborting due to 1 previous error","code":null,"level":"error","spans":[],"children":[],"rendered":"\u001b[0m\u001b[1m\u001b[38;5;9merror\u001b[0m\u001b[0m\u001b[1m: aborting due to 1 previous error\u001b[0m\n\n"}
+  ┃ compile app: exit status 1
+  ! exit code: 1
+
+== RUN LOCALLY ==
+dagger check "dag://?check=rust/packages/check&rust-package=base&rust-package=app"
