@@ -5653,8 +5653,8 @@ func (c *Cache) publishUsageMeasurementsLocked(snapshot *cacheUsageSnapshot, ide
 		}
 	}
 	for id, res := range c.resultsByID {
-		sizes := make(map[string]int64)
-		recordTypes := make(map[string]string)
+		var sizes map[string]int64
+		var recordTypes map[string]string
 		for _, identity := range identities[id] {
 			if owners[identity] != id {
 				continue
@@ -5663,8 +5663,14 @@ func (c *Cache) publishUsageMeasurementsLocked(snapshot *cacheUsageSnapshot, ide
 			if !ok {
 				continue
 			}
+			if sizes == nil {
+				sizes = make(map[string]int64)
+			}
 			sizes[identity] = measurement.sizeBytes
 			if measurement.recordType != "" {
+				if recordTypes == nil {
+					recordTypes = make(map[string]string)
+				}
 				recordTypes[identity] = measurement.recordType
 			}
 		}
