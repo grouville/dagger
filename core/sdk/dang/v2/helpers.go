@@ -108,20 +108,20 @@ func evalDangSource(
 	withEnv func(context.Context, dang.ValueScope) ([]byte, error),
 ) ([]byte, error) {
 	return dangshared.WithNestedClientServer(ctx, query, nestedClientMetadata, inertAttachables, fnCall, moduleContext, func(ctx context.Context, gqlClient graphql.Client) ([]byte, error) {
-		var intro introspection.Response
 		f, err := schemaFile.Self().Open(ctx, dagql.ObjectResult[*core.File]{Result: schemaFile})
 		if err != nil {
 			return nil, fmt.Errorf("open schema file: %w", err)
 		}
 		defer f.Close()
-		if err := json.NewDecoder(f).Decode(&intro); err != nil {
+		schema, err := dangSchemas.read(f)
+		if err != nil {
 			return nil, fmt.Errorf("decode schema: %w", err)
 		}
 
 		ctx = dang.ContextWithImportConfigs(ctx, dang.ImportConfig{
 			Name:       "Dagger",
 			Client:     gqlClient,
-			Schema:     intro.Schema,
+			Schema:     schema,
 			AutoImport: true,
 		})
 
@@ -157,7 +157,7 @@ func evalDangSource(
 			// for its declared types. At runtime the served schema already
 			// includes the module's own types (Module.IncludeSelfInDeps), so
 			// this is a no-op then.
-			ensureModuleSelfTypes(intro.Schema, modSource.Self(), modSrcDir)
+			ensureModuleSelfTypes(schema, modSource.Self(), modSrcDir)
 
 			env, err = runSource(ctx, modSrcDir)
 			if err != nil {
