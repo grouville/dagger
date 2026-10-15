@@ -1,6 +1,8 @@
 package daggercmd
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"slices"
@@ -25,7 +27,7 @@ func validateArtifactListFormat(format string) error {
 
 // All formats use the same rows. Names maps exact dimension identifiers to
 // unambiguous CLI flag names; it does not change item identity.
-func writeArtifactList(cmd *cobra.Command, items []listedArtifact, names map[string]string) error {
+func writeArtifactList(cmd *cobra.Command, items []listedArtifact, names map[string]string) (rerr error) {
 	format, _ := cmd.Flags().GetString("format")
 	if err := validateArtifactListFormat(format); err != nil {
 		return err
@@ -35,16 +37,20 @@ func writeArtifactList(cmd *cobra.Command, items []listedArtifact, names map[str
 	if len(items) == 0 {
 		return nil
 	}
+	// SpanStdio emits one log record per Write. In particular, tabwriter
+	// writes individual cells and padding; batch them before exporting.
+	out := bufio.NewWriter(cmd.OutOrStdout())
+	defer func() { rerr = errors.Join(rerr, out.Flush()) }()
 	if format == "link" {
 		for _, item := range items {
-			if _, err := fmt.Fprintln(cmd.OutOrStdout(), item.URI); err != nil {
+			if _, err := fmt.Fprintln(out, item.URI); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
 	if format == "cli" {
-		return writeArtifactCLI(cmd.OutOrStdout(), items, names, artifactListReplayArgs(cmd))
+		return writeArtifactCLI(out, items, names, artifactListReplayArgs(cmd))
 	}
 	// Mixed types use separate tables, not sparse columns for every type.
 	groups := map[string][]listedArtifact{}
@@ -63,11 +69,11 @@ func writeArtifactList(cmd *cobra.Command, items []listedArtifact, names map[str
 	}
 	for i, typ := range order {
 		if i > 0 {
-			if _, err := fmt.Fprintln(cmd.OutOrStdout()); err != nil {
+			if _, err := fmt.Fprintln(out); err != nil {
 				return err
 			}
 		}
-		if err := writeArtifactTable(cmd.OutOrStdout(), groups[typ], names); err != nil {
+		if err := writeArtifactTable(out, groups[typ], names); err != nil {
 			return err
 		}
 	}
