@@ -142,6 +142,14 @@ six faster pairs out of eight. Small-collection results remain mixed. A separate
 importing the large workspace, including 261–265 ms in the immutable-copy phase.
 It motivates a bounded incremental-import experiment; no filesync change or
 speedup is claimed yet.
+The [immutable-import prototype](NATIVE_SOURCE_IMPORT_SNAPSHOTS.md) implements
+that experiment. Its large copy phase falls from 253–263 ms to about 20 ms;
+complete edited commands save 194 ms per pair, then 191 ms after swapping
+histories. The small collection remains inconclusive, including a captured
+HTTP/2 hang during package discovery. The prototype stays opt-in pending storage,
+restart and transfer checks. Validation also found a separate
+[scoped-hardlink hash bug](SCOPED_IMPORT_HARDLINKS.md), reproduced on latest main
+with a standalone fix and regression test pushed to the fork.
 The [procedural-macro input study](NATIVE_PROC_MACRO_INPUTS.md) reproduces hidden
 file reads and missing-file checks that rustc does not record. A kernel probe
 observes them at much lower cost than syscall tracing; native macro support still

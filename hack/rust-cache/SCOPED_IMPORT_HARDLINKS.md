@@ -1,0 +1,13 @@
+# Preserve hardlink content hashes when importing a subdirectory
+
+Importing a subdirectory can give a hardlink the wrong content digest. Editing the linked inode can then leave the alias's digest unchanged, allowing `File.contents` to return an earlier value. The [standalone fix](https://github.com/grouville/dagger/commit/b9acdb28fba709a6c316a9f98256257fb43caca7) is based on upstream main `249edbd646`, fetched and checked during this experiment. It is separate from the source-import optimization and has no PR.
+
+Gitignore-aware imports can sync from the repository root while copying only the requested subdirectory. Filesync makes hash-record paths relative to that copied subtree, but passes hardlink targets relative to the larger sync root. For example, the source record is `/a-file` while the alias points at `project/a-file`. `engine/contenthash` cannot find that target and retains the alias's metadata-only digest instead of the source file's content digest.
+
+The fix makes the hardlink target relative to the copied subtree before updating hash records. It clones the stat so concurrent projections keep their original mirror-relative target. Symlink targets keep their existing meaning. Ordinary files return their existing stat immediately. The patch changes neither the hash format nor snapshot ownership and adds no locks or file operations.
+
+The regression test imports real files into native snapshots and checks their physical contents before checking their hashes. Root imports form a passing control; subdirectory imports fail on unmodified main because the alias and target have different digests. With the fix, both imports use the target's digest and an inode edit changes that digest. A symlink control preserves its original target text. The complete filesync package passes under race detection on the latest fetched main.
+
+The [minimal public-API reproduction](experiments/scoped-import-hardlinks/repro.go) creates a repository parent, imports a subdirectory containing two hardlinks, edits their inode and reads the alias again. It fails on the unchanged engine and passes with the fix. A separate twenty-import overlayfs check also passes with and without the source-import optimization, including earlier immutable snapshots, permissions, ignored paths and links.
+
+This was found while validating source-import performance. It is an actual import-path hash error, independent of memory-cache eviction. [Evidence](experiments/scoped-import-hardlinks/measurements.json) includes failing-before and passing-after results, both public-API reproducers and the exact upstream base.

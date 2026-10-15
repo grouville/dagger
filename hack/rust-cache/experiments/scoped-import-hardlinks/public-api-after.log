@@ -1,0 +1,18 @@
+PASS: edited scoped hardlink returns its current contents
+== TRACE ==  ✔ PASSED
+dagger api with-session -- /tmp/rust-cache-sipsma-review/scoped-hardlink-repro  0.1s
+
+✔ connect 0.0s
+
+$ host: Host! 0.0s CACHED
+✔ .directory(path: "/tmp/scoped-hardlink-repro-3530952454/project", noCache: true, gitignore: true): Directory! 0.0s
+  ✔ uploading /tmp/scoped-hardlink-repro-3530952454 0.0s ████████████ 14 B
+✔ .file(path: "z-link"): File! 0.0s
+✔ .contents: String! 0.0s
+
+✔ Host.directory(path: "/tmp/scoped-hardlink-repro-3530952454/project", noCache: true, gitignore: true): Directory! 0.0s
+  ✔ uploading /tmp/scoped-hardlink-repro-3530952454 0.0s ████████████ 27 B
+✔ .file(path: "z-link"): File! 0.0s
+✔ .contents: String! 0.0s
+
+Setup tracing by running "dagger cloud signup". To hide set DAGGER_NO_NAG=1
