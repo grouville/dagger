@@ -124,6 +124,7 @@ func writeArtifactTable(out io.Writer, items []listedArtifact, names map[string]
 	if _, err := fmt.Fprintln(writer, strings.Join(header, "\t")); err != nil {
 		return err
 	}
+	escapeCell := strings.NewReplacer("\t", `\t`, "\r", `\r`, "\n", `\n`)
 	for _, item := range items {
 		row := []string{}
 		if absolute {
@@ -144,7 +145,7 @@ func writeArtifactTable(out io.Writer, items []listedArtifact, names map[string]
 			row = append(row, firstDescriptionLine(item.Description))
 		}
 		for i, value := range row {
-			row[i] = strings.NewReplacer("\t", `\t`, "\r", `\r`, "\n", `\n`).Replace(value)
+			row[i] = escapeCell.Replace(value)
 		}
 		if _, err := fmt.Fprintln(writer, strings.Join(row, "\t")); err != nil {
 			return err

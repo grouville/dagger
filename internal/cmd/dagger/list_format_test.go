@@ -79,4 +79,11 @@ func TestArtifactListFormats(t *testing.T) {
 	t.Run("duplicate selections print once", func(t *testing.T) {
 		require.Equal(t, items[0].URI+"\n", render("link", []listedArtifact{items[0], items[0]}))
 	})
+	t.Run("table escapes cell delimiters", func(t *testing.T) {
+		item := items[0]
+		item.DisplayKeys = map[string]string{"type:Check": "a\tb\rc\nd"}
+		out := render("table", []listedArtifact{item})
+		require.Contains(t, out, `a\tb\rc\nd`)
+		require.Equal(t, 2, len(bytes.Split(bytes.TrimSpace([]byte(out)), []byte("\n"))))
+	})
 }

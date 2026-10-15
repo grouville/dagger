@@ -104,22 +104,26 @@ func listedRustPackages(count int) []listedArtifact {
 func BenchmarkArtifactListTelemetry(b *testing.B) {
 	for _, format := range []string{"table", "link", "cli"} {
 		b.Run(format, func(b *testing.B) {
-			exporter := &listCountingExporter{}
-			provider := sdklog.NewLoggerProvider(sdklog.WithProcessor(sdklog.NewSimpleProcessor(exporter)))
-			b.Cleanup(func() { _ = provider.Shutdown(context.Background()) })
-			ctx := telemetry.WithLoggerProvider(b.Context(), provider)
-			cmd := &cobra.Command{Use: "check"}
-			registerArtifactListFlags(cmd)
-			cmd.Flags().String("format", format, "")
-			cmd.SetOut(telemetry.NewWriter(ctx, "test"))
-			items := listedRustPackages(1026)
-			b.ReportAllocs()
-			for b.Loop() {
-				if err := writeArtifactList(cmd, items, nil); err != nil {
-					b.Fatal(err)
-				}
+			for _, count := range []int{1, 10, 1026} {
+				b.Run(fmt.Sprintf("rows=%d", count), func(b *testing.B) {
+					exporter := &listCountingExporter{}
+					provider := sdklog.NewLoggerProvider(sdklog.WithProcessor(sdklog.NewSimpleProcessor(exporter)))
+					b.Cleanup(func() { _ = provider.Shutdown(context.Background()) })
+					ctx := telemetry.WithLoggerProvider(b.Context(), provider)
+					cmd := &cobra.Command{Use: "check"}
+					registerArtifactListFlags(cmd)
+					cmd.Flags().String("format", format, "")
+					cmd.SetOut(telemetry.NewWriter(ctx, "test"))
+					items := listedRustPackages(count)
+					b.ReportAllocs()
+					for b.Loop() {
+						if err := writeArtifactList(cmd, items, nil); err != nil {
+							b.Fatal(err)
+						}
+					}
+					b.ReportMetric(float64(exporter.records)/float64(b.N), "records/op")
+				})
 			}
-			b.ReportMetric(float64(exporter.records)/float64(b.N), "records/op")
 		})
 	}
 }
