@@ -1634,6 +1634,29 @@ func (dir *Directory) DigestEntries(ctx context.Context, self dagql.ObjectResult
 	return dgst.String(), nil
 }
 
+// TreeFingerprint is an experimental discovery key, independent of content digests.
+func (dir *Directory) TreeFingerprint(ctx context.Context, self dagql.ObjectResult[*Directory], ignoreContents, reject []string) (string, error) {
+	snapshot, err := dir.Snapshot.GetOrEval(ctx, self.Result)
+	if err != nil {
+		return "", err
+	}
+	dirPath, err := dir.Dir.GetOrEval(ctx, self.Result)
+	if err != nil {
+		return "", err
+	}
+	var fingerprint string
+	err = MountRef(ctx, snapshot, func(root string, _ *mount.Mount) error {
+		resolved, err := containerdfs.RootPath(root, dirPath)
+		if err != nil {
+			return err
+		}
+		dgst, err := bkcontenthash.TreeFingerprint(ctx, resolved, ignoreContents, reject)
+		fingerprint = dgst.String()
+		return err
+	})
+	return fingerprint, err
+}
+
 func (dir *Directory) Entries(ctx context.Context, self dagql.ObjectResult[*Directory], src string) ([]string, error) {
 	paths := []string{}
 	useSlash := SupportsDirSlash(ctx)
