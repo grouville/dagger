@@ -58,6 +58,10 @@ The [test execution experiment](NATIVE_TEST_BATCH.md) runs captured commands in
 one fresh execution. Two small-workspace series save 77 ms per edit; all twelve
 many-package edit pairs improve substantially. It preserves test behavior and
 native compiler reuse while exposing snapshot-context work for a separate fix.
+The [collection performance study](NATIVE_COLLECTIONS.md) removes quadratic
+ancestor comparisons and finds repeated module installation during key discovery.
+It also compares JSON decoders on the actual schema, including their first-use
+cost, and keeps experiments without convincing command improvements unselected.
 The [procedural-macro input study](NATIVE_PROC_MACRO_INPUTS.md) reproduces hidden
 file reads and missing-file checks that rustc does not record. A kernel probe
 observes them at much lower cost than syscall tracing; native macro support still

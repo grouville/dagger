@@ -26,6 +26,9 @@ Priorities:
    compiler scheduling, cache retention and transfer, and telemetry. Reduce the
    work that delays the complete command. Validate each experiment with matched,
    alternating runs and correctness checks.
+   Review algorithmic complexity and allocations in module loading, check and
+   collection discovery, not only compiler actions. Compare alternative libraries
+   on real inputs, including first-use cost and complete-command effects.
 3. Preserve automatic incremental seed selection, compiled-result reuse and
    Cargo's overlap between dependent compilations. Never exclude compiler inputs
    from the cache key without proving correctness.
