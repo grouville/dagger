@@ -1,0 +1,39 @@
+File: dagger-engine-direct-span-protobuf
+Build ID: 8c67e8d59e1cd49b16b8677a16daf95946b1a710
+Type: cpu
+Time: 2026-10-15 15:05:57 PDT
+Duration: 10s, Total samples = 6.28s (62.79%)
+Showing nodes accounting for 5.05s, 80.41% of 6.28s total
+Dropped 792 nodes (cum <= 0.03s)
+Showing top 30 nodes out of 310
+      flat  flat%   sum%        cum   cum%
+     0.70s 11.15% 11.15%      0.70s 11.15%  internal/runtime/syscall/linux.Syscall6
+     0.67s 10.67% 21.82%      1.45s 23.09%  runtime.scanObjectsSmall
+     0.62s  9.87% 31.69%      1.21s 19.27%  runtime.tryDeferToSpanScan
+     0.60s  9.55% 41.24%      0.60s  9.55%  runtime.madvise
+     0.50s  7.96% 49.20%      0.50s  7.96%  runtime.spanClass.sizeclass (inline)
+     0.47s  7.48% 56.69%      1.08s 17.20%  runtime.scanObject
+     0.24s  3.82% 60.51%      1.93s 30.73%  runtime.scanSpan
+     0.14s  2.23% 62.74%      0.14s  2.23%  runtime.extractHeapBitsSmall
+     0.11s  1.75% 64.49%      0.37s  5.89%  runtime.sweepone
+     0.09s  1.43% 65.92%      0.09s  1.43%  runtime.(*mspan).moveInlineMarks
+     0.08s  1.27% 67.20%      0.08s  1.27%  runtime.futex
+     0.08s  1.27% 68.47%      3.18s 50.64%  runtime.gcDrain
+     0.06s  0.96% 69.43%      0.06s  0.96%  context.value
+     0.06s  0.96% 70.38%      0.10s  1.59%  encoding/json.(*Decoder).readValue
+     0.06s  0.96% 71.34%      0.06s  0.96%  runtime.typePointers.nextFast (inline)
+     0.05s   0.8% 72.13%      0.05s   0.8%  runtime.(*spanScanOwnership).or (inline)
+     0.05s   0.8% 72.93%      0.22s  3.50%  runtime.(*sweepLocked).sweep
+     0.05s   0.8% 73.73%      0.14s  2.23%  runtime.mallocgcSmallScanNoHeader
+     0.05s   0.8% 74.52%      0.05s   0.8%  runtime.memclrNoHeapPointers
+     0.05s   0.8% 75.32%      0.05s   0.8%  runtime.memmove
+     0.05s   0.8% 76.11%      0.05s   0.8%  runtime.nextFreeFast (inline)
+     0.04s  0.64% 76.75%      0.06s  0.96%  encoding/json.stateInString
+     0.04s  0.64% 77.39%      0.04s  0.64%  runtime.(*spanSet).push
+     0.04s  0.64% 78.03%      0.05s   0.8%  runtime.findObject
+     0.04s  0.64% 78.66%      0.19s  3.03%  runtime.scanObjectSmall
+     0.03s  0.48% 79.14%      0.04s  0.64%  internal/filepathlite.(*lazybuf).append
+     0.02s  0.32% 79.46%      0.04s  0.64%  encoding/json.appendCompact
+     0.02s  0.32% 79.78%      0.11s  1.75%  google.golang.org/protobuf/encoding/protojson.encoder.marshalMessage.func1
+     0.02s  0.32% 80.10%      0.07s  1.11%  runtime.(*spanInlineMarkBits).tryAcquire
+     0.02s  0.32% 80.41%      0.04s  0.64%  runtime.greyobject

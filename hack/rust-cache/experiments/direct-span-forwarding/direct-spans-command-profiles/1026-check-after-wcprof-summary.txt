@@ -1,0 +1,35 @@
+wcprof dump: 10567 ops, 261 waits, 3 links over 4.13s; dropped events: 0; open ops: 0
+calls: 8790 (hit:8461 do_not_cache:180 executed:148 joined:1)
+top clients (of 5) by ops:
+       ops   self_tot  active               client
+      7409      2.22s  +0ns..+4.13s         bvb03a5dc2g8dk7zv1wnlrbm4
+      1027      4.24s  +6.81ms..+4.13s      (none)
+       790   797.91ms  +1.95s..+3.70s       R3MGS76W5YHX6UEEFNHCBFVLG4
+       738   300.10ms  +1.88s..+4.12s       I2ZHPSCZ26BNSVYHWTAJLGDAER
+       603    35.57ms  +1.59s..+1.81s       CIGXYNUCFXQRYUCBSQBPACI4II
+top classes (of 246) by count:
+     count   self_tot  kind class
+      3737    14.42ms  call Query.typeDef
+      3360    12.29ms  call TypeDef.withKind
+       704     4.50ms  call TypeDef.withOptional
+       267     1.48ms  call TypeDef.withObject
+       152     5.71ms  call Module._implementationScoped
+       114    158.2µs  session_phase session.modulesLoad
+       114   242.24ms  session_phase session.query
+       114    14.31ms  session_phase session.schemaBuild
+       114     1.30ms  session_phase session.serveQuery
+       114     4.35ms  session_phase session.workspaceLoad
+top classes by self time:
+     count   self_tot  kind class
+         3      1.99s  call_exec Host.directory
+         3   623.74ms  exec_phase exec.workload
+         5   468.30ms  lazy Container.withNewFile
+       114   242.24ms  session_phase session.query
+        93   217.33ms  call Query.node
+         3    81.39ms  exec_phase withExec.applyOutputs
+         1    55.19ms  call_exec Directory.digests
+         2    50.79ms  call_exec ModuleSource.asModule
+         3    44.28ms  exec_phase withExec.prepareMounts
+         1    18.38ms  call_exec Directory.glob
+(left out: 946 internal-kind ops, self_tot 3.45s; kind: "internal" ranks them)
+(times are relative to the first recorded op; self = duration minus child ops and waits; self_tot sums it across ops, concurrent ones included, so it can exceed wall time)

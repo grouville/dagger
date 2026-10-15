@@ -1,0 +1,39 @@
+File: dagger-engine-direct-span-protobuf
+Build ID: 8c67e8d59e1cd49b16b8677a16daf95946b1a710
+Type: cpu
+Time: 2026-10-15 15:05:57 PDT
+Duration: 10s, Total samples = 6.28s (62.79%)
+Showing nodes accounting for 3.89s, 61.94% of 6.28s total
+Dropped 792 nodes (cum <= 0.03s)
+Showing top 30 nodes out of 310
+      flat  flat%   sum%        cum   cum%
+     0.01s  0.16%  0.16%      3.93s 62.58%  runtime.systemstack
+         0     0%  0.16%      3.18s 50.64%  runtime.gcBgMarkWorker
+         0     0%  0.16%      3.18s 50.64%  runtime.gcBgMarkWorker.func2
+     0.08s  1.27%  1.43%      3.18s 50.64%  runtime.gcDrain
+         0     0%  1.43%      2.21s 35.19%  runtime.gcDrainMarkWorkerIdle (inline)
+     0.24s  3.82%  5.25%      1.93s 30.73%  runtime.scanSpan
+     0.67s 10.67% 15.92%      1.45s 23.09%  runtime.scanObjectsSmall
+     0.62s  9.87% 25.80%      1.21s 19.27%  runtime.tryDeferToSpanScan
+     0.47s  7.48% 33.28%      1.08s 17.20%  runtime.scanObject
+         0     0% 33.28%      0.97s 15.45%  runtime.gcDrainMarkWorkerDedicated (inline)
+     0.70s 11.15% 44.43%      0.70s 11.15%  internal/runtime/syscall/linux.Syscall6
+         0     0% 44.43%      0.63s 10.03%  syscall.RawSyscall6
+         0     0% 44.43%      0.61s  9.71%  runtime.(*scavengerState).init.func2
+         0     0% 44.43%      0.61s  9.71%  runtime.(*scavengerState).run
+         0     0% 44.43%      0.61s  9.71%  runtime.bgscavenge
+         0     0% 44.43%      0.60s  9.55%  runtime.(*pageAlloc).scavenge
+         0     0% 44.43%      0.60s  9.55%  runtime.(*pageAlloc).scavenge.func1
+         0     0% 44.43%      0.60s  9.55%  runtime.(*pageAlloc).scavengeOne
+     0.60s  9.55% 53.98%      0.60s  9.55%  runtime.madvise
+         0     0% 53.98%      0.60s  9.55%  runtime.sysUnused (inline)
+         0     0% 53.98%      0.60s  9.55%  runtime.sysUnusedOS
+         0     0% 53.98%      0.59s  9.39%  github.com/dagger/dagger/dagql.ObjectResult[go.shape.*uint8].call.func2
+     0.50s  7.96% 61.94%      0.50s  7.96%  runtime.spanClass.sizeclass (inline)
+         0     0% 61.94%      0.48s  7.64%  github.com/dagger/dagger/dagql.(*Cache).getOrInitCallInner.func1
+         0     0% 61.94%      0.40s  6.37%  github.com/dagger/dagger/engine/server.(*Server).serveHTTPToClient
+         0     0% 61.94%      0.40s  6.37%  golang.org/x/sync/errgroup.(*Group).Go.func1
+         0     0% 61.94%      0.40s  6.37%  net/http.HandlerFunc.ServeHTTP
+         0     0% 61.94%      0.40s  6.37%  net/http.serverHandler.ServeHTTP
+         0     0% 61.94%      0.40s  6.37%  os.ignoringEINTR (inline)
+         0     0% 61.94%      0.38s  6.05%  net/http.(*ServeMux).ServeHTTP

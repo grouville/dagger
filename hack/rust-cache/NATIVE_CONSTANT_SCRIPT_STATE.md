@@ -55,3 +55,5 @@ A ten-second engine CPU capture includes the command and subsequent engine work.
 The next useful investigation is repeated metadata-result publication and telemetry conversion. The [separate empty-map change](CACHE_USAGE_ALLOCATIONS.md) already removes a measured allocation cost during cache accounting, but its complete-command effect still needs measurement.
 
 [Raw samples, pressure, probes, compressed wcprof captures, CPU profiles and local harnesses](experiments/constant-scripts-and-usage-maps/).
+
+Follow-up: [direct stored-span forwarding and retained engine memory](NATIVE_DIRECT_SPAN_FORWARDING.md) records the next measured engine experiment.

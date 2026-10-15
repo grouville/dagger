@@ -1,0 +1,39 @@
+File: dagger-engine-direct-span-protobuf
+Build ID: 8c67e8d59e1cd49b16b8677a16daf95946b1a710
+Type: cpu
+Time: 2026-10-15 15:05:23 PDT
+Duration: 10s, Total samples = 19.93s (199.28%)
+Showing nodes accounting for 0.68s, 3.41% of 19.93s total
+Dropped 1314 nodes (cum <= 0.10s)
+Showing top 30 nodes out of 358
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%      5.23s 26.24%  golang.org/x/sync/errgroup.(*Group).Go.func1
+     0.04s   0.2%   0.2%      4.80s 24.08%  runtime.systemstack
+         0     0%   0.2%      4.39s 22.03%  github.com/dagger/dagger/engine/clientdb.UnmarshalProtoJSONs[go.shape.*uint8]
+     0.03s  0.15%  0.35%      4.39s 22.03%  github.com/dagger/dagger/engine/clientdb.unmarshalProtoJSONsOptimized[go.shape.*uint8]
+     0.02s   0.1%  0.45%      4.02s 20.17%  github.com/dagger/otel-go.SpansToPB
+         0     0%  0.45%      3.82s 19.17%  github.com/dagger/dagger/engine/server.fetchSpanBatch
+         0     0%  0.45%      3.76s 18.87%  github.com/dagger/dagger/engine/server.sessionSpanExporter.ExportSpans.func1
+     0.04s   0.2%  0.65%      3.75s 18.82%  github.com/dagger/dagger/engine/server.clientSpans.ExportSpans
+         0     0%  0.65%      3.75s 18.82%  github.com/dagger/dagger/engine/server.exportSpansRecovered
+         0     0%  0.65%      3.74s 18.77%  google.golang.org/protobuf/encoding/protojson.Unmarshal (inline)
+         0     0%  0.65%      3.74s 18.77%  google.golang.org/protobuf/encoding/protojson.UnmarshalOptions.Unmarshal (inline)
+         0     0%  0.65%      3.74s 18.77%  google.golang.org/protobuf/encoding/protojson.UnmarshalOptions.unmarshal
+     0.19s  0.95%  1.61%      3.73s 18.72%  google.golang.org/protobuf/encoding/protojson.decoder.unmarshalMessage
+     0.02s   0.1%  1.71%      3.67s 18.41%  github.com/dagger/otel-go.spanToPB
+         0     0%  1.71%      3.58s 17.96%  github.com/dagger/dagger/engine/clientdb.ForwardSpansToPB
+     0.01s  0.05%  1.76%      3.40s 17.06%  google.golang.org/protobuf/encoding/protojson.MarshalOptions.marshal
+     0.03s  0.15%  1.91%      3.40s 17.06%  google.golang.org/protobuf/encoding/protojson.decoder.unmarshalList
+     0.05s  0.25%  2.16%      3.29s 16.51%  google.golang.org/protobuf/encoding/protojson.encoder.marshalMessage
+     0.23s  1.15%  3.31%      3.20s 16.06%  runtime.mallocgc
+         0     0%  3.31%      3.19s 16.01%  runtime.gcBgMarkWorker
+         0     0%  3.31%      3.19s 16.01%  runtime.gcBgMarkWorker.func2
+     0.02s   0.1%  3.41%      3.19s 16.01%  runtime.gcDrain
+         0     0%  3.41%      3.17s 15.91%  github.com/dagger/dagger/engine/server.(*Server).serveHTTPToClient
+         0     0%  3.41%      3.17s 15.91%  net/http.HandlerFunc.ServeHTTP (partial-inline)
+         0     0%  3.41%      3.17s 15.91%  net/http.serverHandler.ServeHTTP
+         0     0%  3.41%      3.14s 15.76%  github.com/sourcegraph/conc.(*WaitGroup).Go.func1
+         0     0%  3.41%      3.14s 15.76%  github.com/sourcegraph/conc/panics.(*Catcher).Try
+         0     0%  3.41%      3.14s 15.76%  github.com/sourcegraph/conc/pool.(*Pool).worker
+         0     0%  3.41%      3.14s 15.76%  net/http.(*ServeMux).ServeHTTP
+         0     0%  3.41%      3.11s 15.60%  github.com/dagger/dagger/engine/server.(*Server).ServeHTTP

@@ -1,0 +1,33 @@
+wcprof dump: 86189 ops, 13696 waits, 1 links over 2.45s; dropped events: 0; open ops: 0
+calls: 17578 (executed:13677 hit:3874 do_not_cache:26 joined:1)
+top clients (of 3) by ops:
+       ops   self_tot  active               client
+     54826    106.38s  +7.92ms..+2.45s      (none)
+     30760    288.35s  +0ns..+2.45s         7kbebnin12xq0hqzrys9ocxww
+       603    28.06ms  +527.76ms..+729.51ms  W3OAYWTM37PNEDHQD6TDEOWVE4
+top classes (of 188) by count:
+     count   self_tot  kind class
+      3078     58.29s  call ArtifactDimensionKey.dimension
+      3078     65.25s  call ArtifactDimensionKey.dimensionKeys
+      3078     63.50s  call ArtifactDimensionKey.key
+      3078      1.60s  call_exec ArtifactDimensionKey.dimension
+      3078      2.43s  call_exec ArtifactDimensionKey.dimensionKeys
+      3078      1.58s  call_exec ArtifactDimensionKey.key
+      1574     5.35ms  call Query.typeDef
+      1240     4.10ms  call TypeDef.withKind
+      1026     21.28s  call Artifact.description
+      1026     20.63s  call Artifact.dimensionKeys
+top classes by self time:
+     count   self_tot  kind class
+      3078     65.25s  call ArtifactDimensionKey.dimensionKeys
+      3078     63.50s  call ArtifactDimensionKey.key
+      3078     58.29s  call ArtifactDimensionKey.dimension
+      1026     31.23s  call Artifact.items
+      1026     21.28s  call Artifact.description
+      1026     20.63s  call Artifact.dimensionKeys
+      1026     18.82s  call Artifact.uri
+      3078      2.43s  call_exec ArtifactDimensionKey.dimensionKeys
+      3078      1.60s  call_exec ArtifactDimensionKey.dimension
+      3078      1.58s  call_exec ArtifactDimensionKey.key
+(left out: 54799 internal-kind ops, self_tot 106.24s; kind: "internal" ranks them)
+(times are relative to the first recorded op; self = duration minus child ops and waits; self_tot sums it across ops, concurrent ones included, so it can exceed wall time)

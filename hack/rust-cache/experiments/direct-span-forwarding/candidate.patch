@@ -1,0 +1,331 @@
+commit 4d68998ba161c93adc92f338b8bc7e7d3a148ea4
+Author:     Guillaume de Rouville <guillaume@dagger.io>
+AuthorDate: Thu Oct 15 15:13:33 2026 -0700
+Commit:     Guillaume de Rouville <guillaume@dagger.io>
+CommitDate: Thu Oct 15 15:13:33 2026 -0700
+
+    clientdb: avoid SDK attribute round trips when forwarding spans
+    
+    Signed-off-by: Guillaume de Rouville <guillaume@dagger.io>
+
+diff --git a/engine/clientdb/span_proto.go b/engine/clientdb/span_proto.go
+new file mode 100644
+index 000000000..0ce8a599d
+--- /dev/null
++++ b/engine/clientdb/span_proto.go
+@@ -0,0 +1,156 @@
++package clientdb
++
++import (
++	"bytes"
++
++	telemetry "github.com/dagger/otel-go"
++	"go.opentelemetry.io/otel/attribute"
++	"go.opentelemetry.io/otel/codes"
++	"go.opentelemetry.io/otel/sdk/instrumentation"
++	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
++	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
++)
++
++// SpansToPB forwards stored spans using the same resource and scope grouping as
++// the SDK converter, without recreating SDK attribute values for ordinary rows.
++func SpansToPB(rows []Span) []*tracepb.ResourceSpans {
++	if len(rows) == 0 {
++		return nil
++	}
++	type scopeKey struct {
++		resource attribute.Distinct
++		scope    instrumentation.Scope
++	}
++	resources := make(map[attribute.Distinct]*tracepb.ResourceSpans)
++	scopes := make(map[scopeKey]*tracepb.ScopeSpans)
++	result := make([]*tracepb.ResourceSpans, 0)
++	for _, span := range ReadOnlySpans(rows) {
++		ro := span.(*readOnlySpan)
++		resource := ro.Resource()
++		resourceKey := resource.Equivalent()
++		group, ok := resources[resourceKey]
++		if !ok {
++			group = &tracepb.ResourceSpans{
++				Resource:  telemetry.ResourcePtrToPB(resource),
++				SchemaUrl: resource.SchemaURL(),
++			}
++			resources[resourceKey] = group
++			result = append(result, group)
++		}
++		scope := ro.InstrumentationScope()
++		key := scopeKey{resource: resourceKey, scope: scope}
++		batch, ok := scopes[key]
++		if !ok {
++			batch = &tracepb.ScopeSpans{
++				Scope:     telemetry.InstrumentationScopeToPB(scope),
++				SchemaUrl: scope.SchemaURL,
++			}
++			scopes[key] = batch
++			group.ScopeSpans = append(group.ScopeSpans, batch)
++		}
++		batch.Spans = append(batch.Spans, storedSpanToPB(ro))
++	}
++	return result
++}
++
++func storedSpanToPB(ro *readOnlySpan) *tracepb.Span {
++	var attrs []*commonpb.KeyValue
++	err := UnmarshalProtoJSONs(ro.DB.Attributes, &commonpb.KeyValue{}, &attrs)
++	if err != nil {
++		// Preserve the existing reader's warnings and malformed-input behavior.
++		attrs = telemetry.KeyValues(ro.Attributes())
++	} else if !sdkAttributesUnchanged(attrs) {
++		attrs = telemetry.KeyValues(telemetry.AttributesFromProto(attrs))
++	}
++	if len(attrs) == 0 {
++		attrs = nil
++	}
++	sc, parent := ro.SpanContext(), ro.Parent()
++	tid, sid := sc.TraceID(), sc.SpanID()
++	status := ro.Status()
++	code := tracepb.Status_STATUS_CODE_UNSET
++	switch status.Code {
++	case codes.Ok:
++		code = tracepb.Status_STATUS_CODE_OK
++	case codes.Error:
++		code = tracepb.Status_STATUS_CODE_ERROR
++	}
++	kind := tracepb.Span_SpanKind(ro.SpanKind())
++	span := &tracepb.Span{
++		TraceId:                tid[:],
++		SpanId:                 sid[:],
++		TraceState:             sc.TraceState().String(),
++		Name:                   ro.DB.Name,
++		Kind:                   kind,
++		StartTimeUnixNano:      uint64(ro.StartTime().UnixNano()),
++		EndTimeUnixNano:        uint64(ro.EndTime().UnixNano()),
++		Attributes:             attrs,
++		Status:                 &tracepb.Status{Code: code, Message: status.Description},
++		DroppedAttributesCount: uint32(ro.DB.DroppedAttributesCount),
++		DroppedLinksCount:      uint32(ro.DB.DroppedLinksCount),
++		DroppedEventsCount:     uint32(ro.DB.DroppedEventsCount),
++		// The SDK converter derives flags from Parent(), which stores no remote bit.
++		Flags: uint32(tracepb.SpanFlags_SPAN_FLAGS_CONTEXT_HAS_IS_REMOTE_MASK),
++	}
++	// Nonempty links and events retain their existing SDK normalization.
++	if !emptyProtoArray(ro.DB.Links) {
++		span.Links = telemetry.SpanLinksToPB(ro.Links())
++	}
++	if !emptyProtoArray(ro.DB.Events) {
++		span.Events = telemetry.SpanEventsToPB(ro.Events())
++	}
++	if id := parent.SpanID(); id.IsValid() {
++		span.ParentSpanId = id[:]
++	}
++	return span
++}
++
++func emptyProtoArray(data []byte) bool {
++	// Only JSON whitespace is allowed; malformed data must reach the old reader.
++	data = bytes.Trim(data, " \r\n\t")
++	return bytes.Equal(data, []byte("[]")) || bytes.Equal(data, []byte("null"))
++}
++
++// sdkAttributesUnchanged recognizes values the SDK round trip preserves. In
++// particular, mixed and nested arrays must use its existing string conversion.
++func sdkAttributesUnchanged(attrs []*commonpb.KeyValue) bool {
++	for _, attr := range attrs {
++		if attr == nil || attr.Value == nil {
++			return false
++		}
++		if scalarValueKind(attr.Value) != 0 {
++			continue
++		}
++		array, ok := attr.Value.Value.(*commonpb.AnyValue_ArrayValue)
++		if !ok || array.ArrayValue == nil {
++			return false
++		}
++		kind := 0
++		for _, value := range array.ArrayValue.Values {
++			current := scalarValueKind(value)
++			if current == 0 || (kind != 0 && current != kind) {
++				return false
++			}
++			kind = current
++		}
++	}
++	return true
++}
++
++func scalarValueKind(value *commonpb.AnyValue) int {
++	if value == nil {
++		return 0
++	}
++	switch value.Value.(type) {
++	case *commonpb.AnyValue_StringValue:
++		return 1
++	case *commonpb.AnyValue_BoolValue:
++		return 2
++	case *commonpb.AnyValue_IntValue:
++		return 3
++	case *commonpb.AnyValue_DoubleValue:
++		return 4
++	default:
++		return 0
++	}
++}
+diff --git a/engine/clientdb/span_proto_test.go b/engine/clientdb/span_proto_test.go
+new file mode 100644
+index 000000000..e8fb3424d
+--- /dev/null
++++ b/engine/clientdb/span_proto_test.go
+@@ -0,0 +1,140 @@
++package clientdb
++
++import (
++	"database/sql"
++	"fmt"
++	"slices"
++	"strings"
++	"testing"
++
++	telemetry "github.com/dagger/otel-go"
++	"github.com/stretchr/testify/require"
++	"go.opentelemetry.io/otel/attribute"
++	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
++	"google.golang.org/protobuf/proto"
++)
++
++func canonicalSpanGroups(groups []*tracepb.ResourceSpans) [][]byte {
++	encoded := make([][]byte, len(groups))
++	for i, group := range groups {
++		encoded[i], _ = proto.MarshalOptions{Deterministic: true}.Marshal(group)
++	}
++	slices.SortFunc(encoded, func(a, b []byte) int { return slices.Compare(a, b) })
++	return encoded
++}
++
++func spanConversionOutcome(convert func() []*tracepb.ResourceSpans) (groups [][]byte, panicValue any) {
++	defer func() { panicValue = recover() }()
++	return canonicalSpanGroups(convert()), nil
++}
++
++func TestStoredSpansToPBMatchesSDK(t *testing.T) {
++	attributes := []string{
++		`[]`, `null`,
++		`[{"key":"k","value":{"stringValue":"hello\n世界"}}]`,
++		`[{"key":"k","value":{"boolValue":false}}]`,
++		`[{"key":"k","value":{"intValue":"-9223372036854775808"}}]`,
++		`[{"key":"k","value":{"doubleValue":"NaN"}}]`,
++		`[{"key":"k","value":{"doubleValue":-0.0}}]`,
++		`[{"key":"k","value":{"arrayValue":{"values":[]}}}]`,
++		`[{"key":"k","value":{"arrayValue":{"values":[{"stringValue":"a"},{"stringValue":"b"}]}}}]`,
++		`[{"key":"k","value":{"arrayValue":{"values":[{"boolValue":false},{"boolValue":true}]}}}]`,
++		`[{"key":"k","value":{"arrayValue":{"values":[{"intValue":"1"},{"intValue":"2"}]}}}]`,
++		`[{"key":"k","value":{"arrayValue":{"values":[{"doubleValue":1},{"doubleValue":"Infinity"}]}}}]`,
++		`[{"key":"k","value":{"arrayValue":{"values":[{"boolValue":true},{"stringValue":"mixed"}]}}}]`,
++		`[{"key":"k","value":{"arrayValue":{"values":[{"arrayValue":{"values":[]}}]}}}]`,
++		`[{"key":"k","value":{"bytesValue":"AQID"}}]`,
++		`[{"key":"k","value":{"kvlistValue":{"values":[]}}}]`,
++		`[{"key":"k"}]`, `[null]`, `[{"key":"k","value":{}}]`,
++		`[{"key":"duplicate","value":{"intValue":"1"}},{"key":"duplicate","value":{"intValue":"2"}}]`,
++		`not json`, `[{"unknown":true}]`, `[{"key":"k","value":{"stringValue":"first","intValue":"2"}}]`,
++	}
++	for i, attrs := range attributes {
++		t.Run(fmt.Sprint(i), func(t *testing.T) {
++			rows := batchFixture(7)
++			for i := range rows {
++				rows[i].Attributes = []byte(attrs)
++				rows[i].Kind = []string{"internal", "server", "client", "producer", "consumer", "unknown", ""}[i]
++				rows[i].StatusCode = int64(i)
++				rows[i].StatusMessage = "status"
++				rows[i].Flags = 255
++				rows[i].DroppedAttributesCount = int64(i)
++				rows[i].DroppedLinksCount = int64(i + 1)
++				rows[i].DroppedEventsCount = int64(i + 2)
++			}
++			rows[0].EndTime.Valid = false
++			rows[1].ParentSpanID = sql.NullString{String: rows[0].SpanID, Valid: true}
++			rows[1].TraceState = "one=first,two=second"
++			rows[2].TraceID, rows[2].SpanID, rows[2].TraceState = "bad", "bad", "invalid"
++			rows[3].StartTime, rows[3].EndTime.Int64 = -500, -100
++			rows[4].Links = []byte(`[{"traceId":"AQIDBAUGBwgJCgsMDQ4PEA==","spanId":"AQIDBAUGBwg=","flags":768,"attributes":[{"key":"l","value":{"intValue":"3"}}]}]`)
++			rows[5].Events = []byte(`[{"timeUnixNano":"5","name":"event","attributes":[{"key":"e","value":{"boolValue":true}}],"droppedAttributesCount":2}]`)
++			rows[6].Links, rows[6].Events = []byte(`bad`), []byte(`bad`)
++			want, oldPanic := spanConversionOutcome(func() []*tracepb.ResourceSpans {
++				return telemetry.SpansToPB(ReadOnlySpans(rows))
++			})
++			got, newPanic := spanConversionOutcome(func() []*tracepb.ResourceSpans { return SpansToPB(rows) })
++			require.Equal(t, fmt.Sprint(oldPanic), fmt.Sprint(newPanic), "preserve existing malformed-input behavior")
++			require.Equal(t, want, got)
++		})
++	}
++}
++
++func TestStoredSpansToPBGroupingAndIsolation(t *testing.T) {
++	rows := batchFixture(5)
++	rows[1].Resource = []byte(`{"attributes":[{"value":{"stringValue":"engine"},"key":"service.name"}]}`)
++	rows[2].Resource = []byte(`{"attributes":[{"key":"service.name","value":{"stringValue":"other"}}]}`)
++	rows[3].InstrumentationScope = []byte(`{"name":"other"}`)
++	rows[4].Resource, rows[4].InstrumentationScope = []byte(`invalid`), []byte(`invalid`)
++	rows[2].ResourceSchemaURL = "ignored-by-the-existing-reader"
++	want := canonicalSpanGroups(telemetry.SpansToPB(ReadOnlySpans(rows)))
++	got := SpansToPB(rows)
++	require.Equal(t, want, canonicalSpanGroups(got))
++	got[0].ScopeSpans[0].Spans[0].Attributes[0].Key = "mutated output"
++	require.Equal(t, want, canonicalSpanGroups(SpansToPB(rows)), "later batches must not inherit mutated output")
++	require.Nil(t, SpansToPB(nil))
++}
++
++func BenchmarkStoredSpansToPB(b *testing.B) {
++	for _, count := range []int{1, 16} {
++		for _, linked := range []bool{false, true} {
++			rows := batchFixture(512)
++			attrs := make([]attribute.KeyValue, count)
++			for i := range attrs {
++				key := fmt.Sprintf("attribute-%d", i)
++				switch i % 4 {
++				case 0:
++					attrs[i] = attribute.String(key, strings.Repeat("x", 64))
++				case 1:
++					attrs[i] = attribute.Int64(key, int64(i))
++				case 2:
++					attrs[i] = attribute.Bool(key, true)
++				case 3:
++					attrs[i] = attribute.StringSlice(key, []string{"dependency-a", "dependency-b"})
++				}
++			}
++			encoded, err := MarshalProtoJSONs(telemetry.KeyValues(attrs))
++			if err != nil {
++				b.Fatal(err)
++			}
++			for i := range rows {
++				rows[i].Attributes = encoded
++				if linked {
++					rows[i].Links = []byte(`[{"traceId":"AQIDBAUGBwgJCgsMDQ4PEA==","spanId":"AQIDBAUGBwg=","attributes":[{"key":"reason","value":{"stringValue":"wait"}}]}]`)
++				}
++			}
++			for _, direct := range []bool{false, true} {
++				b.Run(fmt.Sprintf("attrs-%d/linked-%t/direct-%t", count, linked, direct), func(b *testing.B) {
++					b.ReportAllocs()
++					for b.Loop() {
++						if direct {
++							_ = SpansToPB(rows)
++						} else {
++							_ = telemetry.SpansToPB(ReadOnlySpans(rows))
++						}
++					}
++				})
++			}
++		}
++	}
++}
+diff --git a/engine/server/telemetry.go b/engine/server/telemetry.go
+index 70c257cdb..0704b62ae 100644
+--- a/engine/server/telemetry.go
++++ b/engine/server/telemetry.go
+@@ -781,7 +781,7 @@ func fetchSpanBatch(ctx context.Context, db *clientdb.DB, since int64, limit int
+ 		}
+ 	}
+ 	return spans[len(spans)-1].ID, &coltracepb.ExportTraceServiceRequest{
+-		ResourceSpans: telemetry.SpansToPB(clientdb.ReadOnlySpans(kept)),
++		ResourceSpans: clientdb.SpansToPB(kept),
+ 	}, len(spans), nil
+ }
+ 

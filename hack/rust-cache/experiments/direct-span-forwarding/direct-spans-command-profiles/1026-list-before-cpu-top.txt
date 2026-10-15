@@ -1,0 +1,39 @@
+File: dagger-engine-direct-span-protobuf
+Build ID: 8c67e8d59e1cd49b16b8677a16daf95946b1a710
+Type: cpu
+Time: 2026-10-15 15:05:23 PDT
+Duration: 10s, Total samples = 19.93s (199.28%)
+Showing nodes accounting for 8.98s, 45.06% of 19.93s total
+Dropped 1314 nodes (cum <= 0.10s)
+Showing top 30 nodes out of 358
+      flat  flat%   sum%        cum   cum%
+     1.18s  5.92%  5.92%         2s 10.04%  runtime.tryDeferToSpanScan
+     0.60s  3.01%  8.93%      0.60s  3.01%  runtime.spanClass.sizeclass (inline)
+     0.55s  2.76% 11.69%      0.55s  2.76%  internal/runtime/syscall/linux.Syscall6
+     0.55s  2.76% 14.45%      1.52s  7.63%  runtime.scanObjectsSmall
+     0.48s  2.41% 16.86%      0.48s  2.41%  runtime.nextFreeFast (inline)
+     0.47s  2.36% 19.22%      0.47s  2.36%  runtime.memclrNoHeapPointers
+     0.43s  2.16% 21.37%      1.14s  5.72%  runtime.scanObject
+     0.40s  2.01% 23.38%      0.40s  2.01%  memeqbody
+     0.37s  1.86% 25.24%      0.37s  1.86%  runtime.memmove
+     0.31s  1.56% 26.79%      2.16s 10.84%  runtime.mallocgcSmallScanNoHeader
+     0.26s  1.30% 28.10%      0.26s  1.30%  google.golang.org/protobuf/internal/encoding/json.indexNeedEscapeInString (inline)
+     0.26s  1.30% 29.40%      0.32s  1.61%  runtime.(*mspan).writeHeapBitsSmall
+     0.24s  1.20% 30.61%      0.46s  2.31%  encoding/json.checkValid
+     0.24s  1.20% 31.81%      0.29s  1.46%  runtime.findObject
+     0.23s  1.15% 32.97%      3.20s 16.06%  runtime.mallocgc
+     0.20s  1.00% 33.97%      1.05s  5.27%  runtime.wbBufFlush1
+     0.19s  0.95% 34.92%      3.73s 18.72%  google.golang.org/protobuf/encoding/protojson.decoder.unmarshalMessage
+     0.19s  0.95% 35.88%      2.05s 10.29%  runtime.scanSpan
+     0.18s   0.9% 36.78%      0.18s   0.9%  aeshashbody
+     0.18s   0.9% 37.68%      1.21s  6.07%  google.golang.org/protobuf/internal/encoding/json.(*Decoder).Read
+     0.17s  0.85% 38.53%      0.18s   0.9%  runtime.typePointers.next
+     0.16s   0.8% 39.34%      0.23s  1.15%  reflect.Value.Elem
+     0.15s  0.75% 40.09%      0.68s  3.41%  github.com/dagger/dagger/engine/clientdb.(*spanLookup).addLocked
+     0.15s  0.75% 40.84%      0.19s  0.95%  runtime.resolveTypeOff
+     0.14s   0.7% 41.55%      0.64s  3.21%  gcWriteBarrier
+     0.14s   0.7% 42.25%      0.25s  1.25%  google.golang.org/protobuf/internal/encoding/json.(*Decoder).consume (inline)
+     0.14s   0.7% 42.95%      0.14s   0.7%  internal/runtime/maps.ctrlGroup.matchH2
+     0.14s   0.7% 43.65%      0.79s  3.96%  runtime.bulkBarrierPreWrite
+     0.14s   0.7% 44.36%      0.14s   0.7%  runtime.extractHeapBitsSmall
+     0.14s   0.7% 45.06%      0.25s  1.25%  runtime.gcmarknewobject
