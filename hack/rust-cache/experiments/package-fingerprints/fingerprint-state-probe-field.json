@@ -1,0 +1,19 @@
+{
+  "allFeatures": false,
+  "cacheKey": "fingerprint-state-probe",
+  "cargoLayoutProbe": "set -eu\ncargo_version=$(cargo --version)\nprintf '%s\\n' \"$cargo_version\" >&2\nif printf '%s\\n' \"$cargo_version\" | awk '\n  $1 == \"cargo\" && $2 !~ /-/ {\n    split($2, v, \".\")\n    if (v[1] > 1 || (v[1] == 1 && v[2] >= 91)) ok = 1\n  }\n  END { exit !ok }\n'; then\n  echo build_dir=1 > /etc/dagger-rust-cargo\nelse\n  echo build_dir=0 > /etc/dagger-rust-cargo\nfi",
+  "cargoProfile": null,
+  "compilerCache": null,
+  "compilerPlan": null,
+  "extraPackages": [],
+  "features": [],
+  "image": "rust:1.77-bookworm@sha256:83101f6985c93e1e6501b3375de188ee3d2cbb89968bcc91611591f9f447bd42",
+  "layoutSelect": "if ! grep -qs build_dir=1 /etc/dagger-rust-cargo; then unset CARGO_BUILD_BUILD_DIR; export CARGO_TARGET_DIR=/build; fi",
+  "locked": true,
+  "nativeCache": true,
+  "noDefaultFeatures": false,
+  "packageFingerprint": "set -eu\n# Cargo configuration can include arbitrary files or source-based tools.\n# Keep those projects on Cargo's existing discovery path for now.\ncargo_config=$(find . -name .cargo -print -quit) || exit 0\nif [ -n \"$cargo_config\" ]; then exit 0; fi\nmetadata_tmp=$(mktemp -d /tmp/dagger-package-metadata.XXXXXXXX) || exit 0\ntrap 'rm -rf \"$metadata_tmp\"' EXIT\nif ! find . -printf '%P\\0%y\\0%m\\0%U\\0%G\\0%l\\0' > \"$metadata_tmp/layout\"; then\n  exit 0\nfi\nif ! find . \\( -type f -o -type l \\) ! -name '*.rs' -exec sha256sum -b -z -- '{}' + > \"$metadata_tmp/contents\"; then\n  exit 0\nfi\nlayout_sum=$(sha256sum \"$metadata_tmp/layout\") || exit 0\nset -- $layout_sum\nlayout_digest=$1\ncontents_sum=$(sha256sum \"$metadata_tmp/contents\") || exit 0\nset -- $contents_sum\ncontents_digest=$1\nfingerprint_sum=$(printf '%s\\0%s\\0' \"$layout_digest\" \"$contents_digest\" | sha256sum) || exit 0\nset -- $fingerprint_sum\nprintf '%s' \"$1\"",
+  "packageNames": [],
+  "publishLegacyArtifacts": "if ! grep -qs build_dir=1 /etc/dagger-rust-cargo; then\n  for f in $(grep -o '\"/build/[^\"]*\"' /meta/build.jsonl | tr -d '\"' | sort -u); do\n    rel=${f#/build/}\n    case \"$rel\" in */deps/*|*/build/*|*/incremental/*|*/.fingerprint/*) continue;; esac\n    [ -f \"$f\" ] || continue\n    mkdir -p \"/out/$(dirname \"$rel\")\"\n    cp -p \"$f\" \"/out/$rel\"\n    sed -i \"s#\\\"$f\\\"#\\\"/out/$rel\\\"#g\" /meta/build.jsonl\n  done\nfi",
+  "target": null
+}

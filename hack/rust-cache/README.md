@@ -9,6 +9,8 @@ retains rustc incremental state, and can run compiler misses together with Cargo
 metadata overlap. Completed results remain reusable per crate. These options are
 described below; none changes the Rust module's default behavior.
 
+The [fingerprint follow-up](NATIVE_PACKAGE_FINGERPRINTS.md) removes the extra discovery process and separately tests moving the shell script out of serialized Rust state. The native branch saves 542–705 ms per pair on the expanded listing across two histories, but large edited checks remain mixed and use more CPU. The simpler module-only change reduces measured project state from 2,323 to 1,344 bytes; its timing confirmation is incomplete. Both remain isolated.
+
 The [package discovery prototype](NATIVE_PACKAGE_METADATA_CACHE.md) reuses workspace names across Rust content edits. Large edited checks improve in fifteen of sixteen pairs, saving 527–720 ms per pair across two histories. A direct-check control shows a roughly 20 ms penalty, and the fingerprint still needs a general native contract; the branch remains isolated.
 
 The earlier [batch metadata follow-up](NATIVE_BATCH_METADATA.md) makes the expanded 1,026-package listing faster in all sixteen edited pairs across two histories. The confirmation reduces median latency from 5.28 to 4.08 seconds and engine CPU use by about 40%; ordinary build/test latency remains mixed.
