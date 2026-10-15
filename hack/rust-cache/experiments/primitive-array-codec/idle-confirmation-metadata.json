@@ -1,0 +1,43 @@
+{
+  "module": "28dab90",
+  "experimental_source_digest_paths": true,
+  "grouped_directory_digests": true,
+  "primitive_array_owner_fast_path": true,
+  "engines": {
+    "before": [
+      16276,
+      16104,
+      "dagger-rust-parser-state-pool-oct14"
+    ],
+    "after": [
+      16275,
+      16103,
+      "dagger-rust-checkpoint-snapshot-key-oct14"
+    ]
+  },
+  "engine_control": "literal-display",
+  "engine_candidate": "same overlay plus primitive-array-codec",
+  "existing_fixture_histories_reused": true,
+  "prepare_rounds": 1,
+  "admission": {
+    "quiet_window_seconds": 2,
+    "host_io_some_fraction_below": 0.05,
+    "each_engine_io_some_fraction_below": 0.01,
+    "both_engines_without_sessions": true,
+    "max_wait_seconds": 60,
+    "post_sample_exclusion": false
+  },
+  "cadence": "idle interactive commands; admission time is recorded and excluded from command latency",
+  "telemetry_enabled": true,
+  "wcprof_enabled": false,
+  "warm": true,
+  "fresh_unique_edit_per_variant": true,
+  "timer": "blocking waitpid without timeout polling",
+  "crossover": true,
+  "logical_to_physical": {
+    "before": "after",
+    "after": "before",
+    "cargo": "cargo"
+  },
+  "engine_restart": "clean exit zero with preserved volumes; binaries swapped for crossover"
+}

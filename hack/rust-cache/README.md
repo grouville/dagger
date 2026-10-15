@@ -116,7 +116,15 @@ transactions, while reading the large plan repeatedly costs about 115 ms. The
 its initial command gain after swapping histories and remains unselected. A
 separate [literal-display fix](NATIVE_LITERAL_DISPLAY.md) replaces quadratic
 string concatenation on main while preserving all telemetry text; its full
-command effect remains to be measured.
+command comparison does not establish a reliable gain. That profile exposes a
+second [primitive-array persistence fix](NATIVE_PRIMITIVE_ARRAY_CODEC.md): the
+encoder copies every input argument for each output item. The standalone
+main-based fix reduces the 1,024-element benchmark from 186 ms and 425 MB to
+0.50 ms and 279 kB. The actual hash request falls from about 190–197 ms to
+59–64 ms. An idle-start confirmation after swapping engines saves 211 ms per
+large-leaf command pair, with all eight pairs faster and all native results
+retained. The small collection has no established gain; the command target
+remains unmet.
 The [procedural-macro input study](NATIVE_PROC_MACRO_INPUTS.md) reproduces hidden
 file reads and missing-file checks that rustc does not record. A kernel probe
 observes them at much lower cost than syscall tracing; native macro support still
