@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/dagger/dagger/core/artifact"
 	"github.com/dagger/dagger/core/dagaddress"
@@ -327,6 +328,7 @@ func (a *Artifacts) ExpandDimensionKeys(ctx context.Context, name string) ([]str
 // Expand evaluates only the collection receivers needed to enumerate selected
 // keys. A leaf artifact's value remains deferred.
 func (a *Artifacts) Expand(ctx context.Context) (*Artifacts, error) {
+	ctx = context.WithValue(ctx, artifactEvaluationServersKey{}, &sync.Map{})
 	return a.expand(ctx, artifactCollectionKeys)
 }
 

@@ -8,6 +8,7 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"sync"
 	"unicode"
 	"unicode/utf8"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/dagger/dagger/core/dagaddress"
 	"github.com/dagger/dagger/core/workspace"
 	"github.com/dagger/dagger/dagql"
+	"github.com/dagger/dagger/engine"
 	"github.com/dagger/dagger/util/gitutil"
 )
 
@@ -884,7 +886,8 @@ func BoundArtifacts(ctx context.Context, mod dagql.ObjectResult[*Module], root d
 // module tree carries the dagql server that discovered it, whose field specs
 // reference module provenance results owned by that session. A fresh server
 // binds the provenance to results this session owns, so evaluation does not
-// depend on the discovering session being alive.
+// depend on the discovering session being alive. Collection expansion can
+// share that fresh server for the same query, client, workspace and module.
 func (a *Artifact) Evaluate(ctx context.Context, dest any, inputs ...dagql.NamedInput) error {
 	if a.Node == nil {
 		return fmt.Errorf("artifact %s has no module tree", strings.Join(a.Path, "/"))
@@ -907,7 +910,7 @@ func (a *Artifact) Evaluate(ctx context.Context, dest any, inputs ...dagql.Named
 		key := moduleID.EngineResultID()
 		srv, ok := servers[key]
 		if !ok {
-			srv, err = dagqlServerForModule(ctx, node.Module)
+			srv, err = artifactDagqlServerForModule(ctx, node.Module)
 			if err != nil {
 				return fmt.Errorf("artifact %s: %w", strings.Join(artifact.Path, "/"), err)
 			}
@@ -916,6 +919,47 @@ func (a *Artifact) Evaluate(ctx context.Context, dest any, inputs ...dagql.Named
 		node.DagqlServer = srv
 	}
 	return artifact.Node.dagqlValue(ctx, dest, inputs)
+}
+
+type artifactEvaluationServersKey struct{}
+
+type artifactEvaluationServerScope struct {
+	query     *Query
+	clientID  string
+	workspace uint64
+	module    uint64
+}
+
+// Share fresh module schemas within one expansion. The discovering session's
+// server remains unused, and different clients and workspaces remain separate.
+func artifactDagqlServerForModule(ctx context.Context, mod dagql.ObjectResult[*Module]) (*dagql.Server, error) {
+	servers, _ := ctx.Value(artifactEvaluationServersKey{}).(*sync.Map)
+	if servers == nil {
+		return dagqlServerForModule(ctx, mod)
+	}
+	query, err := CurrentQuery(ctx)
+	if err != nil {
+		return nil, err
+	}
+	client, err := engine.ClientMetadataFromContext(ctx)
+	if err != nil {
+		return dagqlServerForModule(ctx, mod)
+	}
+	moduleID, err := mod.ID()
+	if err != nil {
+		return nil, err
+	}
+	scope := artifactEvaluationServerScope{query: query, clientID: client.ClientID, module: moduleID.EngineResultID()}
+	if workspace, ok := WorkspaceFromContext(ctx); ok && workspace.Self() != nil {
+		id, err := workspace.ID()
+		if err != nil {
+			return nil, err
+		}
+		scope.workspace = id.EngineResultID()
+	}
+	build := sync.OnceValues(func() (*dagql.Server, error) { return dagqlServerForModule(ctx, mod) })
+	shared, _ := servers.LoadOrStore(scope, build)
+	return shared.(func() (*dagql.Server, error))()
 }
 
 // ModuleArtifactNodes discovers object fields without evaluating their values.
