@@ -204,7 +204,7 @@ func (c *Cache) attachInlineHosts(row *sharedResult, res AnyResult) error {
 		return nil
 	}
 	var cleanup OnReleaseFunc
-	err := walkInlineValues(res, row.loadResultCall(), nil, true, func(value AnyResult, path PersistedRefPath) error {
+	err := walkInlineOwners(res, row.loadResultCall(), nil, true, func(value AnyResult, path PersistedRefPath) error {
 		if len(path) == 0 {
 			return nil
 		}
