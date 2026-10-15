@@ -10,12 +10,12 @@ import (
 // runFunction invokes the author function only when a check result is requested.
 func (c *Check) runFunction(ctx context.Context) error {
 	receiver := c.Receiver.Self()
-	srv, err := dagqlServerForModule(ctx, receiver.Module)
-	if err != nil {
-		return err
-	}
 	if c.Workspace.Self() != nil {
 		ctx = WorkspaceToContext(ctx, c.Workspace)
+	}
+	srv, err := artifactDagqlServerForModule(ctx, receiver.Module)
+	if err != nil {
+		return err
 	}
 	fn, ok := receiver.TypeDef.FunctionByName(c.Function)
 	if !ok {

@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func (CollectionsSuite) TestCollectionDiscoveryKeepsWorkspaceScope(ctx context.Context, t *testctx.T) {
+func (CollectionsSuite) TestCollectionEvaluationKeepsWorkspaceScope(ctx context.Context, t *testctx.T) {
 	c := connect(ctx, t)
 	dag := core.NewQuery(c)
 	module := dag.Directory().
@@ -22,8 +22,14 @@ type Items @collection {
 }
 type Item {
   key: String!
-  first: Void @check { null }
-  second: Void @check { null }
+  first(ws: Workspace!): Void @check {
+    if (ws.file("marker.txt").contents != key) { raise "wrong workspace" }
+    null
+  }
+  second(ws: Workspace!): Void @check {
+    if (ws.file("marker.txt").contents == "edited") { raise "edited workspace" }
+    null
+  }
 }
 `)
 	base := dag.Directory().
@@ -36,5 +42,24 @@ type Item {
 		keys, err := selected.DimensionKeys(ctx, "/scope/items")
 		require.NoError(t, err)
 		require.ElementsMatch(t, []string{value, "B"}, keys)
+		results, err := selected.Values(ctx, core.ArtifactsValuesOpts{MaxConcurrency: 2})
+		require.NoError(t, err)
+		require.Len(t, results, 4)
+		failures := 0
+		for _, result := range results {
+			failure, err := result.Error(ctx)
+			require.NoError(t, err)
+			if failure != nil {
+				message, err := failure.Message(ctx)
+				require.NoError(t, err)
+				require.Contains(t, message, "edited workspace")
+				failures++
+			}
+		}
+		if value == "edited" {
+			require.Equal(t, 1, failures)
+		} else {
+			require.Zero(t, failures)
+		}
 	}
 }

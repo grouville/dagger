@@ -886,7 +886,7 @@ func BoundArtifacts(ctx context.Context, mod dagql.ObjectResult[*Module], root d
 // module tree carries the dagql server that discovered it, whose field specs
 // reference module provenance results owned by that session. A fresh server
 // binds the provenance to results this session owns, so evaluation does not
-// depend on the discovering session being alive. Collection expansion can
+// depend on the discovering session being alive. One evaluation operation can
 // share that fresh server for the same query, client, workspace and module.
 func (a *Artifact) Evaluate(ctx context.Context, dest any, inputs ...dagql.NamedInput) error {
 	if a.Node == nil {
@@ -923,6 +923,15 @@ func (a *Artifact) Evaluate(ctx context.Context, dest any, inputs ...dagql.Named
 
 type artifactEvaluationServersKey struct{}
 
+// WithArtifactEvaluationScope shares fresh module schemas only for the current
+// operation. Nested expansion and evaluation keep the same scope.
+func WithArtifactEvaluationScope(ctx context.Context) context.Context {
+	if _, ok := ctx.Value(artifactEvaluationServersKey{}).(*sync.Map); ok {
+		return ctx
+	}
+	return context.WithValue(ctx, artifactEvaluationServersKey{}, &sync.Map{})
+}
+
 type artifactEvaluationServerScope struct {
 	query     *Query
 	clientID  string
@@ -930,7 +939,7 @@ type artifactEvaluationServerScope struct {
 	module    uint64
 }
 
-// Share fresh module schemas within one expansion. The discovering session's
+// Share fresh module schemas within one operation. The discovering session's
 // server remains unused, and different clients and workspaces remain separate.
 func artifactDagqlServerForModule(ctx context.Context, mod dagql.ObjectResult[*Module]) (*dagql.Server, error) {
 	servers, _ := ctx.Value(artifactEvaluationServersKey{}).(*sync.Map)

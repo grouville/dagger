@@ -840,6 +840,7 @@ func (s *artifactsSchema) values(ctx context.Context, parent dagql.ObjectResult[
 	if args.MaxConcurrency < 0 {
 		return nil, fmt.Errorf("maxConcurrency must not be negative: %d", args.MaxConcurrency)
 	}
+	ctx = core.WithArtifactEvaluationScope(ctx)
 	md, err := engine.ClientMetadataFromContext(ctx)
 	if err != nil {
 		return nil, err
