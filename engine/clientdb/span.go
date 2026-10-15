@@ -1,6 +1,7 @@
 package clientdb
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -98,6 +99,31 @@ func (ros *readOnlySpan) EndTime() time.Time {
 }
 
 func UnmarshalProtoJSONs[T proto.Message](pb []byte, base T, out *[]T) error {
+	trimmed := bytes.Trim(pb, " \t\r\n")
+	if bytes.Equal(trimmed, []byte("[]")) || bytes.Equal(trimmed, []byte("null")) {
+		*out = []T{}
+		return nil
+	}
+	if attrs, ok := any(out).(*[]*otlpcommonv1.KeyValue); ok {
+		// Keep encoding/json's syntax and nesting limits, but avoid splitting
+		// the array into RawMessages and scanning/copying each attribute again.
+		if !json.Valid(pb) {
+			return fmt.Errorf("invalid JSON attribute array")
+		}
+		wrapped := make([]byte, 0, len(pb)+11)
+		wrapped = append(wrapped, `{"values":`...)
+		wrapped = append(wrapped, pb...)
+		wrapped = append(wrapped, '}')
+		var list otlpcommonv1.KeyValueList
+		if err := protojson.Unmarshal(wrapped, &list); err != nil {
+			return fmt.Errorf("failed to protojson unmarshal attributes: %w", err)
+		}
+		if list.Values == nil {
+			list.Values = []*otlpcommonv1.KeyValue{}
+		}
+		*attrs = list.Values
+		return nil
+	}
 	var msgs []json.RawMessage
 	if err := json.Unmarshal(pb, &msgs); err != nil {
 		return fmt.Errorf("failed to json unmarshal: %w", err)
