@@ -78,6 +78,16 @@ small package collection show no repeatable gain.
 The [direct package-hash follow-up](NATIVE_PACKAGE_DIGESTS.md) removes one
 directory projection per crate. Large leaf edits save 346 ms in the
 matched crossover; the small collection slows, so the variant stays isolated.
+The [batched package exclusions](NATIVE_PACKAGE_EXCLUSIONS.md) replace a chain
+of child-package removals with one snapshot. A 130-crate workspace with a root
+package saves about 0.7 seconds per edited command after swapping histories;
+the 1,026-crate layout now completes instead of failing to mount. The separate
+[failure cleanup fix](DIRECTORY_FAILURE_CLEANUP.md) releases a locked mutable
+snapshot on the error path, with a regression against upstream main.
+The [content-keyed syntax follow-up](NATIVE_PARSE_CACHE_CONTENT.md) preserves
+our parser prototype's reuse when a module is remounted under a different path.
+The controlled parsing phase falls from 80 ms to 2.9 ms after mount expiry;
+full-command comparisons remain mixed, so the library variant stays isolated.
 The [procedural-macro input study](NATIVE_PROC_MACRO_INPUTS.md) reproduces hidden
 file reads and missing-file checks that rustc does not record. A kernel probe
 observes them at much lower cost than syscall tracing; native macro support still
