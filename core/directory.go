@@ -1907,7 +1907,7 @@ func (dir *Directory) applyPatchToSnapshot(ctx context.Context, parentRef bkcach
 	return newRef.Commit(ctx)
 }
 
-func (dir *Directory) withoutPathsFromSnapshot(ctx context.Context, parentSnapshot bkcache.ImmutableRef, dirPath string, paths ...string) (bkcache.ImmutableRef, bool, error) {
+func (dir *Directory) withoutPathsFromSnapshot(ctx context.Context, parentSnapshot bkcache.ImmutableRef, dirPath string, paths ...string) (_ bkcache.ImmutableRef, _ bool, rerr error) {
 	if parentSnapshot == nil {
 		return nil, false, nil
 	}
@@ -1926,6 +1926,12 @@ func (dir *Directory) withoutPathsFromSnapshot(ctx context.Context, parentSnapsh
 	if err != nil {
 		return nil, false, err
 	}
+	defer func() {
+		// A successful commit consumes the mutable ref.
+		if rerr != nil {
+			rerr = errors.Join(rerr, newRef.Release(context.WithoutCancel(ctx)))
+		}
+	}()
 
 	var anyPathsRemoved bool
 	err = MountRef(ctx, newRef, func(root string, _ *mount.Mount) error {
