@@ -281,26 +281,9 @@ func encodePersistedResultEnvelope(ctx context.Context, enc *PersistEncodeContex
 		if parentCall.Type == nil || parentCall.Type.Elem == nil {
 			return PersistedResultEncoding{}, fmt.Errorf("encode persisted list: recorded call type %s does not declare a list", parentCall.Type.toAST())
 		}
-		itemEnvs := make([]PersistedResultEnvelope, 0, enumerable.Len())
-		var itemLinks []PersistedSnapshotRefLink
-		for i := 1; i <= enumerable.Len(); i++ {
-			item, err := enumerable.NthValue(i, parentCall)
-			if err != nil {
-				return PersistedResultEncoding{}, fmt.Errorf("encode persisted list item %d: %w", i, err)
-			}
-			itemCall := persistedListItemCall(parentCall, i)
-			itemEnc := enc.item(itemCall, i-1)
-			if item != nil {
-				if itemShared := item.cacheSharedResult(); itemShared != nil && itemShared.id != 0 {
-					itemEnc.resultID = uint64(itemShared.id)
-				}
-			}
-			itemEncoding, err := encodePersistedResultEnvelope(ctx, itemEnc, item, false)
-			if err != nil {
-				return PersistedResultEncoding{}, fmt.Errorf("encode persisted list item %d envelope: %w", i, err)
-			}
-			itemEnvs = append(itemEnvs, itemEncoding.Envelope)
-			itemLinks = append(itemLinks, itemEncoding.SnapshotLinks...)
+		itemEnvs, itemLinks, err := encodePersistedListItems(ctx, enc, enumerable, parentCall)
+		if err != nil {
+			return PersistedResultEncoding{}, err
 		}
 		return PersistedResultEncoding{
 			Envelope: PersistedResultEnvelope{
@@ -334,6 +317,65 @@ func encodePersistedResultEnvelope(ctx context.Context, enc *PersistEncodeContex
 			ScalarJSON:            scalarJSON,
 		},
 	}, nil
+}
+
+// Primitive array items cannot carry attached identities or snapshot owners.
+// Encoding their values directly avoids cloning the entire producer call per item.
+func encodePersistedListItems(ctx context.Context, enc *PersistEncodeContext, enumerable Enumerable, parentCall *ResultCall) ([]PersistedResultEnvelope, []PersistedSnapshotRefLink, error) {
+	switch values := enumerable.(type) {
+	case Array[String]:
+		return encodePersistedPrimitiveArray(values)
+	case Array[Int]:
+		return encodePersistedPrimitiveArray(values)
+	case Array[Float]:
+		return encodePersistedPrimitiveArray(values)
+	case Array[Boolean]:
+		return encodePersistedPrimitiveArray(values)
+	}
+
+	itemEnvs := make([]PersistedResultEnvelope, 0, enumerable.Len())
+	var itemLinks []PersistedSnapshotRefLink
+	for i := 1; i <= enumerable.Len(); i++ {
+		item, err := enumerable.NthValue(i, parentCall)
+		if err != nil {
+			return nil, nil, fmt.Errorf("encode persisted list item %d: %w", i, err)
+		}
+		itemCall := persistedListItemCall(parentCall, i)
+		itemEnc := enc.item(itemCall, i-1)
+		if item != nil {
+			if itemShared := item.cacheSharedResult(); itemShared != nil && itemShared.id != 0 {
+				itemEnc.resultID = uint64(itemShared.id)
+			}
+		}
+		itemEncoding, err := encodePersistedResultEnvelope(ctx, itemEnc, item, false)
+		if err != nil {
+			return nil, nil, fmt.Errorf("encode persisted list item %d envelope: %w", i, err)
+		}
+		itemEnvs = append(itemEnvs, itemEncoding.Envelope)
+		itemLinks = append(itemLinks, itemEncoding.SnapshotLinks...)
+	}
+	return itemEnvs, itemLinks, nil
+}
+
+func encodePersistedPrimitiveArray[T interface {
+	Typed
+	String | Int | Float | Boolean
+}](values Array[T]) ([]PersistedResultEnvelope, []PersistedSnapshotRefLink, error) {
+	items := make([]PersistedResultEnvelope, len(values))
+	typeName := values.Element().Type().Name()
+	for i, value := range values {
+		scalarJSON, err := json.Marshal(value)
+		if err != nil {
+			return nil, nil, fmt.Errorf("encode persisted list item %d envelope: encode scalar_json payload: %w", i+1, err)
+		}
+		items[i] = PersistedResultEnvelope{
+			Version:    persistedResultEnvelopeVersion,
+			Kind:       persistedResultKindScalar,
+			TypeName:   typeName,
+			ScalarJSON: scalarJSON,
+		}
+	}
+	return items, nil, nil
 }
 
 // encodePersistedAbsentValue writes an absent value. An attached absent row
