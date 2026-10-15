@@ -93,6 +93,15 @@ requests from the compiler submodule through a general Go generator change.
 The measured metadata interval falls from 24.7 ms to 6.2 ms. Generated-code
 and native-cache checks pass, while complete-command gains remain modest and
 shared edits slow down; the change stays isolated on separate fork branches.
+The [direct-path hash recheck](NATIVE_BATCHED_PACKAGE_DIGESTS.md) compares the
+same hashing shortcut after batching package exclusions. A clean confirmation
+saves 22 ms per leaf-edit pair, with mixed shared edits and a neutral collection.
+The package-hash request falls from 112 ms to 61 ms in the two profiles; the
+variant remains isolated.
+The [retained-source copy experiment](NATIVE_PACKAGE_FILTER.md) replaces removal
+of nested packages with a filtered copy. The package-hash phase gets shorter,
+but complete-command comparisons do not establish a repeatable gain, so the
+selected projection remains unchanged.
 The [procedural-macro input study](NATIVE_PROC_MACRO_INPUTS.md) reproduces hidden
 file reads and missing-file checks that rustc does not record. A kernel probe
 observes them at much lower cost than syscall tracing; native macro support still

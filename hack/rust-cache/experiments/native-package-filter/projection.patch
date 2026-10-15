@@ -1,0 +1,55 @@
+diff --git a/compiler/replay/source.go b/compiler/replay/source.go
+index f23c9bb..42da6ff 100644
+--- a/compiler/replay/source.go
++++ b/compiler/replay/source.go
+@@ -148,7 +148,7 @@ func PackageDirectories(source *dagger.Directory, packages []model.Package) map[
+ 	for root, projection := range projections {
+ 		directory := source.Directory(projection.path)
+ 		if len(projection.children) > 1 {
+-			directory = directory.WithoutFiles(projection.children)
++			directory = directory.Filter(dagger.DirectoryFilterOpts{Exclude: packageExclusionPatterns(projection.children)})
+ 		} else if len(projection.children) == 1 {
+ 			directory = directory.WithoutDirectory(projection.children[0])
+ 		}
+@@ -162,6 +162,15 @@ type packageProjection struct {
+ 	children []string
+ }
+ 
++func packageExclusionPatterns(paths []string) []string {
++	escape := strings.NewReplacer("\\", "\\\\", "*", "\\*", "?", "\\?", "[", "\\[", "]", "\\]", "!", "\\!", " ", "[ ]")
++	patterns := make([]string, len(paths))
++	for i, path := range paths {
++		patterns[i] = escape.Replace(path)
++	}
++	return patterns
++}
++
+ func packageProjections(packages []model.Package) map[string]packageProjection {
+ 	roots := newPackageRoots(packages)
+ 	children := map[string][]string{}
+@@ -203,7 +212,7 @@ func packageDigests(ctx context.Context, client *dagger.Query, sourceID dagger.I
+ 			query = querybuilder.Query().SelectWithAlias(fmt.Sprintf("p%d", i), "digest").Arg("path", projection.path)
+ 		} else {
+ 			if len(projection.children) > 1 {
+-				query = query.Select("withoutFiles").Arg("paths", projection.children)
++				query = query.Select("filter").Arg("exclude", packageExclusionPatterns(projection.children))
+ 			} else if len(projection.children) == 1 {
+ 				query = query.Select("withoutDirectory").Arg("path", projection.children[0])
+ 			}
+@@ -219,6 +228,7 @@ func packageDigests(ctx context.Context, client *dagger.Query, sourceID dagger.I
+ 		Digest           string
+ 		WithoutDirectory *digestResult
+ 		WithoutFiles     *digestResult
++		Filter           *digestResult
+ 	}
+ 	var response map[string]json.RawMessage
+ 	err := client.QueryBuilder().Select("node").Arg("id", sourceID).InlineFragment("Directory").
+@@ -244,7 +254,7 @@ func packageDigests(ctx context.Context, client *dagger.Query, sourceID dagger.I
+ 			return nil, err
+ 		}
+ 		if result != nil && len(projections[root].children) > 1 {
+-			result = result.WithoutFiles
++			result = result.Filter
+ 		} else if result != nil && len(projections[root].children) == 1 {
+ 			result = result.WithoutDirectory
+ 		}
