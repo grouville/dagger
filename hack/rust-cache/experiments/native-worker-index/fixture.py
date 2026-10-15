@@ -10,6 +10,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("root", type=Path)
     parser.add_argument("--leaves", type=int, default=1024)
+    parser.add_argument("--root-package", action="store_true")
     parser.add_argument("--module", required=True)
     parser.add_argument("--cache-key", required=True)
     args = parser.parse_args()
@@ -19,24 +20,29 @@ def main():
 
     names = [f"leaf_{i:04d}" for i in range(args.leaves)]
     members = ["shared", *names, "app"]
+    workspace_members = members[:-1] if args.root_package else members
     (args.root / "Cargo.toml").write_text(
-        "[workspace]\nmembers = " + json.dumps(members)
+        "[workspace]\nmembers = " + json.dumps(workspace_members)
         + '\nresolver = "2"\n\n[profile.dev]\ncodegen-units = 16\n'
     )
     for name in members:
-        package = args.root / name
+        root_package = name == "app" and args.root_package
+        package = args.root if root_package else args.root / name
         (package / "src").mkdir(parents=True)
+        prefix = "" if root_package else "../"
         dependencies = ""
         if name != "shared":
-            dependencies = 'shared = { path = "../shared" }\n'
+            dependencies = f'shared = {{ path = "{prefix}shared" }}\n'
         if name == "app":
             dependencies += "".join(
-                f'{leaf} = {{ path = "../{leaf}" }}\n' for leaf in names
+                f'{leaf} = {{ path = "{prefix}{leaf}" }}\n' for leaf in names
             )
-        (package / "Cargo.toml").write_text(
+        manifest = (
             f'[package]\nname = "{name}"\nversion = "0.1.0"\n'
             'edition = "2021"\n\n[dependencies]\n' + dependencies
         )
+        with (package / "Cargo.toml").open("a" if root_package else "w") as file:
+            file.write("\n" + manifest if root_package else manifest)
         if name == "app":
             statements = "".join(
                 f"    value = value.wrapping_add({leaf}::value());\n"
