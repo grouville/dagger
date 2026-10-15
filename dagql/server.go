@@ -1039,10 +1039,7 @@ func (s *Server) SchemaForView(view call.View) *ast.Schema {
 				}
 			}
 		}
-		h := xxh3.New()
-		json.NewEncoder(h).Encode(schema)
 		s.schemas[view] = schema
-		s.schemaDigests[view] = digest.NewDigest(hashutil.XXH3, h)
 	})
 
 	return s.schemas[view]
@@ -1074,10 +1071,25 @@ func typeVisibleInView(t Type, view call.View) bool {
 
 // SchemaDigest returns the digest of the current schema.
 func (s *Server) SchemaDigest() digest.Digest {
-	s.Schema() // ensure it's built
-	s.schemaLock.Lock()
-	defer s.schemaLock.Unlock()
-	return s.schemaDigests[s.View]
+	for {
+		s.Schema() // ensure it's built
+		s.schemaLock.Lock()
+		schema, ok := s.schemas[s.View]
+		if !ok {
+			// An installation invalidated it between building and locking.
+			s.schemaLock.Unlock()
+			continue
+		}
+		dgst, ok := s.schemaDigests[s.View]
+		if !ok {
+			h := xxh3.New()
+			json.NewEncoder(h).Encode(schema)
+			dgst = digest.NewDigest(hashutil.XXH3, h)
+			s.schemaDigests[s.View] = dgst
+		}
+		s.schemaLock.Unlock()
+		return dgst
+	}
 }
 
 // Complexity returns the complexity of the given field.
