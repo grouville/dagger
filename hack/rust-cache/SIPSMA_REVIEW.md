@@ -1,6 +1,6 @@
 # Engine performance references
 
-Review date: 2026-10-13. Goal: [native Rust cache performance](ROADMAP.md).
+Initial review: 2026-10-13; follow-up below: 2026-10-14. Goal: [native Rust cache performance](ROADMAP.md).
 
 The public GitHub search for `repo:dagger/dagger is:pr author:sipsma` returned
 935 PRs. The inventory was scanned for performance, cache, filesync, runtime,
@@ -248,6 +248,28 @@ it is not evidence about the active native engine path.
 [#14368](https://github.com/dagger/dagger/pull/14368) persists module typedefs and
 [#14450](https://github.com/dagger/dagger/pull/14450) reduces Go dependency downloads;
 their direct relevance is module startup and CI, respectively.
+
+## October 14 follow-up
+
+[#14685](https://github.com/dagger/dagger/pull/14685) removes the final whole-filesystem
+sync from graceful engine shutdown. Its reproduction shows why a shared busy
+filesystem can delay engine stop even after the engine has closed its stores.
+It also states the durability tradeoff: a host crash before writeback can lose
+or corrupt state after a nominally clean stop. Ordinary process restart on the
+same kernel still sees the page cache. Our edited-command comparisons keep the
+engine running, so this shutdown change is not a candidate explanation or
+speedup for those commands. Its bounded kernel and cgroup diagnostics are a
+useful model for attributing I/O waits.
+
+[#14688](https://github.com/dagger/dagger/pull/14688) fixes an agent's exit-time
+archive lookup racing its first control record. On a miss, it drains pending
+agent control publications and flushes session telemetry before checking again.
+The real-session regression and deterministic publisher-barrier test exercise
+that ordering. This concerns agent resume; it does not remove work from the
+Rust compilation path.
+
+Both were open when checked through GitHub on this follow-up. Neither is
+applied to claim a Rust performance improvement.
 
 ## Method to carry over
 

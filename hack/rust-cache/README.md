@@ -67,6 +67,13 @@ The [Rustdoc follow-up](NATIVE_RUSTDOC_PATH.md) preserves the selected toolchain
 documentation program. A controlled 203-command test batch improves from 4.53 s
 to 1.89 s; the small module's direct edited command reaches Cargo +0.49 s median,
 with only five of eight pairs within the target.
+The [compiler-phase follow-up](NATIVE_COMPILER_PHASES.md) separates the Dang
+module from its Go compilation programs and records two unselected transport
+experiments, including the inconclusive crossover and host/engine pressure.
+The [compiler dependency index](NATIVE_WORKER_INDEX.md) replaces a lookup table
+rebuilt for every compilation with one immutable table per batch. A 1,026-crate
+shared edit remains faster after swapping cache histories; leaf edits and the
+small package collection show no repeatable gain.
 The [procedural-macro input study](NATIVE_PROC_MACRO_INPUTS.md) reproduces hidden
 file reads and missing-file checks that rustc does not record. A kernel probe
 observes them at much lower cost than syscall tracing; native macro support still

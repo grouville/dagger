@@ -64,6 +64,8 @@ The earlier wcprof capture places the three actual exec workloads on a timeline:
 
 The [Rustdoc follow-up](NATIVE_RUSTDOC_PATH.md) finds and fixes repeated toolchain selection in those test processes. The same 203-command test batch falls from 4.53 s to 1.89 s in a controlled comparison. Fresh-edit wcprof captures preserve the compiler work and three-exec structure. The small module's direct CLI median reaches Cargo +0.49 s, with a narrow margin; the larger full-command series remains too variable to establish its remaining gap reliably.
 
+The [compiler-phase follow-up](NATIVE_COMPILER_PHASES.md) distinguishes the Dang module, its Go compiler submodule and the Go execution program inside the Rust container. Finer timers locate roughly 57–61 ms in retained-plan loading/decoding and 41–49 ms in package hashing in two many-crate leaf captures. Smaller dependency descriptions and reuse of the evaluated batch root both remain isolated: fewer transferred bytes or repeated recipes have not yet established a repeatable complete-command gain. Host and engine pressure are now recorded separately for the check comparison.
+
 ## Capture limits
 
 Timing comparisons keep telemetry enabled and disable wcprof. Profiling captures are diagnostic runs, not replacement benchmark samples. No unrelated build, test or benchmark runs concurrently with the recorded workload.
