@@ -1,0 +1,1387 @@
+{
+  "toolchain": "Rust 1.77.2, Linux amd64",
+  "image": "rust:1.77-bookworm@sha256:83101f6985c93e1e6501b3375de188ee3d2cbb89968bcc91611591f9f447bd42",
+  "rust_module_base": "5a09081",
+  "rust_module_fix": "3ee3187",
+  "telemetry": "enabled; local collector",
+  "conditions": "Engines, toolchain, helper and compiler histories warm; each full command edits source. wcprof off during timing.",
+  "small_wrapper": {
+    "samples": [
+      {
+        "before": 1.0853530491003767,
+        "after": 0.9471857378957793,
+        "cargo": 0.46674310602247715
+      },
+      {
+        "cargo": 0.4624784759944305,
+        "after": 1.0004300349391997,
+        "before": 1.021019114064984
+      },
+      {
+        "after": 0.979708464932628,
+        "cargo": 0.4640839929925278,
+        "before": 0.9752352630021051
+      },
+      {
+        "before": 1.1409667449770495,
+        "cargo": 0.46326650807168335,
+        "after": 0.9159493120387197
+      },
+      {
+        "cargo": 0.46576393698342144,
+        "before": 1.0803465909557417,
+        "after": 0.9869475070154294
+      },
+      {
+        "after": 1.037578635965474,
+        "before": 0.9809942869469523,
+        "cargo": 0.4640472100581974
+      },
+      {
+        "before": 1.1411305859219283,
+        "after": 0.9281582860276103,
+        "cargo": 0.4712969739921391
+      },
+      {
+        "cargo": 0.46567935997154564,
+        "after": 1.0269799469970167,
+        "before": 1.0501273730769753
+      }
+    ],
+    "summary": {
+      "median_seconds": {
+        "before": 1.0652369820163585,
+        "after": 0.9833279859740287,
+        "cargo": 0.4648816764820367
+      },
+      "median_paired_saving_ms": 58.27325501013547,
+      "faster_pairs": 6
+    },
+    "pressure": [
+      {
+        "label": "prepare-0-before",
+        "seconds": 3.7078092070296407,
+        "stall_fraction": {
+          "cpu": 0.02391789734807977,
+          "io": 0.012139783221494161
+        }
+      },
+      {
+        "label": "prepare-0-after",
+        "seconds": 14.051841276930645,
+        "stall_fraction": {
+          "cpu": 0.05570344729733338,
+          "io": 0.03990601579884097
+        }
+      },
+      {
+        "label": "prepare-0-cargo",
+        "seconds": 0.6279817100148648,
+        "stall_fraction": {
+          "cpu": 0.03541345176991474,
+          "io": 0.022194913924595158
+        }
+      },
+      {
+        "label": "prepare-1-before",
+        "seconds": 1.1031843370292336,
+        "stall_fraction": {
+          "cpu": 0.014997493568984175,
+          "io": 0.006657092340321534
+        }
+      },
+      {
+        "label": "prepare-1-after",
+        "seconds": 0.9003200969891623,
+        "stall_fraction": {
+          "cpu": 0.02032388265150574,
+          "io": 0.00752287994308932
+        }
+      },
+      {
+        "label": "prepare-1-cargo",
+        "seconds": 0.4637982420390472,
+        "stall_fraction": {
+          "cpu": 0.0050474533704742055,
+          "io": 0.018991016355034942
+        }
+      },
+      {
+        "label": "edited-0-before",
+        "seconds": 1.0853530491003767,
+        "stall_fraction": {
+          "cpu": 0.04182049337551748,
+          "io": 0.009185029708317553
+        }
+      },
+      {
+        "label": "edited-0-after",
+        "seconds": 0.9471857378957793,
+        "stall_fraction": {
+          "cpu": 0.01692065173574592,
+          "io": 0.011336741644627174
+        }
+      },
+      {
+        "label": "edited-0-cargo",
+        "seconds": 0.46674310602247715,
+        "stall_fraction": {
+          "cpu": 0.007286663597418441,
+          "io": 0.00026567076920902283
+        }
+      },
+      {
+        "label": "edited-1-cargo",
+        "seconds": 0.4624784759944305,
+        "stall_fraction": {
+          "cpu": 0.007059788010630185,
+          "io": 0.006361377129333538
+        }
+      },
+      {
+        "label": "edited-1-after",
+        "seconds": 1.0004300349391997,
+        "stall_fraction": {
+          "cpu": 0.021917574677106325,
+          "io": 0.010636425965206751
+        }
+      },
+      {
+        "label": "edited-1-before",
+        "seconds": 1.021019114064984,
+        "stall_fraction": {
+          "cpu": 0.027337392234386228,
+          "io": 0.01600753577955032
+        }
+      },
+      {
+        "label": "edited-2-after",
+        "seconds": 0.979708464932628,
+        "stall_fraction": {
+          "cpu": 0.015812867352396863,
+          "io": 0.009541613994978432
+        }
+      },
+      {
+        "label": "edited-2-cargo",
+        "seconds": 0.4640839929925278,
+        "stall_fraction": {
+          "cpu": 0.006100188851041846,
+          "io": 0.008043802536538046
+        }
+      },
+      {
+        "label": "edited-2-before",
+        "seconds": 0.9752352630021051,
+        "stall_fraction": {
+          "cpu": 0.020356113804671918,
+          "io": 0.007365402249594922
+        }
+      },
+      {
+        "label": "edited-3-before",
+        "seconds": 1.1409667449770495,
+        "stall_fraction": {
+          "cpu": 0.03908177008340146,
+          "io": 0.006427882348269075
+        }
+      },
+      {
+        "label": "edited-3-cargo",
+        "seconds": 0.46326650807168335,
+        "stall_fraction": {
+          "cpu": 0.010013674459890345,
+          "io": 0.019291271534391037
+        }
+      },
+      {
+        "label": "edited-3-after",
+        "seconds": 0.9159493120387197,
+        "stall_fraction": {
+          "cpu": 0.01933076401421165,
+          "io": 4.912935618657654e-05
+        }
+      },
+      {
+        "label": "edited-4-cargo",
+        "seconds": 0.46576393698342144,
+        "stall_fraction": {
+          "cpu": 0.00997286314196828,
+          "io": 0.0417679396262327
+        }
+      },
+      {
+        "label": "edited-4-before",
+        "seconds": 1.0803465909557417,
+        "stall_fraction": {
+          "cpu": 0.019355825412936074,
+          "io": 0.00748556071514581
+        }
+      },
+      {
+        "label": "edited-4-after",
+        "seconds": 0.9869475070154294,
+        "stall_fraction": {
+          "cpu": 0.03624812844219557,
+          "io": 0.007779542422898046
+        }
+      },
+      {
+        "label": "edited-5-after",
+        "seconds": 1.037578635965474,
+        "stall_fraction": {
+          "cpu": 0.020537238587388446,
+          "io": 0.012453032042219068
+        }
+      },
+      {
+        "label": "edited-5-before",
+        "seconds": 0.9809942869469523,
+        "stall_fraction": {
+          "cpu": 0.0166698218507406,
+          "io": 0.010836964232570374
+        }
+      },
+      {
+        "label": "edited-5-cargo",
+        "seconds": 0.4640472100581974,
+        "stall_fraction": {
+          "cpu": 0.0055382296117623235,
+          "io": 0.0008339668714988402
+        }
+      },
+      {
+        "label": "edited-6-before",
+        "seconds": 1.1411305859219283,
+        "stall_fraction": {
+          "cpu": 0.04788934822551396,
+          "io": 0.017049757705233485
+        }
+      },
+      {
+        "label": "edited-6-after",
+        "seconds": 0.9281582860276103,
+        "stall_fraction": {
+          "cpu": 0.02016574142768922,
+          "io": 0.010138356939389621
+        }
+      },
+      {
+        "label": "edited-6-cargo",
+        "seconds": 0.4712969739921391,
+        "stall_fraction": {
+          "cpu": 0.008954014629574911,
+          "io": 0.003674965246071978
+        }
+      },
+      {
+        "label": "edited-7-cargo",
+        "seconds": 0.46567935997154564,
+        "stall_fraction": {
+          "cpu": 0.006974756193185075,
+          "io": 0.005076454322872389
+        }
+      },
+      {
+        "label": "edited-7-after",
+        "seconds": 1.0269799469970167,
+        "stall_fraction": {
+          "cpu": 0.020045182050725866,
+          "io": 0.015550449691542411
+        }
+      },
+      {
+        "label": "edited-7-before",
+        "seconds": 1.0501273730769753,
+        "stall_fraction": {
+          "cpu": 0.03906573721604427,
+          "io": 0.01129672485847146
+        }
+      }
+    ]
+  },
+  "small_direct_cli": {
+    "samples": [
+      {
+        "before": 1.092926830984652,
+        "after": 0.9227442990522832,
+        "cargo": 0.4718539130408317
+      },
+      {
+        "cargo": 0.4698268410284072,
+        "after": 0.9635038529522717,
+        "before": 1.0080695659853518
+      },
+      {
+        "after": 0.9849706119857728,
+        "cargo": 0.47065840591676533,
+        "before": 1.0247415211051702
+      },
+      {
+        "before": 1.053133403067477,
+        "cargo": 0.4742792849428952,
+        "after": 0.9597637959523126
+      },
+      {
+        "cargo": 0.4799104389967397,
+        "before": 1.0270778289996088,
+        "after": 0.9603100379463285
+      },
+      {
+        "after": 1.0174981760792434,
+        "before": 0.9969350240426138,
+        "cargo": 0.47027100704144686
+      },
+      {
+        "before": 1.0266699879430234,
+        "after": 0.9369776690145954,
+        "cargo": 0.4932693389710039
+      },
+      {
+        "cargo": 0.4780092929722741,
+        "after": 0.9844753589713946,
+        "before": 0.9570430009625852
+      }
+    ],
+    "summary": {
+      "median_seconds": {
+        "before": 1.0257057545240968,
+        "after": 0.9619069454493001,
+        "cargo": 0.47306659899186343
+      },
+      "median_paired_saving_ms": 55.66675204318017,
+      "faster_pairs": 6
+    },
+    "pressure": [
+      {
+        "label": "prepare-0-before",
+        "seconds": 1.26090542296879,
+        "stall_fraction": {
+          "cpu": 0.02172169260364735,
+          "io": 0.01650559956431811,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "prepare-0-after",
+        "seconds": 1.024529812973924,
+        "stall_fraction": {
+          "cpu": 0.023802138006325312,
+          "io": 0.012503296475888923,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "prepare-0-cargo",
+        "seconds": 0.5000659790821373,
+        "stall_fraction": {
+          "cpu": 0.006401155315295356,
+          "io": 0.0010938556568155452,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "prepare-1-before",
+        "seconds": 1.3928613440366462,
+        "stall_fraction": {
+          "cpu": 0.04042326268946885,
+          "io": 0.015519850624436065,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "prepare-1-after",
+        "seconds": 0.998133203946054,
+        "stall_fraction": {
+          "cpu": 0.01944229479921082,
+          "io": 0.010195032045592566,
+          "memory": 0.005281860155696148
+        }
+      },
+      {
+        "label": "prepare-1-cargo",
+        "seconds": 0.46870286494959146,
+        "stall_fraction": {
+          "cpu": 0.0061254159398167396,
+          "io": 7.04070797680085e-05,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "edited-0-before",
+        "seconds": 1.092926830984652,
+        "stall_fraction": {
+          "cpu": 0.03300861409678999,
+          "io": 0.00930711893204756,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "edited-0-after",
+        "seconds": 0.9227442990522832,
+        "stall_fraction": {
+          "cpu": 0.04047708562205241,
+          "io": 0.00721760080971537,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "edited-0-cargo",
+        "seconds": 0.4718539130408317,
+        "stall_fraction": {
+          "cpu": 0.007019121614687971,
+          "io": 0.01508517743156672,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "edited-1-cargo",
+        "seconds": 0.4698268410284072,
+        "stall_fraction": {
+          "cpu": 0.007285662931703458,
+          "io": 0.0007939095160751943,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "edited-1-after",
+        "seconds": 0.9635038529522717,
+        "stall_fraction": {
+          "cpu": 0.018137965869520704,
+          "io": 0.010629952302336407,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "edited-1-before",
+        "seconds": 1.0080695659853518,
+        "stall_fraction": {
+          "cpu": 0.02745147848298608,
+          "io": 0.006208896896795066,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "edited-2-after",
+        "seconds": 0.9849706119857728,
+        "stall_fraction": {
+          "cpu": 0.023684970613455186,
+          "io": 0.010426707025598387,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "edited-2-cargo",
+        "seconds": 0.47065840591676533,
+        "stall_fraction": {
+          "cpu": 0.006922217810290567,
+          "io": 0.029792307592355533,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "edited-2-before",
+        "seconds": 1.0247415211051702,
+        "stall_fraction": {
+          "cpu": 0.035694854991872596,
+          "io": 0.01051094327512329,
+          "memory": 0.0007962983671433112
+        }
+      },
+      {
+        "label": "edited-3-before",
+        "seconds": 1.053133403067477,
+        "stall_fraction": {
+          "cpu": 0.019040322851401587,
+          "io": 0.008567765464202898,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "edited-3-cargo",
+        "seconds": 0.4742792849428952,
+        "stall_fraction": {
+          "cpu": 0.005635919773139235,
+          "io": 0.014192059855218925,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "edited-3-after",
+        "seconds": 0.9597637959523126,
+        "stall_fraction": {
+          "cpu": 0.03011886895704106,
+          "io": 0.007658134252404324,
+          "memory": 0.003555041369959667
+        }
+      },
+      {
+        "label": "edited-4-cargo",
+        "seconds": 0.4799104389967397,
+        "stall_fraction": {
+          "cpu": 0.006826273683165821,
+          "io": 0.045329291118311736,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "edited-4-before",
+        "seconds": 1.0270778289996088,
+        "stall_fraction": {
+          "cpu": 0.016498262859499867,
+          "io": 0.009586420543796735,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "edited-4-after",
+        "seconds": 0.9603100379463285,
+        "stall_fraction": {
+          "cpu": 0.05538315533360331,
+          "io": 0.011151606852826132,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "edited-5-after",
+        "seconds": 1.0174981760792434,
+        "stall_fraction": {
+          "cpu": 0.023087019271639957,
+          "io": 0.18554431294164486,
+          "memory": 0.0041965677191223285
+        }
+      },
+      {
+        "label": "edited-5-before",
+        "seconds": 0.9969350240426138,
+        "stall_fraction": {
+          "cpu": 0.03230601716589237,
+          "io": 0.011784118038466901,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "edited-5-cargo",
+        "seconds": 0.47027100704144686,
+        "stall_fraction": {
+          "cpu": 0.005033267976461468,
+          "io": 0.00019563187741210606,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "edited-6-before",
+        "seconds": 1.0266699879430234,
+        "stall_fraction": {
+          "cpu": 0.017435982555470825,
+          "io": 0.007289586807728264,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "edited-6-after",
+        "seconds": 0.9369776690145954,
+        "stall_fraction": {
+          "cpu": 0.023501093706062477,
+          "io": 0.008916968115992371,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "edited-6-cargo",
+        "seconds": 0.4932693389710039,
+        "stall_fraction": {
+          "cpu": 0.024874848344711882,
+          "io": 0.0006467055111624361,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "edited-7-cargo",
+        "seconds": 0.4780092929722741,
+        "stall_fraction": {
+          "cpu": 0.007937084185976407,
+          "io": 0.011903534269426926,
+          "memory": 2.0920095376848725e-06
+        }
+      },
+      {
+        "label": "edited-7-after",
+        "seconds": 0.9844753589713946,
+        "stall_fraction": {
+          "cpu": 0.024801027041967277,
+          "io": 0.00967926714789098,
+          "memory": 0.0
+        }
+      },
+      {
+        "label": "edited-7-before",
+        "seconds": 0.9570430009625852,
+        "stall_fraction": {
+          "cpu": 0.018226976199037015,
+          "io": 0.008432222995083049,
+          "memory": 0.0
+        }
+      }
+    ]
+  },
+  "many": {
+    "samples": [
+      {
+        "kind": "leaf",
+        "round": 0,
+        "seconds": {
+          "control": 5.998646273976192,
+          "candidate": 3.1386604399885982,
+          "cargo": 2.0290855349740013
+        }
+      },
+      {
+        "kind": "shared",
+        "round": 0,
+        "seconds": {
+          "control": 12.320240166038275,
+          "candidate": 7.829205580987036,
+          "cargo": 10.078956617973745
+        }
+      },
+      {
+        "kind": "leaf",
+        "round": 1,
+        "seconds": {
+          "candidate": 3.5257001289865,
+          "cargo": 3.8448634759988636,
+          "control": 18.694691702956334
+        }
+      },
+      {
+        "kind": "shared",
+        "round": 1,
+        "seconds": {
+          "candidate": 9.703441199962981,
+          "cargo": 13.722644434077665,
+          "control": 39.00858316500671
+        }
+      },
+      {
+        "kind": "leaf",
+        "round": 2,
+        "seconds": {
+          "cargo": 4.113972007995471,
+          "control": 12.597417043987662,
+          "candidate": 3.6610127590829507
+        }
+      },
+      {
+        "kind": "shared",
+        "round": 2,
+        "seconds": {
+          "cargo": 6.971454211045057,
+          "control": 12.724505482940003,
+          "candidate": 11.172409486025572
+        }
+      },
+      {
+        "kind": "leaf",
+        "round": 3,
+        "seconds": {
+          "candidate": 3.2971158410655335,
+          "control": 5.796217318042181,
+          "cargo": 2.110610431060195
+        }
+      },
+      {
+        "kind": "shared",
+        "round": 3,
+        "seconds": {
+          "candidate": 7.313657228951342,
+          "control": 9.898929661954753,
+          "cargo": 6.025005650008097
+        }
+      }
+    ],
+    "summary": {
+      "leaf": {
+        "median_seconds": {
+          "control": 9.298031658981927,
+          "candidate": 3.411407985026017,
+          "cargo": 2.9777369535295293
+        },
+        "candidate_faster_pairs": 4,
+        "median_paired_savings_ms": 5898.195059446152
+      },
+      "shared": {
+        "median_seconds": {
+          "control": 12.522372824489139,
+          "candidate": 8.766323390475009,
+          "cargo": 8.5252054145094
+        },
+        "candidate_faster_pairs": 4,
+        "median_paired_savings_ms": 3538.1535090273246
+      }
+    },
+    "pressure": [
+      {
+        "label": "prepare-leaf-control",
+        "seconds": 20.41396031610202,
+        "stall_fraction": {
+          "cpu": 0.10765505399099537,
+          "io": 0.014284489412374866
+        }
+      },
+      {
+        "label": "prepare-leaf-candidate",
+        "seconds": 22.50127001106739,
+        "stall_fraction": {
+          "cpu": 0.10894691716486411,
+          "io": 0.020267833761191612
+        }
+      },
+      {
+        "label": "prepare-leaf-cargo",
+        "seconds": 6.631892862962559,
+        "stall_fraction": {
+          "cpu": 0.14341214788188436,
+          "io": 0.09873485798555137
+        }
+      },
+      {
+        "label": "prepare-probe-leaf-control",
+        "seconds": 1.733097722986713,
+        "stall_fraction": {
+          "cpu": 0.14646490883534907,
+          "io": 0.18892875782891458
+        }
+      },
+      {
+        "label": "prepare-probe-leaf-candidate",
+        "seconds": 1.7147463189903647,
+        "stall_fraction": {
+          "cpu": 0.16961226088022544,
+          "io": 0.20109738459916043
+        }
+      },
+      {
+        "label": "prepare-shared-control",
+        "seconds": 10.545374450040981,
+        "stall_fraction": {
+          "cpu": 0.13431623568326637,
+          "io": 0.09519917995857403
+        }
+      },
+      {
+        "label": "prepare-shared-candidate",
+        "seconds": 7.287704166024923,
+        "stall_fraction": {
+          "cpu": 0.1158658448207257,
+          "io": 0.020201560964336285
+        }
+      },
+      {
+        "label": "prepare-shared-cargo",
+        "seconds": 5.925601113005541,
+        "stall_fraction": {
+          "cpu": 0.08295158425719372,
+          "io": 0.015272712130651202
+        }
+      },
+      {
+        "label": "prepare-probe-shared-control",
+        "seconds": 1.1999652769882232,
+        "stall_fraction": {
+          "cpu": 0.12439109936134005,
+          "io": 0.009595277647448962
+        }
+      },
+      {
+        "label": "prepare-probe-shared-candidate",
+        "seconds": 1.2720477720722556,
+        "stall_fraction": {
+          "cpu": 0.13951205599055086,
+          "io": 0.03411585708711491
+        }
+      },
+      {
+        "label": "edited-0-leaf-control",
+        "seconds": 5.998646273976192,
+        "stall_fraction": {
+          "cpu": 0.029401300217539714,
+          "io": 0.058614391304479756
+        }
+      },
+      {
+        "label": "edited-0-leaf-candidate",
+        "seconds": 3.1386604399885982,
+        "stall_fraction": {
+          "cpu": 0.0492174935624961,
+          "io": 0.027608593429213003
+        }
+      },
+      {
+        "label": "edited-0-leaf-cargo",
+        "seconds": 2.0290855349740013,
+        "stall_fraction": {
+          "cpu": 0.004964798095674699,
+          "io": 0.010015841939487484
+        }
+      },
+      {
+        "label": "probe-0-leaf-control",
+        "seconds": 0.8875444000586867,
+        "stall_fraction": {
+          "cpu": 0.1256421650484488,
+          "io": 0.01233966435851077
+        }
+      },
+      {
+        "label": "probe-0-leaf-candidate",
+        "seconds": 0.9832395509583876,
+        "stall_fraction": {
+          "cpu": 0.1399414820791961,
+          "io": 0.013361952320972108
+        }
+      },
+      {
+        "label": "edited-0-shared-control",
+        "seconds": 12.320240166038275,
+        "stall_fraction": {
+          "cpu": 0.11896383351683493,
+          "io": 0.06919434917753953
+        }
+      },
+      {
+        "label": "edited-0-shared-candidate",
+        "seconds": 7.829205580987036,
+        "stall_fraction": {
+          "cpu": 0.1494276766522855,
+          "io": 0.06823655279884068
+        }
+      },
+      {
+        "label": "edited-0-shared-cargo",
+        "seconds": 10.078956617973745,
+        "stall_fraction": {
+          "cpu": 0.05289327260812988,
+          "io": 0.40329997975695114
+        }
+      },
+      {
+        "label": "probe-0-shared-control",
+        "seconds": 3.156936550978571,
+        "stall_fraction": {
+          "cpu": 0.06859688071110363,
+          "io": 0.39340828678201406
+        }
+      },
+      {
+        "label": "probe-0-shared-candidate",
+        "seconds": 1.4880438490072265,
+        "stall_fraction": {
+          "cpu": 0.13800130966369306,
+          "io": 0.4452113426912749
+        }
+      },
+      {
+        "label": "edited-1-leaf-candidate",
+        "seconds": 3.5257001289865,
+        "stall_fraction": {
+          "cpu": 0.03941004479015125,
+          "io": 0.4391984409760701
+        }
+      },
+      {
+        "label": "edited-1-leaf-cargo",
+        "seconds": 3.8448634759988636,
+        "stall_fraction": {
+          "cpu": 0.004178041717287947,
+          "io": 0.6402027056007561
+        }
+      },
+      {
+        "label": "edited-1-leaf-control",
+        "seconds": 18.694691702956334,
+        "stall_fraction": {
+          "cpu": 0.008438063729879763,
+          "io": 0.4124074428454354
+        }
+      },
+      {
+        "label": "probe-1-leaf-control",
+        "seconds": 1.0971064500045031,
+        "stall_fraction": {
+          "cpu": 0.14304172580459795,
+          "io": 0.20909730318243813
+        }
+      },
+      {
+        "label": "probe-1-leaf-candidate",
+        "seconds": 0.9339697799878195,
+        "stall_fraction": {
+          "cpu": 0.10837074407409629,
+          "io": 0.03140465636948395
+        }
+      },
+      {
+        "label": "edited-1-shared-candidate",
+        "seconds": 9.703441199962981,
+        "stall_fraction": {
+          "cpu": 0.07780569639592193,
+          "io": 0.2982259530784852
+        }
+      },
+      {
+        "label": "edited-1-shared-cargo",
+        "seconds": 13.722644434077665,
+        "stall_fraction": {
+          "cpu": 0.03463946051240445,
+          "io": 0.5548453169195412
+        }
+      },
+      {
+        "label": "edited-1-shared-control",
+        "seconds": 39.00858316500671,
+        "stall_fraction": {
+          "cpu": 0.03453365620334671,
+          "io": 0.3446448424730344
+        }
+      },
+      {
+        "label": "probe-1-shared-control",
+        "seconds": 1.6191814930643886,
+        "stall_fraction": {
+          "cpu": 0.10467263906237118,
+          "io": 0.1271407812415094
+        }
+      },
+      {
+        "label": "probe-1-shared-candidate",
+        "seconds": 1.6834569349884987,
+        "stall_fraction": {
+          "cpu": 0.10740161880127647,
+          "io": 0.21869107094356127
+        }
+      },
+      {
+        "label": "edited-2-leaf-cargo",
+        "seconds": 4.113972007995471,
+        "stall_fraction": {
+          "cpu": 0.0041466008924820035,
+          "io": 0.4123358148045686
+        }
+      },
+      {
+        "label": "edited-2-leaf-control",
+        "seconds": 12.597417043987662,
+        "stall_fraction": {
+          "cpu": 0.009880279391036242,
+          "io": 0.4017567238051786
+        }
+      },
+      {
+        "label": "edited-2-leaf-candidate",
+        "seconds": 3.6610127590829507,
+        "stall_fraction": {
+          "cpu": 0.021517543145556435,
+          "io": 0.09198848028171253
+        }
+      },
+      {
+        "label": "probe-2-leaf-control",
+        "seconds": 0.9899907510261983,
+        "stall_fraction": {
+          "cpu": 0.12014051633988702,
+          "io": 0.007315219856845263
+        }
+      },
+      {
+        "label": "probe-2-leaf-candidate",
+        "seconds": 1.100509342039004,
+        "stall_fraction": {
+          "cpu": 0.09920406472672237,
+          "io": 0.02867672158196136
+        }
+      },
+      {
+        "label": "edited-2-shared-cargo",
+        "seconds": 6.971454211045057,
+        "stall_fraction": {
+          "cpu": 0.09990784977064214,
+          "io": 0.16719438509017653
+        }
+      },
+      {
+        "label": "edited-2-shared-control",
+        "seconds": 12.724505482940003,
+        "stall_fraction": {
+          "cpu": 0.06296291836835209,
+          "io": 0.19904946431087506
+        }
+      },
+      {
+        "label": "edited-2-shared-candidate",
+        "seconds": 11.172409486025572,
+        "stall_fraction": {
+          "cpu": 0.031846845610612594,
+          "io": 0.5321629150306988
+        }
+      },
+      {
+        "label": "probe-2-shared-control",
+        "seconds": 18.414912255946547,
+        "stall_fraction": {
+          "cpu": 0.01822137381575879,
+          "io": 0.566474434144069
+        }
+      },
+      {
+        "label": "probe-2-shared-candidate",
+        "seconds": 1.551080908975564,
+        "stall_fraction": {
+          "cpu": 0.14690658538921506,
+          "io": 0.06576381632301233
+        }
+      },
+      {
+        "label": "edited-3-leaf-candidate",
+        "seconds": 3.2971158410655335,
+        "stall_fraction": {
+          "cpu": 0.030120264129969376,
+          "io": 0.014806577127791511
+        }
+      },
+      {
+        "label": "edited-3-leaf-control",
+        "seconds": 5.796217318042181,
+        "stall_fraction": {
+          "cpu": 0.015725945905490746,
+          "io": 0.012633929333887526
+        }
+      },
+      {
+        "label": "edited-3-leaf-cargo",
+        "seconds": 2.110610431060195,
+        "stall_fraction": {
+          "cpu": 0.01131473608230211,
+          "io": 0.008207104326353049
+        }
+      },
+      {
+        "label": "probe-3-leaf-control",
+        "seconds": 0.9947548100026324,
+        "stall_fraction": {
+          "cpu": 0.10496858014662294,
+          "io": 0.009367132389111384
+        }
+      },
+      {
+        "label": "probe-3-leaf-candidate",
+        "seconds": 1.0233491000253707,
+        "stall_fraction": {
+          "cpu": 0.1706661001565058,
+          "io": 0.008957842440837378
+        }
+      },
+      {
+        "label": "edited-3-shared-candidate",
+        "seconds": 7.313657228951342,
+        "stall_fraction": {
+          "cpu": 0.11966612224257724,
+          "io": 0.009306561391824949
+        }
+      },
+      {
+        "label": "edited-3-shared-control",
+        "seconds": 9.898929661954753,
+        "stall_fraction": {
+          "cpu": 0.08565825083684445,
+          "io": 0.01811933270819718
+        }
+      },
+      {
+        "label": "edited-3-shared-cargo",
+        "seconds": 6.025005650008097,
+        "stall_fraction": {
+          "cpu": 0.09209485139640562,
+          "io": 0.012730112543528805
+        }
+      },
+      {
+        "label": "probe-3-shared-control",
+        "seconds": 1.3522464910056442,
+        "stall_fraction": {
+          "cpu": 0.13312661648404203,
+          "io": 0.024910399268219953
+        }
+      },
+      {
+        "label": "probe-3-shared-candidate",
+        "seconds": 1.3919044790090993,
+        "stall_fraction": {
+          "cpu": 0.13742609703804934,
+          "io": 0.011166714551464842
+        }
+      }
+    ]
+  },
+  "isolated_batch": {
+    "summary": {
+      "median_seconds": {
+        "before": 4.5277205,
+        "after": 1.8922415
+      },
+      "median_paired_saving_ms": 2626.1180000000004,
+      "faster_pairs": 4,
+      "pairs": 4,
+      "commands_per_trial": 203,
+      "rustdoc_per_trial": 101
+    },
+    "samples": [
+      {
+        "pair": 0,
+        "variant": "before",
+        "seconds": 4.533446,
+        "commands": 203,
+        "rustdoc_commands": 101
+      },
+      {
+        "pair": 0,
+        "variant": "after",
+        "seconds": 1.889607,
+        "commands": 203,
+        "rustdoc_commands": 101
+      },
+      {
+        "pair": 1,
+        "variant": "after",
+        "seconds": 1.894394,
+        "commands": 203,
+        "rustdoc_commands": 101
+      },
+      {
+        "pair": 1,
+        "variant": "before",
+        "seconds": 4.521995,
+        "commands": 203,
+        "rustdoc_commands": 101
+      },
+      {
+        "pair": 2,
+        "variant": "before",
+        "seconds": 4.544733,
+        "commands": 203,
+        "rustdoc_commands": 101
+      },
+      {
+        "pair": 2,
+        "variant": "after",
+        "seconds": 1.956725,
+        "commands": 203,
+        "rustdoc_commands": 101
+      },
+      {
+        "pair": 3,
+        "variant": "after",
+        "seconds": 1.890089,
+        "commands": 203,
+        "rustdoc_commands": 101
+      },
+      {
+        "pair": 3,
+        "variant": "before",
+        "seconds": 4.514724,
+        "commands": 203,
+        "rustdoc_commands": 101
+      }
+    ]
+  },
+  "captured_environment_startup": [
+    {
+      "Tool": "rustc-path",
+      "Path": "/usr/local/cargo/bin/rustc",
+      "MedianMS": 34.177,
+      "SamplesMS": [
+        33.692,
+        35.057,
+        33.901,
+        34.707,
+        36.932,
+        35.256,
+        34.524,
+        33.767,
+        33.9,
+        33.617,
+        33.431,
+        34.101,
+        33.926,
+        34.134,
+        33.891,
+        35.46,
+        34.76,
+        41.604,
+        35.79,
+        33.813,
+        34.192,
+        34.668,
+        34.233,
+        33.875,
+        34.232,
+        33.529,
+        33.628,
+        34.43,
+        33.85,
+        34.03,
+        37.042,
+        37.242,
+        34.847,
+        33.824,
+        33.613,
+        35.118,
+        34.162,
+        34.299,
+        34.386,
+        33.586
+      ]
+    },
+    {
+      "Tool": "rustc-sysroot",
+      "Path": "/usr/local/rustup/toolchains/1.77.2-x86_64-unknown-linux-gnu/bin/rustc",
+      "MedianMS": 8.818999999999999,
+      "SamplesMS": [
+        8.969,
+        8.822,
+        8.775,
+        8.769,
+        9.877,
+        8.715,
+        8.818,
+        9.036,
+        8.7,
+        8.719,
+        8.741,
+        8.627,
+        8.76,
+        8.943,
+        8.857,
+        8.73,
+        8.714,
+        8.878,
+        9.438,
+        8.676,
+        8.772,
+        8.82,
+        8.788,
+        8.634,
+        9.106,
+        8.827,
+        8.692,
+        9.117,
+        8.737,
+        9.496,
+        9.315,
+        9.571,
+        8.83,
+        8.747,
+        8.78,
+        8.721,
+        8.883,
+        8.846,
+        9.172,
+        8.836
+      ]
+    },
+    {
+      "Tool": "rustdoc-path",
+      "Path": "/usr/local/cargo/bin/rustdoc",
+      "MedianMS": 34.966,
+      "SamplesMS": [
+        36.699,
+        34.613,
+        36.497,
+        34.864,
+        36.705,
+        35.023,
+        36.964,
+        34.531,
+        34.497,
+        35.247,
+        37.025,
+        35.026,
+        34.726,
+        35.419,
+        34.359,
+        34.971,
+        34.234,
+        34.635,
+        36.828,
+        35.166,
+        39.307,
+        34.495,
+        34.422,
+        34.582,
+        35.13,
+        34.585,
+        34.403,
+        35.016,
+        34.547,
+        34.965,
+        35.705,
+        34.683,
+        34.768,
+        35.436,
+        34.55,
+        35.843,
+        34.612,
+        35.031,
+        34.349,
+        34.967
+      ]
+    },
+    {
+      "Tool": "rustdoc-sysroot",
+      "Path": "/usr/local/rustup/toolchains/1.77.2-x86_64-unknown-linux-gnu/bin/rustdoc",
+      "MedianMS": 9.5145,
+      "SamplesMS": [
+        9.431,
+        9.475,
+        9.58,
+        10.05,
+        9.565,
+        10.276,
+        9.404,
+        9.475,
+        9.61,
+        9.473,
+        9.78,
+        9.399,
+        9.507,
+        9.522,
+        9.44,
+        9.576,
+        9.427,
+        9.498,
+        9.888,
+        9.987,
+        9.607,
+        9.606,
+        9.66,
+        9.62,
+        9.471,
+        9.4,
+        9.467,
+        9.463,
+        9.484,
+        9.507,
+        9.738,
+        10.374,
+        9.67,
+        9.438,
+        9.783,
+        9.477,
+        9.613,
+        9.473,
+        9.441,
+        9.696
+      ]
+    }
+  ]
+}

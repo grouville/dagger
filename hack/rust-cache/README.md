@@ -59,9 +59,14 @@ one fresh execution. Two small-workspace series save 77 ms per edit; all twelve
 many-package edit pairs improve substantially. It preserves test behavior and
 native compiler reuse while exposing snapshot-context work for a separate fix.
 The [collection performance study](NATIVE_COLLECTIONS.md) removes quadratic
-ancestor comparisons and finds repeated module installation during key discovery.
-It also compares JSON decoders on the actual schema, including their first-use
-cost, and keeps experiments without convincing command improvements unselected.
+ancestor comparisons and repeated module installation during discovery and check
+execution. Two check fixes save 2.05 seconds together in eight edited-command pairs.
+The [subsequent profiles](NATIVE_PERF_PROFILE.md) inspect JSON work, helper requests,
+snapshots and cleanup across the real Rust module and a 102-crate workspace.
+The [Rustdoc follow-up](NATIVE_RUSTDOC_PATH.md) preserves the selected toolchain's
+documentation program. A controlled 203-command test batch improves from 4.53 s
+to 1.89 s; the small module's direct edited command reaches Cargo +0.49 s median,
+with only five of eight pairs within the target.
 The [procedural-macro input study](NATIVE_PROC_MACRO_INPUTS.md) reproduces hidden
 file reads and missing-file checks that rustc does not record. A kernel probe
 observes them at much lower cost than syscall tracing; native macro support still
