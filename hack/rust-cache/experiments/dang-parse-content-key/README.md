@@ -27,6 +27,14 @@ on those same engines, preserving both volumes, and uses four preparation
 rounds. It measures fresh edits through actual workspace checks and the Rust
 package test collection, with native Cargo controls and telemetry enabled.
 
+The recorded engine swaps used a 30-second Docker stop timeout. The shutdown
+audit found a forced kill and cache reset in the reversed assignment series,
+so it does not preserve both original cache histories. Use `restart_clean.py`
+for future restarts or binary swaps; `--binary` copies the replacement after
+the old process has exited cleanly. The helper waits for session teardown,
+uses an indefinite stop timeout and requires process exit 0. The corrected
+clean-restart probe reuses all 130 results.
+
 The [report](../../NATIVE_PARSE_CACHE_CONTENT.md) distinguishes the demonstrated
 remount reuse from the inconclusive full-command latency results. This remains
 an isolated experiment, with no upstream PR or dependency change.

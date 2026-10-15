@@ -82,7 +82,10 @@ eight jobs.
 | Actual package test collection | 1.045 s | 1.278 s | 0.509 s | −23 ms | 4/8 |
 
 The binaries are then swapped between the same engines, preserving their cache
-volumes. Four preparation rounds precede eight further pairs:
+volumes. A later shutdown audit shows that Docker's 30-second stop timeout
+force-killed one engine during this swap. Its startup intentionally reset the
+unclean worker and DAGQL stores. Four preparation rounds precede eight further
+pairs, but the comparison does not preserve both original histories:
 
 | Scenario | Filename key median | Content key median | Cargo median | Median paired saving | Faster pairs |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -103,6 +106,20 @@ markers. After the controlled remount, each leaf edit has exactly two markers
 and its next probe recovers all 130 results. Cargo logs check the expected two
 or 130 crate rebuilds. No steady-state improvement is assigned to this variant
 in the selected performance stack.
+
+The final binary restoration also force-kills the other engine at the same
+30-second deadline. The initial restart probe correctly reports zero reuse
+after its intentional cold reset; the other engine recovers 130/130. This is
+a harness failure, not evidence of source-hash corruption or of the parser
+variant invalidating compilation results. The audit records SIGKILL, exit 137
+and `dagql_unclean_shutdown` in the startup log.
+
+The corrected restart helper waits for session teardown, stops without a forced
+kill deadline and requires exit 0 before restarting or replacing the binary.
+After warming the reset engine, this controlled stop exits 0 in 7.0 seconds;
+the subsequent probe recovers all 130 native results. The component and
+controlled remount findings stand. No complete-command gain or preserved-history
+crossover is claimed for this library experiment.
 
 The [library delta and reproduction](experiments/dang-parse-content-key/README.md),
 [component samples](experiments/dang-parse-content-key/component.json),
