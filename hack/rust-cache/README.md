@@ -42,8 +42,9 @@ checkpoint cost and the final storage policy remain unfinished.
 The [ordinary check result experiment](NATIVE_CHECK_RESULT.md) removes unused
 result reconstruction, with fewer nested requests but mixed command timings.
 The [primitive array response experiment](NATIVE_SCALAR_ARRAYS.md) removes the
-source-path list's individual item cache entries; host contention leaves its
-complete-command latency benefit unproven.
+source-path list's individual item cache entries. On the current engine, eight
+edited-command pairs at 1,026 crates save 702 ms in median paired leaf latency;
+the small collection shows no gain and shared-edit results remain mixed.
 The [fresh-process startup study](FRESH_PROCESS_START.md) isolates sequential
 and concurrent starts on warm caches and explains the remaining Rust helper
 dependency.

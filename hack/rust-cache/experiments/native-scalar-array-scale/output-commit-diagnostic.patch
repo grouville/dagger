@@ -1,0 +1,159 @@
+--- a/core/container_exec.go
++++ b/core/container_exec.go
+@@ -1584,14 +1584,16 @@
+ 			}
+ 			return releaseErr
+ 		}
+-		applyOutputs := func() error {
++		applyOutputs := func(ctx context.Context) error {
+ 			for _, state := range mountStates {
+ 				if state.ApplyOutput == nil {
+ 					continue
+ 				}
+ 
+ 				if state.OutputMutable != nil {
+-					committed, err := state.OutputMutable.Commit(ctx)
++					commitCtx, commitOp := wcprof.BeginOp(ctx, wcprof.OpKindExecPhase, "withExec.commitOutput", wcprof.OpOpts{Ident: state.Dest})
++					committed, err := state.OutputMutable.Commit(commitCtx)
++					commitOp.EndErr(err)
+ 					if err != nil {
+ 						return fmt.Errorf("error committing %s: %w", state.OutputMutable.ID(), err)
+ 					}
+@@ -1603,8 +1605,11 @@
+ 					continue
+ 				}
+ 
+-				if err := state.ApplyOutput(state.OutputImmutable); err != nil {
+-					return err
++				_, bindOp := wcprof.BeginOp(ctx, wcprof.OpKindExecPhase, "withExec.bindOutput", wcprof.OpOpts{Ident: state.Dest})
++				bindErr := state.ApplyOutput(state.OutputImmutable)
++				bindOp.EndErr(bindErr)
++				if bindErr != nil {
++					return bindErr
+ 				}
+ 				state.OutputImmutable = nil
+ 			}
+@@ -2334,15 +2339,9 @@
+ 		if invalidateErr != nil {
+ 			return invalidateErr
+ 		}
+-		profApplyStartNS := wcprof.NowNS()
+-		applyErr := applyOutputs()
+-		if wcprof.Enabled(ctx) {
+-			outcome := wcprof.OutcomeOK
+-			if applyErr != nil {
+-				outcome = wcprof.OutcomeError
+-			}
+-			wcprof.RecordOp(ctx, wcprof.OpKindExecPhase, "withExec.applyOutputs", wcprof.OpOpts{}, profApplyStartNS, wcprof.NowNS(), outcome)
+-		}
++		applyCtx, applyOp := wcprof.BeginOp(ctx, wcprof.OpKindExecPhase, "withExec.applyOutputs", wcprof.OpOpts{})
++		applyErr := applyOutputs(applyCtx)
++		applyOp.EndErr(applyErr)
+ 		if applyErr != nil {
+ 			return applyErr
+ 		}
+--- a/engine/snapshots/refs.go
++++ b/engine/snapshots/refs.go
+@@ -21,6 +21,7 @@
+ 	"github.com/dagger/dagger/engine/snapshots/config"
+ 	overlay "github.com/dagger/dagger/engine/snapshots/fsdiff"
+ 	rootlessmountopts "github.com/dagger/dagger/engine/snapshots/rootlessmountopts"
++	"github.com/dagger/dagger/engine/wcprof"
+ 	"github.com/dagger/dagger/internal/buildkit/client"
+ 	"github.com/dagger/dagger/internal/buildkit/util/bklog"
+ 	"github.com/dagger/dagger/internal/buildkit/util/compression"
+@@ -711,8 +712,11 @@
+ 	if usage != nil {
+ 		commitOpts = append(commitOpts, withMergeUsage(*usage))
+ 	}
+-	if err := sr.cm.Snapshotter.Commit(ctx, id, sr.SnapshotID(), commitOpts...); err != nil {
+-		return nil, errors.Wrapf(err, "failed to commit %s to immutable %s", sr.SnapshotID(), id)
++	backendCtx, backendOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "snapshots.backendCommit", wcprof.OpOpts{})
++	commitErr := sr.cm.Snapshotter.Commit(backendCtx, id, sr.SnapshotID(), commitOpts...)
++	backendOp.EndErr(commitErr)
++	if commitErr != nil {
++		return nil, errors.Wrapf(commitErr, "failed to commit %s to immutable %s", sr.SnapshotID(), id)
+ 	}
+ 
+ 	if descr := sr.GetDescription(); descr != "" {
+@@ -741,8 +745,11 @@
+ 		}
+ 	}
+ 
+-	if err := initializeMetadata(committed.md); err != nil {
+-		return nil, err
++	_, initOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "snapshots.initializeMetadata", wcprof.OpOpts{})
++	initErr := initializeMetadata(committed.md)
++	initOp.EndErr(initErr)
++	if initErr != nil {
++		return nil, initErr
+ 	}
+ 
+ 	sr.cm.records[id] = committed
+@@ -756,12 +763,18 @@
+ 	if err := md.queueSnapshotID(id); err != nil {
+ 		return nil, err
+ 	}
+-	if err := md.commitMetadata(); err != nil {
+-		return nil, err
+-	}
+-
+-	if err := rec.remove(context.WithoutCancel(ctx)); err != nil {
+-		return nil, err
++	_, metadataOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "snapshots.commitMetadata", wcprof.OpOpts{})
++	metadataErr := md.commitMetadata()
++	metadataOp.EndErr(metadataErr)
++	if metadataErr != nil {
++		return nil, metadataErr
++	}
++
++	removeCtx, removeOp := wcprof.BeginOp(context.WithoutCancel(ctx), wcprof.OpKindInternal, "snapshots.commitRemoveMutable", wcprof.OpOpts{})
++	removeErr := rec.remove(removeCtx)
++	removeOp.EndErr(removeErr)
++	if removeErr != nil {
++		return nil, removeErr
+ 	}
+ 	sr.mountCache = nil
+ 	sr.released = true
+@@ -801,31 +814,35 @@
+ 	return sr.mountCache, nil
+ }
+ 
+-func (sr *mutableRef) Commit(ctx context.Context) (ImmutableRef, error) {
++func (sr *mutableRef) Commit(ctx context.Context) (_ ImmutableRef, rerr error) {
++	ctx, commitOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "snapshots.commit", wcprof.OpOpts{Ident: sr.snapshotID})
++	defer func() { commitOp.EndErr(rerr) }()
+ 	ctx, err := EnsureLease(ctx)
+ 	if err != nil {
+ 		return nil, errors.Wrap(err, "ensure lease for snapshot commit")
+ 	}
+ 
+-	sr.cm.mu.Lock()
++	wcprof.Lock(ctx, &sr.cm.mu, "snapshots.manager.mu")
+ 	defer sr.cm.mu.Unlock()
+ 
+-	sr.mu.Lock()
++	wcprof.Lock(ctx, &sr.mu, sr.snapshotID)
+ 	defer sr.mu.Unlock()
+ 
+ 	return sr.commit(ctx, nil)
+ }
+ 
+-func (sr *mutableRef) CommitWithUsage(ctx context.Context, usage snapshots.Usage) (ImmutableRef, error) {
++func (sr *mutableRef) CommitWithUsage(ctx context.Context, usage snapshots.Usage) (_ ImmutableRef, rerr error) {
++	ctx, commitOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "snapshots.commit", wcprof.OpOpts{Ident: sr.snapshotID})
++	defer func() { commitOp.EndErr(rerr) }()
+ 	ctx, err := EnsureLease(ctx)
+ 	if err != nil {
+ 		return nil, errors.Wrap(err, "ensure lease for snapshot commit")
+ 	}
+ 
+-	sr.cm.mu.Lock()
++	wcprof.Lock(ctx, &sr.cm.mu, "snapshots.manager.mu")
+ 	defer sr.cm.mu.Unlock()
+ 
+-	sr.mu.Lock()
++	wcprof.Lock(ctx, &sr.mu, sr.snapshotID)
+ 	defer sr.mu.Unlock()
+ 
+ 	return sr.commit(ctx, &usage)

@@ -63,6 +63,7 @@ Maximum CPU/I/O pressure is 3.9%/2.1% during measured commands.
 The smaller transfer has not demonstrated an edited-command benefit. It stays
 isolated. Removing bytes or requests is useful evidence about work removed;
 it is insufficient evidence that the user's command became faster.
+Implementation: [a6e77f8](https://github.com/grouville/dagger-rust/commit/a6e77f8).
 
 ## Reuse the evaluated batch snapshot
 
@@ -98,3 +99,4 @@ from four to two. These counts verify the implementation, not a latency gain.
 Focused race checks pass, and a real leaf edit recompiles three actions while
 retaining 200 of 203 results and running the normal tests. The variant remains
 isolated rather than becoming the selected module.
+Implementation: [77923cf](https://github.com/grouville/dagger-rust/commit/77923cf).

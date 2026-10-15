@@ -271,6 +271,13 @@ Rust compilation path.
 Both were open when checked through GitHub on this follow-up. Neither is
 applied to claim a Rust performance improvement.
 
+The subsequent check also covers
+[#14687](https://github.com/dagger/dagger/pull/14687), which reserves the
+unanswered test server's port so another test cannot answer the reachability
+probe, and [#14686](https://github.com/dagger/dagger/pull/14686), which skips the
+Homebrew refresh during macOS Docker provisioning. Both concern test or CI
+setup and leave the Rust edited-command path unchanged.
+
 ## Method to carry over
 
 Look for work that grows with the entire graph when only a small part changed:
