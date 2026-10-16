@@ -1,0 +1,42 @@
+{
+  "updated": "2026-10-16T10:11:07.381172+00:00",
+  "objective": "Native Rust caching and complete edited-command performance, including module collections and engine bottlenecks; keep the full ROADMAP scope active.",
+  "production_branch": "perf/telemetry-spill-batch-buffers",
+  "production_revision": "18f246dd1842faed187bffd637a35394951e7891",
+  "production_pushed": true,
+  "engine": "dagger-rust-parser-state-pool-oct14",
+  "engine_sha256": "8e31c79773355d11bac9854a3a641534c7733171953c483993e5888a290b6734",
+  "runner": "tcp://127.0.0.1:16276",
+  "debug": "http://127.0.0.1:16104",
+  "diagnostic_route": "spill-batch-buffers",
+  "module_baseline": "3cd40e5928563ade3ea1cd21ab9924cd03d88fc3",
+  "initial_commands": "/tmp/rust-cache-sipsma-review/telemetry-spill-batch-buffers/commands-stable",
+  "confirmation_session": 20472,
+  "confirmation_log": "/tmp/rust-cache-sipsma-review/telemetry-spill-batch-buffers/confirmation-driver.log",
+  "initial_admission_failure": "/tmp/rust-cache-sipsma-review/telemetry-spill-batch-buffers/commands",
+  "post_restart_monitor": "/tmp/rust-cache-sipsma-review/telemetry-spill-batch-buffers/post-restart-admission.jsonl",
+  "tests": [
+    "Full engine/clientdb race suite passes",
+    "New ownership test passes on upstream main",
+    "Deliberately borrowed byte decoder is rejected",
+    "Both diagnostic modes pass ownership test"
+  ],
+  "component": "512-row read: 619.3 -> 424.0 microseconds, 1614839 -> 830824 bytes, 5126 -> 4613 allocations; all six pairs faster.",
+  "first_commands": "Listing median 3.674 -> 3.630 s, only 4/8 faster; about 99 MB fewer allocations. Large checks unchanged; no complete-build speedup established.",
+  "protobuf_experiment": "Isolated in /tmp/rust-cache-sipsma-review/protobuf-field-order; NOT installed. Typed sort regresses large messages; small-message special cases pass dependency and clientdb race suites and reduce sample encoder allocations170->125, time20.45->19.07us. No upstream PR.",
+  "next_actions": [
+    "Wait on session20472; do not restart on an observation timeout",
+    "Inspect full reversed-order cohort and allocation/GC/pressure data",
+    "Profile the buffer switch separately if needed; timings remain diagnostic",
+    "Verify all six retained native histories, explicitly preparing current inputs before strict all-hit checks",
+    "Archive sources, scripts, raw samples, initial failures and profiling evidence",
+    "Prepare concise PR description with component gains and measured complete-command limits; push fork only, no PR without approval"
+  ],
+  "goal_complete": false,
+  "confirmation_terminal": true,
+  "all_six_histories_verified": true,
+  "report": "hack/rust-cache/NATIVE_TELEMETRY_READ_BUFFERS.md",
+  "description": "hack/rust-cache/upstream-prs/telemetry-spill-batch-buffers.md",
+  "ready_dagger_descriptions": 7,
+  "conclusion": "15/16 listings allocate less, median108054368 bytes; no repeatable whole-command latency improvement. Keep broad ROADMAP active."
+}

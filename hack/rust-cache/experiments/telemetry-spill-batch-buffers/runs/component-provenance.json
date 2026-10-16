@@ -1,0 +1,41 @@
+{
+  "revision": "18f246dd1842faed187bffd637a35394951e7891",
+  "base": "717589c9ccacbba7d3cf902647aa5c9ca68085e8",
+  "platform": "Linux-7.0.0-34-generic-x86_64-with-glibc2.39",
+  "go": "go version go1.26.6 linux/amd64",
+  "gomaxprocs": 8,
+  "max_stall_fraction": {
+    "cpu.some": 0.010889368320809853,
+    "cpu.full": 0.0,
+    "io.some": 0.04959874535829029,
+    "io.full": 0.03717317795009351,
+    "memory.some": 0.0,
+    "memory.full": 0.0
+  },
+  "comparisons": {
+    "BenchmarkSpillFileReadSince/rows=1-8": {
+      "paired_savings_ns": [
+        8364.0,
+        8343.0,
+        8092.0,
+        8146.0,
+        8104.0,
+        8404.0
+      ],
+      "median_paired_saving_ns": 8244.5,
+      "faster_pairs": 6
+    },
+    "BenchmarkSpillFileReadSince/rows=512-8": {
+      "paired_savings_ns": [
+        195407.0,
+        189157.0,
+        204260.0,
+        192152.0,
+        200181.0,
+        205346.0
+      ],
+      "median_paired_saving_ns": 197794.0,
+      "faster_pairs": 6
+    }
+  }
+}

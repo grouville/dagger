@@ -1,6 +1,6 @@
 # Performance changes prepared for review
 
-Six independent branches are pushed to [grouville/dagger](https://github.com/grouville/dagger), each based directly on main `717589c9cc`. No pull requests have been opened. Each description is ready for individual approval and includes the measurements, validation and tradeoffs.
+Seven independent branches are pushed to [grouville/dagger](https://github.com/grouville/dagger), each based directly on main `717589c9cc`. No pull requests have been opened. Each description is ready for individual approval and includes the measurements, validation and tradeoffs.
 
 | Proposal and description | Measured component, before → branch | Complexity and risk | Fork branch |
 | --- | --- | --- | --- |
@@ -10,12 +10,13 @@ Six independent branches are pushed to [grouville/dagger](https://github.com/gro
 | [4. Buffer artifact list output](artifact-list-output.md) | 1,026 table rows: **10.43 ms → 1.45 ms**; **6,163 → 8 telemetry records** | Fixes reproduced output loss. One-row link/CLI output costs about 1 µs more and 4 KiB for the buffer. Flush errors are tested. | [Code](https://github.com/grouville/dagger/tree/fix/upstream-artifact-list-output) |
 | [5. Index collection ancestors](collection-key-index.md) | 1,000 collection fields: **1.50 s → 3.75 ms**, including index construction | Largest algorithm change of this batch: a local path/dimension index. One field costs 184 extra bytes with similar timing; 10 fields already improve. | [Code](https://github.com/grouville/dagger/tree/perf/upstream-collection-key-index) |
 | [6. Skip snapshot scans after metadata-only eviction](skip-empty-snapshot-gc.md) | Metadata prune with 1,000 retained snapshots: **4.004 ms → 25.30 µs**; **~32,124 → 31 allocations** | One production line reuses the existing deletion signal. Real reclamation and startup collection keep that existing path. | [Code](https://github.com/grouville/dagger/tree/perf/upstream-skip-empty-snapshot-gc) |
+| [7. Reuse telemetry spill buffers](telemetry-spill-batch-buffers.md) | 512-row reads: **619 → 424 µs**, **1.61 → 0.83 MB** allocated; complete listings allocate **108 MB less** per pair | Four production lines reuse an existing buffer method and reader pool. Returned-field ownership is tested; complete-command latency remains mixed. | [Code](https://github.com/grouville/dagger/tree/perf/telemetry-spill-batch-buffers) |
 
 These are function benchmarks. Their gains cannot be added together or treated as seconds saved on a complete Rust build. The array cases have one input path per returned string. The collection index is rebuilt for every measured call; there is no persistent warm index. The usage-map case measures preparation for disk pruning, with fixture construction outside the timer.
 
 The usage-map change also has a [retained-cache comparison](../REAL_CACHE_USAGE.md): 59,192 real engine results, two eight-pair series, 563 → 538 ms and 567 → 530 ms for size measurement and prune-state preparation together. All pairs allocate less, with identical result counts and accounted bytes. This remains an accounting measurement; complete Rust-command savings are not established.
 
-The measured tradeoffs support submitting all six for review. The collection index needs the closest algorithm review because it replaces ancestor selection. The scalar-array changes need review of type eligibility, persisted compatibility and resource ownership. None introduces shared state or a new lock. Full end-to-end Rust measurements on these isolated heads remain separate work.
+The measured tradeoffs support submitting all seven for review. The collection index needs the closest algorithm review because it replaces ancestor selection. The scalar-array changes need review of type eligibility, persisted compatibility and resource ownership. None introduces shared state or a new lock. Full end-to-end Rust measurements on these isolated heads remain separate work.
 
 ## Measurement and validation
 
@@ -25,6 +26,8 @@ The three dagql branches each pass the full `./dagql` race suite. The CLI and co
 
 The sixth proposal uses a separate six-pair comparison on real temporary snapshot stores, with initialization and fixture insertion outside the timer. It improves both the zero- and 1,000-snapshot cases in all pairs. Seventeen focused server tests pass normally and under the race detector; the new regression fails on main in both scheduled and explicit pruning. Its [raw evidence](../experiments/snapshot-gc/) records host pressure over complete processes, including fixture construction, and retains initial harness failures. It establishes no complete Rust-command saving.
 
+The seventh proposal uses six fresh-process pairs on real spill files and a complete `engine/clientdb` race run. Its ownership test passes on main and the candidate, and rejects a decoder deliberately changed to borrow the frame. Two eight-pair edited-command cohorts establish 108 MB fewer allocated bytes per large listing in 15/16 pairs, with mixed latency. All six retained native Rust histories remain fully reusable. Its [dedicated evidence](../experiments/telemetry-spill-batch-buffers/) includes pressure, initial admission failure, profiles and the separate unselected Protobuf screen.
+
 [Exact branch and base revisions](branches.json) and [raw benchmark/test evidence](evidence/) are saved alongside the descriptions. Each candidate has `summary.json`, per-process metrics and host pressure in `runs.json`, the raw paired logs, test logs and production-file hashes. `evidence/SHA256SUMS` covers those files. Large binaries are excluded.
 
 The archived benchmark driver regenerates baseline overlays with `git show`. Its configs record the measurement worktree paths; recreate those worktrees at the recorded revisions or adjust their paths before running it. Each description also gives a direct `go test` command.
@@ -33,6 +36,6 @@ This batch contains engine and CLI changes. Rust module/cache changes and experi
 
 ## Additional dependency candidate — still being validated
 
-A [seventh draft targets containerd's duplicate GC roots](containerd-root-dedup.md), rather than Dagger itself. The standalone patch and regression apply to containerd main. Complete edited commands during concurrent collection improve in 16/16 pairs, saving about 0.33 seconds per pair. The confirmation also shows a roughly 62 ms slowdown without concurrent collection, and the unique-root control is about 9% slower. These costs remain disclosed and under investigation; this candidate is not included among the six ready proposals. No containerd PR is open.
+An [additional draft targets containerd's duplicate GC roots](containerd-root-dedup.md), rather than Dagger itself. The standalone patch and regression apply to containerd main. Complete edited commands during concurrent collection improve in 16/16 pairs, saving about 0.33 seconds per pair. The confirmation also shows a roughly 62 ms slowdown without concurrent collection, and the unique-root control is about 9% slower. These costs remain disclosed and under investigation; this candidate is not included among the seven ready proposals. No containerd PR is open.
 
 The [follow-up](../NATIVE_GC_ROOTS_FOLLOWUP.md) attributes the idle discrepancy to preparation rather than an executed command-time loop, and tests a single-lookup alternative. Ordinary edited commands remain about 1.55 s with either mode, versus Cargo's 0.77 s. The refined collector is faster in all eight forced jobs; complete commands improve in six of eight pairs. Both versions remain available for review, with no default switch enabled and no change to the count of ready Dagger proposals.

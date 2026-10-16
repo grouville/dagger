@@ -1,0 +1,101 @@
+{
+  "engine": {
+    "previous_engine_sha256": "e174ad0a118c3312cebae1333d4dbaf1f2a1d3f56656a337629830bbe18092e8",
+    "base_revision": "19eda924854e7f22582f3a7430272aa729cbeb5f",
+    "feature": "Reuse telemetry spill payload buffer and release the reader for batch reads.",
+    "default_enabled": false,
+    "diagnostic_route": "/debug/spill-batch-buffers",
+    "production_source": "/tmp/dagger-telemetry-spill-batch-buffers/engine/clientdb/store_spill.go",
+    "production_source_sha256": "c26e07158356978f7307c3e90c0923e28a4fce5f775301725032c2c9cf533b43",
+    "unchanged_dependency_overlays": true,
+    "protobuf_small_sort_installed": false,
+    "build_command": [
+      "go",
+      "build",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/spill-batch-buffers-engine/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/spill-batch-buffers-engine/overlay.json",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/spill-batch-buffers-engine/dagger-engine",
+      "./cmd/engine"
+    ],
+    "engine_sha256": "8e31c79773355d11bac9854a3a641534c7733171953c483993e5888a290b6734",
+    "production_revision": "18f246dd1842faed187bffd637a35394951e7891"
+  },
+  "modules": {
+    "before": {
+      "path": "/tmp/dagger-rust-native-fused-artifact-inputs",
+      "revision": "3cd40e5928563ade3ea1cd21ab9924cd03d88fc3"
+    },
+    "after": {
+      "path": "/tmp/dagger-rust-native-fused-artifact-inputs",
+      "revision": "3cd40e5928563ade3ea1cd21ab9924cd03d88fc3"
+    }
+  },
+  "pairs": 8,
+  "kinds": [
+    "large",
+    "direct",
+    "tests",
+    "list"
+  ],
+  "profile": false,
+  "orders": [
+    [
+      "cargo",
+      "after",
+      "before"
+    ],
+    [
+      "before",
+      "after",
+      "cargo"
+    ],
+    [
+      "before",
+      "cargo",
+      "after"
+    ],
+    [
+      "after",
+      "cargo",
+      "before"
+    ],
+    [
+      "after",
+      "before",
+      "cargo"
+    ],
+    [
+      "cargo",
+      "before",
+      "after"
+    ]
+  ],
+  "same_physical_source_and_history": true,
+  "compiler_and_engine_warm": true,
+  "fresh_processes": true,
+  "telemetry_enabled": true,
+  "source_snapshot_seeds": true,
+  "natural_collection": true,
+  "no_scratch_snapshots": true,
+  "no_forced_collection": true,
+  "no_forced_Go_collection": true,
+  "initial_heap": {
+    "HeapAlloc": 2906176560,
+    "HeapInuse": 3190374400,
+    "HeapIdle": 8713060352,
+    "HeapReleased": 7704084480,
+    "HeapObjects": 25236137,
+    "TotalAlloc": 119976967560,
+    "Mallocs": 1252184426,
+    "Frees": 1226948289,
+    "NumGC": 96,
+    "NextGC": 3560325738,
+    "PauseTotalNs": 25950710,
+    "GCCPUFraction": 0.006905070826959245
+  },
+  "scope": "Only the telemetry spill batch buffer mode changes; fixed Rust module revision, same physical source and native cache. Complete edited commands and exact package listings; all observations retained."
+}
