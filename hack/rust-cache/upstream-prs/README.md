@@ -43,6 +43,10 @@ The archived benchmark driver regenerates baseline overlays with `git show`. Its
 
 This batch contains engine and CLI changes. Rust module/cache changes and experimental engine APIs are outside these proposals.
 
+## Prepared Go module change
+
+The separate [Go package test-discovery proposal](go-package-test-discovery.md) is pushed to [grouville/go](https://github.com/grouville/go/tree/perf/package-test-discovery), based on official Go module main. It improves complete edited test collections from **4.52 → 2.36 s** at 16 packages and **55.11 → 8.12 s** at 64; all eight matched pairs improve. The existing integration check, overlay and Unicode cases pass. This makes **ten Dagger engine/CLI proposals plus one Go-module proposal** available for individual review. No new upstream PR has been opened.
+
 ## Additional dependency candidate — still being validated
 
 An [additional draft targets containerd's duplicate GC roots](containerd-root-dedup.md), rather than Dagger itself. The standalone patch and regression apply to containerd main. Complete edited commands during concurrent collection improve in 16/16 pairs, saving about 0.33 seconds per pair. The confirmation also shows a roughly 62 ms slowdown without concurrent collection, and the unique-root control is about 9% slower. These costs remain disclosed and under investigation; this candidate is not included among the ten ready proposals. No containerd PR is open.

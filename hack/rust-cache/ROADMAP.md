@@ -42,6 +42,13 @@ Priorities:
    starting a helper or container per package. Compare selected-package commands
    with matching Cargo package selections, and whole-collection commands with
    workspace Cargo commands.
+   Compare the official Go module's package/test dimensions with an isolated Rust
+   module exposing the same selection levels. Measure discovery, selection and
+   edited test execution separately, retaining the workspace batch as a control.
+   Investigate the reported Go collection crash on `dagger/dagger`; distinguish
+   an engine crash from excessive discovery work, cancellation and memory used
+   by the profiling recorder. Keep the existing ancestor index enabled while
+   locating work it does not cover.
 
 Keep useful engine fixes separate, with focused regression tests and an
 adversarial review. Push experiments to Guillaume's fork; open new upstream PRs

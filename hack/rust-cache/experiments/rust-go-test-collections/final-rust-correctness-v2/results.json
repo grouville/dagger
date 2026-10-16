@@ -1,0 +1,100 @@
+[
+  {
+    "label": "partial-excludes-poison",
+    "exit_code": 0,
+    "expected": 0,
+    "seconds": 1.811069931020029,
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "check",
+      "dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::test_000&rust-test=src/lib.rs::test_002"
+    ]
+  },
+  {
+    "label": "partial-includes-poison",
+    "exit_code": 1,
+    "expected": 1,
+    "seconds": 0.429239294026047,
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "check",
+      "dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::test_001"
+    ]
+  },
+  {
+    "label": "prepared-whole-package-reports-poison",
+    "exit_code": 1,
+    "expected": 1,
+    "seconds": 0.38208202307578176,
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "check",
+      "rust:packages/tests/test"
+    ]
+  },
+  {
+    "label": "prepared-whole-package-repaired",
+    "exit_code": 0,
+    "expected": 0,
+    "seconds": 6.578120480990037,
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "check",
+      "rust:packages/tests/test"
+    ]
+  },
+  {
+    "label": "package-filter-excludes-invalid-crate",
+    "exit_code": 0,
+    "expected": 0,
+    "seconds": 1.4825727440183982,
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "check",
+      "dag://?check=rust/packages/tests/test&rust-package=pkg_000"
+    ]
+  },
+  {
+    "label": "all-packages-reports-invalid-crate",
+    "exit_code": 101,
+    "expected": 1,
+    "seconds": 1.8896264100912958,
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "check",
+      "rust:packages/tests/test"
+    ]
+  },
+  {
+    "label": "all-packages-repaired",
+    "exit_code": 0,
+    "expected": 0,
+    "seconds": 5.113800229039043,
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "check",
+      "rust:packages/tests/test"
+    ]
+  },
+  {
+    "label": "plain-workspace-api-still-runs-tests",
+    "exit_code": 101,
+    "expected": 0,
+    "seconds": 0.5851078809937462,
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "api",
+      "call",
+      "rust",
+      "test"
+    ]
+  }
+]

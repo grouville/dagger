@@ -1,0 +1,50 @@
+[
+  {
+    "label": "two-selected-others-excluded",
+    "exit_code": 0,
+    "expected": 0,
+    "seconds": 9.347727229003794,
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "check",
+      "dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::test_000&rust-test=src/lib.rs::test_002"
+    ]
+  },
+  {
+    "label": "selected-poison-fails",
+    "exit_code": 1,
+    "expected": 1,
+    "seconds": 0.4066415639827028,
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "check",
+      "dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::test_001"
+    ]
+  },
+  {
+    "label": "whole-package-poison-fails",
+    "exit_code": 1,
+    "expected": 1,
+    "seconds": 0.4242794590536505,
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "check",
+      "rust:packages/tests/test"
+    ]
+  },
+  {
+    "label": "repaired-whole-package",
+    "exit_code": 0,
+    "expected": 0,
+    "seconds": 1.0118864439427853,
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "check",
+      "rust:packages/tests/test"
+    ]
+  }
+]

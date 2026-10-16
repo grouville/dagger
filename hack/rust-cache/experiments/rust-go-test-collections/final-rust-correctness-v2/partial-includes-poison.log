@@ -1,0 +1,32 @@
+== TRACE ==  ✘ FAILED
+dagger-artifact-list-buffered check dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::test_001  0.3s
+! exit code 1
+! dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::test_001: exit code: 1
+
+== CHECKS ==  ✘ 1 failed
+✘ dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::test_001 0.1s ERROR
+  ✘ withExec /rcexp-batch/runner tests /rcexp-batch/selected-tests.json (disableDaggerInDagger: true) 0.0s ERROR
+  ┃ 
+  ┃ ==> /target/debug/deps/pkg_000-a5b940756517e696
+  ┃ 
+  ┃ running 1 test
+  ┃ test test_001 ... FAILED
+  ┃ 
+  ┃ failures:
+  ┃ 
+  ┃ ---- test_001 stdout ----
+  ┃ thread 'test_001' panicked at pkg_000/src/lib.rs:5:17:
+  ┃ selected-poison-final
+  ┃ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+  ┃ 
+  ┃ 
+  ┃ failures:
+  ┃     test_001
+  ┃ 
+  ┃ test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+  ┃ 
+  ┃ test command /target/debug/deps/pkg_000-a5b940756517e696: exit status 101
+  ! exit code: 1
+
+== RUN LOCALLY ==
+dagger check "dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::test_001"

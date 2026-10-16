@@ -1,0 +1,136 @@
+== TRACE ==  ✘ FAILED
+dagger-artifact-list-buffered check go-dev:tests-collection-check  7.8s
+! exit code 1
+! dag://?check=tests-collection-check: static test discovery found: TestAlpha, FuzzAlpha, ExampleAlpha, TestConstrained
+
+== CHECKS ==  ✘ 1 failed
+✘ dag://?check=tests-collection-check 6.7s ERROR
+  ✘ dag://?check=tests-collection-check 6.7s ERROR
+  ┃ [search] testdata/go-module-excluded/excluded_test.go:5:func TestExcludedModuleIsNotRun(t *testing.T) {
+  ┃ [search] testdata/go-module-generate/generate.go:3://go:generate go run ./cmd/writegenerated
+  ┃ [search] testdata/go-module-generate/cmd/writegenerated/main.go:1:package main
+  ┃ [search] testdata/go-module-mount-path/mount_path_test.go:13:func TestWorkingDirectoryUnderMountPath(t *testing.T) {
+  ┃ [search] testdata/go-module-skip-tree/nested/fail_test.go:5:func TestSkippedModuleIsNotRun(t *testing.T) {
+  ┃ [search] testdata/go-module-skip-tree/nested/fail_generate.go:3://go:generate sh -c "echo skipped generate should not run >&2; exit 1"
+  ┃ [search] fixtures/go-module-cross-include-a/cross_module_test.go:9:func TestCrossModuleWorkspaceInclude(t *testing.T) {
+  ┃ [search] fixtures/go-module-cross-include-b/isolation_test.go:9:func TestSiblingModuleDirectiveIncludeIsNotMounted(t *testing.T) {
+  ┃ [search] fixtures/go-module-cross-include-b/isolation_test.go:19:func TestSiblingModuleTestdataIsNotMounted(t *testing.T) {
+  ┃ [search] fixtures/go-module-generate-directories/later/generate.go:3://go:generate sh -c "printf 'package later\\nconst Earlier = true\\n' > generated.go"
+  ┃ [search] fixtures/go-module-generate-directories/generate.go:3://go:generate sh -c "printf 'package fixture\\n' > generated.go"
+  ┃ [search] fixtures/go-module-generate-directories/nested/generate.go:3://go:generate sh -c "printf 'package nested\\n' > generated.go"
+  ┃ [search] fixtures/go-module-generate-directories/version/generate.go:3://go:generate sh -c "if test -f ../later/generated.go; then sed 's/package later/package version/' ../later/generated.go > generated.go; else printf 'package version\\n' > generated.go; fi"
+  ┃ [search] fixtures/go-module-generate-directories/nested/generate.go:3://go:generate sh -c "printf 'package nested\\n' > generated.go"
+  ┃ [search] fixtures/go-module-with-included-gomod-replace/cmd/codegen/main.go:1:package main
+  ┃ [search] fixtures/go-module-with-included-gomod-replace/sdk/go/generate.go:4://go:generate go -C ../../ run ./cmd/codegen
+  ┃ [search] fixtures/go-module-with-included-gomod-replace/sdk/go/generate.go:4://go:generate go -C ../../ run ./cmd/codegen
+  ┃ [search] fixtures/go-module-with-nested-module/parent_test.go:9:func TestNestedModuleDirectiveIncludeIsNotMounted(t *testing.T) {
+  ┃ [search] fixtures/go-module-with-replace/replace_test.go:9:func TestLocalReplaceAssetsAreMounted(t *testing.T) {
+  ┃ [search] gomod/helpers/go-includes/workspace_shim.go:1:package main
+  ┃ [search] gomod/helpers/go-includes/main.go:4:package main
+  ┃ [search] gomod/helpers/go-includes/main_test.go:1:package main
+  ┃ [search] gomod/helpers/go-includes/main_test.go:23://go:generate go -C .. run ./cmd/codegen
+  ┃ [search] gomod/helpers/go-includes/all.go:1:package main
+  ┃ [search] gomod/helpers/go-includes/generate.go:1:package main
+  ┃ [search] gomod/helpers/go-includes/generate_test.go:1:package main
+  ┃ [search] testdata/go-module-build-tags/build_tags_test.go:7:func TestBuiltWithExtendedTag(t *testing.T) {
+  ┃ [search] testdata/go-module-cgo-cxx/cgocxx_test.go:5:func TestAnswer(t *testing.T) {
+  ┃ [search] testdata/go-module-custom-base/custom_base_test.go:8:func TestBase(t *testing.T) {
+  ┃ [search] testdata/go-module-custom-base/generate.go:3://go:generate go run ./cmd/writegenerated
+  ┃ [search] testdata/go-module-custom-base/cmd/writegenerated/main.go:1:package main
+  ┃ [search] testdata/go-module-excluded/excluded_test.go:5:func TestExcludedModuleIsNotRun(t *testing.T) {
+  ┃ [search] testdata/go-module-generate/generate.go:3://go:generate go run ./cmd/writegenerated
+  ┃ [search] testdata/go-module-generate/cmd/writegenerated/main.go:1:package main
+  ┃ [search] testdata/go-module-regenerate/regenerate.go:3://go:generate go run ./cmd/writegenerated
+  ┃ [search] testdata/go-module-regenerate/cmd/writegenerated/main.go:1:package main
+  ! static test discovery found: TestAlpha, FuzzAlpha, ExampleAlpha, TestConstrained
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  ✘ Directory.file(path: ".env"): File! 0.0s ERROR
+  ! stat .env: no such file or directory
+  == CHECKS ==  ✔ 1 passed
+    ✔ test 0.1s OK
+
+== RUN LOCALLY ==
+dagger check "dag://?check=tests-collection-check"

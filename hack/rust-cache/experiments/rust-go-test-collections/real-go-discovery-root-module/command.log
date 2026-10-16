@@ -1,0 +1,50 @@
+2026/10/16 09:29:30 WARN failed to open git repository err="core.repositoryformatversion does not support extension: worktreeconfig"
+[dagger] 30.0s elapsed · 1 steps running
+[dagger] 1m0s elapsed · 1 steps running
+[dagger] 1m30s elapsed · 1 steps running
+== TRACE ==  ✘ FAILED
+dagger-artifact-list-buffered check --module go --check test --list --all  1m60s
+! Post "http://dagger/query": context canceled
+
+✔ list artifacts 1m60s
+  ✔ uploading /home/dagger/dagger_otra 0.1s ████████████ 145 kB
+
+✘ dagger-artifact-list-buffered check --module go --check test --list --all 1m60s ERROR
+! Post "http://dagger/query": context canceled
+∅ Artifacts.items: [Artifact!]! 1m60s
+! context canceled
+∅ GoPackages.get(key: "docs/versioned_docs/version-1.0-beta/reference/api/snippets/fs-filters/pre-call/go"): GoPackage! 0.4s
+! context canceled
+∅ GoPackages.get(key: "docs/versioned_docs/version-0.17/api/snippets/cache-volumes/go"): GoPackage! 0.4s
+! context canceled
+∅ GoPackages.get(key: "hack/rust-cache/experiments/compact-scalar-restore/engine-source-v2/engine/contenthash"): GoPackage! 0.4s
+! context canceled
+∅ GoPackages.get(key: "docs/versioned_docs/version-0.16/cookbook/snippets/export-file-dir/go"): GoPackage! 0.4s
+! context canceled
+∅ GoPackages.get(key: "docs/versioned_docs/version-0.20/cookbook/snippets/copy-modify-dir/go"): GoPackage! 0.4s
+! context canceled
+∅ GoPackages.get(key: "docs/versioned_docs/version-0.18/getting-started/quickstarts/agent/snippets/part2/workspace/go"): GoPackage! 0.4s
+! context canceled
+∅ GoPackages.get(key: "docs/versioned_docs/version-0.21/cookbook/snippets/custom-spans/go"): GoPackage! 0.4s
+! context canceled
+∅ GoPackages.get(key: "engine/filesync"): GoPackage! 0.4s
+! context canceled
+∅ GoPackages.get(key: "sdk/go"): GoPackage! 0.3s
+! context canceled
+Traceback (most recent call last):
+  File "/tmp/rust-cache-sipsma-review/local_cli_collector.py", line 12, in <module>
+    raise SystemExit(subprocess.call([cli, *sys.argv[1:]], env=env))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 391, in call
+    return p.wait(timeout=timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 1264, in wait
+    return self._wait(timeout=timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 2053, in _wait
+    (pid, sts) = self._try_wait(0)
+                 ^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 2011, in _try_wait
+    (pid, sts) = os.waitpid(self.pid, wait_flags)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

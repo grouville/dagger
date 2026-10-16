@@ -1,0 +1,22 @@
+== TRACE ==  ✘ FAILED
+dagger-artifact-list-buffered check go-dev:tests-collection-check  1.3s
+! exit code 1
+! dag://?check=tests-collection-check: cannot use String! as Regexp!
+
+== CHECKS ==  ✘ 1 failed
+✘ dag://?check=tests-collection-check 0.2s ERROR
+  ✘ go(version: "1.26.1"): Go! 0.1s ERROR
+  ┃ Error: cannot use String! as Regexp!
+  ┃   --> /tmp/dagger-mount862941682/go.dang:761:42
+  ┃      |
+  ┃  759 |             .split("\n")
+  ┃  760 |             .filter { line => line.hasPrefix("func Test") or line.hasPrefix("func Fuzz") or line.hasPrefix("func Example") }
+  ┃  761 |             .filter { line => line.match(testPattern) != null }
+  ┃                                                 ^^^^^^^^^^^
+  ┃  762 |             .map { line => line.trimPrefix("func ").split("(").takeFirst(1).join("") }
+  ┃  763 |         }
+  ┃      |
+  ! cannot use String! as Regexp!
+
+== RUN LOCALLY ==
+dagger check "dag://?check=tests-collection-check"

@@ -1,0 +1,70 @@
+== TRACE ==  ✘ FAILED
+dagger-artifact-list-buffered check --list --all rust:packages/tests/test  2.4s
+! dimension "/rust/packages": field "discoverTests" not found in Dagger.RustCompiler
+
+✔ Workspace.artifacts(include: ["rust/packages/tests/test"]): Artifacts! 2.3s
+  ✔ 2 uploads 0.0s
+✔ .modules: [Module!]! 0.0s
+
+✔ Module.contextSource: ModuleSource 0.0s
+✔ .digest: String! 0.0s
+
+✔ list artifacts 0.1s
+
+✘ rust: Rust! 0.0s ERROR
+3 inference errors:
+
+Error 1:
+2 inference errors:
+
+Error 1:
+Error: field "discoverTests" not found in Dagger.RustCompiler
+  --> /tmp/dagger-mount99885639/main.dang:404:17
+     |
+ 402 |     assert("Individual test collections currently require nativeCache = true") { nativeCache }
+ 403 |     let result = nativeCompilationResult("test", source, null)
+ 404 |     let suite = rustCompiler.discoverTests(source, plan: result.cache.plan!, artifacts: result.artifacts).{{
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 405 |       metadata, environment.{{id}}
+ 406 |     }}
+     |
+
+
+Error 2:
+Error: "suite" not found
+  --> /tmp/dagger-mount99885639/main.dang:408:29
+     |
+ 406 |     }}
+ 407 |     DiscoveredTests(
+ 408 |       packages: JSON.decode(suite.metadata),
+                                   ^^^^^
+ 409 |       environment: node(suite.environment.id!).{{... on Container!}},
+ 410 |     )
+     |
+
+
+Error 2:
+Error: field "runTestSelection" not found in Dagger.RustCompiler
+  --> /tmp/dagger-mount99885639/main.dang:663:7
+     |
+ 661 |   test: Void @check {
+ 662 |     if (!keys.isEmpty) {
+ 663 |       rustCompiler.runTestSelection(environment, commands: commands, pkg: package, keys: keys).sync
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 664 |     }
+ 665 |     null
+     |
+
+
+Error 3:
+Error: field "runTestSelection" not found in Dagger.RustCompiler
+  --> /tmp/dagger-mount99885639/main.dang:676:5
+     |
+ 674 | 
+ 675 |   test: Void @check {
+ 676 |     rustCompiler.runTestSelection(environment, commands: commands, pkg: package, keys: [name]).sync
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 677 |     null
+ 678 |   }
+     |
+! field "discoverTests" not found in Dagger.RustCompiler

@@ -1,0 +1,89 @@
+[
+  {
+    "label": "race-replay-and-worker",
+    "exit_code": 0,
+    "expected": 0,
+    "seconds": 2.591734720976092,
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-race",
+      "-count=1",
+      "./replay",
+      "./worker"
+    ]
+  },
+  {
+    "label": "compiler-dispatch-build",
+    "exit_code": 0,
+    "expected": 0,
+    "seconds": 2.44857000594493,
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-run",
+      "^$",
+      "."
+    ]
+  },
+  {
+    "label": "partial-excludes-poison",
+    "exit_code": 0,
+    "expected": 0,
+    "seconds": 9.599171936977655,
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "check",
+      "dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::test_000&rust-test=src/lib.rs::test_002"
+    ]
+  },
+  {
+    "label": "partial-includes-poison",
+    "exit_code": 1,
+    "expected": 1,
+    "seconds": 0.37720712495502084,
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "check",
+      "dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::test_001"
+    ]
+  },
+  {
+    "label": "prepared-whole-package-reports-poison",
+    "exit_code": 1,
+    "expected": 1,
+    "seconds": 0.4989951850147918,
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "check",
+      "rust:packages/tests/test"
+    ]
+  },
+  {
+    "label": "prepared-whole-package-repaired",
+    "exit_code": 0,
+    "expected": 0,
+    "seconds": 0.5759100680006668,
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "check",
+      "rust:packages/tests/test"
+    ]
+  },
+  {
+    "label": "package-filter-excludes-invalid-crate",
+    "exit_code": 1,
+    "expected": 0,
+    "seconds": 0.6496930700959638,
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "check",
+      "dag://?check=rust/packages/tests/test&rust-package=pkg_000"
+    ]
+  }
+]

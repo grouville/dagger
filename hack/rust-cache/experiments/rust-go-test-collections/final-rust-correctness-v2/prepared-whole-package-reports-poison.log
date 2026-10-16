@@ -1,0 +1,38 @@
+== TRACE ==  ✘ FAILED
+dagger-artifact-list-buffered check rust:packages/tests/test  0.2s
+! exit code 1
+! dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::test_000&rust-test=src/lib.rs::test_001&rust-test=src/lib.rs::test_002&rust-test=src/lib.rs::test_003&rust-test=src/lib.rs::test_004&rust-test=src/lib.rs::test_005&rust-test=src/lib.rs::test_006&rust-test=src/lib.rs::test_007: exit code: 1
+
+== CHECKS ==  ✘ 1 failed
+✘ dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::test_000&rust-test=src/lib.rs::test_001&rust-test=src/lib.rs::test_002&rust-test=src/lib.rs::test_003&rust-test=src/lib.rs::test_004&rust-test=src/lib.rs::test_005&rust-test=src/lib.rs::test_006&rust-test=src/lib.rs::test_007 0.1s ERROR
+  ✔ POST /query 0.0s
+  ┃ 
+  ┃ ==> /target/debug/deps/pkg_000-a5b940756517e696
+  ┃ 
+  ┃ running 8 tests
+  ┃ test test_000 ... ok
+  ┃ test test_001 ... FAILED
+  ┃ test test_003 ... ok
+  ┃ test test_002 ... ok
+  ┃ test test_004 ... ok
+  ┃ test test_005 ... ok
+  ┃ test test_006 ... ok
+  ┃ test test_007 ... ok
+  ┃ 
+  ┃ failures:
+  ┃ 
+  ┃ ---- test_001 stdout ----
+  ┃ thread 'test_001' panicked at pkg_000/src/lib.rs:5:17:
+  ┃ selected-poison-final
+  ┃ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+  ┃ 
+  ┃ 
+  ┃ failures:
+  ┃     test_001
+  ┃ 
+  ┃ test result: FAILED. 7 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+  ┃ 
+  ┃ test command /target/debug/deps/pkg_000-a5b940756517e696: exit status 101
+
+== RUN LOCALLY ==
+dagger check "dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::test_000&rust-test=src/lib.rs::test_001&rust-test=src/lib.rs::test_002&rust-test=src/lib.rs::test_003&rust-test=src/lib.rs::test_004&rust-test=src/lib.rs::test_005&rust-test=src/lib.rs::test_006&rust-test=src/lib.rs::test_007"

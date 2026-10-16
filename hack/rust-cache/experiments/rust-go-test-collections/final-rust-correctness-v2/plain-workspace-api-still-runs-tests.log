@@ -1,0 +1,32 @@
+== TRACE ==  ✘ FAILED
+rust test  0.5s
+! exit code 101
+! exit code: 101
+
+✔ connect 0.0s
+✔ load workspace: . 0.2s
+✔ parsing command line arguments 0.0s
+
+$ rust: Rust! 0.0s CACHED
+✘ .test(
+  ┆ source: Host.directory(path: "/tmp/dagger-rust-test-collection-granularity", exclude: [".git", "target", "dagger.toml", "dagger.lock"], noCache: true): Directory!
+  ): Void 0.3s ERROR
+  ✔ 2 downloads 0.0s
+┇ .compile(
+  ┆ source: Host.directory(path: "/tmp/dagger-rust-test-collection-granularity", exclude: [".git", "target", "dagger.toml", "dagger.lock"], noCache: true)
+  ┆ plan: RustCompilerCache.plan
+  ┆ automaticPlan: true
+  ┆ previousManifest: "{\"native_configuration\":{\"version\":1,\"canonical\":\"sha256:2d51c5ac0b2905ad487938ec5a042c3b5e35cdef5e165ab0ae68ec25394fa812\",\"entries\":\"sha256:270f05c5eb611f796f221b1134073802bf31e247679594de205f55dad6bfc18f\"},\"version\":1,\"actions\":{\"pkg_000-91cc0e03a8d622d7\":[{\"key\":\"5a2febcf49a6032859b166513212e48ad333c6954c0002b8ac820c6c67657b00\",\"compatibility\":\"56118ed6f69d31db564d74f8e7ff05aa8ca59697e3b3860d9dd4a6cba18c4d6f\",\"batch\":\"f41ddc06045e96d147012838941628728eece102e35e56fa99c00429e8147a44\"},{\"key\":\"6b6a5e13ef52d0384a6836ca2a590baf5905acc738332a36f978e8628b6aed4a\",\"compatibility\":\"56118ed6f69d31db564d74f8e7ff05aa8ca59697e3b3860d9dd4a6cba18c4d6f\",\"batch\":\"af2edcf13fcea203ec70150fca37f75866dbb4527713e2798a96173752b429cc\"},{\"key\":\"7843af6368b7a9658274263f5517de51cb1984b1d702f3a7632cad3d72d040ae\",\"compatibility\":\"56118ed6f69d31db564d74f8e7ff05aa8ca59697e3b3860d9dd4a6cba18c4d6f\",\"batch\":\"5bd36d984ac04d7bf3f1fa044fbd9ef3eff8d1897bedf5cf7896b8be98f10869\"},{\"key\":\"08bcc349c4b06e47e94020f63bc49ba0c1034b48d73bfb50dc876afd8a349e00\",\"compatibility\":\"56118ed6f69d31db564d74f8e7ff05aa8ca59697e3b3860d9dd4a6cba18c4d6f\",\"batch\":\"3f8c0bb602cd5b800b49f1b6b26a376859d95f61ca407495fe04e88df8c6d184\"}]}}"
+  ┆ previousTokens: ["3f8c0bb602cd5b800b49f1b6b26a376859d95f61ca407495fe04e88df8c6d184", "5bd36d984ac04d7bf3f1fa044fbd9ef3eff8d1897bedf5cf7896b8be98f10869", "af2edcf13fcea203ec70150fca37f75866dbb4527713e2798a96173752b429cc", "f41ddc06045e96d147012838941628728eece102e35e56fa99c00429e8147a44"]
+  ┆ previousSnapshots: [xxh3:5ae84110d731aedd, xxh3:563e1cc49090d26b, xxh3:ac762ab92b938dc5, xxh3:54b0d99ee46d5f3c]
+  ┆ workers: 8
+  ┆ command: "test"
+  ┆ cargoFlags: ["--workspace", "--locked"]
+  ┆ image: "rust:1.77-bookworm@sha256:83101f6985c93e1e6501b3375de188ee3d2cbb89968bcc91611591f9f447bd42"
+  ┆ noIncremental: false
+  ) › 
+✘ withExec cargo metadata --offline --locked --format-version=1 (disableDaggerInDagger: true) 0.1s ERROR
+error: could not find `Cargo.toml` in `/src` or any parent directory
+! exit code: 101
+
+Setup tracing at https://dagger.cloud/traces/setup. To hide set DAGGER_NO_NAG=1

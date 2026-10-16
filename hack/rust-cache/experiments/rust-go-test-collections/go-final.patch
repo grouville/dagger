@@ -1,0 +1,58 @@
+diff --git a/.dagger/modules/go-dev/main.dang b/.dagger/modules/go-dev/main.dang
+index b685ed6..b51191c 100644
+--- a/.dagger/modules/go-dev/main.dang
++++ b/.dagger/modules/go-dev/main.dang
+@@ -263,6 +263,7 @@ type GoDev {
+         func ExampleAlpha() {}
+         func Examplefoo() {}
+       ``` + "\n")
++      .withNewFile("unicode_test.go", "package root\nimport \"testing\"\nfunc TestÉÉ(t *testing.T) {}\nfunc Test正常(t *testing.T) {}\nfunc TestParameter(т *testing.T) {}\n")
+       .withNewFile("constrained_test.go", "//go:build never\n\npackage root\nimport \"testing\"\nfunc TestConstrained(t *testing.T) {}\n")
+       .withNewFile("sub/b_test.go", "package sub\nimport \"testing\"\nfunc TestBeta(t *testing.T) {}\nfunc TestAlpha(t *testing.T) {}\n")
+       .withNewFile("examples/c_test.go", "package examples\nfunc Example() {}\n")
+@@ -278,7 +279,7 @@ type GoDev {
+     )
+     let rootNames = found.get(key: ".").tests(rooted).keys
+     assert(
+-      rootNames == ["TestAlpha", "FuzzAlpha", "ExampleAlpha", "TestConstrained"],
++      rootNames == ["TestAlpha", "FuzzAlpha", "ExampleAlpha", "TestConstrained", "TestÉÉ", "Test正常", "TestParameter"],
+       "static test discovery found: " + rootNames.join(", "),
+     )
+     let subNames = found.get(key: "sub").tests(rooted).keys
+diff --git a/go.dang b/go.dang
+index 709896e..d9e605c 100644
+--- a/go.dang
++++ b/go.dang
+@@ -751,15 +751,11 @@ type GoModule {
+     if (files.length == 0) {
+       empty
+     } else {
+-      # One search over the module tree, matched back to the package's files
+-      # below. The search is the same for every package, so it runs once.
+-      # Searching a subdirectory or the files by name would be narrower, but
+-      # fails on a workspace built with withDirectory.
+-      let matches = testMatches(ws)
++      # Search immutable files so workspace overlays are visible, while keeping
++      # the same matcher and file order as module-wide discovery.
+       files
+         .reduce(empty) { names, file =>
+-          names + matches
+-            .filter { match => match.filePath.trimPrefix("/").trimPrefix("./") == file }
++          names + ws.file("/" + file).search(pattern: testPattern).{{matchedLines}}
+             .map { match =>
+               match.matchedLines.trimPrefix("func ").split("(").takeFirst(1).join("")
+             }
+@@ -773,10 +769,12 @@ type GoModule {
+     ws.search(
+       paths: [if (path == ".") { "/" } else { "/" + path }],
+       globs: ["*_test.go"],
+-      pattern: `^func (Test([^a-z(]\w*)?\(\s*\w+\s+\*testing\.T\s*\)|Fuzz([^a-z(]\w*)?\(\s*\w+\s+\*testing\.F\s*\)|Example([^a-z(]\w*)?\(\s*\))`,
++      pattern: testPattern,
+     ).{{filePath, matchedLines}}
+   }
+ 
++  let testPattern: Regexp! = `^func (Test([^a-z(]\w*)?\(\s*\w+\s+\*testing\.T\s*\)|Fuzz([^a-z(]\w*)?\(\s*\w+\s+\*testing\.F\s*\)|Example([^a-z(]\w*)?\(\s*\))`
++
+   # Byte-order sort, as Go's sort.Strings.
+   let sorted(items: [String!]!): [String!]! {
+     let empty: [String!]! = []

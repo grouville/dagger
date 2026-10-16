@@ -1,0 +1,94 @@
+2026/10/16 09:26:52 WARN failed to open git repository err="core.repositoryformatversion does not support extension: worktreeconfig"
+[1mUSAGE[0m
+  dagger check [--failfast] [FILTERS] [OPTIONS]   Run checks
+  dagger check -l [FILTERS] [OPTIONS]             List checks
+
+[1mFILTERS[0m
+      --by-dotnet-client         Select artifacts from module dotnet-client
+      --by-engine-dev            Select artifacts from module engine-dev
+      --by-php-client            Select artifacts from module php-client
+      --by-rust-client           Select artifacts from module rust-client
+      --changie                  Select artifacts from module changie
+                                 (alias: --by-changie)
+      --check NAME               Select checks by name. values: 'dagger
+                                 list checks'
+      --cli                      Select artifacts from module cli (alias:
+                                 --by-cli)
+      --dagger-dev               Select artifacts from module dagger-dev
+                                 (alias: --by-dagger-dev)
+      --dang-sdk                 Select artifacts from module dang-sdk
+                                 (alias: --by-dang-sdk)
+      --docs                     Select artifacts from module docs
+                                 (alias: --by-docs)
+      --elixir-client            Select artifacts from module
+                                 elixir-client (alias: --by-elixir-client)
+      --go-client                Select artifacts from module go-client
+                                 (alias: --by-go-client)
+      --go-sdk                   Select artifacts from module go-sdk
+                                 (alias: --by-go-sdk)
+      --golang                   Select artifacts from module golang
+                                 (alias: --by-golang)
+      --golangci-lint            Select artifacts from module
+                                 golangci-lint (alias: --by-golangci-lint)
+      --helm                     Select artifacts from module helm
+                                 (alias: --by-helm)
+      --java-client              Select artifacts from module java-client
+                                 (alias: --by-java-client)
+      --markdown-lint            Select artifacts from module
+                                 markdown-lint (alias: --by-markdown-lint)
+      --module NAME              Select artifacts from module NAME
+      --ps-analyzer              Select artifacts from module ps-analyzer
+                                 (alias: --by-ps-analyzer)
+      --python-client            Select artifacts from module
+                                 python-client (alias: --by-python-client)
+      --release                  Select artifacts from module release
+                                 (alias: --by-release)
+      --shellcheck               Select artifacts from module shellcheck
+                                 (alias: --by-shellcheck)
+      --test-split               Select artifacts from module test-split
+                                 (alias: --by-test-split)
+      --typescript-client        Select artifacts from module
+                                 typescript-client (alias:
+                                 --by-typescript-client)
+      --typescript-sdk           Select artifacts from module
+                                 typescript-sdk (alias: --by-typescript-sdk)
+      --generated[=true|false]   Include staleness checks for 'dagger
+                                 generate'
+      LINK...                    Filter checks by their DAG link. See
+                                 'dagger help links'
+      --skip LINK                Exclude checks selected by this link
+
+[1mOPTIONS[0m
+  -j, --parallel INT   Run at most this many checks at once; 0 means no
+                       limit. Defaults to $DAGGER_CHECK_PARALLEL
+
+[1mLIST OPTIONS[0m
+      --absolute        Show absolute links (alias: --abs)
+  -a, --all             Expand collections and list each item
+  -f, --format FORMAT   Output FORMAT: table, link, or cli (requires
+                        --list) (default "table")
+  -l, --list            List available checks
+
+[1mWORKSPACE OPTIONS[0m
+      --env NAME             Apply workspace environment name
+  -m, --load-module MODULE   Use a one-off module
+  -W, --workspace LOCATION   Select a workspace at location (local path
+                             or Git ref)
+
+[1mEXECUTION OPTIONS[0m
+      --allow-llm MODULE   Allow module to access LLM APIs; use 'all' for
+                           all modules
+      --engine ENGINE      Select an engine (or set DAGGER_ENGINE; run
+                           'dagger help engine' for details)
+  -i, --shell-on-error     Open a shell when a container command fails
+
+[1mTRACING OPTIONS[0m
+  -d, --debug           Show engine diagnostics
+  -E, --no-exit         Keep the terminal UI open
+      --progress MODE   Select progress mode (default "auto")
+  -q, --quiet           Reduce progress output
+  -s, --silent          Hide progress output
+  -v, --verbose         Show more detail; repeat for more
+  -w, --web             Open the trace in a browser
+
+Error: unknown flag: --test
