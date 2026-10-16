@@ -1,0 +1,1073 @@
+{
+  "context": {
+    "timestamp": "2026-10-16T00:33:43.631528+00:00",
+    "go": "go version go1.26.6 linux/amd64",
+    "platform": "Linux-7.0.0-34-generic-x86_64-with-glibc2.39",
+    "gomaxprocs": 8,
+    "cpu": "Intel(R) Core(TM) i5-9300H CPU @ 2.40GHz",
+    "config": {
+      "name": "primitive-owners",
+      "worktree": "/tmp/dagger-pr-primitive-owners",
+      "base": "717589c9ccacbba7d3cf902647aa5c9ca68085e8",
+      "benchmark": "BenchmarkPrimitiveArrayOwners",
+      "package": "./dagql",
+      "production_files": [
+        "dagql/cache_inline_value.go",
+        "dagql/cache_part_host.go"
+      ],
+      "head": "8a21f6cfe02d509bfd969ae5a3497e2f0bd848a7",
+      "branch": "perf/upstream-primitive-owners",
+      "benchtime": "150ms"
+    },
+    "binary_sha256": {
+      "before": "2d55abfd6c40936afdf4811c9ea31f45e49642e6748834992f5fcaf2c1f7093a",
+      "after": "1acb854afe2138aa947ba44f974d75922c9924a3f335b7684b6772c90b5d2210"
+    }
+  },
+  "runs": [
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPrimitiveArrayOwners",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.8527123928070068,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/pair-1-before.log",
+      "pair": 1,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkPrimitiveArrayOwners/1/snapshot_links": {
+          "iterations": 66708,
+          "ns/op": 2569.0,
+          "B/op": 4192.0,
+          "allocs/op": 34.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1/part_hosts": {
+          "iterations": 87942,
+          "ns/op": 1988.0,
+          "B/op": 2792.0,
+          "allocs/op": 26.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/snapshot_links": {
+          "iterations": 4242,
+          "ns/op": 36033.0,
+          "B/op": 65824.0,
+          "allocs/op": 421.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/part_hosts": {
+          "iterations": 5209,
+          "ns/op": 34406.0,
+          "B/op": 63632.0,
+          "allocs/op": 422.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/snapshot_links": {
+          "iterations": 61,
+          "ns/op": 2906910.0,
+          "B/op": 6901191.0,
+          "allocs/op": 35467.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/part_hosts": {
+          "iterations": 57,
+          "ns/op": 3025535.0,
+          "B/op": 6888482.0,
+          "allocs/op": 35586.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/snapshot_links": {
+          "iterations": 4,
+          "ns/op": 46285564.0,
+          "B/op": 106899604.0,
+          "allocs/op": 535051.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/part_hosts": {
+          "iterations": 4,
+          "ns/op": 46730174.0,
+          "B/op": 106852496.0,
+          "allocs/op": 535555.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/snapshot_links": {
+          "iterations": 1,
+          "ns/op": 209234073.0,
+          "B/op": 424561216.0,
+          "allocs/op": 2118667.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/part_hosts": {
+          "iterations": 1,
+          "ns/op": 186427452.0,
+          "B/op": 424468848.0,
+          "allocs/op": 2119685.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=1.52 avg60=0.80 avg300=2.46 total=29253021589\nfull avg10=1.46 avg60=0.53 avg300=1.40 total=24339430680\n",
+        "cpu": "some avg10=1.95 avg60=7.92 avg300=8.80 total=20065668431\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.09 avg60=0.03 avg300=0.05 total=816124493\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660114\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=1.24 avg60=0.78 avg300=2.44 total=29253040724\nfull avg10=1.19 avg60=0.51 avg300=1.39 total=24339441657\n",
+        "cpu": "some avg10=1.78 avg60=7.70 avg300=8.75 total=20065711001\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.08 avg60=0.03 avg300=0.05 total=816124493\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660114\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPrimitiveArrayOwners",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.7915043830871582,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/pair-1-after.log",
+      "pair": 1,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkPrimitiveArrayOwners/1/snapshot_links": {
+          "iterations": 183315,
+          "ns/op": 878.6,
+          "B/op": 1544.0,
+          "allocs/op": 12.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1/part_hosts": {
+          "iterations": 732177,
+          "ns/op": 238.9,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/snapshot_links": {
+          "iterations": 112761,
+          "ns/op": 1636.0,
+          "B/op": 3344.0,
+          "allocs/op": 21.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/part_hosts": {
+          "iterations": 761374,
+          "ns/op": 237.0,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/snapshot_links": {
+          "iterations": 14274,
+          "ns/op": 12295.0,
+          "B/op": 27072.0,
+          "allocs/op": 139.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/part_hosts": {
+          "iterations": 651390,
+          "ns/op": 240.8,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/snapshot_links": {
+          "iterations": 4030,
+          "ns/op": 44590.0,
+          "B/op": 104512.0,
+          "allocs/op": 523.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/part_hosts": {
+          "iterations": 712012,
+          "ns/op": 239.4,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/snapshot_links": {
+          "iterations": 1701,
+          "ns/op": 92407.0,
+          "B/op": 207424.0,
+          "allocs/op": 1035.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/part_hosts": {
+          "iterations": 808662,
+          "ns/op": 239.0,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=1.24 avg60=0.78 avg300=2.44 total=29253040724\nfull avg10=1.19 avg60=0.51 avg300=1.39 total=24339441657\n",
+        "cpu": "some avg10=1.78 avg60=7.70 avg300=8.75 total=20065711001\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.08 avg60=0.03 avg300=0.05 total=816124493\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660114\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=1.02 avg60=0.75 avg300=2.43 total=29253064764\nfull avg10=0.97 avg60=0.49 avg300=1.38 total=24339464727\n",
+        "cpu": "some avg10=1.63 avg60=7.48 avg300=8.69 total=20065731360\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.06 avg60=0.03 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPrimitiveArrayOwners",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.8169221878051758,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/pair-2-after.log",
+      "pair": 2,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkPrimitiveArrayOwners/1/snapshot_links": {
+          "iterations": 182505,
+          "ns/op": 871.3,
+          "B/op": 1544.0,
+          "allocs/op": 12.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1/part_hosts": {
+          "iterations": 776109,
+          "ns/op": 235.6,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/snapshot_links": {
+          "iterations": 105189,
+          "ns/op": 1677.0,
+          "B/op": 3344.0,
+          "allocs/op": 21.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/part_hosts": {
+          "iterations": 740892,
+          "ns/op": 233.4,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/snapshot_links": {
+          "iterations": 15326,
+          "ns/op": 11888.0,
+          "B/op": 27072.0,
+          "allocs/op": 139.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/part_hosts": {
+          "iterations": 749293,
+          "ns/op": 236.8,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/snapshot_links": {
+          "iterations": 4150,
+          "ns/op": 43731.0,
+          "B/op": 104512.0,
+          "allocs/op": 523.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/part_hosts": {
+          "iterations": 663682,
+          "ns/op": 276.2,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/snapshot_links": {
+          "iterations": 1874,
+          "ns/op": 94024.0,
+          "B/op": 207424.0,
+          "allocs/op": 1035.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/part_hosts": {
+          "iterations": 707775,
+          "ns/op": 238.8,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=1.02 avg60=0.75 avg300=2.43 total=29253064764\nfull avg10=0.97 avg60=0.49 avg300=1.38 total=24339464727\n",
+        "cpu": "some avg10=1.63 avg60=7.48 avg300=8.69 total=20065731360\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.06 avg60=0.03 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=1.01 avg60=0.76 avg300=2.42 total=29253072780\nfull avg10=0.80 avg60=0.48 avg300=1.37 total=24339471234\n",
+        "cpu": "some avg10=1.52 avg60=7.26 avg300=8.64 total=20065754782\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.05 avg60=0.03 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPrimitiveArrayOwners",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.817173957824707,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/pair-2-before.log",
+      "pair": 2,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkPrimitiveArrayOwners/1/snapshot_links": {
+          "iterations": 63967,
+          "ns/op": 2460.0,
+          "B/op": 4192.0,
+          "allocs/op": 34.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1/part_hosts": {
+          "iterations": 90918,
+          "ns/op": 1972.0,
+          "B/op": 2792.0,
+          "allocs/op": 26.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/snapshot_links": {
+          "iterations": 4914,
+          "ns/op": 32464.0,
+          "B/op": 65824.0,
+          "allocs/op": 421.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/part_hosts": {
+          "iterations": 5493,
+          "ns/op": 36250.0,
+          "B/op": 63632.0,
+          "allocs/op": 422.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/snapshot_links": {
+          "iterations": 57,
+          "ns/op": 3154035.0,
+          "B/op": 6901193.0,
+          "allocs/op": 35467.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/part_hosts": {
+          "iterations": 56,
+          "ns/op": 2989309.0,
+          "B/op": 6888484.0,
+          "allocs/op": 35586.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/snapshot_links": {
+          "iterations": 4,
+          "ns/op": 45024910.0,
+          "B/op": 106899576.0,
+          "allocs/op": 535051.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/part_hosts": {
+          "iterations": 4,
+          "ns/op": 44907682.0,
+          "B/op": 106852440.0,
+          "allocs/op": 535554.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/snapshot_links": {
+          "iterations": 1,
+          "ns/op": 179636055.0,
+          "B/op": 424561328.0,
+          "allocs/op": 2118668.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/part_hosts": {
+          "iterations": 1,
+          "ns/op": 178913737.0,
+          "B/op": 424468848.0,
+          "allocs/op": 2119685.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=1.01 avg60=0.76 avg300=2.42 total=29253072780\nfull avg10=0.80 avg60=0.48 avg300=1.37 total=24339471234\n",
+        "cpu": "some avg10=1.52 avg60=7.26 avg300=8.64 total=20065754782\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.05 avg60=0.03 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=1.01 avg60=0.76 avg300=2.42 total=29253088244\nfull avg10=0.80 avg60=0.48 avg300=1.37 total=24339481123\n",
+        "cpu": "some avg10=1.52 avg60=7.26 avg300=8.64 total=20065788562\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.05 avg60=0.03 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPrimitiveArrayOwners",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.8540761470794678,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/pair-3-before.log",
+      "pair": 3,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkPrimitiveArrayOwners/1/snapshot_links": {
+          "iterations": 70953,
+          "ns/op": 2397.0,
+          "B/op": 4192.0,
+          "allocs/op": 34.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1/part_hosts": {
+          "iterations": 92354,
+          "ns/op": 2009.0,
+          "B/op": 2792.0,
+          "allocs/op": 26.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/snapshot_links": {
+          "iterations": 4664,
+          "ns/op": 32639.0,
+          "B/op": 65824.0,
+          "allocs/op": 421.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/part_hosts": {
+          "iterations": 5718,
+          "ns/op": 35359.0,
+          "B/op": 63632.0,
+          "allocs/op": 422.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/snapshot_links": {
+          "iterations": 57,
+          "ns/op": 3077360.0,
+          "B/op": 6901191.0,
+          "allocs/op": 35467.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/part_hosts": {
+          "iterations": 62,
+          "ns/op": 2963995.0,
+          "B/op": 6888481.0,
+          "allocs/op": 35586.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/snapshot_links": {
+          "iterations": 4,
+          "ns/op": 45882188.0,
+          "B/op": 106899576.0,
+          "allocs/op": 535051.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/part_hosts": {
+          "iterations": 4,
+          "ns/op": 46393919.0,
+          "B/op": 106852440.0,
+          "allocs/op": 535554.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/snapshot_links": {
+          "iterations": 1,
+          "ns/op": 178549108.0,
+          "B/op": 424561664.0,
+          "allocs/op": 2118671.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/part_hosts": {
+          "iterations": 1,
+          "ns/op": 180199727.0,
+          "B/op": 424468960.0,
+          "allocs/op": 2119686.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=1.01 avg60=0.76 avg300=2.42 total=29253088244\nfull avg10=0.80 avg60=0.48 avg300=1.37 total=24339481123\n",
+        "cpu": "some avg10=1.52 avg60=7.26 avg300=8.64 total=20065788562\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.05 avg60=0.03 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.83 avg60=0.73 avg300=2.40 total=29253109216\nfull avg10=0.65 avg60=0.46 avg300=1.36 total=24339493960\n",
+        "cpu": "some avg10=1.42 avg60=7.06 avg300=8.59 total=20065820356\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.04 avg60=0.03 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPrimitiveArrayOwners",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.8423917293548584,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/pair-3-after.log",
+      "pair": 3,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkPrimitiveArrayOwners/1/snapshot_links": {
+          "iterations": 175666,
+          "ns/op": 860.4,
+          "B/op": 1544.0,
+          "allocs/op": 12.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1/part_hosts": {
+          "iterations": 718138,
+          "ns/op": 236.3,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/snapshot_links": {
+          "iterations": 111649,
+          "ns/op": 1641.0,
+          "B/op": 3344.0,
+          "allocs/op": 21.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/part_hosts": {
+          "iterations": 770408,
+          "ns/op": 232.6,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/snapshot_links": {
+          "iterations": 15579,
+          "ns/op": 12076.0,
+          "B/op": 27072.0,
+          "allocs/op": 139.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/part_hosts": {
+          "iterations": 800598,
+          "ns/op": 238.7,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/snapshot_links": {
+          "iterations": 3762,
+          "ns/op": 46999.0,
+          "B/op": 104512.0,
+          "allocs/op": 523.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/part_hosts": {
+          "iterations": 807350,
+          "ns/op": 232.1,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/snapshot_links": {
+          "iterations": 1942,
+          "ns/op": 87553.0,
+          "B/op": 207424.0,
+          "allocs/op": 1035.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/part_hosts": {
+          "iterations": 800146,
+          "ns/op": 236.0,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.83 avg60=0.73 avg300=2.40 total=29253109216\nfull avg10=0.65 avg60=0.46 avg300=1.36 total=24339493960\n",
+        "cpu": "some avg10=1.42 avg60=7.06 avg300=8.59 total=20065820356\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.04 avg60=0.03 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.86 avg60=0.74 avg300=2.39 total=29253127777\nfull avg10=0.53 avg60=0.44 avg300=1.35 total=24339509235\n",
+        "cpu": "some avg10=1.35 avg60=6.86 avg300=8.53 total=20065843697\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.03 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPrimitiveArrayOwners",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.831369161605835,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/pair-4-after.log",
+      "pair": 4,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkPrimitiveArrayOwners/1/snapshot_links": {
+          "iterations": 190972,
+          "ns/op": 866.0,
+          "B/op": 1544.0,
+          "allocs/op": 12.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1/part_hosts": {
+          "iterations": 731079,
+          "ns/op": 240.5,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/snapshot_links": {
+          "iterations": 104018,
+          "ns/op": 1646.0,
+          "B/op": 3344.0,
+          "allocs/op": 21.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/part_hosts": {
+          "iterations": 785601,
+          "ns/op": 236.7,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/snapshot_links": {
+          "iterations": 15370,
+          "ns/op": 11637.0,
+          "B/op": 27072.0,
+          "allocs/op": 139.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/part_hosts": {
+          "iterations": 674314,
+          "ns/op": 234.5,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/snapshot_links": {
+          "iterations": 3981,
+          "ns/op": 43001.0,
+          "B/op": 104512.0,
+          "allocs/op": 523.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/part_hosts": {
+          "iterations": 736126,
+          "ns/op": 238.0,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/snapshot_links": {
+          "iterations": 2280,
+          "ns/op": 88724.0,
+          "B/op": 207424.0,
+          "allocs/op": 1035.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/part_hosts": {
+          "iterations": 804046,
+          "ns/op": 239.0,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.86 avg60=0.74 avg300=2.39 total=29253127777\nfull avg10=0.53 avg60=0.44 avg300=1.35 total=24339509235\n",
+        "cpu": "some avg10=1.35 avg60=6.86 avg300=8.53 total=20065843697\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.03 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.70 avg60=0.72 avg300=2.37 total=29253146447\nfull avg10=0.43 avg60=0.43 avg300=1.34 total=24339524175\n",
+        "cpu": "some avg10=1.28 avg60=6.67 avg300=8.48 total=20065863259\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.02 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPrimitiveArrayOwners",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.8360700607299805,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/pair-4-before.log",
+      "pair": 4,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkPrimitiveArrayOwners/1/snapshot_links": {
+          "iterations": 70084,
+          "ns/op": 2447.0,
+          "B/op": 4192.0,
+          "allocs/op": 34.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1/part_hosts": {
+          "iterations": 88726,
+          "ns/op": 1982.0,
+          "B/op": 2792.0,
+          "allocs/op": 26.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/snapshot_links": {
+          "iterations": 4983,
+          "ns/op": 33182.0,
+          "B/op": 65824.0,
+          "allocs/op": 421.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/part_hosts": {
+          "iterations": 4681,
+          "ns/op": 32956.0,
+          "B/op": 63632.0,
+          "allocs/op": 422.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/snapshot_links": {
+          "iterations": 68,
+          "ns/op": 3121949.0,
+          "B/op": 6901189.0,
+          "allocs/op": 35467.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/part_hosts": {
+          "iterations": 57,
+          "ns/op": 3053431.0,
+          "B/op": 6888483.0,
+          "allocs/op": 35586.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/snapshot_links": {
+          "iterations": 4,
+          "ns/op": 47255228.0,
+          "B/op": 106899576.0,
+          "allocs/op": 535051.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/part_hosts": {
+          "iterations": 4,
+          "ns/op": 45334479.0,
+          "B/op": 106852412.0,
+          "allocs/op": 535554.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/snapshot_links": {
+          "iterations": 1,
+          "ns/op": 178108615.0,
+          "B/op": 424561216.0,
+          "allocs/op": 2118667.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/part_hosts": {
+          "iterations": 1,
+          "ns/op": 178490948.0,
+          "B/op": 424468624.0,
+          "allocs/op": 2119683.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.70 avg60=0.72 avg300=2.37 total=29253146447\nfull avg10=0.43 avg60=0.43 avg300=1.34 total=24339524175\n",
+        "cpu": "some avg10=1.28 avg60=6.67 avg300=8.48 total=20065863259\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.02 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.57 avg60=0.69 avg300=2.36 total=29253162771\nfull avg10=0.35 avg60=0.41 avg300=1.33 total=24339535111\n",
+        "cpu": "some avg10=1.23 avg60=6.48 avg300=8.43 total=20065891439\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.02 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPrimitiveArrayOwners",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.8210947513580322,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/pair-5-before.log",
+      "pair": 5,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkPrimitiveArrayOwners/1/snapshot_links": {
+          "iterations": 68504,
+          "ns/op": 2467.0,
+          "B/op": 4192.0,
+          "allocs/op": 34.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1/part_hosts": {
+          "iterations": 88617,
+          "ns/op": 1986.0,
+          "B/op": 2792.0,
+          "allocs/op": 26.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/snapshot_links": {
+          "iterations": 4098,
+          "ns/op": 36749.0,
+          "B/op": 65824.0,
+          "allocs/op": 421.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/part_hosts": {
+          "iterations": 5493,
+          "ns/op": 35449.0,
+          "B/op": 63632.0,
+          "allocs/op": 422.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/snapshot_links": {
+          "iterations": 48,
+          "ns/op": 3623219.0,
+          "B/op": 6901195.0,
+          "allocs/op": 35467.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/part_hosts": {
+          "iterations": 55,
+          "ns/op": 3078365.0,
+          "B/op": 6888486.0,
+          "allocs/op": 35586.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/snapshot_links": {
+          "iterations": 4,
+          "ns/op": 45330108.0,
+          "B/op": 106899520.0,
+          "allocs/op": 535051.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/part_hosts": {
+          "iterations": 4,
+          "ns/op": 45565850.0,
+          "B/op": 106852440.0,
+          "allocs/op": 535554.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/snapshot_links": {
+          "iterations": 1,
+          "ns/op": 183760423.0,
+          "B/op": 424561328.0,
+          "allocs/op": 2118668.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/part_hosts": {
+          "iterations": 1,
+          "ns/op": 182030014.0,
+          "B/op": 424468512.0,
+          "allocs/op": 2119682.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.57 avg60=0.69 avg300=2.36 total=29253162771\nfull avg10=0.35 avg60=0.41 avg300=1.33 total=24339535111\n",
+        "cpu": "some avg10=1.23 avg60=6.48 avg300=8.43 total=20065891439\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.02 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.47 avg60=0.67 avg300=2.34 total=29253170993\nfull avg10=0.29 avg60=0.40 avg300=1.32 total=24339540672\n",
+        "cpu": "some avg10=1.19 avg60=6.30 avg300=8.38 total=20065928095\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.01 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPrimitiveArrayOwners",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.8276612758636475,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/pair-5-after.log",
+      "pair": 5,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkPrimitiveArrayOwners/1/snapshot_links": {
+          "iterations": 178808,
+          "ns/op": 849.6,
+          "B/op": 1544.0,
+          "allocs/op": 12.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1/part_hosts": {
+          "iterations": 781701,
+          "ns/op": 234.8,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/snapshot_links": {
+          "iterations": 110415,
+          "ns/op": 1590.0,
+          "B/op": 3344.0,
+          "allocs/op": 21.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/part_hosts": {
+          "iterations": 796509,
+          "ns/op": 236.2,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/snapshot_links": {
+          "iterations": 14143,
+          "ns/op": 12804.0,
+          "B/op": 27072.0,
+          "allocs/op": 139.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/part_hosts": {
+          "iterations": 708876,
+          "ns/op": 238.5,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/snapshot_links": {
+          "iterations": 4248,
+          "ns/op": 42719.0,
+          "B/op": 104512.0,
+          "allocs/op": 523.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/part_hosts": {
+          "iterations": 809214,
+          "ns/op": 247.4,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/snapshot_links": {
+          "iterations": 1970,
+          "ns/op": 87961.0,
+          "B/op": 207424.0,
+          "allocs/op": 1035.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/part_hosts": {
+          "iterations": 731803,
+          "ns/op": 233.7,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.47 avg60=0.67 avg300=2.34 total=29253170993\nfull avg10=0.29 avg60=0.40 avg300=1.32 total=24339540672\n",
+        "cpu": "some avg10=1.19 avg60=6.30 avg300=8.38 total=20065928095\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.01 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.38 avg60=0.65 avg300=2.33 total=29253198435\nfull avg10=0.24 avg60=0.39 avg300=1.31 total=24339565070\n",
+        "cpu": "some avg10=1.15 avg60=6.13 avg300=8.33 total=20065954226\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.01 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPrimitiveArrayOwners",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.8612565994262695,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/pair-6-after.log",
+      "pair": 6,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkPrimitiveArrayOwners/1/snapshot_links": {
+          "iterations": 203905,
+          "ns/op": 880.8,
+          "B/op": 1544.0,
+          "allocs/op": 12.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1/part_hosts": {
+          "iterations": 775777,
+          "ns/op": 233.9,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/snapshot_links": {
+          "iterations": 106714,
+          "ns/op": 1676.0,
+          "B/op": 3344.0,
+          "allocs/op": 21.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/part_hosts": {
+          "iterations": 759904,
+          "ns/op": 242.3,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/snapshot_links": {
+          "iterations": 14979,
+          "ns/op": 11860.0,
+          "B/op": 27072.0,
+          "allocs/op": 139.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/part_hosts": {
+          "iterations": 782787,
+          "ns/op": 241.2,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/snapshot_links": {
+          "iterations": 4034,
+          "ns/op": 44504.0,
+          "B/op": 104512.0,
+          "allocs/op": 523.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/part_hosts": {
+          "iterations": 803299,
+          "ns/op": 236.7,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/snapshot_links": {
+          "iterations": 1902,
+          "ns/op": 85852.0,
+          "B/op": 207424.0,
+          "allocs/op": 1035.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/part_hosts": {
+          "iterations": 727329,
+          "ns/op": 252.5,
+          "B/op": 32.0,
+          "allocs/op": 2.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.38 avg60=0.65 avg300=2.33 total=29253198435\nfull avg10=0.24 avg60=0.39 avg300=1.31 total=24339565070\n",
+        "cpu": "some avg10=1.15 avg60=6.13 avg300=8.33 total=20065954226\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.01 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.49 avg60=0.66 avg300=2.32 total=29253217313\nfull avg10=0.37 avg60=0.41 avg300=1.31 total=24339576773\n",
+        "cpu": "some avg10=1.12 avg60=5.96 avg300=8.28 total=20065974532\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.01 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPrimitiveArrayOwners",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.9347646236419678,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-owners/pair-6-before.log",
+      "pair": 6,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkPrimitiveArrayOwners/1/snapshot_links": {
+          "iterations": 64033,
+          "ns/op": 2553.0,
+          "B/op": 4192.0,
+          "allocs/op": 34.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1/part_hosts": {
+          "iterations": 91875,
+          "ns/op": 1960.0,
+          "B/op": 2792.0,
+          "allocs/op": 26.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/snapshot_links": {
+          "iterations": 5318,
+          "ns/op": 33931.0,
+          "B/op": 65824.0,
+          "allocs/op": 421.0
+        },
+        "BenchmarkPrimitiveArrayOwners/10/part_hosts": {
+          "iterations": 5758,
+          "ns/op": 33963.0,
+          "B/op": 63632.0,
+          "allocs/op": 422.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/snapshot_links": {
+          "iterations": 57,
+          "ns/op": 3043740.0,
+          "B/op": 6901184.0,
+          "allocs/op": 35467.0
+        },
+        "BenchmarkPrimitiveArrayOwners/128/part_hosts": {
+          "iterations": 72,
+          "ns/op": 3014955.0,
+          "B/op": 6888481.0,
+          "allocs/op": 35586.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/snapshot_links": {
+          "iterations": 4,
+          "ns/op": 46483180.0,
+          "B/op": 106899548.0,
+          "allocs/op": 535051.0
+        },
+        "BenchmarkPrimitiveArrayOwners/512/part_hosts": {
+          "iterations": 4,
+          "ns/op": 45833020.0,
+          "B/op": 106852468.0,
+          "allocs/op": 535554.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/snapshot_links": {
+          "iterations": 1,
+          "ns/op": 191881879.0,
+          "B/op": 424561232.0,
+          "allocs/op": 2118668.0
+        },
+        "BenchmarkPrimitiveArrayOwners/1024/part_hosts": {
+          "iterations": 1,
+          "ns/op": 199274569.0,
+          "B/op": 424468624.0,
+          "allocs/op": 2119683.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.49 avg60=0.66 avg300=2.32 total=29253217610\nfull avg10=0.37 avg60=0.41 avg300=1.31 total=24339577070\n",
+        "cpu": "some avg10=1.12 avg60=5.96 avg300=8.28 total=20065974559\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.01 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.40 avg60=0.64 avg300=2.30 total=29253235390\nfull avg10=0.30 avg60=0.39 avg300=1.30 total=24339589082\n",
+        "cpu": "some avg10=1.10 avg60=5.80 avg300=8.23 total=20066020562\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      }
+    }
+  ]
+}

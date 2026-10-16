@@ -1,0 +1,88 @@
+{
+  "context": {
+    "timestamp": "2026-10-16T00:35:39.198562+00:00",
+    "go": "go version go1.26.6 linux/amd64",
+    "platform": "Linux-7.0.0-34-generic-x86_64-with-glibc2.39",
+    "gomaxprocs": 8,
+    "cpu": "Intel(R) Core(TM) i5-9300H CPU @ 2.40GHz",
+    "config": {
+      "name": "collection-key-index",
+      "worktree": "/tmp/dagger-pr-collection-key-index",
+      "base": "717589c9ccacbba7d3cf902647aa5c9ca68085e8",
+      "benchmark": "BenchmarkArtifactDimensionKeys",
+      "package": "./core",
+      "production_files": [
+        "core/artifact_collection.go"
+      ],
+      "head": "3fb5928e32f67c37408ca8a790968cc30d5633e8",
+      "branch": "perf/upstream-collection-key-index",
+      "benchtime": "150ms"
+    },
+    "binary_sha256": {
+      "before": "a6661709ebfa41dc5eaee2229ff064c149963ed87d496048ab04a6f54e2543b2",
+      "after": "af2c3baad161388197c97f3eaff27e22c2a28da524d664fb8bced73c9e1dfc62"
+    }
+  },
+  "cases": {
+    "BenchmarkArtifactDimensionKeys/collections=1": {
+      "before": {
+        "ns/op": 4604.0,
+        "B/op": 4056.0,
+        "allocs/op": 71.0
+      },
+      "after": {
+        "ns/op": 4397.5,
+        "B/op": 4240.0,
+        "allocs/op": 64.0
+      },
+      "median_paired_saved_ns": 258.0,
+      "pairs_faster": 5,
+      "pairs": 6
+    },
+    "BenchmarkArtifactDimensionKeys/collections=10": {
+      "before": {
+        "ns/op": 174891.5,
+        "B/op": 108888.0,
+        "allocs/op": 3140.0
+      },
+      "after": {
+        "ns/op": 36736.5,
+        "B/op": 36880.0,
+        "allocs/op": 535.0
+      },
+      "median_paired_saved_ns": 138344.5,
+      "pairs_faster": 6,
+      "pairs": 6
+    },
+    "BenchmarkArtifactDimensionKeys/collections=100": {
+      "before": {
+        "ns/op": 15067762.0,
+        "B/op": 8285482.5,
+        "allocs/op": 283310.0
+      },
+      "after": {
+        "ns/op": 361884.0,
+        "B/op": 365217.0,
+        "allocs/op": 5221.0
+      },
+      "median_paired_saved_ns": 14674663.5,
+      "pairs_faster": 6,
+      "pairs": 6
+    },
+    "BenchmarkArtifactDimensionKeys/collections=1000": {
+      "before": {
+        "ns/op": 1498789337.0,
+        "B/op": 802850888.0,
+        "allocs/op": 28033013.0
+      },
+      "after": {
+        "ns/op": 3749078.0,
+        "B/op": 3686968.0,
+        "allocs/op": 52032.0
+      },
+      "median_paired_saved_ns": 1495100572.0,
+      "pairs_faster": 6,
+      "pairs": 6
+    }
+  }
+}

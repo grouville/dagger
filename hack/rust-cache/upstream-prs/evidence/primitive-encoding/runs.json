@@ -1,0 +1,712 @@
+{
+  "context": {
+    "timestamp": "2026-10-16T00:34:07.637333+00:00",
+    "go": "go version go1.26.6 linux/amd64",
+    "platform": "Linux-7.0.0-34-generic-x86_64-with-glibc2.39",
+    "gomaxprocs": 8,
+    "cpu": "Intel(R) Core(TM) i5-9300H CPU @ 2.40GHz",
+    "config": {
+      "name": "primitive-encoding",
+      "worktree": "/tmp/dagger-pr-primitive-encoding",
+      "base": "717589c9ccacbba7d3cf902647aa5c9ca68085e8",
+      "benchmark": "BenchmarkPersistedPrimitiveArray",
+      "package": "./dagql",
+      "production_files": [
+        "dagql/cache_persistence_self.go"
+      ],
+      "head": "0cc85ff756aa92cf61145f77b7b132a290376361",
+      "branch": "perf/upstream-primitive-encoding",
+      "benchtime": "150ms"
+    },
+    "binary_sha256": {
+      "before": "56cf7e0e3fb1ea376857379180248a118870fc72ebc7e67f43855eea68e27fbb",
+      "after": "839f47689310d09b45772eb26d682cc09b8be27349025901529379f34b28f36e"
+    }
+  },
+  "runs": [
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPersistedPrimitiveArray",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.0053479671478271,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/pair-1-before.log",
+      "pair": 1,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkPersistedPrimitiveArray/1": {
+          "iterations": 62890,
+          "ns/op": 2831.0,
+          "B/op": 3210.0,
+          "allocs/op": 33.0
+        },
+        "BenchmarkPersistedPrimitiveArray/10": {
+          "iterations": 4394,
+          "ns/op": 51021.0,
+          "B/op": 66621.0,
+          "allocs/op": 456.0
+        },
+        "BenchmarkPersistedPrimitiveArray/128": {
+          "iterations": 60,
+          "ns/op": 3280345.0,
+          "B/op": 6926772.0,
+          "allocs/op": 36001.0
+        },
+        "BenchmarkPersistedPrimitiveArray/512": {
+          "iterations": 4,
+          "ns/op": 46122488.0,
+          "B/op": 107050904.0,
+          "allocs/op": 537465.0
+        },
+        "BenchmarkPersistedPrimitiveArray/1024": {
+          "iterations": 1,
+          "ns/op": 180315802.0,
+          "B/op": 424977920.0,
+          "allocs/op": 2124032.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=1.60 avg60=0.85 avg300=2.33 total=29253375377\nfull avg10=1.34 avg60=0.58 avg300=1.33 total=24339723060\n",
+        "cpu": "some avg10=1.08 avg60=5.64 avg300=8.18 total=20066034491\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=1.60 avg60=0.85 avg300=2.33 total=29253386650\nfull avg10=1.34 avg60=0.58 avg300=1.33 total=24339730995\n",
+        "cpu": "some avg10=1.08 avg60=5.64 avg300=8.18 total=20066066310\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPersistedPrimitiveArray",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 0.9153070449829102,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/pair-1-after.log",
+      "pair": 1,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkPersistedPrimitiveArray/1": {
+          "iterations": 170384,
+          "ns/op": 951.5,
+          "B/op": 512.0,
+          "allocs/op": 11.0
+        },
+        "BenchmarkPersistedPrimitiveArray/10": {
+          "iterations": 28671,
+          "ns/op": 5771.0,
+          "B/op": 3186.0,
+          "allocs/op": 47.0
+        },
+        "BenchmarkPersistedPrimitiveArray/128": {
+          "iterations": 3145,
+          "ns/op": 65370.0,
+          "B/op": 35721.0,
+          "allocs/op": 519.0
+        },
+        "BenchmarkPersistedPrimitiveArray/512": {
+          "iterations": 646,
+          "ns/op": 256079.0,
+          "B/op": 139595.0,
+          "allocs/op": 2055.0
+        },
+        "BenchmarkPersistedPrimitiveArray/1024": {
+          "iterations": 344,
+          "ns/op": 509472.0,
+          "B/op": 278934.0,
+          "allocs/op": 4103.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=1.60 avg60=0.85 avg300=2.33 total=29253386650\nfull avg10=1.34 avg60=0.58 avg300=1.33 total=24339730995\n",
+        "cpu": "some avg10=1.08 avg60=5.64 avg300=8.18 total=20066066310\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=1.49 avg60=0.85 avg300=2.32 total=29253395191\nfull avg10=1.09 avg60=0.56 avg300=1.32 total=24339738945\n",
+        "cpu": "some avg10=1.06 avg60=5.49 avg300=8.13 total=20066072281\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPersistedPrimitiveArray",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 0.9176840782165527,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/pair-2-after.log",
+      "pair": 2,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkPersistedPrimitiveArray/1": {
+          "iterations": 156752,
+          "ns/op": 992.5,
+          "B/op": 512.0,
+          "allocs/op": 11.0
+        },
+        "BenchmarkPersistedPrimitiveArray/10": {
+          "iterations": 32596,
+          "ns/op": 5535.0,
+          "B/op": 3186.0,
+          "allocs/op": 47.0
+        },
+        "BenchmarkPersistedPrimitiveArray/128": {
+          "iterations": 3030,
+          "ns/op": 68130.0,
+          "B/op": 35722.0,
+          "allocs/op": 519.0
+        },
+        "BenchmarkPersistedPrimitiveArray/512": {
+          "iterations": 547,
+          "ns/op": 282204.0,
+          "B/op": 139606.0,
+          "allocs/op": 2055.0
+        },
+        "BenchmarkPersistedPrimitiveArray/1024": {
+          "iterations": 337,
+          "ns/op": 536389.0,
+          "B/op": 278954.0,
+          "allocs/op": 4104.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=1.49 avg60=0.85 avg300=2.32 total=29253395191\nfull avg10=1.09 avg60=0.56 avg300=1.32 total=24339738945\n",
+        "cpu": "some avg10=1.06 avg60=5.49 avg300=8.13 total=20066072281\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=1.49 avg60=0.85 avg300=2.32 total=29253405245\nfull avg10=1.09 avg60=0.56 avg300=1.32 total=24339746769\n",
+        "cpu": "some avg10=1.06 avg60=5.49 avg300=8.13 total=20066077794\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPersistedPrimitiveArray",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 0.9686417579650879,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/pair-2-before.log",
+      "pair": 2,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkPersistedPrimitiveArray/1": {
+          "iterations": 63494,
+          "ns/op": 2787.0,
+          "B/op": 3210.0,
+          "allocs/op": 33.0
+        },
+        "BenchmarkPersistedPrimitiveArray/10": {
+          "iterations": 4188,
+          "ns/op": 40886.0,
+          "B/op": 66622.0,
+          "allocs/op": 456.0
+        },
+        "BenchmarkPersistedPrimitiveArray/128": {
+          "iterations": 66,
+          "ns/op": 3094913.0,
+          "B/op": 6926773.0,
+          "allocs/op": 36000.0
+        },
+        "BenchmarkPersistedPrimitiveArray/512": {
+          "iterations": 4,
+          "ns/op": 47099484.0,
+          "B/op": 107053092.0,
+          "allocs/op": 537489.0
+        },
+        "BenchmarkPersistedPrimitiveArray/1024": {
+          "iterations": 1,
+          "ns/op": 186799548.0,
+          "B/op": 424978664.0,
+          "allocs/op": 2124024.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=1.49 avg60=0.85 avg300=2.32 total=29253405245\nfull avg10=1.09 avg60=0.56 avg300=1.32 total=24339746769\n",
+        "cpu": "some avg10=1.06 avg60=5.49 avg300=8.13 total=20066077794\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=1.22 avg60=0.82 avg300=2.31 total=29253413820\nfull avg10=0.89 avg60=0.54 avg300=1.31 total=24339752473\n",
+        "cpu": "some avg10=0.87 avg60=5.31 avg300=8.07 total=20066101154\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPersistedPrimitiveArray",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 0.9375982284545898,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/pair-3-before.log",
+      "pair": 3,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkPersistedPrimitiveArray/1": {
+          "iterations": 62526,
+          "ns/op": 2665.0,
+          "B/op": 3210.0,
+          "allocs/op": 33.0
+        },
+        "BenchmarkPersistedPrimitiveArray/10": {
+          "iterations": 4197,
+          "ns/op": 42069.0,
+          "B/op": 66624.0,
+          "allocs/op": 456.0
+        },
+        "BenchmarkPersistedPrimitiveArray/128": {
+          "iterations": 60,
+          "ns/op": 3093691.0,
+          "B/op": 6926813.0,
+          "allocs/op": 36001.0
+        },
+        "BenchmarkPersistedPrimitiveArray/512": {
+          "iterations": 4,
+          "ns/op": 46714176.0,
+          "B/op": 107051056.0,
+          "allocs/op": 537469.0
+        },
+        "BenchmarkPersistedPrimitiveArray/1024": {
+          "iterations": 1,
+          "ns/op": 179611859.0,
+          "B/op": 424983304.0,
+          "allocs/op": 2124113.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=1.22 avg60=0.82 avg300=2.31 total=29253413820\nfull avg10=0.89 avg60=0.54 avg300=1.31 total=24339752473\n",
+        "cpu": "some avg10=0.87 avg60=5.31 avg300=8.07 total=20066101154\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=1.22 avg60=0.82 avg300=2.31 total=29253421448\nfull avg10=0.89 avg60=0.54 avg300=1.31 total=24339756867\n",
+        "cpu": "some avg10=0.87 avg60=5.31 avg300=8.07 total=20066117786\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPersistedPrimitiveArray",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 0.9482221603393555,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/pair-3-after.log",
+      "pair": 3,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkPersistedPrimitiveArray/1": {
+          "iterations": 187012,
+          "ns/op": 962.4,
+          "B/op": 512.0,
+          "allocs/op": 11.0
+        },
+        "BenchmarkPersistedPrimitiveArray/10": {
+          "iterations": 34123,
+          "ns/op": 5501.0,
+          "B/op": 3186.0,
+          "allocs/op": 47.0
+        },
+        "BenchmarkPersistedPrimitiveArray/128": {
+          "iterations": 2910,
+          "ns/op": 63961.0,
+          "B/op": 35722.0,
+          "allocs/op": 519.0
+        },
+        "BenchmarkPersistedPrimitiveArray/512": {
+          "iterations": 661,
+          "ns/op": 262269.0,
+          "B/op": 139598.0,
+          "allocs/op": 2055.0
+        },
+        "BenchmarkPersistedPrimitiveArray/1024": {
+          "iterations": 351,
+          "ns/op": 511245.0,
+          "B/op": 278939.0,
+          "allocs/op": 4103.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=1.22 avg60=0.82 avg300=2.31 total=29253421448\nfull avg10=0.89 avg60=0.54 avg300=1.31 total=24339756867\n",
+        "cpu": "some avg10=0.87 avg60=5.31 avg300=8.07 total=20066117786\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.02 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=1.00 avg60=0.80 avg300=2.29 total=29253433689\nfull avg10=0.73 avg60=0.52 avg300=1.30 total=24339767983\n",
+        "cpu": "some avg10=0.89 avg60=5.17 avg300=8.03 total=20066122798\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.01 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPersistedPrimitiveArray",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 0.912602424621582,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/pair-4-after.log",
+      "pair": 4,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkPersistedPrimitiveArray/1": {
+          "iterations": 169142,
+          "ns/op": 978.8,
+          "B/op": 512.0,
+          "allocs/op": 11.0
+        },
+        "BenchmarkPersistedPrimitiveArray/10": {
+          "iterations": 32934,
+          "ns/op": 5587.0,
+          "B/op": 3186.0,
+          "allocs/op": 47.0
+        },
+        "BenchmarkPersistedPrimitiveArray/128": {
+          "iterations": 2853,
+          "ns/op": 68295.0,
+          "B/op": 35722.0,
+          "allocs/op": 519.0
+        },
+        "BenchmarkPersistedPrimitiveArray/512": {
+          "iterations": 535,
+          "ns/op": 284057.0,
+          "B/op": 139607.0,
+          "allocs/op": 2055.0
+        },
+        "BenchmarkPersistedPrimitiveArray/1024": {
+          "iterations": 325,
+          "ns/op": 538841.0,
+          "B/op": 278949.0,
+          "allocs/op": 4103.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=1.00 avg60=0.80 avg300=2.29 total=29253433689\nfull avg10=0.73 avg60=0.52 avg300=1.30 total=24339767983\n",
+        "cpu": "some avg10=0.89 avg60=5.17 avg300=8.03 total=20066122798\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.01 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=1.00 avg60=0.80 avg300=2.29 total=29253442001\nfull avg10=0.73 avg60=0.52 avg300=1.30 total=24339774304\n",
+        "cpu": "some avg10=0.89 avg60=5.17 avg300=8.03 total=20066130939\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.01 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPersistedPrimitiveArray",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 0.9362189769744873,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/pair-4-before.log",
+      "pair": 4,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkPersistedPrimitiveArray/1": {
+          "iterations": 64762,
+          "ns/op": 2633.0,
+          "B/op": 3210.0,
+          "allocs/op": 33.0
+        },
+        "BenchmarkPersistedPrimitiveArray/10": {
+          "iterations": 4743,
+          "ns/op": 39461.0,
+          "B/op": 66625.0,
+          "allocs/op": 456.0
+        },
+        "BenchmarkPersistedPrimitiveArray/128": {
+          "iterations": 64,
+          "ns/op": 3093919.0,
+          "B/op": 6926883.0,
+          "allocs/op": 36002.0
+        },
+        "BenchmarkPersistedPrimitiveArray/512": {
+          "iterations": 3,
+          "ns/op": 52167718.0,
+          "B/op": 107046392.0,
+          "allocs/op": 537423.0
+        },
+        "BenchmarkPersistedPrimitiveArray/1024": {
+          "iterations": 1,
+          "ns/op": 181809720.0,
+          "B/op": 424979296.0,
+          "allocs/op": 2124063.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=1.00 avg60=0.80 avg300=2.29 total=29253442001\nfull avg10=0.73 avg60=0.52 avg300=1.30 total=24339774304\n",
+        "cpu": "some avg10=0.89 avg60=5.17 avg300=8.03 total=20066130939\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.01 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=1.00 avg60=0.80 avg300=2.28 total=29253447490\nfull avg10=0.60 avg60=0.50 avg300=1.29 total=24339777351\n",
+        "cpu": "some avg10=0.91 avg60=5.03 avg300=7.98 total=20066153940\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.01 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPersistedPrimitiveArray",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 0.929530143737793,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/pair-5-before.log",
+      "pair": 5,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkPersistedPrimitiveArray/1": {
+          "iterations": 59528,
+          "ns/op": 2693.0,
+          "B/op": 3210.0,
+          "allocs/op": 33.0
+        },
+        "BenchmarkPersistedPrimitiveArray/10": {
+          "iterations": 4414,
+          "ns/op": 41775.0,
+          "B/op": 66623.0,
+          "allocs/op": 456.0
+        },
+        "BenchmarkPersistedPrimitiveArray/128": {
+          "iterations": 55,
+          "ns/op": 3167694.0,
+          "B/op": 6926700.0,
+          "allocs/op": 36001.0
+        },
+        "BenchmarkPersistedPrimitiveArray/512": {
+          "iterations": 4,
+          "ns/op": 46612544.0,
+          "B/op": 107049240.0,
+          "allocs/op": 537455.0
+        },
+        "BenchmarkPersistedPrimitiveArray/1024": {
+          "iterations": 1,
+          "ns/op": 181118505.0,
+          "B/op": 424974096.0,
+          "allocs/op": 2124058.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=1.00 avg60=0.80 avg300=2.28 total=29253447490\nfull avg10=0.60 avg60=0.50 avg300=1.29 total=24339777351\n",
+        "cpu": "some avg10=0.91 avg60=5.03 avg300=7.98 total=20066153940\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.01 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=1.00 avg60=0.80 avg300=2.28 total=29253450376\nfull avg10=0.60 avg60=0.50 avg300=1.29 total=24339780084\n",
+        "cpu": "some avg10=0.91 avg60=5.03 avg300=7.98 total=20066167475\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.01 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPersistedPrimitiveArray",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 0.8954277038574219,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/pair-5-after.log",
+      "pair": 5,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkPersistedPrimitiveArray/1": {
+          "iterations": 153687,
+          "ns/op": 977.0,
+          "B/op": 512.0,
+          "allocs/op": 11.0
+        },
+        "BenchmarkPersistedPrimitiveArray/10": {
+          "iterations": 31639,
+          "ns/op": 5938.0,
+          "B/op": 3186.0,
+          "allocs/op": 47.0
+        },
+        "BenchmarkPersistedPrimitiveArray/128": {
+          "iterations": 2505,
+          "ns/op": 67686.0,
+          "B/op": 35722.0,
+          "allocs/op": 519.0
+        },
+        "BenchmarkPersistedPrimitiveArray/512": {
+          "iterations": 600,
+          "ns/op": 279423.0,
+          "B/op": 139599.0,
+          "allocs/op": 2055.0
+        },
+        "BenchmarkPersistedPrimitiveArray/1024": {
+          "iterations": 337,
+          "ns/op": 525972.0,
+          "B/op": 278938.0,
+          "allocs/op": 4103.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=1.00 avg60=0.80 avg300=2.28 total=29253450376\nfull avg10=0.60 avg60=0.50 avg300=1.29 total=24339780084\n",
+        "cpu": "some avg10=0.91 avg60=5.03 avg300=7.98 total=20066167475\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.01 avg300=0.05 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.81 avg60=0.78 avg300=2.27 total=29253458819\nfull avg10=0.49 avg60=0.49 avg300=1.29 total=24339786783\n",
+        "cpu": "some avg10=0.93 avg60=4.90 avg300=7.93 total=20066173082\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.01 avg300=0.04 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPersistedPrimitiveArray",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 0.9649608135223389,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/pair-6-after.log",
+      "pair": 6,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkPersistedPrimitiveArray/1": {
+          "iterations": 160360,
+          "ns/op": 1021.0,
+          "B/op": 512.0,
+          "allocs/op": 11.0
+        },
+        "BenchmarkPersistedPrimitiveArray/10": {
+          "iterations": 26433,
+          "ns/op": 6381.0,
+          "B/op": 3186.0,
+          "allocs/op": 47.0
+        },
+        "BenchmarkPersistedPrimitiveArray/128": {
+          "iterations": 3086,
+          "ns/op": 67471.0,
+          "B/op": 35720.0,
+          "allocs/op": 519.0
+        },
+        "BenchmarkPersistedPrimitiveArray/512": {
+          "iterations": 657,
+          "ns/op": 285700.0,
+          "B/op": 139591.0,
+          "allocs/op": 2055.0
+        },
+        "BenchmarkPersistedPrimitiveArray/1024": {
+          "iterations": 330,
+          "ns/op": 578635.0,
+          "B/op": 278936.0,
+          "allocs/op": 4103.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.81 avg60=0.78 avg300=2.27 total=29253458819\nfull avg10=0.49 avg60=0.49 avg300=1.29 total=24339786783\n",
+        "cpu": "some avg10=0.93 avg60=4.90 avg300=7.93 total=20066173082\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.01 avg300=0.04 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.81 avg60=0.78 avg300=2.27 total=29253475196\nfull avg10=0.49 avg60=0.49 avg300=1.29 total=24339799649\n",
+        "cpu": "some avg10=0.93 avg60=4.90 avg300=7.93 total=20066182653\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.01 avg300=0.04 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkPersistedPrimitiveArray",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.0131120681762695,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/primitive-encoding/pair-6-before.log",
+      "pair": 6,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkPersistedPrimitiveArray/1": {
+          "iterations": 58419,
+          "ns/op": 2926.0,
+          "B/op": 3210.0,
+          "allocs/op": 33.0
+        },
+        "BenchmarkPersistedPrimitiveArray/10": {
+          "iterations": 4856,
+          "ns/op": 43470.0,
+          "B/op": 66622.0,
+          "allocs/op": 456.0
+        },
+        "BenchmarkPersistedPrimitiveArray/128": {
+          "iterations": 58,
+          "ns/op": 3500728.0,
+          "B/op": 6926641.0,
+          "allocs/op": 36000.0
+        },
+        "BenchmarkPersistedPrimitiveArray/512": {
+          "iterations": 4,
+          "ns/op": 47040098.0,
+          "B/op": 107049272.0,
+          "allocs/op": 537456.0
+        },
+        "BenchmarkPersistedPrimitiveArray/1024": {
+          "iterations": 1,
+          "ns/op": 195256644.0,
+          "B/op": 424975928.0,
+          "allocs/op": 2124042.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.81 avg60=0.78 avg300=2.27 total=29253475196\nfull avg10=0.49 avg60=0.49 avg300=1.29 total=24339799649\n",
+        "cpu": "some avg10=0.93 avg60=4.90 avg300=7.93 total=20066182653\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.01 avg300=0.04 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.02 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.85 avg60=0.78 avg300=2.26 total=29253486963\nfull avg10=0.58 avg60=0.50 avg300=1.28 total=24339807644\n",
+        "cpu": "some avg10=1.12 avg60=4.80 avg300=7.89 total=20066224570\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.01 avg300=0.04 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.01 total=674660933\n"
+      }
+    }
+  ]
+}

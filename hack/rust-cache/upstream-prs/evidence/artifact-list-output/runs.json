@@ -1,0 +1,1108 @@
+{
+  "context": {
+    "timestamp": "2026-10-16T00:35:18.639921+00:00",
+    "go": "go version go1.26.6 linux/amd64",
+    "platform": "Linux-7.0.0-34-generic-x86_64-with-glibc2.39",
+    "gomaxprocs": 8,
+    "cpu": "Intel(R) Core(TM) i5-9300H CPU @ 2.40GHz",
+    "config": {
+      "name": "artifact-list-output",
+      "worktree": "/tmp/dagger-pr-artifact-list-output",
+      "base": "717589c9ccacbba7d3cf902647aa5c9ca68085e8",
+      "benchmark": "BenchmarkArtifactListTelemetry",
+      "package": "./internal/cmd/dagger",
+      "production_files": [
+        "internal/cmd/dagger/list_format.go"
+      ],
+      "head": "d1779ca777ff36bc609e6e358c4b12b292899963",
+      "branch": "fix/upstream-artifact-list-output",
+      "benchtime": "150ms"
+    },
+    "binary_sha256": {
+      "before": "de7af9367d99e8ff2fca70f05bd97e2f7da7ca1f1d35355622786f084060a015",
+      "after": "467c46eee8dc29c06a3cf2969f06a90194186da02e586b4f4a1b34d40622a6d8"
+    }
+  },
+  "runs": [
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkArtifactListTelemetry",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.5503883361816406,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/pair-1-before.log",
+      "pair": 1,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkArtifactListTelemetry/table/rows=1": {
+          "iterations": 11623,
+          "ns/op": 15208.0,
+          "records/op": 13.0,
+          "B/op": 27810.0,
+          "allocs/op": 82.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=10": {
+          "iterations": 1491,
+          "ns/op": 106988.0,
+          "records/op": 67.0,
+          "B/op": 244952.0,
+          "allocs/op": 505.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=1026": {
+          "iterations": 15,
+          "ns/op": 10002618.0,
+          "records/op": 6163.0,
+          "B/op": 24752656.0,
+          "allocs/op": 47294.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1": {
+          "iterations": 261391,
+          "ns/op": 582.4,
+          "records/op": 1.0,
+          "B/op": 544.0,
+          "allocs/op": 4.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=10": {
+          "iterations": 33934,
+          "ns/op": 5528.0,
+          "records/op": 10.0,
+          "B/op": 5299.0,
+          "allocs/op": 31.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1026": {
+          "iterations": 332,
+          "ns/op": 535981.0,
+          "records/op": 1026.0,
+          "B/op": 542028.0,
+          "allocs/op": 3079.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1": {
+          "iterations": 101408,
+          "ns/op": 1724.0,
+          "records/op": 1.0,
+          "B/op": 1064.0,
+          "allocs/op": 17.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=10": {
+          "iterations": 10000,
+          "ns/op": 15957.0,
+          "records/op": 10.0,
+          "B/op": 10391.0,
+          "allocs/op": 153.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1026": {
+          "iterations": 100,
+          "ns/op": 1558717.0,
+          "records/op": 1026.0,
+          "B/op": 1067648.0,
+          "allocs/op": 15394.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.33 avg60=0.44 avg300=1.88 total=29253991211\nfull avg10=0.18 avg60=0.30 avg300=1.08 total=24340232364\n",
+        "cpu": "some avg10=1.40 avg60=2.62 avg300=6.69 total=20067208611\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134004\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674668568\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.27 avg60=0.42 avg300=1.87 total=29254010352\nfull avg10=0.15 avg60=0.29 avg300=1.07 total=24340246350\n",
+        "cpu": "some avg10=1.32 avg60=2.57 avg300=6.65 total=20067232169\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134004\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674668568\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkArtifactListTelemetry",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.6589336395263672,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/pair-1-after.log",
+      "pair": 1,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkArtifactListTelemetry/table/rows=1": {
+          "iterations": 26048,
+          "ns/op": 6704.0,
+          "records/op": 1.0,
+          "B/op": 13048.0,
+          "allocs/op": 49.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=10": {
+          "iterations": 10000,
+          "ns/op": 20549.0,
+          "records/op": 1.0,
+          "B/op": 23353.0,
+          "allocs/op": 184.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=1026": {
+          "iterations": 126,
+          "ns/op": 1425484.0,
+          "records/op": 8.0,
+          "B/op": 1187369.0,
+          "allocs/op": 14447.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1": {
+          "iterations": 105319,
+          "ns/op": 1618.0,
+          "records/op": 1.0,
+          "B/op": 4706.0,
+          "allocs/op": 6.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=10": {
+          "iterations": 57219,
+          "ns/op": 2928.0,
+          "records/op": 1.0,
+          "B/op": 5363.0,
+          "allocs/op": 15.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1026": {
+          "iterations": 1255,
+          "ns/op": 131146.0,
+          "records/op": 15.0,
+          "B/op": 84821.0,
+          "allocs/op": 1059.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1": {
+          "iterations": 56864,
+          "ns/op": 2916.0,
+          "records/op": 1.0,
+          "B/op": 5227.0,
+          "allocs/op": 19.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=10": {
+          "iterations": 13246,
+          "ns/op": 13635.0,
+          "records/op": 1.0,
+          "B/op": 10519.0,
+          "allocs/op": 137.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1026": {
+          "iterations": 157,
+          "ns/op": 1217320.0,
+          "records/op": 16.0,
+          "B/op": 614972.0,
+          "allocs/op": 13375.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.27 avg60=0.42 avg300=1.87 total=29254010352\nfull avg10=0.15 avg60=0.29 avg300=1.07 total=24340246350\n",
+        "cpu": "some avg10=1.32 avg60=2.57 avg300=6.65 total=20067232169\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134004\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674668568\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.22 avg60=0.41 avg300=1.85 total=29254019436\nfull avg10=0.12 avg60=0.28 avg300=1.06 total=24340252332\n",
+        "cpu": "some avg10=1.26 avg60=2.52 avg300=6.61 total=20067255419\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134004\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674668568\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkArtifactListTelemetry",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.654026985168457,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/pair-2-after.log",
+      "pair": 2,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkArtifactListTelemetry/table/rows=1": {
+          "iterations": 24241,
+          "ns/op": 7024.0,
+          "records/op": 1.0,
+          "B/op": 13048.0,
+          "allocs/op": 49.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=10": {
+          "iterations": 10000,
+          "ns/op": 21167.0,
+          "records/op": 1.0,
+          "B/op": 23353.0,
+          "allocs/op": 184.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=1026": {
+          "iterations": 122,
+          "ns/op": 1446205.0,
+          "records/op": 8.0,
+          "B/op": 1187380.0,
+          "allocs/op": 14447.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1": {
+          "iterations": 105736,
+          "ns/op": 1638.0,
+          "records/op": 1.0,
+          "B/op": 4706.0,
+          "allocs/op": 6.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=10": {
+          "iterations": 51009,
+          "ns/op": 3497.0,
+          "records/op": 1.0,
+          "B/op": 5363.0,
+          "allocs/op": 15.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1026": {
+          "iterations": 1002,
+          "ns/op": 159674.0,
+          "records/op": 15.0,
+          "B/op": 84817.0,
+          "allocs/op": 1059.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1": {
+          "iterations": 46951,
+          "ns/op": 3489.0,
+          "records/op": 1.0,
+          "B/op": 5227.0,
+          "allocs/op": 19.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=10": {
+          "iterations": 12372,
+          "ns/op": 14400.0,
+          "records/op": 1.0,
+          "B/op": 10518.0,
+          "allocs/op": 137.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1026": {
+          "iterations": 158,
+          "ns/op": 1136891.0,
+          "records/op": 16.0,
+          "B/op": 614966.0,
+          "allocs/op": 13375.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.22 avg60=0.41 avg300=1.85 total=29254019436\nfull avg10=0.12 avg60=0.28 avg300=1.06 total=24340252332\n",
+        "cpu": "some avg10=1.26 avg60=2.52 avg300=6.61 total=20067255419\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134004\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674668568\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.18 avg60=0.40 avg300=1.84 total=29254036701\nfull avg10=0.10 avg60=0.27 avg300=1.05 total=24340263790\n",
+        "cpu": "some avg10=1.22 avg60=2.47 avg300=6.57 total=20067293747\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134035\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674668598\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkArtifactListTelemetry",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.5702059268951416,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/pair-2-before.log",
+      "pair": 2,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkArtifactListTelemetry/table/rows=1": {
+          "iterations": 10000,
+          "ns/op": 15175.0,
+          "records/op": 13.0,
+          "B/op": 27811.0,
+          "allocs/op": 82.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=10": {
+          "iterations": 1670,
+          "ns/op": 105226.0,
+          "records/op": 67.0,
+          "B/op": 244948.0,
+          "allocs/op": 505.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=1026": {
+          "iterations": 15,
+          "ns/op": 10193114.0,
+          "records/op": 6163.0,
+          "B/op": 24752507.0,
+          "allocs/op": 47293.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1": {
+          "iterations": 302175,
+          "ns/op": 576.3,
+          "records/op": 1.0,
+          "B/op": 544.0,
+          "allocs/op": 4.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=10": {
+          "iterations": 33303,
+          "ns/op": 5338.0,
+          "records/op": 10.0,
+          "B/op": 5299.0,
+          "allocs/op": 31.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1026": {
+          "iterations": 345,
+          "ns/op": 529836.0,
+          "records/op": 1026.0,
+          "B/op": 542060.0,
+          "allocs/op": 3079.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1": {
+          "iterations": 92540,
+          "ns/op": 1695.0,
+          "records/op": 1.0,
+          "B/op": 1064.0,
+          "allocs/op": 17.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=10": {
+          "iterations": 10000,
+          "ns/op": 17410.0,
+          "records/op": 10.0,
+          "B/op": 10391.0,
+          "allocs/op": 153.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1026": {
+          "iterations": 87,
+          "ns/op": 1916246.0,
+          "records/op": 1026.0,
+          "B/op": 1067613.0,
+          "allocs/op": 15394.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.18 avg60=0.40 avg300=1.84 total=29254036701\nfull avg10=0.10 avg60=0.27 avg300=1.05 total=24340263790\n",
+        "cpu": "some avg10=1.22 avg60=2.47 avg300=6.57 total=20067293747\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134035\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674668598\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.15 avg60=0.38 avg300=1.83 total=29254044918\nfull avg10=0.08 avg60=0.26 avg300=1.05 total=24340269908\n",
+        "cpu": "some avg10=1.18 avg60=2.42 avg300=6.53 total=20067314758\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134035\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674668598\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkArtifactListTelemetry",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.6039597988128662,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/pair-3-before.log",
+      "pair": 3,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkArtifactListTelemetry/table/rows=1": {
+          "iterations": 11678,
+          "ns/op": 15706.0,
+          "records/op": 13.0,
+          "B/op": 27811.0,
+          "allocs/op": 82.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=10": {
+          "iterations": 1478,
+          "ns/op": 105590.0,
+          "records/op": 67.0,
+          "B/op": 244950.0,
+          "allocs/op": 505.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=1026": {
+          "iterations": 15,
+          "ns/op": 10478060.0,
+          "records/op": 6163.0,
+          "B/op": 24753321.0,
+          "allocs/op": 47296.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1": {
+          "iterations": 307609,
+          "ns/op": 580.1,
+          "records/op": 1.0,
+          "B/op": 544.0,
+          "allocs/op": 4.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=10": {
+          "iterations": 34042,
+          "ns/op": 5422.0,
+          "records/op": 10.0,
+          "B/op": 5299.0,
+          "allocs/op": 31.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1026": {
+          "iterations": 331,
+          "ns/op": 534809.0,
+          "records/op": 1026.0,
+          "B/op": 542048.0,
+          "allocs/op": 3079.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1": {
+          "iterations": 100766,
+          "ns/op": 1725.0,
+          "records/op": 1.0,
+          "B/op": 1064.0,
+          "allocs/op": 17.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=10": {
+          "iterations": 11732,
+          "ns/op": 15328.0,
+          "records/op": 10.0,
+          "B/op": 10391.0,
+          "allocs/op": 153.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1026": {
+          "iterations": 100,
+          "ns/op": 1543093.0,
+          "records/op": 1026.0,
+          "B/op": 1067634.0,
+          "allocs/op": 15394.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.15 avg60=0.38 avg300=1.83 total=29254044918\nfull avg10=0.08 avg60=0.26 avg300=1.05 total=24340269908\n",
+        "cpu": "some avg10=1.18 avg60=2.42 avg300=6.53 total=20067314758\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134035\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674668598\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.15 avg60=0.38 avg300=1.83 total=29254064285\nfull avg10=0.08 avg60=0.26 avg300=1.05 total=24340283822\n",
+        "cpu": "some avg10=1.18 avg60=2.42 avg300=6.53 total=20067335321\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134815\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674669045\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkArtifactListTelemetry",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.6707289218902588,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/pair-3-after.log",
+      "pair": 3,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkArtifactListTelemetry/table/rows=1": {
+          "iterations": 25506,
+          "ns/op": 6738.0,
+          "records/op": 1.0,
+          "B/op": 13049.0,
+          "allocs/op": 49.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=10": {
+          "iterations": 10000,
+          "ns/op": 21108.0,
+          "records/op": 1.0,
+          "B/op": 23352.0,
+          "allocs/op": 184.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=1026": {
+          "iterations": 124,
+          "ns/op": 1436696.0,
+          "records/op": 8.0,
+          "B/op": 1187365.0,
+          "allocs/op": 14447.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1": {
+          "iterations": 106900,
+          "ns/op": 1613.0,
+          "records/op": 1.0,
+          "B/op": 4706.0,
+          "allocs/op": 6.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=10": {
+          "iterations": 59229,
+          "ns/op": 2969.0,
+          "records/op": 1.0,
+          "B/op": 5363.0,
+          "allocs/op": 15.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1026": {
+          "iterations": 1315,
+          "ns/op": 129843.0,
+          "records/op": 15.0,
+          "B/op": 84822.0,
+          "allocs/op": 1059.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1": {
+          "iterations": 57979,
+          "ns/op": 2980.0,
+          "records/op": 1.0,
+          "B/op": 5227.0,
+          "allocs/op": 19.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=10": {
+          "iterations": 13208,
+          "ns/op": 13589.0,
+          "records/op": 1.0,
+          "B/op": 10519.0,
+          "allocs/op": 137.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1026": {
+          "iterations": 156,
+          "ns/op": 1139587.0,
+          "records/op": 16.0,
+          "B/op": 614939.0,
+          "allocs/op": 13375.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.15 avg60=0.38 avg300=1.83 total=29254064285\nfull avg10=0.08 avg60=0.26 avg300=1.05 total=24340283822\n",
+        "cpu": "some avg10=1.18 avg60=2.42 avg300=6.53 total=20067335321\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134815\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674669045\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.12 avg60=0.37 avg300=1.82 total=29254083054\nfull avg10=0.06 avg60=0.25 avg300=1.04 total=24340298495\n",
+        "cpu": "some avg10=1.14 avg60=2.37 avg300=6.50 total=20067359256\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134815\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674669045\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkArtifactListTelemetry",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.6948456764221191,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/pair-4-after.log",
+      "pair": 4,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkArtifactListTelemetry/table/rows=1": {
+          "iterations": 25926,
+          "ns/op": 6842.0,
+          "records/op": 1.0,
+          "B/op": 13048.0,
+          "allocs/op": 49.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=10": {
+          "iterations": 10000,
+          "ns/op": 20950.0,
+          "records/op": 1.0,
+          "B/op": 23354.0,
+          "allocs/op": 184.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=1026": {
+          "iterations": 123,
+          "ns/op": 1446858.0,
+          "records/op": 8.0,
+          "B/op": 1187367.0,
+          "allocs/op": 14447.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1": {
+          "iterations": 105182,
+          "ns/op": 1735.0,
+          "records/op": 1.0,
+          "B/op": 4706.0,
+          "allocs/op": 6.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=10": {
+          "iterations": 56060,
+          "ns/op": 3029.0,
+          "records/op": 1.0,
+          "B/op": 5363.0,
+          "allocs/op": 15.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1026": {
+          "iterations": 1293,
+          "ns/op": 134840.0,
+          "records/op": 15.0,
+          "B/op": 84821.0,
+          "allocs/op": 1059.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1": {
+          "iterations": 58386,
+          "ns/op": 2988.0,
+          "records/op": 1.0,
+          "B/op": 5227.0,
+          "allocs/op": 19.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=10": {
+          "iterations": 13776,
+          "ns/op": 13142.0,
+          "records/op": 1.0,
+          "B/op": 10519.0,
+          "allocs/op": 137.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1026": {
+          "iterations": 156,
+          "ns/op": 1225471.0,
+          "records/op": 16.0,
+          "B/op": 614947.0,
+          "allocs/op": 13375.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.12 avg60=0.37 avg300=1.82 total=29254083054\nfull avg10=0.06 avg60=0.25 avg300=1.04 total=24340298495\n",
+        "cpu": "some avg10=1.14 avg60=2.37 avg300=6.50 total=20067359256\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134815\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674669045\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.10 avg60=0.36 avg300=1.80 total=29254090532\nfull avg10=0.05 avg60=0.24 avg300=1.03 total=24340303347\n",
+        "cpu": "some avg10=1.12 avg60=2.33 avg300=6.46 total=20067384757\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134815\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674669045\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkArtifactListTelemetry",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.5760326385498047,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/pair-4-before.log",
+      "pair": 4,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkArtifactListTelemetry/table/rows=1": {
+          "iterations": 11763,
+          "ns/op": 15233.0,
+          "records/op": 13.0,
+          "B/op": 27811.0,
+          "allocs/op": 82.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=10": {
+          "iterations": 1531,
+          "ns/op": 114489.0,
+          "records/op": 67.0,
+          "B/op": 244944.0,
+          "allocs/op": 505.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=1026": {
+          "iterations": 15,
+          "ns/op": 11013174.0,
+          "records/op": 6163.0,
+          "B/op": 24753223.0,
+          "allocs/op": 47296.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1": {
+          "iterations": 263863,
+          "ns/op": 591.0,
+          "records/op": 1.0,
+          "B/op": 544.0,
+          "allocs/op": 4.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=10": {
+          "iterations": 32890,
+          "ns/op": 5538.0,
+          "records/op": 10.0,
+          "B/op": 5299.0,
+          "allocs/op": 31.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1026": {
+          "iterations": 343,
+          "ns/op": 535283.0,
+          "records/op": 1026.0,
+          "B/op": 542080.0,
+          "allocs/op": 3079.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1": {
+          "iterations": 97056,
+          "ns/op": 1720.0,
+          "records/op": 1.0,
+          "B/op": 1064.0,
+          "allocs/op": 17.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=10": {
+          "iterations": 10000,
+          "ns/op": 15465.0,
+          "records/op": 10.0,
+          "B/op": 10391.0,
+          "allocs/op": 153.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1026": {
+          "iterations": 100,
+          "ns/op": 1542443.0,
+          "records/op": 1026.0,
+          "B/op": 1067630.0,
+          "allocs/op": 15394.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.10 avg60=0.36 avg300=1.80 total=29254090532\nfull avg10=0.05 avg60=0.24 avg300=1.03 total=24340303347\n",
+        "cpu": "some avg10=1.12 avg60=2.33 avg300=6.46 total=20067384757\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134815\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674669045\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.08 avg60=0.35 avg300=1.79 total=29254109831\nfull avg10=0.04 avg60=0.24 avg300=1.02 total=24340317739\n",
+        "cpu": "some avg10=1.09 avg60=2.28 avg300=6.42 total=20067408224\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134815\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674669045\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkArtifactListTelemetry",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.6101911067962646,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/pair-5-before.log",
+      "pair": 5,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkArtifactListTelemetry/table/rows=1": {
+          "iterations": 11719,
+          "ns/op": 15421.0,
+          "records/op": 13.0,
+          "B/op": 27811.0,
+          "allocs/op": 82.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=10": {
+          "iterations": 1504,
+          "ns/op": 122470.0,
+          "records/op": 67.0,
+          "B/op": 244933.0,
+          "allocs/op": 505.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=1026": {
+          "iterations": 16,
+          "ns/op": 10498592.0,
+          "records/op": 6163.0,
+          "B/op": 24752914.0,
+          "allocs/op": 47294.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1": {
+          "iterations": 305871,
+          "ns/op": 589.9,
+          "records/op": 1.0,
+          "B/op": 544.0,
+          "allocs/op": 4.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=10": {
+          "iterations": 34004,
+          "ns/op": 5405.0,
+          "records/op": 10.0,
+          "B/op": 5299.0,
+          "allocs/op": 31.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1026": {
+          "iterations": 330,
+          "ns/op": 530974.0,
+          "records/op": 1026.0,
+          "B/op": 542039.0,
+          "allocs/op": 3079.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1": {
+          "iterations": 96279,
+          "ns/op": 1716.0,
+          "records/op": 1.0,
+          "B/op": 1064.0,
+          "allocs/op": 17.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=10": {
+          "iterations": 10000,
+          "ns/op": 15155.0,
+          "records/op": 10.0,
+          "B/op": 10390.0,
+          "allocs/op": 153.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1026": {
+          "iterations": 100,
+          "ns/op": 1629029.0,
+          "records/op": 1026.0,
+          "B/op": 1067623.0,
+          "allocs/op": 15394.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.08 avg60=0.35 avg300=1.79 total=29254109831\nfull avg10=0.04 avg60=0.24 avg300=1.02 total=24340317739\n",
+        "cpu": "some avg10=1.09 avg60=2.28 avg300=6.42 total=20067408224\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134815\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674669045\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.06 avg60=0.33 avg300=1.78 total=29254129428\nfull avg10=0.03 avg60=0.23 avg300=1.02 total=24340331998\n",
+        "cpu": "some avg10=1.08 avg60=2.24 avg300=6.38 total=20067438157\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134815\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674669045\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkArtifactListTelemetry",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.6950480937957764,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/pair-5-after.log",
+      "pair": 5,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkArtifactListTelemetry/table/rows=1": {
+          "iterations": 25599,
+          "ns/op": 6939.0,
+          "records/op": 1.0,
+          "B/op": 13049.0,
+          "allocs/op": 49.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=10": {
+          "iterations": 10000,
+          "ns/op": 22205.0,
+          "records/op": 1.0,
+          "B/op": 23355.0,
+          "allocs/op": 184.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=1026": {
+          "iterations": 120,
+          "ns/op": 1474157.0,
+          "records/op": 8.0,
+          "B/op": 1187338.0,
+          "allocs/op": 14447.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1": {
+          "iterations": 99843,
+          "ns/op": 1624.0,
+          "records/op": 1.0,
+          "B/op": 4706.0,
+          "allocs/op": 6.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=10": {
+          "iterations": 58537,
+          "ns/op": 3053.0,
+          "records/op": 1.0,
+          "B/op": 5363.0,
+          "allocs/op": 15.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1026": {
+          "iterations": 1258,
+          "ns/op": 135347.0,
+          "records/op": 15.0,
+          "B/op": 84825.0,
+          "allocs/op": 1059.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1": {
+          "iterations": 56311,
+          "ns/op": 3362.0,
+          "records/op": 1.0,
+          "B/op": 5227.0,
+          "allocs/op": 19.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=10": {
+          "iterations": 13454,
+          "ns/op": 13354.0,
+          "records/op": 1.0,
+          "B/op": 10518.0,
+          "allocs/op": 137.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1026": {
+          "iterations": 158,
+          "ns/op": 1149097.0,
+          "records/op": 16.0,
+          "B/op": 614941.0,
+          "allocs/op": 13375.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.06 avg60=0.33 avg300=1.78 total=29254129428\nfull avg10=0.03 avg60=0.23 avg300=1.02 total=24340331998\n",
+        "cpu": "some avg10=1.08 avg60=2.24 avg300=6.38 total=20067438157\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134815\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674669045\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.05 avg60=0.32 avg300=1.77 total=29254137375\nfull avg10=0.03 avg60=0.22 avg300=1.01 total=24340337127\n",
+        "cpu": "some avg10=1.24 avg60=2.23 avg300=6.35 total=20067476226\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134816\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674669046\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkArtifactListTelemetry",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.674452304840088,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/pair-6-after.log",
+      "pair": 6,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkArtifactListTelemetry/table/rows=1": {
+          "iterations": 25641,
+          "ns/op": 7173.0,
+          "records/op": 1.0,
+          "B/op": 13048.0,
+          "allocs/op": 49.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=10": {
+          "iterations": 9439,
+          "ns/op": 21590.0,
+          "records/op": 1.0,
+          "B/op": 23354.0,
+          "allocs/op": 184.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=1026": {
+          "iterations": 109,
+          "ns/op": 1563876.0,
+          "records/op": 8.0,
+          "B/op": 1187354.0,
+          "allocs/op": 14447.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1": {
+          "iterations": 103512,
+          "ns/op": 1608.0,
+          "records/op": 1.0,
+          "B/op": 4706.0,
+          "allocs/op": 6.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=10": {
+          "iterations": 58934,
+          "ns/op": 2933.0,
+          "records/op": 1.0,
+          "B/op": 5363.0,
+          "allocs/op": 15.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1026": {
+          "iterations": 1434,
+          "ns/op": 130437.0,
+          "records/op": 15.0,
+          "B/op": 84823.0,
+          "allocs/op": 1059.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1": {
+          "iterations": 57930,
+          "ns/op": 2932.0,
+          "records/op": 1.0,
+          "B/op": 5227.0,
+          "allocs/op": 19.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=10": {
+          "iterations": 13540,
+          "ns/op": 13298.0,
+          "records/op": 1.0,
+          "B/op": 10519.0,
+          "allocs/op": 137.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1026": {
+          "iterations": 159,
+          "ns/op": 1143482.0,
+          "records/op": 16.0,
+          "B/op": 614975.0,
+          "allocs/op": 13376.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.05 avg60=0.32 avg300=1.77 total=29254137375\nfull avg10=0.03 avg60=0.22 avg300=1.01 total=24340337127\n",
+        "cpu": "some avg10=1.24 avg60=2.23 avg300=6.35 total=20067476226\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134816\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674669046\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.05 avg60=0.32 avg300=1.77 total=29254153716\nfull avg10=0.03 avg60=0.22 avg300=1.01 total=24340348620\n",
+        "cpu": "some avg10=1.24 avg60=2.23 avg300=6.35 total=20067500268\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134816\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674669046\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkArtifactListTelemetry",
+        "-test.benchmem",
+        "-test.benchtime=150ms",
+        "-test.count=1"
+      ],
+      "seconds": 1.536273717880249,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/artifact-list-output/pair-6-before.log",
+      "pair": 6,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkArtifactListTelemetry/table/rows=1": {
+          "iterations": 9594,
+          "ns/op": 15839.0,
+          "records/op": 13.0,
+          "B/op": 27811.0,
+          "allocs/op": 82.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=10": {
+          "iterations": 1600,
+          "ns/op": 111243.0,
+          "records/op": 67.0,
+          "B/op": 244945.0,
+          "allocs/op": 505.0
+        },
+        "BenchmarkArtifactListTelemetry/table/rows=1026": {
+          "iterations": 15,
+          "ns/op": 10374522.0,
+          "records/op": 6163.0,
+          "B/op": 24752626.0,
+          "allocs/op": 47293.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1": {
+          "iterations": 310623,
+          "ns/op": 578.5,
+          "records/op": 1.0,
+          "B/op": 544.0,
+          "allocs/op": 4.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=10": {
+          "iterations": 32445,
+          "ns/op": 5408.0,
+          "records/op": 10.0,
+          "B/op": 5299.0,
+          "allocs/op": 31.0
+        },
+        "BenchmarkArtifactListTelemetry/link/rows=1026": {
+          "iterations": 325,
+          "ns/op": 541392.0,
+          "records/op": 1026.0,
+          "B/op": 542073.0,
+          "allocs/op": 3079.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1": {
+          "iterations": 90025,
+          "ns/op": 1708.0,
+          "records/op": 1.0,
+          "B/op": 1064.0,
+          "allocs/op": 17.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=10": {
+          "iterations": 10000,
+          "ns/op": 15572.0,
+          "records/op": 10.0,
+          "B/op": 10391.0,
+          "allocs/op": 153.0
+        },
+        "BenchmarkArtifactListTelemetry/cli/rows=1026": {
+          "iterations": 100,
+          "ns/op": 1529026.0,
+          "records/op": 1026.0,
+          "B/op": 1067596.0,
+          "allocs/op": 15394.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.05 avg60=0.32 avg300=1.77 total=29254153716\nfull avg10=0.03 avg60=0.22 avg300=1.01 total=24340348620\n",
+        "cpu": "some avg10=1.24 avg60=2.23 avg300=6.35 total=20067500268\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134816\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674669046\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.04 avg60=0.31 avg300=1.75 total=29254173167\nfull avg10=0.02 avg60=0.21 avg300=1.00 total=24340363048\n",
+        "cpu": "some avg10=1.20 avg60=2.19 avg300=6.32 total=20067522953\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134816\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674669046\n"
+      }
+    }
+  ]
+}

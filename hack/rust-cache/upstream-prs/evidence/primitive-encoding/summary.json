@@ -1,0 +1,103 @@
+{
+  "context": {
+    "timestamp": "2026-10-16T00:34:07.637333+00:00",
+    "go": "go version go1.26.6 linux/amd64",
+    "platform": "Linux-7.0.0-34-generic-x86_64-with-glibc2.39",
+    "gomaxprocs": 8,
+    "cpu": "Intel(R) Core(TM) i5-9300H CPU @ 2.40GHz",
+    "config": {
+      "name": "primitive-encoding",
+      "worktree": "/tmp/dagger-pr-primitive-encoding",
+      "base": "717589c9ccacbba7d3cf902647aa5c9ca68085e8",
+      "benchmark": "BenchmarkPersistedPrimitiveArray",
+      "package": "./dagql",
+      "production_files": [
+        "dagql/cache_persistence_self.go"
+      ],
+      "head": "0cc85ff756aa92cf61145f77b7b132a290376361",
+      "branch": "perf/upstream-primitive-encoding",
+      "benchtime": "150ms"
+    },
+    "binary_sha256": {
+      "before": "56cf7e0e3fb1ea376857379180248a118870fc72ebc7e67f43855eea68e27fbb",
+      "after": "839f47689310d09b45772eb26d682cc09b8be27349025901529379f34b28f36e"
+    }
+  },
+  "cases": {
+    "BenchmarkPersistedPrimitiveArray/1": {
+      "before": {
+        "ns/op": 2740.0,
+        "B/op": 3210.0,
+        "allocs/op": 33.0
+      },
+      "after": {
+        "ns/op": 977.9,
+        "B/op": 512.0,
+        "allocs/op": 11.0
+      },
+      "median_paired_saved_ns": 1755.25,
+      "pairs_faster": 6,
+      "pairs": 6
+    },
+    "BenchmarkPersistedPrimitiveArray/10": {
+      "before": {
+        "ns/op": 41922.0,
+        "B/op": 66622.5,
+        "allocs/op": 456.0
+      },
+      "after": {
+        "ns/op": 5679.0,
+        "B/op": 3186.0,
+        "allocs/op": 47.0
+      },
+      "median_paired_saved_ns": 36202.5,
+      "pairs_faster": 6,
+      "pairs": 6
+    },
+    "BenchmarkPersistedPrimitiveArray/128": {
+      "before": {
+        "ns/op": 3131303.5,
+        "B/op": 6926772.5,
+        "allocs/op": 36001.0
+      },
+      "after": {
+        "ns/op": 67578.5,
+        "B/op": 35722.0,
+        "allocs/op": 519.0
+      },
+      "median_paired_saved_ns": 3064869.0,
+      "pairs_faster": 6,
+      "pairs": 6
+    },
+    "BenchmarkPersistedPrimitiveArray/512": {
+      "before": {
+        "ns/op": 46877137.0,
+        "B/op": 107050088.0,
+        "allocs/op": 537460.5
+      },
+      "after": {
+        "ns/op": 280813.5,
+        "B/op": 139598.5,
+        "allocs/op": 2055.0
+      },
+      "median_paired_saved_ns": 46603152.5,
+      "pairs_faster": 6,
+      "pairs": 6
+    },
+    "BenchmarkPersistedPrimitiveArray/1024": {
+      "before": {
+        "ns/op": 181464112.5,
+        "B/op": 424978292.0,
+        "allocs/op": 2124050.0
+      },
+      "after": {
+        "ns/op": 531180.5,
+        "B/op": 278938.5,
+        "allocs/op": 4103.0
+      },
+      "median_paired_saved_ns": 180931706.0,
+      "pairs_faster": 6,
+      "pairs": 6
+    }
+  }
+}

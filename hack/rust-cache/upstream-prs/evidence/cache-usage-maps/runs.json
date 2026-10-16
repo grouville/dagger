@@ -1,0 +1,449 @@
+{
+  "context": {
+    "timestamp": "2026-10-16T00:34:19.959962+00:00",
+    "go": "go version go1.26.6 linux/amd64",
+    "platform": "Linux-7.0.0-34-generic-x86_64-with-glibc2.39",
+    "gomaxprocs": 8,
+    "cpu": "Intel(R) Core(TM) i5-9300H CPU @ 2.40GHz",
+    "config": {
+      "name": "cache-usage-maps",
+      "worktree": "/tmp/dagger-pr-cache-usage-maps",
+      "base": "717589c9ccacbba7d3cf902647aa5c9ca68085e8",
+      "benchmark": "BenchmarkCachePruneSnapshot/disk/200000$",
+      "package": "./dagql",
+      "production_files": [
+        "dagql/cache.go",
+        "dagql/cache_usage.go"
+      ],
+      "head": "4cd7f219ff5f43d5dcd38a4f0e256c60ee24f33b",
+      "branch": "perf/upstream-cache-usage-maps",
+      "benchtime": "1x"
+    },
+    "binary_sha256": {
+      "before": "e5cb09aea08843261db8c077458bfa8d03e881e9a4f936447058d41800acd993",
+      "after": "470278eb727df86304755be26a49ded9f97f6a5ff705f96ee3508f0795cb44cc"
+    }
+  },
+  "runs": [
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkCachePruneSnapshot/disk/200000$",
+        "-test.benchmem",
+        "-test.benchtime=1x",
+        "-test.count=1"
+      ],
+      "seconds": 4.896730422973633,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/pair-1-before.log",
+      "pair": 1,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkCachePruneSnapshot/disk/200000": {
+          "iterations": 1,
+          "ns/op": 681737959.0,
+          "estimated-B": 870400000.0,
+          "snapshot-results": 200000.0,
+          "B/op": 158934992.0,
+          "allocs/op": 1602884.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.85 avg60=0.78 avg300=2.26 total=29253492270\nfull avg10=0.58 avg60=0.50 avg300=1.28 total=24339812922\n",
+        "cpu": "some avg10=1.12 avg60=4.80 avg300=7.89 total=20066232326\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.01 avg300=0.04 total=816125315\nfull avg10=0.00 avg60=0.00 avg300=0.01 total=674660933\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.57 avg60=0.73 avg300=2.22 total=29253537639\nfull avg10=0.39 avg60=0.47 avg300=1.26 total=24339855600\n",
+        "cpu": "some avg10=1.44 avg60=4.62 avg300=7.81 total=20066337598\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.01 avg300=0.04 total=816125334\nfull avg10=0.00 avg60=0.00 avg300=0.01 total=674660951\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkCachePruneSnapshot/disk/200000$",
+        "-test.benchmem",
+        "-test.benchtime=1x",
+        "-test.count=1"
+      ],
+      "seconds": 4.76162314414978,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/pair-1-after.log",
+      "pair": 1,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkCachePruneSnapshot/disk/200000": {
+          "iterations": 1,
+          "ns/op": 513324970.0,
+          "estimated-B": 870400000.0,
+          "snapshot-results": 200000.0,
+          "B/op": 130134504.0,
+          "allocs/op": 1002878.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.57 avg60=0.73 avg300=2.22 total=29253537639\nfull avg10=0.39 avg60=0.47 avg300=1.26 total=24339855600\n",
+        "cpu": "some avg10=1.44 avg60=4.62 avg300=7.81 total=20066337598\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.01 avg300=0.04 total=816125334\nfull avg10=0.00 avg60=0.00 avg300=0.01 total=674660951\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.31 avg60=0.66 avg300=2.18 total=29253576118\nfull avg10=0.21 avg60=0.42 avg300=1.24 total=24339891455\n",
+        "cpu": "some avg10=1.39 avg60=4.31 avg300=7.68 total=20066410772\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.01 avg300=0.04 total=816125334\nfull avg10=0.00 avg60=0.00 avg300=0.01 total=674660951\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkCachePruneSnapshot/disk/200000$",
+        "-test.benchmem",
+        "-test.benchtime=1x",
+        "-test.count=1"
+      ],
+      "seconds": 4.77302098274231,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/pair-2-after.log",
+      "pair": 2,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkCachePruneSnapshot/disk/200000": {
+          "iterations": 1,
+          "ns/op": 501539566.0,
+          "estimated-B": 870400000.0,
+          "snapshot-results": 200000.0,
+          "B/op": 130134504.0,
+          "allocs/op": 1002878.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.31 avg60=0.66 avg300=2.18 total=29253576118\nfull avg10=0.21 avg60=0.42 avg300=1.24 total=24339891455\n",
+        "cpu": "some avg10=1.39 avg60=4.31 avg300=7.68 total=20066410772\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.01 avg300=0.04 total=816125334\nfull avg10=0.00 avg60=0.00 avg300=0.01 total=674660951\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.20 avg60=0.62 avg300=2.15 total=29253609120\nfull avg10=0.14 avg60=0.40 avg300=1.22 total=24339914373\n",
+        "cpu": "some avg10=1.26 avg60=4.09 avg300=7.58 total=20066501755\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.01 avg300=0.04 total=816125334\nfull avg10=0.00 avg60=0.00 avg300=0.01 total=674660951\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkCachePruneSnapshot/disk/200000$",
+        "-test.benchmem",
+        "-test.benchtime=1x",
+        "-test.count=1"
+      ],
+      "seconds": 4.797001600265503,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/pair-2-before.log",
+      "pair": 2,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkCachePruneSnapshot/disk/200000": {
+          "iterations": 1,
+          "ns/op": 547803602.0,
+          "estimated-B": 870400000.0,
+          "snapshot-results": 200000.0,
+          "B/op": 158934504.0,
+          "allocs/op": 1602878.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.20 avg60=0.62 avg300=2.15 total=29253609120\nfull avg10=0.14 avg60=0.40 avg300=1.22 total=24339914373\n",
+        "cpu": "some avg10=1.26 avg60=4.09 avg300=7.58 total=20066501755\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.01 avg300=0.04 total=816125334\nfull avg10=0.00 avg60=0.00 avg300=0.01 total=674660951\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.11 avg60=0.56 avg300=2.10 total=29253637296\nfull avg10=0.07 avg60=0.36 avg300=1.19 total=24339939928\n",
+        "cpu": "some avg10=1.08 avg60=3.80 avg300=7.45 total=20066570137\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.01 avg300=0.04 total=816126749\nfull avg10=0.00 avg60=0.00 avg300=0.01 total=674662342\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkCachePruneSnapshot/disk/200000$",
+        "-test.benchmem",
+        "-test.benchtime=1x",
+        "-test.count=1"
+      ],
+      "seconds": 4.774896621704102,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/pair-3-before.log",
+      "pair": 3,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkCachePruneSnapshot/disk/200000": {
+          "iterations": 1,
+          "ns/op": 529152493.0,
+          "estimated-B": 870400000.0,
+          "snapshot-results": 200000.0,
+          "B/op": 158934504.0,
+          "allocs/op": 1602878.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.11 avg60=0.56 avg300=2.10 total=29253637296\nfull avg10=0.07 avg60=0.36 avg300=1.19 total=24339939928\n",
+        "cpu": "some avg10=1.08 avg60=3.80 avg300=7.45 total=20066570137\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.01 avg300=0.04 total=816126749\nfull avg10=0.00 avg60=0.00 avg300=0.01 total=674662342\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.22 avg60=0.55 avg300=2.08 total=29253698397\nfull avg10=0.20 avg60=0.37 avg300=1.18 total=24339999185\n",
+        "cpu": "some avg10=1.05 avg60=3.62 avg300=7.36 total=20066628537\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.04 total=816126749\nfull avg10=0.00 avg60=0.00 avg300=0.01 total=674662342\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkCachePruneSnapshot/disk/200000$",
+        "-test.benchmem",
+        "-test.benchtime=1x",
+        "-test.count=1"
+      ],
+      "seconds": 4.8180763721466064,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/pair-3-after.log",
+      "pair": 3,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkCachePruneSnapshot/disk/200000": {
+          "iterations": 1,
+          "ns/op": 514930272.0,
+          "estimated-B": 870400000.0,
+          "snapshot-results": 200000.0,
+          "B/op": 130135664.0,
+          "allocs/op": 1002880.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.22 avg60=0.55 avg300=2.08 total=29253698397\nfull avg10=0.20 avg60=0.37 avg300=1.18 total=24339999185\n",
+        "cpu": "some avg10=1.05 avg60=3.62 avg300=7.36 total=20066628537\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.04 total=816126749\nfull avg10=0.00 avg60=0.00 avg300=0.01 total=674662342\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.48 avg60=0.58 avg300=2.07 total=29253741674\nfull avg10=0.46 avg60=0.41 avg300=1.18 total=24340040499\n",
+        "cpu": "some avg10=1.03 avg60=3.45 avg300=7.27 total=20066686633\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.04 total=816130957\nfull avg10=0.00 avg60=0.00 avg300=0.01 total=674666550\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkCachePruneSnapshot/disk/200000$",
+        "-test.benchmem",
+        "-test.benchtime=1x",
+        "-test.count=1"
+      ],
+      "seconds": 4.608229160308838,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/pair-4-after.log",
+      "pair": 4,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkCachePruneSnapshot/disk/200000": {
+          "iterations": 1,
+          "ns/op": 475752331.0,
+          "estimated-B": 870400000.0,
+          "snapshot-results": 200000.0,
+          "B/op": 130134504.0,
+          "allocs/op": 1002878.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.48 avg60=0.58 avg300=2.07 total=29253741674\nfull avg10=0.46 avg60=0.41 avg300=1.18 total=24340040499\n",
+        "cpu": "some avg10=1.03 avg60=3.45 avg300=7.27 total=20066686633\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.04 total=816130957\nfull avg10=0.00 avg60=0.00 avg300=0.01 total=674666550\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.26 avg60=0.53 avg300=2.02 total=29253780911\nfull avg10=0.25 avg60=0.37 avg300=1.16 total=24340072848\n",
+        "cpu": "some avg10=0.89 avg60=3.18 avg300=7.14 total=20066751597\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.04 total=816133082\nfull avg10=0.00 avg60=0.00 avg300=0.01 total=674667733\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkCachePruneSnapshot/disk/200000$",
+        "-test.benchmem",
+        "-test.benchtime=1x",
+        "-test.count=1"
+      ],
+      "seconds": 4.936585426330566,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/pair-4-before.log",
+      "pair": 4,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkCachePruneSnapshot/disk/200000": {
+          "iterations": 1,
+          "ns/op": 568934798.0,
+          "estimated-B": 870400000.0,
+          "snapshot-results": 200000.0,
+          "B/op": 158934504.0,
+          "allocs/op": 1602878.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.26 avg60=0.53 avg300=2.02 total=29253780911\nfull avg10=0.25 avg60=0.37 avg300=1.16 total=24340072848\n",
+        "cpu": "some avg10=0.89 avg60=3.18 avg300=7.14 total=20066751597\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.04 total=816133082\nfull avg10=0.00 avg60=0.00 avg300=0.01 total=674667733\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.17 avg60=0.49 avg300=2.00 total=29253812045\nfull avg10=0.16 avg60=0.34 avg300=1.14 total=24340098779\n",
+        "cpu": "some avg10=0.93 avg60=3.04 avg300=7.05 total=20066819211\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.04 total=816133082\nfull avg10=0.00 avg60=0.00 avg300=0.01 total=674667733\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkCachePruneSnapshot/disk/200000$",
+        "-test.benchmem",
+        "-test.benchtime=1x",
+        "-test.count=1"
+      ],
+      "seconds": 5.082215309143066,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/pair-5-before.log",
+      "pair": 5,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkCachePruneSnapshot/disk/200000": {
+          "iterations": 1,
+          "ns/op": 603998634.0,
+          "estimated-B": 870400000.0,
+          "snapshot-results": 200000.0,
+          "B/op": 158934504.0,
+          "allocs/op": 1602878.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.17 avg60=0.49 avg300=2.00 total=29253812045\nfull avg10=0.16 avg60=0.34 avg300=1.14 total=24340098779\n",
+        "cpu": "some avg10=0.93 avg60=3.04 avg300=7.05 total=20066819211\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.04 total=816133082\nfull avg10=0.00 avg60=0.00 avg300=0.01 total=674667733\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.09 avg60=0.44 avg300=1.95 total=29253857281\nfull avg10=0.09 avg60=0.31 avg300=1.12 total=24340127014\n",
+        "cpu": "some avg10=1.62 avg60=2.98 avg300=6.96 total=20066959191\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816133319\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674667964\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkCachePruneSnapshot/disk/200000$",
+        "-test.benchmem",
+        "-test.benchtime=1x",
+        "-test.count=1"
+      ],
+      "seconds": 4.795074701309204,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/pair-5-after.log",
+      "pair": 5,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkCachePruneSnapshot/disk/200000": {
+          "iterations": 1,
+          "ns/op": 484955564.0,
+          "estimated-B": 870400000.0,
+          "snapshot-results": 200000.0,
+          "B/op": 130134760.0,
+          "allocs/op": 1002881.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.09 avg60=0.44 avg300=1.95 total=29253857281\nfull avg10=0.09 avg60=0.31 avg300=1.12 total=24340127014\n",
+        "cpu": "some avg10=1.62 avg60=2.98 avg300=6.96 total=20066959191\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816133319\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674667964\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.24 avg60=0.45 avg300=1.93 total=29253904521\nfull avg10=0.24 avg60=0.32 avg300=1.11 total=24340165180\n",
+        "cpu": "some avg10=1.41 avg60=2.85 avg300=6.88 total=20067031542\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134001\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674668565\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/after.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkCachePruneSnapshot/disk/200000$",
+        "-test.benchmem",
+        "-test.benchtime=1x",
+        "-test.count=1"
+      ],
+      "seconds": 4.703637599945068,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/pair-6-after.log",
+      "pair": 6,
+      "arm": "after",
+      "metrics": {
+        "BenchmarkCachePruneSnapshot/disk/200000": {
+          "iterations": 1,
+          "ns/op": 512622893.0,
+          "estimated-B": 870400000.0,
+          "snapshot-results": 200000.0,
+          "B/op": 130134504.0,
+          "allocs/op": 1002878.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.24 avg60=0.45 avg300=1.93 total=29253904521\nfull avg10=0.24 avg60=0.32 avg300=1.11 total=24340165180\n",
+        "cpu": "some avg10=1.41 avg60=2.85 avg300=6.88 total=20067031542\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134001\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674668565\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.34 avg60=0.45 avg300=1.91 total=29253943997\nfull avg10=0.34 avg60=0.33 avg300=1.10 total=24340198363\n",
+        "cpu": "some avg10=1.46 avg60=2.76 avg300=6.80 total=20067108955\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134004\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674668568\n"
+      }
+    },
+    {
+      "command": [
+        "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/before.test",
+        "-test.run=^$",
+        "-test.bench=^BenchmarkCachePruneSnapshot/disk/200000$",
+        "-test.benchmem",
+        "-test.benchtime=1x",
+        "-test.count=1"
+      ],
+      "seconds": 4.768527030944824,
+      "exit_code": 0,
+      "log": "/tmp/rust-cache-sipsma-review/upstream-perf-prs/cache-usage-maps/pair-6-before.log",
+      "pair": 6,
+      "arm": "before",
+      "metrics": {
+        "BenchmarkCachePruneSnapshot/disk/200000": {
+          "iterations": 1,
+          "ns/op": 663284706.0,
+          "estimated-B": 870400000.0,
+          "snapshot-results": 200000.0,
+          "B/op": 158934480.0,
+          "allocs/op": 1602878.0
+        }
+      },
+      "pressure_before": {
+        "io": "some avg10=0.34 avg60=0.45 avg300=1.91 total=29253943997\nfull avg10=0.34 avg60=0.33 avg300=1.10 total=24340198363\n",
+        "cpu": "some avg10=1.46 avg60=2.76 avg300=6.80 total=20067108955\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134004\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674668568\n"
+      },
+      "pressure_after": {
+        "io": "some avg10=0.33 avg60=0.44 avg300=1.88 total=29253985443\nfull avg10=0.18 avg60=0.30 avg300=1.08 total=24340226678\n",
+        "cpu": "some avg10=1.40 avg60=2.62 avg300=6.69 total=20067200609\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+        "memory": "some avg10=0.00 avg60=0.00 avg300=0.03 total=816134004\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=674668568\n"
+      }
+    }
+  ]
+}
