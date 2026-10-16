@@ -1,0 +1,27 @@
+== TRACE ==  ✘ FAILED
+dagger-artifact-list-buffered check rust:packages/tests/test  1.5s
+! dimension "/rust/packages/tests": exit code: 1
+
+✘ Artifacts.values(failFast: false): [ArtifactResult!]! 1.2s ERROR
+  ✔ 15 downloads 0.0s
+┇ Artifacts.__evaluationItems › RustPackage.tests › RustCompiler.compile(
+  ┆ source: Workspace.directory(path: "/", exclude: [".git", "target", "dagger.toml", "dagger.lock"])
+  ┆ plan: RustCompilerCache.plan
+  ┆ automaticPlan: true
+  ┆ previousManifest: "{\"native_configuration\":{\"version\":1,\"canonical\":\"sha256:2f30f7aef580f1387d0e2cff3ed6a2dd40d0adf9da403396190e2fde6c9fc22d\",\"entries\":\"sha256:13031cad33d0bed5e8aeda3a7a16e84dcf1463ec996394d9ff535928a3e24943\"},\"version\":1,\"actions\":{\"pkg_001-59551648c9a514eb\":[{\"key\":\"e887bf6fffeaa82cc2e3bbf02eaa655afe16ff8b5b1d3bd4cc4f1570e3ef97a7\",\"compatibility\":\"824a5f293627a174ef53d224b4b09adc4f7984bed81a578deb6592904c17eb50\",\"batch\":\"6e4ec52c1b0a406d17da3cf6d4bc0e1fbebc2b91ebabfa1b5bb18c7d071cf55c\"}]},\"current_batch\":\"6e4ec52c1b0a406d17da3cf6d4bc0e1fbebc2b91ebabfa1b5bb18c7d071cf55c\"}"
+  ┆ previousTokens: ["6e4ec52c1b0a406d17da3cf6d4bc0e1fbebc2b91ebabfa1b5bb18c7d071cf55c"]
+  ┆ previousSnapshots: [xxh3:d617b2f25aa94805]
+  ┆ workers: 8
+  ┆ command: "test"
+  ┆ cargoFlags: ["--locked", "--package", "pkg_001"]
+  ┆ image: "rust:1.77-bookworm@sha256:83101f6985c93e1e6501b3375de188ee3d2cbb89968bcc91611591f9f447bd42"
+  ┆ noIncremental: false
+  ┆ collectTests: true
+  ) › 
+✘ withExec /rcexp-batch/runner worker /rcexp-batch/request.json (disableDaggerInDagger: true) 0.5s ERROR
+{"$message_type":"artifact","artifact":"/rcexp-results/target/.rcexp-private/2a951e5b618c883bacc9b9cc88069febbbeb229b26faebd020880e4b4fc5a06f/debug/deps/pkg_001-2a11872dc2de28f9.d","emit":"dep-info"}
+{"$message_type":"diagnostic","message":"mismatched types","code":{"code":"E0308","explanation":"Expected type did not match the received type.\n\nErroneous code examples:\n\n```compile_fail,E0308\nfn plus_one(x: i32) -> i32 {\n    x + 1\n}\n\nplus_one(\"Not a number\");\n//       ^^^^^^^^^^^^^^ expected `i32`, found `&str`\n\nif \"Not a bool\" {\n// ^^^^^^^^^^^^ expected `bool`, found `&str`\n}\n\nlet x: f32 = \"Not a float\";\n//     ---   ^^^^^^^^^^^^^ expected `f32`, found `&str`\n//     |\n//     expected due to this\n```\n\nThis error occurs when an expression was used in a place where the compiler\nexpected an expression of a different type. It can occur in several cases, the\nmost common being when calling a function and passing an argument which has a\ndifferent type than the matching type in the function declaration.\n"},"level":"error","spans":[{"file_name":"pkg_001/src/lib.rs","byte_start":26,"byte_end":42,"line_start":1,"line_end":1,"column_start":27,"column_end":43,"is_primary":true,"text":[{"text":"pub fn invalid() -> u64 { \"excluded crate\" }","highlight_start":27,"highlight_end":43}],"label":"expected `u64`, found `&str`","suggested_replacement":null,"suggestion_applicability":null,"expansion":null},{"file_name":"pkg_001/src/lib.rs","byte_start":20,"byte_end":23,"line_start":1,"line_end":1,"column_start":21,"column_end":24,"is_primary":false,"text":[{"text":"pub fn invalid() -> u64 { \"excluded crate\" }","highlight_start":21,"highlight_end":24}],"label":"expected `u64` because of return type","suggested_replacement":null,"suggestion_applicability":null,"expansion":null}],"children":[],"rendered":"\u001b[0m\u001b[1m\u001b[38;5;9merror[E0308]\u001b[0m\u001b[0m\u001b[1m: mismatched types\u001b[0m\n\u001b[0m \u001b[0m\u001b[0m\u001b[1m\u001b[38;5;12m--> \u001b[0m\u001b[0mpkg_001/src/lib.rs:1:27\u001b[0m\n\u001b[0m  \u001b[0m\u001b[0m\u001b[1m\u001b[38;5;12m|\u001b[0m\n\u001b[0m\u001b[1m\u001b[38;5;12m1\u001b[0m\u001b[0m \u001b[0m\u001b[0m\u001b[1m\u001b[38;5;12m|\u001b[0m\u001b[0m \u001b[0m\u001b[0mpub fn invalid() -> u64 { \"excluded crate\" }\u001b[0m\n\u001b[0m  \u001b[0m\u001b[0m\u001b[1m\u001b[38;5;12m| \u001b[0m\u001b[0m                    \u001b[0m\u001b[0m\u001b[1m\u001b[38;5;12m---\u001b[0m\u001b[0m   \u001b[0m\u001b[0m\u001b[1m\u001b[38;5;9m^^^^^^^^^^^^^^^^\u001b[0m\u001b[0m \u001b[0m\u001b[0m\u001b[1m\u001b[38;5;9mexpected `u64`, found `&str`\u001b[0m\n\u001b[0m  \u001b[0m\u001b[0m\u001b[1m\u001b[38;5;12m| \u001b[0m\u001b[0m                    \u001b[0m\u001b[0m\u001b[1m\u001b[38;5;12m|\u001b[0m\n\u001b[0m  \u001b[0m\u001b[0m\u001b[1m\u001b[38;5;12m| \u001b[0m\u001b[0m                    \u001b[0m\u001b[0m\u001b[1m\u001b[38;5;12mexpected `u64` because of return type\u001b[0m\n\n"}
+{"$message_type":"diagnostic","message":"aborting due to 1 previous error","code":null,"level":"error","spans":[],"children":[],"rendered":"\u001b[0m\u001b[1m\u001b[38;5;9merror\u001b[0m\u001b[0m\u001b[1m: aborting due to 1 previous error\u001b[0m\n\n"}
+{"$message_type":"diagnostic","message":"For more information about this error, try `rustc --explain E0308`.","code":null,"level":"failure-note","spans":[],"children":[],"rendered":"\u001b[0m\u001b[1mFor more information about this error, try `rustc --explain E0308`.\u001b[0m\n"}
+compile pkg_001: exit status 1
+! exit code: 1

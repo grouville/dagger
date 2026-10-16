@@ -49,6 +49,10 @@ Priorities:
    an engine crash from excessive discovery work, cancellation and memory used
    by the profiling recorder. Keep the existing ancestor index enabled while
    locating work it does not cover.
+   Combined Rust compilation and test discovery removes one helper invocation
+   per package, but remains slower than the workspace batch. Measure batching
+   Go module argument reads next; separate engine queries for each name and
+   value remain visible in the collection profile.
 
 Keep useful engine fixes separate, with focused regression tests and an
 adversarial review. Push experiments to Guillaume's fork; open new upstream PRs

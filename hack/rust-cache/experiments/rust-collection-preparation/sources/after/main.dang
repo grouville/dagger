@@ -1,0 +1,692 @@
+pub description = "Cargo-compatible checks and build artifacts for a Cargo workspace"
+
+type CargoEnvelope {
+  reason: String
+}
+
+type CargoWorkspace {
+  workspaceMembers: [String!]! @JSON.field(name: "workspace_members")
+  packages: [CargoPackage!]!
+}
+
+type CargoPackage {
+  packageID: String! @JSON.field(name: "id")
+  name: String!
+}
+
+type PackageMetadata {
+  fingerprint: String!
+  toolchain: String!
+  locked: Boolean!
+  names: [String!]!
+}
+
+type CargoTarget {
+  kind: [String!]!
+}
+
+type CargoArtifact {
+  packageID: String! @JSON.field(name: "package_id")
+  target: CargoTarget!
+  filenames: [String!]!
+  fresh: Boolean!
+}
+
+type CargoFinished {
+  success: Boolean!
+}
+
+type NativeCache {
+  pub plan: File
+  pub manifest: String!
+  pub tokens: [String!]!
+  pub snapshots: [Directory!]!
+}
+
+type NativeCompilation {
+  pub artifacts: Directory!
+  published: Directory!
+  tests: Container
+  suite: DiscoveredTests
+  pub cache: NativeCache!
+  pub hits: Int!
+  pub actions: Int!
+}
+
+type DiscoveredTestPackage {
+  name: String!
+  keys: [String!]!
+  commands: String!
+  executionIndex: Int!
+}
+
+type DiscoveredTests {
+  packages: [DiscoveredTestPackage!]!
+  environment: Container!
+  executions: [Container!]!
+}
+
+type Rust {
+  let packageNames: [String!]! = []
+  """Debian bookworm amd64 Rust image. The default is pinned by digest."""
+  pub image: String! = "rust@sha256:39f68a3e8e3ff425f8945ffa91128e60ff930d53e17fbb5214e95824bdd46f1b"
+  """Project cache key. Use a distinct value per project."""
+  pub cacheKey: String! = "rust"
+  """Pass --locked to Cargo and require an up-to-date Cargo.lock."""
+  pub locked: Boolean! = false
+  """
+  Extra Debian packages for build scripts that need more than gcc and make
+  (cmake, pkg-config, libssl-dev, ...). Installed once per package set.
+  """
+  pub extraPackages: [String!]! = []
+
+  # Forwarded to every Cargo invocation. Unset values leave the project's own
+  # Cargo configuration authoritative.
+  pub cargoProfile: String
+  pub target: String
+  pub features: [String!]! = []
+  pub allFeatures: Boolean! = false
+  pub noDefaultFeatures: Boolean! = false
+
+  """Experimental native compiler plan for `cargo check`. Capture it with captureCheckPlan."""
+  pub compilerPlan: File
+  """Previous native compiler cache, retained or transferred as a Dagger object."""
+  pub compilerCache: NativeCache
+  """Use the experimental native backend for normal checks, recovering this project's previous cache."""
+  pub nativeCache: Boolean! = false
+
+  # Runs once in the cached toolchain layer and records whether Cargo supports
+  # build.build-dir (>= 1.91). Newer toolchains keep the mutable intermediate
+  # state (/build) apart from the final outputs (/out); older ones use a single
+  # target directory per action and the build lane publishes its final
+  # artifacts into /out itself.
+  let cargoLayoutProbe: String! = """
+    set -eu
+    cargo_version=$(cargo --version)
+    printf '%s\n' "$cargo_version" >&2
+    if printf '%s\n' "$cargo_version" | awk '
+      $1 == "cargo" && $2 !~ /-/ {
+        split($2, v, ".")
+        if (v[1] > 1 || (v[1] == 1 && v[2] >= 91)) ok = 1
+      }
+      END { exit !ok }
+    '; then
+      echo build_dir=1 > /etc/dagger-rust-cargo
+    else
+      echo build_dir=0 > /etc/dagger-rust-cargo
+    fi
+  """
+
+  # Selects the target layout recorded by cargoLayoutProbe; one file read.
+  let layoutSelect: String! = "if ! grep -qs build_dir=1 /etc/dagger-rust-cargo; then unset CARGO_BUILD_BUILD_DIR; export CARGO_TARGET_DIR=/build; fi"
+
+  # Without build.build-dir, Cargo writes final artifacts next to its
+  # intermediate state under /build. Copy the final ones (anything not under
+  # deps/, build/, incremental/ or .fingerprint/) into /out and point
+  # build.jsonl at them, so selectedArtifacts sees the same shape either way.
+  let publishLegacyArtifacts: String! = """
+    if ! grep -qs build_dir=1 /etc/dagger-rust-cargo; then
+      for f in $(grep -o '"/build/[^"]*"' /meta/build.jsonl | tr -d '"' | sort -u); do
+        rel=${f#/build/}
+        case "$rel" in */deps/*|*/build/*|*/incremental/*|*/.fingerprint/*) continue;; esac
+        [ -f "$f" ] || continue
+        mkdir -p "/out/$(dirname "$rel")"
+        cp -p "$f" "/out/$rel"
+        sed -i "s#\"$f\"#\"/out/$rel\"#g" /meta/build.jsonl
+      done
+    fi
+  """
+
+  # The image plus what Cargo build scripts commonly need beyond it: rsync for
+  # source reconciliation (see action), make for autotools-driven C builds,
+  # and whatever extraPackages names. Packages the module itself relies on are
+  # pinned by checksum so the layer is reproducible.
+  let toolchain: Container! {
+    let base = if (extraPackages.isEmpty) {
+      container.from(image)
+    } else {
+      container.from(image)
+        .withExec(["sh", "-c", "apt-get update -qq && apt-get install -y --no-install-recommends " + extraPackages.join(" ")])
+    }
+    base
+      .withMountedFile("/tmp/libpopt0.deb", http(
+        "https://deb.debian.org/debian/pool/main/p/popt/libpopt0_1.19%2Bdfsg-1_amd64.deb",
+        checksum: "sha256:6f94b488255acd996254f775c77ff3956557c61f860a3c9caeaf65457554194f",
+      ))
+      .withMountedFile("/tmp/rsync.deb", http(
+        "https://deb.debian.org/debian/pool/main/r/rsync/rsync_3.2.7-1%2Bdeb12u6_amd64.deb",
+        checksum: "sha256:ce99de6b36cbb62dc614a73463e467f2c1ef509545a9a2b33cab19b50530b672",
+      ))
+      .withMountedFile("/tmp/make.deb", http(
+        "https://deb.debian.org/debian/pool/main/m/make-dfsg/make_4.3-4.1_amd64.deb",
+        checksum: "sha256:a1a83af8cbd854af887b72ad196b1f4af58387815e21ced1000253a116a46e2a",
+      ))
+      .withExec(["sh", "-c", "test \"$(dpkg --print-architecture)\" = amd64 && dpkg -i /tmp/libpopt0.deb /tmp/rsync.deb /tmp/make.deb"])
+  }
+
+  # Keep the project config mounted while selecting Rust and its components.
+  let configuredToolchain(base: Container!, source: Directory!, components: [String!]! = []): Container! {
+    let config = source.filter(include: ["rust-toolchain", "rust-toolchain.toml"])
+    let configured = base
+      .withWorkdir("/src")
+      .withMountedDirectory("/src", config)
+    let prepared = if (config.entries.isEmpty) {
+      configured
+    } else {
+      configured.withExec(["sh", "-c", "rustup show active-toolchain || rustup toolchain install --no-self-update"])
+    }
+    let equipped = if (components.isEmpty) {
+      prepared
+    } else {
+      # Keep the project config mounted here so rustup installs into the
+      # selected toolchain, not the image's possibly different default.
+      prepared.withExec(["rustup", "component", "add"] + components)
+    }
+    equipped
+  }
+
+  # Source edits do not rebuild this layer. Probe Cargo with the project
+  # toolchain still selected, then remove the config mount.
+  let projectToolchain(source: Directory!, components: [String!]! = []): Container! {
+    configuredToolchain(toolchain, source, components)
+      .withExec(["sh", "-c", cargoLayoutProbe]).withoutMount("/src")
+  }
+
+  let cargoFlags: [String!]! {
+    let flags: [String!]! = if (packageNames.isEmpty) { ["--workspace"] } else { [] }
+    if (locked) { flags += ["--locked"] }
+    packageNames.each { name => flags += ["--package", name] }
+    if (cargoProfile != null) { flags += ["--profile", cargoProfile] }
+    if (target != null) { flags += ["--target", target] }
+    if (!features.isEmpty) { flags += ["--features", features.join(",")] }
+    if (allFeatures) { flags += ["--all-features"] }
+    if (noDefaultFeatures) { flags += ["--no-default-features"] }
+    flags
+  }
+
+  let forPackages(names: [String!]!): Rust! {
+    self.packageNames = names
+    if (!names.isEmpty) { self.cacheKey += "-packages-" + names.join(",") }
+    self
+  }
+
+  let queryPackageNames(prepared: Container!, source: Directory!): [String!]! {
+    let flags = ["cargo", "metadata", "--offline", "--no-deps", "--format-version=1"]
+    if (locked) { flags += ["--locked"] }
+    let output = prepared
+      .withMountedDirectory("/src", source).withWorkdir("/src")
+      .withExec(flags, disableDaggerInDagger: true).stdout
+    let metadata: CargoWorkspace! = JSON.decode(output)
+    # --no-deps returns workspace members only.
+    metadata.packages.map { package => package.name }
+  }
+
+  let cachedPackageNames(prepared: Container!, source: Directory!): [String!]! {
+    let fingerprint = source.treeFingerprint(ignoreContents: ["**/*.rs"], reject: ["**/.cargo"])
+    if (fingerprint == null) {
+      return queryPackageNames(prepared, source)
+    }
+    let toolchainID = prepared.id!
+    let hintKey = cacheKey + "-package-metadata-native-v1"
+    let previousID = Dagger.nativeCacheHint(key: hintKey)
+    let previous: PackageMetadata = if (previousID == null) {
+      null
+    } else {
+      JSON.decode(node(previousID!).{{... on File!}}.contents)
+    }
+    if (previous != null and previous!.fingerprint == fingerprint! and previous!.toolchain == toolchainID and previous!.locked == locked) {
+      return previous!.names
+    }
+    let names = queryPackageNames(prepared, source)
+    let metadata = PackageMetadata(fingerprint: fingerprint!, toolchain: toolchainID, locked: locked, names: names)
+    let saved = directory.withNewFile("packages.json", JSON.encode(metadata)).file("packages.json")
+    assert("Failed to retain package metadata") {
+      Dagger.saveNativeCacheHint(key: hintKey, value: saved.id!)
+    }
+    names
+  }
+
+  """Select workspace packages; checks run once for the selected group."""
+  packages(
+    source: Directory! @defaultPath(path: "/")
+      @ignorePatterns(patterns: [".git", "target", "dagger.toml", "dagger.lock"]),
+  ): Packages! {
+    # Metadata runs no build scripts and needs no source reconciliation.
+    # Preserve explicitly requested system packages for project tooling.
+    let base = if (extraPackages.isEmpty) { container.from(image) } else { toolchain }
+    let prepared = configuredToolchain(base, source)
+    let names = if (nativeCache) {
+      cachedPackageNames(prepared, source)
+    } else {
+      queryPackageNames(prepared, source)
+    }
+    Packages(project: self, source: source, names: names)
+  }
+
+  # Each action kind (check, clippy, test, build) owns its source mirror and
+  # intermediate build directory. Sharing them would serialize the actions on
+  # their locks even though Dagger runs the checks concurrently; Cargo's
+  # registry and git caches use Cargo's own file locking and stay shared.
+  # The source is reconciled into the lane's mutable mirror with rsync by
+  # checksum rather than mounted directly: Cargo's freshness checks use mtimes,
+  # and a mirror keeps them stable for unchanged files across commands.
+  # Deleted files are removed from the mirror, except paths the project's own
+  # .gitignore files ignore: build scripts that write into the tree (helix's
+  # tree-sitter grammars, for example) keep their outputs between runs, as
+  # they would natively.
+  let action(lane: String!, source: Directory!, command: [String!]!, components: [String!]! = []): Container! {
+    let script = "set -eu; " + layoutSelect + "; rsync -rclp --delete --filter=':- .gitignore' /input/ /src/; mkdir -p /out /meta; exec \"$@\""
+    let prepared = projectToolchain(source, components)
+      .withWorkdir("/src")
+      .withMountedDirectory("/input", source)
+      .withMountedCache("/src", cacheVolume(cacheKey + "-" + lane + "-source"), sharing: CacheSharingMode.LOCKED)
+      .withMountedCache("/usr/local/cargo/registry", cacheVolume(cacheKey + "-registry"))
+      .withMountedCache("/usr/local/cargo/git", cacheVolume(cacheKey + "-git"))
+      # /build is Cargo's mutable intermediate state; /out is container state,
+      # so final outputs are part of the immutable result.
+      .withEnvVariable("CARGO_BUILD_BUILD_DIR", "/build")
+      .withEnvVariable("CARGO_TARGET_DIR", "/out")
+      .withMountedCache("/build", cacheVolume(cacheKey + "-" + lane + "-build"), sharing: CacheSharingMode.LOCKED)
+    # Artifacts the generator publishes must reproduce byte-for-byte for
+    # identical inputs; incremental rebuilds do not guarantee that. The check
+    # lanes keep incremental compilation, which is where edit latency comes from.
+    let configured = if (lane == "build") {
+      prepared.withEnvVariable("CARGO_INCREMENTAL", "0")
+    } else {
+      prepared
+    }
+    configured.withExec(["sh", "-c", script, "rust-action"] + command)
+  }
+
+  let checkResult(source: Directory!): Container! {
+    action("check", source, ["cargo", "check"] + cargoFlags)
+  }
+
+  let nativeCompilationResult(command: String!, source: Directory!, previous: NativeCache, noIncremental: Boolean! = false, collectTests: Boolean! = false): NativeCompilation! {
+    assert("The experimental compiler backend requires a locked workspace and no extra packages") {
+      locked and extraPackages.isEmpty
+    }
+    let retained = previous ?? compilerCache
+    let modeSuffix = if (noIncremental) { "-reproducible" } else { "" }
+    let hintKey = cacheKey + "-native-" + command + modeSuffix
+    let hintID = if (retained == null) { Dagger.nativeCacheHint(key: hintKey) } else { null }
+    let previousFields = if (retained == null) {
+      if (hintID == null) {
+        NativeCache(manifest: "", tokens: [], snapshots: [])
+      } else {
+        let stored = node(hintID!).{{... on RustCompilerCache!}}.{{
+          plan.{{id}}, manifest, tokens, snapshots.{{id}}
+        }}
+        NativeCache(
+          plan: node(stored.plan.id!).{{... on File!}},
+          manifest: stored.manifest,
+          tokens: stored.tokens,
+          snapshots: stored.snapshots.map { snapshot => node(snapshot.id!).{{... on Directory!}} },
+        )
+      }
+    } else {
+      retained
+    }
+    let requestedPlan = if (command == "check") { compilerPlan } else { null }
+    let selectedPlan = requestedPlan ?? previousFields.plan
+    let result = rustCompiler.compile(source, plan: selectedPlan, automaticPlan: requestedPlan == null,
+      previousManifest: previousFields.manifest, previousTokens: previousFields.tokens, previousSnapshots: previousFields.snapshots,
+      workers: 8, command: command, cargoFlags: cargoFlags, image: image, noIncremental: noIncremental, collectTests: collectTests)
+    let compiled = result.{{
+        artifacts.{{id}}, published.{{id}},
+        cache.{{id, plan.{{id}}, manifest, tokens, snapshots.{{id}}}},
+        hits, actions
+      }}
+    assert("Failed to retain the native compiler cache") {
+      Dagger.saveNativeCacheHint(key: hintKey, value: compiled.cache.id!)
+    }
+    NativeCompilation(
+      artifacts: node(compiled.artifacts.id!).{{... on Directory!}},
+      published: node(compiled.published.id!).{{... on Directory!}},
+      tests: if (command == "test" and !collectTests) {
+        let execution = result.tests!.{{id}}
+        node(execution.id!).{{... on Container!}}
+      } else { null },
+      suite: if (collectTests) {
+        let suite = result.testSuite!.{{metadata, environment.{{id}}, executions.{{id}}}}
+        DiscoveredTests(
+          packages: JSON.decode(suite.metadata),
+          environment: node(suite.environment.id!).{{... on Container!}},
+          executions: suite.executions.map { execution => node(execution.id!).{{... on Container!}} },
+        )
+      } else { null },
+      cache: NativeCache(
+        plan: node(compiled.cache.plan.id!).{{... on File!}},
+        manifest: compiled.cache.manifest,
+        tokens: compiled.cache.tokens,
+        snapshots: compiled.cache.snapshots.map { snapshot => node(snapshot.id!).{{... on Directory!}} },
+      ),
+      hits: compiled.hits,
+      actions: compiled.actions,
+    )
+  }
+
+  let nativeCheckResult(source: Directory!, previous: NativeCache): NativeCompilation! {
+    nativeCompilationResult("check", source, previous)
+  }
+
+  """Capture the compiler graph for a locked, path-only workspace. Recapture when Cargo configuration changes."""
+  pub captureCheckPlan(
+    source: Directory! @defaultPath(path: "/")
+      @ignorePatterns(patterns: [".git", "target", "dagger.toml", "dagger.lock"]),
+  ): File! {
+    assert("The experimental compiler backend requires a locked workspace and no extra packages") {
+      locked and extraPackages.isEmpty
+    }
+    rustCompiler.capture(source, image: image, command: "check",
+      cargoArgs: cargoFlags.filter { flag => flag != "--workspace" and flag != "--locked" })
+  }
+
+  """Type-check and return the native artifacts and cache for the next source edit."""
+  pub nativeCheck(
+    source: Directory! @defaultPath(path: "/")
+      @ignorePatterns(patterns: [".git", "target", "dagger.toml", "dagger.lock"]),
+    previous: NativeCache,
+  ): NativeCompilation! @cache(policy: FunctionCachePolicy.Never) {
+    nativeCheckResult(source, previous)
+  }
+
+  """Build and return native compiler outputs and incremental state for the next edit."""
+  nativeBuild(
+    source: Directory! @defaultPath(path: "/")
+      @ignorePatterns(patterns: [".git", "target", "dagger.toml", "dagger.lock"]),
+    previous: NativeCache,
+  ): NativeCompilation! @cache(policy: FunctionCachePolicy.Never) {
+    nativeCompilationResult("build", source, previous)
+  }
+
+  """Compile workspace tests with native state and return their Cargo-compatible execution."""
+  nativeTest(
+    source: Directory! @defaultPath(path: "/")
+      @ignorePatterns(patterns: [".git", "target", "dagger.toml", "dagger.lock"]),
+    previous: NativeCache,
+  ): NativeCompilation! @cache(policy: FunctionCachePolicy.Never) {
+    nativeCompilationResult("test", source, previous)
+  }
+
+  let nativeTestSuite(source: Directory!): DiscoveredTests! {
+    assert("Individual test collections currently require nativeCache = true") { nativeCache }
+    nativeCompilationResult("test", source, null, collectTests: true).suite!
+  }
+
+  """Reconstruct a transferred cache with this engine's native directories."""
+  pub restoreCompilerCache(manifest: String!, tokens: [String!]!, snapshots: [Directory!]!, plan: File = null): NativeCache! {
+    assert("Compiler cache tokens and snapshots must match") { tokens.length == snapshots.length }
+    NativeCache(manifest: manifest, tokens: tokens, snapshots: snapshots, plan: plan)
+  }
+
+  let buildResult(source: Directory!): Container! {
+    let script = if (locked) {
+      "set -eu; cargo build --message-format=json-render-diagnostics \"$@\" > /meta/build.jsonl; cargo metadata --no-deps --format-version=1 --locked > /meta/workspace.json\n" + publishLegacyArtifacts
+    } else {
+      "set -eu; cargo build --message-format=json-render-diagnostics \"$@\" > /meta/build.jsonl; cargo metadata --no-deps --format-version=1 > /meta/workspace.json; cp -p Cargo.lock /meta/Cargo.lock\n" + publishLegacyArtifacts
+    }
+    action("build", source, ["sh", "-c", script, "rust-build"] + cargoFlags)
+  }
+
+  # Cargo may mix arbitrary proc-macro stdout with JSON. Recover only while
+  # recognizing the envelope; recognized artifact/success records are strict.
+  let envelope(line: String!): CargoEnvelope {
+    (JSON.decode(line) :: CargoEnvelope!) rescue null
+  }
+
+  let selectedArtifacts(source: Directory!): Directory! {
+    if (nativeCache) {
+      return nativeCompilationResult("build", source, null, true).published
+    }
+    let result = buildResult(source)
+    let metadata: CargoWorkspace! = JSON.decode(result.file("/meta/workspace.json").contents)
+    let lines = result.file("/meta/build.jsonl").contents.split("\n")
+    let paths: [String!]! = []
+    let finished: Boolean! = false
+    lines.each { line =>
+      let header = envelope(line)
+      if (header != null) {
+        if (header.reason == "build-finished") {
+          let status: CargoFinished! = JSON.decode(line)
+          assert("Cargo did not report a successful build") { status.success }
+          finished = true
+        }
+        if (header.reason == "compiler-artifact") {
+          let artifact: CargoArtifact! = JSON.decode(line)
+          if (metadata.workspaceMembers.contains(artifact.packageID) and !artifact.target.kind.contains("custom-build")) {
+            # Deliberately include fresh=true. Ignoring fresh artifacts would
+            # delete unchanged outputs from the generated workspace subtree.
+            artifact.filenames.each { filename =>
+              assert("Cargo artifact path must belong to the managed output or intermediate directory") {
+                filename.hasPrefix("/out/") or filename.hasPrefix("/build/")
+              }
+              if (filename.hasPrefix("/out/")) {
+                let relative = filename.trimPrefix("/out/")
+                let parts = relative.split("/")
+                assert("Cargo final artifact path must be a nonempty canonical relative path") {
+                  !parts.contains("") and !parts.contains(".") and !parts.contains("..")
+                }
+                if (!paths.contains(relative)) { paths += [relative] }
+              }
+            }
+          }
+        }
+      }
+    }
+    assert("Missing successful Cargo build-finished record") { finished }
+    assert("Cargo reported no workspace final artifacts; refusing to replace generated outputs") {
+      !paths.isEmpty
+    }
+    let out = result.directory("/out")
+    paths.reduce(directory) { selected, relative =>
+      # Exact paths, not globs, avoid wildcard expansion and basename collisions.
+      let kind = out.stat(relative, doNotFollowSymlinks: true).fileType
+      if (kind == FileType.DIRECTORY) {
+        selected.withDirectory(relative, out.directory(relative))
+      } else {
+        assert("Expected a regular final artifact; symlink outputs are not supported") {
+          kind == FileType.REGULAR
+        }
+        selected.withFile(relative, out.file(relative))
+      }
+    }
+  }
+
+  # Every entrypoint takes the project as a contextual Directory: identical
+  # trees are cache hits across commands, which a session-bound Workspace
+  # argument would not allow.
+  """Type-check the workspace (`cargo check`)."""
+  pub check(
+    source: Directory! @defaultPath(path: "/")
+      @ignorePatterns(patterns: [".git", "target", "dagger.toml", "dagger.lock"]),
+  ): Void @check @cache(policy: FunctionCachePolicy.Never) {
+    if (compilerPlan == null and nativeCache == false) {
+      checkResult(source).sync
+    } else {
+      nativeCheckResult(source, null).artifacts.sync
+    }
+    null
+  }
+
+  """Lint with Clippy under the project's own lint policy; warnings are not promoted."""
+  pub clippy(
+    source: Directory! @defaultPath(path: "/")
+      @ignorePatterns(patterns: [".git", "target", "dagger.toml", "dagger.lock"]),
+  ): Void @check {
+    action("clippy", source, ["cargo", "clippy"] + cargoFlags, ["clippy"]).sync
+    null
+  }
+
+  """Run the workspace tests (`cargo test`)."""
+  pub test(
+    source: Directory! @defaultPath(path: "/")
+      @ignorePatterns(patterns: [".git", "target", "dagger.toml", "dagger.lock"]),
+  ): Void @cache(policy: FunctionCachePolicy.Never) {
+    if (nativeCache) {
+      nativeCompilationResult("test", source, null).tests!.sync
+    } else {
+      action("test", source, ["cargo", "test"] + cargoFlags).sync
+    }
+    null
+  }
+
+  """Check formatting (`cargo fmt --check`)."""
+  pub fmt(
+    source: Directory! @defaultPath(path: "/")
+      @ignorePatterns(patterns: [".git", "target", "dagger.toml", "dagger.lock"]),
+  ): Void @check {
+    projectToolchain(source, ["rustfmt"])
+      .withWorkdir("/src")
+      .withMountedDirectory("/src", source)
+      .withExec(["cargo", "fmt", "--all", "--", "--check"])
+      .sync
+    null
+  }
+
+  """Build the workspace and return only its final artifacts (binaries, libraries)."""
+  pub artifacts(
+    source: Directory! @defaultPath(path: "/")
+      @ignorePatterns(patterns: [".git", "target", "dagger.toml", "dagger.lock"]),
+  ): Directory! {
+    selectedArtifacts(source)
+  }
+
+  """
+  Build and replace the module-owned target/dagger subtree with current artifacts.
+  When unlocked, also return Cargo's generated or updated Cargo.lock, as a native
+  build would. Other target contents and project sources remain unchanged.
+  """
+  pub build(
+    source: Directory! @defaultPath(path: "/")
+      @ignorePatterns(patterns: [".git", "target", "dagger.toml", "dagger.lock"]),
+    outputState: Directory! @defaultPath(path: "/")
+      @ignorePatterns(patterns: ["**", "!Cargo.lock", "!target", "target/**", "!target/dagger", "!target/dagger/**"]),
+  ): Changeset! @generate {
+    let observedPaths = if (locked) {
+      ["target/dagger", "target/dagger/**"]
+    } else {
+      ["Cargo.lock", "target/dagger", "target/dagger/**"]
+    }
+    # A missing managed child does not import its existing parent. Bring in
+    # that parent's metadata without reading unrelated Cargo target contents.
+    let parents = outputState.filter(include: ["target"], exclude: ["target/*"])
+    let observed = outputState.filter(include: observedPaths)
+    let current = directory.withDirectory("/", parents).withDirectory("/", observed)
+    if (!locked and current.exists("Cargo.lock", doNotFollowSymlinks: true)) {
+      assert("Unlocked generation requires Cargo.lock to be a regular file, not a symlink or directory") {
+        current.stat("Cargo.lock", doNotFollowSymlinks: true).fileType == FileType.REGULAR
+      }
+    }
+    if (current.exists("target", doNotFollowSymlinks: true)) {
+      assert("The generator requires target to be a real workspace directory, not a symlink") {
+        current.stat("target", doNotFollowSymlinks: true).fileType == FileType.DIRECTORY
+      }
+    }
+    if (current.exists("target/dagger", doNotFollowSymlinks: true)) {
+      assert("The generator owns a directory at target/dagger; refusing to replace another file type") {
+        current.stat("target/dagger", doNotFollowSymlinks: true).fileType == FileType.DIRECTORY
+      }
+    }
+    # Retain metadata on existing ancestors, notably the user's target mode.
+    # Only the module-owned child is replaced, including obsolete outputs.
+    let artifacts = current
+      .withoutDirectory("target/dagger")
+      .withDirectory("target/dagger", selectedArtifacts(source))
+    let desired = if (locked) {
+      artifacts
+    } else {
+      # Capture the actual lockfile inside the successful Cargo action. Do not
+      # retain an unkeyed lock only in a shared mutable source cache: the next
+      # reconciliation would delete it, changing dependency selection on an
+      # unrelated source edit. Applying this normal Changeset makes the lock
+      # an explicit input to subsequent checks/builds.
+      artifacts.withFile("Cargo.lock", buildResult(source).file("/meta/Cargo.lock"))
+    }
+    desired.changes(current)
+  }
+}
+
+type Packages @collection {
+  keys: [String!]!
+  let all: [String!]!
+  let project: Rust!
+  let source: Directory!
+
+  new(project: Rust!, source: Directory!, names: [String!]!) {
+    self.project = project
+    self.source = source
+    self.keys = names
+    self.all = names
+    self
+  }
+
+  get(name: String!): Package! { Package(name: name, project: project, source: source) }
+
+  let selected: Rust! {
+    project.forPackages(if (keys.length == all.length) { [] } else { all.filter { name => keys.contains(name) } })
+  }
+
+  check: Void @check @cache(policy: FunctionCachePolicy.Never) {
+    if (!keys.isEmpty) { selected.check(source) }
+    null
+  }
+
+}
+
+type Package {
+  name: String!
+  let project: Rust!
+  let source: Directory!
+
+  tests: RustTests! {
+    let suite = project.forPackages([name]).nativeTestSuite(source)
+    let matching = suite.packages.filter { package => package.name == name }
+    let empty: [String!]! = []
+    let keys = matching.reduce(empty) { keys, package => keys + package.keys }
+    RustTests(
+      keys: keys,
+      all: keys,
+      package: name,
+      commands: matching.map { package => package.commands }.join(""),
+      environment: suite.environment,
+      executions: matching.map { package => suite.executions[package.executionIndex]! },
+    )
+  }
+}
+
+type RustTests @collection {
+  keys: [String!]!
+  let package: String!
+  let commands: String!
+  let environment: Container!
+  let all: [String!]!
+  let executions: [Container!]!
+
+  get(name: String!): RustTest! {
+    RustTest(name: name, package: package, commands: commands, environment: environment)
+  }
+
+  test: Void @check {
+    if (!keys.isEmpty) {
+      if (keys.length == all.length) {
+        executions.each { execution => execution.sync }
+      } else {
+        rustCompiler.runTestSelection(environment, commands: commands, pkg: package, keys: keys).sync
+      }
+    }
+    null
+  }
+}
+
+type RustTest {
+  name: String!
+  let package: String!
+  let commands: String!
+  let environment: Container!
+
+  test: Void @check {
+    rustCompiler.runTestSelection(environment, commands: commands, pkg: package, keys: [name]).sync
+    null
+  }
+}

@@ -1,0 +1,40 @@
+wcprof dump: 153021 ops, 10583 waits, 257 links over 7.71s; dropped events: 0; open ops: 0
+calls: 71939 (hit:58727 do_not_cache:7811 executed:5391 joined:10)
+top clients (of 259) by ops:
+       ops   self_tot  active               client
+     48989    594.52s  +8.16ms..+7.71s      (none)
+     11309     25.19s  +0ns..+7.71s         2ulrj8696nxb20eo0fvmasw9m
+       946   734.88ms  +658.03ms..+6.38s    FRRVGW3WSJ4TIFMQ5CN7FNDRQF
+       841      1.71s  +615.29ms..+6.38s    26D6NXHZ3PJXXHVUB3H3JJZR3Y
+       841   620.74ms  +638.89ms..+4.04s    27CYU7SCB3HNIW3GSSEJWO5Y6Z
+       841      1.54s  +694.80ms..+5.90s    3RDSNEMDBLQMW2VFNC3HIQSER7
+       841      1.79s  +667.19ms..+6.25s    4EJTDVBH2E7T7ZV5BNAR4EPEKJ
+       841      1.49s  +707.87ms..+5.85s    5B5MPO7BRL4N4M6GOPZ7KGP4VY
+       841      1.86s  +710.56ms..+5.56s    6WOCETSWS7VLFCG24ADBRK53UZ
+       841      1.65s  +678.25ms..+5.57s    73IMMZP33GVLN3IVRON2UY2NNE
+top classes (of 262) by count:
+     count   self_tot  kind class
+     16642     11.21s  call Query.typeDef
+     12946      6.99s  call TypeDef.withOptional
+      8526      5.64s  call TypeDef.withKind
+      7668     13.93s  call Module._implementationScoped
+      5097    24.48ms  session_phase session.modulesLoad
+      5097     28.03s  session_phase session.query
+      5097   728.58ms  session_phase session.schemaBuild
+      5097   985.08ms  session_phase session.serveQuery
+      5097    27.53ms  session_phase session.workspaceLoad
+      4192     33.10s  call Query.node
+top classes by self time:
+     count   self_tot  kind class
+       193     50.25s  exec_phase exec.workload
+      4192     33.10s  call Query.node
+      5097     28.03s  session_phase session.query
+       768     22.29s  call FunctionCallArgValue.inputArgs
+       434     16.47s  lazy Container.withNewFile
+       193     14.20s  exec_phase withExec.prepareMounts
+      7668     13.93s  call Module._implementationScoped
+       768     12.88s  call FunctionCallArgValue.name
+     16642     11.21s  call Query.typeDef
+       130     10.61s  call Container.withNewFile
+(left out: 40298 internal-kind ops, self_tot 511.35s; kind: "internal" ranks them)
+(times are relative to the first recorded op; self = duration minus child ops and waits; self_tot sums it across ops, concurrent ones included, so it can exceed wall time)

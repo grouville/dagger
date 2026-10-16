@@ -1,0 +1,39 @@
+classes: 130495 ops in 264 classes (all ops) over 10.27s, self_tot 500.75s (summed across concurrent ops); sorted by self
+(left out: 45533 internal-kind ops, self_tot 684.15s; kind: "internal" ranks them)
+   count   self_tot  self_p50  self_max    dur_tot   dur_p50   dur_max   dup  kind class               outcomes
+     257     57.61s   60.78ms  771.13ms    272.90s  340.83ms     3.87s     0  exec_phase exec.workload ok:257
+    5152     49.51s    2.32ms  260.20ms    101.20s    3.33ms     1.03s     0  call Query.node          do_not_cache:5152
+    6633     40.80s    1.39ms  169.30ms    678.92s   14.18ms    10.17s     0  session_phase session.query ok:6633
+     578     22.12s   26.49ms  197.21ms    115.30s  190.34ms  594.93ms     0  lazy Container.withNewFile ok:578
+     257     20.96s   45.52ms  449.58ms     20.96s   45.52ms  449.58ms     0  exec_phase withExec.prepareMounts ok:257
+   16698     20.89s     8.8µs   94.46ms     20.89s     8.8µs   94.46ms     0  call Query.typeDef       hit:16698
+    9140     20.74s    23.2µs   83.08ms     20.74s    23.2µs   83.08ms     0  call Module._implementationScoped hit:9138 executed:2
+     896     20.06s   14.32ms  104.37ms     22.96s   18.07ms  115.82ms     0  call FunctionCallArgValue.inputArgs executed:896
+     128     13.12s   16.09ms  476.41ms    138.44s   18.65ms     3.97s     0  call rust-compiler:RustCompiler.compile executed:64 hit:64
+     194     12.18s   44.11ms  506.87ms     21.27s   77.99ms  844.57ms     0  call Container.withNewFile executed:193 hit:1
+   13566     11.28s     9.6µs   54.55ms     11.29s     9.6µs   54.55ms     0  call TypeDef.withOptional hit:13559 executed:7
+     257     11.00s   21.89ms  215.99ms     11.00s   21.89ms  215.99ms     0  exec_phase withExec.applyOutputs ok:257
+     896     10.16s    6.01ms   99.60ms     11.37s    7.15ms  103.08ms     0  call FunctionCallArgValue.name executed:896
+    8710     10.07s     9.1µs  102.69ms     10.07s     9.1µs  102.69ms     0  call TypeDef.withKind    hit:8710
+     896      9.57s    5.07ms   86.94ms     10.66s    6.40ms   89.92ms     0  call FunctionCallArgValue.value executed:896
+      64      8.51s  145.22ms  265.05ms      8.53s  145.49ms  266.00ms     0  call rust-compiler:RustCompilerCompilation.cache executed:64
+     128      7.71s   46.31ms  190.36ms      7.84s   57.36ms  190.68ms     0  call rust-compiler:RustCompilerCache.tokens executed:128
+     257      6.56s   19.87ms  161.92ms    295.85s  403.28ms     3.92s     0  exec exec.run            ok:257
+    3938      6.00s    11.2µs   72.16ms      6.00s    11.2µs   72.16ms     0  call TypeDef.withObject  hit:3937 executed:1
+     193      5.15s   12.45ms  365.90ms      9.01s   29.13ms  385.69ms     0  call_exec Container.withNewFile ok:193
+     128      5.13s   32.74ms  158.24ms      5.22s   34.38ms  159.22ms     0  call rust-compiler:RustCompilerCache.snapshots executed:128
+     128      5.08s   38.47ms  145.00ms      5.19s   39.47ms  145.10ms     0  call rust-compiler:RustCompilerCache.plan executed:128
+     128      4.54s   33.91ms  134.21ms      4.70s   34.92ms  134.25ms     0  call rust-compiler:RustCompilerCache.manifest executed:128
+     130      4.48s   31.69ms  134.93ms     10.35s   40.66ms  326.87ms     0  lazy Container.withMountedFile ok:130
+     326      4.41s    5.30ms  136.65ms     13.04s   18.39ms  234.00ms     0  call Container.withExec  executed:193 hit:133
+     132      4.06s   30.13ms   85.43ms      9.42s   42.28ms  284.46ms     0  lazy Container.withMountedDirectory ok:132
+     257      4.04s   12.14ms   87.03ms      4.04s   12.14ms   87.03ms     0  exec_phase exec.runtimeStart ok:257
+      64      3.77s   55.84ms  145.62ms      3.78s   55.87ms  146.58ms     0  call rust-compiler:RustCompilerCompilation.published executed:64
+     258      3.72s    5.77ms   98.99ms    100.58s   66.78ms     1.56s     0  lazy Container.withExec  ok:258
+    3534      3.45s    10.4µs   29.52ms      3.45s    10.4µs   29.52ms     0  call TypeDef.withListOf  hit:3532 executed:2
+      64      3.39s   51.39ms  150.20ms      3.42s   51.93ms  150.24ms     0  call rust-compiler:RustCompilerCompilation.artifacts executed:64
+      64      3.39s   46.11ms  111.31ms     10.24s  144.34ms  351.84ms     0  call Artifact.value      do_not_cache:64
+      64      3.17s   47.25ms  140.31ms      3.19s   48.64ms  141.21ms     0  call rust-compiler:RustCompilerCompilation.actions executed:64
+      64      2.93s   43.67ms  136.89ms      2.95s   43.75ms  136.93ms     0  call rust-compiler:RustCompilerCompilation.hits executed:64
+     257      2.88s    8.45ms   92.76ms      2.88s    8.45ms   92.76ms     0  exec_phase exec.processExit ok:257
+… 229 more classes (raise `top`)

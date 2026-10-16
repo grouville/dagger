@@ -77,9 +77,46 @@ but package-scoped compilation and discovery still cost too much. The selected
 Rust module stays on its faster workspace batch. The finer branch is pushed for
 experimentation, not selected as a performance improvement.
 
-The next useful steps are to combine compiler preparation and test discovery in
-one module call, and to share work across selected collection items while keeping
-excluded packages out of compilation. Finer selection must preserve that behavior.
+## Combine Rust compiler preparation and discovery
+
+[The next isolated branch](https://github.com/grouville/dagger-rust/commit/76f4a5784be2ad0da6ccde4b69dca81ae0377073)
+asks the existing compiler call to prepare the test collection. Discovery reuses
+the loaded plan, native directories and worker reference, instead of starting a
+second Go module process per package. Ordinary workspace compilation does not
+request discovery. Package filtering, worker build inputs and the native compiler
+cache format stay unchanged.
+
+| Packages, eight tests each | Separate preparation | Combined preparation | Workspace batch | Cargo |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 0.90 s | 0.77 s | 0.88 s | 0.22 s |
+| 16 | 2.73 s | 2.49 s | 0.88 s | 0.24 s |
+| 64 | 10.20 s | 8.15 s | 0.87 s | 0.31 s |
+
+These are a new cohort of four balanced pairs per size, with the same fresh-edit
+protocol. All four one-package pairs improve, and three of four improve at each
+larger size. The 64-package median paired saving is 2.13 seconds; one pair is
+47 ms slower. Allocations fall from 8.06 to 6.90 GB and engine CPU from 52.35 to
+42.84 CPU-seconds. Allocations are cumulative, not peak memory. Source hashes,
+pressure, normal GC counts, every sample and warmups are retained.
+
+Separate wcprof captures confirm 257 → 193 workload starts: 64 compiler calls,
+64 test-listing runs, 64 package-test runs and one compiler miss. Both captures
+have zero dropped events and no unfinished operations. The combined capture
+still records 5,097 engine queries. Generated Go module dispatch reads argument
+names and values in separate queries; batching those inputs is a next experiment,
+with no speedup established yet. Its five-second CPU window also shows substantial
+allocation and GC work; that window does not cover the entire command.
+
+Replay and worker race checks pass. Integration checks cover arbitrary subsets,
+excluded and selected failures, excluding an invalid crate, reporting it when
+selected, repair and the workspace API with an explicit source. This branch is
+pushed separately; the selected module remains on the faster workspace batch.
+The ancestor index is enabled on both sides of this comparison.
+
+[The preparation experiment archive](experiments/rust-collection-preparation/)
+contains the complete measurements, source snapshots and profiles. Further work
+must share preparation across selected items while keeping excluded packages out
+of compilation, and reduce the API work within each module invocation.
 
 ## Measurement limits and real-repository diagnostic
 

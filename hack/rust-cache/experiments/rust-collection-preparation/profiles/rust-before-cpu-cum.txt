@@ -1,0 +1,44 @@
+File: dagger-engine
+Build ID: 135d270bb49a842efcc994dc0163cd373e0bc225
+Type: cpu
+Time: 2026-10-16 10:59:55 PDT
+Duration: 5.01s, Total samples = 24.67s (492.83%)
+Showing nodes accounting for 2.21s, 8.96% of 24.67s total
+Dropped 2154 nodes (cum <= 0.12s)
+Showing top 35 nodes out of 451
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%      7.74s 31.37%  net/http.HandlerFunc.ServeHTTP (partial-inline)
+         0     0%     0%      7.70s 31.21%  github.com/dagger/dagger/engine/server.(*Server).serveHTTPToClient
+     0.01s 0.041% 0.041%      7.66s 31.05%  runtime.systemstack
+         0     0% 0.041%      7.65s 31.01%  net/http.serverHandler.ServeHTTP
+         0     0% 0.041%      6.95s 28.17%  net/http.(*conn).serve
+         0     0% 0.041%      6.73s 27.28%  github.com/dagger/dagger/engine/server.(*Server).ServeHTTPToNestedClient
+     0.01s 0.041% 0.081%      6.72s 27.24%  github.com/dagger/dagger/engine/server..ServeHTTPToNestedClient.httpHandlerFunc[go.shape.*uint8].func1
+         0     0% 0.081%      6.43s 26.06%  net/http.(*ServeMux).ServeHTTP
+         0     0% 0.081%      5.58s 22.62%  runtime.gcBgMarkWorker
+         0     0% 0.081%      5.57s 22.58%  runtime.gcBgMarkWorker.func2
+     0.11s  0.45%  0.53%      5.57s 22.58%  runtime.gcDrain
+     0.02s 0.081%  0.61%      5.48s 22.21%  github.com/dagger/dagger/engine/server.(*Server).serveQuery
+         0     0%  0.61%      5.48s 22.21%  github.com/dagger/dagger/engine/server..serveHTTPToClient.httpHandlerFunc[go.shape.*uint8].func6
+         0     0%  0.61%      5.16s 20.92%  github.com/99designs/gqlgen/graphql/handler.(*Server).ServeHTTP
+         0     0%  0.61%      5.16s 20.92%  github.com/99designs/gqlgen/graphql/handler/transport.POST.Do
+         0     0%  0.61%      5.08s 20.59%  github.com/dagger/dagger/dagql.ObjectResult[go.shape.*uint8].call.func2
+         0     0%  0.61%      4.54s 18.40%  github.com/dagger/dagger/dagql.ObjectResult[go.shape.*uint8].Select
+         0     0%  0.61%      4.41s 17.88%  github.com/dagger/dagger/dagql.(*Server).resolvePath
+     0.01s 0.041%  0.65%      4.21s 17.07%  github.com/dagger/dagger/dagql.ObjectResult[go.shape.*uint8].call
+         0     0%  0.65%      4.21s 17.07%  golang.org/x/sync/errgroup.(*Group).Go.func1
+     0.50s  2.03%  2.68%      3.96s 16.05%  runtime.scanSpan
+     1.26s  5.11%  7.78%      3.84s 15.57%  runtime.tryDeferToSpanScan
+     0.25s  1.01%  8.80%      3.81s 15.44%  runtime.mallocgc
+     0.01s 0.041%  8.84%      3.77s 15.28%  github.com/99designs/gqlgen/graphql/executor.(*Executor).DispatchOperation.func1.1
+         0     0%  8.84%      3.77s 15.28%  github.com/dagger/dagger/core/sdk/dang/shared.WithNestedClientServer.func1
+     0.01s 0.041%  8.88%      3.76s 15.24%  github.com/99designs/gqlgen/graphql/executor.(*Executor).DispatchOperation.func1.1.1
+         0     0%  8.88%      3.76s 15.24%  github.com/99designs/gqlgen/graphql/executor.processExtensions.func2
+         0     0%  8.88%      3.75s 15.20%  github.com/dagger/dagger/dagql.(*Server).Exec.func1
+     0.01s 0.041%  8.92%      3.70s 15.00%  github.com/dagger/dagger/dagql.(*Cache).GetOrInitCall
+         0     0%  8.92%      3.70s 15.00%  github.com/dagger/dagger/dagql.(*Cache).getOrInitCall
+         0     0%  8.92%      3.64s 14.75%  github.com/dagger/dagger/dagql.(*Server).ExecOp
+         0     0%  8.92%      3.63s 14.71%  github.com/dagger/dagger/dagql.(*Server).Resolve
+     0.01s 0.041%  8.96%      3.62s 14.67%  github.com/dagger/dagger/dagql.(*Cache).getOrInitCallInner
+         0     0%  8.96%      3.37s 13.66%  runtime.gcDrainMarkWorkerDedicated (inline)
+         0     0%  8.96%      3.27s 13.25%  github.com/dagger/dagger/engine/server.sessionSpanExporter.ExportSpans.func1

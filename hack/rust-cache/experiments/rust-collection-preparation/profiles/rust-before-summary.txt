@@ -1,0 +1,40 @@
+wcprof dump: 176028 ops, 12960 waits, 321 links over 10.27s; dropped events: 0; open ops: 0
+calls: 78431 (hit:62253 do_not_cache:9859 executed:6287 joined:32)
+top clients (of 323) by ops:
+       ops   self_tot  active               client
+     56720    792.10s  +7.52ms..+10.27s     (none)
+     11291     27.21s  +0ns..+10.27s        vm1xnyn7yl4c1q5okw7ie4ty6
+      1006      1.65s  +620.92ms..+8.35s    O3LESYQPGK6A4MV3J2E7I5KUZY
+       901      3.17s  +640.61ms..+8.33s    3TC6F6XWZ5FB2YWZ4A2N64UMF3
+       901      2.22s  +615.33ms..+8.35s    3TH7PBTKXX6Y4K6W3OZDPI6PKW
+       901      2.80s  +636.82ms..+7.22s    46ZDDZXSKECE5UMVXY4NEPWDKP
+       901      2.90s  +606.62ms..+7.39s    4AYURL5K32FN6F7PVLOQPQJNFV
+       901      2.49s  +640.69ms..+8.27s    4FLHQKXZV2N2P5XWKPXRONZYMO
+       901      2.90s  +810.35ms..+8.11s    4XL3CP4JIIF5MOIADIRXOE6IL2
+       901      2.00s  +558.39ms..+6.61s    4XXONHGSUPXVSN6QHZ4UXUWRLO
+top classes (of 264) by count:
+     count   self_tot  kind class
+     16698     20.89s  call Query.typeDef
+     13566     11.28s  call TypeDef.withOptional
+      9140     20.74s  call Module._implementationScoped
+      8710     10.07s  call TypeDef.withKind
+      6633    34.47ms  session_phase session.modulesLoad
+      6633     40.80s  session_phase session.query
+      6633   532.81ms  session_phase session.schemaBuild
+      6633      1.53s  session_phase session.serveQuery
+      6633    25.99ms  session_phase session.workspaceLoad
+      5152     49.51s  call Query.node
+top classes by self time:
+     count   self_tot  kind class
+       257     57.61s  exec_phase exec.workload
+      5152     49.51s  call Query.node
+      6633     40.80s  session_phase session.query
+       578     22.12s  lazy Container.withNewFile
+       257     20.96s  exec_phase withExec.prepareMounts
+     16698     20.89s  call Query.typeDef
+      9140     20.74s  call Module._implementationScoped
+       896     20.06s  call FunctionCallArgValue.inputArgs
+       128     13.12s  call rust-compiler:RustCompiler.compile
+       194     12.18s  call Container.withNewFile
+(left out: 45533 internal-kind ops, self_tot 684.15s; kind: "internal" ranks them)
+(times are relative to the first recorded op; self = duration minus child ops and waits; self_tot sums it across ops, concurrent ones included, so it can exceed wall time)
