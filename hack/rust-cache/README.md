@@ -9,6 +9,8 @@ retains rustc incremental state, and can run compiler misses together with Cargo
 metadata overlap. Completed results remain reusable per crate. These options are
 described below; none changes the Rust module's default behavior.
 
+The [listing allocation study](NATIVE_LISTING_ALLOCATIONS.md) captures **2.27 GB allocated during one fresh edited 1,026-package listing**. After flushing delayed Go allocation samples in a separate diagnostic, Protobuf field ordering accounts for **17.6% of sampled bytes**, alongside substantial telemetry conversion. The study identifies the next experiment without claiming a latency gain; its forced-GC diagnostic is kept separate from all benchmarks.
+
 The [mirror metadata experiment](NATIVE_MIRROR_METADATA.md) speeds the isolated source-mirror walk **33.8 → 22.9 ms**, but leaves almost all pre-copy import time in place: **145.2 → 143.5 ms**. Complete edited checks do not consistently improve, and the new option adds allocation to ordinary walks. The prototype is rejected, the selected engine is restored, and all six native histories remain reusable. The upstream batch stays at eight proposals.
 
 The [parallel fingerprint experiment](NATIVE_PARALLEL_FINGERPRINT.md) lowers the local 1,026-crate scan from **55.5 to 37.0 ms**, but does not establish faster complete edited checks. Its initial listing saving fails confirmation. The serial path stays selected; all six native histories remain reusable after the diagnostic engine restart. The result keeps extra concurrency out of the selected implementation and leaves source-import preparation as the next substantial target.
