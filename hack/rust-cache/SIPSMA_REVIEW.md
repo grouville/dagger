@@ -2,6 +2,14 @@
 
 Initial review: 2026-10-13; follow-up below: 2026-10-14. Goal: [native Rust cache performance](ROADMAP.md).
 
+## 2026-10-16 refresh
+
+The latest twenty Sipsma PRs were fetched again from GitHub. Their metadata and the shutdown PR's exact head revision are saved with the [selected-discovery evidence](experiments/native-discovery-selected/upstream-review/). The earlier inventory below covers 935 PRs; this refresh does not claim another review of every historical diff.
+
+[#14685](https://github.com/dagger/dagger/pull/14685) addresses the `syncfs` waits observed during earlier stops of our owned engine. It removes the final filesystem-wide durability barrier. Its description explicitly allows lost or inconsistent cache state after a host crash before writeback; a same-kernel process restart still sees the page cache. This is a shutdown tradeoff, outside the edited-command improvement measured here. The patch is not applied to the current engine.
+
+The current experiment separately removes an unnecessary package-discovery container: [native directory fingerprints](NATIVE_DISCOVERY_SELECTED.md) lower that phase from 249 to 155 ms in a large-check capture. The full randomized edited-command comparison saves 130 ms per pair, and the compiler tree and existing result reuse remain compatible. The selected engine, module and controls are recorded in [SELECTED_BASELINE.json](SELECTED_BASELINE.json). This supersedes the older baseline and next-experiment status below, without combining timings from different workloads.
+
 The public GitHub search for `repo:dagger/dagger is:pr author:sipsma` returned
 935 PRs. The inventory was scanned for performance, cache, filesync, runtime,
 telemetry and profiling changes. Bodies of 67 related PRs were fetched, including

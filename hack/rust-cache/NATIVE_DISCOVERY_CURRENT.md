@@ -1,5 +1,7 @@
 # Native package discovery on the current compiler baseline
 
+Selection update: the [subsequent current-engine comparison](NATIVE_DISCOVERY_SELECTED.md) does not reproduce the earlier direct-control penalty and selects `da1ae47` for following experiments. This page preserves the original measurements and decision at that time.
+
 The isolated Rust-module experiment [da1ae47](https://github.com/grouville/dagger-rust/commit/da1ae47b6c96a3117de303b7584d028e35166530) replaces the package-discovery fingerprint process with the existing experimental `Directory.treeFingerprint` operation. Across two eight-pair cohorts, edited 1,026-crate checks save **101 ms per pair**, with **14/16 faster pairs**. Small workspace tests save **33 ms**, with **12/16 faster pairs**. The direct-check control is **13 ms slower per pair** overall, despite never invoking package discovery; that discrepancy remains unresolved. The experiment stays separate from the selected `3cd40e5` baseline.
 
 The large check remains about **0.60 seconds slower than Cargo**, outside the Cargo +0.5-second target. Expanded listings still take about 3.6 seconds. This is a narrower result than a general module or collection speedup.
@@ -53,4 +55,4 @@ Expanded listings still allocate about **3 GB per command**. One wcprof capture 
 
 Two native listing CPU captures contain 16.30 and 15.79 CPU-seconds over five-second windows. Stored protobuf-JSON decoding accounts for about 23% and 22% cumulatively; span conversion accounts for about 20% in both. These frames overlap, and the windows include background work. The existing direct-span prototype already targets part of this conversion; it must not be presented as a new discovery or enabled on the strength of these profiles alone. The next useful experiments should reduce repeated publication or serialization work and test complete commands with telemetry preserved.
 
-[Raw evidence, exact sources, scripts and validation](experiments/native-discovery-current/). No new upstream PR is opened; the six prepared Dagger proposals and containerd draft remain separate.
+[Raw evidence, exact sources, scripts and validation](experiments/native-discovery-current/). No new upstream PR is opened; the [prepared Dagger proposals](upstream-prs/README.md) and containerd draft remain separate.

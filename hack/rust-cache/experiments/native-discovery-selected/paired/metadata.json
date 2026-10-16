@@ -1,0 +1,272 @@
+{
+  "engine": {
+    "previous_engine_sha256": "8e31c79773355d11bac9854a3a641534c7733171953c483993e5888a290b6734",
+    "base_revision": "19eda924854e7f22582f3a7430272aa729cbeb5f",
+    "feature": "Read the two immutable ArtifactDimensionKey string fields directly, matching TypeDef getters.",
+    "production_change": "Two doNotCache struct tags in core/artifacts.go; the atomic mode and dynamic policy callback are diagnostic only.",
+    "default_enabled": false,
+    "diagnostic_route": "/debug/dimension-key-fields",
+    "unchanged_dependency_overlays": true,
+    "build_command": [
+      "go",
+      "build",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/artifact-dimension-key-fields-engine/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/artifact-dimension-key-fields-engine/overlay.json",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/artifact-dimension-key-fields-engine/dagger-engine",
+      "./cmd/engine"
+    ],
+    "engine_sha256": "4699d50526e3b2c358d0467c6cacc79aff1061b9295754648713a21104524c65"
+  },
+  "modules": {
+    "before": {
+      "path": "/tmp/dagger-rust-native-fused-artifact-inputs",
+      "revision": "3cd40e5928563ade3ea1cd21ab9924cd03d88fc3"
+    },
+    "after": {
+      "path": "/tmp/dagger-rust-native-discovery-current",
+      "revision": "da1ae47b6c96a3117de303b7584d028e35166530"
+    }
+  },
+  "pairs": 8,
+  "kinds": [
+    "large",
+    "direct",
+    "tests",
+    "list"
+  ],
+  "profile": false,
+  "orders": [
+    [
+      "before",
+      "after",
+      "cargo"
+    ],
+    [
+      "cargo",
+      "after",
+      "before"
+    ],
+    [
+      "after",
+      "cargo",
+      "before"
+    ],
+    [
+      "before",
+      "cargo",
+      "after"
+    ],
+    [
+      "cargo",
+      "before",
+      "after"
+    ],
+    [
+      "after",
+      "before",
+      "cargo"
+    ]
+  ],
+  "orders_by_kind": {
+    "large": [
+      [
+        "before",
+        "after",
+        "cargo"
+      ],
+      [
+        "before",
+        "after",
+        "cargo"
+      ],
+      [
+        "cargo",
+        "after",
+        "before"
+      ],
+      [
+        "before",
+        "cargo",
+        "after"
+      ],
+      [
+        "cargo",
+        "before",
+        "after"
+      ],
+      [
+        "after",
+        "cargo",
+        "before"
+      ],
+      [
+        "after",
+        "before",
+        "cargo"
+      ],
+      [
+        "after",
+        "before",
+        "cargo"
+      ]
+    ],
+    "direct": [
+      [
+        "cargo",
+        "after",
+        "before"
+      ],
+      [
+        "before",
+        "cargo",
+        "after"
+      ],
+      [
+        "after",
+        "cargo",
+        "before"
+      ],
+      [
+        "cargo",
+        "after",
+        "before"
+      ],
+      [
+        "cargo",
+        "after",
+        "before"
+      ],
+      [
+        "cargo",
+        "before",
+        "after"
+      ],
+      [
+        "cargo",
+        "before",
+        "after"
+      ],
+      [
+        "before",
+        "cargo",
+        "after"
+      ]
+    ],
+    "tests": [
+      [
+        "cargo",
+        "after",
+        "before"
+      ],
+      [
+        "after",
+        "before",
+        "cargo"
+      ],
+      [
+        "after",
+        "before",
+        "cargo"
+      ],
+      [
+        "before",
+        "cargo",
+        "after"
+      ],
+      [
+        "before",
+        "cargo",
+        "after"
+      ],
+      [
+        "before",
+        "cargo",
+        "after"
+      ],
+      [
+        "cargo",
+        "before",
+        "after"
+      ],
+      [
+        "after",
+        "cargo",
+        "before"
+      ]
+    ],
+    "list": [
+      [
+        "after",
+        "cargo",
+        "before"
+      ],
+      [
+        "cargo",
+        "after",
+        "before"
+      ],
+      [
+        "cargo",
+        "before",
+        "after"
+      ],
+      [
+        "before",
+        "after",
+        "cargo"
+      ],
+      [
+        "after",
+        "cargo",
+        "before"
+      ],
+      [
+        "before",
+        "after",
+        "cargo"
+      ],
+      [
+        "after",
+        "before",
+        "cargo"
+      ],
+      [
+        "cargo",
+        "before",
+        "after"
+      ]
+    ]
+  },
+  "random_seed": 2026101601,
+  "dimension_key_fields_direct": true,
+  "spill_batch_buffers": false,
+  "compiler_tree": "0c9e8b107593d1e5a623145c7b004258c192d060",
+  "same_physical_source_and_history": true,
+  "compiler_and_engine_warm": true,
+  "fresh_processes": true,
+  "telemetry_enabled": true,
+  "source_snapshot_seeds": true,
+  "natural_collection": true,
+  "no_scratch_snapshots": true,
+  "no_forced_collection": true,
+  "no_forced_Go_collection": true,
+  "initial_heap": {
+    "HeapAlloc": 1645333840,
+    "HeapInuse": 2284290048,
+    "HeapIdle": 2729771008,
+    "HeapReleased": 2528428032,
+    "HeapObjects": 12193633,
+    "TotalAlloc": 186770737216,
+    "Mallocs": 2171874261,
+    "Frees": 2159680628,
+    "NumGC": 160,
+    "NextGC": 3291778434,
+    "PauseTotalNs": 53488144,
+    "GCCPUFraction": 0.005208612146420276
+  },
+  "scope": "Native versus shell package fingerprint on the selected direct-getter engine; balanced randomized order per workload, fresh recorded edits, all admitted observations retained."
+}
