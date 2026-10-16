@@ -1,0 +1,36 @@
+[
+  {
+    "name": "no-git",
+    "project": "/tmp/rust-cache-sipsma-review/no-git-workspace-default-path/no-git",
+    "git_boundary": false,
+    "command": [
+      "/tmp/rust-cache-sipsma-review/dagger-artifact-list-buffered",
+      "check",
+      "probe:check"
+    ],
+    "returncode": 1,
+    "details": [
+      "! dag://?check=probe/check: failed to compute cache key for Probe.check: load contextual arg \"marker\": load contextual file \"/marker.txt\": failed to select file: stat marker.txt: no such file or directory",
+      "\u2718 dag://?check=probe/check 0.0s ERROR",
+      "  \u2718 Directory.file(path: \"marker.txt\"): File! 0.0s ERROR",
+      "  ! stat marker.txt: no such file or directory"
+    ]
+  },
+  {
+    "name": "git",
+    "project": "/tmp/rust-cache-sipsma-review/no-git-workspace-default-path/git",
+    "git_boundary": true,
+    "command": [
+      "/tmp/rust-cache-sipsma-review/dagger-artifact-list-buffered",
+      "check",
+      "probe:check"
+    ],
+    "returncode": 1,
+    "details": [
+      "! dag://?check=probe/check: failed to compute cache key for Probe.check: load contextual arg \"marker\": load contextual file \"/marker.txt\": failed to select file: stat marker.txt: no such file or directory",
+      "\u2718 dag://?check=probe/check 0.0s ERROR",
+      "  \u2718 Directory.file(path: \"marker.txt\"): File! 0.0s ERROR",
+      "  ! stat marker.txt: no such file or directory"
+    ]
+  }
+]

@@ -1,0 +1,31 @@
+[
+  {
+    "name": "no-git",
+    "project": "/tmp/rust-cache-sipsma-review/no-git-workspace-default-path-directory/no-git",
+    "git_boundary": false,
+    "command": [
+      "/tmp/rust-cache-sipsma-review/dagger-artifact-list-buffered",
+      "check",
+      "probe:check"
+    ],
+    "returncode": 1,
+    "details": [
+      "! dag://?check=probe/check: failed to compute cache key for Probe.check: load contextual arg \"source\": load contextual directory \"/marker-dir\": failed to select workspace directory: workspace directory \"marker-dir\": failed to get snapshot: failed to snapshot: failed to receive stat message: rpc error: code = NotFound desc = get full root path: rpc error: code = NotFound desc = eval symlinks: lstat /tmp/marker-dir: no such file or directory",
+      "\u2718 dag://?check=probe/check 0.0s ERROR",
+      "  \u2718 uploading /tmp/marker-dir 0.0s ERROR",
+      "  ! failed to receive stat message: rpc error: code = NotFound desc = get full root path: rpc error: code = NotFound desc = eval symlinks: lstat /tmp/marker-dir: no such file or directory"
+    ]
+  },
+  {
+    "name": "git",
+    "project": "/tmp/rust-cache-sipsma-review/no-git-workspace-default-path-directory/git",
+    "git_boundary": true,
+    "command": [
+      "/tmp/rust-cache-sipsma-review/dagger-artifact-list-buffered",
+      "check",
+      "probe:check"
+    ],
+    "returncode": 0,
+    "details": []
+  }
+]

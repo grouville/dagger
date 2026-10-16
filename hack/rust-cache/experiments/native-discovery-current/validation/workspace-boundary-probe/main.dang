@@ -1,0 +1,8 @@
+type RootProbe {
+  check(source: Directory! @defaultPath(path: "/marker-dir")): Void @check {
+    assert("The marker must come from the calling workspace") {
+      source.file("marker.txt").contents == "workspace marker\n"
+    }
+    null
+  }
+}

@@ -46,7 +46,10 @@ for name in ['measure_native_discovery_current.py',
              'local_cli_collector.py',
              'native_batch_runtime_inspect.go',
              'rust_packages_cache_inspect.go',
-             'archive_native_discovery_current.py']:
+             'archive_native_discovery_current.py',
+             'repro_no_git_workspace_default_path.py',
+             'repro_no_git_workspace_default_path_directory.py',
+             'verify_workspace_default_path_boundary.py']:
     copy(base/name,'drivers/'+name)
 copy(base/'native-discovery-current-evidence-README.md','README.md')
 for name in ['paired','confirmation','profiles']:
@@ -63,6 +66,12 @@ for name in ['native-discovery-current-validation',
     tree(base/name,'validation/'+name)
 for name in ['native-discovery-current-validation','native-discovery-current-validation-drained','native-discovery-current-validation-full']:
     copy(base/(name+'-driver.log'),'validation/'+name+'-driver.log')
+for name in ['no-git-workspace-default-path','no-git-workspace-default-path-directory']:
+    tree(base/name,'validation/'+name)
+for name in ['no-git-workspace-default-path-driver.log','no-git-workspace-default-path-directory-driver.log','no-git-workspace-default-path-boundary-driver.log']:
+    copy(base/name,'validation/'+name)
+for name in ['main.dang','dagger-module.toml']:
+    copy(Path('/tmp/rust-no-git-default-path-directory-probe-module')/name,'validation/workspace-boundary-probe/'+name)
 for path in sorted(experiment.iterdir()):
     if path.is_file(): copy(path,'validation/'+path.name)
 for label,path in [('before',Path('/tmp/dagger-rust-native-fused-artifact-inputs')),
