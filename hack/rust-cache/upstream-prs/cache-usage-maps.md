@@ -14,6 +14,8 @@ Six alternating A/B and B/A pairs in fresh processes, Go 1.26.6, linux/amd64, `G
 
 The snapshot was faster in all six pairs. Allocations fall by exactly 600,000 and allocated bytes by 28,800,000 (27.47 MiB). This measures disk-usage snapshot preparation, not normal cache lookup latency.
 
+A separate comparison on the retained Rust benchmark cache (59,192 results) measures the existing size-measurement and prune-snapshot preparation together. Two eight-pair series take 563 → 538 ms and 567 → 530 ms, with about 14.4 MB and 302,000 fewer allocations per preparation. The same result count and accounted bytes are preserved throughout; no eviction is executed. Thirteen of sixteen pairs improve, but CPU totals are mixed because of garbage collection. These are diagnostic modes in the same experimental engine, not complete Rust commands or isolated upstream-main builds. [Method and raw evidence](../REAL_CACHE_USAGE.md).
+
 ### Tradeoff and validation
 
 This is a small allocation change within the existing locking and ownership flow. Map readers already use lookup, len and range, which accept nil maps. Nonempty maps are still copied, and each write follows allocation. The change does not add a lock, move work across a lock boundary or change which result owns a measurement.

@@ -12,6 +12,8 @@ Five independent branches are pushed to [grouville/dagger](https://github.com/gr
 
 These are function benchmarks. Their gains cannot be added together or treated as seconds saved on a complete Rust build. The array cases have one input path per returned string. The collection index is rebuilt for every measured call; there is no persistent warm index. The usage-map case measures preparation for disk pruning, with fixture construction outside the timer.
 
+The usage-map change also has a [retained-cache comparison](../REAL_CACHE_USAGE.md): 59,192 real engine results, two eight-pair series, 563 → 538 ms and 567 → 530 ms for size measurement and prune-state preparation together. All pairs allocate less, with identical result counts and accounted bytes. This remains an accounting measurement; complete Rust-command savings are not established.
+
 The measured tradeoffs support submitting all five for review. The collection index needs the closest algorithm review because it replaces ancestor selection. The scalar-array changes need review of type eligibility, persisted compatibility and resource ownership. None introduces shared state or a new lock. Full end-to-end Rust measurements on these isolated heads remain separate work.
 
 ## Measurement and validation

@@ -1,8 +1,10 @@
 # Avoid empty maps while accounting for cache usage
 
+Follow-up: the change is now also [measured on the retained Rust benchmark engine](REAL_CACHE_USAGE.md). Two eight-pair series reduce preparation from 563 to 538 ms and 567 to 530 ms, with about 14.4 MB and 302,000 fewer allocations. The report below records the earlier synthetic benchmark and validation; neither experiment establishes complete Rust-command savings.
+
 [Fork commit `7fea7693f`](https://github.com/grouville/dagger/commit/7fea7693f), based on upstream `cbef9c953`, changes two files in `dagql`. No PR is open. The change avoids three empty map allocations for each result that owns no measured snapshot bytes.
 
-The existing disk-usage snapshot benchmark with 200,000 scalar results allocates **600,000 fewer objects and 28.8 MB less memory per pass**. Allocation bytes fall by 18% and allocation count by 37%. All existing `dagql` unit tests pass with the race detector. This is a measured accounting improvement; it has not yet been installed in the owned Rust benchmark engine, so no complete Rust-command speedup is claimed.
+The existing disk-usage snapshot benchmark with 200,000 scalar results allocates **600,000 fewer objects and 28.8 MB less memory per pass**. Allocation bytes fall by 18% and allocation count by 37%. All existing `dagql` unit tests pass with the race detector. At the time of this initial experiment, the change had not been installed in the owned Rust benchmark engine. No complete Rust-command speedup is claimed.
 
 ## The change
 
