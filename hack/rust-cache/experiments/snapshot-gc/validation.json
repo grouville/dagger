@@ -1,0 +1,86 @@
+[
+  {
+    "arm": "before",
+    "expected_exit": 1,
+    "actual_exit": 1,
+    "top_level_passes": 0,
+    "command": [
+      "docker",
+      "exec",
+      "dagger-rust-parser-state-pool-oct14",
+      "env",
+      "-u",
+      "_DAGGER_TEST_REMOTE_CACHE_FIXTURE_ROOT",
+      "GOMAXPROCS=8",
+      "/tmp/verify-snapshot-gc-before.test",
+      "-test.run",
+      "^TestLocalCacheMetadataPruneDoesNotCollectSnapshots$",
+      "-test.count=1",
+      "-test.v"
+    ],
+    "binary_sha256": "22c94d6aa12ef926f93e6f18306802df69079d80d06ecc615ca7b2a2f87121c9"
+  },
+  {
+    "arm": "after",
+    "expected_exit": 0,
+    "actual_exit": 0,
+    "top_level_passes": 17,
+    "command": [
+      "docker",
+      "exec",
+      "dagger-rust-parser-state-pool-oct14",
+      "env",
+      "-u",
+      "_DAGGER_TEST_REMOTE_CACHE_FIXTURE_ROOT",
+      "GOMAXPROCS=8",
+      "/tmp/verify-snapshot-gc-after.test",
+      "-test.run",
+      "^(TestLocalCacheMetadataPruneDoesNotCollectSnapshots|TestSnapshotGarbage.*|TestGCLocked.*|TestExplicitPrune.*|TestManual.*Prune.*|TestLocalCacheStateTakesTheBuiltinStore|TestGCSessionCompletionClearsMetadataPruneBlock|TestScheduledGCTrimsImportedMetadataWithoutPersistenceReset)$",
+      "-test.count=1",
+      "-test.v"
+    ],
+    "binary_sha256": "174ad2159f9410ad24352758e4ee19a0d5918d0f6eb65eaf0edc7ed3f797c417"
+  },
+  {
+    "arm": "after-race",
+    "expected_exit": 0,
+    "actual_exit": 0,
+    "top_level_passes": 17,
+    "command": [
+      "docker",
+      "exec",
+      "dagger-rust-parser-state-pool-oct14",
+      "env",
+      "-u",
+      "_DAGGER_TEST_REMOTE_CACHE_FIXTURE_ROOT",
+      "GOMAXPROCS=8",
+      "/tmp/verify-snapshot-gc-after-race.test",
+      "-test.run",
+      "^(TestLocalCacheMetadataPruneDoesNotCollectSnapshots|TestSnapshotGarbage.*|TestGCLocked.*|TestExplicitPrune.*|TestManual.*Prune.*|TestLocalCacheStateTakesTheBuiltinStore|TestGCSessionCompletionClearsMetadataPruneBlock|TestScheduledGCTrimsImportedMetadataWithoutPersistenceReset)$",
+      "-test.count=1",
+      "-test.v"
+    ],
+    "binary_sha256": "5b5743835c5061d9ab2d4d753053f60f8968ee1170dc29c13635aa6e1bfb6431"
+  },
+  {
+    "arm": "diagnostic",
+    "expected_exit": 0,
+    "actual_exit": 0,
+    "top_level_passes": 8,
+    "command": [
+      "docker",
+      "exec",
+      "dagger-rust-parser-state-pool-oct14",
+      "env",
+      "-u",
+      "_DAGGER_TEST_REMOTE_CACHE_FIXTURE_ROOT",
+      "GOMAXPROCS=8",
+      "/tmp/verify-snapshot-gc-diagnostic.test",
+      "-test.run",
+      "^(TestSnapshotCollectionDiagnosticPreservesPending|TestSnapshotCollectionDiagnosticDrainPreservesLeasedSnapshot|TestSnapshotGarbageCollectsReleasedSnapshots|TestGCLockedCollectsGarbageWhenPruneRemovesNothing|TestGCLockedCollectsGarbageWithGCDisabled|TestExplicitPruneCollectsReleasedSnapshots|TestGCLockedPrunesMetadataWithoutWorkerDiskPolicies|TestGCLockedDiskStatFailureDoesNotSuppressMetadataPrune)$",
+      "-test.count=1",
+      "-test.v"
+    ],
+    "binary_sha256": "b5de95a6a5fac9d3a2547cb8592516f1527787834a2a1027a2ec7e808f78b3ff"
+  }
+]

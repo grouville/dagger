@@ -1,0 +1,35 @@
+wcprof dump: 10686 ops, 262 waits, 3 links over 2.26s; dropped events: 0; open ops: 0
+calls: 8790 (hit:8461 do_not_cache:180 executed:148 joined:1)
+top clients (of 5) by ops:
+       ops   self_tot  active               client
+      7409      2.01s  +78.25ms..+2.26s     f1y67d246did24y4dj9e462x9
+      1146      3.38s  +0ns..+2.26s         (none)
+       790   188.20ms  +1.50s..+2.21s       3C6P4XATKZGAYMHKRVQUGNXDGF
+       738    66.89ms  +1.44s..+2.25s       TDYIQR2Y6BSBFTWMZ2NLZOITCC
+       603    27.40ms  +1.18s..+1.37s       X4IJ56EWJC6OVMH3X6SFEGHAVC
+top classes (of 250) by count:
+     count   self_tot  kind class
+      3737    13.16ms  call Query.typeDef
+      3360    12.13ms  call TypeDef.withKind
+       704     3.23ms  call TypeDef.withOptional
+       267     1.22ms  call TypeDef.withObject
+       152     9.59ms  call Module._implementationScoped
+       114     79.8µs  session_phase session.modulesLoad
+       114    98.76ms  session_phase session.query
+       114    10.09ms  session_phase session.schemaBuild
+       114     1.09ms  session_phase session.serveQuery
+       114     4.03ms  session_phase session.workspaceLoad
+top classes by self time:
+     count   self_tot  kind class
+         3      1.82s  call_exec Host.directory
+         3      1.05s  exec_phase exec.workload
+       114    98.76ms  session_phase session.query
+         1    55.80ms  call_exec Directory.digests
+         1    28.98ms  call_exec Directory.glob
+         2    28.17ms  call_exec ModuleSource.asModule
+        18    22.34ms  io snapshot.commit.backend
+         2    15.97ms  call rust:Rust.packages
+         1    15.81ms  call rust:RustPackages.subset
+        93    15.22ms  call Query.node
+(left out: 1014 internal-kind ops, self_tot 2.26s; kind: "internal" ranks them)
+(times are relative to the first recorded op; self = duration minus child ops and waits; self_tot sums it across ops, concurrent ones included, so it can exceed wall time)

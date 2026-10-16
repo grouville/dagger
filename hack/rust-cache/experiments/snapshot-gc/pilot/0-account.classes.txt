@@ -1,0 +1,22 @@
+classes: 716 ops in 38 classes (class=~"snapshot.collect|gc.diagnostic|engine.gc|Directory|Container.withExec|session") over 2.11s, self_tot 258.24ms (summed across concurrent ops); sorted by self
+(left out: 21 internal-kind ops, self_tot 1.37s; kind: "internal" ranks them)
+   count   self_tot  self_p50  self_max    dur_tot   dur_p50   dur_max   dup  kind class               outcomes
+     114   109.48ms   129.4µs   22.01ms      4.30s   239.7µs     1.96s     0  session_phase session.query ok:114
+       1    59.10ms   59.10ms   59.10ms    59.10ms   59.10ms   59.10ms     0  call_exec Directory.digests ok:1
+       1    29.07ms   29.07ms   29.07ms    29.07ms   29.07ms   29.07ms     0  call_exec Directory.glob ok:1
+       4    23.73ms   118.5µs   23.05ms   907.44ms   127.4µs  699.31ms     0  lazy Container.withExec  ok:4
+     114    11.01ms     755ns    6.22ms    14.19ms     755ns    8.14ms     0  session_phase session.schemaBuild ok:114
+       1     7.20ms    7.20ms    7.20ms     7.20ms    7.20ms    7.20ms     0  call_exec Directory.digestEntries ok:1
+     114     5.54ms     541ns    5.47ms     5.54ms     541ns    5.47ms     0  session_phase session.workspaceLoad ok:114
+       6     2.05ms   188.1µs    1.01ms   471.04ms   463.9µs  468.46ms     0  lazy Container.withMountedDirectory ok:6
+       1     1.52ms    1.52ms    1.52ms     8.65ms    8.65ms    8.65ms     0  call_exec Directory.filter ok:1
+     114     1.48ms     6.9µs   268.2µs      4.33s   254.9µs     1.96s     0  session_phase session.serveQuery ok:114
+       3     1.33ms     9.4µs    1.31ms     9.99ms     9.4µs    9.97ms     0  call Directory.filter    hit:2 executed:1
+       5     1.13ms   208.9µs   292.2µs      1.74s  461.62ms  467.05ms     0  lazy Directory.withDirectory ok:5
+       1    641.0µs   641.0µs   641.0µs    59.74ms   59.74ms   59.74ms     0  call Directory.digests   executed:1
+       9    428.7µs    14.7µs   156.9µs     1.18ms    14.7µs   699.1µs     0  call Container.withMountedDirectory hit:6 executed:3
+       5    425.0µs    74.5µs   134.2µs    769.4µs   141.4µs   213.4µs     0  call Directory.withDirectory executed:5
+       2    398.1µs   194.9µs   203.2µs    996.9µs   489.7µs   507.2µs     0  lazy Directory.directory ok:2
+       5    322.0µs    63.4µs    72.3µs    322.0µs    63.4µs    72.3µs     0  call_exec Directory.withDirectory ok:5
+       2    280.1µs   120.6µs   159.5µs     1.34ms   139.5µs    1.20ms     0  call_exec Directory.checkpoint ok:2
+… 20 more classes (raise `top`)
