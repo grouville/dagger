@@ -118,23 +118,27 @@ func TestTreeFingerprintCanonicalOrder(t *testing.T) {
 }
 
 func BenchmarkTreeFingerprintWorkspace(b *testing.B) {
-	root := b.TempDir()
-	for i := range 128 {
-		dir := filepath.Join(root, fmt.Sprintf("crate-%03d", i))
-		if err := os.MkdirAll(filepath.Join(dir, "src"), 0o755); err != nil {
-			b.Fatal(err)
-		}
-		for _, name := range []string{"Cargo.toml", "src/lib.rs"} {
-			if err := os.WriteFile(filepath.Join(dir, name), []byte("fixture contents"), 0o644); err != nil {
-				b.Fatal(err)
+	for _, crates := range []int{128, 1026} {
+		b.Run(fmt.Sprintf("crates=%d", crates), func(b *testing.B) {
+			root := b.TempDir()
+			for i := range crates {
+				dir := filepath.Join(root, fmt.Sprintf("crate-%04d", i))
+				if err := os.MkdirAll(filepath.Join(dir, "src"), 0o755); err != nil {
+					b.Fatal(err)
+				}
+				for _, name := range []string{"Cargo.toml", "src/lib.rs"} {
+					if err := os.WriteFile(filepath.Join(dir, name), []byte("fixture contents"), 0o644); err != nil {
+						b.Fatal(err)
+					}
+				}
 			}
-		}
-	}
-	b.ReportAllocs()
-	b.ResetTimer()
-	for b.Loop() {
-		if _, err := TreeFingerprint(b.Context(), root, []string{"**/*.rs"}, []string{"**/.cargo"}); err != nil {
-			b.Fatal(err)
-		}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for b.Loop() {
+				if _, err := TreeFingerprint(b.Context(), root, []string{"**/*.rs"}, []string{"**/.cargo"}); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }

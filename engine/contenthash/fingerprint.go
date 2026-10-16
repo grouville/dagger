@@ -30,6 +30,7 @@ func TreeFingerprint(ctx context.Context, root string, ignoreContents, reject []
 	h := digest.Canonical.Digester()
 	_, _ = io.WriteString(h.Hash(), "dagger.tree-fingerprint.v1\x00")
 	unsupported := errors.New("unsupported fingerprint input")
+	var copyBuffer []byte
 	err = filepath.WalkDir(root, func(filename string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -72,7 +73,11 @@ func TreeFingerprint(ctx context.Context, root string, ignoreContents, reject []
 				if err != nil {
 					return err
 				}
-				_, copyErr := io.Copy(entryHash, file)
+				if copyBuffer == nil {
+					copyBuffer = make([]byte, 32<<10)
+				}
+				// Hide File.WriteTo so every file uses the same copy buffer.
+				_, copyErr := io.CopyBuffer(entryHash, struct{ io.Reader }{file}, copyBuffer)
 				if err := errors.Join(copyErr, file.Close()); err != nil {
 					return err
 				}
