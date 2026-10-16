@@ -24,8 +24,8 @@ import (
 
 // ArtifactDimensionKey selects an item from a named dimension.
 type ArtifactDimensionKey struct {
-	Dimension string `field:"true" doc:"The dimension identifier, fixed across the workspace schema."`
-	Key       string `field:"true" doc:"The dimension item's key."`
+	Dimension string `field:"true" doc:"The dimension identifier, fixed across the workspace schema." doNotCache:"simple field selection"`
+	Key       string `field:"true" doc:"The dimension item's key." doNotCache:"simple field selection"`
 }
 
 func (*ArtifactDimensionKey) Type() *ast.Type {
