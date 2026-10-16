@@ -100,9 +100,9 @@ func (s *artifactsSchema) Install(srv *dagql.Server) {
 		dagql.Func("__failedCheck", s.failedCheck),
 		dagql.Func("loadError", s.loadError).Doc("A module load failure, or an empty string if discovery succeeded."),
 		dagql.Func("arguments", s.arguments).Doc("The arguments accepted by the artifact field."),
-		dagql.Func("description", s.description).Doc("The description of the field that supplies this artifact."),
+		dagql.Func("description", s.description).DoNotCache("simple field selection").Doc("The description of the field that supplies this artifact."),
 		dagql.Func("workspace", s.artifactWorkspace).Doc("The workspace this artifact was discovered in; its address is relative to it. Null for an artifact without a workspace, such as one of an LLM's bound tool objects (see LLM.artifacts)."),
-		dagql.Func("uri", s.artifactURI).
+		dagql.Func("uri", s.artifactURI).DoNotCache("simple field selection").
 			Doc("The artifact's DAG address, such as dag://engine-dev/playground.").
 			Args(
 				dagql.Arg("absolute").Doc("Prefix the workspace's Git address and commit: dag://<workspace>@<commit>:<path>. Fails if the artifact has no workspace, or its workspace has no Git address."),
