@@ -1,0 +1,233 @@
+[
+  {
+    "label": "baseline-compatibility",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "1",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/before-overlay.json",
+      "./engine/clientdb",
+      "-run",
+      "^TestSpanLookupRepeatedIDsAndLateEdges$",
+      "-count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 1.3291233769850805
+  },
+  {
+    "label": "candidate-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "1",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/overlay.json",
+      "-race",
+      "./engine/clientdb",
+      "-count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 3.689308012020774
+  },
+  {
+    "label": "before-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "1",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/before-overlay.json",
+      "-c",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/before.test",
+      "./engine/clientdb"
+    ],
+    "exit_code": 0,
+    "seconds": 0.9608433400280774
+  },
+  {
+    "label": "after-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "1",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/overlay.json",
+      "-c",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/after.test",
+      "./engine/clientdb"
+    ],
+    "exit_code": 0,
+    "seconds": 1.568214713013731
+  },
+  {
+    "label": "bench-0-before",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/before.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 2.1584070379612967
+  },
+  {
+    "label": "bench-0-after",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/after.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 2.0558378440327942
+  },
+  {
+    "label": "bench-1-after",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/after.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 2.4352206559851766
+  },
+  {
+    "label": "bench-1-before",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/before.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 2.1682203200180084
+  },
+  {
+    "label": "bench-2-before",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/before.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 2.540784650016576
+  },
+  {
+    "label": "bench-2-after",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/after.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 2.242566621978767
+  },
+  {
+    "label": "bench-3-after",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/after.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 2.2217769869603217
+  },
+  {
+    "label": "bench-3-before",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/before.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 2.0087725330376998
+  },
+  {
+    "label": "bench-4-before",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/before.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 2.122244167025201
+  },
+  {
+    "label": "bench-4-after",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/after.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 2.36461422406137
+  },
+  {
+    "label": "bench-5-after",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/after.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 2.297082726028748
+  },
+  {
+    "label": "bench-5-before",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/before.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 1.9999904510332271
+  }
+]

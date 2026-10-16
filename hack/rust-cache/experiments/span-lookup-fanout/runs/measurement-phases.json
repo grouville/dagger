@@ -1,0 +1,50 @@
+[
+  {
+    "label": "restart-driver",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/restart_owned_engine_clean.py",
+      "--engine",
+      "dagger-rust-parser-state-pool-oct14",
+      "--debug-port",
+      "16104",
+      "--output",
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/restart",
+      "--binary",
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/dagger-engine",
+      "--readiness-timeout",
+      "300"
+    ],
+    "exit_code": 0,
+    "seconds": 128.5459316399647
+  },
+  {
+    "label": "commands-driver",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/measure_commands.py",
+      "--output-root",
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/commands",
+      "--pairs",
+      "8"
+    ],
+    "exit_code": 0,
+    "seconds": 312.80610151193105
+  },
+  {
+    "label": "profiles-driver",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/profile_commands.py",
+      "--output-root",
+      "/tmp/rust-cache-sipsma-review/span-lookup-fanout/profiles",
+      "--pairs",
+      "1",
+      "--kinds",
+      "large",
+      "list"
+    ],
+    "exit_code": 0,
+    "seconds": 25.445029093069024
+  }
+]

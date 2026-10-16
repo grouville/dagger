@@ -1,0 +1,257 @@
+{
+  "engine": {
+    "engine_sha256": "3254774b3a3e53f98adb383c4eafd9cf2613d3612c6bcec2aab8fa12eeabed7b",
+    "base_engine_sha256": "ad2af24c562b892d82ca71303c2df12e3c1f4cba7a71227386218a658ffac7c0",
+    "source_base": "19eda924854e7f22582f3a7430272aa729cbeb5f",
+    "default_enabled": false,
+    "diagnostic_route": "/debug/span-lookup-fanout"
+  },
+  "modules": {
+    "before": {
+      "path": "/tmp/dagger-rust-native-discovery-current",
+      "revision": "da1ae47b6c96a3117de303b7584d028e35166530"
+    },
+    "after": {
+      "path": "/tmp/dagger-rust-native-discovery-current",
+      "revision": "da1ae47b6c96a3117de303b7584d028e35166530"
+    }
+  },
+  "pairs": 8,
+  "kinds": [
+    "large",
+    "direct",
+    "tests",
+    "list"
+  ],
+  "profile": false,
+  "orders": [
+    [
+      "before",
+      "after",
+      "cargo"
+    ],
+    [
+      "cargo",
+      "after",
+      "before"
+    ],
+    [
+      "after",
+      "cargo",
+      "before"
+    ],
+    [
+      "before",
+      "cargo",
+      "after"
+    ],
+    [
+      "cargo",
+      "before",
+      "after"
+    ],
+    [
+      "after",
+      "before",
+      "cargo"
+    ]
+  ],
+  "orders_by_kind": {
+    "large": [
+      [
+        "before",
+        "cargo",
+        "after"
+      ],
+      [
+        "cargo",
+        "after",
+        "before"
+      ],
+      [
+        "before",
+        "after",
+        "cargo"
+      ],
+      [
+        "after",
+        "before",
+        "cargo"
+      ],
+      [
+        "cargo",
+        "before",
+        "after"
+      ],
+      [
+        "after",
+        "before",
+        "cargo"
+      ],
+      [
+        "before",
+        "after",
+        "cargo"
+      ],
+      [
+        "after",
+        "before",
+        "cargo"
+      ]
+    ],
+    "direct": [
+      [
+        "cargo",
+        "before",
+        "after"
+      ],
+      [
+        "cargo",
+        "after",
+        "before"
+      ],
+      [
+        "before",
+        "cargo",
+        "after"
+      ],
+      [
+        "before",
+        "cargo",
+        "after"
+      ],
+      [
+        "after",
+        "before",
+        "cargo"
+      ],
+      [
+        "before",
+        "cargo",
+        "after"
+      ],
+      [
+        "after",
+        "cargo",
+        "before"
+      ],
+      [
+        "cargo",
+        "after",
+        "before"
+      ]
+    ],
+    "tests": [
+      [
+        "cargo",
+        "before",
+        "after"
+      ],
+      [
+        "after",
+        "cargo",
+        "before"
+      ],
+      [
+        "before",
+        "cargo",
+        "after"
+      ],
+      [
+        "cargo",
+        "after",
+        "before"
+      ],
+      [
+        "cargo",
+        "before",
+        "after"
+      ],
+      [
+        "after",
+        "before",
+        "cargo"
+      ],
+      [
+        "before",
+        "cargo",
+        "after"
+      ],
+      [
+        "cargo",
+        "after",
+        "before"
+      ]
+    ],
+    "list": [
+      [
+        "before",
+        "after",
+        "cargo"
+      ],
+      [
+        "after",
+        "cargo",
+        "before"
+      ],
+      [
+        "after",
+        "cargo",
+        "before"
+      ],
+      [
+        "before",
+        "cargo",
+        "after"
+      ],
+      [
+        "before",
+        "cargo",
+        "after"
+      ],
+      [
+        "after",
+        "cargo",
+        "before"
+      ],
+      [
+        "after",
+        "before",
+        "cargo"
+      ],
+      [
+        "before",
+        "after",
+        "cargo"
+      ]
+    ]
+  },
+  "random_seed": 2026101613,
+  "dimension_key_fields_direct": true,
+  "spill_batch_buffers": false,
+  "compiler_tree": "0c9e8b107593d1e5a623145c7b004258c192d060",
+  "same_physical_source_and_history": true,
+  "compiler_and_engine_warm": true,
+  "fresh_processes": true,
+  "telemetry_enabled": true,
+  "source_snapshot_seeds": true,
+  "natural_collection": true,
+  "no_scratch_snapshots": true,
+  "no_forced_collection": true,
+  "no_forced_Go_collection": true,
+  "initial_heap": {
+    "HeapAlloc": 3330265512,
+    "HeapInuse": 3592036352,
+    "HeapIdle": 1287413760,
+    "HeapReleased": 123142144,
+    "HeapObjects": 34144975,
+    "TotalAlloc": 77619330536,
+    "Mallocs": 849102222,
+    "Frees": 814957247,
+    "NumGC": 72,
+    "NextGC": 4562856242,
+    "PauseTotalNs": 30883891,
+    "GCCPUFraction": 0.013355725975841736
+  },
+  "scope": "Original child-list scans versus existing-map-based telemetry indexing; unchanged metadata getters, Rust module and native history; balanced randomized order, all admitted observations retained."
+}
