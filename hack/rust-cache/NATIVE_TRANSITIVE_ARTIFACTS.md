@@ -1,5 +1,7 @@
 # Avoid transitive output lists in native batch history
 
+The later [artifact-input fusion](NATIVE_ARTIFACT_INPUT_FUSION.md) builds on this change and is the next experimental native-cache baseline. Measurements below describe the original deep-artifact experiment.
+
 The batch path no longer recopies every ancestor's output paths into every crate's retained view. A 1,000-action chain drops from 125 ms to 28 ms of local graph construction after an edit, with 52 MB fewer allocated bytes. Complete 512-crate collection checks near the end of the chain improve by about 75 ms in both history assignments. The shared edit and small workloads do not establish a general speedup.
 
 Use this as the next experimental native-cache baseline. The removal of quadratic output-list work and the repeated tail-edit improvement justify the change, with explicit coverage of cached artifact restoration. The official module's native backend remains opt-in. No PR is opened.

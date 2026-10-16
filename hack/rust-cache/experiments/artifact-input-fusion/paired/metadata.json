@@ -1,0 +1,85 @@
+{
+  "engine": {
+    "previous_engine_sha256": "ec800d4328413f4e3b4b514a4006183ac5d4daea15a2636a580aff574ab24823",
+    "diagnostic_gc_sha256": "fafb954dabd73b0d59669ca6eacbff42cba8ae848eda17acb33375d9a3935f4d",
+    "selected_production_gc_sha256": "98ecdfc0160e21a23a9ba5b2428ead2aade182e370c7c2a58e15691b08fbb644",
+    "variant": "Insert each root once into the seen map and queue only when its size grows; reference traversal unchanged.",
+    "dagger_overlays": 44,
+    "dependency_overlays": 1,
+    "default_enabled": false,
+    "engine_sha256": "e174ad0a118c3312cebae1333d4dbaf1f2a1d3f56656a337629830bbe18092e8"
+  },
+  "modules": {
+    "before": {
+      "path": "/tmp/dagger-rust-native-deep-artifact-closures",
+      "revision": "f73c5614a89968afa6f6000328e96ea33745fd93"
+    },
+    "after": {
+      "path": "/tmp/dagger-rust-native-fused-artifact-inputs",
+      "revision": "3cd40e5928563ade3ea1cd21ab9924cd03d88fc3"
+    }
+  },
+  "pairs": 8,
+  "kinds": [
+    "large",
+    "direct",
+    "tests"
+  ],
+  "profile": false,
+  "orders": [
+    [
+      "before",
+      "after",
+      "cargo"
+    ],
+    [
+      "cargo",
+      "after",
+      "before"
+    ],
+    [
+      "after",
+      "cargo",
+      "before"
+    ],
+    [
+      "before",
+      "cargo",
+      "after"
+    ],
+    [
+      "cargo",
+      "before",
+      "after"
+    ],
+    [
+      "after",
+      "before",
+      "cargo"
+    ]
+  ],
+  "same_physical_source_and_history": true,
+  "compiler_and_engine_warm": true,
+  "fresh_processes": true,
+  "telemetry_enabled": true,
+  "source_snapshot_seeds": true,
+  "natural_collection": true,
+  "no_scratch_snapshots": true,
+  "no_forced_collection": true,
+  "no_forced_Go_collection": true,
+  "initial_heap": {
+    "HeapAlloc": 3504177976,
+    "HeapInuse": 4292444160,
+    "HeapIdle": 7248150528,
+    "HeapReleased": 6821888000,
+    "HeapObjects": 22128221,
+    "TotalAlloc": 120589981168,
+    "Mallocs": 1172175490,
+    "Frees": 1150047269,
+    "NumGC": 83,
+    "NextGC": 7007313490,
+    "PauseTotalNs": 12480807,
+    "GCCPUFraction": 0.0018782215734914913
+  },
+  "scope": "Complete edited Rust module commands versus native incremental Cargo; warm-up excluded, all admitted measured observations retained."
+}
