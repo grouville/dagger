@@ -1,0 +1,22 @@
+{
+  "previous_engine_sha256": "8e31c79773355d11bac9854a3a641534c7733171953c483993e5888a290b6734",
+  "base_revision": "19eda924854e7f22582f3a7430272aa729cbeb5f",
+  "feature": "Read the two immutable ArtifactDimensionKey string fields directly, matching TypeDef getters.",
+  "production_change": "Two doNotCache struct tags in core/artifacts.go; the atomic mode and dynamic policy callback are diagnostic only.",
+  "default_enabled": false,
+  "diagnostic_route": "/debug/dimension-key-fields",
+  "unchanged_dependency_overlays": true,
+  "build_command": [
+    "go",
+    "build",
+    "-buildvcs=false",
+    "-modfile",
+    "/tmp/rust-cache-sipsma-review/artifact-dimension-key-fields-engine/engine.go.mod",
+    "-overlay",
+    "/tmp/rust-cache-sipsma-review/artifact-dimension-key-fields-engine/overlay.json",
+    "-o",
+    "/tmp/rust-cache-sipsma-review/artifact-dimension-key-fields-engine/dagger-engine",
+    "./cmd/engine"
+  ],
+  "engine_sha256": "4699d50526e3b2c358d0467c6cacc79aff1061b9295754648713a21104524c65"
+}
