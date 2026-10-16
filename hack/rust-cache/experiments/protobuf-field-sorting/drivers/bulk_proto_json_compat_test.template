@@ -1,0 +1,38 @@
+package clientdb
+import (
+    "bytes"
+    "encoding/json"
+    "fmt"
+    "strings"
+    "testing"
+    common "go.opentelemetry.io/proto/otlp/common/v1"
+    "google.golang.org/protobuf/proto"
+)
+func TestBulkProtoJSONCompatibility(t *testing.T) {
+    fixtures:=[][]*common.KeyValue{nil,{}, {nil}, {nil,strAttr("k","v")}, sampleSpanAttrs(), {strAttr("bad","\xff"),strAttr("ok","value")}, {strAttr("ok","value"),strAttr("bad","\xff")}}
+    attrs:=sampleSpanAttrs()
+    for _,size:=range []int{1,2,3,8,32,128} {
+        values:=make([]*common.KeyValue,size)
+        for i:=range values {values[i]=attrs[i%len(attrs)]}
+        fixtures=append(fixtures,values)
+    }
+    for index,input:=range fixtures {
+        want,wantErr:=beforeBulkMarshalProtoJSONs(input);got,gotErr:=MarshalProtoJSONs(input)
+        if fmt.Sprint(wantErr)!=fmt.Sprint(gotErr) {t.Fatalf("fixture %d errors differ: %v / %v",index,wantErr,gotErr)}
+        if gotErr!=nil {continue}
+        var a,b any
+        if err:=json.Unmarshal(want,&a);err!=nil {t.Fatal(err)}
+        if err:=json.Unmarshal(got,&b);err!=nil {t.Fatal(err)}
+        ca,_:=json.Marshal(a);cb,_:=json.Marshal(b)
+        if !bytes.Equal(ca,cb) {t.Fatalf("fixture %d JSON values differ",index)}
+        var wantPB,gotPB []*common.KeyValue
+        if err:=UnmarshalProtoJSONs(want,&common.KeyValue{},&wantPB);err!=nil {t.Fatal(err)}
+        if err:=UnmarshalProtoJSONs(got,&common.KeyValue{},&gotPB);err!=nil {t.Fatal(err)}
+        if len(gotPB)!=len(wantPB) {t.Fatalf("fixture %d length changed",index)}
+        for i:=range gotPB {if !proto.Equal(gotPB[i],wantPB[i]) {t.Fatalf("fixture %d item %d changed",index,i)}}
+    }
+    attrs=[]*common.KeyValue{strAttr("dagger.io/dag.digest","xxh3:0123456789abcdef"),strAttr("payload",strings.Repeat("[]{}\\\"",4096))}
+    got,err:=MarshalProtoJSONs(attrs);if err!=nil {t.Fatal(err)}
+    digest,ok:=protoJSONStringAttr(got,dagDigestAttrMarker)
+    if !ok||digest!="xxh3:0123456789abcdef" {t.Fatal("attribute scan lost digest")}
+}

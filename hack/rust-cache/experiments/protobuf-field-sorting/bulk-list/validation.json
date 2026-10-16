@@ -1,0 +1,52 @@
+[
+  {
+    "label": "candidate-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-race",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/parallel-fingerprint-engine/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/bulk-proto-json/after.json",
+      "./engine/clientdb",
+      "-count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 4.328420075005852
+  },
+  {
+    "label": "build-before",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/parallel-fingerprint-engine/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/bulk-proto-json/before.json",
+      "-c",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/bulk-proto-json/before.test",
+      "./engine/clientdb"
+    ],
+    "exit_code": 0,
+    "seconds": 1.4786284329602495
+  },
+  {
+    "label": "build-after",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/parallel-fingerprint-engine/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/bulk-proto-json/after.json",
+      "-c",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/bulk-proto-json/after.test",
+      "./engine/clientdb"
+    ],
+    "exit_code": 0,
+    "seconds": 0.9320859449217096
+  }
+]

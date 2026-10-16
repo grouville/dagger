@@ -1,0 +1,449 @@
+[
+  {
+    "label": "dependency-race-False",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "1",
+      "-race",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/overlay.json",
+      "./internal/order",
+      "./encoding/protojson",
+      "./encoding/prototext",
+      "./proto",
+      "-count=1"
+    ],
+    "cwd": "/tmp/protobuf-field-order-experiment",
+    "seconds": 21.153632645029575,
+    "exit_code": 0
+  },
+  {
+    "label": "dependency-race-True",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "1",
+      "-race",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/overlay.json",
+      "./internal/order",
+      "./encoding/protojson",
+      "./encoding/prototext",
+      "./proto",
+      "-count=1"
+    ],
+    "cwd": "/tmp/protobuf-field-order-experiment",
+    "seconds": 6.428396382019855,
+    "exit_code": 0
+  },
+  {
+    "label": "clientdb-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "1",
+      "-race",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/overlay.json",
+      "./engine/clientdb",
+      "-count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 13.247341527952813,
+    "exit_code": 0
+  },
+  {
+    "label": "build-order-bench",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/overlay.json",
+      "-c",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/order.test",
+      "./internal/order"
+    ],
+    "cwd": "/tmp/protobuf-field-order-experiment",
+    "seconds": 0.28324873198289424,
+    "exit_code": 0
+  },
+  {
+    "label": "build-clientdb-bench",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/overlay.json",
+      "-c",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/clientdb.test",
+      "./engine/clientdb"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 4.383482559002005,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-0-order-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/order.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkRangeFields$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 1.5306029150960967,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-0-order-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/order.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkRangeFields$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 1.538381640915759,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-0-clientdb-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/clientdb.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkMarshalProtoJSONs/current$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 0.18666432099416852,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-0-clientdb-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/clientdb.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkMarshalProtoJSONs/current$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 0.18640691798646003,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-1-order-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/order.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkRangeFields$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 1.6403131340630352,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-1-order-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/order.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkRangeFields$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 1.2307809230405837,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-1-clientdb-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/clientdb.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkMarshalProtoJSONs/current$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 0.18926558503881097,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-1-clientdb-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/clientdb.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkMarshalProtoJSONs/current$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 0.18487834406550974,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-2-order-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/order.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkRangeFields$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 1.5576210329309106,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-2-order-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/order.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkRangeFields$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 1.487787313060835,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-2-clientdb-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/clientdb.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkMarshalProtoJSONs/current$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 0.20431660395115614,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-2-clientdb-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/clientdb.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkMarshalProtoJSONs/current$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 0.1719014410628006,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-3-order-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/order.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkRangeFields$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 1.4954680000664666,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-3-order-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/order.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkRangeFields$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 1.3815581649541855,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-3-clientdb-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/clientdb.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkMarshalProtoJSONs/current$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 0.18619222193956375,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-3-clientdb-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/clientdb.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkMarshalProtoJSONs/current$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 0.18475127301644534,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-4-order-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/order.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkRangeFields$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 1.5768009499879554,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-4-order-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/order.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkRangeFields$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 1.5328391389921308,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-4-clientdb-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/clientdb.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkMarshalProtoJSONs/current$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 0.18292044498957694,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-4-clientdb-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/clientdb.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkMarshalProtoJSONs/current$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 0.1855302710318938,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-5-order-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/order.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkRangeFields$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 1.4893761969869956,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-5-order-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/order.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkRangeFields$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 1.4715940520400181,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-5-clientdb-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/clientdb.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkMarshalProtoJSONs/current$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 0.1873869049595669,
+    "exit_code": 0
+  },
+  {
+    "label": "bench-5-clientdb-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/clientdb.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkMarshalProtoJSONs/current$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 0.1843298840103671,
+    "exit_code": 0
+  },
+  {
+    "label": "build-engine",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "build",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/overlay.json",
+      "-buildvcs=false",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/small-proto-fields/dagger-engine",
+      "./cmd/engine"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "seconds": 70.96860849997029,
+    "exit_code": 0
+  }
+]

@@ -1,0 +1,73 @@
+[
+  {
+    "label": "restart-driver",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/restart_owned_engine_clean.py",
+      "--engine",
+      "dagger-rust-parser-state-pool-oct14",
+      "--debug-port",
+      "16104",
+      "--output",
+      "/tmp/rust-cache-sipsma-review/typed-proto-fields/restart",
+      "--binary",
+      "/tmp/rust-cache-sipsma-review/typed-proto-fields/dagger-engine",
+      "--readiness-timeout",
+      "300"
+    ],
+    "exit_code": 0,
+    "seconds": 87.85355659900233
+  },
+  {
+    "label": "commands-driver",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/typed-proto-fields/measure_commands.py",
+      "--output-root",
+      "/tmp/rust-cache-sipsma-review/typed-proto-fields/commands",
+      "--pairs",
+      "8"
+    ],
+    "exit_code": 0,
+    "seconds": 314.33516225009225
+  },
+  {
+    "label": "confirmation-driver",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/typed-proto-fields/confirm_commands.py",
+      "--output-root",
+      "/tmp/rust-cache-sipsma-review/typed-proto-fields/confirmation",
+      "--pairs",
+      "8"
+    ],
+    "exit_code": 0,
+    "seconds": 297.35031135205645
+  },
+  {
+    "label": "profiles-driver",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/typed-proto-fields/profile_commands.py",
+      "--output-root",
+      "/tmp/rust-cache-sipsma-review/typed-proto-fields/profiles",
+      "--pairs",
+      "1",
+      "--kinds",
+      "large",
+      "list"
+    ],
+    "exit_code": 0,
+    "seconds": 25.543001756072044
+  },
+  {
+    "label": "retained-cache",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/check_native_discovery_current_reuse.py",
+      "typed-proto-fields"
+    ],
+    "exit_code": 0,
+    "seconds": 10.685934582957998
+  }
+]

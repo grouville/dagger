@@ -1,0 +1,59 @@
+[
+  {
+    "label": "dependency-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "1",
+      "-race",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/typed-proto-fields/overlay.json",
+      "./internal/order",
+      "./encoding/protojson",
+      "./encoding/prototext",
+      "./proto",
+      "-count=1"
+    ],
+    "cwd": "/tmp/protobuf-field-order-experiment",
+    "exit_code": 0,
+    "seconds": 14.363669199985452
+  },
+  {
+    "label": "clientdb-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "1",
+      "-race",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/typed-proto-fields/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/typed-proto-fields/overlay.json",
+      "./engine/clientdb",
+      "-count=1"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "exit_code": 0,
+    "seconds": 7.981125343940221
+  },
+  {
+    "label": "engine-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "build",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/typed-proto-fields/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/typed-proto-fields/overlay.json",
+      "-buildvcs=false",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/typed-proto-fields/dagger-engine",
+      "./cmd/engine"
+    ],
+    "cwd": "/tmp/dagger-filesync-snapshot-seeds",
+    "exit_code": 0,
+    "seconds": 61.9675576640293
+  }
+]
