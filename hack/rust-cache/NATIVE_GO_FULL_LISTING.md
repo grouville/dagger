@@ -20,9 +20,24 @@ Across the command, wcprof records 800 `Gomod.module` executions, 1,762 Dang eva
 
 A ten-second CPU window during package discovery spends 37.6% of sampled CPU in Go's background garbage collector. Another diagnostic, with allocation profiling, attributes about 11.8 GB of sampled allocations to preparing and evaluating Dang module source. Its total sampled allocation is about 61 GB; sampling and the recording interval differ from the memstats counter. These are cumulative allocation volumes, not resident-memory requirements.
 
-Collection expansion starts one goroutine for every parent receiver, without a concurrency limit. With 800 packages, many interpreter environments can remain live together while waiting for API work. This is a concrete candidate for a bounded-concurrency experiment; the profile alone does not establish that a particular limit improves latency. The same fan-out exists in both recorded upstream source refs, `ff0b029a` and the diagnostic engine's base `19eda924`.
+Collection expansion starts one goroutine for every parent receiver, without a concurrency limit. With 800 packages, many interpreter environments can remain live together while waiting for API work. The same fan-out exists in both recorded upstream source refs, `ff0b029a` and the diagnostic engine's base `19eda924`.
 
 The earlier collection index accelerates schema-field ancestry lookup. It does not eliminate per-package evaluation, repeated module resolution or individual result queries. Source searching itself is only one part of the work: the package-discovery phase executes 81 `Workspace.search` calls totaling about one second, before accounting for result-field reads and processing.
+
+## Why listing can use about 24 GB
+
+The later unprofiled concurrency experiment observes up to 23.86 GB of engine `HeapAlloc`. This is a sampled heap size, including allocated objects that the garbage collector has not reclaimed yet. It is neither a measurement of live objects after collection nor the size of the test sources, compiled artifacts or disk cache. The persistent engine already has a heap before each command; the entire peak cannot be attributed to that command alone.
+
+In one successful unbounded attempt, the command creates 669 million objects and allocates 53.55 GB cumulatively. Its first heap sample is 5.20 GB and its peak is 23.00 GB. Creating fresh interpreter types, environments and API values across hundreds of concurrent package evaluations produces both allocation volume and overlapping lifetimes. The earlier allocation profile identifies these paths, but does not establish their individual shares of peak live memory or prove that every transient allocation was released.
+
+Two paired orders compare unbounded expansion with a per-parent limit of 32 on the same engine. Every attempt returns identical 4,398 rows:
+
+| Order | Unbounded | Limit 32 | Sampled peak heap, unbounded / limited |
+| --- | ---: | ---: | ---: |
+| First | 102.84 s, success | 101.68 s, shutdown timeout | 23.00 / 12.16 GB |
+| Reverse | 103.02 s, success | 97.80 s, success | 21.72 / 12.52 GB |
+
+The limit clearly reduces peak heap, by about 45% across these attempts. Its latency improvement is modest and one candidate command fails during cleanup, so this is not a validated latency win. A pilot's larger speedup did not repeat. Smaller edited Rust and Go collection controls also give no basis for selecting a blanket limit. The experiment remains disabled: reducing concurrent work does not remove the repeated work that makes listing slow. The [concurrency experiment archive](experiments/go-collection-expansion-limit/) preserves the engine identity, source, focused race tests, complete attempts, memory samples and smaller-workload controls, including failed attempts.
 
 ## Filenames-only marker experiment
 
@@ -43,7 +58,7 @@ An earlier unprofiled diagnostic also produced the listing but failed during ses
 
 ## Next experiments
 
-Measure bounded collection expansion on the same complete command, including peak heap, allocations and smaller collection controls. Reduce repeated package-module resolution while preserving behavior when an item is used with a different workspace. Investigate reusing prepared Dang code and schema state while keeping each invocation's clients, values and cancellation independent. A prototype that simply retained module roots was set aside because it could use stale ownership after a workspace adds or removes `go.mod`.
+Batch each package's file imports and test-name searches, then measure the complete command. Reduce repeated package-module resolution while preserving behavior when an item is used with a different workspace. Investigate reusing prepared Dang code and schema state while keeping each invocation's clients, values and cancellation independent. A prototype that simply retained module roots was set aside because it could use stale ownership after a workspace adds or removes `go.mod`.
 
 The full command is `dagger check --module go --check test --list --all`. Every measured arm starts a fresh CLI and adds a new Go source comment. The engine and toolchains are warm. Telemetry and ordinary garbage collection remain enabled; no engine cache is reset. The unprofiled timing cohort enables the previously selected telemetry metadata, attribute decoding and filesync seed changes on both sides, then restores their original settings. The profiled diagnostics leave those optional modes disabled.
 

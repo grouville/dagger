@@ -1,0 +1,12 @@
+{
+  "selected": false,
+  "default_limit": 0,
+  "engine_sha256": "e2d78593e19834694b4b1a9bb076a0c12d5d20bbf62da7e1e52249268f5c16f5",
+  "limit_scope": "Per parent expansion group, not a global engine concurrency bound.",
+  "timing_failures": "All listing attempts returned identical rows. One paired limit-32 attempt and the pilot limit-128 attempt exited 1 during session cleanup; no clean latency median is claimed.",
+  "heap_metric": "Peak sampled Go HeapAlloc, including uncollected garbage. The persistent engine has a pre-command heap; this is not peak live memory or a per-command RSS increment.",
+  "controls": "Rust and Go edited test cohorts retain the same module on both arms, 4 balanced pairs per size. Small-fixture timing variation and CPU/GC pressure preclude attributing every difference to the limit; at Go size 16 the bound never binds.",
+  "metadata_annotation": "The historical diagnostic label in the smaller-cohort metadata names the inherited interface-field experiment. The saved driver, expansion counters and limit changes identify the actual per-parent limit experiment. Original files are preserved.",
+  "pilot_driver": "sweep_measure_listing.py was reconstructed by reversing the later phase-sampling additions; it was not captured at the start of the pilot.",
+  "baseline_sources": "Previous engine overlays are archived in ../interface-field-snapshots; engine-overlay.json retains original absolute source paths."
+}
