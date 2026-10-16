@@ -1,0 +1,89 @@
+diff --git a/pkg/gc/gc.go b/pkg/gc/gc.go
+index 67d9a04..6679279 100644
+--- a/pkg/gc/gc.go
++++ b/pkg/gc/gc.go
+@@ -68,8 +68,12 @@ func Tricolor(roots []Node, refs func(ref Node) ([]Node, error)) (map[Node]struc
+ 		reachable = map[Node]struct{}{} // or "black", in tri-color parlance
+ 	)
+ 
+-	grays = append(grays, roots...)
++	grays = make([]Node, 0, len(roots))
+ 	for _, root := range roots {
++		if _, ok := seen[root]; ok {
++			continue
++		}
++		grays = append(grays, root)
+ 		seen[root] = struct{}{} // pre-mark this as not-white
+ 	}
+ 
+diff --git a/pkg/gc/gc_test.go b/pkg/gc/gc_test.go
+index a9b8c06..0cdfe68 100644
+--- a/pkg/gc/gc_test.go
++++ b/pkg/gc/gc_test.go
+@@ -19,7 +19,9 @@ package gc
+ import (
+ 	"context"
+ 	"fmt"
++	"maps"
+ 	"reflect"
++	"slices"
+ 	"testing"
+ )
+ 
+@@ -147,3 +149,56 @@ func toNodes(s []string) []Node {
+ 	}
+ 	return n
+ }
++
++func TestTricolorDuplicateRoots(t *testing.T) {
++	a := Node{Type: 1, Namespace: "first", Key: "root"}
++	flat := a
++	flat.Type |= ResourceMax + 1
++	other := a
++	other.Namespace = "second"
++	child := Node{Type: 2, Namespace: "first", Key: "child"}
++	leaf := Node{Type: 2, Namespace: "second", Key: "leaf"}
++	graph := map[Node][]Node{a: {child}, flat: {leaf}, other: {a}, child: {a}}
++	roots := []Node{a, flat, a, other, flat, other}
++	original := slices.Clone(roots)
++	calls := map[Node]int{}
++	marked, err := Tricolor(roots, func(n Node) ([]Node, error) {
++		calls[n]++
++		return graph[n], nil
++	})
++	if err != nil {
++		t.Fatal(err)
++	}
++	want := map[Node]struct{}{a: {}, other: {}, child: {}, leaf: {}}
++	if !maps.Equal(marked, want) {
++		t.Fatalf("marked %v; want %v", marked, want)
++	}
++	for n, count := range calls {
++		if count != 1 {
++			t.Errorf("references for %v visited %d times; want once", n, count)
++		}
++	}
++	if !slices.Equal(roots, original) {
++		t.Fatal("modified input roots")
++	}
++}
++
++func BenchmarkTricolorUniqueRoots(b *testing.B) {
++	for _, count := range []int{1, 1000} {
++		b.Run(fmt.Sprint(count), func(b *testing.B) {
++			roots := make([]Node, count)
++			for i := range roots {
++				roots[i] = Node{Key: fmt.Sprint(i)}
++			}
++			refs := func(Node) ([]Node, error) { return nil, nil }
++			b.ReportAllocs()
++			b.ResetTimer()
++			for range b.N {
++				marked, err := Tricolor(roots, refs)
++				if err != nil || len(marked) != count {
++					b.Fatal("incorrect mark result", err)
++				}
++			}
++		})
++	}
++}

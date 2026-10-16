@@ -1,0 +1,56 @@
+File: dagger-engine
+Build ID: 3834b72a3c52d3e6b542aca2763a550d043de949
+Type: cpu
+Time: 2026-10-15 23:24:18 PDT
+Duration: 45s, Total samples = 21.69s (48.20%)
+Active filters:
+   focus=metadata.*(GarbageCollect|getMarked)
+Showing nodes accounting for 7.39s, 34.07% of 21.69s total
+Dropped 119 nodes (cum <= 0.11s)
+Showing top 45 nodes out of 117
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%     12.41s 57.22%  github.com/containerd/containerd/v2/core/metadata.(*DB).GarbageCollect
+         0     0%     0%     12.41s 57.22%  github.com/dagger/dagger/engine/server.(*Server).SnapshotCollectionDiagnostic
+         0     0%     0%     12.41s 57.22%  github.com/dagger/dagger/engine/server.(*snapshotGarbage).collect
+         0     0%     0%     12.41s 57.22%  main.setupDebugHandlers.func1
+         0     0%     0%     12.41s 57.22%  net/http.(*ServeMux).ServeHTTP
+         0     0%     0%     12.41s 57.22%  net/http.(*conn).serve
+         0     0%     0%     12.41s 57.22%  net/http.HandlerFunc.ServeHTTP
+         0     0%     0%     12.41s 57.22%  net/http.serverHandler.ServeHTTP
+         0     0%     0%     12.33s 56.85%  github.com/containerd/containerd/v2/core/metadata.(*DB).getMarked
+         0     0%     0%     12.33s 56.85%  github.com/containerd/containerd/v2/core/metadata.(*DB).getMarked.func1
+         0     0%     0%     12.33s 56.85%  go.etcd.io/bbolt.(*DB).View
+     0.01s 0.046% 0.046%      9.60s 44.26%  go.etcd.io/bbolt.(*Bucket).ForEach
+         0     0% 0.046%      9.52s 43.89%  github.com/containerd/containerd/v2/core/metadata.(*gcContext).scanRoots
+     0.05s  0.23%  0.28%      8.50s 39.19%  github.com/containerd/containerd/v2/core/metadata.(*gcContext).scanRoots.func3
+     0.05s  0.23%  0.51%      5.92s 27.29%  go.etcd.io/bbolt.(*Bucket).Bucket
+     0.03s  0.14%  0.65%      5.15s 23.74%  go.etcd.io/bbolt.(*Bucket).pageNode
+     0.06s  0.28%  0.92%      5.12s 23.61%  go.etcd.io/bbolt.(*Tx).page
+     4.76s 21.95% 22.87%      5.03s 23.19%  go.etcd.io/bbolt/internal/common.(*Page).FastCheck
+     0.05s  0.23% 23.10%      4.99s 23.01%  go.etcd.io/bbolt.(*Cursor).seek
+     0.08s  0.37% 23.47%      4.87s 22.45%  go.etcd.io/bbolt.(*Cursor).search
+         0     0% 23.47%      2.81s 12.96%  github.com/containerd/containerd/v2/pkg/gc.Tricolor
+     0.14s  0.65% 24.11%      2.63s 12.13%  runtime.mallocgc
+     0.02s 0.092% 24.20%      2.27s 10.47%  github.com/containerd/containerd/v2/core/metadata.(*DB).getMarked.func1.2
+         0     0% 24.20%      2.14s  9.87%  go.etcd.io/bbolt.(*Cursor).First
+     0.04s  0.18% 24.39%      2.14s  9.87%  go.etcd.io/bbolt.(*Cursor).first
+     0.03s  0.14% 24.53%      2.11s  9.73%  github.com/containerd/containerd/v2/core/metadata.(*gcContext).references
+     0.01s 0.046% 24.57%      1.91s  8.81%  github.com/containerd/containerd/v2/core/metadata.(*gcContext).scanRoots.func3.2
+     0.23s  1.06% 25.63%      1.89s  8.71%  runtime.mallocgcSmallScanNoHeader
+     0.21s  0.97% 26.60%      1.58s  7.28%  runtime.growslice
+     0.05s  0.23% 26.83%      1.54s  7.10%  github.com/containerd/containerd/v2/core/metadata.(*gcContext).scanRoots.func1
+     0.01s 0.046% 26.88%      1.53s  7.05%  github.com/containerd/containerd/v2/core/metadata.getBucket
+     0.15s  0.69% 27.57%      1.49s  6.87%  runtime.selectgo
+     0.02s 0.092% 27.66%      1.45s  6.69%  github.com/containerd/containerd/v2/core/metadata.(*gcContext).scanRoots.func3.2.1
+     1.17s  5.39% 33.06%      1.17s  5.39%  runtime.memclrNoHeapPointers
+     0.09s  0.41% 33.47%      1.13s  5.21%  go.etcd.io/bbolt.(*Bucket).openBucket
+     0.04s  0.18% 33.66%      1.13s  5.21%  runtime.send
+         0     0% 33.66%      1.12s  5.16%  runtime.systemstack
+     0.01s 0.046% 33.70%      1.06s  4.89%  runtime.goready (inline)
+         0     0% 33.70%      1.04s  4.79%  runtime.ready
+     0.01s 0.046% 33.75%      1.04s  4.79%  runtime.send.goready.func1
+     0.02s 0.092% 33.84%      1.03s  4.75%  runtime.(*mcache).nextFree
+     0.04s  0.18% 34.02%      0.97s  4.47%  runtime.(*mcache).refill
+         0     0% 34.02%      0.92s  4.24%  github.com/containerd/containerd/v2/core/metadata.(*gcContext).scanRoots.func8
+         0     0% 34.02%      0.89s  4.10%  runtime.(*mcentral).cacheSpan
+     0.01s 0.046% 34.07%      0.87s  4.01%  runtime.wakep

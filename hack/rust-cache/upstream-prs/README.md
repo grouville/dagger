@@ -30,3 +30,7 @@ The sixth proposal uses a separate six-pair comparison on real temporary snapsho
 The archived benchmark driver regenerates baseline overlays with `git show`. Its configs record the measurement worktree paths; recreate those worktrees at the recorded revisions or adjust their paths before running it. Each description also gives a direct `go test` command.
 
 This batch contains engine and CLI changes. Rust module/cache changes and experimental engine APIs are outside these proposals.
+
+## Additional dependency candidate — still being validated
+
+A [seventh draft targets containerd's duplicate GC roots](containerd-root-dedup.md), rather than Dagger itself. The standalone patch and regression apply to containerd main. Complete edited commands during concurrent collection improve in 16/16 pairs, saving about 0.33 seconds per pair. The confirmation also shows a roughly 62 ms slowdown without concurrent collection, and the unique-root control is about 9% slower. These costs remain disclosed and under investigation; this candidate is not included among the six ready proposals. No containerd PR is open.
