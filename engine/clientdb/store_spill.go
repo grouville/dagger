@@ -232,9 +232,12 @@ func (s *spillFile[Row]) readSince(ctx context.Context, id int64, limit int) ([]
 	}
 
 	scanner := newFrameScanner(s.file, offset, committed)
+	defer scanner.release()
 	rows := make([]Row, 0, limit)
+	var payload []byte
 	for len(rows) < limit {
-		payload, err := scanner.next()
+		var err error
+		payload, err = scanner.nextInto(payload[:0])
 		if errors.Is(err, io.EOF) {
 			break
 		}

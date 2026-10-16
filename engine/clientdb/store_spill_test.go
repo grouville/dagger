@@ -1,14 +1,86 @@
 package clientdb
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestSpillFileReadSinceOwnsRows(t *testing.T) {
+	spill, err := openSpillFile(t.Context(), filepath.Join(t.TempDir(), "spans.log"), spanCodec, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, spill.close()) })
+
+	var want []Span
+	for i, size := range []int{4096, 512, 8192, 1024, 0} {
+		want = append(want, Span{
+			ID:                   int64(i + 1),
+			Name:                 fmt.Sprintf("span-%d", i),
+			Attributes:           bytes.Repeat([]byte{byte('a' + i)}, size),
+			Events:               []byte{},
+			Links:                nil,
+			InstrumentationScope: []byte(fmt.Sprintf("scope-%d", i)),
+			Resource:             []byte(fmt.Sprintf("resource-%d", i)),
+		})
+	}
+	require.NoError(t, spill.append(want))
+
+	got, err := spill.readSince(t.Context(), 0, len(want))
+	require.NoError(t, err)
+	require.Equal(t, want, got)
+
+	// Later frames and reads must not overwrite already returned fields.
+	_, err = spill.readSince(t.Context(), 1, len(want))
+	require.NoError(t, err)
+	require.Equal(t, want, got)
+}
+
+func BenchmarkSpillFileReadSince(b *testing.B) {
+	for _, count := range []int{1, 512} {
+		b.Run(fmt.Sprintf("rows=%d", count), func(b *testing.B) {
+			spill, err := openSpillFile(b.Context(), filepath.Join(b.TempDir(), "spans.log"), spanCodec, nil)
+			if err != nil {
+				b.Fatal(err)
+			}
+			b.Cleanup(func() {
+				if err := spill.close(); err != nil {
+					b.Fatal(err)
+				}
+			})
+			rows := make([]Span, count)
+			for i := range rows {
+				rows[i] = Span{
+					ID:                   int64(i + 1),
+					TraceID:              "0123456789abcdef0123456789abcdef",
+					SpanID:               fmt.Sprintf("%016x", i),
+					Name:                 "ArtifactDimensionKey.key",
+					Kind:                 "internal",
+					Attributes:           bytes.Repeat([]byte("attribute"), 128),
+					Events:               []byte("[]"),
+					Links:                []byte("[]"),
+					InstrumentationScope: []byte(`{"name":"dagql"}`),
+					Resource:             []byte(`{"attributes":[]}`),
+				}
+			}
+			if err := spill.append(rows); err != nil {
+				b.Fatal(err)
+			}
+			b.ReportAllocs()
+			for b.Loop() {
+				got, err := spill.readSince(b.Context(), 0, count)
+				if err != nil || len(got) != count {
+					b.Fatalf("read %d rows: %v", len(got), err)
+				}
+			}
+		})
+	}
+}
 
 func TestSpillFileAppendReadAndRecover(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "metrics.log")
