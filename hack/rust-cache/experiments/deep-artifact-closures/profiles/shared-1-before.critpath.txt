@@ -1,0 +1,26 @@
+critpath of op 270617: 21.10s
+on-path time by class (sums to the roots' duration; concurrent work off the path gets nothing):
+     on_path      % segments  kind class
+      21.08s  99.9%        1  internal dang.invoke
+      4.09ms   0.0%        1  internal dang.decodeSchema
+      3.21ms   0.0%        1  internal dang.runSource.parse
+      2.61ms   0.0%        1  internal dang.runSource.infer
+     579.1µs   0.0%        1  call_exec Check.sync
+     573.6µs   0.0%        1  internal dang.runSource.evaluate
+     164.7µs   0.0%        1  internal dang.evalSource
+     110.3µs   0.0%        1  internal dang.runSource
+      98.2µs   0.0%        1  internal dang.selfTypes
+      34.6µs   0.0%        1  internal dang.openSchema
+      28.0µs   0.0%        1  call Query.__schemaJSONFile
+      20.1µs   0.0%        1  internal dang.prepareSource
+      16.3µs   0.0%        2  call TypeDef.withOptional
+      11.0µs   0.0%        1  call TypeDef.withKind
+      10.6µs   0.0%        1  call Query.typeDef
+       611ns   0.0%        1  internal dang.retainDirectives
+
+path of the longest (offsets from its start; `dur` on the path, `own` not in any blocker):
++0ns dur 21.10s own 579.1µs  270617 call_exec Check.sync [ok]
+  +605.3µs dur 21.10s own 164.7µs  270623 internal dang.evalSource [ok]
+    +11.43ms dur 21.08s own 21.08s  270633 internal dang.invoke [ok]
+(8 segments not shown: runs of them totaling under 1% of the path, 10.81ms)
+(runs of sub-1% segments totaling 1%+ show their largest members, the rest as "… N shorter"; ▸ N: N segments not expanded, raise `depth` or re-root with `op`; (exec N): a call folded with its call_exec op N)

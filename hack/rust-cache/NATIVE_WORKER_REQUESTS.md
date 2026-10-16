@@ -33,7 +33,7 @@ The gain is clearest on the large workspace. The small collection does not estab
 
 Every launch requires an idle engine and a one-second window below 5% host and 1% engine I/O stalls. Stalls after admission do not exclude a sample: measured host I/O pressure reaches 5.31% in the first series and 20.05% in the confirmation; engine maxima are 3.66% and 1.02%. All slow observations remain included.
 
-The first large-check engine-cgroup CPU medians are 1.651 s before and 1.844 s after, despite a 78 ms median paired CPU saving. The crossover medians are 1.646 s and 1.450 s, with a 196 ms paired saving. Cgroup accounting includes concurrent engine work; these results support the latency improvement without claiming every command consumes less CPU.
+The first large-check engine-cgroup CPU medians are 1.651 s before and 1.844 s after, despite a 78 ms median paired CPU saving. The crossover medians are 1.646 s and 1.450 s, with a 196 ms paired saving. This counter includes concurrent engine work but excludes sibling helper/compiler cgroups; see the [accounting clarification](CPU_ACCOUNTING.md). These results support the latency improvement without establishing total Dagger CPU savings.
 
 In the confirmation, median paired candidate-minus-Cargo overhead is 0.519 s for the direct check, 0.744 s for the large check and 0.495 s for small tests. Only 3/8, 0/8 and 4/8 corresponding pairs are within Cargo +0.5 s. The complete performance target remains unmet.
 
@@ -46,3 +46,5 @@ The change adds a temporary action slice proportional to plan size and reduces t
 The [helper profiles](NATIVE_HELPER_CPU.md) provide separate diagnostic evidence: two large captures per implementation contain 420 ms of sampled process CPU in total before and 290 ms after. This small profile set localizes work; the unprofiled commands above establish the latency result.
 
 Evidence, exact payload plans, source patch, correctness logs and drivers: [worker-request-current](experiments/worker-request-current/).
+
+The next [deep-workspace baseline](NATIVE_TRANSITIVE_ARTIFACTS.md) also avoids rebuilding transitive output lists in the batch path, while retaining this compact request representation.

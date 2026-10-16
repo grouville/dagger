@@ -2,6 +2,8 @@
 
 Engine pprof does not include CPU used by the Go module process. A separate diagnostic module samples CPU and blocking while `RustCompiler.Compile` runs, and wcprof captures the enclosing engine operations. This exposes plan decoding, graph construction and request serialization without treating all time between engine requests as computation.
 
+The [CPU accounting clarification](CPU_ACCOUNTING.md) also distinguishes the engine-only cgroup counters in older benchmark datasets from the Docker parent total that includes compiler workloads.
+
 The profiler starts at entry to `Compile` and stops on its return. It includes all Go process goroutines active in that interval, including telemetry and garbage collection. Generated argument decoding before entry and result serialization after return are outside the capture. Profiling shutdown adds latency, so none of these commands enters the unprofiled performance comparison.
 
 Profiles are encoded into a diagnostic stderr record and recovered through `hack/otlpdump`. Successful CLI summaries omit that record, even with verbosity enabled. The initial CLI-only extraction failed; raw telemetry recovers the profiles. Both diagnostic modules use the same two-line entrypoint patch and profiler implementation, with no generated SDK modification. The normal modules contain no profiling code.
