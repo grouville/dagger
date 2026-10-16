@@ -1,0 +1,59 @@
+critpath of op 742269: 8.01s
+on-path time by class (sums to the roots' duration; concurrent work off the path gets nothing):
+     on_path      % segments  kind class
+       7.34s  91.6%        4  internal dang.invoke
+    149.57ms   1.9%        4  call Query.__schemaJSONFile
+    102.86ms   1.3%        1  call Artifacts.__evaluationItems
+    100.11ms   1.3%        8  call Artifact.value
+     59.23ms   0.7%       82  internal dagql.publishResult
+     48.29ms   0.6%        4  internal dang.runSource
+     27.52ms   0.3%        4  internal dang.runSource.parse
+     23.88ms   0.3%        4  internal dang.runSource.infer
+     22.85ms   0.3%       48  call go:Go.packages
+     20.37ms   0.3%        7  call go:GoPackage.tests
+     15.41ms   0.2%       19  call go:GoPackages.get
+     12.39ms   0.2%        4  internal dang.decodeSchema
+      8.37ms   0.1%        2  call Check.sync
+      6.98ms   0.1%        4  internal dang.evalSource
+      6.52ms   0.1%        2  call Query.__collectionDelta
+      6.47ms   0.1%      835  call Query.typeDef
+      6.33ms   0.1%      512  call Query.__objectTypeDef
+      6.31ms   0.1%      157  call Module._implementationScoped
+      4.86ms   0.1%       64  call Artifact.__evaluationItems
+      4.81ms   0.1%       41  call go:Query.go
+      4.78ms   0.1%      512  call ObjectTypeDef.__withFunction
+      4.70ms   0.1%      512  call TypeDef.__withObjectTypeDef
+      4.70ms   0.1%        1  call Artifacts.values
+      4.43ms   0.1%      512  call ObjectTypeDef.__withName
+      4.25ms   0.1%        4  internal dang.runSource.evaluate
+      4.05ms   0.1%       11  call String.path
+      3.36ms   0.0%      315  call TypeDef.withOptional
+      3.23ms   0.0%        4  call ArtifactResult.values
+      1.09ms   0.0%        1  session_phase session.query
+     992.8µs   0.0%      150  call TypeDef.withKind
+     781.4µs   0.0%        4  internal dang.openSchema
+     669.5µs   0.0%      106  call TypeDef.withObject
+     561.7µs   0.0%        4  internal dang.prepareSource
+     436.4µs   0.0%        4  internal dang.selfTypes
+     417.7µs   0.0%       67  call TypeDef.withListOf
+  … 4 more classes (raise `top`)
+
+path of the longest (offsets from its start; `dur` on the path, `own` not in any blocker):
++0ns dur 8.01s own 1.09ms  742269 session_phase session.query [ok]
+  +237.0µs dur 7.95s own 4.70ms  742273 call Artifacts.values [executed] (exec 742274)
+    +323.9µs dur 3.38s own 102.86ms  742275 call Artifacts.__evaluationItems [executed] (exec 742276)
+      +9.61ms dur 1.41s own 21.56ms  742512 call go:Go.packages [executed] (exec 742513)
+        +33.60ms dur 1.38s own 2.46ms  743008 internal dang.evalSource [ok]
+          +45.56ms dur 1.37s own 1.37s  743018 internal dang.invoke [ok]
+      +1.42s..+1.55s … 251 shorter segments, 24.82ms: call Module._implementationScoped:144 call go:Go.packages:46 call go:Query.go:39 +2 more
+      +1.48s dur 66.24ms own 2.46ms  755767 call go:GoPackage.tests [executed] (exec 755802)
+      +1.55s dur 1.75s own 10.65ms  756125 call go:GoPackage.tests [executed] (exec 756126)
+        +1.56s dur 111.62ms own 111.62ms  756254 call Query.__schemaJSONFile [hit]
+        +1.67s dur 1.62s own 628.9µs  756816 internal dang.evalSource [ok]
+          +1.73s dur 1.56s own 1.56s  757223 internal dang.invoke [ok]
+    +3.41s dur 100.55ms own 91.17ms  770145 call Artifact.value [do_not_cache]
+    +3.52s dur 4.43s own 3.93ms  772011 call Check.sync [executed] (exec 772276)
+      +3.52s dur 4.43s own 239.0µs  772320 internal dang.evalSource [ok]
+        +3.54s dur 4.41s own 4.41s  773198 internal dang.invoke [ok]
+(3643 segments not shown: runs of them totaling under 1% of the path, 296.78ms)
+(runs of sub-1% segments totaling 1%+ show their largest members, the rest as "… N shorter"; ▸ N: N segments not expanded, raise `depth` or re-root with `op`; (exec N): a call folded with its call_exec op N)

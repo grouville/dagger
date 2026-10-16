@@ -1,0 +1,39 @@
+classes: 33461 ops in 233 classes (all ops) over 8.13s, self_tot 327.56s (summed across concurrent ops); sorted by self
+(left out: 16805 internal-kind ops, self_tot 346.76s; kind: "internal" ranks them)
+   count   self_tot  self_p50  self_max    dur_tot   dur_p50   dur_max   dup  kind class               outcomes
+      65    124.19s     2.12s     2.75s    124.19s     2.12s     2.75s     0  exec_phase exec.workload ok:65
+    1194     58.66s   35.42ms  238.95ms    311.35s   90.04ms     8.01s     0  session_phase session.query ok:1194
+      65     23.10s  302.89ms  960.55ms     23.10s  302.89ms  960.55ms     0  exec_phase exec.runtimeStart ok:65
+      64      9.00s  127.40ms  235.74ms     15.57s  246.54ms  354.63ms     0  call Artifact.value      do_not_cache:64
+    1024      8.34s    5.30ms   68.07ms      9.00s    6.01ms   68.09ms     6  call SearchResult.search executed:526 hit:498
+    1024      8.27s    3.88ms   69.57ms      8.81s    4.30ms   69.60ms     0  call SearchResult.matchedLines executed:520 hit:504
+      71      6.54s   89.75ms  171.40ms      7.31s  105.21ms  192.73ms     0  call_exec Host.directory ok:71
+      65      5.98s   28.40ms  366.71ms      5.98s   28.40ms  366.71ms     0  exec_phase exec.setupRootfs ok:65
+    3455      4.99s    14.4µs   66.96ms      4.99s    14.4µs   66.96ms     0  call Module._implementationScoped hit:3453 executed:2
+     512      4.91s    3.39ms   67.18ms      5.35s    3.76ms   67.20ms     0  call SearchResult.filePath executed:512
+      65      4.06s   46.10ms  276.88ms      4.06s   46.10ms  276.88ms     0  exec_phase exec.initStart ok:65
+      65      3.96s   51.72ms  120.55ms      3.96s   51.72ms  120.55ms     0  exec_phase withExec.prepareMounts ok:65
+      65      3.42s   37.35ms  209.21ms      3.42s   37.35ms  209.21ms     0  exec_phase exec.processSpawn ok:65
+     128      3.37s    4.57ms  235.55ms    100.75s    7.20ms     1.75s     0  call go:GoPackage.tests  executed:64 hit:64
+     541      2.97s    1.35ms   58.83ms      4.83s    1.43ms  104.03ms     0  call Query.node          do_not_cache:541
+     647      2.95s   251.6µs  111.71ms      2.95s   251.6µs  111.71ms     0  call gomod:Query.gomod   hit:647
+      64      2.83s   44.77ms  104.57ms     16.57s  237.90ms  470.24ms     0  call gomod:Gomod.module  executed:64
+      65      2.79s   38.45ms  108.01ms     15.76s  243.17ms  387.00ms     0  call Workspace.file      executed:65
+      73      2.70s   32.23ms  115.58ms     10.02s  149.39ms  267.83ms     0  call Host.directory      executed:71 hit:2
+    3587      2.54s     6.8µs   56.49ms      2.54s     6.8µs   56.49ms     0  call Query.typeDef       hit:3587
+     203      2.36s    37.7µs  125.35ms      2.36s    37.7µs  125.35ms     0  call Query.__schemaJSONFile hit:203
+      65      2.32s   16.03ms  288.77ms      2.32s   16.03ms  288.77ms     0  exec_phase exec.processExit ok:65
+      64      2.27s   20.76ms  145.88ms      2.29s   20.80ms  145.92ms     0  call go:GoTests.subset   executed:64
+     322      2.24s    4.66ms   42.18ms      2.24s    4.66ms   42.18ms     0  call gomod:Gomod.at      hit:322
+      65      2.08s   21.15ms  122.56ms     12.94s  205.71ms  319.68ms     0  call_exec Workspace.file ok:65
+      64      1.88s   11.45ms  154.37ms      1.90s   11.48ms  154.40ms     0  call go:GoTests.batch    executed:64
+      67      1.83s   19.63ms   84.44ms      3.00s   44.12ms  122.47ms     0  call Workspace.glob      executed:67
+      65      1.80s   16.65ms  222.39ms    166.76s     2.96s     3.56s     0  exec exec.run            ok:65
+    2221      1.75s     7.3µs   49.62ms      1.75s     7.3µs   49.62ms     0  call TypeDef.withKind    hit:2221
+      64      1.54s   21.12ms  141.38ms      1.60s   22.39ms  141.41ms     0  call go:GoTests_Batch.test executed:64
+      64      1.49s   21.95ms   70.04ms      2.02s   24.56ms   99.51ms     0  call Workspace.findUp    executed:64
+     130      1.20s    7.52ms   34.89ms      1.29s    7.70ms   37.97ms     0  call Container.withExec  executed:65 hit:65
+      67      1.16s   14.90ms   45.27ms      1.16s   14.90ms   45.27ms     0  call_exec Workspace.glob ok:67
+      65      1.16s    3.83ms  190.09ms      1.16s    3.83ms  190.09ms     0  exec_phase exec.containerStart ok:65
+      64   945.90ms   11.41ms   39.20ms      1.01s   12.74ms   41.38ms     0  call ArtifactResult.values executed:64
+… 198 more classes (raise `top`)

@@ -1,0 +1,44 @@
+[
+  {
+    "label": "retained-before-v2",
+    "exit_code": 0,
+    "unix_start": 1792176754.0500512,
+    "unix_end": 1792176762.140755,
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/interface-field-snapshots/verify_retained.py",
+      "interface-snapshots-before-v2"
+    ]
+  },
+  {
+    "label": "restart",
+    "exit_code": 0,
+    "unix_start": 1792176762.1410892,
+    "unix_end": 1792176878.4294772,
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/restart_owned_engine_clean.py",
+      "--engine",
+      "dagger-rust-parser-state-pool-oct14",
+      "--debug-port",
+      "16104",
+      "--output",
+      "/tmp/rust-cache-sipsma-review/interface-field-snapshots/restart",
+      "--binary",
+      "/tmp/rust-cache-sipsma-review/interface-field-snapshots/dagger-engine",
+      "--readiness-timeout",
+      "300"
+    ]
+  },
+  {
+    "label": "retained-after-v2",
+    "exit_code": 0,
+    "unix_start": 1792176879.5152533,
+    "unix_end": 1792176888.7642071,
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/interface-field-snapshots/verify_retained.py",
+      "interface-snapshots-after-v2"
+    ]
+  }
+]

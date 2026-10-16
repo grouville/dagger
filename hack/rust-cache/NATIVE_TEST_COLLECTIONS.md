@@ -38,8 +38,15 @@ paired slowdown and 2/4 faster pairs. It allocates about 42 MB less. Searching
 per file has a startup cost, which remains an explicit tradeoff in the proposal.
 
 The [review description](upstream-prs/go-package-test-discovery.md) is prepared.
-The branch is pushed; no upstream PR is open. The ten prepared Dagger engine/CLI
-proposals remain a separate batch.
+The branch is pushed; no upstream PR is open. Dagger engine/CLI proposals are
+tracked separately.
+
+[The Go discovery follow-up](NATIVE_GO_DISCOVERY.md) measures a further module
+change: on the final code, module-root discovery takes 38.32 → 12.85 seconds,
+owned-file discovery 23.36 → 3.57 seconds, and the 64-package edited collection
+8.53 → 7.65 seconds. Smaller collection controls show mixed latency. That report
+keeps the earlier and final cohorts separate and records the unresolved full
+repository listing.
 
 ## Match Go's selection levels in Rust
 

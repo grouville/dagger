@@ -1,0 +1,344 @@
+[modules.changie]
+source = ".dagger/modules/changie"
+
+[modules.cli]
+source = ".dagger/modules/cli-dev"
+legacy-default-path = true
+
+[modules.dev]
+source = ".dagger/modules/dev"
+
+[modules.dev.settings]
+# Linux default. Override per-invocation with --docker=$DOCKER_HOST when the
+# active Docker context points somewhere else.
+docker = "unix:///var/run/docker.sock"
+
+[modules.docs]
+source = ".dagger/modules/docs-dev"
+legacy-default-path = true
+
+[modules.dotnet-client]
+source = ".dagger/modules/dotnet-client-dev"
+legacy-default-path = true
+
+[modules.elixir-client]
+source = ".dagger/modules/elixir-client-dev"
+legacy-default-path = true
+
+[modules.engine-dev]
+source = ".dagger/modules/engine-dev"
+legacy-default-path = true
+
+[modules.go-client]
+source = ".dagger/modules/go-client-dev"
+legacy-default-path = true
+
+[modules.golang]
+source = "dagger.io/go@pull/45/head"
+legacy-default-path = true
+
+[modules.golang.settings]
+base = "dag://dagger-dev/go-base"
+generate = [
+  "dagql/**",
+  "engine/**",
+  "internal/**",
+  "docs/current_docs/reference/cli",
+  "sdk/go/engineconn",
+]
+test = ["e2e/**", "hack/sdl-diff"]
+
+[modules.golangci-lint]
+source = "github.com/dagger/golangci-lint@main"
+
+[modules.golangci-lint.settings]
+lint = [
+  ".",
+  "hack/sdl-diff",
+  "engine/distconsts",
+  "modules/daggerverse",
+  "sdk/go",
+  ".dagger/modules/cli-dev",
+  ".dagger/modules/docs-dev",
+  ".dagger/modules/engine-dev",
+  ".dagger/modules/go",
+  ".dagger/modules/release",
+  "!.dagger/modules/docs-dev/docusaurus",
+  "!.dagger/modules/engine-dev/notify",
+  "!.dagger/modules/release/apko",
+  "!.dagger/modules/release/gh",
+  "!.dagger/modules/release/registry-config",
+  "!.dagger/modules/release/testdata",
+]
+# 2.14.0 is the first release that reloads cached analyzer facts correctly
+# (golangci/golangci-lint#6807). Older versions intermittently drop SA1019
+# findings when the shared lint cache is partially filled, which makes
+# nolintlint report `//nolint:staticcheck` directives as unused.
+version = "2.14.0"
+
+[modules.helm]
+source = "dagger.io/kubernetes/helm"
+legacy-default-path = true
+
+[modules.helm.settings]
+# The module installs the wolfi `helm` package as `helm~<version>`, and that
+# package moved to the 4.x line, so 3.x versions no longer resolve. Charts are
+# still packaged with helm 3 (see .dagger/modules/release/helm.go); revisit once
+# the module can select the `helm-3` package.
+version = "4.0.1"
+
+[modules.java-client]
+source = ".dagger/modules/java-client-dev"
+legacy-default-path = true
+
+[modules.markdown-lint]
+source = "modules/markdownlint"
+legacy-default-path = true
+
+[modules.php-client]
+source = ".dagger/modules/php-client-dev"
+legacy-default-path = true
+
+[modules.ps-analyzer]
+source = "dagger.io/dotnet/PsScriptAnalyzer"
+legacy-default-path = true
+
+[modules.python-client]
+source = ".dagger/modules/python-client-dev"
+legacy-default-path = true
+
+[modules.release]
+source = ".dagger/modules/release"
+legacy-default-path = true
+
+[modules.rust-client]
+source = ".dagger/modules/rust-client-dev"
+legacy-default-path = true
+
+[modules.security]
+source = ".dagger/modules/security"
+legacy-default-path = true
+
+[modules.security.settings]
+# Paths to exclude from the source tree before scanning.
+ignore = [
+  "bin",
+  ".git",
+  "docs",
+  "sdk/rust/examples",
+  "sdk/rust/crates/dagger-sdk/examples",
+  "core/integration/testdata",
+  "dagql/idtui/viztest",
+]
+
+[modules.shellcheck]
+source = "dagger.io/shellcheck"
+legacy-default-path = true
+
+[modules.test-split]
+source = ".dagger/modules/test-split"
+legacy-default-path = true
+
+[modules.typescript-client]
+source = ".dagger/modules/typescript-client-dev"
+legacy-default-path = true
+
+[modules.dang-sdk]
+source = "dagger.io/sdk/dang@main"
+check.skip = ["generate/stale"]
+
+[modules.go-sdk]
+source = "github.com/dagger/go-sdk@main"
+check.skip = ["generate/stale"]
+
+[modules.go-sdk.settings]
+lock = true
+
+# Dev-only: the TLA+ cache-model checks are expensive (the full run takes
+# well over an hour) and deliberately do not run in CI; use
+# `dagger --env dev check tla-check:quick` while iterating and the full
+# `dagger --env dev check tla-check:cache-lifecycle` before pushing
+# changes under dagql/tla.
+[env.dev.modules.tla-check]
+source = ".dagger/modules/tla-check"
+
+[modules.engine-lab]
+source = ".dagger/modules/engine-lab"
+
+[modules.engine-lab.settings]
+cloudCredentials = "file://~/.config/dagger/credentials.json"
+daggerConfig = "file://~/.config/dagger/config.toml"
+
+[modules.tui-qa]
+source = ".dagger/modules/tui-qa"
+
+[modules.tui-qa.settings]
+cloudCredentials = "file://~/.config/dagger/credentials.json"
+daggerConfig = "file://~/.config/dagger/config.toml"
+
+[modules.mcp-lab]
+source = ".dagger/modules/mcp-lab"
+
+[modules.mcp-lab.settings]
+cloudCredentials = "file://~/.config/dagger/credentials.json"
+
+[modules.editor]
+source = "github.com/vito/editor"
+
+[modules.go-cli]
+source = ".dagger/modules/go-cli"
+
+[modules.sdl-diff]
+source = ".dagger/modules/sdl-diff"
+
+[modules.sdl-diff.settings]
+githubToken = "cmd://gh auth token"
+
+[modules.contributor]
+source = "github.com/vito/agents/contributor"
+
+[modules.contributor.settings]
+githubToken = "cmd://gh auth token"
+remote = "dagger/dagger"
+
+[modules.staff]
+source = "github.com/vito/agents/staff"
+
+[modules.committer]
+source = "github.com/vito/agents/committer"
+
+[sdks.dang]
+module = "dang-sdk"
+
+[sdks.dang.scopes.".dagger/modules/changie"]
+is-module = true
+
+[sdks.dang.scopes.".dagger/modules/dotnet-client-dev"]
+clients = ["./.dagger/modules/engine-dev"]
+is-module = true
+
+[sdks.dang.scopes.".dagger/modules/elixir-client-dev"]
+is-module = true
+clients = ["./.dagger/modules/engine-dev", "./.dagger/modules/go"]
+
+[sdks.dang.scopes.".dagger/modules/engine-lab"]
+clients = ["./.dagger/modules/cli-dev", "./.dagger/modules/engine-dev", "./.dagger/modules/go-cli"]
+is-module = true
+
+[sdks.dang.scopes.".dagger/modules/go-cli"]
+is-module = true
+
+[sdks.dang.scopes.".dagger/modules/sdl-diff"]
+is-module = true
+
+[sdks.dang.scopes.".dagger/modules/mcp-lab"]
+clients = ["./.dagger/modules/cli-dev", "./.dagger/modules/engine-dev", "./.dagger/modules/go-cli"]
+is-module = true
+
+[sdks.dang.scopes.".dagger/modules/tui-qa"]
+clients = ["./.dagger/modules/cli-dev"]
+is-module = true
+
+[sdks.dang.scopes.".dagger/modules/go-client-dev"]
+is-module = true
+clients = ["./.dagger/modules/engine-dev", "./modules/git-releaser", "./.dagger/modules/go"]
+
+[sdks.dang.scopes.".dagger/modules/java-client-dev"]
+is-module = true
+clients = ["./.dagger/modules/engine-dev"]
+
+[sdks.dang.scopes.".dagger/modules/security"]
+is-module = true
+clients = ["./.dagger/modules/engine-dev"]
+
+[sdks.dang.scopes.".dagger/modules/test-split"]
+is-module = true
+clients = ["./.dagger/modules/engine-dev", "./.dagger/modules/go"]
+
+[sdks.dang.scopes.".dagger/modules/typescript-client-dev"]
+is-module = true
+clients = ["./cmd/codegen", "./.dagger/modules/engine-dev", "./.dagger/modules/go"]
+
+[sdks.dang.scopes."cmd/codegen"]
+is-module = true
+clients = ["./.dagger/modules/go"]
+
+[sdks.dang.scopes."modules/markdownlint"]
+is-module = true
+name = "markdown-lint"
+
+[sdks.go]
+module = "go-sdk"
+
+[sdks.go.scopes.".dagger/modules/cli-dev"]
+is-module = true
+clients = ["dagger.io/linux/alpine", "./.dagger/modules/go"]
+
+[sdks.go.scopes.".dagger/modules/docs-dev"]
+is-module = true
+clients = ["./.dagger/modules/cli-dev", "./.dagger/modules/docs-dev/docusaurus", "./.dagger/modules/engine-dev", "./.dagger/modules/go"]
+
+[sdks.go.scopes.".dagger/modules/docs-dev/docusaurus"]
+is-module = true
+
+[sdks.go.scopes.".dagger/modules/engine-dev"]
+is-module = true
+clients = ["dagger.io/linux/alpine", "./cmd/codegen", "./.dagger/modules/cli-dev", "./.dagger/modules/go", "dagger.io/linux/wolfi", "./.dagger/modules/engine-dev/notify"]
+
+[sdks.go.scopes.".dagger/modules/engine-dev/notify"]
+is-module = true
+
+[sdks.go.scopes.".dagger/modules/php-client-dev"]
+is-module = true
+clients = ["./.dagger/modules/engine-dev", "./modules/git-releaser"]
+
+[sdks.go.scopes.".dagger/modules/python-client-dev"]
+is-module = true
+clients = ["./.dagger/modules/engine-dev", "./.dagger/modules/python-client-dev/dockerd", "github.com/dagger/pytest@cdf6dc0bce0fe8fdf87c6b26ecd991e6f96200b0", "dagger.io/linux/wolfi"]
+
+[sdks.go.scopes.".dagger/modules/python-client-dev/dockerd"]
+is-module = true
+
+[sdks.go.scopes.".dagger/modules/release"]
+is-module = true
+clients = ["./.dagger/modules/changie", "./.dagger/modules/cli-dev", "./.dagger/modules/docs-dev", "./.dagger/modules/elixir-client-dev", "./.dagger/modules/engine-dev", "./.dagger/modules/engine-dev/notify", "./.dagger/modules/go-client-dev", "./.dagger/modules/php-client-dev", "./.dagger/modules/python-client-dev", "./.dagger/modules/release/gh", "./.dagger/modules/rust-client-dev", "./.dagger/modules/typescript-client-dev", "dagger.io/linux/wolfi"]
+
+[sdks.go.scopes.".dagger/modules/release/apko"]
+is-module = true
+clients = ["./.dagger/modules/release/registry-config"]
+
+[sdks.go.scopes.".dagger/modules/release/gh"]
+is-module = true
+clients = ["./.dagger/modules/release/apko"]
+
+[sdks.go.scopes.".dagger/modules/release/registry-config"]
+is-module = true
+
+[sdks.go.scopes.".dagger/modules/rust-client-dev"]
+is-module = true
+clients = ["./.dagger/modules/engine-dev"]
+
+[sdks.go.scopes.".dagger/modules/tla-check"]
+is-module = true
+
+[sdks.go.scopes."modules/git-releaser"]
+is-module = true
+clients = ["dagger.io/linux/alpine"]
+
+[sdks.dang.scopes.".dagger/modules/dev"]
+clients = ["./.dagger/modules/engine-dev", "./.dagger/modules/cli-dev"]
+is-module = true
+
+[sdks.go.scopes.".dagger/modules/go"]
+clients = ["dagger.io/linux/wolfi"]
+is-module = true
+
+[modules.dagger-dev]
+source = ".dagger/modules/dagger-dev"
+entrypoint = true
+
+[modules.typescript-sdk]
+source = "github.com/dagger/typescript-sdk@main"
+
+[sdks.typescript]
+module = "typescript-sdk"

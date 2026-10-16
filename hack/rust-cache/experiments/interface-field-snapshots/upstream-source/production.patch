@@ -1,0 +1,96 @@
+diff --git a/dagql/interfaces.go b/dagql/interfaces.go
+index 886a188de0..8f3af184a1 100644
+--- a/dagql/interfaces.go
++++ b/dagql/interfaces.go
+@@ -225,19 +225,7 @@ func (iface *Interface) Satisfies(obj ObjectType, view call.View, checkers ...Im
+ 	if len(checkers) > 0 {
+ 		checker = checkers[0]
+ 	}
+-	for _, ifaceField := range iface.FieldSpecs(view) {
+-		objField, ok := obj.FieldSpec(ifaceField.Name, view)
+-		if !ok {
+-			return false
+-		}
+-		if !typeCompatible(ifaceField.Type.Type(), objField.Type.Type(), checker) {
+-			return false
+-		}
+-		if !argsCompatible(ifaceField.Args, objField.Args, view, checker) {
+-			return false
+-		}
+-	}
+-	return true
++	return satisfiesInterfaceFields(iface.FieldSpecs(view), obj.FieldSpec, view, checker)
+ }
+ 
+ // SatisfiedByInterface returns true if the given interface structurally satisfies
+@@ -251,15 +239,21 @@ func (iface *Interface) SatisfiedByInterface(other *Interface, view call.View, c
+ 	if len(checkers) > 0 {
+ 		checker = checkers[0]
+ 	}
+-	for _, ifaceField := range iface.FieldSpecs(view) {
+-		otherField, ok := other.FieldSpec(ifaceField.Name, view)
++	return satisfiesInterfaceFields(iface.FieldSpecs(view), other.FieldSpec, view, checker)
++}
++
++// satisfiesInterfaceFields compares a stable snapshot of an interface's required
++// fields with another type. Reconciliation can reuse that snapshot across pairs.
++func satisfiesInterfaceFields(fields []FieldSpec, fieldSpec func(string, call.View) (FieldSpec, bool), view call.View, checker ImplementsChecker) bool {
++	for _, ifaceField := range fields {
++		objField, ok := fieldSpec(ifaceField.Name, view)
+ 		if !ok {
+ 			return false
+ 		}
+-		if !typeCompatible(ifaceField.Type.Type(), otherField.Type.Type(), checker) {
++		if !typeCompatible(ifaceField.Type.Type(), objField.Type.Type(), checker) {
+ 			return false
+ 		}
+-		if !argsCompatible(ifaceField.Args, otherField.Args, view, checker) {
++		if !argsCompatible(ifaceField.Args, objField.Args, view, checker) {
+ 			return false
+ 		}
+ 	}
+diff --git a/dagql/server.go b/dagql/server.go
+index e25b3d30c4..63738d84c9 100644
+--- a/dagql/server.go
++++ b/dagql/server.go
+@@ -703,6 +703,22 @@ func (s *Server) reconcileInterfaceImplsLocked(view call.View) {
+ 	rels := interfaceRelationSet{}
+ 	permanent := interfaceRelationSet{}
+ 
++	// Required fields are fixed for this view during reconciliation. Copy each
++	// interface's fields at most once, rather than for every candidate and pass.
++	// Build snapshots lazily: existing declared relationships need no checks.
++	var requiredFields map[*Interface][]FieldSpec
++	fieldsFor := func(iface *Interface) []FieldSpec {
++		fields, found := requiredFields[iface]
++		if !found {
++			fields = iface.FieldSpecs(view)
++			if requiredFields == nil {
++				requiredFields = make(map[*Interface][]FieldSpec)
++			}
++			requiredFields[iface] = fields
++		}
++		return fields
++	}
++
+ 	// Seed every (object, interface) and (interface, interface) pair as a
+ 	// candidate, then whittle the set down in the loop below. Assuming all
+ 	// pairs hold and only removing the disproven ones computes a greatest
+@@ -770,7 +786,7 @@ func (s *Server) reconcileInterfaceImplsLocked(view call.View) {
+ 				if !rels.has(objName, ifaceName) || permanent.has(objName, ifaceName) {
+ 					return
+ 				}
+-				if !iface.Satisfies(obj, view, checker) {
++				if !satisfiesInterfaceFields(fieldsFor(iface), obj.FieldSpec, view, checker) {
+ 					changed = rels.del(objName, ifaceName) || changed
+ 				}
+ 			})
+@@ -781,7 +797,7 @@ func (s *Server) reconcileInterfaceImplsLocked(view call.View) {
+ 				if typeName == ifaceName || !rels.has(typeName, ifaceName) || permanent.has(typeName, ifaceName) {
+ 					return
+ 				}
+-				if !iface.SatisfiedByInterface(typ, view, checker) {
++				if !satisfiesInterfaceFields(fieldsFor(iface), typ.FieldSpec, view, checker) {
+ 					changed = rels.del(typeName, ifaceName) || changed
+ 				}
+ 			})

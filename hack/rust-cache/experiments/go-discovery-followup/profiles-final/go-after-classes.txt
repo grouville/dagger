@@ -1,0 +1,39 @@
+classes: 30632 ops in 231 classes (all ops) over 7.63s, self_tot 296.03s (summed across concurrent ops); sorted by self
+(left out: 11120 internal-kind ops, self_tot 335.44s; kind: "internal" ranks them)
+   count   self_tot  self_p50  self_max    dur_tot   dur_p50   dur_max   dup  kind class               outcomes
+      65     97.97s     1.69s     2.66s     97.97s     1.69s     2.66s     0  exec_phase exec.workload ok:65
+    1194     56.17s   22.83ms  208.94ms    302.34s   93.65ms     7.50s     0  session_phase session.query ok:1194
+      65     24.77s  421.61ms     1.16s     24.77s  421.61ms     1.16s     0  exec_phase exec.runtimeStart ok:65
+      71     11.79s  157.17ms  316.39ms     12.23s  167.73ms  354.91ms     0  call_exec Host.directory ok:71
+      65      9.20s   19.44ms  519.48ms      9.20s   19.44ms  519.48ms     0  exec_phase exec.setupRootfs ok:65
+      65      6.86s  130.92ms  189.48ms      6.86s  130.92ms  189.48ms     0  exec_phase withExec.prepareMounts ok:65
+      64      6.13s   84.50ms  211.82ms     12.67s  185.13ms  346.58ms     0  call Artifact.value      do_not_cache:64
+      65      6.10s   44.15ms  420.26ms      6.10s   44.15ms  420.26ms     0  exec_phase exec.initStart ok:65
+      64      5.10s   81.34ms  162.60ms     22.40s  361.81ms  578.90ms     0  call gomod:Gomod.module  executed:64
+    3455      4.67s    12.6µs   60.37ms      4.67s    12.6µs   60.37ms     0  call Module._implementationScoped hit:3453 executed:2
+     541      3.75s    1.33ms  137.27ms      5.01s    1.41ms  137.30ms     0  call Query.node          do_not_cache:541
+     203      3.29s    41.6µs  180.04ms      3.29s    41.6µs  180.04ms     0  call Query.__schemaJSONFile hit:203
+      65      3.11s   17.92ms  280.97ms    149.66s     2.56s     3.38s     0  exec exec.run            ok:65
+      65      2.82s   29.95ms  181.85ms      2.82s   29.95ms  181.85ms     0  exec_phase exec.processSpawn ok:65
+      65      2.74s   14.73ms  233.16ms      2.74s   14.73ms  233.16ms     0  exec_phase exec.containerStart ok:65
+     647      2.60s    39.6µs   86.56ms      2.60s    39.6µs   86.56ms     0  call gomod:Query.gomod   hit:647
+      64      2.43s   11.82ms  199.85ms      2.44s   12.07ms  200.04ms     0  call go:GoTests.batch    executed:64
+      65      2.29s   35.23ms   80.34ms     17.10s  261.28ms  475.76ms     0  call_exec Workspace.file ok:65
+     128      2.19s    4.89ms  196.84ms    103.84s    8.59ms     1.83s     0  call go:GoPackage.tests  executed:64 hit:64
+      67      2.13s   14.54ms  133.26ms      2.13s   14.54ms  133.26ms     0  call_exec Workspace.glob ok:67
+      65      2.08s    8.53ms  215.85ms      2.08s    8.53ms  215.85ms     0  exec_phase exec.processExit ok:65
+      65      2.08s   27.66ms   84.77ms     19.19s  316.39ms  528.10ms     0  call Workspace.file      executed:65
+    3587      2.08s     6.7µs   54.95ms      2.08s     6.7µs   54.95ms     0  call Query.typeDef       hit:3587
+      64      2.06s   22.51ms  130.00ms      2.87s   40.50ms  136.32ms     0  call Workspace.findUp    executed:64
+     576      1.97s    1.58ms   23.62ms      2.31s    1.58ms   31.25ms     0  call SearchResult.search hit:504 executed:72
+     322      1.90s    2.13ms   46.12ms      1.90s    2.13ms   46.12ms     0  call gomod:Gomod.at      hit:322
+     130      1.89s    2.60ms   61.64ms      2.01s    4.00ms   64.00ms     0  call Container.withExec  executed:65 hit:65
+      73      1.87s   25.28ms   70.98ms     14.11s  179.93ms  387.97ms     0  call Host.directory      executed:71 hit:2
+      64      1.71s   21.19ms  147.26ms      1.72s   21.24ms  147.34ms     0  call go:GoTests.subset   executed:64
+      67      1.58s   15.10ms   83.27ms      3.73s   52.97ms  133.41ms     0  call Workspace.glob      executed:67
+     512      1.56s   899.4µs   37.40ms      1.56s   899.4µs   37.40ms     0  call SearchResult.matchedLines hit:504 executed:8
+    2221      1.53s     7.5µs   62.52ms      1.53s     7.5µs   62.52ms     0  call TypeDef.withKind    hit:2221
+     130      1.46s   730.9µs   82.03ms    158.30s   67.76ms     3.49s     0  lazy Container.withExec  ok:130
+      64      1.29s    2.45ms  147.17ms      1.47s    2.52ms  147.21ms     0  call go:GoTests_Batch.test executed:64
+     128      1.07s    39.4µs  121.61ms      1.07s    39.4µs  121.61ms     0  call gomod:GomodGoMod.subpath hit:128
+… 196 more classes (raise `top`)
