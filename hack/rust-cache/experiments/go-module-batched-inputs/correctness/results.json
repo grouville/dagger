@@ -1,0 +1,86 @@
+[
+  {
+    "label": "subset-excludes-poison",
+    "exit_code": 0,
+    "expected_success": true,
+    "seconds": 0.8923390819691122,
+    "command": [
+      "check",
+      "dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::test_000&rust-test=src/lib.rs::test_002"
+    ]
+  },
+  {
+    "label": "subset-reports-poison",
+    "exit_code": 1,
+    "expected_success": false,
+    "seconds": 0.6847295810002834,
+    "command": [
+      "check",
+      "dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::test_001"
+    ]
+  },
+  {
+    "label": "whole-package-reports-poison",
+    "exit_code": 1,
+    "expected_success": false,
+    "seconds": 0.3355628059944138,
+    "command": [
+      "check",
+      "rust:packages/tests/test"
+    ]
+  },
+  {
+    "label": "whole-package-repaired",
+    "exit_code": 0,
+    "expected_success": true,
+    "seconds": 0.3269364279694855,
+    "command": [
+      "check",
+      "rust:packages/tests/test"
+    ]
+  },
+  {
+    "label": "package-filter-excludes-invalid-crate",
+    "exit_code": 0,
+    "expected_success": true,
+    "seconds": 0.5777707659872249,
+    "command": [
+      "check",
+      "dag://?check=rust/packages/tests/test&rust-package=pkg_000"
+    ]
+  },
+  {
+    "label": "whole-workspace-reports-invalid-crate",
+    "exit_code": 1,
+    "expected_success": false,
+    "seconds": 1.5278736029285938,
+    "command": [
+      "check",
+      "rust:packages/tests/test"
+    ]
+  },
+  {
+    "label": "whole-workspace-repaired",
+    "exit_code": 0,
+    "expected_success": true,
+    "seconds": 2.0229510710341856,
+    "command": [
+      "check",
+      "rust:packages/tests/test"
+    ]
+  },
+  {
+    "label": "plain-workspace-api",
+    "exit_code": 0,
+    "expected_success": true,
+    "seconds": 0.7549148850375786,
+    "command": [
+      "api",
+      "call",
+      "rust",
+      "test",
+      "--source",
+      "."
+    ]
+  }
+]

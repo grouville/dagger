@@ -1,0 +1,276 @@
+diff --git a/cmd/codegen/generator/go/templates/dispatch_runtime_test.go b/cmd/codegen/generator/go/templates/dispatch_runtime_test.go
+new file mode 100644
+index 0000000000..95b14c6ab0
+--- /dev/null
++++ b/cmd/codegen/generator/go/templates/dispatch_runtime_test.go
+@@ -0,0 +1,47 @@
++package templates
++
++import (
++	"go/format"
++	"os"
++	"os/exec"
++	"path/filepath"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++// Compile and run the generated dispatcher against the real SDK transport.
++func TestDispatchInputs(t *testing.T) {
++	dir := t.TempDir()
++	source := `package main
++import (
++ "context"
++ "encoding/json"
++ "fmt"
++ "log/slog"
++ "os"
++ "sort"
++ dagger "dagger.io/dagger/core"
++ "github.com/dagger/querybuilder"
++ telemetry "github.com/dagger/otel-go"
++ "github.com/vektah/gqlparser/v2/gqlerror"
++ "go.opentelemetry.io/otel/sdk/resource"
++ semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
++)
++type DaggerObject interface {
++ querybuilder.GraphQLMarshaller
++ ID(context.Context) (dagger.ID, error)
++}
++` + mainSrc(func(string) bool { return true })
++	formatted, err := format.Source([]byte(source))
++	require.NoError(t, err)
++	mainPath := filepath.Join(dir, "main.go")
++	require.NoError(t, os.WriteFile(mainPath, formatted, 0600))
++	testSource, err := os.ReadFile("testdata/dispatch/main_test.go")
++	require.NoError(t, err)
++	testPath := filepath.Join(dir, "main_test.go")
++	require.NoError(t, os.WriteFile(testPath, testSource, 0600))
++	cmd := exec.CommandContext(t.Context(), "go", "test", "-count=1", mainPath, testPath)
++	output, err := cmd.CombinedOutput()
++	require.NoError(t, err, "%s", output)
++}
+diff --git a/cmd/codegen/generator/go/templates/modules.go b/cmd/codegen/generator/go/templates/modules.go
+index 3a40b6638c..5d38f37e93 100644
+--- a/cmd/codegen/generator/go/templates/modules.go
++++ b/cmd/codegen/generator/go/templates/modules.go
+@@ -329,37 +329,27 @@ func mainSrc(checkVersionCompatibility func(string) bool) string {
+ 		}
+ 	}()
+ 
+-	parentName, err := fnCall.ParentName(ctx)
+-	if err != nil {
+-		return fmt.Errorf("get parent name: %w", err)
+-	}
+-	fnName, err := fnCall.Name(ctx)
+-	if err != nil {
+-		return fmt.Errorf("get fn name: %w", err)
+-	}
+-	parentJson, err := fnCall.Parent(ctx)
+-	if err != nil {
+-		return fmt.Errorf("get fn parent: %w", err)
++	var call struct {
++		ParentName string
++		Name       string
++		Parent     dagger.JSON
++		InputArgs  []struct {
++			Name  string
++			Value dagger.JSON
++		}
+ 	}
+-	fnArgs, err := fnCall.InputArgs(ctx)
++	err := querybuilder.Query().Client(dag.GraphQLClient()).Select("currentFunctionCall").
++		SelectMultiple("parentName", "name", "parent", "inputArgs { name value }").
++		Bind(&call).Execute(ctx)
+ 	if err != nil {
+-		return fmt.Errorf("get fn args: %w", err)
++		return fmt.Errorf("get function call: %w", err)
+ 	}
+-
+-	inputArgs := map[string][]byte{}
+-	for _, fnArg := range fnArgs {
+-		argName, err := fnArg.Name(ctx)
+-		if err != nil {
+-			return fmt.Errorf("get fn arg name: %w", err)
+-		}
+-		argValue, err := fnArg.Value(ctx)
+-		if err != nil {
+-			return fmt.Errorf("get fn arg value: %w", err)
+-		}
+-		inputArgs[argName] = []byte(argValue)
++	inputArgs := make(map[string][]byte, len(call.InputArgs))
++	for _, arg := range call.InputArgs {
++		inputArgs[arg.Name] = []byte(arg.Value)
+ 	}
+ 
+-	result, err := invoke(ctx, []byte(parentJson), parentName, fnName, inputArgs)
++	result, err := invoke(ctx, []byte(call.Parent), call.ParentName, call.Name, inputArgs)
+ 	if err != nil {
+ 		return err
+ 	}
+diff --git a/cmd/codegen/generator/go/templates/testdata/dispatch/main_test.go b/cmd/codegen/generator/go/templates/testdata/dispatch/main_test.go
+new file mode 100644
+index 0000000000..9e5f2c4b05
+--- /dev/null
++++ b/cmd/codegen/generator/go/templates/testdata/dispatch/main_test.go
+@@ -0,0 +1,159 @@
++package main
++
++import (
++	"context"
++	"encoding/json"
++	"errors"
++	"net/http"
++	"net/http/httptest"
++	"strings"
++	"sync/atomic"
++	"testing"
++
++	sdk "dagger.io/dagger"
++	"dagger.io/dagger/core"
++	"github.com/Khan/genqlient/graphql"
++	"github.com/stretchr/testify/require"
++	"github.com/vektah/gqlparser/v2/ast"
++	"github.com/vektah/gqlparser/v2/parser"
++)
++
++type dispatchClient struct {
++	*core.Query
++	client *sdk.Client
++}
++
++func (c *dispatchClient) GraphQLClient() graphql.Client { return c.client.GraphQLClient() }
++
++var dag *dispatchClient
++var invokeCall func([]byte, string, string, map[string][]byte) (any, error)
++
++func setMarshalContext(context.Context) {}
++func invoke(_ context.Context, parent []byte, parentName, name string, args map[string][]byte) (any, error) {
++	return invokeCall(parent, parentName, name, args)
++}
++
++type connection struct{ *httptest.Server }
++
++func (c connection) Host() string                               { return strings.TrimPrefix(c.URL, "http://") }
++func (c connection) Close() error                               { return nil }
++func (c connection) Do(r *http.Request) (*http.Response, error) { return c.Client().Do(r) }
++
++func TestDispatch(t *testing.T) {
++	for _, tc := range []struct {
++		name            string
++		args            map[string]string
++		failure         bool
++		metadataFailure bool
++	}{
++		{name: "no arguments"},
++		{name: "JSON values", args: map[string]string{
++			"text": `"a\\b\n\"é\""`, "zero": `0`, "false": `false`,
++			"empty": `""`, "null": `null`, "list": `[0,false,"é"]`,
++			"object": `{"directory":"id","nested":[null,{}]}`,
++		}},
++		{name: "function error", failure: true},
++		{name: "metadata error", metadataFailure: true},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			parent := `{"prefix":"é","zero":0}`
++			args := []map[string]any{}
++			byID := map[string]any{}
++			for name, value := range tc.args {
++				arg := map[string]any{"id": name, "name": name, "value": value}
++				args = append(args, arg)
++				byID[name] = arg
++			}
++			call := map[string]any{"parentName": "Example", "name": "ExampleMethod", "parent": parent, "inputArgs": args}
++			var metadataQueries atomic.Int32
++			var returned atomic.Value
++			var errorReturned atomic.Bool
++			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
++				var request struct{ Query string }
++				if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
++					http.Error(w, err.Error(), 400)
++					return
++				}
++				doc, err := parser.ParseQuery(&ast.Source{Input: request.Query})
++				if err != nil {
++					http.Error(w, err.Error(), 400)
++					return
++				}
++				data := map[string]any{}
++				for _, selection := range doc.Operations[0].SelectionSet {
++					field := selection.(*ast.Field)
++					switch field.Name {
++					case "currentFunctionCall":
++						metadata := true
++						for _, sub := range field.SelectionSet {
++							f := sub.(*ast.Field)
++							if f.Name == "returnValue" {
++								returned.Store(f.Arguments.ForName("value").Value.Raw)
++								metadata = false
++							}
++							if f.Name == "returnError" {
++								errorReturned.Store(true)
++								metadata = false
++							}
++						}
++						if metadata {
++							metadataQueries.Add(1)
++							if tc.metadataFailure {
++								w.Header().Set("Content-Type", "application/json")
++								json.NewEncoder(w).Encode(map[string]any{"errors": []map[string]string{{"message": "metadata sentinel"}}})
++								return
++							}
++						}
++						data[field.Alias] = call
++					case "node":
++						// Also serve the old per-argument requests, so the request
++						// count is a regression check rather than a mock restriction.
++						data[field.Alias] = byID[field.Arguments.ForName("id").Value.Raw]
++						if data[field.Alias] != nil {
++							metadataQueries.Add(1)
++						}
++					case "error":
++						data[field.Alias] = map[string]any{"id": "error-id"}
++					}
++				}
++				w.Header().Set("Content-Type", "application/json")
++				json.NewEncoder(w).Encode(map[string]any{"data": data})
++			}))
++			defer server.Close()
++			client, err := sdk.Connect(t.Context(), sdk.WithConn(connection{server}))
++			require.NoError(t, err)
++			defer client.Close()
++			dag = &dispatchClient{Query: core.NewQuery(client), client: client}
++			called := false
++			sentinel := errors.New("function sentinel")
++			invokeCall = func(gotParent []byte, gotParentName, gotName string, gotArgs map[string][]byte) (any, error) {
++				called = true
++				require.Equal(t, parent, string(gotParent))
++				require.Equal(t, "Example", gotParentName)
++				require.Equal(t, "ExampleMethod", gotName)
++				require.Len(t, gotArgs, len(tc.args))
++				for name, value := range tc.args {
++					require.Equal(t, value, string(gotArgs[name]))
++				}
++				if tc.failure {
++					return nil, sentinel
++				}
++				return "result", nil
++			}
++			err = dispatch(t.Context())
++			if tc.metadataFailure {
++				require.ErrorContains(t, err, "metadata sentinel")
++				require.False(t, called)
++				require.True(t, errorReturned.Load())
++			} else if tc.failure {
++				require.ErrorIs(t, err, sentinel)
++				require.True(t, errorReturned.Load())
++			} else {
++				require.NoError(t, err)
++				require.Equal(t, `"result"`, returned.Load())
++			}
++			require.Equal(t, !tc.metadataFailure, called)
++			require.EqualValues(t, 1, metadataQueries.Load(), "metadata must be read in one request")
++		})
++	}
++}

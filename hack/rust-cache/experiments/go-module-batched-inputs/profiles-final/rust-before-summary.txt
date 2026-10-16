@@ -1,0 +1,40 @@
+wcprof dump: 148312 ops, 10414 waits, 257 links over 13.49s; dropped events: 0; open ops: 0
+calls: 67651 (hit:54501 do_not_cache:7811 executed:5327 joined:12)
+top clients (of 259) by ops:
+       ops   self_tot  active               client
+     48665    945.38s  +9.20ms..+13.49s     (none)
+     11309     28.69s  +0ns..+13.49s        cgflwgdasxu6m26igyvl6x03v
+       878      1.13s  +2.68s..+12.04s      6FA5FI7KREFMBKE4ZPMFI3IOMG
+       773      2.17s  +2.52s..+11.17s      2VZGLYSXHU7HKO6YB3PAZZWNQF
+       773      2.44s  +2.58s..+12.04s      32JJTMTZ2OULJGGAIBAOMRUQT7
+       773      2.68s  +2.87s..+12.17s      3EK3VXUBDIBPR7D56GGSCMHFEZ
+       773      2.09s  +2.88s..+11.27s      3K2GPUL7W7YCIQYTGBMFUPTADT
+       773      2.56s  +2.99s..+11.56s      3PPFKJ7HJQ7QE74VJRKARVJA6M
+       773      1.99s  +2.80s..+11.32s      4NN7IHGIXXEWHW7VRAJCENY5YV
+       773   991.89ms  +2.89s..+10.05s      4YCFHKK4GFGAU3FYYUMNBVPYTN
+top classes (of 262) by count:
+     count   self_tot  kind class
+     14978     20.06s  call Query.typeDef
+     11986     13.11s  call TypeDef.withOptional
+      7950      9.56s  call TypeDef.withKind
+      7668     17.50s  call Module._implementationScoped
+      5097     9.22ms  session_phase session.modulesLoad
+      5097     32.42s  session_phase session.query
+      5097      1.39s  session_phase session.schemaBuild
+      5097      1.09s  session_phase session.serveQuery
+      5097    28.40ms  session_phase session.workspaceLoad
+      4192     38.33s  call Query.node
+top classes by self time:
+     count   self_tot  kind class
+       401     84.15s  lazy Container.withNewFile
+       193     68.96s  exec_phase withExec.prepareMounts
+      4192     38.33s  call Query.node
+       193     32.77s  exec_phase exec.workload
+      5097     32.42s  session_phase session.query
+       130     23.10s  lazy Container.withMountedFile
+       193     21.84s  exec_phase withExec.applyOutputs
+     14978     20.06s  call Query.typeDef
+        64     19.08s  call_exec Container.stdout
+      7668     17.50s  call Module._implementationScoped
+(left out: 39974 internal-kind ops, self_tot 805.45s; kind: "internal" ranks them)
+(times are relative to the first recorded op; self = duration minus child ops and waits; self_tot sums it across ops, concurrent ones included, so it can exceed wall time)

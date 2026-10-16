@@ -1,0 +1,75 @@
+critpath of op 1854503: 8.89s
+on-path time by class (sums to the roots' duration; concurrent work off the path gets nothing):
+     on_path      % segments  kind class
+       7.65s  86.1%        8  internal dang.invoke
+    288.48ms   3.2%        7  call rust:RustPackages.get
+    179.78ms   2.0%       15  internal dang.decodeSchema
+    147.32ms   1.7%       11  internal dang.runSource.infer
+    112.69ms   1.3%       13  internal dang.runSource.parse
+    106.97ms   1.2%       79  internal dagql.publishResult
+     77.09ms   0.9%       16  call Query.__schemaJSONFile
+     43.92ms   0.5%       10  call Check.sync
+     41.63ms   0.5%        1  call Artifacts.__evaluationItems
+     34.92ms   0.4%      273  call TypeDef.withOptional
+     24.65ms   0.3%        6  call Artifact.value
+     23.99ms   0.3%        1  call Host.directory
+     19.63ms   0.2%        8  internal dang.runSource.evaluate
+     18.70ms   0.2%        6  call rust:Rust.packages
+     14.20ms   0.2%      764  call Query.typeDef
+     13.37ms   0.2%        4  call String.path
+     11.75ms   0.1%        6  call ArtifactResult.values
+      8.97ms   0.1%        8  call rust:RustPackage.tests
+      8.78ms   0.1%       73  call Module._implementationScoped
+      8.35ms   0.1%      109  call TypeDef.withKind
+      5.04ms   0.1%        1  call ArtifactResult.error
+      4.85ms   0.1%       14  internal dang.prepareSource
+      4.47ms   0.1%       13  internal dang.selfTypes
+      4.23ms   0.0%      512  call Query.__objectTypeDef
+      4.09ms   0.0%        1  session_phase session.query
+      3.67ms   0.0%        2  call ArtifactResult.artifact
+      3.59ms   0.0%       15  internal dang.evalSource
+      3.08ms   0.0%        1  call Artifacts.values
+      3.03ms   0.0%      512  call ObjectTypeDef.__withFunction
+      3.01ms   0.0%      512  call TypeDef.__withObjectTypeDef
+      2.95ms   0.0%      512  call ObjectTypeDef.__withName
+      2.59ms   0.0%       64  call Artifact.__evaluationItems
+      2.59ms   0.0%       13  internal dang.runSource
+      1.61ms   0.0%       16  call rust:Query.rust
+      1.51ms   0.0%       12  call Workspace.directory
+  … 15 more classes (raise `top`)
+
+path of the longest (offsets from its start; `dur` on the path, `own` not in any blocker):
++0ns dur 8.89s own 4.09ms  1854503 session_phase session.query [ok]
+  +275.8µs dur 8.76s own 3.08ms  1854507 call Artifacts.values [executed] (exec 1854508)
+    +379.4µs dur 6.91s own 41.63ms  1854509 call Artifacts.__evaluationItems [executed] (exec 1854510)
+      +850.7µs..+140.26ms … 319 shorter segments, 60.99ms: call TypeDef.withOptional:74 call Query.typeDef:70 call Module._implementationScoped:66 +8 more
+      +35.93ms dur 65.49ms own 15.83ms  1854757 call rust:Rust.packages [executed] (exec 1854758)
+      +140.26ms dur 493.52ms own 271.99ms  1856349 call rust:RustPackages.get [executed] (exec 1856558)
+        +412.31ms dur 221.47ms own 340.9µs  1856864 internal dang.evalSource [ok]
+          +499.90ms dur 133.87ms own 133.87ms  1857007 internal dang.invoke [ok]
+      +701.63ms dur 152.96ms own 408.5µs  1857301 call rust:RustPackage.tests [executed] (exec 1857302)
+        +702.09ms dur 152.51ms own 154.8µs  1857304 internal dang.evalSource [ok]
+          +702.22ms..+768.24ms … 3 shorter segments, 66.00ms: internal dang.decodeSchema:1 internal dang.openSchema:1 internal dang.prepareSource:1
+          +768.25ms dur 86.35ms own 86.35ms  1857378 internal dang.invoke [ok]
+      +934.46ms dur 342.09ms own 555.2µs  1857663 call rust:RustPackage.tests [executed] (exec 1857664)
+        +935.05ms dur 341.49ms own 172.2µs  1857667 internal dang.evalSource [ok]
+          +989.91ms dur 286.64ms own 286.64ms  1857790 internal dang.invoke [ok]
+      +1.28s dur 5.59s own 1.18ms  1859526 call rust:RustPackage.tests [executed] (exec 1859544)
+        +1.28s dur 5.58s own 193.0µs  1859553 internal dang.evalSource [ok]
+          +1.30s dur 5.57s own 5.57s  1859719 internal dang.invoke [ok]
+    +6.91s..+7.06s … 76 shorter segments, 82.32ms: call Artifact.__evaluationItems:64 call Check.sync:7 call Artifact.value:5
+    +6.92s dur 42.36ms own 23.23ms  1978720 call Artifact.value [do_not_cache]
+    +6.96s dur 19.99ms own 1.62ms  1980211 call Check.sync [executed] (exec 1980294)
+    +7.06s dur 127.00ms own 20.10ms  1982944 call Check.sync [executed] (exec 1982986)
+      +7.09s dur 95.44ms own 109.6µs  1983355 internal dang.evalSource [ok]
+        +7.09s..+7.11s … 3 shorter segments, 19.17ms: internal dang.decodeSchema:1 internal dang.openSchema:1 internal dang.prepareSource:1
+        +7.11s dur 76.16ms own 76.16ms  1983473 internal dang.invoke [ok]
+    +7.18s dur 1.57s own 2.47ms  1984096 call Check.sync [executed] (exec 1984146)
+      +7.18s..+7.21s … 4 shorter segments, 26.03ms: call TypeDef.withOptional:2 call Query.typeDef:1 call TypeDef.withKind:1
+      +7.21s dur 64.98ms own 64.98ms  1984381 call Query.__schemaJSONFile [hit]
+      +7.28s dur 1.48s own 1.29ms  1984849 internal dang.evalSource [ok]
+        +7.29s dur 1.46s own 1.46s  1984967 internal dang.invoke [ok]
+  +8.76s..+8.88s … 12 shorter segments, 41.32ms: call ArtifactResult.values:6 call String.path:4 call ArtifactResult.artifact:1 +1 more
+  +8.77s dur 83.67ms own 2.66ms  1992925 call ArtifactResult.artifact [executed] (exec 1992998)
+(3150 segments not shown: runs of them totaling under 1% of the path, 523.45ms)
+(runs of sub-1% segments totaling 1%+ show their largest members, the rest as "… N shorter"; ▸ N: N segments not expanded, raise `depth` or re-root with `op`; (exec N): a call folded with its call_exec op N)

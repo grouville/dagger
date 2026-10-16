@@ -50,9 +50,10 @@ Priorities:
    by the profiling recorder. Keep the existing ancestor index enabled while
    locating work it does not cover.
    Combined Rust compilation and test discovery removes one helper invocation
-   per package, but remains slower than the workspace batch. Measure batching
-   Go module argument reads next; separate engine queries for each name and
-   value remain visible in the collection profile.
+   per package, but remains slower than the workspace batch. Batching Go module argument reads removes
+   1,728 engine queries at 64 packages and improves 10/12 collection pairs; the
+   ordinary workspace control is flat. Profile the remaining engine cost of
+   argument fields and repeated schema preparation before changing them.
 
 Keep useful engine fixes separate, with focused regression tests and an
 adversarial review. Push experiments to Guillaume's fork; open new upstream PRs

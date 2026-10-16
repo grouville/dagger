@@ -102,10 +102,12 @@ pressure, normal GC counts, every sample and warmups are retained.
 Separate wcprof captures confirm 257 → 193 workload starts: 64 compiler calls,
 64 test-listing runs, 64 package-test runs and one compiler miss. Both captures
 have zero dropped events and no unfinished operations. The combined capture
-still records 5,097 engine queries. Generated Go module dispatch reads argument
-names and values in separate queries; batching those inputs is a next experiment,
-with no speedup established yet. Its five-second CPU window also shows substantial
-allocation and GC work; that window does not cover the entire command.
+still records 5,097 engine queries. The
+[subsequent Go dispatch experiment](NATIVE_GO_MODULE_INPUTS.md) reduces these to
+3,369 by reading arguments in one request; it measures that change in separate
+cohorts and keeps the workspace control. The preparation experiment's five-second
+CPU window also shows substantial allocation and GC work; that window does not
+cover the entire command.
 
 Replay and worker race checks pass. Integration checks cover arbitrary subsets,
 excluded and selected failures, excluding an invalid crate, reporting it when
