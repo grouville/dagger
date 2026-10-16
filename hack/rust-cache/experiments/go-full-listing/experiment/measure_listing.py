@@ -1,0 +1,97 @@
+from pathlib import Path
+import hashlib
+import json
+import os
+import signal
+import statistics
+import subprocess
+import sys
+import threading
+import time
+
+protocol = Path('/tmp/rust-cache-sipsma-review/rust-go-test-collections/measure.py')
+exec(protocol.read_text().split('fixtures = [f for f')[0])
+
+source = Path('/tmp/dagger-go-real-repository-main')
+modules = {
+    'before': Path('/tmp/dagger-go-ordered-discovery-inputs'),
+    'after': Path('/tmp/dagger-go-package-module-ownership'),
+}
+saved = {name: (source/name).read_bytes() if (source/name).exists() else None for name in ['dagger.toml', 'dagger.lock']}
+edit = source/'dagql/types.go'
+original = edit.read_bytes()
+flags = {route: get(route)['enabled'] for route in ['batch-metadata', 'attribute-array-decode']}
+seed_mode_path = '/tmp/filesync-snapshot-seeds-mode'
+seed_mode = subprocess.check_output(['docker', 'exec', record['Id'], 'cat', seed_mode_path])
+orders = [['before', 'after'] if pair%2 == 0 else ['after', 'before'] for pair in range(args.pairs)]
+metadata = dict(
+    source=str(source), source_revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=source,text=True).strip(),
+    modules={arm: dict(path=str(path),revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=path,text=True).strip(),
+        hashes={name: hashlib.sha256((path/name).read_bytes()).hexdigest() for name in ['go.dang','gomod/main.dang']}) for arm,path in modules.items()},
+    engine_sha256=subprocess.check_output(['docker','exec',record['Id'],'sha256sum','/usr/local/bin/dagger-engine'],text=True).split()[0],
+    pairs=args.pairs,orders=orders,wcprof=False,cpu_profiling=False,telemetry=True,ordinary_gc=True,
+    fresh_edit_every_arm=True,warm_engine=True,
+    warmup='Both implementations ran a complete profiled listing before this cohort; no result included in timing pairs.',
+    batch_metadata=True,attribute_array_decode=True,filesync_snapshot_seeds=True,
+)
+(root/'metadata.json').write_text(json.dumps(metadata,indent=2)+'\n')
+rows=[]
+expected=None
+try:
+    assert not get('wcprof/enabled')['global_enabled']
+    assert not get('interface-field-snapshots')['enabled']
+    for route in flags: mode(route,True)
+    subprocess.run(['docker','exec','-i',record['Id'],'sh','-c','cat > /tmp/filesync-snapshot-seeds-mode'],input=b'on\n',check=True)
+    for pair,order in enumerate(orders):
+        for arm in order:
+            label=f'{pair}-{arm}'
+            edit.write_bytes(original+f'\n// Go listing benchmark edit {time.time_ns()}\n'.encode())
+            (source/'dagger.toml').write_text('[modules.go]\nsource = "'+str(modules[arm])+'"\n[modules.go.settings]\nversion = "1.26.6"\ngoflags = "-p=8"\ntest = ["."]\n')
+            command=[str(cli),'check','--module','go','--check','test','--list','--all']
+            idle(label)
+            a=heap();ca=cpu();pa=pressure();tick=time.monotonic();wall=time.time()
+            times=[]
+            def read_stdout(stream,output):
+                for line in stream:
+                    output.write(line)
+                    if line.startswith('go '): times.append(time.monotonic()-tick)
+            with (root/(label+'.stdout')).open('w') as out,(root/(label+'.stderr')).open('w') as err:
+                process=subprocess.Popen(command,cwd=source,env=env,stdout=subprocess.PIPE,stderr=err,text=True,start_new_session=True)
+                reader=threading.Thread(target=read_stdout,args=(process.stdout,out))
+                reader.start()
+                cancelled=False
+                try:code=process.wait(timeout=300)
+                except subprocess.TimeoutExpired:
+                    cancelled=True;os.killpg(process.pid,signal.SIGINT);code=process.wait()
+                reader.join()
+            seconds=time.monotonic()-tick;b=heap();cb=cpu();pb=pressure()
+            output=(root/(label+'.stdout')).read_text()
+            lines=[line for line in output.splitlines() if line.startswith('go ')]
+            if expected is None:expected=lines
+            row=dict(label=label,pair=pair,arm=arm,seconds=seconds,exit_code=code,cancelled=cancelled,
+                listed_rows=len(lines),same_rows=lines==expected,first_row_seconds=times[0] if times else None,
+                last_row_seconds=times[-1] if times else None,engine_cpu=cb-ca,
+                heap_delta={k:b[k]-a[k] for k in a},
+                pressure={k:(pb[k]-pa[k])/(seconds*1e6) for k in pa},unix_start=wall,unix_end=time.time())
+            rows.append(row)
+            (root/'samples.json').write_text(json.dumps(rows,indent=2)+'\n')
+            print(json.dumps(row),flush=True)
+            assert len(lines)==4398 and lines==expected,(label,'listing differs',len(lines))
+            assert not cancelled,(label,'timeout')
+    good={arm:[r for r in rows if r['arm']==arm] for arm in modules}
+    summary=dict(pairs=args.pairs,all_commands_succeeded=all(r['exit_code']==0 for r in rows),
+        median_seconds={arm:statistics.median(r['seconds'] for r in rs) for arm,rs in good.items()},
+        median_last_row_seconds={arm:statistics.median(r['last_row_seconds'] for r in rs) for arm,rs in good.items()},
+        median_allocated_bytes={arm:statistics.median(r['heap_delta']['TotalAlloc'] for r in rs) for arm,rs in good.items()},
+        median_engine_cpu={arm:statistics.median(r['engine_cpu'] for r in rs) for arm,rs in good.items()},
+        faster_pairs=sum(good['after'][i]['seconds']<good['before'][i]['seconds'] for i in range(args.pairs)),
+        same_rows=all(r['same_rows'] for r in rows),rows=4398)
+    (root/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
+    print(json.dumps(summary,indent=2),flush=True)
+finally:
+    edit.write_bytes(original)
+    for name,data in saved.items():
+        if data is None:(source/name).unlink(missing_ok=True)
+        else:(source/name).write_bytes(data)
+    for route,enabled in flags.items():mode(route,enabled)
+    subprocess.run(['docker','exec','-i',record['Id'],'sh','-c','cat > /tmp/filesync-snapshot-seeds-mode'],input=seed_mode,check=True)

@@ -1,0 +1,50 @@
+# Full Go test listing on dagger/dagger
+
+The full listing is slow even after the collection index and the Go discovery changes. A completed diagnostic takes 133.59 seconds and lists 4,398 test checks. An unprofiled fresh-edit command with the selected performance settings enabled takes 101.02 seconds. These are observations from different diagnostic configurations, not an estimate of profiler overhead.
+
+The source fixture is a clean `dagger/dagger` checkout at `ff0b029a4d270a651b9a8c7286babc79089066e4`. The module is `grouville/go` at `b5dd9434a52972787171a016a8aa9d8910c17c38`. The engine is the existing diagnostic engine `08a1f13ae88c61f3dadea8d834132d71a52d77ccf3a7d91f91ad760ef4702197`, with the earlier selected collection lookup changes present. This is not an unmodified upstream-engine measurement.
+
+## Where the time goes
+
+The completed wcprof capture separates the two discovery phases:
+
+| Phase | Time | Work |
+| --- | ---: | --- |
+| Discover packages | 52.89 s | 80 modules; validation, file ownership, package markers |
+| Expand package test collections | About 56 s | 800 `GoPackage.tests` evaluations |
+| Result handling and command shutdown | Remaining command time | Collect and format 4,398 rows; close the session |
+
+The second phase begins after the first. The durations of its concurrent child calls must not be added together. `dang.invoke` includes awaited API requests, so its duration is not a measure of interpreter CPU.
+
+Across the command, wcprof records 800 `Gomod.module` executions, 1,762 Dang evaluations and 8,642 engine queries. Resolving a package's module starts another Dang invocation, even though package discovery already established which module owns it. Each invocation prepares schema and language state before performing its work. The sampled heap reaches 16.49 GB and cumulative engine allocation rises by 59.94 GB. The command starts no container workloads for compilation or test execution.
+
+A ten-second CPU window during package discovery spends 37.6% of sampled CPU in Go's background garbage collector. Another diagnostic, with allocation profiling, attributes about 11.8 GB of sampled allocations to preparing and evaluating Dang module source. Its total sampled allocation is about 61 GB; sampling and the recording interval differ from the memstats counter. These are cumulative allocation volumes, not resident-memory requirements.
+
+Collection expansion starts one goroutine for every parent receiver, without a concurrency limit. With 800 packages, many interpreter environments can remain live together while waiting for API work. This is a concrete candidate for a bounded-concurrency experiment; the profile alone does not establish that a particular limit improves latency. The same fan-out exists in both recorded upstream source refs, `ff0b029a` and the diagnostic engine's base `19eda924`.
+
+The earlier collection index accelerates schema-field ancestry lookup. It does not eliminate per-package evaluation, repeated module resolution or individual result queries. Source searching itself is only one part of the work: the package-discovery phase executes 81 `Workspace.search` calls totaling about one second, before accounting for result-field reads and processing.
+
+## Filenames-only marker experiment
+
+The experiment asks separate filenames-only searches for `package main`, ignore build tags and generation commands. The previous implementation reads all matching lines, then filters those results once for each marker kind. Existing checks pass for test collections, binaries, generation globs and package selection, including host overlays and nested modules.
+
+Two before/after orders returned identical rows in every attempt:
+
+| Order | Module | Full command | Exit |
+| --- | --- | ---: | --- |
+| First | Before | 101.02 s | Success |
+| First | Filenames-only | 100.20 s | Success |
+| Reverse | Filenames-only | 111.41 s | Success |
+| Reverse | Before | 100.61 s | Shutdown timeout after listing |
+
+The successful first pair saves only 0.83 seconds. The reverse comparison is not a successful pair because its control fails during cleanup. Allocations across all attempts are about 53.12 → 52.32 GB, but that small reduction does not establish a useful full-command latency improvement. The module change remains an unselected local experiment; no production change or PR is proposed from it.
+
+An earlier unprofiled diagnostic also produced the listing but failed during session cleanup with a ten-second shutdown timeout. Both failed attempts are retained and excluded from successful timing claims. Neither completed profiled diagnostic reproduces an engine OOM or crash.
+
+## Next experiments
+
+Measure bounded collection expansion on the same complete command, including peak heap, allocations and smaller collection controls. Reduce repeated package-module resolution while preserving behavior when an item is used with a different workspace. Investigate reusing prepared Dang code and schema state while keeping each invocation's clients, values and cancellation independent. A prototype that simply retained module roots was set aside because it could use stale ownership after a workspace adds or removes `go.mod`.
+
+The full command is `dagger check --module go --check test --list --all`. Every measured arm starts a fresh CLI and adds a new Go source comment. The engine and toolchains are warm. Telemetry and ordinary garbage collection remain enabled; no engine cache is reset. The unprofiled timing cohort enables the previously selected telemetry metadata, attribute decoding and filesync seed changes on both sides, then restores their original settings. The profiled diagnostics leave those optional modes disabled.
+
+[The evidence archive](experiments/go-full-listing/) contains the complete captures and cancellation-free command results, all timing attempts, CPU and allocation profiles, goroutine samples, source snapshots, correctness logs and reproduction drivers. Post-command GC end events are stored separately and identified when completing a capture. The [engine source archive](experiments/interface-field-snapshots/) records the exact overlays used by this engine.

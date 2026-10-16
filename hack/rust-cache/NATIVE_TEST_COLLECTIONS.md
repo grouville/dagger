@@ -145,7 +145,7 @@ finish within 120 seconds. A full test-collection attempt with the Go patch also
 reached the 120-second diagnostic limit. Both commands were cancelled; neither
 reproduced an engine crash or OOM. The engine remained running and all clients
 closed. The full repository still needs investigation, and these results do not
-claim to fix its reported crash or establish a complete-suite speedup.
+claim to fix its reported crash or establish a complete-suite speedup. A [later full-listing investigation](NATIVE_GO_FULL_LISTING.md) completes discovery and measures one successful unprofiled command at 101.02 seconds. It records repeated module evaluation and high allocation cost, without establishing a full test-execution speedup.
 
 [Raw evidence](experiments/rust-go-test-collections/) preserves all cohorts,
 profiles, source snapshots, failed harness assumptions and regression checks.
