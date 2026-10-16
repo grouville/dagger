@@ -1,0 +1,52 @@
+critpath of op 22122: 1.52s
+on-path time by class (sums to the roots' duration; concurrent work off the path gets nothing):
+     on_path      % segments  kind class
+       1.24s  81.4%        2  internal dang.invoke
+    174.89ms  11.5%        1  call Host.directory
+     47.16ms   3.1%       14  internal dagql.publishResult
+     16.44ms   1.1%        2  call rust:Rust.packages
+     10.81ms   0.7%        1  call Artifacts.__evaluationItems
+      6.13ms   0.4%        2  internal dang.runSource.parse
+      5.49ms   0.4%        2  internal dang.runSource.infer
+      5.46ms   0.4%        1  call Artifact.value
+      3.77ms   0.2%        2  internal dang.decodeSchema
+      1.75ms   0.1%        1  session_phase session.query
+      1.17ms   0.1%        2  internal dang.runSource.evaluate
+      1.04ms   0.1%        2  call Workspace.directory
+     983.9µs   0.1%        1  call Artifacts.values
+     978.8µs   0.1%      176  call TypeDef.withOptional
+     921.1µs   0.1%      160  call Query.typeDef
+     796.8µs   0.1%        2  internal dang.openSchema
+     625.3µs   0.0%        9  call Module._implementationScoped
+     501.8µs   0.0%        2  internal dang.evalSource
+     486.0µs   0.0%        1  call rust:RustPackages.subset
+     479.9µs   0.0%       76  call TypeDef.withObject
+     428.9µs   0.0%        1  call Check.sync
+     384.6µs   0.0%        1  call Artifact.uri
+     343.3µs   0.0%        1  io snapshot.commit.backend
+     322.8µs   0.0%       64  call TypeDef.withKind
+     189.1µs   0.0%        1  call ArtifactResult.value
+     174.0µs   0.0%        2  internal dang.runSource
+     159.0µs   0.0%        2  internal dang.selfTypes
+     117.4µs   0.0%       20  call TypeDef.withListOf
+     116.7µs   0.0%        1  call String.path
+      95.6µs   0.0%        2  call rust:Query.rust
+  … 19 more classes (raise `top`)
+
+path of the longest (offsets from its start; `dur` on the path, `own` not in any blocker):
++0ns dur 1.52s own 1.75ms  22122 session_phase session.query [ok]
+  +320.1µs dur 1.52s own 983.9µs  22126 call Artifacts.values [executed] (exec 22127)
+    +417.6µs dur 421.93ms own 10.81ms  22128 call Artifacts.__evaluationItems [executed] (exec 22129)
+      +7.64ms dur 176.78ms own 1.01ms  22343 call Workspace.directory [executed] (exec 22344)
+        +7.81ms dur 175.69ms own 174.89ms  22346 call Host.directory [executed] (exec 22347)
+      +185.47ms dur 232.24ms own 16.41ms  22368 call rust:Rust.packages [executed] (exec 22369)
+        +202.96ms dur 198.22ms own 339.0µs  22661 internal dang.evalSource [ok]
+          +212.63ms dur 188.32ms own 188.32ms  22671 internal dang.invoke [ok]
+        +401.54ms dur 16.14ms own 16.14ms  23285 internal dagql.publishResult [ok]
+    +423.30ms dur 36.14ms own 5.46ms  25351 call Artifact.value [do_not_cache]
+      +425.63ms dur 15.49ms own 486.0µs  25358 call rust:RustPackages.subset [executed] (exec 25359)
+    +459.49ms dur 1.06s own 428.9µs  29482 call Check.sync [executed] (exec 29483)
+      +459.90ms dur 1.06s own 162.8µs  29489 internal dang.evalSource [ok]
+        +468.13ms dur 1.05s own 1.05s  29499 internal dang.invoke [ok]
+(543 segments not shown: runs of them totaling under 1% of the path, 53.93ms)
+(runs of sub-1% segments totaling 1%+ show their largest members, the rest as "… N shorter"; ▸ N: N segments not expanded, raise `depth` or re-root with `op`; (exec N): a call folded with its call_exec op N)

@@ -1,0 +1,51 @@
+critpath of 6 ops matching all ops (outermost matches only): 602.58ms summed
+on-path time by class (sums to the roots' duration; concurrent work off the path gets nothing):
+     on_path      % segments  kind class
+    420.94ms  69.9%        1  internal dang.invoke
+     56.60ms   9.4%        2  call Host.directory
+     28.16ms   4.7%        2  call ModuleSource.asModule
+     26.55ms   4.4%        1  call Check.sync
+      8.43ms   1.4%        2  call Workspace.artifacts
+      8.10ms   1.3%       54  internal dagql.publishResult
+      7.84ms   1.3%        6  session_phase session.query
+      7.80ms   1.3%        1  call Artifact.value
+      5.06ms   0.8%        2  call Query.moduleSource
+      4.07ms   0.7%        6  session_phase session.workspaceLoad
+      3.08ms   0.5%        6  session_phase session.schemaBuild
+      3.05ms   0.5%        1  internal dang.runSource.parse
+      2.92ms   0.5%        1  internal dang.runSource.infer
+      2.17ms   0.4%      422  call TypeDef.withOptional
+      1.90ms   0.3%      389  call Query.typeDef
+      1.89ms   0.3%        1  internal dang.decodeSchema
+      1.32ms   0.2%        4  call Query.node
+      1.24ms   0.2%        8  call Module._implementationScoped
+      1.22ms   0.2%        2  io snapshot.commit.backend
+      1.04ms   0.2%      189  call TypeDef.withObject
+      1.02ms   0.2%        1  call Workspace.directory
+     781.4µs   0.1%        1  call Workspace.configRead
+     716.8µs   0.1%      152  call TypeDef.withKind
+     641.4µs   0.1%        1  internal dang.runSource.evaluate
+     590.7µs   0.1%        1  internal dang.prepareSource
+     499.2µs   0.1%        5  call ModuleSource._implementationScoped
+     429.8µs   0.1%        1  call Artifacts.values
+     386.7µs   0.1%        1  call ArtifactResult.error
+     344.8µs   0.1%       46  call TypeDef.withListOf
+     237.7µs   0.0%        1  internal dang.evalSource
+  … 58 more classes (raise `top`)
+
+path of the longest (offsets from its start; `dur` on the path, `own` not in any blocker):
++0ns dur 509.10ms own 8.6µs  57209 session_phase session.serveQuery [ok]
+  +21.6µs dur 509.08ms own 648.1µs  57213 session_phase session.query [ok]
+    +403.5µs dur 507.30ms own 429.8µs  57217 call Artifacts.values [executed] (exec 57218)
+      +1.04ms dur 46.83ms own 7.80ms  57231 call Artifact.value [do_not_cache]
+        +10.45ms dur 36.30ms own 1.02ms  57445 call Workspace.directory [executed] (exec 57446)
+          +10.70ms dur 35.19ms own 34.36ms  57448 call Host.directory [executed] (exec 57449)
+      +47.93ms dur 459.68ms own 26.55ms  57476 call Check.sync [executed] (exec 57477)
+        +76.94ms dur 430.48ms own 237.7µs  57985 internal dang.evalSource [ok]
+          +78.97ms dur 7.38ms own 590.7µs  57988 internal dang.prepareSource [ok]
+            +79.63ms dur 6.71ms own 101.4µs  57990 internal dang.runSource [ok]
+              +79.63ms dur 3.05ms own 3.05ms  57991 internal dang.runSource.parse [ok]
+              +82.69ms..+86.34ms … 2 shorter segments, 3.56ms: internal dang.runSource.evaluate:1 internal dang.runSource.infer:1
+          +86.35ms dur 420.94ms own 420.94ms  57995 internal dang.invoke [ok]
+(745 segments not shown: runs of them totaling under 1% of the path, 9.80ms)
+(runs of sub-1% segments totaling 1%+ show their largest members, the rest as "… N shorter"; ▸ N: N segments not expanded, raise `depth` or re-root with `op`; (exec N): a call folded with its call_exec op N)

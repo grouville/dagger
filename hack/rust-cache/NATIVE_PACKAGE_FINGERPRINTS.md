@@ -86,3 +86,5 @@ The standalone 128-crate filesystem microbenchmark takes about 7.6 ms, allocates
 The owned engine exits cleanly after 233.784 seconds while persisting its accumulated query cache, then restarts with its volume preserved. This maintenance interval is excluded from warm-command comparisons. No cache is reset to make the new implementation appear faster.
 
 Evidence, raw CPU profiles, compressed wcprof captures and local harnesses: [package-fingerprints](experiments/package-fingerprints/). The original large telemetry file is read only through a bounded 17 MB window and remains intact.
+
+The [buffer follow-up](NATIVE_FINGERPRINT_BUFFER.md) isolates copy-buffer allocations and repeats edited-command measurements on the later stack with source snapshot seeds and compact scalar restoration. Its control and CPU results remain mixed; the native path stays experimental.

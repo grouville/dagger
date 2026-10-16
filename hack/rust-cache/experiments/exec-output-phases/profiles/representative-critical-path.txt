@@ -1,0 +1,46 @@
+critpath of 6 ops matching all ops (outermost matches only): 1.58s summed
+on-path time by class (sums to the roots' duration; concurrent work off the path gets nothing):
+     on_path      % segments  kind class
+       1.22s  76.8%        2  internal dang.invoke
+    188.64ms  11.9%        2  call Host.directory
+     52.15ms   3.3%       59  internal dagql.publishResult
+     30.00ms   1.9%        2  call ModuleSource.asModule
+     17.67ms   1.1%        2  call rust:Rust.packages
+     10.07ms   0.6%        1  call Artifacts.__evaluationItems
+      8.23ms   0.5%        2  call Query.moduleSource
+      7.09ms   0.4%        6  session_phase session.query
+      6.68ms   0.4%        2  call Workspace.artifacts
+      5.80ms   0.4%        2  internal dang.runSource.infer
+      5.38ms   0.3%        1  call Artifact.value
+      5.32ms   0.3%        2  internal dang.runSource.parse
+      4.02ms   0.3%        6  session_phase session.workspaceLoad
+      3.72ms   0.2%        2  internal dang.decodeSchema
+      2.94ms   0.2%        6  session_phase session.schemaBuild
+      1.69ms   0.1%      350  call TypeDef.withOptional
+      1.64ms   0.1%        3  call Host.findUp
+      1.49ms   0.1%        4  call Query.node
+      1.45ms   0.1%      321  call Query.typeDef
+      1.13ms   0.1%        2  call Workspace.directory
+      1.12ms   0.1%        2  internal dang.runSource.evaluate
+     872.3µs   0.1%       13  call Module._implementationScoped
+     869.5µs   0.1%        1  call Artifacts.values
+     736.9µs   0.0%      152  call TypeDef.withObject
+     642.7µs   0.0%        1  call Workspace.configRead
+     614.0µs   0.0%        2  internal dang.evalSource
+     601.2µs   0.0%        1  call ModuleSource.withName
+     596.8µs   0.0%        1  call Check.sync
+     546.9µs   0.0%      127  call TypeDef.withKind
+     485.7µs   0.0%        5  call ModuleSource._implementationScoped
+  … 62 more classes (raise `top`)
+
+path of the longest (offsets from its start; `dur` on the path, `own` not in any blocker):
++0ns dur 1.49s own 7.1µs  22255 session_phase session.serveQuery [ok]
+  +19.4µs dur 1.49s own 1.38ms  22259 session_phase session.query [ok]
+    +317.7µs dur 1.49s own 869.5µs  22263 call Artifacts.values [executed] (exec 22264)
+      +423.5µs dur 430.74ms own 10.07ms  22265 call Artifacts.__evaluationItems [executed] (exec 22266)
+        +7.51ms dur 176.37ms own 1.11ms  22480 call Workspace.directory [executed] (exec 22481)
+          +7.73ms dur 175.15ms own 174.38ms  22483 call Host.directory [executed] (exec 22484)
+        +184.80ms dur 242.12ms own 17.65ms  22505 call rust:Rust.packages [executed] (exec 22506)
+          +203.08ms dur 207.94ms own 420.5µs  22798 internal dang.evalSource [ok]
+            +211.45ms dur 199.26ms own 199.26ms  22808 internal dang.invoke [ok]
+… (8 more lines truncated; raise `limit`, or narrow with class/client/kind/top/depth) …

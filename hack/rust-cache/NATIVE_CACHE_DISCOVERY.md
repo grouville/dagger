@@ -161,3 +161,5 @@ branch at `d1aaf93`. Artifacts under `/tmp/rust-cache-sipsma-review` include
 `persistent-cache-hint-*-race.log`, `persistent-cache-hint-repro.log`,
 `persistent-hints-module-*.log`, `persistent-hints-normal-cli-*.log`,
 `persistent-hints-retention` and `check_persistent_hints_retention.py`.
+
+A later [direct cache-object input experiment](NATIVE_CACHE_OBJECT_INPUT.md) shows why the bounded-ancestry check matters: passing the prior Go cache object into the next compiler call grows the retained closure across edits. The separate-field implementation remains selected.
