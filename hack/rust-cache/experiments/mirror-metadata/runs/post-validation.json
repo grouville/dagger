@@ -1,0 +1,200 @@
+[
+  {
+    "label": "phase-comparison",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/measure_source_import_phases.py",
+      "--output",
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/phase-comparison",
+      "--runs",
+      "8",
+      "--mirror-policy",
+      "alternate"
+    ],
+    "exit_code": 0,
+    "seconds": 20.973958538961597
+  },
+  {
+    "label": "build-default-cost",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/default-cost/overlay.json",
+      "-c",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/default-cost/fsutil.test",
+      "./internal/fsutil"
+    ],
+    "exit_code": 0,
+    "seconds": 0.5839171229163185
+  },
+  {
+    "label": "default-cost/bench-0-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/default-cost/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/reference=true$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.5076769130537286
+  },
+  {
+    "label": "default-cost/bench-0-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/default-cost/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/reference=false$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.5189127860357985
+  },
+  {
+    "label": "default-cost/bench-1-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/default-cost/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/reference=false$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.49835140304639935
+  },
+  {
+    "label": "default-cost/bench-1-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/default-cost/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/reference=true$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.5077885070350021
+  },
+  {
+    "label": "default-cost/bench-2-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/default-cost/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/reference=true$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.5090221590362489
+  },
+  {
+    "label": "default-cost/bench-2-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/default-cost/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/reference=false$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.522140844957903
+  },
+  {
+    "label": "default-cost/bench-3-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/default-cost/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/reference=false$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.5022237399825826
+  },
+  {
+    "label": "default-cost/bench-3-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/default-cost/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/reference=true$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.5036691899877042
+  },
+  {
+    "label": "default-cost/bench-4-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/default-cost/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/reference=true$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.5001273700036108
+  },
+  {
+    "label": "default-cost/bench-4-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/default-cost/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/reference=false$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.5193418440176174
+  },
+  {
+    "label": "default-cost/bench-5-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/default-cost/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/reference=false$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.47956152097322047
+  },
+  {
+    "label": "default-cost/bench-5-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/default-cost/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/reference=true$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.52033151302021
+  },
+  {
+    "label": "retained-cache",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/check_native_discovery_current_reuse.py",
+      "mirror-metadata"
+    ],
+    "exit_code": 0,
+    "seconds": 7.3413579150801525
+  }
+]

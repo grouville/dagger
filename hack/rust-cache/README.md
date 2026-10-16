@@ -9,6 +9,8 @@ retains rustc incremental state, and can run compiler misses together with Cargo
 metadata overlap. Completed results remain reusable per crate. These options are
 described below; none changes the Rust module's default behavior.
 
+The [mirror metadata experiment](NATIVE_MIRROR_METADATA.md) speeds the isolated source-mirror walk **33.8 → 22.9 ms**, but leaves almost all pre-copy import time in place: **145.2 → 143.5 ms**. Complete edited checks do not consistently improve, and the new option adds allocation to ordinary walks. The prototype is rejected, the selected engine is restored, and all six native histories remain reusable. The upstream batch stays at eight proposals.
+
 The [parallel fingerprint experiment](NATIVE_PARALLEL_FINGERPRINT.md) lowers the local 1,026-crate scan from **55.5 to 37.0 ms**, but does not establish faster complete edited checks. Its initial listing saving fails confirmation. The serial path stays selected; all six native histories remain reusable after the diagnostic engine restart. The result keeps extra concurrency out of the selected implementation and leaves source-import preparation as the next substantial target.
 
 The [selected discovery follow-up](NATIVE_DISCOVERY_SELECTED.md) promotes Rust-module revision `da1ae47` after a balanced randomized comparison on the current engine. Complete edited 1,026-crate checks improve **1.559 → 1.435 s**, with **130 ms median paired saving**; small tests save **37 ms**. The earlier direct-control penalty does not reproduce. Sixteen Cargo discovery cases, invalid-source recovery, immediate cross-module reuse and all six native histories pass. [SELECTED_BASELINE.json](SELECTED_BASELINE.json) records the configuration for subsequent work. The large check still exceeds Cargo +0.5 s.

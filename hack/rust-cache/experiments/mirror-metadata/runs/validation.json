@@ -1,0 +1,225 @@
+[
+  {
+    "label": "suites-default",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/overlay.json",
+      "./internal/fsutil",
+      "./engine/filesync",
+      "-count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 5.264750439091586
+  },
+  {
+    "label": "suites-candidate-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/overlay.json",
+      "-race",
+      "./internal/fsutil",
+      "./engine/filesync",
+      "-count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 11.248362225014716
+  },
+  {
+    "label": "build-benchmark",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/overlay.json",
+      "-c",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/fsutil.test",
+      "./internal/fsutil"
+    ],
+    "exit_code": 0,
+    "seconds": 0.3878760499646887
+  },
+  {
+    "label": "bench-0-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/skip=false$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.506947358022444
+  },
+  {
+    "label": "bench-0-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/skip=true$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.5258359250146896
+  },
+  {
+    "label": "bench-1-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/skip=true$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.5244245359208435
+  },
+  {
+    "label": "bench-1-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/skip=false$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.5100914529757574
+  },
+  {
+    "label": "bench-2-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/skip=false$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.5048119960119948
+  },
+  {
+    "label": "bench-2-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/skip=true$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.49800654500722885
+  },
+  {
+    "label": "bench-3-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/skip=true$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.5273317110259086
+  },
+  {
+    "label": "bench-3-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/skip=false$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.5080068110255525
+  },
+  {
+    "label": "bench-4-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/skip=false$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.4956144669558853
+  },
+  {
+    "label": "bench-4-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/skip=true$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.4878842949401587
+  },
+  {
+    "label": "bench-5-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/skip=true$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.4884543389780447
+  },
+  {
+    "label": "bench-5-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/fsutil.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkMirrorMetadataWalk/[0-9]+/skip=false$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.5065472150454298
+  },
+  {
+    "label": "build-engine",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "build",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/overlay.json",
+      "-buildvcs=false",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/mirror-metadata/dagger-engine",
+      "./cmd/engine"
+    ],
+    "exit_code": 0,
+    "seconds": 61.7218179210322
+  }
+]
