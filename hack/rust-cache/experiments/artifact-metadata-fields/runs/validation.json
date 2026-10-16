@@ -1,0 +1,213 @@
+[
+  {
+    "label": "artifact-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "1",
+      "-race",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/overlay.json",
+      "./core",
+      "./core/schema",
+      "-run",
+      "TestArtifact|TestArtifacts|TestDimensionKey",
+      "-count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 175.97328368399758
+  },
+  {
+    "label": "benchmark-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/overlay.json",
+      "-c",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/schema.test",
+      "./core/schema"
+    ],
+    "exit_code": 0,
+    "seconds": 10.51748408190906
+  },
+  {
+    "label": "bench-0-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/schema.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkArtifactMetadataReads/[0-9]+/direct=false$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.3547857850790024
+  },
+  {
+    "label": "bench-0-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/schema.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkArtifactMetadataReads/[0-9]+/direct=true$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.3842839769786224
+  },
+  {
+    "label": "bench-1-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/schema.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkArtifactMetadataReads/[0-9]+/direct=true$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.3772570010041818
+  },
+  {
+    "label": "bench-1-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/schema.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkArtifactMetadataReads/[0-9]+/direct=false$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.4594076090725139
+  },
+  {
+    "label": "bench-2-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/schema.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkArtifactMetadataReads/[0-9]+/direct=false$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.3897624739911407
+  },
+  {
+    "label": "bench-2-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/schema.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkArtifactMetadataReads/[0-9]+/direct=true$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.3850168470526114
+  },
+  {
+    "label": "bench-3-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/schema.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkArtifactMetadataReads/[0-9]+/direct=true$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.3790395400719717
+  },
+  {
+    "label": "bench-3-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/schema.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkArtifactMetadataReads/[0-9]+/direct=false$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.345032160053961
+  },
+  {
+    "label": "bench-4-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/schema.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkArtifactMetadataReads/[0-9]+/direct=false$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.4530195400584489
+  },
+  {
+    "label": "bench-4-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/schema.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkArtifactMetadataReads/[0-9]+/direct=true$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.3745036170585081
+  },
+  {
+    "label": "bench-5-True",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/schema.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkArtifactMetadataReads/[0-9]+/direct=true$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.3769276539096609
+  },
+  {
+    "label": "bench-5-False",
+    "command": [
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/schema.test",
+      "-test.run=^$",
+      "-test.bench=BenchmarkArtifactMetadataReads/[0-9]+/direct=false$",
+      "-test.benchmem",
+      "-test.benchtime=150ms",
+      "-test.count=1"
+    ],
+    "exit_code": 0,
+    "seconds": 0.36473511811345816
+  },
+  {
+    "label": "engine-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "build",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/engine-overlay.json",
+      "-buildvcs=false",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/dagger-engine",
+      "./cmd/engine"
+    ],
+    "exit_code": 0,
+    "seconds": 33.58736866689287
+  }
+]

@@ -1,0 +1,78 @@
+package schema
+
+import (
+    "context"
+    "encoding/json"
+    "fmt"
+    "testing"
+    "github.com/dagger/dagger/core"
+    "github.com/dagger/dagger/dagql"
+    "github.com/dagger/dagger/engine"
+    "github.com/stretchr/testify/require"
+)
+
+func artifactMetadataFixture(t testing.TB,count int,direct bool)(context.Context,*dagql.Server) {
+    t.Helper()
+    ctx:=engine.ContextWithClientMetadata(t.Context(),&engine.ClientMetadata{ClientID:"metadata",SessionID:"metadata"})
+    cache,err:=dagql.NewCache(ctx,"",nil,nil);require.NoError(t,err)
+    t.Cleanup(func(){require.NoError(t,cache.CloseDiscardingPersistence())})
+    ctx=dagql.ContextWithCache(ctx,cache);query:=&core.Query{};ctx=core.ContextWithQuery(ctx,query)
+    srv,err:=dagql.NewServer(ctx,query);require.NoError(t,err)
+    dagql.Fields[*core.ArtifactDimensionKey]{}.Install(srv)
+    schema:=&artifactsSchema{}
+    dagql.Fields[*core.Artifact]{dagql.Func("description",schema.description),dagql.Func("uri",schema.artifactURI)}.Install(srv)
+    obj,ok:=srv.ObjectType("Artifact");require.True(t,ok)
+    class,ok:=obj.(dagql.Class[*core.Artifact]);require.True(t,ok)
+    for _,name:=range []string{"description","uri"} {
+        field,ok:=class.Field(name,"");require.True(t,ok)
+        field.Spec.DoNotCache="";if direct {field.Spec.DoNotCache="simple field selection"}
+    }
+    dagql.Fields[*core.Query]{dagql.Func("artifacts",func(_ context.Context,_ *core.Query,args struct{Generation int})([]*core.Artifact,error){
+        artifacts:=make([]*core.Artifact,count)
+        for i:=range artifacts {
+            artifacts[i]=&core.Artifact{ModuleName:"rust",Path:[]string{"packages","check"},TypeName:"Check",Node:&core.ModTreeNode{Name:"check",Description:fmt.Sprintf("doc-%d-%d",args.Generation,i)},DimensionKeys:[]*core.ArtifactDimensionKey{
+                {Dimension:"module",Key:"rust"},{Dimension:"rust-package",Key:fmt.Sprintf("crate-%d-%d",args.Generation,i)},{Dimension:"type:Check",Key:"packages/check"},
+            }}
+        }
+        return artifacts,nil
+    })}.Install(srv)
+    return ctx,srv
+}
+
+func TestArtifactMetadataFieldsThroughObjectIDs(t *testing.T) {
+    for _,direct:=range []bool{false,true} {
+        t.Run(fmt.Sprint(direct),func(t *testing.T){
+            ctx,srv:=artifactMetadataFixture(t,3,direct)
+            for generation:=range 2 {
+                result,err:=srv.Query(ctx,`query($g:Int!){artifacts(generation:$g){id description uri(dimensionKeys:true,typeAssertion:true) dimensionKeys{id dimension key}}}`,map[string]any{"g":generation});require.NoError(t,err)
+                data,err:=json.Marshal(result);require.NoError(t,err);require.NoError(t,json.Unmarshal(data,&result))
+                rows:=result["artifacts"].([]any);require.Len(t,rows,3)
+                for i,raw:=range rows {
+                    row:=raw.(map[string]any);require.Equal(t,fmt.Sprintf("doc-%d-%d",generation,i),row["description"])
+                    keys:=row["dimensionKeys"].([]any);require.Len(t,keys,3)
+                    require.Equal(t,fmt.Sprintf("crate-%d-%d",generation,i),keys[1].(map[string]any)["key"])
+                    for _,rawKey:=range keys {
+                        key:=rawKey.(map[string]any)
+                        loaded,err:=srv.Query(ctx,`query($id:ID!){node(id:$id){... on ArtifactDimensionKey{dimension key}}}`,map[string]any{"id":key["id"]});require.NoError(t,err)
+                        data,err:=json.Marshal(loaded);require.NoError(t,err);require.NoError(t,json.Unmarshal(data,&loaded))
+                        require.Equal(t,map[string]any{"dimension":key["dimension"],"key":key["key"]},loaded["node"])
+                    }
+                    loaded,err:=srv.Query(ctx,`query($id:ID!){node(id:$id){... on Artifact{description uri(dimensionKeys:true,typeAssertion:true)}}}`,map[string]any{"id":row["id"]});require.NoError(t,err)
+                    data,err:=json.Marshal(loaded);require.NoError(t,err);require.NoError(t,json.Unmarshal(data,&loaded))
+                    require.Equal(t,map[string]any{"description":row["description"],"uri":row["uri"]},loaded["node"])
+                }
+            }
+        })
+    }
+}
+
+func BenchmarkArtifactMetadataReads(b *testing.B) {
+    for _,count:=range []int{1,1026} {
+        for _,direct:=range []bool{false,true} {
+            b.Run(fmt.Sprintf("%d/direct=%t",count,direct),func(b *testing.B){
+                ctx,srv:=artifactMetadataFixture(b,count,direct);generation:=0;b.ReportAllocs()
+                for b.Loop(){generation++;result,err:=srv.Query(ctx,`query($g:Int!){artifacts(generation:$g){description uri(dimensionKeys:true,typeAssertion:true)}}`,map[string]any{"g":generation});require.NoError(b,err);require.Len(b,result["artifacts"],count)}
+            })
+        }
+    }
+}

@@ -1,0 +1,73 @@
+[
+  {
+    "label": "restart-driver",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/restart_owned_engine_clean.py",
+      "--engine",
+      "dagger-rust-parser-state-pool-oct14",
+      "--debug-port",
+      "16104",
+      "--output",
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/restart",
+      "--binary",
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/dagger-engine",
+      "--readiness-timeout",
+      "300"
+    ],
+    "exit_code": 0,
+    "seconds": 109.08194380893838
+  },
+  {
+    "label": "commands-driver",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/measure_commands.py",
+      "--output-root",
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/commands",
+      "--pairs",
+      "8"
+    ],
+    "exit_code": 0,
+    "seconds": 314.6773331860313
+  },
+  {
+    "label": "confirmation-driver",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/confirm_commands.py",
+      "--output-root",
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/confirmation",
+      "--pairs",
+      "8"
+    ],
+    "exit_code": 0,
+    "seconds": 308.6366548530059
+  },
+  {
+    "label": "profiles-driver",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/profile_commands.py",
+      "--output-root",
+      "/tmp/rust-cache-sipsma-review/artifact-metadata-fields/profiles",
+      "--pairs",
+      "1",
+      "--kinds",
+      "large",
+      "list"
+    ],
+    "exit_code": 0,
+    "seconds": 26.399492707918398
+  },
+  {
+    "label": "retained-cache",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/check_native_discovery_current_reuse.py",
+      "artifact-metadata-fields"
+    ],
+    "exit_code": 0,
+    "seconds": 8.65826602699235
+  }
+]
