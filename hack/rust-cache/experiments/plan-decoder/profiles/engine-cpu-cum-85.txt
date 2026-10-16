@@ -1,0 +1,94 @@
+File: dagger-engine
+Build ID: 445dc21024a7a8b6bb8add94872744bce76928c9
+Type: cpu
+Time: 2026-10-15 21:59:27 PDT
+Duration: 25s, Total samples = 19.37s (77.48%)
+Showing nodes accounting for 7.61s, 39.29% of 19.37s total
+Dropped 1722 nodes (cum <= 0.10s)
+Showing top 85 nodes out of 498
+      flat  flat%   sum%        cum   cum%
+     4.30s 22.20% 22.20%      4.30s 22.20%  internal/runtime/syscall/linux.Syscall6
+     0.02s   0.1% 22.30%      4.18s 21.58%  runtime.systemstack
+         0     0% 22.30%      4.16s 21.48%  syscall.RawSyscall6
+         0     0% 22.30%      3.66s 18.90%  runtime.gcBgMarkWorker
+         0     0% 22.30%      3.63s 18.74%  runtime.gcBgMarkWorker.func2
+     0.01s 0.052% 22.35%      3.63s 18.74%  runtime.gcDrain
+         0     0% 22.35%      3.58s 18.48%  github.com/dagger/dagger/engine/server.(*Server).gc
+         0     0% 22.35%      3.58s 18.48%  github.com/dagger/dagger/engine/server.(*Server).gcAfterSessionCompletion
+         0     0% 22.35%      3.58s 18.48%  github.com/dagger/dagger/engine/server.(*Server).gcLocked
+         0     0% 22.35%      3.58s 18.48%  github.com/dagger/dagger/engine/server.NewServer.After.throttle.func3.1
+         0     0% 22.35%      3.13s 16.16%  syscall.Syscall
+     0.40s  2.07% 24.42%      2.90s 14.97%  runtime.scanSpan
+         0     0% 24.42%      2.78s 14.35%  github.com/dagger/dagger/engine/server.(*Server).pruneLocalCacheLocked
+         0     0% 24.42%      2.76s 14.25%  github.com/dagger/dagger/dagql.(*Cache).Prune
+         0     0% 24.42%      2.63s 13.58%  os.ignoringEINTR (inline)
+         0     0% 24.42%      2.61s 13.47%  runtime.gcDrainMarkWorkerIdle (inline)
+         0     0% 24.42%      2.54s 13.11%  github.com/containerd/containerd/v2/core/metadata.(*DB).GarbageCollect.func3
+         0     0% 24.42%      2.54s 13.11%  github.com/containerd/containerd/v2/core/metadata.(*DB).cleanupSnapshotter
+         0     0% 24.42%      2.54s 13.11%  github.com/containerd/containerd/v2/core/metadata.(*snapshotter).garbageCollect
+         0     0% 24.42%      2.48s 12.80%  os.RemoveAll (inline)
+         0     0% 24.42%      2.48s 12.80%  os.removeAll
+         0     0% 24.42%      2.42s 12.49%  github.com/containerd/containerd/v2/core/metadata.(*snapshotter).garbageCollect.func1
+         0     0% 24.42%      2.42s 12.49%  github.com/containerd/containerd/v2/plugins/snapshots/overlay.(*snapshotter).Cleanup
+         0     0% 24.42%      2.35s 12.13%  os.removeAllFrom
+         0     0% 24.42%      2.19s 11.31%  golang.org/x/sync/errgroup.(*Group).Go.func1
+     0.63s  3.25% 27.67%      1.97s 10.17%  runtime.scanObjectsSmall
+     0.77s  3.98% 31.65%      1.96s 10.12%  runtime.tryDeferToSpanScan
+     0.13s  0.67% 32.32%      1.86s  9.60%  runtime.mallocgc
+         0     0% 32.32%      1.73s  8.93%  net/http.serverHandler.ServeHTTP
+         0     0% 32.32%      1.72s  8.88%  github.com/containerd/containerd/v2/core/metadata.(*DB).GarbageCollect
+         0     0% 32.32%      1.72s  8.88%  github.com/dagger/dagger/engine/server.(*snapshotGarbage).Collect
+         0     0% 32.32%      1.72s  8.88%  go.etcd.io/bbolt.(*DB).View
+         0     0% 32.32%      1.72s  8.88%  net/http.HandlerFunc.ServeHTTP (partial-inline)
+         0     0% 32.32%      1.68s  8.67%  github.com/dagger/dagger/dagql.(*Cache).measurePruneState
+         0     0% 32.32%      1.67s  8.62%  github.com/containerd/containerd/v2/core/metadata.(*DB).getMarked
+         0     0% 32.32%      1.67s  8.62%  github.com/containerd/containerd/v2/core/metadata.(*DB).getMarked.func1
+         0     0% 32.32%      1.64s  8.47%  github.com/dagger/dagger/engine/server.(*Server).serveHTTPToClient
+         0     0% 32.32%      1.61s  8.31%  internal/syscall/unix.Unlinkat
+         0     0% 32.32%      1.55s  8.00%  net/http.(*ServeMux).ServeHTTP
+         0     0% 32.32%      1.44s  7.43%  github.com/dagger/dagger/dagql.ObjectResult[go.shape.*uint8].call.func2
+     0.24s  1.24% 33.56%      1.33s  6.87%  runtime.mallocgcSmallScanNoHeader
+         0     0% 33.56%      1.21s  6.25%  net/http.(*conn).serve
+         0     0% 33.56%      1.19s  6.14%  github.com/dagger/dagger/dagql.ObjectResult[go.shape.*uint8].Select
+     0.01s 0.052% 33.61%      1.13s  5.83%  github.com/dagger/dagger/engine/server.clientSpans.ExportSpans
+         0     0% 33.61%      1.13s  5.83%  github.com/dagger/dagger/engine/server.exportSpansRecovered
+         0     0% 33.61%      1.13s  5.83%  github.com/dagger/dagger/engine/server.sessionSpanExporter.ExportSpans.func1
+         0     0% 33.61%      1.10s  5.68%  os.removeAllFrom.removefileat.func1 (inline)
+         0     0% 33.61%      1.10s  5.68%  os.removefileat (inline)
+         0     0% 33.61%      1.10s  5.68%  syscall.Syscall6
+         0     0% 33.61%      1.09s  5.63%  github.com/dagger/dagger/dagql.(*Cache).getOrInitCallInner.func1
+         0     0% 33.61%      1.07s  5.52%  github.com/dagger/dagger/core.MountRef
+         0     0% 33.61%      1.07s  5.52%  internal/poll.ignoringEINTRIO (inline)
+         0     0% 33.61%      1.05s  5.42%  github.com/dagger/dagger/dagql.(*Cache).runLazyTask.func1
+         0     0% 33.61%      1.05s  5.42%  github.com/dagger/dagger/engine/server.(*Server).ServeHTTPToNestedClient
+         0     0% 33.61%      1.05s  5.42%  github.com/dagger/dagger/engine/server..ServeHTTPToNestedClient.httpHandlerFunc[go.shape.*uint8].func1
+         0     0% 33.61%      1.03s  5.32%  github.com/dagger/dagger/dagql.(*Cache).runLazyEvalBody
+         0     0% 33.61%      1.02s  5.27%  runtime.gcDrainMarkWorkerDedicated (inline)
+         0     0% 33.61%      0.99s  5.11%  github.com/dagger/dagger/engine/server.(*Server).serveQuery
+         0     0% 33.61%      0.99s  5.11%  github.com/dagger/dagger/engine/server..serveHTTPToClient.httpHandlerFunc[go.shape.*uint8].func6
+     0.03s  0.15% 33.76%      0.97s  5.01%  github.com/containerd/containerd/v2/pkg/gc.Tricolor
+     0.96s  4.96% 38.72%      0.96s  4.96%  runtime.spanClass.sizeclass (inline)
+         0     0% 38.72%      0.95s  4.90%  github.com/dagger/dagger/dagql.(*Cache).snapshotPruneStateCancelable
+         0     0% 38.72%      0.95s  4.90%  github.com/dagger/dagger/dagql.(*PartHost).RunNative
+         0     0% 38.72%      0.94s  4.85%  github.com/dagger/dagger/dagql.ObjectResult[go.shape.*uint8].call
+         0     0% 38.72%      0.90s  4.65%  go.etcd.io/bbolt.(*Bucket).ForEach
+         0     0% 38.72%      0.88s  4.54%  go.etcd.io/bbolt.(*Bucket).Bucket
+         0     0% 38.72%      0.87s  4.49%  github.com/dagger/dagger/core.(*filesystemOutput).lazyEvalFunc.func3
+         0     0% 38.72%      0.86s  4.44%  github.com/99designs/gqlgen/graphql/handler.(*Server).ServeHTTP
+         0     0% 38.72%      0.86s  4.44%  github.com/99designs/gqlgen/graphql/handler/transport.POST.Do
+         0     0% 38.72%      0.86s  4.44%  github.com/dagger/dagger/core.(*Directory).LazyEvalFunc.func1.1
+         0     0% 38.72%      0.86s  4.44%  github.com/dagger/dagger/core.(*Directory).evaluateLazy
+         0     0% 38.72%      0.86s  4.44%  github.com/dagger/dagger/core.(*DirectoryWithDirectoryLazy).Evaluate
+         0     0% 38.72%      0.86s  4.44%  github.com/dagger/dagger/core.(*LazyState).Evaluate
+         0     0% 38.72%      0.86s  4.44%  github.com/dagger/dagger/core.(*filesystemOutput).evaluateLazy (inline)
+         0     0% 38.72%      0.85s  4.39%  github.com/dagger/dagger/core.(*Directory).WithDirectory (inline)
+         0     0% 38.72%      0.85s  4.39%  github.com/dagger/dagger/core.(*Directory).evaluateLazy.(*filesystemOutput).evaluateLazy.func2
+         0     0% 38.72%      0.85s  4.39%  github.com/dagger/dagger/core.(*Directory).withDirectory
+         0     0% 38.72%      0.85s  4.39%  github.com/dagger/dagger/core.(*DirectoryWithDirectoryLazy).Evaluate.func1
+     0.03s  0.15% 38.87%      0.83s  4.28%  github.com/dagger/dagger/dagql.(*Cache).collectUsageMeasurementInputs
+     0.07s  0.36% 39.24%      0.82s  4.23%  runtime.newobject
+         0     0% 39.24%      0.80s  4.13%  github.com/dagger/dagger/engine/server.(*snapshotGarbage).CollectIfPending (inline)
+         0     0% 39.24%      0.80s  4.13%  path/filepath.WalkDir
+         0     0% 39.24%      0.80s  4.13%  path/filepath.walkDir
+     0.01s 0.052% 39.29%      0.77s  3.98%  github.com/dagger/otel-go.SpansToPB
+         0     0% 39.29%      0.76s  3.92%  github.com/dagger/dagger/engine/server.fetchSpanBatch
