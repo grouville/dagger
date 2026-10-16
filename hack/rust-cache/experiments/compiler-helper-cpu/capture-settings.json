@@ -1,0 +1,32 @@
+{
+  "modules": {
+    "before": {
+      "path": "/tmp/dagger-rust-profile-compiler-helper",
+      "base_commit": "cd6d25e169a9eaa197967570c53bc9de6d0c4adb",
+      "main_sha256": "64866fb66ef619a297752737dc3a9077b9f94832f64d483af5fa417c11b067d9",
+      "profile_sha256": "1fff08bb76607e23497bc7cbae2277408ecfa60d91d2d993295f8d81cbb6a9f1"
+    },
+    "after": {
+      "path": "/tmp/dagger-rust-profile-worker-request-current",
+      "base_commit": "e63b6a2a942fc62835f6ec1d20eb4f3566125490",
+      "main_sha256": "64866fb66ef619a297752737dc3a9077b9f94832f64d483af5fa417c11b067d9",
+      "profile_sha256": "1fff08bb76607e23497bc7cbae2277408ecfa60d91d2d993295f8d81cbb6a9f1"
+    }
+  },
+  "engine_sha256": "a75afeec2c7fa014af451b8ba2eb87f1273990a83b2a5e45944031dd9da4aeaa",
+  "scope": "Go process CPU and block sampling from entry to Compile return; excludes generated argument decode and return serialization",
+  "diagnostic_only": true,
+  "block_profile_rate": 1,
+  "telemetry_enabled": true,
+  "source_snapshot_seeds": true,
+  "scalar_array_restore": true,
+  "batch_metadata": true,
+  "attribute_array_decode": true,
+  "direct_span_protobuf": false,
+  "initial_series_quiet_admitted": false,
+  "latency_samples_in_separate_unprofiled_datasets": true,
+  "telemetry_receiver": "hack/otlpdump; original full JSONL retained locally, excluded from this archive",
+  "receiver_binary_sha256": "3471bdd336df374b8c0b5b6ac800fe700507c2a531c29728c189ecae85c08c5d",
+  "baseline_source_patch": "decompress compile-profile.patch.gz and apply it, then copy helper_profile.go",
+  "candidate_source_patch": "same patch and helper file applied to candidate base"
+}

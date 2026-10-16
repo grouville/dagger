@@ -9,6 +9,8 @@ retains rustc incremental state, and can run compiler misses together with Cargo
 metadata overlap. Completed results remain reusable per crate. These options are
 described below; none changes the Rust module's default behavior.
 
+The [current worker-request follow-up](NATIVE_WORKER_REQUESTS.md) removes repeated compiler commands from dependency descriptions with seven added lines. Complete edited checks at 1,026 crates improve in 15 of 16 pairs across two histories; the confirmation changes the median from 1.689 to 1.521 seconds. The worker binary, native result keys and snapshot policy stay unchanged. Separate [Go helper CPU profiles](NATIVE_HELPER_CPU.md) explain the serialization work and keep it distinct from engine CPU and channel waits.
+
 The [cache-accounting change](CACHE_USAGE_ALLOCATIONS.md), based on current upstream main, removes 600,000 allocations and 28.8 MB from the existing 200,000-result benchmark. Full dagql race tests pass; its Rust-command impact is not yet measured. The [constant-script experiment](NATIVE_CONSTANT_SCRIPT_STATE.md) reduces runtime-encoded Rust project state from 1,392 to 342 bytes, but complete edited-command results remain mixed across sixteen pairs. Listing profiles instead show substantial metadata publication and telemetry work.
 
 The [fingerprint follow-up](NATIVE_PACKAGE_FINGERPRINTS.md) removes the extra discovery process and separately tests moving the shell script out of serialized Rust state. The native branch saves 542–705 ms per pair on the expanded listing across two histories, but large edited checks remain mixed and use more CPU. The simpler module-only change reduces normalized project JSON from 2,323 to 1,344 bytes; its timing confirmation is incomplete. Both remain isolated.

@@ -100,3 +100,5 @@ Focused race checks pass, and a real leaf edit recompiles three actions while
 retaining 200 of 203 results and running the normal tests. The variant remains
 isolated rather than becoming the selected module.
 Implementation: [77923cf](https://github.com/grouville/dagger-rust/commit/77923cf).
+
+The later [worker-request confirmation](NATIVE_WORKER_REQUESTS.md) repeats the small dependency-description change on the current stack and a larger 1,026-crate workspace. It improves the edited command in 15/16 pairs across two histories; this does not change the earlier negative result on the 203-action workload.
