@@ -1,5 +1,7 @@
 # Visit each snapshot root once during collection
 
+The [follow-up](NATIVE_GC_ROOTS_FOLLOWUP.md) separates preparation effects from the diagnostic flag and tests a loop with one root lookup. Its natural edited-command control shows no systematic penalty, while its concurrent-collection command improves in six of eight pairs. The original loop and measurements below remain distinct; both variants are still experimental.
+
 Deduplicating containerd's initial GC roots reduces the real cache's mark phase from **878 to 528 ms** in six fresh-process comparisons. It avoids about **169 MB and 4.76 million allocations per pass**, while retaining exactly the same objects. Complete edited 1,026-crate Rust checks during concurrent collection improve in **16/16 pairs** across two cohorts. Without concurrent collection, the second cohort is slower in **8/8 pairs**, by about 62 ms per pair. That cost remains unexplained, so this candidate is not yet ready for submission.
 
 This targets the active containerd path used by the engine. Both CPU profiles and foreground stacks reach `core/metadata.DB.GarbageCollect` and `pkg/gc.Tricolor`. During collection, two host imports wait in `metadata.DB.Update`, trying to create their operation leases. Their call chains reach `engine/filesync.localFS.Sync` and `Host.directory`. The metadata collector holds the corresponding write lock throughout marking and sweeping. Reducing that work shortens an observed foreground wait; the change leaves the lock in place.

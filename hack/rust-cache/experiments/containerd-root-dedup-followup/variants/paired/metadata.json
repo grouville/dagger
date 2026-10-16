@@ -1,0 +1,81 @@
+{
+  "pairs": 8,
+  "toolchain": "go1.26.6",
+  "gomaxprocs": 8,
+  "database_sha256": "443fb3c5c85321826a71d24daefc6f126bb6b479284c1c35d6bab0d9ec47508b",
+  "graph": {
+    "collectors": 0,
+    "database_check_passed": true,
+    "mark_seconds": 0.55874444,
+    "marked": 77772,
+    "max_root_copies": 18418,
+    "reference_calls": 399795,
+    "roots": 399795,
+    "scan_seconds": 0.400070219,
+    "unique_reference_calls": 77784,
+    "unique_roots": 77784,
+    "unique_roots_by_type": {
+      "1": 12,
+      "33": 26,
+      "34": 24020,
+      "6": 53726
+    }
+  },
+  "scope": "Read-only real metadata mark with independent graph oracle; unique-root controls; fixture loading excluded; no end-to-end claim.",
+  "sources": {
+    "before": {
+      "gc_sha256": "2a6431a88bc45e51de1b7d3dcf30c3ffd40b720bfecef9213bb88fac975072e6",
+      "binary_sha256": {
+        "metadata": "1705b0aaceccc876945cc6452e5f94284a065423484715d5ce08e08393062a27",
+        "gc": "33f3b28f6b1f2365f881006ce180a81b433a54b9123181f87d28ad7fbfddd7b4"
+      }
+    },
+    "membership": {
+      "gc_sha256": "9794e395f644f597cfebeeaf1f82d4b2c8da5ae8f1590ad794ce4047775c87a5",
+      "binary_sha256": {
+        "metadata": "afd59300d874a7e6383d6ee63e42e4ea5e1918aa60d45747332eafadc0aac7e9",
+        "gc": "11143397d2516fbf665c9ef97572ed84369485896018b22accec00748de0a699"
+      }
+    },
+    "assign-length": {
+      "gc_sha256": "98ecdfc0160e21a23a9ba5b2428ead2aade182e370c7c2a58e15691b08fbb644",
+      "binary_sha256": {
+        "metadata": "caf52e5b7d50a28cefb695eaecc583f3d86ac9558c489f71b69d8504c8ed2988",
+        "gc": "8762510c0141f42155af6293f4f3b7bf88dee3ad95271aa6f417b2a397980319"
+      }
+    },
+    "map-keys": {
+      "gc_sha256": "31cb781b1f9f72f35e078d75737320b18317f59d6172b088b6ff476cb1e3dbe1",
+      "binary_sha256": {
+        "metadata": "949f2673e1cc4e93130d0e82ba96f614fb88920127ed9c9e87448eb3213e5ea0",
+        "gc": "fe867f11ef5e7f36ee93ded7b21a88f096464cafc785cb8193dfdeab9c8b8eeb"
+      }
+    }
+  },
+  "orders": [
+    [
+      "before",
+      "membership",
+      "map-keys",
+      "assign-length"
+    ],
+    [
+      "membership",
+      "assign-length",
+      "before",
+      "map-keys"
+    ],
+    [
+      "assign-length",
+      "map-keys",
+      "membership",
+      "before"
+    ],
+    [
+      "map-keys",
+      "before",
+      "assign-length",
+      "membership"
+    ]
+  ]
+}

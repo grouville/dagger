@@ -1,0 +1,80 @@
+{
+  "experiment": "Edited module check with natural containerd collection; original versus single-lookup root dedup; native Cargo control.",
+  "pairs": 8,
+  "engine_id": "6b22434eb222942275793765ae5a4b56c2eb600824e20f89c020ac6e89203533",
+  "engine_started": "2026-10-16T07:26:57.24636891Z",
+  "module_revision": "f73c5614a89968afa6f6000328e96ea33745fd93",
+  "engine_identity": {
+    "previous_engine_sha256": "ec800d4328413f4e3b4b514a4006183ac5d4daea15a2636a580aff574ab24823",
+    "diagnostic_gc_sha256": "fafb954dabd73b0d59669ca6eacbff42cba8ae848eda17acb33375d9a3935f4d",
+    "selected_production_gc_sha256": "98ecdfc0160e21a23a9ba5b2428ead2aade182e370c7c2a58e15691b08fbb644",
+    "variant": "Insert each root once into the seen map and queue only when its size grows; reference traversal unchanged.",
+    "dagger_overlays": 44,
+    "dependency_overlays": 1,
+    "default_enabled": false,
+    "engine_sha256": "e174ad0a118c3312cebae1333d4dbaf1f2a1d3f56656a337629830bbe18092e8"
+  },
+  "dagger_command": "check rust:packages/check",
+  "cargo_command": "cargo check --workspace --locked --offline",
+  "rustc_version": "rustc 1.77.2 (25ef9e3d8 2024-04-09)",
+  "cargo_target": "/tmp/rust-cache-sipsma-review/native-config-entry-1026-cargo-target",
+  "native_cargo_incremental": true,
+  "workers": 8,
+  "same_physical_source": true,
+  "fresh_processes": true,
+  "warm_engine_and_compiler": true,
+  "telemetry_enabled": true,
+  "profiling": false,
+  "natural_collection": true,
+  "no_forced_collection_between_cases": true,
+  "no_scratch_snapshot": true,
+  "no_forced_Go_collection": true,
+  "post_admission_observations_excluded": false,
+  "orders": [
+    [
+      "off",
+      "on",
+      "cargo"
+    ],
+    [
+      "on",
+      "cargo",
+      "off"
+    ],
+    [
+      "cargo",
+      "off",
+      "on"
+    ],
+    [
+      "cargo",
+      "on",
+      "off"
+    ],
+    [
+      "off",
+      "cargo",
+      "on"
+    ],
+    [
+      "on",
+      "off",
+      "cargo"
+    ]
+  ],
+  "cgroup_scope": "docker_total overlaps engine and sibling exec; never add all three",
+  "initial_heap": {
+    "HeapAlloc": 4941841624,
+    "HeapInuse": 5193252864,
+    "HeapIdle": 6347112448,
+    "HeapReleased": 4509204480,
+    "HeapObjects": 41057727,
+    "TotalAlloc": 41945606152,
+    "Mallocs": 233000179,
+    "Frees": 191942452,
+    "NumGC": 45,
+    "NextGC": 6978440618,
+    "PauseTotalNs": 6260526,
+    "GCCPUFraction": 0.0030138615330140947
+  }
+}

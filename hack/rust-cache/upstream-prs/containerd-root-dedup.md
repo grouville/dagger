@@ -27,3 +27,5 @@ The regression combines duplicate roots, a cycle, namespaces and traversal flags
 Repository-wide lint remains unrun because `golangci-lint` is unavailable. [Standalone patch, raw measurements and validation logs](../experiments/containerd-root-dedup/) and [experiment details](../NATIVE_GC_ROOTS.md) are available for review. The large raw metadata database and executable binaries are excluded.
 
 AI assistance was used to prepare this change and its measurements. Human review is pending.
+
+The [subsequent investigation](../NATIVE_GC_ROOTS_FOLLOWUP.md) separates the idle penalty's preparation effect from the command-only flag and tests a single-lookup alternative. That alternative preserves all six retained compiler histories. Its ordinary-command comparison is unchanged at about 1.55 s versus Cargo's 0.77 s; its concurrent-collection comparison improves in six of eight pairs. Those are separate measurements of a different loop, and do not replace this draft's original results or resolve every latency effect.
