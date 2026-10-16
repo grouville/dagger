@@ -1,0 +1,86 @@
+{
+  "engine": {
+    "previous_engine_sha256": "ec800d4328413f4e3b4b514a4006183ac5d4daea15a2636a580aff574ab24823",
+    "diagnostic_gc_sha256": "fafb954dabd73b0d59669ca6eacbff42cba8ae848eda17acb33375d9a3935f4d",
+    "selected_production_gc_sha256": "98ecdfc0160e21a23a9ba5b2428ead2aade182e370c7c2a58e15691b08fbb644",
+    "variant": "Insert each root once into the seen map and queue only when its size grows; reference traversal unchanged.",
+    "dagger_overlays": 44,
+    "dependency_overlays": 1,
+    "default_enabled": false,
+    "engine_sha256": "e174ad0a118c3312cebae1333d4dbaf1f2a1d3f56656a337629830bbe18092e8"
+  },
+  "modules": {
+    "before": {
+      "path": "/tmp/dagger-rust-native-fused-artifact-inputs",
+      "revision": "3cd40e5928563ade3ea1cd21ab9924cd03d88fc3"
+    },
+    "after": {
+      "path": "/tmp/dagger-rust-native-discovery-current",
+      "revision": "da1ae47b6c96a3117de303b7584d028e35166530"
+    }
+  },
+  "pairs": 8,
+  "kinds": [
+    "large",
+    "direct",
+    "tests",
+    "list"
+  ],
+  "profile": false,
+  "orders": [
+    [
+      "before",
+      "after",
+      "cargo"
+    ],
+    [
+      "cargo",
+      "after",
+      "before"
+    ],
+    [
+      "after",
+      "cargo",
+      "before"
+    ],
+    [
+      "before",
+      "cargo",
+      "after"
+    ],
+    [
+      "cargo",
+      "before",
+      "after"
+    ],
+    [
+      "after",
+      "before",
+      "cargo"
+    ]
+  ],
+  "same_physical_source_and_history": true,
+  "compiler_and_engine_warm": true,
+  "fresh_processes": true,
+  "telemetry_enabled": true,
+  "source_snapshot_seeds": true,
+  "natural_collection": true,
+  "no_scratch_snapshots": true,
+  "no_forced_collection": true,
+  "no_forced_Go_collection": true,
+  "initial_heap": {
+    "HeapAlloc": 5550694488,
+    "HeapInuse": 5831467008,
+    "HeapIdle": 5709094912,
+    "HeapReleased": 4715479040,
+    "HeapObjects": 49360085,
+    "TotalAlloc": 177665339800,
+    "Mallocs": 1788008809,
+    "Frees": 1738648724,
+    "NumGC": 108,
+    "NextGC": 7422587746,
+    "PauseTotalNs": 16154730,
+    "GCCPUFraction": 0.001747982078975051
+  },
+  "scope": "Native versus shell package fingerprint on the current module baseline; complete edited commands and exact package listings; all admitted observations retained."
+}
