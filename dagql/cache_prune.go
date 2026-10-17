@@ -290,17 +290,23 @@ func metadataPruneLog(ctx context.Context, report CacheMetadataPruneReport, err 
 // measurePruneState measures result sizes and snapshots the prune state for
 // a policy. ok=false means the measurement was incomplete and the policy is
 // deferred.
-func (c *Cache) measurePruneState(ctx context.Context, policyIdx int) (map[sharedResultID]struct{}, pruneSnapshot, bool, error) {
+func (c *Cache) measurePruneState(ctx context.Context, policyIdx int, policy CachePrunePolicy) (map[sharedResultID]struct{}, pruneSnapshot, bool, error) {
 	activeRoots := c.snapshotSessionResultIDs()
 	// A blob-backed cache measures its blobs from its stored parts, in the
 	// snapshot below.
 	if !c.blobBacked {
-		if err := c.measureAllResultSizes(ctx); err != nil {
+		usedBytes, err := c.measureResultUsageBytes(ctx)
+		if err != nil {
 			if err == errCacheUsageChanged {
 				slog.Debug("dagql prune defer policy: incomplete usage measurement", "policyIndex", policyIdx)
 				return nil, pruneSnapshot{}, false, nil
 			}
 			return nil, pruneSnapshot{}, false, err
+		}
+		// A policy with no reclaim target needs only the measured total.
+		// A later policy remeasures before planning removals, as below.
+		if target, _ := pruneTargetBytes(policy, usedBytes); target <= 0 {
+			return activeRoots, pruneSnapshot{usedBytes: usedBytes}, true, nil
 		}
 	}
 	snapshot, err := c.snapshotPruneStateCancelable(activeRoots, pruneSnapshotDisk, 0, newPruneCancellationChecker(ctx))
@@ -339,7 +345,7 @@ func (c *Cache) Prune(ctx context.Context, policies []CachePrunePolicy) (CachePr
 		if !measured {
 			var ok bool
 			var err error
-			activeRoots, snapshot, ok, err = c.measurePruneState(ctx, policyIdx)
+			activeRoots, snapshot, ok, err = c.measurePruneState(ctx, policyIdx, policy)
 			if err != nil {
 				return report, err
 			}
@@ -355,7 +361,7 @@ func (c *Cache) Prune(ctx context.Context, policies []CachePrunePolicy) (CachePr
 			// this policy would remove, so measure again before planning.
 			var ok bool
 			var err error
-			activeRoots, snapshot, ok, err = c.measurePruneState(ctx, policyIdx)
+			activeRoots, snapshot, ok, err = c.measurePruneState(ctx, policyIdx, policy)
 			if err != nil {
 				return report, err
 			}

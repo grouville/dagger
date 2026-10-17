@@ -265,8 +265,8 @@ func TestCachePruneMeasuresOncePerPassUntilRemoval(t *testing.T) {
 	if _, err := c.Prune(ctx, []CachePrunePolicy{noTarget, noTarget, noTarget}); err != nil {
 		t.Fatal(err)
 	}
-	if identityCalls != 2 {
-		t.Fatalf("three policies that remove nothing sampled identities %d times, want one measurement (2)", identityCalls)
+	if identityCalls != 1 {
+		t.Fatalf("three policies that remove nothing sampled identities %d times, want one measurement", identityCalls)
 	}
 
 	identityCalls = 0
@@ -277,8 +277,8 @@ func TestCachePruneMeasuresOncePerPassUntilRemoval(t *testing.T) {
 	if len(report.Entries) != 1 {
 		t.Fatalf("pruned %d entries, want the persisted private entry", len(report.Entries))
 	}
-	if identityCalls != 4 {
-		t.Fatalf("sampled identities %d times, want one measurement before the removal and one after (4)", identityCalls)
+	if identityCalls != 3 {
+		t.Fatalf("sampled identities %d times, want measurement and planning before removal, then measurement after", identityCalls)
 	}
 }
 

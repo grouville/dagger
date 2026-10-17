@@ -5511,11 +5511,16 @@ type cacheUsageIdentityMeasurement struct {
 	recordType string
 }
 
-func (c *Cache) measureAllResultSizes(ctx context.Context) (rerr error) {
+func (c *Cache) measureAllResultSizes(ctx context.Context) error {
+	_, err := c.measureResultUsageBytes(ctx)
+	return err
+}
+
+func (c *Cache) measureResultUsageBytes(ctx context.Context) (usedBytes int64, rerr error) {
 	snapshot, err := c.collectUsageMeasurementInputs(ctx, true)
 	if err != nil {
 		slog.Warn("collect cache usage inputs", "err", err)
-		return err
+		return 0, err
 	}
 	defer func() {
 		if err := snapshot.close(ctx); err != nil {
@@ -5526,14 +5531,13 @@ func (c *Cache) measureAllResultSizes(ctx context.Context) (rerr error) {
 	defer c.egraphMu.Unlock()
 	snapshot.releaseLocked(context.WithoutCancel(ctx))
 	if err := ctx.Err(); err != nil {
-		return err
+		return 0, err
 	}
 	identities, err := snapshot.finalizeLocked()
 	if err != nil {
-		return err
+		return 0, err
 	}
-	c.publishUsageMeasurementsLocked(snapshot, identities)
-	return nil
+	return c.publishUsageMeasurementsLocked(snapshot, identities), nil
 }
 
 func buildCacheUsageMeasurements(ctx context.Context, snapshotManager bkcache.SnapshotManager, inputs []cacheUsageMeasurementInput) map[sharedResultID]map[string]cacheUsageIdentityMeasurement {
@@ -5638,7 +5642,7 @@ func buildCacheUsageMeasurements(ctx context.Context, snapshotManager bkcache.Sn
 // publishUsageMeasurementsLocked assigns each identity to one surviving holder.
 // Captured bytes outlive the old size owner, which may have been collected when
 // measurement holds were released. Do not publish an incomplete population.
-func (c *Cache) publishUsageMeasurementsLocked(snapshot *cacheUsageSnapshot, identities map[sharedResultID][]string) {
+func (c *Cache) publishUsageMeasurementsLocked(snapshot *cacheUsageSnapshot, identities map[sharedResultID][]string) int64 {
 	measurements := make(map[string]cacheUsageIdentityMeasurement)
 	for _, input := range snapshot.inputs {
 		for identity, size := range input.existingSizeByID {
@@ -5658,6 +5662,7 @@ func (c *Cache) publishUsageMeasurementsLocked(snapshot *cacheUsageSnapshot, ide
 			}
 		}
 	}
+	var usedBytes int64
 	for id, res := range c.resultsByID {
 		sizes := make(map[string]int64)
 		recordTypes := make(map[string]string)
@@ -5670,6 +5675,9 @@ func (c *Cache) publishUsageMeasurementsLocked(snapshot *cacheUsageSnapshot, ide
 				continue
 			}
 			sizes[identity] = measurement.sizeBytes
+			if measurement.sizeBytes > 0 {
+				usedBytes += measurement.sizeBytes
+			}
 			if measurement.recordType != "" {
 				recordTypes[identity] = measurement.recordType
 			}
@@ -5680,6 +5688,7 @@ func (c *Cache) publishUsageMeasurementsLocked(snapshot *cacheUsageSnapshot, ide
 			res.recordType = cacheUsagePrimaryRecordType(types, "")
 		}
 	}
+	return usedBytes
 }
 
 // Core cache lookup/insert flow is intentionally centralized here.
