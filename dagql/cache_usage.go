@@ -9,7 +9,7 @@ import (
 	bkcache "github.com/dagger/dagger/engine/snapshots"
 )
 
-// cacheUsageSnapshot owns the rows while provider callbacks run outside E.
+// cacheUsageSnapshot owns sampled rows while provider callbacks run outside E.
 // A Go pointer alone would not prevent OnRelease from closing their resources.
 // Mutable provider identities remain best-effort samples: payloadRevision
 // detects replacement of a row payload, not mutations inside its provider.
@@ -119,9 +119,28 @@ func (input *cacheUsageMeasurementInput) identitiesWithoutCallbacks() bool {
 	return true
 }
 
+// Rows without usage identities need no callbacks, measurements or temporary
+// ownership. Check the current payload again at finalization: it may have been
+// replaced by a provider while other rows were being sampled. Retain rows with
+// previous measurements so publication can clear stale identities.
+func cacheUsageIsEmptyLocked(res *sharedResult) bool {
+	if len(res.cacheUsageSizeByIdentity) != 0 {
+		return false
+	}
+	state := res.loadPayloadState()
+	if state.hasValue && state.self != nil {
+		_, provider := state.self.(hasCacheUsageIdentity)
+		return !provider
+	}
+	return len(state.snapshotOwnerLinks) == 0
+}
+
 func (snapshot *cacheUsageSnapshot) capturePendingLocked(ctx context.Context) []cacheUsageMeasurementInput {
 	var pending []cacheUsageMeasurementInput
 	for id, res := range snapshot.cache.resultsByID {
+		if cacheUsageIsEmptyLocked(res) {
+			continue
+		}
 		if input, ok := snapshot.inputs[id]; ok && input.validLocked(snapshot.cache) {
 			continue
 		}
@@ -143,9 +162,12 @@ func (snapshot *cacheUsageSnapshot) capturePendingLocked(ctx context.Context) []
 // copying. Unknown provider membership prevents ALL physical reclaim credit;
 // never feed a zero-credit fallback into a planner that can evict every root.
 func (snapshot *cacheUsageSnapshot) finalizeLocked() (map[sharedResultID][]string, error) {
-	identities := make(map[sharedResultID][]string, len(snapshot.cache.resultsByID))
+	identities := make(map[sharedResultID][]string, len(snapshot.inputs))
 	unknown := 0
 	for id, res := range snapshot.cache.resultsByID {
+		if cacheUsageIsEmptyLocked(res) {
+			continue
+		}
 		input, sampled := snapshot.inputs[id]
 		if !sampled || !input.validLocked(snapshot.cache) {
 			input = cacheUsageInputLocked(res)
