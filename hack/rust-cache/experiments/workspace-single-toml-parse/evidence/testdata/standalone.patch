@@ -1,0 +1,64 @@
+--- a/core/workspace/config.go
++++ b/core/workspace/config.go
+@@ -221,8 +221,16 @@
+ // It does not reject unknown fields. Code that loads a workspace must use
+ // ParseConfigAt, which does.
+ func ParseConfig(data []byte) (*Config, error) {
++	tree, err := toml.LoadBytes(data)
++	if err != nil {
++		return nil, fmt.Errorf("parse dagger.toml: %w", err)
++	}
++	return parseConfigTree(tree)
++}
++
++func parseConfigTree(tree *toml.Tree) (*Config, error) {
+ 	var cfg Config
+-	if err := toml.Unmarshal(data, &cfg); err != nil {
++	if err := tree.Unmarshal(&cfg); err != nil {
+ 		return nil, fmt.Errorf("parse dagger.toml: %w", err)
+ 	}
+ 	if err := ValidateSDKs(&cfg); err != nil {
+--- a/core/workspace/config_diagnostics.go
++++ b/core/workspace/config_diagnostics.go
+@@ -20,6 +20,10 @@
+ 	if err != nil {
+ 		return nil, fmt.Errorf("parse %s: %w", filename, err)
+ 	}
++	return checkConfigTreeFields(tree, filename)
++}
++
++func checkConfigTreeFields(tree *toml.Tree, filename string) (warnings []string, _ error) {
+ 	type unknownField struct {
+ 		pos  toml.Position
+ 		path string
+--- a/core/workspace/sdk_scopes.go
++++ b/core/workspace/sdk_scopes.go
+@@ -10,6 +10,7 @@
+ 	"strings"
+ 
+ 	"github.com/dagger/dagger/engine/slog"
++	toml "github.com/pelletier/go-toml"
+ )
+ 
+ // SDKScopeKey returns the original key for a resolved workspace path. Only a
+@@ -160,11 +161,15 @@
+ // ParseConfigAt resolves and reconciles SDK scope paths once the workspace
+ // config directory is known. This only changes the in-memory configuration.
+ func ParseConfigAt(ctx context.Context, data []byte, configDir string) (*Config, error) {
+-	cfg, err := ParseConfig(data)
+-	if err != nil {
+-		return nil, err
+-	}
+-	warnings, err := CheckConfigFields(data, filepath.ToSlash(filepath.Join(configDir, ConfigFileName)))
++	tree, err := toml.LoadBytes(data)
++	if err != nil {
++		return nil, fmt.Errorf("parse dagger.toml: %w", err)
++	}
++	cfg, err := parseConfigTree(tree)
++	if err != nil {
++		return nil, err
++	}
++	warnings, err := checkConfigTreeFields(tree, filepath.ToSlash(filepath.Join(configDir, ConfigFileName)))
+ 	if err != nil {
+ 		return nil, err
+ 	}

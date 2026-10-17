@@ -1,0 +1,153 @@
+[
+  {
+    "label": "before-tests",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/workspace-single-toml-parse/overlay-before.json",
+      "-count=1",
+      "./core/workspace"
+    ],
+    "seconds": 9.335327557986602,
+    "exit_code": 0
+  },
+  {
+    "label": "after-tests",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/workspace-single-toml-parse/overlay-after.json",
+      "-count=1",
+      "./core/workspace"
+    ],
+    "seconds": 2.307993220980279,
+    "exit_code": 0
+  },
+  {
+    "label": "after-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/workspace-single-toml-parse/overlay-after.json",
+      "-count=1",
+      "-race",
+      "./core/workspace"
+    ],
+    "seconds": 17.755746825016104,
+    "exit_code": 0
+  },
+  {
+    "label": "0-before-benchmark",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/workspace-single-toml-parse/overlay-before.json",
+      "-run",
+      "^$",
+      "-bench",
+      "^BenchmarkParseConfigAt$",
+      "-benchmem",
+      "-benchtime=100ms",
+      "-count=2",
+      "./core/workspace"
+    ],
+    "seconds": 2.007014010916464,
+    "exit_code": 0
+  },
+  {
+    "label": "1-after-benchmark",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/workspace-single-toml-parse/overlay-after.json",
+      "-run",
+      "^$",
+      "-bench",
+      "^BenchmarkParseConfigAt$",
+      "-benchmem",
+      "-benchtime=100ms",
+      "-count=2",
+      "./core/workspace"
+    ],
+    "seconds": 2.0335596119984984,
+    "exit_code": 0
+  },
+  {
+    "label": "2-after-benchmark",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/workspace-single-toml-parse/overlay-after.json",
+      "-run",
+      "^$",
+      "-bench",
+      "^BenchmarkParseConfigAt$",
+      "-benchmem",
+      "-benchtime=100ms",
+      "-count=2",
+      "./core/workspace"
+    ],
+    "seconds": 1.9953977740369737,
+    "exit_code": 0
+  },
+  {
+    "label": "3-before-benchmark",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/workspace-single-toml-parse/overlay-before.json",
+      "-run",
+      "^$",
+      "-bench",
+      "^BenchmarkParseConfigAt$",
+      "-benchmem",
+      "-benchtime=100ms",
+      "-count=2",
+      "./core/workspace"
+    ],
+    "seconds": 1.9875555649632588,
+    "exit_code": 0
+  }
+]

@@ -6,6 +6,8 @@ The [completed scope-map experiment](NATIVE_DANG_TYPE_MAPS_CONFIRMATION.md) also
 
 Those [finer timings](NATIVE_DANG_API_REQUEST_PROFILE.md) now locate **29.42 s of the main query's critical path inside synchronous API processing**, versus 6.77 ms in telemetry flushing. The diagnostic lists the same rows successfully in 45.54 s; this is not another benchmark gain. CPU attribution identifies repeated configuration parsing before module cache lookup, including parsing the same TOML bytes twice. Fresh configuration reads and validation must be preserved in the next experiment.
 
+The resulting [single-document TOML experiment](NATIVE_WORKSPACE_SINGLE_TOML_PARSE.md) passes compatibility and race checks and reduces parser allocations. Full listing is mixed: **48.24 → 47.45 s** by column medians, only two of four pairs faster and a 0.40 s median paired regression. The candidate stays off; this does not change the selected result above.
+
 The following [native string-sort experiment](NATIVE_DANG_STRING_SORT.md) measures **48.06 → 45.98 s** across four successful full-command pairs, with identical rows. Three pairs improve and one regresses. It requires a provisional Dang API and remains unselected; the latest selected result above is unchanged.
 
 The subsequent [span-resource experiment](NATIVE_SPAN_RESOURCE_BATCHES.md) reduces CPU and allocations but has mixed full-command latency: **45.47 → 46.38 s**, three of four pairs faster. It remains disabled. A [complete CLI/wcprof capture](NATIVE_GO_CLI_PROFILE.md) follows the larger discovery and metadata costs; its diagnostic time is not another benchmark result.

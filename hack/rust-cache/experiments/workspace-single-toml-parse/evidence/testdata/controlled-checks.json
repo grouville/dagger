@@ -1,0 +1,59 @@
+[
+  {
+    "label": "controlled-before",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/workspace-single-toml-parse/overlay-controlled.json",
+      "-count=1",
+      "./core/workspace"
+    ],
+    "seconds": 2.3467589190695435,
+    "exit_code": 0
+  },
+  {
+    "label": "controlled-after-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/workspace-single-toml-parse/overlay-controlled.json",
+      "-race",
+      "-count=1",
+      "./core/workspace"
+    ],
+    "seconds": 4.9610118040582165,
+    "exit_code": 0
+  },
+  {
+    "label": "engine-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "build",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/workspace-single-toml-parse/engine-overlay.json",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/workspace-single-toml-parse/dagger-engine",
+      "./cmd/engine"
+    ],
+    "seconds": 60.95366777293384,
+    "exit_code": 0,
+    "sha256": "cf88d6dcb9f5e0bb3619ac691393692906d2ce1abc0ab43f85065a9d955d5807"
+  }
+]
