@@ -2456,13 +2456,20 @@ func (s *Server) resolvePath(ctx context.Context, self AnyObjectResult, sel Sele
 			return s.resolveLeafList(ctx, val, enum)
 		}
 
+		projectScalars := s.canProjectScalarList(val, sel.Subselections)
 		// Has subselections - resolve in parallel
 		length := enum.Len()
 		results := make([]any, length) // TODO subtle: favor [] over null result
 		p := pool.New().WithErrors().WithMaxGoroutines(maxConcurrentResolvers)
 		for nth := 1; nth <= length; nth++ {
 			p.Go(func() error {
-				elemVal, err := s.loadNthValue(ctx, val, nth, false)
+				var elemVal AnyResult
+				var err error
+				if projectScalars {
+					elemVal, err = s.projectScalarListItem(ctx, val, enum, nth)
+				} else {
+					elemVal, err = s.loadNthValue(ctx, val, nth, false)
+				}
 				if err != nil {
 					return err
 				}

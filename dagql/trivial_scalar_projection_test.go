@@ -71,6 +71,7 @@ func scalarProjectionFixture(t testing.TB, count int) (context.Context, *Server,
 	srv, err := NewServer(ctx, &projectionTestQuery{})
 	require.NoError(t, err)
 	Fields[*projectionTestChild]{}.Install(srv)
+	srv.InstallObject(NewClass(srv, ClassOpts[*projectionTestRecord]{PureData: true}))
 	computed := new(atomic.Int64)
 	Fields[*projectionTestRecord]{Func("computed", func(_ context.Context, r *projectionTestRecord, _ struct{}) (int, error) {
 		computed.Add(1)

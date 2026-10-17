@@ -24,10 +24,11 @@ import (
 // The class is defined by a set of fields, which are installed into the class
 // dynamically at runtime.
 type Class[T Typed] struct {
-	inner   T
-	idable  bool
-	fields  map[string][]*Field[T]
-	fieldsL *sync.RWMutex
+	inner    T
+	idable   bool
+	pureData bool
+	fields   map[string][]*Field[T]
+	fieldsL  *sync.RWMutex
 
 	// Shared across value copies, like fields; cloned when the class is forked.
 	fieldOrder *[]string
@@ -81,6 +82,11 @@ func (class Class[T]) ImplementInterfaceUnchecked(iface *Interface) {
 }
 
 type ClassOpts[T Typed] struct {
+	// PureData identifies immutable values with no cache-bound resources,
+	// session requirements, lazy parts or release lifecycle. Scalar data
+	// selections may borrow inline list elements while their parent is retained.
+	PureData bool
+
 	// NoIDs disables the default "id" field and disables the IDType method.
 	NoIDs bool
 
@@ -106,6 +112,9 @@ func NewClass[T Typed](srv *Server, opts_ ...ClassOpts[T]) Class[T] {
 		if o.NoIDs {
 			opts.NoIDs = true
 		}
+		if o.PureData {
+			opts.PureData = true
+		}
 
 		if any(o.Typed) != nil {
 			opts.Typed = o.Typed
@@ -122,6 +131,7 @@ func NewClass[T Typed](srv *Server, opts_ ...ClassOpts[T]) Class[T] {
 
 	class := Class[T]{
 		inner:      opts.Typed,
+		pureData:   opts.PureData,
 		fields:     map[string][]*Field[T]{},
 		fieldsL:    new(sync.RWMutex),
 		fieldOrder: new([]string),
@@ -181,6 +191,8 @@ func NewClass[T Typed](srv *Server, opts_ ...ClassOpts[T]) Class[T] {
 	}
 	return class
 }
+
+func (class Class[T]) scalarProjectionSafe() bool { return class.pureData }
 
 func (class Class[T]) ForkObjectType(srv *Server) (ObjectType, error) {
 	class.fieldsL.RLock()

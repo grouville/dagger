@@ -44,7 +44,7 @@ func (s *artifactsSchema) Install(srv *dagql.Server) {
 			return dagql.NonNull(dagql.String(d.CollectionType)), nil
 		}).Doc("The collection type, or null for a static dimension."),
 	}.Install(srv)
-	srv.InstallObject(dagql.NewClass[*core.ArtifactDimensionKey](srv).View(AfterVersion("v1.0.0-0")))
+	srv.InstallObject(dagql.NewClass[*core.ArtifactDimensionKey](srv, dagql.ClassOpts[*core.ArtifactDimensionKey]{PureData: true}).View(AfterVersion("v1.0.0-0")))
 	artifactClass := dagql.NewClass[*core.Artifact](srv).View(AfterVersion("v1.0.0-0"))
 	srv.InstallObject(artifactClass)
 	srv.InstallObject(dagql.NewClass[*core.Artifacts](srv).View(AfterVersion("v1.0.0-0")))
