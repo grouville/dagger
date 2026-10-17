@@ -63,4 +63,6 @@ Keep useful engine fixes separate, with focused regression tests and an
 adversarial review. Push experiments to Guillaume's fork; open new upstream PRs
 only after explicit approval.
 
+The [schema-fork follow-up](NATIVE_COLLECTION_SCHEMA_FORKS.md) locates a 2.636-second client-admission interval aligned with interface inference in another initializer. Inheriting a clean flag fails view and field-update checks; a further invalidation refinement copies new fields with stale relationships during concurrent cloning. A separate custom-callback case exposes a lock cycle, without reproducing a production engine hang. Keep that prototype unselected. Evaluate an immutable prepared schema or complete version tracking before another full-command comparison. The accepted complete listing remains 39.20 seconds; the 2.636-second interval is a diagnostic observation, not a demonstrated saving.
+
 Current measurements, limitations and experiment details are in [README.md](README.md).
