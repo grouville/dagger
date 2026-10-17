@@ -1,0 +1,82 @@
+critpath of op 4161: 37.98s
+on-path time by class (sums to the roots' duration; concurrent work off the path gets nothing):
+     on_path      % segments  kind class
+      27.41s  72.2%     1362  internal dang.apiRequest
+       3.98s  10.5%      558  call ArtifactDimensionKey.dimensionKeys
+       2.81s   7.4%      245  call Artifact.items
+       1.84s   4.8%      236  internal dagql.publishResult
+    634.51ms   1.7%      111  call Artifact.dimensionKeys
+    493.61ms   1.3%        3  internal dang.evaluateFunction
+    187.73ms   0.5%        1  call Artifacts.items
+    173.87ms   0.5%        1  session_phase session.query
+    172.25ms   0.5%        5  call go:GoPackage.tests
+     96.49ms   0.3%        5  call Query.__schemaJSONFile
+     63.07ms   0.2%      303  call go:Go.packages
+     41.29ms   0.1%      528  call go:Query.go
+     28.92ms   0.1%     1338  call Module._implementationScoped
+      8.91ms   0.0%        3  internal dang.decodeSchema
+      6.52ms   0.0%        2  internal dang.flushTelemetry
+      6.08ms   0.0%       19  call go:GoPackages.get
+      4.34ms   0.0%        3  internal dang.runSource
+      3.96ms   0.0%        1  internal dang.runSource.parse
+      3.87ms   0.0%        3  internal dang.evalSource
+      3.80ms   0.0%        1  internal dang.runSource.infer
+      2.66ms   0.0%        2  internal dang.encodeResult
+      1.28ms   0.0%      176  call ArtifactDimensionKey.dimension
+      1.24ms   0.0%      188  call ArtifactDimensionKey.key
+      1.11ms   0.0%      246  call Query.typeDef
+     964.8µs   0.0%      233  call TypeDef.withOptional
+     941.9µs   0.0%        3  internal dang.selfTypes
+     671.7µs   0.0%        3  internal dang.openSchema
+     631.9µs   0.0%        3  internal dang.prepareSource
+     625.0µs   0.0%        1  internal dang.runSource.evaluate
+     510.3µs   0.0%       26  call Artifact.uri
+     431.5µs   0.0%      112  call TypeDef.withKind
+     363.4µs   0.0%       81  call TypeDef.withObject
+     248.8µs   0.0%       53  call TypeDef.withListOf
+     149.3µs   0.0%       23  call Artifact.description
+      40.8µs   0.0%        1  call Query.node
+  … 8 more classes (raise `top`)
+
+path of the longest (offsets from its start; `dur` on the path, `own` not in any blocker):
++0ns dur 37.98s own 5.7µs  4161 session_phase session.serveQuery [ok]
+  +20.4µs dur 37.98s own 173.87ms  4165 session_phase session.query [ok]
+    +240.7µs dur 28.57s own 187.73ms  4169 call Artifacts.items [executed] (exec 4170)
+      +8.78ms dur 15.92s own 20.84ms  4407 call go:Go.packages [executed] (exec 4408)
+        +28.67ms dur 15.88s own 1.85ms  4906 internal dang.evalSource [ok]
+          +44.63ms dur 15.87s own 3.6µs  4916 internal dang.invoke [ok]
+            +44.63ms dur 15.86s own 338.33ms  4917 internal dang.evaluateFunction [ok]
+              +66.40ms dur 2.20s own 2.20s  5660 internal dang.apiRequest [ok]
+              +2.50s dur 6.71s own 6.71s  26865 internal dang.apiRequest [ok]
+              +9.56s dur 448.71ms own 448.71ms  75915 internal dang.apiRequest [ok]
+              +10.01s..+15.91s … 963 shorter segments, 5.00s: internal dang.apiRequest:963
+              +10.08s dur 205.29ms own 205.29ms  86834 internal dang.apiRequest [ok]
+              +10.48s dur 153.77ms own 153.77ms  91471 internal dang.apiRequest [ok]
+              +10.63s dur 43.44ms own 43.44ms  95515 internal dang.apiRequest [ok]
+              +12.70s dur 166.44ms own 166.44ms  99657 internal dang.apiRequest [ok]
+              +12.96s dur 47.12ms own 47.12ms  101668 internal dang.apiRequest [ok]
+      +15.93s..+16.52s … 2185 shorter segments, 269.79ms: call Module._implementationScoped:1334 call go:Query.go:527 call go:Go.packages:302 +2 more
+      +16.34s dur 145.52ms own 78.72ms  116880 call go:GoPackage.tests [executed] (exec 117388)
+      +16.52s dur 12.04s own 90.62ms  118467 call go:GoPackage.tests [executed] (exec 119455)
+        +16.60s dur 11.93s own 1.81ms  119816 internal dang.evalSource [ok]
+          +16.61s dur 11.93s own 4.8µs  119855 internal dang.invoke [ok]
+            +16.61s dur 11.92s own 154.63ms  119856 internal dang.evaluateFunction [ok]
+              +16.61s dur 639.91ms own 639.91ms  119857 internal dang.apiRequest [ok]
+              +17.25s dur 2.82s own 2.82s  129835 internal dang.apiRequest [ok]
+              +20.06s dur 688.61ms own 688.61ms  145927 internal dang.apiRequest [ok]
+              +20.75s dur 852.34ms own 852.34ms  157714 internal dang.apiRequest [ok]
+              +21.94s dur 682.01ms own 682.01ms  174036 internal dang.apiRequest [ok]
+              +22.62s dur 293.53ms own 293.53ms  183013 internal dang.apiRequest [ok]
+              +22.92s dur 221.41ms own 221.41ms  187021 internal dang.apiRequest [ok]
+              +23.14s..+28.53s … 191 shorter segments, 4.98s: internal dang.apiRequest:191
+              +23.18s dur 91.06ms own 91.06ms  193507 internal dang.apiRequest [ok]
+              +23.44s dur 87.97ms own 87.97ms  198937 internal dang.apiRequest [ok]
+              +25.44s dur 88.79ms own 88.79ms  226626 internal dang.apiRequest [ok]
+    +28.63s..+37.92s … 1322 shorter segments, 8.31s: call ArtifactDimensionKey.dimensionKeys:557 call Artifact.items:241 call ArtifactDimensionKey.key:188 +4 more
+    +31.45s dur 174.91ms own 174.91ms  349066 call ArtifactDimensionKey.dimensionKeys [executed] (exec 351592)
+    +33.06s dur 164.89ms own 62.13ms  367262 call Artifact.items [executed] (exec 367986)
+    +33.22s dur 224.38ms own 14.07ms  369514 call Artifact.items [executed] (exec 369768)
+    +34.57s dur 198.52ms own 32.17ms  383151 call Artifact.items [executed] (exec 383531)
+    +35.30s dur 164.39ms own 56.22ms  397381 call Artifact.items [executed] (exec 398112)
+(947 segments not shown: runs of them totaling under 1% of the path, 1.60s)
+(runs of sub-1% segments totaling 1%+ show their largest members, the rest as "… N shorter"; ▸ N: N segments not expanded, raise `depth` or re-root with `op`; (exec N): a call folded with its call_exec op N)

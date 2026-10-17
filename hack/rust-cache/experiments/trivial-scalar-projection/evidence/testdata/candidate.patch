@@ -1,0 +1,29 @@
+--- a/dagql/objects.go
++++ b/dagql/objects.go
+@@ -653,7 +653,7 @@
+ 			ImplicitInputs: implicitInputs,
+ 		},
+ 		TTL:                  field.Spec.TTL,
+-		DoNotCache:           field.Spec.DoNotCache != "",
++		DoNotCache:           field.Spec.DoNotCache != "" || (field.Spec.Trivial && sel.Nth == 0 && trivialBuiltinScalar(field.Spec.Type)),
+ 		IsPersistable:        field.Spec.IsPersistable,
+ 		PassthroughTelemetry: field.Spec.PassthroughTelemetry,
+ 		// The immediate receiver's type name is free here (r is the receiver);
+@@ -2056,3 +2056,17 @@
+ 		return fmt.Errorf("appendAssign: cannot assign %T to %s", val, slice.Type())
+ 	}
+ }
++
++// Use concrete builtin values: a custom value can advertise Int while owning
++// resources. Object, array and custom scalar fields keep their existing paths.
++func trivialBuiltinScalar(value Typed) bool {
++	switch value := value.(type) {
++	case String, Int, Float, Boolean,
++		Nullable[String], Nullable[Int], Nullable[Float], Nullable[Boolean]:
++		return true
++	case DynamicNullable:
++		return trivialBuiltinScalar(value.Elem)
++	default:
++		return false
++	}
++}

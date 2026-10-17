@@ -1,0 +1,44 @@
+[
+  {
+    "arm": "baseline",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-v",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/cache-compaction-ownership/baseline-overlay.json",
+      "-race",
+      "-count=1",
+      "-run",
+      "^TestCompactionPreservesSnapshotsAcrossLaterMerges$",
+      "./dagql"
+    ],
+    "seconds": 67.30986069492064,
+    "exit_code": 0,
+    "test_executed_and_passed": true
+  },
+  {
+    "arm": "owned",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-v",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/cache-compaction-ownership/owned-overlay.json",
+      "-race",
+      "-count=1",
+      "-run",
+      "^TestCompactionPreservesSnapshotsAcrossLaterMerges$",
+      "./dagql"
+    ],
+    "seconds": 67.47990677203052,
+    "exit_code": 0,
+    "test_executed_and_passed": true
+  }
+]

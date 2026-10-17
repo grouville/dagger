@@ -1,0 +1,25 @@
+--- a/dagql/objects.go
++++ b/dagql/objects.go
+@@ -653,7 +653,7 @@
+ 			ImplicitInputs: implicitInputs,
+ 		},
+ 		TTL:                  field.Spec.TTL,
+-		DoNotCache:           field.Spec.DoNotCache != "",
++		DoNotCache:           field.Spec.DoNotCache != "" || (field.Spec.Trivial && sel.Nth == 0 && trivialBuiltinScalar(astType)),
+ 		IsPersistable:        field.Spec.IsPersistable,
+ 		PassthroughTelemetry: field.Spec.PassthroughTelemetry,
+ 		// The immediate receiver's type name is free here (r is the receiver);
+@@ -2056,3 +2056,13 @@
+ 		return fmt.Errorf("appendAssign: cannot assign %T to %s", val, slice.Type())
+ 	}
+ }
++
++// Scalar accessors return data already held by their receiver. Keep object,
++// array, enum and custom scalar results on their existing attachment paths.
++func trivialBuiltinScalar(typ *ast.Type) bool {
++    if typ == nil || typ.Elem != nil { return false }
++    switch typ.NamedType {
++    case "String", "Int", "Float", "Boolean": return true
++    default: return false
++    }
++}

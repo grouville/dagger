@@ -1,0 +1,44 @@
+[
+  {
+    "arm": "baseline",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-v",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/trivial-scalar-projection/baseline-overlay.json",
+      "-race",
+      "-count=1",
+      "-run",
+      "^TestTrivialScalarProjectionKeepsOwnedScalarAttached$",
+      "./dagql"
+    ],
+    "seconds": 68.3266429459909,
+    "exit_code": 0,
+    "log": "=== RUN   TestTrivialScalarProjectionKeepsOwnedScalarAttached\n--- PASS: TestTrivialScalarProjectionKeepsOwnedScalarAttached (0.00s)\nPASS\nok  \tgithub.com/dagger/dagger/dagql\t1.170s\n"
+  },
+  {
+    "arm": "candidate",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-v",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/trivial-scalar-projection/candidate-overlay.json",
+      "-race",
+      "-count=1",
+      "-run",
+      "^TestTrivialScalarProjectionKeepsOwnedScalarAttached$",
+      "./dagql"
+    ],
+    "seconds": 68.04956113302615,
+    "exit_code": 1,
+    "log": "=== RUN   TestTrivialScalarProjectionKeepsOwnedScalarAttached\n    trivial_scalar_projection_test.go:54: \n        \tError Trace:\t/tmp/dagger-compaction-ownership-only/dagql/trivial_scalar_projection_test.go:54\n        \tError:      \tReceived unexpected error:\n        \t            \tdo-not-cache result dagql.cacheTestOnReleaseInt cannot implement OnReleaser\n        \tTest:       \tTestTrivialScalarProjectionKeepsOwnedScalarAttached\n--- FAIL: TestTrivialScalarProjectionKeepsOwnedScalarAttached (0.00s)\nFAIL\nFAIL\tgithub.com/dagger/dagger/dagql\t0.142s\nFAIL\n"
+  }
+]

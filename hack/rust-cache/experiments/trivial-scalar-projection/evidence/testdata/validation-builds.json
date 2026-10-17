@@ -1,0 +1,86 @@
+[
+  {
+    "arm": "baseline",
+    "kind": "focused-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-v",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/trivial-scalar-projection/baseline-overlay.json",
+      "-race",
+      "-count=1",
+      "-run",
+      "^TestTrivialScalarProjectionKeepsObjectAndArrayIdentity$",
+      "./dagql"
+    ],
+    "seconds": 68.39417454390787,
+    "exit_code": 0,
+    "test_executed_and_passed": true
+  },
+  {
+    "arm": "candidate",
+    "kind": "focused-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-v",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/trivial-scalar-projection/candidate-overlay.json",
+      "-race",
+      "-count=1",
+      "-run",
+      "^TestTrivialScalarProjectionKeepsObjectAndArrayIdentity$",
+      "./dagql"
+    ],
+    "seconds": 68.7214061380364,
+    "exit_code": 0,
+    "test_executed_and_passed": true
+  },
+  {
+    "arm": "baseline",
+    "kind": "component-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-c",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/trivial-scalar-projection/baseline-overlay.json",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/trivial-scalar-projection/baseline.test",
+      "./dagql"
+    ],
+    "seconds": 34.70988782902714,
+    "exit_code": 0,
+    "sha256": "ba1d48cc5165ccf293f7f42b0340cea53ef1066540a92b98771c5a5be73d028a"
+  },
+  {
+    "arm": "candidate",
+    "kind": "component-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-c",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/trivial-scalar-projection/candidate-overlay.json",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/trivial-scalar-projection/candidate.test",
+      "./dagql"
+    ],
+    "seconds": 34.60194544598926,
+    "exit_code": 0,
+    "sha256": "9157d671c93e8659caf920c537c4719732c177253a36b7a4a31eb0125e28f4ad"
+  }
+]

@@ -1,0 +1,103 @@
+[
+  {
+    "label": "final-dagql-race",
+    "workdir": "/tmp/dagger-compaction-ownership-only",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/trivial-scalar-projection/candidate-overlay.json",
+      "-race",
+      "-count=1",
+      "./dagql"
+    ],
+    "seconds": 133.9877273188904,
+    "exit_code": 0
+  },
+  {
+    "label": "final-core-retention-race",
+    "workdir": "/tmp/dagger-compaction-ownership-only",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-v",
+      "-p",
+      "1",
+      "-buildvcs=false",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/trivial-scalar-projection/candidate-overlay.json",
+      "-race",
+      "-count=1",
+      "-run",
+      "^Test(ModuleObject|LazyStoredResultsWithoutBacking)",
+      "./core",
+      "./core/schema"
+    ],
+    "seconds": 175.94416410906706,
+    "exit_code": 0
+  },
+  {
+    "label": "final-baseline-build",
+    "workdir": "/tmp/dagger-compaction-ownership-only",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-c",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/trivial-scalar-projection/baseline-overlay.json",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/trivial-scalar-projection/baseline.test",
+      "./dagql"
+    ],
+    "seconds": 34.578491932014,
+    "exit_code": 0,
+    "sha256": "af2b00bf800ee52a81d63ce87722b422628811dac86142613042b5284bea6c4e"
+  },
+  {
+    "label": "final-candidate-build",
+    "workdir": "/tmp/dagger-compaction-ownership-only",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-c",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/trivial-scalar-projection/candidate-overlay.json",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/trivial-scalar-projection/candidate.test",
+      "./dagql"
+    ],
+    "seconds": 34.48671474296134,
+    "exit_code": 0,
+    "sha256": "79c2a0616e64b3d19d19b763a366ce61dd70f5119d2abe1c982388727ec9f329"
+  },
+  {
+    "label": "final-engine-build",
+    "workdir": "/tmp/dagger-filesync-snapshot-seeds",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "build",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/trivial-scalar-projection/engine-overlay.json",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/trivial-scalar-projection/dagger-engine",
+      "./cmd/engine"
+    ],
+    "seconds": 67.20847584994044,
+    "exit_code": 0,
+    "sha256": "e47f01f1ca7a7000216b39df21109b70eb9e91b263200c19a2114615f31cd067"
+  }
+]

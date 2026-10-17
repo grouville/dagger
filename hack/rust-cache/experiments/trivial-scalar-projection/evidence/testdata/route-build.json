@@ -1,0 +1,32 @@
+[
+  {
+    "label": "route-before-retained",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/trivial-scalar-projection/verify_retained_first.py",
+      "scalar-projection-route-before-first"
+    ],
+    "seconds": 6.660533779999241,
+    "exit_code": 0
+  },
+  {
+    "label": "route-engine-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "build",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/trivial-scalar-projection/engine-overlay.json",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/trivial-scalar-projection/dagger-engine",
+      "./cmd/engine"
+    ],
+    "seconds": 59.839709224994294,
+    "exit_code": 0,
+    "sha256": "9123a6a58dbfe9c584e72d3882d2fc635374542a17a58e9c23f456b991568c08"
+  }
+]
