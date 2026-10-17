@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/bits"
 	"slices"
 	"time"
 
@@ -2038,7 +2039,17 @@ func (c *Cache) compactEqClassesModeLocked(force, freeAll bool) (changed bool, o
 		return false, 0, 0
 	}
 
-	liveRoots := make(map[eqClassID]struct{})
+	// Class IDs already index egraphParents. A bitmap tracks live roots in
+	// ascending order without hashing each reference or sorting the roots.
+	liveRoots := make([]uint64, (len(c.egraphParents)+63)/64)
+	liveCount := 0
+	markLive := func(root eqClassID) {
+		word, bit := root/64, uint64(1)<<(root%64)
+		if liveRoots[word]&bit == 0 {
+			liveRoots[word] |= bit
+			liveCount++
+		}
+	}
 	for _, term := range c.egraphTerms {
 		if term == nil {
 			continue
@@ -2046,41 +2057,54 @@ func (c *Cache) compactEqClassesModeLocked(force, freeAll bool) (changed bool, o
 		for _, inputEqID := range term.inputEqIDs {
 			root := c.findEqClassLocked(inputEqID)
 			if root != 0 {
-				liveRoots[root] = struct{}{}
+				markLive(root)
 			}
 		}
 		root := c.findEqClassLocked(term.outputEqID)
 		if root != 0 {
-			liveRoots[root] = struct{}{}
+			markLive(root)
 		}
 	}
 	for _, outputEqIDs := range c.resultOutputEqClasses {
 		for outputEqID := range outputEqIDs {
 			root := c.findEqClassLocked(outputEqID)
 			if root != 0 {
-				liveRoots[root] = struct{}{}
+				markLive(root)
 			}
 		}
 	}
 
 	oldSlots = len(c.egraphParents) - 1
-	newSlots = len(liveRoots)
+	newSlots = liveCount
 	if (newSlots == 0 && !freeAll) || oldSlots == newSlots || (!force && oldSlots < newSlots*2) {
 		return false, oldSlots, newSlots
 	}
 
-	oldRoots := make([]eqClassID, 0, len(liveRoots))
-	for root := range liveRoots {
-		oldRoots = append(oldRoots, root)
+	oldRoots := make([]eqClassID, 0, liveCount)
+	// A live root's rank is its new ID. Prefix counts cover preceding words;
+	// the population count below includes the root itself, reserving ID zero.
+	prefix := make([]eqClassID, len(liveRoots))
+	for word, live := range liveRoots {
+		prefix[word] = eqClassID(len(oldRoots))
+		for live != 0 {
+			bit := bits.TrailingZeros64(live)
+			oldRoots = append(oldRoots, eqClassID(word*64+bit))
+			live &= live - 1
+		}
 	}
-	slices.Sort(oldRoots)
-
-	remap := make(map[eqClassID]eqClassID, len(oldRoots))
+	remap := func(root eqClassID) eqClassID {
+		word, bit := root/64, uint(root%64)
+		live := liveRoots[word]
+		if live&(uint64(1)<<bit) == 0 {
+			return 0
+		}
+		mask := ^uint64(0) >> (63 - bit)
+		return prefix[word] + eqClassID(bits.OnesCount64(live&mask))
+	}
 	newParents := make([]eqClassID, len(oldRoots)+1)
 	newRanks := make([]uint8, len(oldRoots)+1)
-	for i, oldRoot := range oldRoots {
+	for i := range oldRoots {
 		newRoot := eqClassID(i + 1)
-		remap[oldRoot] = newRoot
 		newParents[newRoot] = newRoot
 	}
 
@@ -2092,7 +2116,7 @@ func (c *Cache) compactEqClassesModeLocked(force, freeAll bool) (changed bool, o
 	}
 	newEgraphDigestToClass := make(map[string]eqClassID, liveDigests)
 	for _, oldRoot := range oldRoots {
-		newRoot := remap[oldRoot]
+		newRoot := remap(oldRoot)
 		if oldDigests := c.eqClassToDigests[oldRoot]; len(oldDigests) > 0 {
 			newDigests := make(map[string]struct{}, len(oldDigests))
 			for dig := range oldDigests {
@@ -2120,7 +2144,7 @@ func (c *Cache) compactEqClassesModeLocked(force, freeAll bool) (changed bool, o
 		newInputEqIDs := make([]eqClassID, 0, len(term.inputEqIDs))
 		for _, inputEqID := range term.inputEqIDs {
 			root := c.findEqClassLocked(inputEqID)
-			newRoot := remap[root]
+			newRoot := remap(root)
 			if newRoot == 0 {
 				continue
 			}
@@ -2135,7 +2159,7 @@ func (c *Cache) compactEqClassesModeLocked(force, freeAll bool) (changed bool, o
 		term.inputEqIDs = newInputEqIDs
 
 		outputRoot := c.findEqClassLocked(term.outputEqID)
-		newOutputRoot := remap[outputRoot]
+		newOutputRoot := remap(outputRoot)
 		if newOutputRoot == 0 {
 			continue
 		}
@@ -2162,7 +2186,7 @@ func (c *Cache) compactEqClassesModeLocked(force, freeAll bool) (changed bool, o
 		newOutputEqIDs := make(map[eqClassID]struct{}, len(outputEqIDs))
 		for outputEqID := range outputEqIDs {
 			root := c.findEqClassLocked(outputEqID)
-			newRoot := remap[root]
+			newRoot := remap(root)
 			if newRoot != 0 {
 				newOutputEqIDs[newRoot] = struct{}{}
 			}
