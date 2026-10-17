@@ -1,0 +1,49 @@
+Total: 250.77s
+ROUTINE ======================== github.com/vito/dang/v2/pkg/dang.registerStdlib.func29 in /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/stdlib.go
+         0     14.22s (flat, cum)  5.67% of Total
+         .          .    601:			list := self.(ListValue)
+         .          .    602:
+         .          .    603:			if args.Block == nil {
+         .          .    604:				return nil, fmt.Errorf("map requires a block argument")
+         .          .    605:			}
+         .          .    606:			fn := *args.Block
+         .          .    607:
+         .          .    608:			// Get the return type from the function's type
+         .          .    609:			fnType, ok := fn.Type().(*hm.FunctionType)
+         .          .    610:			if !ok {
+         .          .    611:				return nil, fmt.Errorf("map expects a function type, got %T", fn.Type())
+         .          .    612:			}
+         .          .    613:			resultElemType := fnType.ReturnType()
+         .          .    614:
+         .          .    615:			var result []Value
+         .          .    616:			for i, item := range list.Elements {
+         .          .    617:				res, err := callFunc(ctx, fn, item, IntValue{i})
+         .     14.13s    618:				if err != nil {
+         .          .    619:					return nil, fmt.Errorf("map function: %w", err)
+         .          .    620:				}
+         .          .    621:
+         .          .    622:				result = append(result, res)
+         .       90ms    623:			}
+         .          .    624:
+         .          .    625:			return ListValue{
+         .          .    626:				Elements: result,
+         .          .    627:				ElemType: resultElemType,
+         .          .    628:			}, nil
+ROUTINE ======================== github.com/vito/dang/v2/pkg/dang.registerStdlib.func34 in /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/stdlib.go
+         0     20.04s (flat, cum)  7.99% of Total
+         .          .    750:			list := self.(ListValue)
+         .          .    751:
+         .          .    752:			if args.Block == nil {
+         .          .    753:				return nil, fmt.Errorf("reduce requires a block argument")
+         .          .    754:			}
+         .          .    755:			fn := *args.Block
+         .          .    756:			accumulator, _ := args.Get("initial")
+         .          .    757:
+         .          .    758:			for _, item := range list.Elements {
+         .          .    759:				result, err := callFunc(ctx, fn, accumulator, item)
+         .     20.04s    760:				if err != nil {
+         .          .    761:					return nil, fmt.Errorf("reduce function: %w", err)
+         .          .    762:				}
+         .          .    763:				accumulator = result
+         .          .    764:			}
+         .          .    765:

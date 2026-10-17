@@ -1,0 +1,1246 @@
+package server
+
+import (
+	"cmp"
+	"context"
+	"crypto/rand"
+	"encoding/base64"
+	"errors"
+	"fmt"
+	"io"
+	"maps"
+	"os"
+	"path/filepath"
+	"runtime"
+	"slices"
+	"strconv"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/containerd/containerd/v2/core/content"
+	"github.com/containerd/containerd/v2/core/diff/apply"
+	ctdmetadata "github.com/containerd/containerd/v2/core/metadata"
+	"github.com/containerd/containerd/v2/core/remotes/docker"
+	ctdsnapshot "github.com/containerd/containerd/v2/core/snapshots"
+	"github.com/containerd/containerd/v2/core/snapshots/storage"
+	localcontentstore "github.com/containerd/containerd/v2/plugins/content/local"
+	"github.com/containerd/containerd/v2/plugins/diff/walking"
+	"github.com/containerd/go-runc"
+	"github.com/containerd/platforms"
+	"github.com/dagger/dagger/core"
+	"github.com/dagger/dagger/core/schema"
+	"github.com/dagger/dagger/dagql"
+	"github.com/dagger/dagger/engine/config"
+	bkcache "github.com/dagger/dagger/engine/snapshots"
+	containerdsnapshot "github.com/dagger/dagger/engine/snapshots/containerd"
+	controlapi "github.com/dagger/dagger/internal/buildkit/api/services/control"
+	apitypes "github.com/dagger/dagger/internal/buildkit/api/types"
+	bkconfig "github.com/dagger/dagger/internal/buildkit/cmd/buildkitd/config"
+	"github.com/dagger/dagger/internal/buildkit/executor/oci"
+	"github.com/dagger/dagger/internal/buildkit/solver/pb"
+	"github.com/dagger/dagger/internal/buildkit/util/archutil"
+	"github.com/dagger/dagger/internal/buildkit/util/entitlements"
+	"github.com/dagger/dagger/internal/buildkit/util/network"
+	"github.com/dagger/dagger/internal/buildkit/util/network/cniprovider"
+	"github.com/dagger/dagger/internal/buildkit/util/network/netproviders"
+	resolverconfig "github.com/dagger/dagger/internal/buildkit/util/resolver/config"
+	"github.com/dagger/dagger/internal/buildkit/util/throttle"
+	"github.com/dagger/dagger/internal/buildkit/util/winlayers"
+	wlabel "github.com/dagger/dagger/internal/buildkit/worker/label"
+	"github.com/google/uuid"
+	"github.com/moby/locker"
+	ocispecs "github.com/opencontainers/image-spec/specs-go/v1"
+	"github.com/sirupsen/logrus"
+	bolt "go.etcd.io/bbolt"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sys/unix"
+	"google.golang.org/grpc"
+
+	"github.com/dagger/dagger/engine"
+	"github.com/dagger/dagger/engine/archive"
+	"github.com/dagger/dagger/engine/clientdb"
+	"github.com/dagger/dagger/engine/distconsts"
+	"github.com/dagger/dagger/engine/ebpf/nettracer"
+	"github.com/dagger/dagger/engine/engineutil"
+	"github.com/dagger/dagger/engine/server/resolver"
+	"github.com/dagger/dagger/engine/slog"
+	enginetel "github.com/dagger/dagger/engine/telemetry"
+)
+
+type Server struct {
+	controlapi.UnimplementedControlServer
+	engineName string
+
+	// newSessionGRPC serves the control API on new session endpoints that
+	// execs get with daggerInDaggerNewSession; built on first use.
+	newSessionGRPCOnce sync.Once
+	newSessionGRPC     *grpc.Server
+	// engineInstanceID names this engine process: a random ID created once at
+	// startup, the service.instance.id of its telemetry.
+	engineInstanceID string
+	workloadExport   *enginetel.WorkloadExport
+	// engineEvents reports the engine's cache events and engineEventExport
+	// sends them; both nil when the engine reports none.
+	// engineEventShutdownBudget bounds the events' whole shutdown.
+	engineEvents              *engineEventEmitter
+	engineEventExport         EngineEventExport
+	engineEventShutdownBudget time.Duration
+	// wipedCacheID is the identity of a dagql cache database this start
+	// wiped, for engine.start.
+	wipedCacheID string
+	// sessionCloudFlushTimeout overrides sessionTelemetryFlushTimeout when
+	// set, for tests.
+	sessionCloudFlushTimeout time.Duration
+	// cloudForwardTuning overrides the Cloud forwarders' limits when set, for
+	// tests.
+	cloudForwardTuning *cloudForwardTuning
+	// cloudForwarders are the sessions' active store-to-Cloud forwarders,
+	// some outliving their sessions; their stores are kept from collection.
+	cloudForwarders cloudForwarders
+	// cloudReach remembers whether this engine reaches the Cloud URLs clients
+	// hand it, so each session need not probe.
+	cloudReach cloudReachability
+
+	//
+	// state directory/db paths
+	//
+
+	rootDir string
+
+	workerRootDir         string
+	snapshotterRootDir    string
+	snapshotterDBPath     string
+	contentStoreRootDir   string
+	containerdMetaDBPath  string
+	workerCacheMetaDBPath string
+	buildkitMountPoolDir  string
+	executorRootDir       string
+	clientDBDir           string
+
+	//
+	// buildkit+containerd entities/DBs
+	//
+
+	engineUtilOpts        *engineutil.Opts
+	workerCache           bkcache.SnapshotManager
+	workerGCPolicies      []dagql.CachePrunePolicy
+	workerDefaultGCPolicy *dagql.CachePrunePolicy
+
+	containerdMetaBoltDB *bolt.DB
+	containerdMetaDB     *ctdmetadata.DB
+	snapshotGarbage      *snapshotGarbage
+	localContentStore    content.Store
+	contentStore         *containerdsnapshot.Store
+	builtinContentStore  content.Store
+
+	snapshotter        ctdsnapshot.Snapshotter
+	snapshotterMDStore *storage.MetaStore // only set for overlay snapshotter right now
+	snapshotterName    string
+	leaseManager       *bkcache.LeaseManager
+
+	corruptDBReset bool
+
+	//
+	// worker/executor-specific config+state
+	//
+
+	runc                    *runc.Runc
+	cgroupParent            string
+	networkProviders        map[pb.NetMode]network.Provider
+	processMode             oci.ProcessMode
+	dns                     *oci.DNSConfig
+	apparmorProfile         string
+	selinux                 bool
+	entitlements            entitlements.Set
+	enabledPlatforms        []ocispecs.Platform
+	defaultPlatform         ocispecs.Platform
+	registryHosts           docker.RegistryHosts
+	cleanMntNS              *os.File
+	recursiveReadOnlyMounts bool
+
+	//
+	// telemetry config+state
+	//
+
+	telemetryPubSub *PubSub
+
+	// wcprofSpanCount declares, per trace, how many engine spans the engine emitted
+	// — the producer half of the wcprof completeness checksum, so the
+	// loader can refuse a trace that silently dropped a leaf span. Registered on
+	// each session-owned tracer provider so nested-client spans count into the
+	// same trace.
+	wcprofSpanCount *wcprofSpanCounter
+
+	coreSchemaBase   *schema.CoreSchemaBase
+	coreSchemaBaseMu sync.Mutex
+
+	//
+	// gc related
+	//
+	throttledSessionGC             func()
+	throttledLocalCachePressureGC  func()
+	gcmu                           sync.Mutex
+	localCacheGCEnabled            bool
+	dagqlCacheMaxEstimatedBytes    int64
+	dagqlCacheTargetEstimatedBytes int64
+	metadataPruneMonitorBlocked    atomic.Bool
+
+	shutdownCtx    context.Context
+	shutdownCancel context.CancelCauseFunc
+	shuttingDown   atomic.Bool
+
+	//
+	// dagql cache
+	//
+	engineCache *dagql.Cache
+	// remoteCacheAdapter is nil unless an integration is configured.
+	remoteCacheAdapter *RemoteCacheAdapter
+
+	//
+	// session+client state
+	//
+	daggerSessions     map[string]*daggerSession // session id -> session state
+	releasedSessionIDs map[string]struct{}
+	daggerSessionsMu   sync.RWMutex
+	clientDBs          *clientdb.DBs
+	archives           *archive.Manager
+
+	locker *locker.Locker
+
+	secretSalt []byte
+}
+
+var configureBboltDefaultsOnce sync.Once
+
+type localCacheStateResetReason string
+
+const (
+	localCacheStateResetNone             localCacheStateResetReason = ""
+	localCacheStateResetBoltDBInitFailed localCacheStateResetReason = "boltdb_init_failed"
+	localCacheStateResetDagqlOpenFailed  localCacheStateResetReason = "dagql_open_failed"
+)
+
+type NewServerOpts struct {
+	Name           string
+	Config         *config.Config
+	BuildkitConfig *bkconfig.Config
+	// RemoteCacheIntegration is nil, and remote cache renewal off, by default.
+	RemoteCacheIntegration *RemoteCacheIntegrationConfig
+	// EngineInstanceID names this engine process. NewServer creates a random
+	// one when it is empty.
+	EngineInstanceID string
+	// EngineEvents, when set, receives the engine's cache events as OTel log
+	// records through its logger.
+	EngineEvents EngineEventExport
+	// WorkloadExport is engine-owned and independent of session Cloud export.
+	WorkloadExport *enginetel.WorkloadExport
+}
+
+const (
+	secretSaltEnvName = "DAGGER_SECRET_SALT"
+	secretSaltSize    = 32
+)
+
+func NewServer(ctx context.Context, opts *NewServerOpts) (*Server, error) {
+	if err := validateRemoteCacheIntegration(opts.RemoteCacheIntegration); err != nil {
+		return nil, err
+	}
+	cfg := opts.Config
+	bkcfg := opts.BuildkitConfig
+	ociCfg := bkcfg.Workers.OCI
+
+	srv := &Server{
+		engineName:       opts.Name,
+		engineInstanceID: cmp.Or(opts.EngineInstanceID, uuid.NewString()),
+		workloadExport:   opts.WorkloadExport,
+
+		rootDir: bkcfg.Root,
+
+		cgroupParent:    ociCfg.DefaultCgroupParent,
+		processMode:     oci.ProcessSandbox,
+		apparmorProfile: ociCfg.ApparmorProfile,
+		selinux:         ociCfg.SELinux,
+		entitlements:    entitlements.Set{},
+		dns: &oci.DNSConfig{
+			Nameservers:   bkcfg.DNS.Nameservers,
+			Options:       bkcfg.DNS.Options,
+			SearchDomains: bkcfg.DNS.SearchDomains,
+		},
+
+		daggerSessions:     make(map[string]*daggerSession),
+		releasedSessionIDs: make(map[string]struct{}),
+
+		locker: locker.New(),
+	}
+	if opts.EngineEvents != nil {
+		srv.engineEventExport = opts.EngineEvents
+		srv.engineEvents = newEngineEventEmitter(opts.EngineEvents.Logger())
+		srv.engineEventShutdownBudget = engineEventShutdownTimeout
+	}
+	srv.shutdownCtx, srv.shutdownCancel = context.WithCancelCause(context.Background())
+
+	var err error
+	if err := srv.configureLocalCacheGC(cfg.GC, ociCfg.GCConfig); err != nil {
+		return nil, err
+	}
+
+	// Let core (e.g. changeset export) drop this server's per-client workspace
+	// cache after workspace config is written to the host. One engine = one
+	// Server, so a process-global hook is sufficient.
+	core.SetWorkspaceInvalidator(srv.invalidateClientWorkspace)
+
+	// Let core scope and bump each client's "workspace read epoch", so a
+	// long-lived session (e.g. `dagger agent`) can invalidate its cached host
+	// reads once the workspace's on-disk content changes under it (export).
+	core.SetWorkspaceReadEpochHooks(srv.currentWorkspaceReadEpoch, srv.bumpClientWorkspaceReadEpoch)
+
+	// start the global namespace worker pool, which is used for running Go funcs
+	// in container namespaces dynamically
+	engineutil.GetGlobalNamespaceWorkerPool().Start()
+
+	//
+	// setup directories and paths
+	//
+
+	if err := srv.initRootPaths(); err != nil {
+		return nil, err
+	}
+
+	// Opened before the local cache state: the snapshot manager takes the
+	// builtin store at construction, for chain imports of builtin layers.
+	srv.builtinContentStore, err = openBuiltinOCIStore()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open builtin content store: %w", err)
+	}
+
+	if err := srv.initLocalCacheState(ctx, *cfg, ociCfg); err != nil {
+		return nil, err
+	}
+	srv.startEngineEvents()
+
+	// Sweep any worker state moved aside by a cache reset — this startup's or
+	// an interrupted sweep from a previous one — in the background.
+	srv.startLocalCacheTrashSweeper()
+
+	//
+	// clean up old hosts/resolv.conf file. ignore errors
+	//
+	os.RemoveAll(filepath.Join(srv.executorRootDir, "hosts"))
+	os.RemoveAll(filepath.Join(srv.executorRootDir, "resolv.conf"))
+
+	//
+	// set up client DBs, and the telemetry pub/sub which writes to it
+	//
+
+	if err := srv.initArchives(); err != nil {
+		return nil, err
+	}
+	srv.telemetryPubSub = NewPubSub(srv)
+	srv.wcprofSpanCount = newWcprofSpanCounter()
+
+	//
+	// setup config derived from engine config
+	//
+
+	if cfg.Security != nil {
+		// prioritize out config first if it's set
+		if cfg.Security.InsecureRootCapabilities == nil || *cfg.Security.InsecureRootCapabilities {
+			srv.entitlements[entitlements.EntitlementSecurityInsecure] = struct{}{}
+			srv.entitlements[entitlements.EntitlementNetworkHost] = struct{}{}
+		}
+	} else if bkcfg.Entitlements != nil {
+		// fallback to the dagger config
+		for _, entStr := range bkcfg.Entitlements {
+			ent, err := entitlements.Parse(entStr)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse entitlement %s: %w", entStr, err)
+			}
+			srv.entitlements[ent] = struct{}{}
+		}
+	} else {
+		// no config? apply dagger-specific defaults
+		srv.entitlements[entitlements.EntitlementSecurityInsecure] = struct{}{}
+		srv.entitlements[entitlements.EntitlementNetworkHost] = struct{}{}
+	}
+
+	srv.defaultPlatform = platforms.Normalize(platforms.DefaultSpec())
+	if platformsStr := ociCfg.Platforms; len(platformsStr) != 0 {
+		var err error
+		srv.enabledPlatforms, err = parsePlatforms(platformsStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid platforms: %w", err)
+		}
+	}
+	if len(srv.enabledPlatforms) == 0 {
+		srv.enabledPlatforms = []ocispecs.Platform{srv.defaultPlatform}
+	}
+
+	registries := bkcfg.Registries
+	if len(registries) == 0 {
+		registries = map[string]resolverconfig.RegistryConfig{}
+	}
+	for k, v := range cfg.Registries {
+		registries[k] = resolverconfig.RegistryConfig{
+			Mirrors:   v.Mirrors,
+			PlainHTTP: v.PlainHTTP,
+			Insecure:  v.Insecure,
+			RootCAs:   v.RootCAs,
+		}
+	}
+	srv.registryHosts = newRegistryHosts(registries)
+
+	//
+	// setup worker+executor
+	//
+
+	srv.runc = &runc.Runc{
+		Command:   distconsts.RuntimePath,
+		Log:       filepath.Join(srv.executorRootDir, "runc-log.json"),
+		LogFormat: runc.JSON,
+		Setpgid:   true,
+		// TODO: this isn't technically needed (and breaks obscure things around goroutines+namespaces) right now,
+		// but could be if we support the engine running outside a container someday
+		// PdeathSignal: syscall.SIGKILL,
+	}
+
+	var npResolvedMode string
+	srv.networkProviders, npResolvedMode, err = netproviders.Providers(netproviders.Opt{
+		Mode: bkcfg.Workers.OCI.NetworkConfig.Mode,
+		CNI: cniprovider.Opt{
+			Root:       srv.rootDir,
+			ConfigPath: bkcfg.Workers.OCI.CNIConfigPath,
+			BinaryDir:  bkcfg.Workers.OCI.CNIBinaryPath,
+			PoolSize:   bkcfg.Workers.OCI.CNIPoolSize,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create network providers: %w", err)
+	}
+	attachWorkloadNetworkAccounting(srv.cgroupParent)
+
+	baseLabels := map[string]string{
+		wlabel.Executor:       "oci",
+		wlabel.Snapshotter:    srv.snapshotterName,
+		wlabel.Network:        npResolvedMode,
+		wlabel.OCIProcessMode: srv.processMode.String(),
+		wlabel.SELinuxEnabled: strconv.FormatBool(ociCfg.SELinux),
+	}
+	if ociCfg.ApparmorProfile != "" {
+		baseLabels[wlabel.ApparmorProfile] = ociCfg.ApparmorProfile
+	}
+	if hostname, err := os.Hostname(); err != nil {
+		baseLabels[wlabel.Hostname] = "unknown"
+	} else {
+		baseLabels[wlabel.Hostname] = hostname
+	}
+	maps.Copy(baseLabels, ociCfg.Labels)
+
+	workerSnapshotter := containerdsnapshot.NewSnapshotter(
+		srv.snapshotterName,
+		srv.containerdMetaDB.Snapshotter(srv.snapshotterName),
+		"dagger",
+	)
+
+	archutil.WarnIfUnsupported(srv.enabledPlatforms)
+
+	srv.initRecursiveReadOnlyMounts(ctx)
+
+	hostMntNS, err := os.OpenFile("/proc/self/ns/mnt", os.O_RDONLY, 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open host mount namespace: %w", err)
+	}
+
+	var eg errgroup.Group
+	eg.Go(func() error {
+		runtime.LockOSThread()
+		if err := unix.Unshare(unix.CLONE_NEWNS); err != nil {
+			return fmt.Errorf("failed to create clean mount namespace: %w", err)
+		}
+		var err error
+		srv.cleanMntNS, err = os.OpenFile("/proc/thread-self/ns/mnt", os.O_RDONLY, 0)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err := eg.Wait(); err != nil {
+		return nil, fmt.Errorf("failed to create clean mount namespace: %w", err)
+	}
+
+	srv.engineUtilOpts, err = engineutil.NewOpts(engineutil.Opts{
+		ID:               rand.Text(),
+		Labels:           baseLabels,
+		Platforms:        srv.enabledPlatforms,
+		NetworkProviders: srv.networkProviders,
+		Snapshotter:      workerSnapshotter,
+		LeaseManager:     srv.leaseManager,
+		ContentStore:     srv.contentStore,
+		Applier:          winlayers.NewFileSystemApplierWithWindows(srv.contentStore, apply.NewFileSystemApplier(srv.contentStore)),
+		Differ:           winlayers.NewWalkingDiffWithWindows(srv.contentStore, walking.NewWalkingDiff(srv.contentStore)),
+		IdentityMapping:  nil, // no idmapping
+		ExecutorRoot:     srv.executorRootDir,
+		TelemetryPubSub:  srv.telemetryPubSub,
+		SessionHandler:   srv,
+
+		Runc:                srv.runc,
+		DefaultCgroupParent: srv.cgroupParent,
+		ProcessMode:         srv.processMode,
+		DNSConfig:           srv.dns,
+		ApparmorProfile:     srv.apparmorProfile,
+		SELinux:             srv.selinux,
+		Entitlements:        srv.entitlements,
+
+		HostMntNS:  hostMntNS,
+		CleanMntNS: srv.cleanMntNS,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize engine util opts: %w", err)
+	}
+
+	//
+	// setup solver
+	//
+
+	srv.throttledSessionGC = throttle.After(localCacheSessionGCThrottle, srv.gcAfterSessionCompletion)
+	srv.throttledLocalCachePressureGC = throttle.After(localCachePressureGCThrottle, srv.gcIfLocalCachePressure)
+	defer func() {
+		time.AfterFunc(time.Second, srv.gc)
+	}()
+	srv.startLocalCachePressureGCMonitor()
+
+	// garbage collect client DBs
+	go srv.gcClientDBs()
+
+	// initialize the secret salt
+	srv.secretSalt, err = loadSecretSalt(srv.rootDir)
+	if err != nil {
+		return nil, err
+	}
+
+	// Early snapshot sharing is admitted only on an engine that can receive
+	// imports, after restored ownership is ready and before any external
+	// control or request can arrive.
+	if err := srv.initSnapshotSharing(ctx, opts); err != nil {
+		return nil, err
+	}
+
+	// The integration attaches after local cache initialization and before
+	// the server dispatches any request.
+	if err := srv.startRemoteCacheIntegration(opts.RemoteCacheIntegration); err != nil {
+		return nil, err
+	}
+
+	return srv, nil
+}
+
+func (srv *Server) initRootPaths() error {
+	var err error
+	srv.rootDir, err = filepath.Abs(srv.rootDir)
+	if err != nil {
+		return err
+	}
+	srv.rootDir, err = filepath.EvalSymlinks(srv.rootDir)
+	if err != nil {
+		return err
+	}
+
+	srv.workerRootDir = filepath.Join(srv.rootDir, "worker")
+	srv.snapshotterRootDir = filepath.Join(srv.workerRootDir, "snapshots")
+	srv.snapshotterDBPath = filepath.Join(srv.snapshotterRootDir, "metadata.db")
+	srv.contentStoreRootDir = filepath.Join(srv.workerRootDir, "content")
+	srv.containerdMetaDBPath = filepath.Join(srv.workerRootDir, "containerdmeta.db")
+	srv.workerCacheMetaDBPath = filepath.Join(srv.workerRootDir, "metadata_v2.db")
+	srv.buildkitMountPoolDir = filepath.Join(srv.workerRootDir, "cachemounts")
+	srv.executorRootDir = filepath.Join(srv.workerRootDir, "executor")
+	return nil
+}
+
+func loadSecretSalt(rootDir string) ([]byte, error) {
+	if encodedSalt, ok := os.LookupEnv(secretSaltEnvName); ok {
+		encoding := base64.StdEncoding.Strict()
+		secretSalt, err := encoding.DecodeString(encodedSalt)
+		if err != nil {
+			return nil, fmt.Errorf("decode %s: %w", secretSaltEnvName, err)
+		}
+		if len(secretSalt) != secretSaltSize {
+			return nil, fmt.Errorf("%s must decode to exactly %d bytes, got %d", secretSaltEnvName, secretSaltSize, len(secretSalt))
+		}
+		if encoding.EncodeToString(secretSalt) != encodedSalt {
+			return nil, fmt.Errorf("%s must use canonical base64 encoding", secretSaltEnvName)
+		}
+		return secretSalt, nil
+	}
+
+	secretSaltPath := filepath.Join(rootDir, "secret-salt")
+	secretSalt, err := os.ReadFile(secretSaltPath)
+	if err == nil && len(secretSalt) == secretSaltSize {
+		return secretSalt, nil
+	}
+	if err != nil && !os.IsNotExist(err) {
+		slog.Warn("failed to read secret salt", "error", err)
+	}
+
+	secretSalt = make([]byte, secretSaltSize)
+	if _, err := rand.Read(secretSalt); err != nil {
+		return nil, fmt.Errorf("failed to read secret salt rand bytes: %w", err)
+	}
+	if err := os.WriteFile(secretSaltPath, secretSalt, 0600); err != nil {
+		slog.Warn("failed to write secret salt", "error", err, "path", secretSaltPath)
+	}
+	return secretSalt, nil
+}
+
+func (srv *Server) configureLocalCacheGC(gcConfig config.GCConfig, workerGCConfig bkconfig.GCConfig) error {
+	enabled, maximum, target, err := resolveDagqlCacheGCConfig(gcConfig, workerGCConfig)
+	if err != nil {
+		return err
+	}
+	srv.localCacheGCEnabled = enabled
+	srv.dagqlCacheMaxEstimatedBytes = maximum
+	srv.dagqlCacheTargetEstimatedBytes = target
+	return nil
+}
+
+func (srv *Server) initRecursiveReadOnlyMounts(ctx context.Context) {
+	var err error
+	srv.recursiveReadOnlyMounts, err = probeRecursiveReadOnlyMounts()
+	if err != nil {
+		// ENOSYS on old kernels and EPERM under namespace/seccomp restrictions
+		// are expected compatibility cases. Retain false and use rbind,ro.
+		slog.DebugContext(ctx, "recursive read-only mounts unavailable; engine volumes will use top-level read-only fallback", "error", err)
+	}
+}
+
+func (srv *Server) initLocalCacheState(ctx context.Context, cfg config.Config, ociCfg bkconfig.OCIConfig) error {
+	var bootReset core.RemoteCacheFixturePersistence
+	for attempt := 0; attempt < 2; attempt++ {
+		resetReason, err := srv.initLocalCacheStateOnce(ctx, cfg, ociCfg)
+		if srv.engineCache != nil {
+			srv.noteWipedCacheID(srv.engineCache.WipedCacheID())
+		}
+		if resetReason == localCacheStateResetNone {
+			if err != nil {
+				return err
+			}
+			return srv.updateRemoteCacheFixturePersistence(func(report *core.RemoteCacheFixturePersistence) {
+				report.PersistenceResetReason = bootReset.PersistenceResetReason
+				report.LocalCacheResetReason = bootReset.LocalCacheResetReason
+			})
+		}
+		if attempt == 1 {
+			if err != nil {
+				return fmt.Errorf("local cache state still invalid after reset (%s): %w", resetReason, err)
+			}
+			return fmt.Errorf("local cache state still invalid after reset (%s)", resetReason)
+		}
+
+		if resetReason == localCacheStateResetBoltDBInitFailed {
+			srv.corruptDBReset = true
+		}
+		bootReset.LocalCacheResetReason = string(resetReason)
+		if srv.engineCache != nil {
+			bootReset.PersistenceResetReason = srv.engineCache.PersistenceResetReason()
+		}
+		slog.Warn("local cache state invalid; resetting worker and dagql persistence state", "reason", resetReason, "error", err)
+		if closeErr := srv.closeLocalCacheStateForReset(); closeErr != nil {
+			return fmt.Errorf("close local cache state before reset: %w", closeErr)
+		}
+		if err := srv.removeLocalCacheStateOnDisk(ctx); err != nil {
+			return fmt.Errorf("remove local cache state after %s: %w", resetReason, err)
+		}
+	}
+	return errors.New("local cache state reset retry exhausted")
+}
+
+// noteWipedCacheID remembers the identity of a dagql cache database this start
+// wiped, for engine.start. The first one is the cache the previous process
+// used; a reset can wipe a database the same start created in between.
+func (srv *Server) noteWipedCacheID(id string) {
+	if srv.wipedCacheID == "" {
+		srv.wipedCacheID = id
+	}
+}
+
+func (srv *Server) initLocalCacheStateOnce(ctx context.Context, cfg config.Config, ociCfg bkconfig.OCIConfig) (localCacheStateResetReason, error) {
+	if srv.builtinContentStore == nil {
+		return localCacheStateResetNone, errors.New("builtin content store must be opened before the local cache state")
+	}
+	if err := srv.mkdirBaseDirs(); err != nil {
+		return localCacheStateResetNone, err
+	}
+
+	if err := srv.initBoltDBs(); err != nil {
+		return localCacheStateResetBoltDBInitFailed, fmt.Errorf("failed to initialize boltdbs: %w", err)
+	}
+
+	var err error
+	srv.snapshotter, srv.snapshotterName, err = newSnapshotter(srv.snapshotterRootDir, ociCfg, srv.snapshotterMDStore)
+	if err != nil {
+		return localCacheStateResetNone, fmt.Errorf("failed to create snapshotter: %w", err)
+	}
+
+	srv.localContentStore, err = localcontentstore.NewStore(srv.contentStoreRootDir)
+	if err != nil {
+		return localCacheStateResetNone, fmt.Errorf("failed to create content store: %w", err)
+	}
+
+	srv.containerdMetaDB = ctdmetadata.NewDB(srv.containerdMetaBoltDB, srv.localContentStore, map[string]ctdsnapshot.Snapshotter{
+		srv.snapshotterName: srv.snapshotter,
+	})
+	if err := srv.containerdMetaDB.Init(context.TODO()); err != nil {
+		return localCacheStateResetNone, fmt.Errorf("failed to init metadata db: %w", err)
+	}
+
+	srv.leaseManager = bkcache.NewLeaseManager(ctdmetadata.NewLeaseManager(srv.containerdMetaDB), "dagger")
+	srv.contentStore = containerdsnapshot.NewContentStore(srv.containerdMetaDB.ContentStore(), "dagger")
+
+	workerSnapshotter := containerdsnapshot.NewSnapshotter(
+		srv.snapshotterName,
+		srv.containerdMetaDB.Snapshotter(srv.snapshotterName),
+		"dagger",
+	)
+
+	workerGCPolicies := getDagqlGCPolicy(cfg, ociCfg.GCConfig, srv.rootDir)
+	srv.workerCache, err = bkcache.NewSnapshotManager(bkcache.SnapshotManagerOpt{
+		Snapshotter:   workerSnapshotter,
+		ContentStore:  srv.contentStore,
+		LeaseManager:  srv.leaseManager,
+		Applier:       winlayers.NewFileSystemApplierWithWindows(srv.contentStore, apply.NewFileSystemApplier(srv.contentStore)),
+		Differ:        winlayers.NewWalkingDiffWithWindows(srv.contentStore, walking.NewWalkingDiff(srv.contentStore)),
+		MountPoolRoot: srv.buildkitMountPoolDir,
+		// Chain imports take a builtin image's layers from the engine's own
+		// files rather than the remote cache.
+		BuiltinContent: srv.builtinContentStore,
+		MetadataDB:     srv.containerdMetaDB,
+	})
+	if err != nil {
+		return localCacheStateResetNone, fmt.Errorf("failed to create snapshot manager: %w", err)
+	}
+	srv.workerGCPolicies = cloneDagqlCachePrunePolicies(workerGCPolicies)
+	srv.workerDefaultGCPolicy = getDefaultDagqlGCPolicy(cfg, ociCfg.GCConfig, srv.rootDir)
+
+	dagqlCacheDBPath := filepath.Join(srv.rootDir, "dagql-cache.db")
+	srv.snapshotGarbage = newSnapshotGarbage(srv.containerdMetaDB, srv.containerdMetaDBPath)
+	snapshotGC := srv.snapshotGarbage.Collect
+	cacheOpts := []dagql.CacheOption{dagql.WithEngineInstanceID(srv.engineInstanceID)}
+	if srv.engineEvents != nil {
+		cacheOpts = append(cacheOpts, dagql.WithSnapshotShareReport(srv.emitShareEvent))
+	}
+	srv.engineCache, err = dagql.NewCache(ctx, dagqlCacheDBPath, srv.workerCache, snapshotGC, cacheOpts...)
+	if err != nil {
+		return localCacheStateResetDagqlOpenFailed, fmt.Errorf("failed to create dagql cache: %w", err)
+	}
+	if resetReason := srv.engineCache.PersistenceResetReason(); resetReason != dagql.CachePersistenceResetNone {
+		return localCacheStateResetReason("dagql_" + string(resetReason)), nil
+	}
+	// NewCache has restored durable snapshot owners. Previous process transfer
+	// refs no longer exist, and this server has not admitted any new work yet.
+	if err := bkcache.ReleaseTransferLeasesAfterRestart(ctx, srv.leaseManager); err != nil {
+		return localCacheStateResetNone, fmt.Errorf("release previous snapshot transfers: %w", err)
+	}
+	if err := bkcache.ReleaseOperationLeasesAfterRestart(ctx, srv.leaseManager); err != nil {
+		return localCacheStateResetNone, fmt.Errorf("release previous operation leases: %w", err)
+	}
+	if err := resolver.ReleasePullLeasesAfterRestart(ctx, srv.leaseManager); err != nil {
+		return localCacheStateResetNone, fmt.Errorf("release previous image pull leases: %w", err)
+	}
+
+	return localCacheStateResetNone, nil
+}
+
+func (srv *Server) closeLocalCacheStateForReset() error {
+	var err error
+	if srv.engineCache != nil {
+		err = errors.Join(err, srv.engineCache.CloseDiscardingPersistence())
+		srv.engineCache = nil
+	}
+	if srv.workerCache != nil {
+		err = errors.Join(err, srv.workerCache.Close())
+		srv.workerCache = nil
+	}
+
+	snapshotterClosedMDStore := false
+	if srv.snapshotter != nil {
+		if closeErr := srv.snapshotter.Close(); closeErr != nil {
+			err = errors.Join(err, closeErr)
+		} else if srv.snapshotterName == "overlayfs" {
+			snapshotterClosedMDStore = true
+		}
+		srv.snapshotter = nil
+	}
+	if srv.snapshotterMDStore != nil {
+		if !snapshotterClosedMDStore {
+			err = errors.Join(err, srv.snapshotterMDStore.Close())
+		}
+		srv.snapshotterMDStore = nil
+	}
+	if srv.containerdMetaBoltDB != nil {
+		err = errors.Join(err, srv.containerdMetaBoltDB.Close())
+		srv.containerdMetaBoltDB = nil
+	}
+
+	srv.snapshotterName = ""
+	srv.localContentStore = nil
+	srv.containerdMetaDB = nil
+	srv.snapshotGarbage = nil
+	srv.leaseManager = nil
+	srv.contentStore = nil
+	srv.workerGCPolicies = nil
+	srv.workerDefaultGCPolicy = nil
+	return err
+}
+
+func (srv *Server) removeLocalCacheStateOnDisk(ctx context.Context) error {
+	trashDir, err := moveLocalCacheStateToTrash(srv.workerRootDir)
+	if err != nil {
+		return fmt.Errorf("move worker state to trash: %w", err)
+	}
+	if trashDir != "" {
+		// The rename is O(1), so startup proceeds immediately; the trash dir
+		// is removed in the background once startup settles (see
+		// startLocalCacheTrashSweeper).
+		slog.Info("moved invalid worker state aside for background removal", "dir", trashDir)
+	}
+	wipedCacheID, err := dagql.RemoveCachePersistenceStore(ctx, filepath.Join(srv.rootDir, "dagql-cache.db"))
+	if err != nil {
+		return fmt.Errorf("remove dagql persistence state: %w", err)
+	}
+	srv.noteWipedCacheID(wipedCacheID)
+	return nil
+}
+
+func (srv *Server) mkdirBaseDirs() (err error) {
+	if err := os.MkdirAll(srv.workerRootDir, 0700); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(srv.executorRootDir, 0o711); err != nil {
+		return err
+	}
+	return nil
+}
+
+func configureBboltDefaults() {
+	configureBboltDefaultsOnce.Do(func() {
+		// Some containerd snapshotter constructors open bbolt internally with nil
+		// options, so set the process default before those paths can run.
+		bolt.DefaultOptions.FreelistType = bolt.FreelistMapType
+		bolt.DefaultOptions.NoStatistics = true
+	})
+}
+
+func (srv *Server) initBoltDBs() (err error) {
+	configureBboltDefaults()
+
+	defer func() {
+		if panicErr := recover(); panicErr != nil {
+			err = fmt.Errorf("panic while initializing boltdbs: %v", panicErr)
+		}
+	}()
+
+	srv.snapshotterMDStore, err = storage.NewMetaStore(srv.snapshotterDBPath,
+		func(opts *bolt.Options) error {
+			opts.NoSync = true
+			opts.NoFreelistSync = true
+			opts.FreelistType = bolt.FreelistMapType
+			opts.NoStatistics = true
+			opts.NoGrowSync = true
+			return nil
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create metadata store for snapshotter: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, srv.snapshotterMDStore.Close())
+			srv.snapshotterMDStore = nil
+		}
+	}()
+
+	srv.containerdMetaBoltDB, err = bolt.Open(srv.containerdMetaDBPath, 0644, &bolt.Options{
+		NoSync:         true,
+		NoFreelistSync: true,
+		FreelistType:   bolt.FreelistMapType,
+		NoStatistics:   true,
+		NoGrowSync:     true,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to open metadata db: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, srv.containerdMetaBoltDB.Close())
+			srv.containerdMetaBoltDB = nil
+		}
+	}()
+
+	return nil
+}
+
+var errServerShuttingDown = errors.New("engine is shutting down")
+
+func (srv *Server) BeginGracefulStop() {
+	if srv.shuttingDown.CompareAndSwap(false, true) && srv.shutdownCancel != nil {
+		srv.shutdownCancel(errServerShuttingDown)
+	}
+}
+
+func (srv *Server) isShuttingDown() bool {
+	return srv != nil && srv.shuttingDown.Load()
+}
+
+func (srv *Server) withShutdownCancel(ctx context.Context) context.Context {
+	if srv == nil || srv.shutdownCtx == nil {
+		return ctx
+	}
+	ctx, cancel := context.WithCancelCause(ctx)
+	go func() {
+		select {
+		case <-srv.shutdownCtx.Done():
+			cancel(context.Cause(srv.shutdownCtx))
+		case <-ctx.Done():
+		}
+	}()
+	return ctx
+}
+
+func (srv *Server) EngineName() string {
+	return srv.engineName
+}
+
+// EngineInstanceID returns the random ID naming this engine process.
+func (srv *Server) EngineInstanceID() string {
+	return srv.engineInstanceID
+}
+
+func (srv *Server) Clients() []string {
+	// Snapshot the session pointers under daggerSessionsMu, then read each
+	// session's liveness and identity WITHOUT any per-session lock: state is
+	// atomic and mainClientCallerID is immutable (set at construction). This is
+	// what keeps the active-clients API (polled by the cloud keepalive) from ever
+	// blocking on a session that is initializing or tearing down.
+	srv.daggerSessionsMu.RLock()
+	sessions := make([]*daggerSession, 0, len(srv.daggerSessions))
+	for _, sess := range srv.daggerSessions {
+		sessions = append(sessions, sess)
+	}
+	srv.daggerSessionsMu.RUnlock()
+
+	clients := map[string]struct{}{}
+	for _, sess := range sessions {
+		if sess.state.Load() != sessionStateInitialized {
+			continue
+		}
+		clients[sess.mainClientCallerID] = struct{}{}
+	}
+
+	return slices.Collect(maps.Keys(clients))
+}
+
+// GracefulStop attempts to close all boltdbs and do a final syncfs since all the DBs
+// run with NoSync=true (plus NoFreelistSync/NoGrowSync) for performance reasons.
+func (srv *Server) GracefulStop(ctx context.Context) error {
+	srv.BeginGracefulStop()
+
+	var err error
+
+	// note this *could* cause a panic in Session if it was still running, so
+	// the server should be shutdown first
+	// snapshot the session pointers into a slice (not an alias of the live map)
+	// so concurrent pointer-conditional deleteSession calls can't race this
+	// iteration.
+	srv.daggerSessionsMu.Lock()
+	daggerSessions := make([]*daggerSession, 0, len(srv.daggerSessions))
+	for _, s := range srv.daggerSessions {
+		daggerSessions = append(daggerSessions, s)
+	}
+	srv.daggerSessionsMu.Unlock()
+
+	// Decide the integration's stop outcome before draining sessions or closing
+	// the cache, and join Run outside gcmu and every cache lock. A failed stop
+	// keeps the cache checkpoint dirty and is returned.
+	adapterStopErr := srv.stopRemoteCacheIntegration(ctx)
+	if adapterStopErr != nil {
+		slog.Error("failed to stop remote cache integration", "error", adapterStopErr)
+	}
+
+	if srv.engineCache != nil {
+		srv.gcmu.Lock()
+		defer srv.gcmu.Unlock()
+	}
+
+	for _, s := range daggerSessions {
+		s.lifecycleMu.Lock()
+		// Wait out any in-flight init (lifecycleMu serializes it), then tear down
+		// only if the session actually initialized. An already-removed tombstone
+		// belongs to the teardown or failed-initialization path that published it;
+		// that path also owns the matching retire-or-delete decision.
+		state := s.state.Load()
+		retire := state == sessionStateInitialized
+		if retire {
+			err = errors.Join(err, srv.removeDaggerSession(ctx, s))
+		}
+		s.lifecycleMu.Unlock()
+		if retire {
+			srv.retireSession(s)
+		} else if state == sessionStateUninitialized {
+			srv.deleteSession(s)
+		}
+	}
+
+	// Sessions are gone, and their stores' ends final: forwarders still
+	// publishing to Cloud get one Cloud bound to finish, then stop,
+	// releasing their stores.
+	if stopErr := srv.cloudForwarders.stopAll(ctx, sessionTelemetryFlushTimeout); stopErr != nil {
+		slog.Warn("Cloud telemetry forwarders did not stop in time", "error", stopErr)
+	}
+
+	if srv.clientDBs != nil {
+		err = errors.Join(err, srv.clientDBs.Close())
+	}
+
+	// Shared read-only mounts nobody is using, and the releases running in
+	// the background, are released before the final collection and before
+	// the metadata DBs close.
+	if releaser, ok := srv.workerCache.(bkcache.ReadOnlyMountReleaser); ok {
+		releaser.WaitForBackgroundReleases()
+	}
+
+	if srv.engineCache != nil && srv.localCacheGCEnabled {
+		if gcErr := srv.gcLocked(ctx, localCacheGCGracefulShutdown); gcErr != nil {
+			err = errors.Join(err, fmt.Errorf("failed to prune local cache during graceful shutdown: %w", gcErr))
+		}
+	}
+
+	cleanCacheClose := false
+	if srv.engineCache != nil {
+		if closeErr := srv.engineCache.CloseWithShutdownError(ctx, adapterStopErr); closeErr != nil {
+			slog.Error("failed to close base dagql cache", "error", closeErr)
+			err = errors.Join(err, closeErr)
+		} else {
+			cleanCacheClose = true
+		}
+	}
+	srv.stopEngineEvents(ctx, cleanCacheClose)
+
+	err = errors.Join(err, srv.engineUtilOpts.Close())
+
+	// Shutdown the global namespace worker pool
+	engineutil.ShutdownGlobalNamespaceWorkerPool()
+
+	var eg errgroup.Group
+	eg.Go(func() error {
+		err := srv.snapshotterMDStore.Close()
+		if err != nil {
+			return fmt.Errorf("failed to close snapshotter metadata store: %w", err)
+		}
+		return nil
+	})
+	eg.Go(func() error {
+		err := srv.containerdMetaBoltDB.Close()
+		if err != nil {
+			return fmt.Errorf("failed to close containerd metadata db: %w", err)
+		}
+		return nil
+	})
+
+	// Buffered, so the closing goroutine can finish after GracefulStop returns
+	// through ctx.Done().
+	doneClosingCh := make(chan error, 1)
+	go func() {
+		defer close(doneClosingCh)
+
+		err := eg.Wait()
+		defer func() {
+			doneClosingCh <- err
+		}()
+
+		// all the DBs closed, do a final sync of the engine state filesystem.
+		// Use a guaranteed child of the state root rather than the mountpoint
+		// itself so path resolution is unambiguously inside the mounted tree.
+		f, err := os.Open(srv.workerRootDir)
+		if err != nil {
+			err = fmt.Errorf("failed to open root dir for final sync: %w", err)
+			return
+		}
+		defer f.Close()
+
+		err = unix.Syncfs(int(f.Fd()))
+		if err != nil {
+			err = fmt.Errorf("failed to syncfs for final sync: %w", err)
+			return
+		}
+	}()
+
+	select {
+	case dbCloseErr := <-doneClosingCh:
+		return errors.Join(err, adapterStopErr, dbCloseErr)
+	case <-ctx.Done():
+		return errors.Join(err, adapterStopErr, ctx.Err())
+	}
+}
+
+func (srv *Server) SnapshotManager() bkcache.SnapshotManager {
+	return srv.workerCache
+}
+
+func (srv *Server) CacheAccessor() bkcache.Accessor {
+	return srv.workerCache
+}
+
+func (srv *Server) Info(context.Context, *controlapi.InfoRequest) (*controlapi.InfoResponse, error) {
+	return &controlapi.InfoResponse{
+		BuildkitVersion: &apitypes.BuildkitVersion{
+			Package:  engine.Package,
+			Version:  engine.FullVersion(),
+			Revision: srv.engineName,
+		},
+		SystemInfo: &controlapi.SystemInfo{
+			NumCPU: int32(runtime.NumCPU()),
+		},
+	}, nil
+}
+
+func (srv *Server) ListWorkers(context.Context, *controlapi.ListWorkersRequest) (*controlapi.ListWorkersResponse, error) {
+	resp := &controlapi.ListWorkersResponse{
+		Record: []*apitypes.WorkerRecord{{
+			ID:        srv.engineUtilOpts.ID,
+			Labels:    srv.engineUtilOpts.Labels,
+			Platforms: pb.PlatformsFromSpec(srv.enabledPlatforms),
+		}},
+	}
+	return resp, nil
+}
+
+// attachWorkloadNetworkAccounting counts executor workloads' traffic with
+// programs attached once to the cgroup containing every workload's cgroup,
+// never per container.
+func attachWorkloadNetworkAccounting(cgroupParent string) {
+	tracer := nettracer.Active()
+	if tracer == nil {
+		return
+	}
+	parent, ok := nettracer.WorkloadParentPath(cgroupParent)
+	if !ok {
+		return
+	}
+	if err := tracer.AttachWorkloads(parent); err != nil {
+		slog.Warn("workload network accounting unavailable", "error", err)
+	}
+}
+
+func (srv *Server) LogMetrics(l *logrus.Entry) *logrus.Entry {
+	srv.daggerSessionsMu.RLock()
+	defer srv.daggerSessionsMu.RUnlock()
+	l = l.WithField("dagger-session-count", len(srv.daggerSessions))
+	l = l.WithField("dagql-cache-size", srv.engineCache.Size())
+	return l
+}
+
+func (srv *Server) Register(server *grpc.Server) {
+	controlapi.RegisterControlServer(server, srv)
+}
+
+func (srv *Server) DagqlCacheEntries() int {
+	if srv.engineCache == nil {
+		return 0
+	}
+	return srv.engineCache.Size()
+}
+
+func (srv *Server) DagqlCacheMetadataEstimatedBytes() int64 {
+	if srv.engineCache == nil {
+		return 0
+	}
+	return srv.engineCache.MetadataEstimate().EstimatedBytes
+}
+
+func (srv *Server) DagqlCacheEntryStats() dagql.CacheEntryStats {
+	if srv.engineCache == nil {
+		return dagql.CacheEntryStats{}
+	}
+	return srv.engineCache.EntryStats()
+}
+
+func (srv *Server) DagqlDebugSnapshot() *dagql.EGraphDebugSnapshot {
+	if srv.engineCache == nil {
+		return nil
+	}
+	return srv.engineCache.DebugEGraphSnapshot()
+}
+
+func (srv *Server) WriteDagqlCacheDebugSnapshot(w io.Writer) error {
+	if srv.engineCache == nil {
+		return fmt.Errorf("dagql cache not available")
+	}
+	return srv.engineCache.WriteDebugCacheSnapshot(w)
+}
+
+// ConnectedClients returns the number of currently connected clients
+func (srv *Server) ConnectedClients() int {
+	srv.daggerSessionsMu.RLock()
+	defer srv.daggerSessionsMu.RUnlock()
+	return len(srv.daggerSessions)
+}
+
+func (srv *Server) CorruptDBReset() bool {
+	return srv.corruptDBReset
+}
+
+func (srv *Server) Locker() *locker.Locker {
+	return srv.locker
+}
+
+func (srv *Server) gcClientDBs() {
+	for range time.NewTicker(time.Minute).C {
+		srv.gcClientDBsOnce()
+	}
+}
+
+// gcClientDBsOnce collects the client stores no active session, archive or
+// Cloud forwarder keeps.
+func (srv *Server) gcClientDBsOnce() {
+	keep := srv.activeClientIDs()
+	if srv.archives != nil {
+		if _, err := srv.archives.GC(); err != nil {
+			slog.Error("failed to GC archives", "error", err)
+		}
+		maps.Copy(keep, srv.archives.KeepSet())
+	}
+	maps.Copy(keep, srv.cloudForwarders.KeepSet())
+	if err := srv.clientDBs.GC(keep); err != nil {
+		slog.Error("failed to GC client DBs", "error", err)
+	}
+}
+
+func (srv *Server) activeClientIDs() map[string]bool {
+	keep := map[string]bool{}
+
+	// Snapshot session pointers under daggerSessionsMu, then per session read
+	// state atomically (lock-free) and the clients map under clientMu. No
+	// per-session lifecycle lock is taken, so the client-DB GC ticker can never
+	// block on a session that is initializing or tearing down.
+	srv.daggerSessionsMu.RLock()
+	sessions := make([]*daggerSession, 0, len(srv.daggerSessions))
+	for _, sess := range srv.daggerSessions {
+		sessions = append(sessions, sess)
+	}
+	srv.daggerSessionsMu.RUnlock()
+
+	for _, sess := range sessions {
+		// clients is only populated once a session is initialized, and a removed
+		// session's client DBs are already being torn down, so only initialized
+		// sessions contribute IDs worth keeping.
+		if sess.state.Load() != sessionStateInitialized {
+			continue
+		}
+		sess.clientMu.RLock()
+		for id := range sess.clientRecords {
+			keep[id] = true
+		}
+		sess.clientMu.RUnlock()
+	}
+
+	return keep
+}

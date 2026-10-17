@@ -1,0 +1,16 @@
+Total: 250.77s
+ROUTINE ======================== github.com/vito/dang/v2/pkg/dang.BoundBuiltinMethod.Call in /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/eval.go
+      10ms     29.79s (flat, cum) 11.88% of Total
+      10ms       10ms   2163:	// Create a temporary environment with the receiver as dynamic scope
+         .          .   2164:	tempType := NewType("_temp_", ObjectKind)
+         .      3.58s   2165:	tempScope := NewObject(tempType)
+         .      650ms   2166:	tempScope.EnterSelf(b.Receiver)
+         .      170ms   2167:
+         .          .   2168:	// Call the builtin function with the receiver context
+         .          .   2169:	return b.Method.Call(ctx, tempScope, args)
+         .     25.38s   2170:}
+         .          .   2171:
+         .          .   2172:func (b BoundBuiltinMethod) ParameterNames() []string {
+         .          .   2173:	return b.Method.ParameterNames()
+         .          .   2174:}
+         .          .   2175:

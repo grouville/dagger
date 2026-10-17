@@ -1,0 +1,63 @@
+{
+  "diagnostic": "Compare the unchanged selected Go module against three private sorted helpers using the provisional typed sortStrings builtin. Both run on the same engine containing that builtin, with span fanout indexing enabled and lazy Type maps disabled. Same CLI, ordinary telemetry and GC, fresh source edit every command. Initialization adds a real test and is excluded; measured pairs remove it and alternate order. Keep every success and failure.",
+  "cli_sha256": "e7ba08d0e40f6a46ad3eb8df7397bd6827aa348f491a9cb9a726ff705e1fb122",
+  "api_version": "v1.0.0-beta.15",
+  "collection_expansion_limit": 0,
+  "source": "/tmp/dagger-go-real-repository-main",
+  "source_revision": "ff0b029a4d270a651b9a8c7286babc79089066e4",
+  "modules": {
+    "before": {
+      "path": "/tmp/dagger-go-module-test-name-index",
+      "revision": "7568cd0e5309a716fc94f310a488978fd97ce0c3",
+      "hashes": {
+        "go.dang": "6288486ec454c0cc9fb921666c97ce863e68210ae96fd1e79f75be5889497b2f",
+        "gomod/main.dang": "991c243cf37d267c711dd8b2858db686a6ea727df0a9017a23336bd0b0814e35"
+      }
+    },
+    "after": {
+      "path": "/tmp/dagger-go-native-string-sort",
+      "revision": "1a30f7e85594378c4a529810527e1edff096485d",
+      "hashes": {
+        "go.dang": "a7b9ba927590926d3aa1c106f8db41f1dc5aea855a2037eb0c6644375bafb2d4",
+        "gomod/main.dang": "feb9a213c8c4d571e0de4f8bbe8c5a34aff45d5d107a9d6d9b3d82760a00a438"
+      }
+    }
+  },
+  "engine_sha256": "931da2045fe43be4065583d70a87b25a25ba85a544cf27bec354a3148409be28",
+  "pairs": 5,
+  "orders": [
+    [
+      "before",
+      "after"
+    ],
+    [
+      "after",
+      "before"
+    ],
+    [
+      "before",
+      "after"
+    ],
+    [
+      "after",
+      "before"
+    ],
+    [
+      "before",
+      "after"
+    ]
+  ],
+  "wcprof": false,
+  "cpu_profiling": false,
+  "telemetry": true,
+  "ordinary_gc": true,
+  "fresh_edit_every_arm": true,
+  "warm_engine": true,
+  "warmup": "Pair 0 is retained as initial source-identity population and is excluded from all medians and paired gains. Pairs 1 and 2 alternate order. Every invocation, including warmups, starts a fresh CLI and receives a fresh source comment on the warm engine.",
+  "batch_metadata": true,
+  "attribute_array_decode": true,
+  "filesync_snapshot_seeds": true,
+  "metadata_read_ahead_both_arms": false,
+  "declaration_reuse_both_arms": true,
+  "driver_sha256": "8f65da579350b8d6211e3b3e40b5261c758a1109af7728275fd43c1059da9f02"
+}
