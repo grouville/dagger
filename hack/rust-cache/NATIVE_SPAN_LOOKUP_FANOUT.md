@@ -1,8 +1,10 @@
 # Avoid quadratic child-span indexing
 
+The later [full Go listing comparison](NATIVE_GO_WIDE_TRACE_INDEX.md) shows a larger-workload benefit: **53.58 → 46.72 seconds** in three successful paired comparisons, with 7.05 seconds median paired saving. All four optimized attempts succeed; one control times out during shutdown. A new session's index otherwise performs over two billion ordinary-child comparisons. Earlier Rust results below remain unchanged.
+
 The telemetry store scans an existing child list whenever it indexes a new span. A wide trace therefore performs quadratic work. Reusing information already in the parent map removes that scan for new span IDs. Cause links can similarly use their existing reverse index to avoid scanning every span linked to a shared target.
 
-The standalone patch is pushed as the tenth upstream proposal. It adds no map, lock or retained state. Components and real-command profiles establish less indexing work; complete-command latency remains too variable for a firm speedup claim. The optimization stays **disabled** in the diagnostic reference engine.
+The standalone patch is pushed as the tenth upstream proposal. It adds no map, lock or retained state. The original small-workload results below did not establish a firm command-latency gain and initially left the optimization disabled. The larger Go follow-up is recorded separately above.
 
 ## Verify the active path
 
@@ -52,7 +54,7 @@ Adversarial review focused on map invariants, IDs repeated across traces, parent
 
 All six retained native histories pass with the optimization enabled: **130/130**, **1,026/1,026** and **6/6** cached compiler actions, twice each. Preparation first compiles the last edits left by Cargo or listing controls. These unchanged inspections verify cache preservation only.
 
-The current diagnostic binary is `3254774b3a3e53f98adb383c4eafd9cf2613d3612c6bcec2aab8fa12eeabed7b`, with this optimization disabled and the selected artifact getters enabled. Temporary counters/profiling are off; ordinary snapshot collection is enabled and no clients remain active. [SELECTED_BASELINE.json](SELECTED_BASELINE.json) records its complete source manifest. The Rust module stays `da1ae47`.
+Those Rust cohorts use diagnostic binary `3254774b3a3e53f98adb383c4eafd9cf2613d3612c6bcec2aab8fa12eeabed7b`, with this optimization disabled outside comparisons and the selected artifact getters enabled. Temporary counters/profiling are off after the cohort; ordinary snapshot collection is enabled. [SELECTED_BASELINE.json](SELECTED_BASELINE.json) records that Rust baseline's source manifest. The Rust module stays `da1ae47`. The newer Go follow-up records its own binary and source identities.
 
 The [shared digest-mount experiment](NATIVE_DIGEST_PATHS_MOUNT.md) also stays unselected: its small component gain does not justify duplicated path validation. The next broad workload comparison should revisit shared-library and deep-chain edits with the latest selected stack; this turn's timed checks edit a leaf. The broader native Rust-cache performance goal remains incomplete.
 

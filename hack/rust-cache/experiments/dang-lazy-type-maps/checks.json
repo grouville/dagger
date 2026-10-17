@@ -1,0 +1,35 @@
+[
+  {
+    "label": "baseline-tests",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-count=1",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/dang-lazy-type-maps/test-before.json",
+      "./pkg/dang"
+    ],
+    "start": 1792216386.8661604,
+    "seconds": 6.842459201812744,
+    "exit_code": 0
+  },
+  {
+    "label": "candidate-race-tests",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-count=1",
+      "-race",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/dang-lazy-type-maps/test-after.json",
+      "./pkg/dang"
+    ],
+    "start": 1792216393.708839,
+    "seconds": 35.49643611907959,
+    "exit_code": 0
+  }
+]

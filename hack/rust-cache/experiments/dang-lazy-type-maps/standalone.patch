@@ -1,0 +1,120 @@
+--- a/pkg/dang/env.go
++++ b/pkg/dang/env.go
+@@ -249,21 +249,7 @@
+ }
+ 
+ func NewType(name string, kind Kind) *Type {
+-	env := &Type{
+-		Named:            name,
+-		Kind:             kind,
+-		objects:          make(map[string]TypeScope),
+-		vars:             make(map[string]*hm.Scheme),
+-		visibility:       make(map[string]Visibility),
+-		directives:       make(map[string]*DirectiveDecl),
+-		typeOrigins:      make(map[string]BindingOrigin),
+-		valueOrigins:     make(map[string]BindingOrigin),
+-		directiveOrigins: make(map[string]BindingOrigin),
+-		fieldDirectives:  make(map[string][]*DirectiveApplication),
+-		docStrings:       make(map[string]string),
+-		typeDocString:    "",
+-	}
+-	return env
++	return &Type{Named: name, Kind: kind}
+ }
+ 
+ func gqlFieldToTypeNode(mod TypeScope, field *introspection.Field) (hm.Type, error) {
+@@ -832,18 +818,24 @@
+ }
+ 
+ func (e *Type) Add(name string, s *hm.Scheme) hm.Env {
++	if e.vars == nil {
++		e.vars = make(map[string]*hm.Scheme)
++	}
+ 	if _, exists := e.vars[name]; !exists {
+ 		e.varOrder = append(e.varOrder, name)
+ 	}
+ 	e.vars[name] = s
+-	e.valueOrigins[name] = LocalBindingOrigin()
++	e.SetValueOrigin(name, LocalBindingOrigin())
+ 	if _, ok := e.visibility[name]; !ok {
+-		e.visibility[name] = PrivateVisibility
++		e.SetVisibility(name, PrivateVisibility)
+ 	}
+ 	return e
+ }
+ 
+ func (e *Type) SetValueOrigin(name string, origin BindingOrigin) {
++	if e.valueOrigins == nil {
++		e.valueOrigins = make(map[string]BindingOrigin)
++	}
+ 	e.valueOrigins[name] = origin
+ }
+ 
+@@ -853,6 +845,9 @@
+ }
+ 
+ func (e *Type) SetVisibility(name string, visibility Visibility) {
++	if e.visibility == nil {
++		e.visibility = make(map[string]Visibility)
++	}
+ 	e.visibility[name] = visibility
+ }
+ 
+@@ -906,11 +901,17 @@
+ }
+ 
+ func (e *Type) AddObject(name string, c TypeScope) {
++	if e.objects == nil {
++		e.objects = make(map[string]TypeScope)
++	}
+ 	e.objects[name] = c
+-	e.typeOrigins[name] = LocalBindingOrigin()
++	e.SetTypeOrigin(name, LocalBindingOrigin())
+ }
+ 
+ func (e *Type) SetTypeOrigin(name string, origin BindingOrigin) {
++	if e.typeOrigins == nil {
++		e.typeOrigins = make(map[string]BindingOrigin)
++	}
+ 	e.typeOrigins[name] = origin
+ }
+ 
+@@ -920,11 +921,17 @@
+ }
+ 
+ func (e *Type) AddDirective(name string, directive *DirectiveDecl) {
++	if e.directives == nil {
++		e.directives = make(map[string]*DirectiveDecl)
++	}
+ 	e.directives[name] = directive
+-	e.directiveOrigins[name] = LocalBindingOrigin()
++	e.SetDirectiveOrigin(name, LocalBindingOrigin())
+ }
+ 
+ func (e *Type) SetDirectiveOrigin(name string, origin BindingOrigin) {
++	if e.directiveOrigins == nil {
++		e.directiveOrigins = make(map[string]BindingOrigin)
++	}
+ 	e.directiveOrigins[name] = origin
+ }
+ 
+@@ -975,6 +982,9 @@
+ 
+ // SetDocString sets the documentation string for a symbol
+ func (e *Type) SetDocString(name string, docString string) {
++	if e.docStrings == nil {
++		e.docStrings = make(map[string]string)
++	}
+ 	e.docStrings[name] = docString
+ }
+ 
+@@ -993,6 +1003,9 @@
+ 
+ // SetDirectives sets the documentation string for a symbol
+ func (e *Type) SetDirectives(name string, directives []*DirectiveApplication) {
++	if e.fieldDirectives == nil {
++		e.fieldDirectives = make(map[string][]*DirectiveApplication)
++	}
+ 	e.fieldDirectives[name] = directives
+ }
+ 

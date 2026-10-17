@@ -1,0 +1,40 @@
+File: dagger-engine
+Build ID: 0cba3b827ccd9a166bb41052e813d294d8af8130
+Type: cpu
+Time: 2026-10-16 23:17:40 PDT
+Duration: 15.22s, Total samples = 73.44s (482.57%)
+Active filters:
+   focus=spanLookup.*addLocked
+Showing nodes accounting for 0.19s, 0.26% of 73.44s total
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%      0.19s  0.26%  github.com/dagger/dagger/engine/clientdb.(*DB).AppendSpans
+         0     0%     0%      0.19s  0.26%  github.com/dagger/dagger/engine/clientdb.(*logStream[go.shape.struct { ID int64; TraceID string; SpanID string; TraceState string; ParentSpanID database/sql.NullString; Flags int64; Name string; Kind string; StartTime int64; EndTime database/sql.NullInt64; Attributes []uint8; DroppedAttributesCount int64; Events []uint8; DroppedEventsCount int64; Links []uint8; DroppedLinksCount int64; StatusCode int64; StatusMessage string; InstrumentationScope []uint8; Resource []uint8; ResourceSchemaURL string }]).append
+         0     0%     0%      0.19s  0.26%  github.com/dagger/dagger/engine/clientdb.(*spanLookup).addAll
+         0     0%     0%      0.19s  0.26%  github.com/dagger/dagger/engine/clientdb.(*spanLookup).addLocked
+         0     0%     0%      0.19s  0.26%  github.com/dagger/dagger/engine/clientdb.openStore.func3
+         0     0%     0%      0.19s  0.26%  github.com/dagger/dagger/engine/server.clientSpans.ExportSpans
+         0     0%     0%      0.19s  0.26%  github.com/dagger/dagger/engine/server.exportSpansRecovered
+         0     0%     0%      0.19s  0.26%  github.com/dagger/dagger/engine/server.sessionSpanExporter.ExportSpans.func1
+         0     0%     0%      0.19s  0.26%  golang.org/x/sync/errgroup.(*Group).Go.func1
+     0.01s 0.014% 0.014%      0.12s  0.16%  github.com/dagger/dagger/engine/clientdb.(*spanLookup).addLockedOptimized
+         0     0% 0.014%      0.06s 0.082%  bytes.Contains (inline)
+     0.01s 0.014% 0.027%      0.06s 0.082%  bytes.Index
+     0.05s 0.068% 0.095%      0.05s 0.068%  internal/runtime/maps.ctrlGroup.matchH2 (inline)
+         0     0% 0.095%      0.04s 0.054%  runtime.mapassign_faststr
+     0.01s 0.014%  0.11%      0.03s 0.041%  bytes.IndexByte (inline)
+         0     0%  0.11%      0.03s 0.041%  internal/runtime/maps.(*table).rehash
+         0     0%  0.11%      0.03s 0.041%  internal/runtime/maps.(*table).split
+     0.01s 0.014%  0.12%      0.03s 0.041%  runtime.mapaccess1_faststr
+         0     0%  0.12%      0.03s 0.041%  runtime.mapaccess2
+     0.02s 0.027%  0.15%      0.02s 0.027%  aeshashbody
+     0.02s 0.027%  0.18%      0.02s 0.027%  indexbody
+     0.02s 0.027%   0.2%      0.02s 0.027%  indexbytebody
+         0     0%   0.2%      0.01s 0.014%  internal/runtime/maps.(*Map).putSlotSmall
+     0.01s 0.014%  0.22%      0.01s 0.014%  internal/runtime/maps.(*groupReference).key (inline)
+         0     0%  0.22%      0.01s 0.014%  internal/runtime/maps.typedmemmove
+     0.01s 0.014%  0.23%      0.01s 0.014%  memeqbody
+     0.01s 0.014%  0.25%      0.01s 0.014%  runtime.bulkBarrierPreWrite
+         0     0%  0.25%      0.01s 0.014%  runtime.mapaccess2_faststr
+         0     0%  0.25%      0.01s 0.014%  runtime.mapassign
+         0     0%  0.25%      0.01s 0.014%  runtime.typedmemmove
+     0.01s 0.014%  0.26%      0.01s 0.014%  type:.hash.github.com/dagger/dagger/engine/clientdb.spanLookupKey

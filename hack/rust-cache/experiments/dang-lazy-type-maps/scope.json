@@ -1,0 +1,20 @@
+{
+  "library": "github.com/vito/dang/v2",
+  "engine_dependency": "v2.1.4",
+  "upstream_revision": "da1bed304cb80f8a2f0714f1747e7f64e03297a3",
+  "upstream_env_identical": true,
+  "candidate_sha256": "68f921dae96df25b2ad7bca822384657af288b5513ada5f39b81ddf075810af7",
+  "production_change": "Initialize each Type map in its existing writer instead of allocating all nine in NewType. Add reuses origin and visibility setters.",
+  "extra_locks": false,
+  "shared_cache": false,
+  "dependencies_changed": false,
+  "controlled_engine": "Diagnostic-only atomic mode toggles eager NewType initialization on the same experimental binary. Both arms include writer guards. Toggle restored on driver exit.",
+  "cli": "filesync-literal-pathwalk/dagger-after, API beta.15",
+  "profile_basis": "filesync-literal-pathwalk/profile-after-selected (2.32 GB sampled NewType allocation)",
+  "standalone_tests": [
+    "Full pkg/dang tests against unchanged constructor",
+    "Full pkg/dang race tests against candidate",
+    "Clone shadowing/metadata behavior check passes on both",
+    "Four sequential benchmark runs in ABBA order, three samples per scope case per run"
+  ]
+}
