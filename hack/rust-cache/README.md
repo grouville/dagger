@@ -1,5 +1,7 @@
 # Rust compiler cache experiment
 
+The latest [Go collection listing comparison](NATIVE_COLLECTION_RESTORED_METADATA.md) takes **36.34 seconds** for the selected implementation and **36.19 seconds** for the candidate, faster in only two of four pairs. Removing every indexed search-result publication does not establish a command speedup, so that candidate stays disabled. The study also rejects the earlier per-item HTTP-request attribution: 4,398 indexed reads already occur within 895 bulk queries. Discovery remains the larger target; cold startup is unmeasured.
+
 `rcexp` records Cargo's actual compiler commands and replays each compilation as
 a Dagger operation. Package source and dependency artifacts are explicit inputs;
 compiled artifacts are immutable outputs. No compiler cache volumes are used.
