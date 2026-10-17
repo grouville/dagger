@@ -1,0 +1,64 @@
+File: dagger-engine
+Build ID: 2a8766000d27e80b1189eda83e4096c6fa35d263
+Type: cpu
+Time: 2026-10-17 10:03:30 PDT
+Duration: 55.22s, Total samples = 235.65s (426.76%)
+Showing nodes accounting for 141.77s, 60.16% of 235.65s total
+Dropped 3709 nodes (cum <= 1.18s)
+Showing top 55 nodes out of 443
+      flat  flat%   sum%        cum   cum%
+    26.38s 11.19% 11.19%     26.38s 11.19%  runtime.spanClass.sizeclass (inline)
+    14.27s  6.06% 17.25%     43.46s 18.44%  runtime.tryDeferToSpanScan
+     7.36s  3.12% 20.37%     39.83s 16.90%  runtime.scanSpan
+     6.87s  2.92% 23.29%      6.87s  2.92%  internal/runtime/maps.ctrlGroup.matchH2 (inline)
+     6.13s  2.60% 25.89%      6.19s  2.63%  context.value
+     5.35s  2.27% 28.16%      5.35s  2.27%  internal/runtime/syscall/linux.Syscall6
+     5.31s  2.25% 30.41%     17.63s  7.48%  runtime.scanObjectsSmall
+     4.05s  1.72% 32.13%      4.05s  1.72%  runtime.memclrNoHeapPointers
+     4.01s  1.70% 33.83%      4.01s  1.70%  runtime.memmove
+     3.94s  1.67% 35.51%      3.94s  1.67%  runtime.nextFreeFast (inline)
+     3.77s  1.60% 37.11%      4.49s  1.91%  runtime.findObject
+     3.33s  1.41% 38.52%     13.72s  5.82%  runtime.scanObjectSmall
+     3.22s  1.37% 39.89%      3.22s  1.37%  runtime.extractHeapBitsSmall
+     3.21s  1.36% 41.25%      3.64s  1.54%  runtime.(*mspan).writeHeapBitsSmall
+     2.82s  1.20% 42.44%     19.39s  8.23%  runtime.mallocgcSmallScanNoHeader
+     2.39s  1.01% 43.46%     25.20s 10.69%  runtime.scanObject
+     2.31s  0.98% 44.44%     46.91s 19.91%  runtime.mallocgc
+     2.30s  0.98% 45.41%      2.30s  0.98%  crypto/internal/fips140/sha256.blockAVX2
+     1.92s  0.81% 46.23%      1.92s  0.81%  aeshashbody
+     1.78s  0.76% 46.98%     10.40s  4.41%  runtime.wbBufFlush1
+     1.76s  0.75% 47.73%      7.40s  3.14%  runtime.bulkBarrierPreWrite
+     1.62s  0.69% 48.42%      2.64s  1.12%  internal/runtime/maps.(*Iter).Next
+     1.57s  0.67% 49.09%      5.34s  2.27%  runtime.selectgo
+     1.56s  0.66% 49.75%      1.56s  0.66%  sync/atomic.(*Int32).Add
+     1.40s  0.59% 50.34%      1.40s  0.59%  google.golang.org/protobuf/internal/encoding/json.indexNeedEscapeInString (inline)
+     1.35s  0.57% 50.91%      6.19s  2.63%  google.golang.org/protobuf/internal/encoding/json.(*Decoder).Read
+     1.28s  0.54% 51.46%      2.73s  1.16%  runtime.gcmarknewobject
+     1.26s  0.53% 51.99%      1.73s  0.73%  runtime.unlock2
+     1.24s  0.53% 52.52%      2.77s  1.18%  encoding/json.checkValid
+     1.17s   0.5% 53.02%     23.89s 10.14%  runtime.newobject
+     1.01s  0.43% 53.44%      7.45s  3.16%  github.com/dagger/dagger/dagql.(*Cache).compactEqClassesModeLocked
+     1.01s  0.43% 53.87%      1.36s  0.58%  runtime.(*mspan).markBitsForIndex (inline)
+        1s  0.42% 54.30%      6.45s  2.74%  gcWriteBarrier
+     0.88s  0.37% 54.67%      3.70s  1.57%  runtime.mapaccess1_fast64
+     0.87s  0.37% 55.04%      1.75s  0.74%  reflect.Value.Elem
+     0.83s  0.35% 55.39%      1.85s  0.79%  internal/sync.(*Mutex).Lock
+     0.81s  0.34% 55.74%      2.88s  1.22%  runtime.sweepone
+     0.77s  0.33% 56.06%      2.95s  1.25%  runtime.mapaccess1_faststr
+     0.76s  0.32% 56.38%     18.01s  7.64%  google.golang.org/protobuf/encoding/protojson.decoder.unmarshalMessage
+     0.73s  0.31% 56.69%      2.21s  0.94%  runtime.pcvalue
+     0.67s  0.28% 56.98%      5.92s  2.51%  google.golang.org/protobuf/internal/impl.(*messageState).Range
+     0.66s  0.28% 57.26%      1.29s  0.55%  internal/runtime/maps.(*Map).getWithoutKeySmallFastStr
+     0.63s  0.27% 57.53%      2.33s  0.99%  google.golang.org/protobuf/internal/impl.(*MessageInfo).sizePointerSlow
+     0.61s  0.26% 57.78%      1.22s  0.52%  runtime.(*spanInlineMarkBits).tryAcquire
+     0.57s  0.24% 58.03%      6.08s  2.58%  runtime.mapassign_faststr
+     0.56s  0.24% 58.26%      1.93s  0.82%  runtime.mapaccess2_faststr
+     0.56s  0.24% 58.50%      3.17s  1.35%  runtime.mapassign_fast64
+     0.55s  0.23% 58.74%      3.91s  1.66%  github.com/dagger/dagger/dagql.(*Cache).repairClassTermsLocked
+     0.55s  0.23% 58.97%      3.78s  1.60%  google.golang.org/protobuf/internal/encoding/json.(*Decoder).Peek
+     0.50s  0.21% 59.18%      3.42s  1.45%  google.golang.org/protobuf/internal/encoding/json.(*Decoder).parseNext
+     0.48s   0.2% 59.38%     47.13s 20.00%  runtime.gcDrain
+     0.47s   0.2% 59.58%     21.43s  9.09%  google.golang.org/protobuf/internal/order.RangeFields
+     0.46s   0.2% 59.78%     22.59s  9.59%  google.golang.org/protobuf/encoding/protojson.encoder.marshalMessage
+     0.45s  0.19% 59.97%      1.23s  0.52%  google.golang.org/protobuf/internal/impl.(*messageConverter).PBValueOf
+     0.45s  0.19% 60.16%      6.98s  2.96%  runtime.growslice

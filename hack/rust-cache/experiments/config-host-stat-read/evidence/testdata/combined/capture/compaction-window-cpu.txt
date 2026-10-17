@@ -1,0 +1,49 @@
+File: dagger-engine
+Build ID: 2a8766000d27e80b1189eda83e4096c6fa35d263
+Type: cpu
+Time: 2026-10-17 10:04:11 PDT
+Duration: 10s, Total samples = 18.65s (186.42%)
+Showing nodes accounting for 4.96s, 26.60% of 18.65s total
+Dropped 782 nodes (cum <= 0.09s)
+Showing top 40 nodes out of 275
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%      9.72s 52.12%  github.com/dagger/dagger/engine/server.(*Server).gc
+         0     0%     0%      9.72s 52.12%  github.com/dagger/dagger/engine/server.(*Server).gcAfterSessionCompletion
+         0     0%     0%      9.72s 52.12%  github.com/dagger/dagger/engine/server.(*Server).gcLocked
+         0     0%     0%      9.72s 52.12%  github.com/dagger/dagger/engine/server.(*Server).pruneLocalCacheLocked
+         0     0%     0%      9.72s 52.12%  github.com/dagger/dagger/engine/server.NewServer.After.throttle.func3.1
+         0     0%     0%      8.26s 44.29%  github.com/dagger/dagger/dagql.(*Cache).PruneMetadataEstimate
+         0     0%     0%      6.07s 32.55%  github.com/dagger/dagger/dagql.(*Cache).compactEqClassesLocked (inline)
+     0.84s  4.50%  4.50%      6.07s 32.55%  github.com/dagger/dagger/dagql.(*Cache).compactEqClassesModeLocked
+     2.90s 15.55% 20.05%      2.90s 15.55%  internal/runtime/maps.ctrlGroup.matchH2 (inline)
+         0     0% 20.05%      2.48s 13.30%  github.com/sourcegraph/conc.(*WaitGroup).Go.func1
+         0     0% 20.05%      2.47s 13.24%  github.com/sourcegraph/conc/panics.(*Catcher).Try
+         0     0% 20.05%      2.47s 13.24%  github.com/sourcegraph/conc/pool.(*Pool).worker
+         0     0% 20.05%      2.25s 12.06%  github.com/dagger/dagger/dagql.(*Cache).snapshotPruneStateCancelable
+     0.16s  0.86% 20.91%      2.25s 12.06%  github.com/dagger/dagger/dagql.(*Cache).snapshotPruneStateLocked
+     0.26s  1.39% 22.31%      2.01s 10.78%  runtime.mapassign_fast64
+     0.01s 0.054% 22.36%      1.98s 10.62%  runtime.systemstack
+     0.27s  1.45% 23.81%      1.94s 10.40%  runtime.mallocgc
+         0     0% 23.81%      1.83s  9.81%  golang.org/x/sync/errgroup.(*Group).Go.func1
+         0     0% 23.81%      1.60s  8.58%  github.com/dagger/dagger/dagql.(*Cache).GetOrInitCall
+         0     0% 23.81%      1.60s  8.58%  github.com/dagger/dagger/dagql.(*Cache).getOrInitCall
+         0     0% 23.81%      1.58s  8.47%  github.com/dagger/dagger/dagql.(*Cache).getOrInitCallInner
+     0.01s 0.054% 23.86%      1.56s  8.36%  github.com/dagger/dagger/engine/clientdb.UnmarshalProtoJSONs[go.shape.*uint8]
+     0.01s 0.054% 23.91%      1.55s  8.31%  github.com/dagger/dagger/engine/clientdb.unmarshalProtoJSONsOptimized[go.shape.*uint8]
+         0     0% 23.91%      1.54s  8.26%  github.com/dagger/dagger/dagql.(*Server).resolvePath.(*ErrorPool).Go.func4
+         0     0% 23.91%      1.54s  8.26%  github.com/dagger/dagger/dagql.(*Server).resolvePath.func3
+         0     0% 23.91%      1.48s  7.94%  github.com/dagger/dagger/dagql.(*Server).loadNthValue
+         0     0% 23.91%      1.48s  7.94%  github.com/dagger/dagger/dagql.Result[go.shape.interface { Type *github.com/vektah/gqlparser/v2/ast.Type }].NthValue
+     0.37s  1.98% 25.90%      1.47s  7.88%  runtime.mapaccess1_fast64
+         0     0% 25.90%      1.46s  7.83%  github.com/dagger/dagger/dagql.(*Cache).Prune
+         0     0% 25.90%      1.46s  7.83%  google.golang.org/protobuf/encoding/protojson.MarshalOptions.marshal
+     0.06s  0.32% 26.22%      1.45s  7.77%  google.golang.org/protobuf/encoding/protojson.encoder.marshalMessage
+     0.03s  0.16% 26.38%      1.38s  7.40%  google.golang.org/protobuf/internal/order.RangeFields
+         0     0% 26.38%      1.36s  7.29%  sync.(*WaitGroup).Go.func1
+     0.01s 0.054% 26.43%      1.35s  7.24%  github.com/dagger/dagger/dagql.(*Cache).wait
+         0     0% 26.43%      1.35s  7.24%  github.com/dagger/otel-go.SpansToPB
+         0     0% 26.43%      1.34s  7.18%  github.com/dagger/dagger/engine/server.(*cloudForwarder).run
+         0     0% 26.43%      1.34s  7.18%  github.com/dagger/dagger/engine/server.newCloudForwarder.func5
+     0.03s  0.16% 26.60%      1.33s  7.13%  github.com/dagger/otel-go.spanToPB
+         0     0% 26.60%      1.30s  6.97%  github.com/dagger/dagger/engine/server.fetchSpanBatch
+         0     0% 26.60%      1.29s  6.92%  github.com/dagger/dagger/engine/server.(*PubSub).streamHandler

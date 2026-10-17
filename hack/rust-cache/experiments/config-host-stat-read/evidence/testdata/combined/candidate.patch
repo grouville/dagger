@@ -1,0 +1,201 @@
+--- a/core/module_git_clients.go
++++ b/core/module_git_clients.go
+@@ -90,16 +90,15 @@
+ 	}
+ 	return func(rel string) ([]byte, bool, error) {
+ 		abs := filepath.Join(root, filepath.FromSlash(rel))
+-		stat, err := bk.StatCallerHostPath(hostCtx, abs, false)
+-		if status.Code(err) == codes.NotFound {
++		data, stat, err := bk.ReadCallerHostFileWithStat(hostCtx, abs)
++		if stat == nil && status.Code(err) == codes.NotFound {
+ 			return nil, false, nil
+ 		}
+-		if err != nil || stat.IsDir() {
++		if err != nil {
+ 			return nil, false, err
+ 		}
+-		data, err := bk.ReadCallerHostFile(hostCtx, abs)
+-		if err != nil {
+-			return nil, false, err
++		if stat.IsDir() {
++			return nil, false, nil
+ 		}
+ 		return data, true, nil
+ 	}, nil
+--- a/engine/engineutil/filesync.go
++++ b/engine/engineutil/filesync.go
+@@ -63,6 +63,15 @@
+ }
+ 
+ func (c *Client) diffcopy(ctx context.Context, opts engine.LocalImportOpts, msg any) error {
++	return c.withDiffCopy(ctx, opts, func(stream filesync.FileSync_DiffCopyClient) error {
++		if err := stream.RecvMsg(msg); err != nil {
++			return fmt.Errorf("failed to receive file bytes message: %w", err)
++		}
++		return nil
++	})
++}
++
++func (c *Client) withDiffCopy(ctx context.Context, opts engine.LocalImportOpts, receive func(filesync.FileSync_DiffCopyClient) error) error {
+ 	ctx, cancel, err := c.withClientCloseCancel(ctx)
+ 	if err != nil {
+ 		return err
+@@ -84,11 +93,7 @@
+ 	}
+ 	defer diffCopyClient.CloseSend()
+ 
+-	err = diffCopyClient.RecvMsg(msg)
+-	if err != nil {
+-		return fmt.Errorf("failed to receive file bytes message: %w", err)
+-	}
+-	return err
++	return receive(diffCopyClient)
+ }
+ 
+ func (c *Client) ReadCallerHostFile(ctx context.Context, path string) ([]byte, error) {
+@@ -107,6 +112,47 @@
+ 		return nil, fmt.Errorf("failed to read file: %w", err)
+ 	}
+ 	return msg.Data, nil
++}
++
++// ReadCallerHostFileWithStat keeps the stat-before-read order in one file-service
++// request. A non-nil stat distinguishes a read failure from a failed stat.
++func (c *Client) ReadCallerHostFileWithStat(ctx context.Context, path string) ([]byte, *fsutiltypes.Stat, error) {
++	ctx, err := enginetelemetry.WithNetworkRecording(ctx)
++	if err != nil {
++		return nil, nil, fmt.Errorf("create host file network recorder: %w", err)
++	}
++	var stat *fsutiltypes.Stat
++	var message filesync.BytesMessage
++	legacy := false
++	err = c.withDiffCopy(ctx, engine.LocalImportOpts{
++		Path: path, StatPathOnly: true, ReadSingleFileOnly: true, MaxFileSize: MaxFileContentsChunkSize,
++	}, func(stream filesync.FileSync_DiffCopyClient) error {
++		var info fsutiltypes.Stat
++		if err := stream.RecvMsg(&info); err != nil {
++			return fmt.Errorf("receive file stat: %w", err)
++		}
++		stat = &info
++		if info.IsDir() {
++			return nil
++		}
++		if err := stream.RecvMsg(&message); err != nil {
++			if errors.Is(err, io.EOF) {
++				legacy = true
++				return nil
++			}
++			return fmt.Errorf("receive file contents: %w", err)
++		}
++		return nil
++	})
++	if err != nil {
++		return nil, stat, err
++	}
++	if legacy {
++		// Older sources send only the stat when both flags are set.
++		data, err := c.ReadCallerHostFile(ctx, path)
++		return data, stat, err
++	}
++	return message.Data, stat, nil
+ }
+ 
+ // Return the absolute path of the given path as calculated by the caller's host using OS-specific rules.
+--- a/engine/client/filesync.go
++++ b/engine/client/filesync.go
+@@ -136,7 +136,13 @@
+ 		}
+ 
+ 		stat.Path = filepath.ToSlash(stat.Path)
+-		return stream.SendMsg(stat)
++		if err := stream.SendMsg(stat); err != nil {
++			return err
++		}
++		if opts.ReadSingleFileOnly && !stat.IsDir() {
++			return sendHostFileContents(stream, absPath, opts.MaxFileSize)
++		}
++		return nil
+ 
+ 	case opts.SearchOpts != nil:
+ 		// Run ripgrep (or grep fallback) on the host
+@@ -163,19 +169,7 @@
+ 		return stream.SendMsg(&filesync.BytesMessage{Data: data})
+ 
+ 	case opts.ReadSingleFileOnly:
+-		// just stream the file bytes to the caller
+-		fileContents, err := os.ReadFile(absPath)
+-		if err != nil {
+-			if errors.Is(err, os.ErrNotExist) {
+-				return status.Errorf(codes.NotFound, "read path: %s", err)
+-			}
+-			return fmt.Errorf("read file: %w", err)
+-		}
+-		if len(fileContents) > int(opts.MaxFileSize) {
+-			// NOTE: can lift this size restriction by chunking if ever needed
+-			return fmt.Errorf("file contents too large: %d > %d", len(fileContents), opts.MaxFileSize)
+-		}
+-		return stream.SendMsg(&filesync.BytesMessage{Data: fileContents})
++		return sendHostFileContents(stream, absPath, opts.MaxFileSize)
+ 
+ 	default:
+ 		// otherwise, do the whole directory sync back to the caller
+@@ -203,6 +197,22 @@
+ 		}
+ 		return fsutil.Send(stream.Context(), stream, filteredFS, nil)
+ 	}
++}
++
++func sendHostFileContents(stream filesync.FileSync_DiffCopyServer, absPath string, maxFileSize int64) error {
++	// just stream the file bytes to the caller
++	fileContents, err := os.ReadFile(absPath)
++	if err != nil {
++		if errors.Is(err, os.ErrNotExist) {
++			return status.Errorf(codes.NotFound, "read path: %s", err)
++		}
++		return fmt.Errorf("read file: %w", err)
++	}
++	if len(fileContents) > int(maxFileSize) {
++		// NOTE: can lift this size restriction by chunking if ever needed
++		return fmt.Errorf("file contents too large: %d > %d", len(fileContents), maxFileSize)
++	}
++	return stream.SendMsg(&filesync.BytesMessage{Data: fileContents})
+ }
+ 
+ func normalizeLocalImportStat(st *fstypes.Stat) {
+--- a/engine/opts.go
++++ b/engine/opts.go
+@@ -318,19 +318,21 @@
+ }
+ 
+ type LocalImportOpts struct {
+-	Path               string           `json:"path"`
+-	UseGitIgnore       bool             `json:"use_gitignore"`
+-	IncludePatterns    []string         `json:"include_patterns"`
+-	ExcludePatterns    []string         `json:"exclude_patterns"`
+-	FollowPaths        []string         `json:"follow_paths"`
+-	ReadSingleFileOnly bool             `json:"read_single_file_only"`
+-	MaxFileSize        int64            `json:"max_file_size"`
+-	StatPathOnly       bool             `json:"stat_path_only"`
+-	StatReturnAbsPath  bool             `json:"stat_return_abs_path"`
+-	StatResolvePath    bool             `json:"stat_resolve_path"`
+-	GetAbsPathOnly     bool             `json:"get_abs_path_only"`
+-	GlobPattern        string           `json:"glob_pattern"`
+-	SearchOpts         *LocalSearchOpts `json:"search_opts,omitempty"`
++	Path               string   `json:"path"`
++	UseGitIgnore       bool     `json:"use_gitignore"`
++	IncludePatterns    []string `json:"include_patterns"`
++	ExcludePatterns    []string `json:"exclude_patterns"`
++	FollowPaths        []string `json:"follow_paths"`
++	ReadSingleFileOnly bool     `json:"read_single_file_only"`
++	MaxFileSize        int64    `json:"max_file_size"`
++	// StatPathOnly combined with ReadSingleFileOnly sends the stat, then
++	// contents for non-directories. Older sources return the stat alone.
++	StatPathOnly      bool             `json:"stat_path_only"`
++	StatReturnAbsPath bool             `json:"stat_return_abs_path"`
++	StatResolvePath   bool             `json:"stat_resolve_path"`
++	GetAbsPathOnly    bool             `json:"get_abs_path_only"`
++	GlobPattern       string           `json:"glob_pattern"`
++	SearchOpts        *LocalSearchOpts `json:"search_opts,omitempty"`
+ }
+ 
+ func (o LocalImportOpts) ToGRPCMD() metadata.MD {

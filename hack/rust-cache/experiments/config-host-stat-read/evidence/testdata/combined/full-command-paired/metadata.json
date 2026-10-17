@@ -1,0 +1,64 @@
+{
+  "diagnostic": "Full Go test collection listing with the same engine, CLI, module and settings in both arms. Only config-stat-read differs: module configuration uses one stat-plus-read request. Content-keyed declarations are enabled in both arms. Both arms use the same updated CLI, preserving selected host-glob and list-output improvements. Direct builtin receivers are enabled in both arms. Minimal sparse disk-usage sampling is enabled in both arms. Prepared-schema remains off; declaration reuse, ordinary GC, telemetry and linear restored-posting deletion remain common. No profiling. One excluded initialization pair adds a real test; measured pairs alternate and remove it. Each arm starts a new CLI and edits a used source file. Every attempted command is retained and must return the correct ordered rows and exit successfully, including cleanup.",
+  "cli_sha256": "8dbe8dace311bad21ce4b995558b7feb35e6a2f48a029361ffe51a5a0e99299b",
+  "api_version": "v1.0.0-beta.15",
+  "collection_expansion_limit": 0,
+  "source": "/tmp/dagger-go-real-repository-main",
+  "source_revision": "ff0b029a4d270a651b9a8c7286babc79089066e4",
+  "modules": {
+    "before": {
+      "path": "/tmp/dagger-go-module-test-name-index",
+      "revision": "7568cd0e5309a716fc94f310a488978fd97ce0c3",
+      "hashes": {
+        "go.dang": "6288486ec454c0cc9fb921666c97ce863e68210ae96fd1e79f75be5889497b2f",
+        "gomod/main.dang": "991c243cf37d267c711dd8b2858db686a6ea727df0a9017a23336bd0b0814e35"
+      }
+    },
+    "after": {
+      "path": "/tmp/dagger-go-module-test-name-index",
+      "revision": "7568cd0e5309a716fc94f310a488978fd97ce0c3",
+      "hashes": {
+        "go.dang": "6288486ec454c0cc9fb921666c97ce863e68210ae96fd1e79f75be5889497b2f",
+        "gomod/main.dang": "991c243cf37d267c711dd8b2858db686a6ea727df0a9017a23336bd0b0814e35"
+      }
+    }
+  },
+  "engine_sha256": "20c1f2b93bf99bb88ea46ca9c521dc0e06f4322bea9c2958d17120f44f18ba7e",
+  "pairs": 5,
+  "orders": [
+    [
+      "before",
+      "after"
+    ],
+    [
+      "after",
+      "before"
+    ],
+    [
+      "before",
+      "after"
+    ],
+    [
+      "after",
+      "before"
+    ],
+    [
+      "before",
+      "after"
+    ]
+  ],
+  "wcprof": false,
+  "cpu_profiling": false,
+  "telemetry": true,
+  "ordinary_gc": true,
+  "fresh_edit_every_arm": true,
+  "warm_engine": true,
+  "warmup": "Pair 0 is retained as initial source-identity population and is excluded from all medians and paired gains. Measured pairs alternate order. Every invocation, including warmups, starts a fresh CLI and receives a fresh source comment on the warm engine.",
+  "batch_metadata": true,
+  "attribute_array_decode": true,
+  "filesync_snapshot_seeds": true,
+  "metadata_read_ahead_both_arms": false,
+  "declaration_reuse_both_arms": true,
+  "lazy_usage_maps_environment": null,
+  "driver_sha256": "57ec85c5439c3ea8a5f87b2ab2a3aa30045f58c6f0474df35c2f4c622cb7e034"
+}

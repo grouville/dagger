@@ -1,0 +1,42 @@
+[
+  {
+    "arm": "baseline",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/config-host-read-first/metadata-baseline-overlay.json",
+      "-race",
+      "-count=1",
+      "-run",
+      "^TestModuleHostFileReaderPreservesMetadataErrors$",
+      "./core"
+    ],
+    "exit_code": 0,
+    "seconds": 53.286363560007885,
+    "expected_outcome": true
+  },
+  {
+    "arm": "candidate",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/config-host-read-first/metadata-candidate-overlay.json",
+      "-race",
+      "-count=1",
+      "-run",
+      "^TestModuleHostFileReaderPreservesMetadataErrors$",
+      "./core"
+    ],
+    "exit_code": 1,
+    "seconds": 52.41899543697946,
+    "expected_outcome": true
+  }
+]

@@ -1,0 +1,36 @@
+[
+  {
+    "arm": "baseline",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/config-host-read-first/baseline-overlay.json",
+      "-race",
+      "-count=1",
+      "-run",
+      "^TestModuleHostFileReaderBehavior$",
+      "./core"
+    ],
+    "exit_code": 0
+  },
+  {
+    "arm": "candidate",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/config-host-read-first/candidate-overlay.json",
+      "-race",
+      "-count=1",
+      "-run",
+      "^TestModuleHostFileReader",
+      "./core"
+    ],
+    "exit_code": 0
+  }
+]

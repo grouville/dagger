@@ -1,0 +1,58 @@
+{
+  "selected": false,
+  "reason": "Only one of four full-command pairs is faster; command latency, engine CPU and allocation regress in this cohort despite reduced requests and CLI CPU.",
+  "full_command": {
+    "pairs": 4,
+    "warmup_pairs": 1,
+    "all_commands_succeeded": true,
+    "successful_commands": {
+      "before": 4,
+      "after": 4
+    },
+    "failed_commands": {
+      "before": 0,
+      "after": 0
+    },
+    "median_seconds_all_attempts": {
+      "before": 44.66707287397003,
+      "after": 51.243762569036335
+    },
+    "successful_seconds": {
+      "before": [
+        40.18209656293038,
+        43.170175255974755,
+        49.969742308952846,
+        46.1639704919653
+      ],
+      "after": [
+        51.42455349303782,
+        51.06297164503485,
+        39.32612162001897,
+        51.65136172808707
+      ]
+    },
+    "median_last_row_seconds": {
+      "before": 44.57951570348814,
+      "after": 51.16677942854585
+    },
+    "median_allocated_bytes": {
+      "before": 33426057572.0,
+      "after": 35395066608.0
+    },
+    "median_engine_cpu": {
+      "before": 219.16166149999987,
+      "after": 231.28610400000025
+    },
+    "both_succeeded_pairs": 4,
+    "faster_successful_pairs": 1,
+    "same_rows": true,
+    "rows": 4398,
+    "warmup_rows": 4399,
+    "metadata_edit_add_then_remove": true
+  },
+  "comparison": "One retained engine and matched CLI in both arms; fresh edits and CLI processes, ordinary telemetry and GC; initialization is separate. All attempts retained.",
+  "causality_limit": "Cache compaction stalls publication in the diagnostic. This does not prove why the candidate cohort encounters more overhead or quantify the benefit of a future compaction change.",
+  "native_histories": "All six preserve every expected hit before/after candidate restart, after cohort/capture, and first call after exact original-binary restoration.",
+  "selected_engine_restored": "51542ef941c4e3bd96c2ce770c118d154824272ff247d8b9038b0cb27e5fa0e3",
+  "new_pr_opened": false
+}
