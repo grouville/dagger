@@ -1,0 +1,59 @@
+[
+  {
+    "label": "upstream-before-regression",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/session-parallel-client-init/upstream-overlay-before.json",
+      "-count=1",
+      "-timeout=180s",
+      "-run",
+      "TestNestedClientRuntimeInitializationsCanOverlap$",
+      "./engine/server"
+    ],
+    "seconds": 70.13635884795804,
+    "exit_code": 1,
+    "expected_exit_code": 1,
+    "source": "/tmp/dagger-go-real-repository-main",
+    "files_sha256": {
+      "upstream-before-session.go": "be377a0cc74ca2b6b2b53934a5469ba40c5040815bf53e3223bd3c2afbfafd0c",
+      "upstream-after-session.go": "4176df6517485d635a4277d65ca7a6a4054f7aefb7b4a28b6412bf6bc708ed0d",
+      "parallel_client_init_test.go": "faa84a82e80b2b7b2390574b7ebf216401b4e77306dfb49aa5d5db3246c70806"
+    }
+  },
+  {
+    "label": "upstream-after-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/session-parallel-client-init/upstream-overlay-after.json",
+      "-race",
+      "-count=1",
+      "-timeout=180s",
+      "-run",
+      "Test(NestedClientRuntimeInitializationsCanOverlap|InitializeSessionEngineClientConcurrent|NestedTransport|ClientInitialization|ClientMetadata|GetOrInit|SessionLifecycleObserverConcurrency|Reap|SameIDConnect|FailedSessionInitialization)",
+      "./engine/server"
+    ],
+    "seconds": 122.33665234700311,
+    "exit_code": 0,
+    "expected_exit_code": 0,
+    "source": "/tmp/dagger-go-real-repository-main",
+    "files_sha256": {
+      "upstream-before-session.go": "be377a0cc74ca2b6b2b53934a5469ba40c5040815bf53e3223bd3c2afbfafd0c",
+      "upstream-after-session.go": "4176df6517485d635a4277d65ca7a6a4054f7aefb7b4a28b6412bf6bc708ed0d",
+      "parallel_client_init_test.go": "faa84a82e80b2b7b2390574b7ebf216401b4e77306dfb49aa5d5db3246c70806"
+    }
+  }
+]

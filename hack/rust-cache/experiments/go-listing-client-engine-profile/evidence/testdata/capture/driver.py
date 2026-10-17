@@ -1,0 +1,196 @@
+from pathlib import Path
+import gzip
+import hashlib
+import json
+import os
+import signal
+import socket
+import subprocess
+import threading
+import time
+import urllib.request
+
+protocol = Path('/tmp/rust-cache-sipsma-review/rust-go-test-collections/measure.py')
+exec(protocol.read_text().split('fixtures = [f for f')[0])
+cli = base / 'filesync-literal-pathwalk/dagger-after'
+workspace = Path('/tmp/dagger-go-real-repository-main')
+module = Path('/tmp/dagger-go-module-test-name-index')
+source = workspace / 'dagql/types.go'
+original = source.read_bytes()
+configs = {n: (workspace/n).read_bytes() if (workspace/n).exists() else None for n in ['dagger.toml', 'dagger.lock']}
+routes = ['batch-metadata', 'attribute-array-decode', 'reusable-declarations', 'span-lookup-fanout',
+          'span-resource-batches', 'lazy-type-maps', 'telemetry-flush-coalescing',
+          'callback-caller-reuse', 'otel-evicted-queue', 'single-toml-parse', 'parallel-client-admission']
+flags = {route: get(route)['enabled'] for route in routes}
+seed_path = '/tmp/filesync-snapshot-seeds-mode'
+seeds = subprocess.check_output(['docker', 'exec', record['Id'], 'cat', seed_path])
+env.pop('CPUPROFILE', None)
+env.pop('PPROF', None)
+env['_EXPERIMENTAL_DAGGER_VERSION'] = 'v1.0.0-beta.15'
+
+def raw(url, timeout=20):
+    with urllib.request.urlopen(url, timeout=timeout) as response:
+        return response.read()
+
+sock=socket.socket()
+sock.bind(('127.0.0.1',0))
+cli_port=sock.getsockname()[1]
+sock.close()
+env['PPROF']='127.0.0.1:'+str(cli_port)
+cli_debug='http://127.0.0.1:'+str(cli_port)+'/debug/pprof/'
+cli_windows=[]
+cli_allocations=[]
+stop = threading.Event()
+samples, windows, errors, threads = [], [], [], []
+
+def sample():
+    while not stop.wait(1):
+        samples.append(dict(seconds=time.monotonic()-tick, heap=heap(), engine_cpu=cpu(), pressure=pressure()))
+
+def engine_cpu():
+    index = 0
+    while not stop.is_set():
+        begin = time.monotonic()
+        try:
+            data = raw(debug+'pprof/profile?seconds=5', 20)
+            name = f'engine-cpu-{index:03d}.pprof'
+            (root/name).write_bytes(data)
+            windows.append(dict(path=name, start_seconds=begin-tick, end_seconds=time.monotonic()-tick, bytes=len(data)))
+        except Exception as error:
+            errors.append(dict(scope='engine_cpu', start_seconds=begin-tick, error=str(error)))
+            break
+        index += 1
+
+
+def cli_cpu():
+    deadline=time.monotonic()+15
+    while not stop.is_set():
+        try:
+            raw(cli_debug,2)
+            break
+        except OSError:
+            if time.monotonic()>=deadline:
+                errors.append(dict(scope='cli_start',error='pprof listener not ready'))
+                return
+            stop.wait(.05)
+    if stop.is_set():return
+    try:
+        (root/'cli-allocs-before.pprof').write_bytes(raw(cli_debug+'allocs'))
+        cli_allocations.append(dict(path='cli-allocs-before.pprof',seconds=time.monotonic()-tick))
+    except OSError as error:
+        errors.append(dict(scope='cli_allocs_before',error=str(error)))
+    index=0
+    while not stop.is_set():
+        begin=time.monotonic()
+        try:
+            data=raw(cli_debug+'profile?seconds=5',20)
+            name=f'cli-cpu-{index:03d}.pprof'
+            (root/name).write_bytes(data)
+            cli_windows.append(dict(path=name,start_seconds=begin-tick,end_seconds=time.monotonic()-tick,bytes=len(data)))
+            data=raw(cli_debug+'allocs',10)
+            name=f'cli-allocs-{index:03d}.pprof'
+            (root/name).write_bytes(data)
+            cli_allocations.append(dict(path=name,seconds=time.monotonic()-tick,bytes=len(data)))
+        except OSError as error:
+            errors.append(dict(scope='cli_profile_tail' if stop.is_set() else 'cli_profile',start_seconds=begin-tick,error=str(error)))
+            break
+        index+=1
+
+assert not get('wcprof/enabled')['global_enabled']
+assert get('lock-profiler')==dict(mutex_fraction=0,block_profile_rate_ns=0)
+assert not get('snapshot-collection')['deferred']
+assert get('collection-expansion-limit')['limit'] == 0
+idle('profile-invocation-phases')
+metadata = dict(
+    scope='Diagnostic full Go listing with engine wcprof, engine and CLI CPU windows, plus allocation snapshots in both processes. Original GraphQL/HTTP, telemetry, GC and cache behavior; all unselected modes off. Profiled duration is not a latency result.',
+    cli_sha256=hashlib.sha256(cli.read_bytes()).hexdigest(),
+    engine_sha256=subprocess.check_output(['docker', 'exec', record['Id'], 'sha256sum', '/usr/local/bin/dagger-engine'], text=True).split()[0],
+    workspace_revision=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=workspace, text=True).strip(),
+    module_revision=subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=module, text=True).strip(),
+    warm_engine=True, fresh_cli=True, fresh_source_edit=True, telemetry=True, ordinary_gc=True,
+    cpu_profile_window_seconds=5, cli_cpu_profile_window_seconds=5, cli_pprof_address=env['PPROF'], go_runtime_trace=False, flags_before=flags)
+(root/'metadata.json').write_text(json.dumps(metadata, indent=2)+'\n')
+(root/'driver.py').write_bytes(Path(__file__).read_bytes())
+cancelled = False
+try:
+    for route in ['batch-metadata', 'attribute-array-decode', 'reusable-declarations', 'span-lookup-fanout']:
+        mode(route, True)
+    for route in ['span-resource-batches', 'lazy-type-maps', 'telemetry-flush-coalescing', 'callback-caller-reuse', 'otel-evicted-queue', 'single-toml-parse', 'parallel-client-admission']:
+        mode(route, False)
+    get('span-lookup-fanout?record=false', b'')
+    get('span-resource-batches?record=false', b'')
+    subprocess.run(['docker', 'exec', '-i', record['Id'], 'sh', '-c', 'cat > '+seed_path], input=b'on\n', check=True)
+    source.write_bytes(original+f'\n// Profile Dang invocation phases {time.time_ns()}\n'.encode())
+    (workspace/'dagger.toml').write_text('[modules.go]\nsource = "'+str(module)+'"\n[modules.go.settings]\nversion = "1.26.6"\ngoflags = "-p=8"\ntest = ["."]\n')
+    get('wcprof/enabled', b'on')
+    raw(debug+'wcprof/dump')
+    (root/'engine-allocs-before.pprof').write_bytes(raw(debug+'pprof/allocs'))
+    before = heap()
+    before_cpu = cpu()
+    before_pressure = pressure()
+    tick, wall = time.monotonic(), time.time()
+    command = [str(cli), 'check', '--module', 'go', '--check', 'test', '--list', '--all']
+    timed = ['/usr/bin/time', '-f', '{"user_seconds":%U,"system_seconds":%S,"max_rss_kib":%M}', '-o', str(root/'cli-resources.json'), '--', *command]
+    with (root/'command.stdout').open('w') as out, (root/'command.stderr').open('w') as err:
+        process = subprocess.Popen(timed, cwd=workspace, env=env, stdout=out, stderr=err, start_new_session=True)
+        threads = [threading.Thread(target=sample), threading.Thread(target=engine_cpu),threading.Thread(target=cli_cpu)]
+        for thread in threads:
+            thread.start()
+        try:
+            code = process.wait(timeout=300)
+        except subprocess.TimeoutExpired:
+            cancelled = True
+            os.killpg(process.pid, signal.SIGINT)
+            code = process.wait()
+    elapsed = time.monotonic()-tick
+    after, after_cpu, after_pressure = heap(), cpu(), pressure()
+finally:
+    stop.set()
+    get('wcprof/enabled', b'off')
+    for thread in threads:
+        thread.join()
+    source.write_bytes(original)
+    for name, data in configs.items():
+        if data is None:
+            (workspace/name).unlink(missing_ok=True)
+        else:
+            (workspace/name).write_bytes(data)
+    for route, enabled in flags.items():
+        mode(route, enabled)
+    subprocess.run(['docker', 'exec', '-i', record['Id'], 'sh', '-c', 'cat > '+seed_path], input=seeds, check=True)
+
+(root/'engine-allocs-after.pprof').write_bytes(raw(debug+'pprof/allocs'))
+(root/'cli-cpu-windows.json').write_text(json.dumps(cli_windows,indent=2)+'\n')
+(root/'cli-allocation-windows.json').write_text(json.dumps(cli_allocations,indent=2)+'\n')
+(root/'samples.json').write_text(json.dumps(samples, indent=2)+'\n')
+(root/'engine-cpu-windows.json').write_text(json.dumps(windows, indent=2)+'\n')
+chunks, events = [], []
+deadline = time.monotonic()+120
+while True:
+    data = raw(debug+'wcprof/dump', 45)
+    (root/f'wcprof-{len(chunks)}.ndjson.gz').write_bytes(gzip.compress(data, mtime=0))
+    lines = data.splitlines()
+    header = json.loads(lines[0])
+    chunks.append(header)
+    events.extend(lines[1:])
+    if not header.get('open_ops'):
+        break
+    assert time.monotonic() < deadline, 'wcprof operations still open'
+    time.sleep(1)
+header = dict(chunks[-1])
+header['event_count'] = len(events)
+(root/'wcprof-complete.ndjson').write_bytes((json.dumps(header)+'\n').encode()+b'\n'.join(events)+b'\n')
+listed = [s for s in (root/'command.stdout').read_text().splitlines() if s.startswith('go ')]
+expected = [s for s in (base/'go-wide-trace-index/profile-fast/command.stdout').read_text().splitlines() if s.startswith('go ')]
+result = dict(seconds=elapsed, exit_code=code, cancelled=cancelled, rows=len(listed), same_rows=listed==expected,
+    engine_cpu=after_cpu-before_cpu, engine_heap_delta={k: after[k]-before[k] for k in before},
+    pressure={k: (after_pressure[k]-before_pressure[k])/(elapsed*1e6) for k in before_pressure},
+    cli_resources=json.loads((root/'cli-resources.json').read_text().splitlines()[-1]),
+    cpu_windows=len(windows), cli_cpu_windows=len(cli_windows), cli_allocation_snapshots=len(cli_allocations), errors=errors,
+    recorder=dict(events=len(events), dropped=header['dropped_events'], open=len(header.get('open_ops', []))),
+    restored_source=hashlib.sha256(source.read_bytes()).hexdigest()==hashlib.sha256(original).hexdigest(),
+    unix_start=wall)
+(root/'result.json').write_text(json.dumps(result, indent=2)+'\n')
+print(json.dumps(result, indent=2), flush=True)
+assert code == 0 and not cancelled and listed == expected and len(listed) == 4398
+assert not header.get('open_ops') and header['dropped_events'] == 0

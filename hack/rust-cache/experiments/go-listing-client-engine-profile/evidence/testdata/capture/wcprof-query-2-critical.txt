@@ -1,0 +1,48 @@
+critpath of op 28641: 4.75s
+on-path time by class (sums to the roots' duration; concurrent work off the path gets nothing):
+     on_path      % segments  kind class
+       3.06s  64.4%        1  internal dang.evaluateFunction
+       1.10s  23.2%       12  internal dang.apiRequest
+    210.16ms   4.4%        3  call Module._implementationScoped
+    172.07ms   3.6%        1  internal dang.flushTelemetry
+     65.51ms   1.4%        1  session_phase session.query
+     65.44ms   1.4%        1  call gomod:Gomod.at
+     59.78ms   1.3%        1  internal dagql.publishResult
+      7.32ms   0.2%        1  call gomod:Query.gomod
+      3.24ms   0.1%        1  internal dang.decodeSchema
+      2.46ms   0.1%        1  call gomod:GomodGoMod.ownFiles
+      1.54ms   0.0%        1  internal dang.encodeResult
+     539.9µs   0.0%        1  internal dang.evalSource
+      72.7µs   0.0%        1  internal dang.selfTypes
+      54.2µs   0.0%        1  call Query.__schemaJSONFile
+      34.4µs   0.0%        1  internal dang.openSchema
+      14.5µs   0.0%        1  internal dang.prepareSource
+       9.6µs   0.0%        1  internal dang.runSource
+       5.3µs   0.0%        1  session_phase session.serveQuery
+       5.3µs   0.0%        1  internal dang.invoke
+       1.3µs   0.0%        1  session_phase session.modulesLoad
+       1.1µs   0.0%        1  internal dang.retainDirectives
+       826ns   0.0%        1  session_phase session.schemaBuild
+       524ns   0.0%        1  session_phase session.workspaceLoad
+
+path of the longest (offsets from its start; `dur` on the path, `own` not in any blocker):
++0ns dur 4.75s own 5.3µs  28641 session_phase session.serveQuery [ok]
+  +6.4µs dur 4.75s own 65.51ms  28645 session_phase session.query [ok]
+    +35.23ms dur 65.44ms own 65.44ms  29591 call gomod:Gomod.at [hit]
+    +117.66ms dur 205.30ms own 205.30ms  29738 call Module._implementationScoped [hit]
+    +344.64ms dur 4.40s own 2.46ms  30143 call gomod:GomodGoMod.ownFiles [executed] (exec 30144)
+      +344.88ms dur 4.34s own 539.9µs  30147 internal dang.evalSource [ok]
+        +348.32ms dur 4.33s own 5.3µs  30199 internal dang.invoke [ok]
+          +348.32ms dur 4.16s own 3.06s  30200 internal dang.evaluateFunction [ok]
+            +348.71ms dur 84.67ms own 84.67ms  30201 internal dang.apiRequest [ok]
+            +433.47ms dur 86.85ms own 86.85ms  31542 internal dang.apiRequest [ok]
+            +520.35ms dur 74.51ms own 74.51ms  33214 internal dang.apiRequest [ok]
+            +608.04ms dur 69.13ms own 69.13ms  35168 internal dang.apiRequest [ok]
+            +686.63ms dur 97.63ms own 97.63ms  36953 internal dang.apiRequest [ok]
+            +792.58ms dur 94.07ms own 94.07ms  39144 internal dang.apiRequest [ok]
+            +892.37ms dur 209.45ms own 209.45ms  41060 internal dang.apiRequest [ok]
+            +1.10s dur 358.90ms own 358.90ms  45041 internal dang.apiRequest [ok]
+          +4.51s dur 172.07ms own 172.07ms  50696 internal dang.flushTelemetry [ok]
+      +4.68s dur 59.78ms own 59.78ms  50773 internal dagql.publishResult [ok]
+(15 segments not shown: runs of them totaling under 1% of the path, 42.25ms)
+(runs of sub-1% segments totaling 1%+ show their largest members, the rest as "… N shorter"; ▸ N: N segments not expanded, raise `depth` or re-root with `op`; (exec N): a call folded with its call_exec op N)

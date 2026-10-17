@@ -1,0 +1,41 @@
+[
+  {
+    "label": "after-package",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/session-parallel-client-init/overlay-after.json",
+      "-count=1",
+      "-timeout=180s",
+      "./engine/server"
+    ],
+    "seconds": 21.078539122012444,
+    "exit_code": 0
+  },
+  {
+    "label": "after-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/session-parallel-client-init/overlay-after.json",
+      "-race",
+      "-count=1",
+      "-timeout=180s",
+      "./engine/server"
+    ],
+    "seconds": 122.78181541198865,
+    "exit_code": 0
+  }
+]

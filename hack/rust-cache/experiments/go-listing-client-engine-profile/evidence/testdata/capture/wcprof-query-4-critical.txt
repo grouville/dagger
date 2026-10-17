@@ -1,0 +1,32 @@
+critpath of op 305437: 3.17s
+on-path time by class (sums to the roots' duration; concurrent work off the path gets nothing):
+     on_path      % segments  kind class
+       3.16s  99.8%        2  internal dagql.publishResult
+      5.61ms   0.2%        1  call Host.directory
+     423.0µs   0.0%        1  call Workspace.file
+     376.7µs   0.0%        1  session_phase session.query
+     249.5µs   0.0%        1  io snapshot.commit.backend
+      72.2µs   0.0%        1  call Query.node
+      37.6µs   0.0%        1  call Directory.file
+      27.5µs   0.0%        1  call Query._clientFilesyncMirror
+      25.7µs   0.0%        2  call Module._implementationScoped
+      22.6µs   0.0%        1  call File.search
+      19.2µs   0.0%        1  internal snapshot.commit.metadata
+      11.7µs   0.0%        1  internal snapshot.commit
+      10.4µs   0.0%        1  call Query.host
+       9.1µs   0.0%        1  session_phase session.serveQuery
+       2.7µs   0.0%        1  internal snapshot.commit.lease
+       1.7µs   0.0%        1  session_phase session.modulesLoad
+       1.2µs   0.0%        1  session_phase session.schemaBuild
+       699ns   0.0%        1  session_phase session.workspaceLoad
+        66ns   0.0%        1  internal snapshot.commit.managerLock
+        28ns   0.0%        1  internal snapshot.commit.refLock
+
+path of the longest (offsets from its start; `dur` on the path, `own` not in any blocker):
++0ns dur 3.17s own 9.1µs  305437 session_phase session.serveQuery [ok]
+  +12.1µs dur 3.17s own 376.7µs  305441 session_phase session.query [ok]
+    +302.7µs dur 3.17s own 423.0µs  305445 call Workspace.file [executed] (exec 305446)
+      +485.2µs dur 3.16s own 5.61ms  305448 call Host.directory [executed] (exec 305449)
+        +6.33ms dur 3.16s own 3.16s  305457 internal dagql.publishResult [ok]
+(10 segments not shown: runs of them totaling under 1% of the path, 549.1µs)
+(runs of sub-1% segments totaling 1%+ show their largest members, the rest as "… N shorter"; ▸ N: N segments not expanded, raise `depth` or re-root with `op`; (exec N): a call folded with its call_exec op N)

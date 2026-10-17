@@ -1,0 +1,210 @@
+--- a/engine/server/session.go
++++ b/engine/server/session.go
+@@ -97,8 +97,9 @@
+ 	// held across the (potentially slow, up to ~60s) init and teardown work, but
+ 	// NO observer path (Clients/activeClientIDs/clientRecordFromIDs) ever acquires it,
+ 	// so a session stuck initializing or tearing down can never stall the
+-	// active-clients API or the client-DB GC.
+-	lifecycleMu sync.Mutex
++	// active-clients API or the client-DB GC. Nested client admission holds a
++	// read lock; root admission and session transitions retain exclusive access.
++	lifecycleMu sync.RWMutex
+ 
+ 	// scopeMu is the single serialization point for client lifecycle lease
+ 	// acquisition, release, closing, and session teardown.
+@@ -117,8 +118,9 @@
+ 	// is derived from immutable client metadata in context and the session's
+ 	// record/attachable graph, so host access never requires the metadata
+ 	// owner's retained execution runtime.
+-	engineUtilClient *engineutil.Client
+-	getClientCaller  func(context.Context, string) (engineutil.SessionCaller, error)
++	engineUtilClientMu sync.Mutex
++	engineUtilClient   *engineutil.Client
++	getClientCaller    func(context.Context, string) (engineutil.SessionCaller, error)
+ 
+ 	closingCtx       context.Context
+ 	cancelClosing    context.CancelCauseFunc
+@@ -358,6 +360,11 @@
+ 	transportLease         *engine.ClientLifecycleLease
+ 	parentClientScopeLease *engine.ClientLifecycleLease
+ 	reclaiming             bool
++
++	// admissionMu serializes requests for this client before they enter scopeMu.
++	// In particular, a request waiting for runtime initialization must not hold
++	// scopeMu, which initialization itself can acquire through DagQL.
++	admissionMu sync.Mutex
+ 
+ 	state   clientRuntimeState
+ 	stateMu sync.RWMutex
+@@ -1456,8 +1463,10 @@
+ // context and resolves only through session records and attachables; the gateway
+ // never closes over a client runtime.
+ //
+-// requires that sess.lifecycleMu is held
++// Callers hold sess.lifecycleMu, possibly for reading.
+ func (srv *Server) initializeSessionEngineClient(ctx context.Context, sess *daggerSession) error {
++	sess.engineUtilClientMu.Lock()
++	defer sess.engineUtilClientMu.Unlock()
+ 	if sess.engineUtilClient != nil {
+ 		return nil
+ 	}
+@@ -1908,6 +1917,7 @@
+ 	}
+ 	srv.daggerSessionsMu.Unlock()
+ 
++	sharedAdmission := !createdSession && !opts.RootClient
+ 	if !createdSession {
+ 		// Fast, lock-free check: if the session is already a removed tombstone,
+ 		// bail immediately rather than blocking on lifecycleMu for the (possibly
+@@ -1916,7 +1926,11 @@
+ 		if sess.state.Load() == sessionStateRemoved {
+ 			return nil, nil, flightcontrol.RetryableError{Err: fmt.Errorf("session %q removed", sessionID)}
+ 		}
+-		sess.lifecycleMu.Lock()
++		if sharedAdmission {
++			sess.lifecycleMu.RLock()
++		} else {
++			sess.lifecycleMu.Lock()
++		}
+ 	}
+ 
+ 	// We now hold sess.lifecycleMu. The deferred handler below manages the unlock
+@@ -1930,7 +1944,11 @@
+ 	unlockLifecycle := func() {
+ 		if lifecycleHeld {
+ 			lifecycleHeld = false
+-			sess.lifecycleMu.Unlock()
++			if sharedAdmission {
++				sess.lifecycleMu.RUnlock()
++			} else {
++				sess.lifecycleMu.Unlock()
++			}
+ 		}
+ 	}
+ 	defer func() {
+@@ -1985,6 +2003,11 @@
+ 	clientExists := recordExists
+ 	if clientExists && client.clientRecord != record {
+ 		return nil, nil, fmt.Errorf("client %q runtime does not match its record", clientID)
++	}
++
++	if sharedAdmission && clientExists {
++		client.admissionMu.Lock()
++		defer client.admissionMu.Unlock()
+ 	}
+ 
+ 	parentClientIDs, err := sess.parentClientIDsForRegistration(clientID, opts.ParentClientID, opts.RootClient)
+--- /dev/null
++++ b/engine/server/parallel_client_init_test.go
+@@ -0,0 +1,111 @@
++package server
++
++import (
++	"context"
++	"testing"
++	"time"
++
++	"github.com/dagger/dagger/engine"
++	"github.com/dagger/dagger/engine/clientdb"
++	"github.com/dagger/dagger/engine/engineutil"
++	"github.com/stretchr/testify/require"
++)
++
++func TestNestedClientRuntimeInitializationsCanOverlap(t *testing.T) {
++	t.Parallel()
++	srv, sess, parent, ctx, requestScope := newNestedTransportTestFixture(t)
++	defer requestScope.Lease().Release()
++	srv.clientDBs = clientdb.NewDBs(t.TempDir())
++	sess.telemetryPubSub = NewPubSub(srv)
++	t.Cleanup(func() { require.NoError(t, srv.clientDBs.Close()) })
++	// The gateway is already initialized in a normal session. Block schema work,
++	// after request admission, so the test does not depend on its runtime cost.
++	sess.engineUtilClient = new(engineutil.Client)
++	srv.coreSchemaBaseMu.Lock()
++	initCtx, cancel := context.WithCancel(context.Background())
++	results := make(chan error, 2)
++	started := 0
++	defer func() {
++		cancel()
++		srv.coreSchemaBaseMu.Unlock()
++		for range started {
++			select {
++			case err := <-results:
++				require.Error(t, err)
++			case <-time.After(5 * time.Second):
++				t.Error("client initialization did not finish after cancellation")
++			}
++		}
++	}()
++	var clients []*clientRuntime
++	var transports []*engine.NestedClientTransport
++	for _, name := range []string{"first", "second"} {
++		metadata := nestedTransportTestMetadata(name)
++		transport, err := srv.RegisterNestedClientTransport(ctx, metadata, parent.clientID)
++		require.NoError(t, err)
++		defer transport.Close()
++		transports = append(transports, transport)
++		child := sess.clientRuntimes[name]
++		clients = append(clients, child)
++		started++
++		go func() {
++			_, cleanup, err := srv.getOrInitClient(initCtx, &ClientInitOpts{
++				ClientMetadata: metadata, NestedTransport: transport, ParentClientID: parent.clientID,
++			})
++			if cleanup != nil {
++				_ = cleanup()
++			}
++			results <- err
++		}()
++		require.Eventually(t, func() bool {
++			if !sess.scopeMu.TryLock() {
++				return false
++			}
++			defer sess.scopeMu.Unlock()
++			for _, client := range clients {
++				if client.stateMu.TryLock() {
++					client.stateMu.Unlock()
++					return false
++				}
++			}
++			return true
++		}, time.Second, time.Millisecond, "unrelated client initializations were serialized")
++	}
++	// Closing either transport cannot discard a runtime while its admitted
++	// initialization still owns a request lease.
++	for i, child := range clients {
++		transports[i].Close()
++		_, _, leases := sess.clientLifecycleSnapshot(child)
++		require.Equal(t, []clientLifecycleLeaseRecord{{kind: engine.ClientLeaseRequest, ownerID: "client connection"}}, leases)
++	}
++}
++
++func TestInitializeSessionEngineClientConcurrent(t *testing.T) {
++	t.Parallel()
++	srv := &Server{engineUtilOpts: &engineutil.Opts{}}
++	sess := &daggerSession{}
++	start := make(chan struct{})
++	type result struct {
++		client *engineutil.Client
++		err    error
++	}
++	results := make(chan result, 16)
++	for range cap(results) {
++		go func() {
++			<-start
++			err := srv.initializeSessionEngineClient(t.Context(), sess)
++			results <- result{sess.engineUtilClient, err}
++		}()
++	}
++	close(start)
++	var shared *engineutil.Client
++	for range cap(results) {
++		r := <-results
++		require.NoError(t, r.err)
++		require.NotNil(t, r.client)
++		if shared == nil {
++			shared = r.client
++		}
++		require.Same(t, shared, r.client, "client runtimes must share one session gateway")
++	}
++}

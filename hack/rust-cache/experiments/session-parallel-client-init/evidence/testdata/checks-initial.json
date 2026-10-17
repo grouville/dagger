@@ -1,0 +1,46 @@
+[
+  {
+    "label": "before-regression",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/session-parallel-client-init/overlay-before.json",
+      "-count=1",
+      "-timeout=120s",
+      "-run",
+      "TestNestedClientRuntimeInitializationsCanOverlap",
+      "./engine/server"
+    ],
+    "seconds": 12.431119582033716,
+    "exit_code": 1,
+    "expected_exit_code": 1
+  },
+  {
+    "label": "after-regression",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/session-parallel-client-init/overlay-after.json",
+      "-count=1",
+      "-timeout=120s",
+      "-run",
+      "Test(NestedClientRuntimeInitializationsCanOverlap|ClientInitializationDoesNotHoldScopeLock)$",
+      "./engine/server"
+    ],
+    "seconds": 11.000590679002926,
+    "exit_code": 0,
+    "expected_exit_code": 0
+  }
+]

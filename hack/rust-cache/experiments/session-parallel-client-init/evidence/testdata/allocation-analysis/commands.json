@@ -1,0 +1,64 @@
+[
+  {
+    "output": "alloc_space-flat.txt",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "tool",
+      "pprof",
+      "-top",
+      "-nodecount=65",
+      "-sample_index=alloc_space",
+      "-base",
+      "/tmp/rust-cache-sipsma-review/session-parallel-client-init/startup-heap.pprof",
+      "/tmp/rust-cache-sipsma-review/session-parallel-client-init/dagger-engine",
+      "/tmp/rust-cache-sipsma-review/session-parallel-client-init/allocation-analysis/engine-allocs.pprof"
+    ]
+  },
+  {
+    "output": "alloc_space-cumulative.txt",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "tool",
+      "pprof",
+      "-top",
+      "-nodecount=65",
+      "-sample_index=alloc_space",
+      "-base",
+      "/tmp/rust-cache-sipsma-review/session-parallel-client-init/startup-heap.pprof",
+      "-cum",
+      "/tmp/rust-cache-sipsma-review/session-parallel-client-init/dagger-engine",
+      "/tmp/rust-cache-sipsma-review/session-parallel-client-init/allocation-analysis/engine-allocs.pprof"
+    ]
+  },
+  {
+    "output": "alloc_objects-flat.txt",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "tool",
+      "pprof",
+      "-top",
+      "-nodecount=65",
+      "-sample_index=alloc_objects",
+      "-base",
+      "/tmp/rust-cache-sipsma-review/session-parallel-client-init/startup-heap.pprof",
+      "/tmp/rust-cache-sipsma-review/session-parallel-client-init/dagger-engine",
+      "/tmp/rust-cache-sipsma-review/session-parallel-client-init/allocation-analysis/engine-allocs.pprof"
+    ]
+  },
+  {
+    "output": "alloc_objects-cumulative.txt",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "tool",
+      "pprof",
+      "-top",
+      "-nodecount=65",
+      "-sample_index=alloc_objects",
+      "-base",
+      "/tmp/rust-cache-sipsma-review/session-parallel-client-init/startup-heap.pprof",
+      "-cum",
+      "/tmp/rust-cache-sipsma-review/session-parallel-client-init/dagger-engine",
+      "/tmp/rust-cache-sipsma-review/session-parallel-client-init/allocation-analysis/engine-allocs.pprof"
+    ]
+  }
+]

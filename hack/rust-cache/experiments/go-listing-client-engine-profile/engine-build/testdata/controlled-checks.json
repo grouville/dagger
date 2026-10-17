@@ -1,0 +1,65 @@
+[
+  {
+    "label": "controlled-before",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/session-parallel-client-init/overlay-controlled.json",
+      "-count=1",
+      "-timeout=120s",
+      "-run",
+      "Test(ClientMetadata|GetOrInit|NestedTransport|ClosedClient)",
+      "./engine/server"
+    ],
+    "seconds": 10.985143656027503,
+    "exit_code": 0
+  },
+  {
+    "label": "controlled-after-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/session-parallel-client-init/overlay-controlled.json",
+      "-race",
+      "-count=1",
+      "-timeout=180s",
+      "-run",
+      "Test(NestedClientRuntimeInitializationsCanOverlap|InitializeSessionEngineClientConcurrent|NestedTransport|ClientInitialization)",
+      "./engine/server"
+    ],
+    "seconds": 17.724894989980385,
+    "exit_code": 0
+  },
+  {
+    "label": "engine-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "build",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/session-parallel-client-init/engine-overlay.json",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/session-parallel-client-init/dagger-engine",
+      "./cmd/engine"
+    ],
+    "seconds": 18.465970988967456,
+    "exit_code": 0,
+    "sha256": "1b314892dc16bd676bfb7db95e629e6a46d1b307e2e41050f199a558d94fe076"
+  }
+]
