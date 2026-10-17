@@ -1,0 +1,19 @@
+== TRACE ==  ✘ FAILED
+dagger-artifact-list-buffered check go-dev:package-layout-rebind-check  1.8s
+! exit code 1
+! dag://?check=package-layout-rebind-check: Go tests in sub: exit code: 1
+
+== CHECKS ==  ✘ 1 failed
+✘ dag://?check=package-layout-rebind-check 0.9s ERROR
+  == CHECKS ==  ✘ 1 failed
+    ✘ test 0.2s ERROR
+      ✘ withExec otelgotest -run '^(TestReboundLayout)$' ./sub (experimentalPrivilegedNesting: true) 0.0s ERROR
+      ┃ # ./sub
+      ┃ main module (example.com/layout) does not contain package example.com/layout/sub
+      ┃ FAIL    ./sub [setup failed]
+      ! exit code: 1
+
+No tests discovered yet
+
+== RUN LOCALLY ==
+dagger check "dag://?check=package-layout-rebind-check"

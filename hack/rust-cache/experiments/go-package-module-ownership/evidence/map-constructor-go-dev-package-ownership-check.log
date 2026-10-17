@@ -1,0 +1,12 @@
+== TRACE ==  ✘ FAILED
+dagger-artifact-list-buffered check go-dev:package-ownership-check  0.5s
+! exit code 1
+! dag://?check=go-dev/load: loading module "/tmp/dagger-go-module-test-name-index/.dagger/modules/go-dev": failed to load dependencies as modules: failed to load module dependencies: failed to create constructor for GoPackages: failed to convert argument type for moduleRoots: failed to convert non-null type: Map[Boolean!] cannot be exposed via GraphQL; store maps in private (let) fields instead
+
+== CHECKS ==  ✘ 1 failed
+✘ dag://?check=go-dev/load 0.0s ERROR
+  ✘ dag://?check=go-dev/load 0.0s ERROR
+  ! loading module "/tmp/dagger-go-module-test-name-index/.dagger/modules/go-dev": failed to load dependencies as modules: failed to load module dependencies: failed to create constructor for GoPackages: failed to convert argument type for moduleRoots: failed to convert non-null type: Map[Boolean!] cannot be exposed via GraphQL; store maps in private (let) fields instead
+
+== RUN LOCALLY ==
+dagger check "dag://?check=go-dev/load"

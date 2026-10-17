@@ -1,0 +1,26 @@
+== TRACE ==  ✘ FAILED
+dagger-artifact-list-buffered check go-dev:tests-collection-check  8.3s
+! exit code 1
+! dag://?check=tests-collection-check: Go tests in sub: exit code: 1
+
+== CHECKS ==  ✘ 1 failed
+✘ dag://?check=tests-collection-check 6.7s ERROR
+  == CHECKS ==  ✘ 1 failed
+    ✘ test 0.5s ERROR
+      == TESTS ==
+        ✘ example.com/shared/sub FAIL
+    
+        ✘ example.com/shared/sub › TestShared FAIL
+                  b_test.go:3: ran in sub
+    
+        ✘ 1 failed
+
+== TESTS ==
+  ✘ ./sub FAIL
+
+  ✔ example.com/go-module-with-testdata  1 passed
+
+  ✔ 1 passed
+
+== RUN LOCALLY ==
+dagger check "dag://?check=tests-collection-check"

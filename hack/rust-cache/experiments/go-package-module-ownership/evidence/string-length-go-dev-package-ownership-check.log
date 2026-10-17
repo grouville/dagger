@@ -1,0 +1,38 @@
+== TRACE ==  ✘ FAILED
+dagger-artifact-list-buffered check go-dev:package-ownership-check  1.2s
+! exit code 1
+! dag://?check=package-ownership-check: field "length" not found in String
+
+== CHECKS ==  ✘ 1 failed
+✘ dag://?check=package-ownership-check 0.1s ERROR
+  ✘ go(version: "1.26.1", test: ["!sub"]): Go! 0.0s ERROR
+  ┃ 2 inference errors:
+  ┃ 
+  ┃ Error 1:
+  ┃ Error: field "length" not found in String
+  ┃   --> /tmp/dagger-mount3608681900/go.dang:268:13
+  ┃      |
+  ┃  266 |     let root = moduleRoots.reduce("") { owner, root =>
+  ┃  267 |       if ((root == "." or path == root or path.hasPrefix(root + "/"))
+  ┃  268 |         and root.length > owner.length) {
+  ┃                    ^^^^^^^^^^^
+  ┃  269 |         root
+  ┃  270 |       } else {
+  ┃      |
+  ┃ 
+  ┃ 
+  ┃ Error 2:
+  ┃ Error: "root" not found
+  ┃   --> /tmp/dagger-mount3608681900/go.dang:274:9
+  ┃      |
+  ┃  272 |       }
+  ┃  273 |     }
+  ┃  274 |     if (root == "") { null } else { root }
+  ┃                ^^^^
+  ┃  275 |   }
+  ┃  276 | 
+  ┃      |
+  ! field "length" not found in String
+
+== RUN LOCALLY ==
+dagger check "dag://?check=package-ownership-check"

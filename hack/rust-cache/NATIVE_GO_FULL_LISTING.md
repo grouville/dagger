@@ -1,3 +1,5 @@
+Latest module follow-up: [retain discovered module ownership](NATIVE_GO_PACKAGE_MODULE_OWNERSHIP.md) improves complete listing **68.37 → 56.81 s** in two balanced pairs, with identical 4,398 rows and successful exits. SDK invocations fall **1,762 → 963**. Adding/removing a real test produces exactly one added/removed row. Full listing remains too slow.
+
 Latest follow-up: [shared restored cache postings](NATIVE_SHARED_RESTORED_POSTINGS.md) removes a quadratic startup index and greatly reduces memory. Two full listings still take 66.42 and 65.86 s, exit successfully and return the same 4,398 rows. The remaining discovery latency is unresolved.
 
 # Full Go test listing on dagger/dagger

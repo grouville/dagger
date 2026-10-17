@@ -1,0 +1,22 @@
+== TRACE ==  ✘ FAILED
+dagger-artifact-list-buffered check go-dev:package-ownership-check  1.6s
+! exit code 1
+! dag://?check=package-ownership-check: argument "moduleRoots": FunCall.Infer: "moduleRoots" not found in {paths: [String!]!, mountPath: String!, tool: Go!, moduleLayout: Dagger.Directory}
+
+== CHECKS ==  ✘ 1 failed
+✘ dag://?check=package-ownership-check 0.2s ERROR
+  ✘ go(version: "1.26.1", test: ["!sub"]): Go! 0.1s ERROR
+  ┃ Error: argument "moduleRoots": FunCall.Infer: "moduleRoots" not found in {paths: [String!]!, mountPath: String!, tool: Go!, moduleLayout: Dagger.Directory}
+  ┃   --> /tmp/dagger-mount2598795828/go.dang:188:5
+  ┃      |
+  ┃  186 |     let found = modules(ws).{{path, paths: packagePaths(ws: ws)}}
+  ┃  187 |     let noRoots: Map[Boolean!]! = [:]
+  ┃  188 |     GoPackages(
+  ┃            ^^^^^^^^^^^
+  ┃  189 |       paths: sorted(found.reduce(empty) { all, mod => all + mod.paths }),
+  ┃  190 |       moduleRoots: found.reduce(noRoots) { roots, mod => roots.with(mod.path, true) },
+  ┃      |
+  ! argument "moduleRoots": FunCall.Infer: "moduleRoots" not found in {paths: [String!]!, mountPath: String!, tool: Go!, moduleLayout: Dagger.Directory}
+
+== RUN LOCALLY ==
+dagger check "dag://?check=package-ownership-check"
