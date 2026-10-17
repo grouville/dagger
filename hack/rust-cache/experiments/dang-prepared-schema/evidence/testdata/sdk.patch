@@ -1,0 +1,224 @@
+--- a/core/sdk/dang/v2/helpers.go
++++ b/core/sdk/dang/v2/helpers.go
+@@ -122,19 +122,6 @@
+ 	ctx, evalOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.evalSource", wcprof.OpOpts{Ident: modSource.Self().ModuleName})
+ 	defer evalOp.End(wcprof.OutcomeOK)
+ 	return dangshared.WithNestedClientServer(ctx, query, nestedClientMetadata, inertAttachables, fnCall, moduleContext, func(ctx context.Context, gqlClient graphql.Client) ([]byte, error) {
+-		openCtx, openOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.openSchema", wcprof.OpOpts{})
+-		f, err := schemaFile.Self().Open(openCtx, dagql.ObjectResult[*core.File]{Result: schemaFile})
+-		openOp.EndErr(err)
+-		if err != nil {
+-			return nil, fmt.Errorf("open schema file: %w", err)
+-		}
+-		defer f.Close()
+-		_, decodeOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.decodeSchema", wcprof.OpOpts{})
+-		schema, err := dangSchemas.read(f)
+-		decodeOp.EndErr(err)
+-		if err != nil {
+-			return nil, fmt.Errorf("decode schema: %w", err)
+-		}
+ 
+ 		ctx = context.WithValue(ctx, invocationClientKey{}, gqlClient)
+ 		var sourceClient graphql.Client = gqlClient
+@@ -142,13 +129,43 @@
+ 		if useDeclarations {
+ 			sourceClient = invocationClient{}
+ 		}
+-
+-		ctx = dang.ContextWithImportConfigs(ctx, dang.ImportConfig{
+-			Name:       "Dagger",
+-			Client:     sourceClient,
+-			Schema:     schema,
+-			AutoImport: true,
+-		})
++		// Establish this invocation's import caches before compiling or reusing
++		// declarations. Clients remain bound from the invocation context.
++		ctx = dang.ContextWithImportConfigs(ctx)
++		var schema *introspection.Schema
++		var schemaReader io.ReadCloser
++		defer func() {
++			if schemaReader != nil {
++				_ = schemaReader.Close()
++			}
++		}()
++		loadSchema := func(loadCtx context.Context) error {
++			openCtx, openOp := wcprof.BeginOp(loadCtx, wcprof.OpKindInternal, "dang.openSchema", wcprof.OpOpts{})
++			f, err := schemaFile.Self().Open(openCtx, dagql.ObjectResult[*core.File]{Result: schemaFile})
++			openOp.EndErr(err)
++			if err != nil {
++				return fmt.Errorf("open schema file: %w", err)
++			}
++			schemaReader = f
++			_, decodeOp := wcprof.BeginOp(loadCtx, wcprof.OpKindInternal, "dang.decodeSchema", wcprof.OpOpts{})
++			schema, err = dangSchemas.read(f)
++			decodeOp.EndErr(err)
++			if err != nil {
++				return fmt.Errorf("decode schema: %w", err)
++			}
++			return nil
++		}
++		bindSchema := func(bindCtx context.Context) context.Context {
++			return dang.ContextWithImportConfigs(bindCtx, dang.ImportConfig{
++				Name: "Dagger", Client: sourceClient, Schema: schema, AutoImport: true,
++			})
++		}
++		reuseSchema := useDeclarations && preparedSchemaEnabled.Load()
++		if !reuseSchema {
++			if err := loadSchema(ctx); err != nil {
++				return nil, err
++			}
++		}
+ 
+ 		// Route the program's stdout/stderr to the USER-FACING span, not
+ 		// whatever span happens to be current. A module function call runs
+@@ -169,23 +186,41 @@
+ 
+ 		modCtx := modSource.Self().ContextDirectory
+ 		var env dang.ValueScope
++		var err error
+ 		mountCtx, mountOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.prepareSource", wcprof.OpOpts{})
+ 		err = modCtx.Self().Mount(mountCtx, modCtx, func(path string) error {
+ 			modSrcDir := filepath.Join(path, modSource.Self().SourceSubpath)
+ 
+-			// During the typedef/declaration phase (ModuleTypes) the schema
+-			// handed to us is deps-only: it does not yet carry the module's own
+-			// object/interface/enum types, because those are exactly what this
+-			// pass produces. Self-call fields annotate their return as
+-			// Dagger.<T> — the module's own type as it lives in the runtime
+-			// schema, carrying a GraphQL id + Node, not the bare local type — so
+-			// make every such name resolvable here by parsing the module source
+-			// for its declared types. At runtime the served schema already
+-			// includes the module's own types (Module.IncludeSelfInDeps), so
+-			// this is a no-op then.
+-			_, typesOp := wcprof.BeginOp(mountCtx, wcprof.OpKindInternal, "dang.selfTypes", wcprof.OpOpts{})
+-			ensureModuleSelfTypes(schema, modSource.Self(), modSrcDir)
+-			typesOp.End(wcprof.OutcomeOK)
++			prepareSchema := func(prepareCtx context.Context) error {
++				if schema == nil {
++					if err := loadSchema(prepareCtx); err != nil {
++						return err
++					}
++				}
++				_, typesOp := wcprof.BeginOp(prepareCtx, wcprof.OpKindInternal, "dang.selfTypes", wcprof.OpOpts{})
++				ensureModuleSelfTypes(schema, modSource.Self(), modSrcDir)
++				typesOp.End(wcprof.OutcomeOK)
++				return nil
++			}
++			// The control retains schema preparation before every cache lookup.
++			if !reuseSchema {
++				if err := prepareSchema(mountCtx); err != nil {
++					return err
++				}
++			}
++			prepare := func(prepareCtx context.Context, dir string) (*preparedDeclarations, error) {
++				if reuseSchema {
++					if err := prepareSchema(prepareCtx); err != nil {
++						return nil, err
++					}
++				}
++				env, err := runSource(bindSchema(prepareCtx), dir)
++				if err != nil {
++					return nil, err
++				}
++				return &preparedDeclarations{env: env, schema: schema}, nil
++			}
++			var prepared *preparedDeclarations
+ 
+ 			runCtx, runOp := wcprof.BeginOp(mountCtx, wcprof.OpKindInternal, "dang.runSource", wcprof.OpOpts{})
+ 			if useDeclarations {
+@@ -204,9 +239,9 @@
+ 					runOp.EndErr(idErr)
+ 					return idErr
+ 				}
+-				env, err = reuseDangDeclarations(runCtx, key, runSource)
++				prepared, err = reuseDangDeclarations(runCtx, key, prepare)
+ 			} else {
+-				env, err = runSource(runCtx, modSrcDir)
++				prepared, err = prepare(runCtx, modSrcDir)
+ 			}
+ 			runOp.EndErr(err)
+ 			if err != nil {
+@@ -215,6 +250,12 @@
+ 				}
+ 				return fmt.Errorf("run dir: %w", err)
+ 			}
++			env = prepared.env
++			if reuseSchema {
++				schema = prepared.schema
++			}
++			ctx = bindSchema(ctx)
++
+ 			_, directivesOp := wcprof.BeginOp(mountCtx, wcprof.OpKindInternal, "dang.retainDirectives", wcprof.OpOpts{})
+ 			err := retainDangObjectDirectives(ctx, env, modSrcDir, forTypeDefs)
+ 			directivesOp.EndErr(err)
+--- a/core/sdk/dang/v2/declarations.go
++++ b/core/sdk/dang/v2/declarations.go
+@@ -13,6 +13,7 @@
+ 	"github.com/dagger/dagger/dagql/call"
+ 	lru "github.com/hashicorp/golang-lru/v2"
+ 	"github.com/vito/dang/v2/pkg/dang"
++	"github.com/vito/dang/v2/pkg/introspection"
+ )
+ 
+ // This is an opt-in experiment, not a cache of function results or parents.
+@@ -61,15 +62,24 @@
+ 	return declarationKey{source: sourceID, schema: schemaID, directory: directory}, nil
+ }
+ 
++// preparedDeclarations owns the schema already retained by its imported AST.
++// It contains no invocation context or engine resource.
++type preparedDeclarations struct {
++	env    dang.ValueScope
++	schema *introspection.Schema
++}
++
++type declarationRunner func(context.Context, string) (*preparedDeclarations, error)
++
+ type declarationEntry struct {
+ 	mu                sync.Mutex
+-	env               dang.ValueScope
++	prepared          *preparedDeclarations
+ 	checked, reusable bool
+ }
+ 
+ var declarationEnvironments, _ = lru.New[declarationKey, *declarationEntry](32)
+ 
+-func reuseDangDeclarations(ctx context.Context, key declarationKey, run dangSourceRunner) (dang.ValueScope, error) {
++func reuseDangDeclarations(ctx context.Context, key declarationKey, run declarationRunner) (*preparedDeclarations, error) {
+ 	entry := &declarationEntry{}
+ 	previous, exists, _ := declarationEnvironments.PeekOrAdd(key, entry)
+ 	if !exists {
+@@ -82,11 +92,11 @@
+ 		entry.mu.Unlock()
+ 		return nil, err
+ 	}
+-	if entry.env != nil {
+-		env := entry.env
++	if entry.prepared != nil {
++		prepared := entry.prepared
+ 		entry.mu.Unlock()
+ 		declarationHits.Add(1)
+-		return env, nil
++		return prepared, nil
+ 	}
+ 	if !entry.checked {
+ 		var err error
+@@ -102,15 +112,15 @@
+ 		declarationFallbacks.Add(1)
+ 		return run(ctx, key.directory)
+ 	}
+-	env, err := run(ctx, key.directory)
++	prepared, err := run(ctx, key.directory)
+ 	if err == nil {
+ 		err = ctx.Err()
+ 	}
+ 	if err == nil {
+-		entry.env = env
++		entry.prepared = prepared
+ 	}
+ 	entry.mu.Unlock()
+-	return env, err
++	return prepared, err
+ }
+ 
+ func ReusableDeclarationsDiagnostic(w http.ResponseWriter, r *http.Request) {

@@ -17,6 +17,20 @@ All eight started commands return the correct rows and exit 0. The fourth pair n
 
 The engine log records a 158.19-second prune from 918,097 to 639,752 results, removing 79,517 persisted roots. It starts during the last 10.6 seconds of pair 3's original-module command, then blocks admission of the next command. Snapshot cleanup occupies the final 3.32 seconds. This accounts for that overlap and admission failure; it does not explain every earlier latency difference.
 
-Investigation moved to the [quadratic restored-posting removal path](NATIVE_RESTORED_POSTING_REMOVAL.md). The after-module wcprof driver is prepared but has not run, so an API-count reduction remains unverified. No PR is prepared for this inconclusive module experiment.
+Investigation moved to the [quadratic restored-posting removal path](NATIVE_RESTORED_POSTING_REMOVAL.md). A subsequent profile confirms that the module change reduces direct API requests beneath the 80 `ownFiles` evaluations from 556 to 240. The largest evaluation drops from 162 requests to 3. Both profiled commands produce the correct 4,398 rows and exit 0, with no dropped or unfinished wcprof events. Profiled durations are diagnostic observations, not benchmark results.
+
+A new, complete comparison enables the linear restored-posting deletion path in both arms. It retains ordinary GC, telemetry, the same engine and CLI, a fresh source edit and CLI process on every invocation, and the original collection granularity. The initialization pair adds a real test and is excluded; removing it in the measured pairs also checks discovery invalidation.
+
+| Measured pair | Original module | Local path conversion |
+| --- | ---: | ---: |
+| 1, candidate first | 43.05 s | 46.16 s |
+| 2, original first | 44.54 s | 46.82 s |
+| 3, candidate first | 47.95 s | 45.95 s |
+| 4, original first | 49.05 s | 41.97 s |
+| Median | 46.24 s | 46.05 s |
+
+All ten commands, including initialization, return the expected ordered rows and exit 0. The candidate wins two of four measured pairs. Engine CPU falls from a median 236.60 to 227.33 seconds and allocated bytes from 36.75 to 36.33 GB, but full-command time is effectively unchanged. The API reduction is real; a latency improvement is not established. The change remains unselected and has no PR.
+
+The profile also identifies repeated schema preparation before successful SDK declaration-cache lookups. That engine work is the next experiment; reducing list comparisons or changing helper libraries is not supported by this profile.
 
 [Fork branch](https://github.com/grouville/go/tree/experiment/shared-workspace-paths) and [archived sources and observations](experiments/go-shared-workspace-paths/).

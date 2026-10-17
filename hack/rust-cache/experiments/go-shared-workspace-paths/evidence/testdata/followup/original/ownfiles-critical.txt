@@ -1,0 +1,51 @@
+critpath of op 537137: 8.30s
+on-path time by class (sums to the roots' duration; concurrent work off the path gets nothing):
+     on_path      % segments  kind class
+       6.82s  82.1%      162  internal dang.apiRequest
+       1.14s  13.8%        1  internal dang.evaluateFunction
+    325.93ms   3.9%        1  internal dagql.publishResult
+      6.32ms   0.1%        1  call gomod:GomodGoMod.ownFiles
+      4.44ms   0.1%        1  internal dang.encodeResult
+      3.72ms   0.0%        1  internal dang.decodeSchema
+      1.22ms   0.0%        1  internal dang.flushTelemetry
+     798.0µs   0.0%        1  internal dang.evalSource
+     361.4µs   0.0%        1  internal dang.prepareSource
+      57.7µs   0.0%        1  call Query.__schemaJSONFile
+      56.1µs   0.0%        1  internal dang.selfTypes
+      36.9µs   0.0%        1  internal dang.openSchema
+       8.0µs   0.0%        1  internal dang.runSource
+       6.3µs   0.0%        1  internal dang.invoke
+       834ns   0.0%        1  internal dang.retainDirectives
+
+path of the longest (offsets from its start; `dur` on the path, `own` not in any blocker):
++0ns dur 8.30s own 6.32ms  537137 call gomod:GomodGoMod.ownFiles [executed] (exec 537158)
+  +1.20ms dur 7.97s own 798.0µs  537181 internal dang.evalSource [ok]
+    +5.73ms dur 7.96s own 6.3µs  537250 internal dang.invoke [ok]
+      +5.74ms dur 7.96s own 1.14s  537251 internal dang.evaluateFunction [ok]
+        +8.76ms dur 370.57ms own 370.57ms  537277 internal dang.apiRequest [ok]
+        +379.72ms dur 269.32ms own 269.32ms  538628 internal dang.apiRequest [ok]
+        +649.09ms dur 142.04ms own 142.04ms  540198 internal dang.apiRequest [ok]
+        +819.49ms dur 117.99ms own 117.99ms  541975 internal dang.apiRequest [ok]
+        +937.77ms..+1.05s … 2 shorter segments, 29.34ms: internal dang.apiRequest:2
+        +959.59ms dur 81.32ms own 81.32ms  543226 internal dang.apiRequest [ok]
+        +1.05s dur 128.45ms own 128.45ms  543849 internal dang.apiRequest [ok]
+        +1.26s dur 250.56ms own 250.56ms  545017 internal dang.apiRequest [ok]
+        +1.51s dur 99.81ms own 99.81ms  547605 internal dang.apiRequest [ok]
+        +1.61s dur 444.87ms own 444.87ms  547738 internal dang.apiRequest [ok]
+        +2.13s dur 436.72ms own 436.72ms  549185 internal dang.apiRequest [ok]
+        +2.59s dur 191.90ms own 191.90ms  551480 internal dang.apiRequest [ok]
+        +2.88s dur 246.81ms own 246.81ms  553093 internal dang.apiRequest [ok]
+        +3.19s dur 379.35ms own 379.35ms  555085 internal dang.apiRequest [ok]
+        +3.64s dur 136.49ms own 136.49ms  558294 internal dang.apiRequest [ok]
+        +3.78s dur 1.63s own 1.63s  558534 internal dang.apiRequest [ok]
+        +5.51s dur 377.79ms own 377.79ms  559372 internal dang.apiRequest [ok]
+        +5.89s dur 64.50ms own 64.50ms  559505 internal dang.apiRequest [ok]
+        +5.96s..+6.69s … 129 shorter segments, 534.50ms: internal dang.apiRequest:129
+        +6.06s dur 48.06ms own 48.06ms  562467 internal dang.apiRequest [ok]
+        +6.18s dur 37.02ms own 37.02ms  567146 internal dang.apiRequest [ok]
+        +6.22s dur 67.43ms own 67.43ms  568473 internal dang.apiRequest [ok]
+        +6.35s dur 38.37ms own 38.37ms  570982 internal dang.apiRequest [ok]
+        +6.70s dur 295.34ms own 295.34ms  574618 internal dang.apiRequest [ok]
+  +7.97s dur 325.93ms own 325.93ms  577606 internal dagql.publishResult [ok]
+(15 segments not shown: runs of them totaling under 1% of the path, 403.90ms)
+(runs of sub-1% segments totaling 1%+ show their largest members, the rest as "… N shorter"; ▸ N: N segments not expanded, raise `depth` or re-root with `op`; (exec N): a call folded with its call_exec op N)

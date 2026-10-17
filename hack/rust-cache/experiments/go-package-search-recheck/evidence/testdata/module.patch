@@ -1,0 +1,36 @@
+--- a/go.dang
++++ b/go.dang
+@@ -791,16 +791,23 @@
+     if (files.length == 0) {
+       empty
+     } else {
+-      # Search immutable files so workspace overlays are visible, while keeping
+-      # the same matcher and file order as module-wide discovery.
+-      files
+-        .reduce(empty) { names, file =>
+-          names + ws.file("/" + file).search(pattern: testPattern).{{matchedLines}}
+-            .map { match =>
+-              match.matchedLines.trimPrefix("func ").split("(").takeFirst(1).join("")
+-            }
+-        }
+-        .uniq
++      # Import and search this package's test files together. Keep an immutable
++      # directory so host overlays are visible, including newly added files.
++      let basenames = files.map { file => file.split("/").takeLast(1).join("") }
++      let matches = ws
++        .directory("/" + pkgPath, include: basenames)
++        .search(pattern: testPattern, paths: basenames).{{filePath, matchedLines}}
++      let initial: Map[[String!]!]! = [:]
++      let byFile = matches.reduce(initial) { groups, match =>
++        let file = match.filePath.trimPrefix("/").trimPrefix("./")
++        let name = match.matchedLines.trimPrefix("func ").split("(").takeFirst(1).join("")
++        groups.with(file, (groups.get(file) ?? empty) + [name])
++      }
++      # Search results can arrive in any file order; keys still follow byte
++      # filename order and source order within each file.
++      basenames.reduce(empty) { names, file =>
++        names + (byFile.get(file) ?? empty)
++      }.uniq
+     }
+   }
+ 

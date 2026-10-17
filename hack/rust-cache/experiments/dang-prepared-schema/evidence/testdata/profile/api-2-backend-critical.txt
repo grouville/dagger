@@ -1,0 +1,40 @@
+critpath of op 193692: 2.09s
+on-path time by class (sums to the roots' duration; concurrent work off the path gets nothing):
+     on_path      % segments  kind class
+    919.88ms  44.0%        1  session_phase session.query
+    358.44ms  17.1%        1  call Host.directory
+    258.60ms  12.4%        1  call Workspace.file
+    191.84ms   9.2%        1  call Query._clientFilesyncMirror
+    182.33ms   8.7%        2  call Module._implementationScoped
+     50.72ms   2.4%        1  call Query.node
+     50.15ms   2.4%        3  call SearchResult.search
+     44.84ms   2.1%        6  internal dagql.publishResult
+     30.93ms   1.5%        1  call Directory.file
+      3.23ms   0.2%        1  io snapshot.commit.backend
+     160.7µs   0.0%        2  call SearchResult.matchedLines
+      43.3µs   0.0%        1  internal snapshot.commit.metadata
+      41.8µs   0.0%        1  call File.search
+      28.4µs   0.0%        1  call Query.host
+      19.6µs   0.0%        1  internal snapshot.commit
+       6.4µs   0.0%        1  session_phase session.serveQuery
+       3.5µs   0.0%        1  internal snapshot.commit.lease
+       1.0µs   0.0%        1  session_phase session.schemaBuild
+       905ns   0.0%        1  session_phase session.workspaceLoad
+       699ns   0.0%        1  session_phase session.modulesLoad
+        77ns   0.0%        1  internal snapshot.commit.managerLock
+        50ns   0.0%        1  internal snapshot.commit.refLock
+
+path of the longest (offsets from its start; `dur` on the path, `own` not in any blocker):
++0ns dur 2.09s own 6.4µs  193692 session_phase session.serveQuery [ok]
+  +8.1µs dur 2.09s own 919.88ms  193696 session_phase session.query [ok]
+    +13.56ms dur 233.04ms own 50.72ms  193972 call Query.node [do_not_cache]
+      +18.86ms dur 134.21ms own 134.21ms  194068 call Module._implementationScoped [hit]
+      +153.10ms dur 48.12ms own 48.12ms  194466 call Module._implementationScoped [hit]
+    +246.69ms dur 887.67ms own 258.60ms  195841 call Workspace.file [executed] (exec 196410)
+      +345.89ms dur 554.00ms own 358.44ms  196558 call Host.directory [executed] (exec 196580)
+        +476.19ms dur 191.84ms own 191.84ms  196881 call Query._clientFilesyncMirror [hit]
+      +1.01s dur 30.93ms own 30.93ms  199491 call Directory.file [hit]
+      +1.04s dur 44.11ms own 44.11ms  199939 internal dagql.publishResult [ok]
+    +1.17s dur 50.06ms own 49.98ms  200988 call SearchResult.search [executed] (exec 201394)
+(12 segments not shown: runs of them totaling under 1% of the path, 4.43ms)
+(runs of sub-1% segments totaling 1%+ show their largest members, the rest as "… N shorter"; ▸ N: N segments not expanded, raise `depth` or re-root with `op`; (exec N): a call folded with its call_exec op N)

@@ -1,0 +1,57 @@
+critpath of op 512456: 49.01s
+on-path time by class (sums to the roots' duration; concurrent work off the path gets nothing):
+     on_path      % segments  kind class
+      35.59s  72.6%     1412  internal dang.apiRequest
+       4.81s   9.8%      409  call ArtifactDimensionKey.dimensionKeys
+       3.13s   6.4%      222  call Artifact.items
+       2.42s   4.9%      111  internal dagql.publishResult
+       1.04s   2.1%       76  call Artifact.dimensionKeys
+    592.01ms   1.2%        4  internal dang.evaluateFunction
+    393.02ms   0.8%        6  call Query.__schemaJSONFile
+    311.48ms   0.6%       11  call go:GoPackage.tests
+    194.17ms   0.4%        1  session_phase session.query
+    139.13ms   0.3%        1  call Artifacts.items
+    112.94ms   0.2%        4  internal dang.openSchema
+     81.45ms   0.2%      240  call go:Query.go
+     51.47ms   0.1%       89  call go:Go.packages
+     25.19ms   0.1%      996  call Module._implementationScoped
+     20.93ms   0.0%        4  internal dang.evalSource
+     18.54ms   0.0%        4  internal dang.decodeSchema
+     15.47ms   0.0%        4  internal dang.prepareSource
+     14.62ms   0.0%        2  internal dang.runSource.parse
+     14.50ms   0.0%        4  internal dang.runSource
+     12.08ms   0.0%        2  internal dang.runSource.infer
+      5.05ms   0.0%        2  internal dang.flushTelemetry
+      3.54ms   0.0%        4  internal dang.selfTypes
+      2.36ms   0.0%        2  internal dang.encodeResult
+      1.96ms   0.0%        2  internal dang.runSource.evaluate
+      1.12ms   0.0%      246  call Query.typeDef
+     983.4µs   0.0%      233  call TypeDef.withOptional
+     931.6µs   0.0%        4  call go:GoPackages.get
+     680.2µs   0.0%       55  call ArtifactDimensionKey.key
+     606.5µs   0.0%       55  call ArtifactDimensionKey.dimension
+     454.6µs   0.0%      112  call TypeDef.withKind
+  … 13 more classes (raise `top`)
+
+path of the longest (offsets from its start; `dur` on the path, `own` not in any blocker):
++0ns dur 49.01s own 8.6µs  512456 session_phase session.serveQuery [ok]
+  +25.6µs dur 49.01s own 194.17ms  512460 session_phase session.query [ok]
+    +326.2µs dur 37.45s own 139.13ms  512464 call Artifacts.items [executed] (exec 512465)
+      +9.79ms dur 23.38s own 22.68ms  512702 call go:Go.packages [executed] (exec 512703)
+        +31.54ms dur 23.35s own 2.26ms  513201 internal dang.evalSource [ok]
+          +53.91ms dur 23.32s own 4.0µs  513211 internal dang.invoke [ok]
+            +53.91ms dur 23.32s own 414.64ms  513212 internal dang.evaluateFunction [ok] ▸ 1208
+      +23.40s..+23.98s … 1332 shorter segments, 463.55ms: call Module._implementationScoped:992 call go:Query.go:239 call go:Go.packages:88 +2 more
+      +23.98s dur 325.67ms own 55.80ms  652913 call go:GoPackage.tests [executed] (exec 653731)
+      +24.30s dur 13.13s own 57.57ms  657109 call go:GoPackage.tests [executed] (exec 658100)
+        +24.61s dur 12.80s own 17.18ms  661475 internal dang.evalSource [ok]
+          +24.64s dur 12.77s own 5.7µs  662129 internal dang.invoke [ok]
+            +24.64s dur 12.77s own 176.93ms  662131 internal dang.evaluateFunction [ok] ▸ 202
+    +37.51s..+48.94s … 818 shorter segments, 10.02s: call ArtifactDimensionKey.dimensionKeys:408 call Artifact.items:219 call Artifact.dimensionKeys:75 +4 more
+    +40.35s dur 217.38ms own 54.64ms  884843 call Artifact.items [executed] (exec 885103)
+    +40.83s dur 317.60ms own 110.39ms  889475 call Artifact.items [executed] (exec 890356)
+    +41.23s dur 287.43ms own 258.20ms  893856 call Artifact.items [executed] (exec 895451)
+    +42.28s dur 227.24ms own 227.19ms  901459 call ArtifactDimensionKey.dimensionKeys [executed] (exec 902913)
+    +46.82s dur 296.97ms own 296.97ms  1003910 call Artifact.dimensionKeys [executed] (exec 1005020)
+(760 segments not shown: runs of them totaling under 1% of the path, 1.00s)
+(runs of sub-1% segments totaling 1%+ show their largest members, the rest as "… N shorter"; ▸ N: N segments not expanded, raise `depth` or re-root with `op`; (exec N): a call folded with its call_exec op N)

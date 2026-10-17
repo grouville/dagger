@@ -1,0 +1,3 @@
+The Directory-search candidate passes collection correctness checks but regresses complete Go listing from a median 43.20 to 47.84 seconds in two alternating pairs. All commands succeed with the correct ordered rows. It remains unselected; no PR is proposed. See [the report](../../NATIVE_GO_PACKAGE_SEARCH_RECHECK.md).
+
+The archive retains both module sources, the candidate patch, the overlay-change check, correctness output and every full-command observation. The unchanged module base is `7568cd0e5309a716fc94f310a488978fd97ce0c3`. `archive-manifest.json` verifies archived and original bytes; large text files use gzip. Drivers contain local paths requiring adaptation. The common engine and CLI are identified in the cohort metadata and the preceding experiment archives.
