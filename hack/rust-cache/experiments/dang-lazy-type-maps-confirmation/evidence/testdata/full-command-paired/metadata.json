@@ -1,0 +1,63 @@
+{
+  "diagnostic": "Revisit the interrupted eager versus lazy Dang Type-map allocation comparison after the selected span-index fix. Same tested implementation and current single engine. Both retain normal Dagger identities, ownership, telemetry and GC. Span indexing on; circular queues and resource reuse off. Fresh CLI and source edit each invocation; initialization adds a real test and is excluded. Four measured pairs alternate order; retain every attempt.",
+  "cli_sha256": "e7ba08d0e40f6a46ad3eb8df7397bd6827aa348f491a9cb9a726ff705e1fb122",
+  "api_version": "v1.0.0-beta.15",
+  "collection_expansion_limit": 0,
+  "source": "/tmp/dagger-go-real-repository-main",
+  "source_revision": "ff0b029a4d270a651b9a8c7286babc79089066e4",
+  "modules": {
+    "before": {
+      "path": "/tmp/dagger-go-module-test-name-index",
+      "revision": "7568cd0e5309a716fc94f310a488978fd97ce0c3",
+      "hashes": {
+        "go.dang": "6288486ec454c0cc9fb921666c97ce863e68210ae96fd1e79f75be5889497b2f",
+        "gomod/main.dang": "991c243cf37d267c711dd8b2858db686a6ea727df0a9017a23336bd0b0814e35"
+      }
+    },
+    "after": {
+      "path": "/tmp/dagger-go-module-test-name-index",
+      "revision": "7568cd0e5309a716fc94f310a488978fd97ce0c3",
+      "hashes": {
+        "go.dang": "6288486ec454c0cc9fb921666c97ce863e68210ae96fd1e79f75be5889497b2f",
+        "gomod/main.dang": "991c243cf37d267c711dd8b2858db686a6ea727df0a9017a23336bd0b0814e35"
+      }
+    }
+  },
+  "engine_sha256": "2e2df880350a8a3300b5e97f7ff4bc94a944a57366b17a35c078e7102ecbd510",
+  "pairs": 5,
+  "orders": [
+    [
+      "before",
+      "after"
+    ],
+    [
+      "after",
+      "before"
+    ],
+    [
+      "before",
+      "after"
+    ],
+    [
+      "after",
+      "before"
+    ],
+    [
+      "before",
+      "after"
+    ]
+  ],
+  "wcprof": false,
+  "cpu_profiling": false,
+  "telemetry": true,
+  "ordinary_gc": true,
+  "fresh_edit_every_arm": true,
+  "warm_engine": true,
+  "warmup": "Pair 0 is retained as initial source-identity population and is excluded from all medians and paired gains. Pairs 1 and 2 alternate order. Every invocation, including warmups, starts a fresh CLI and receives a fresh source comment on the warm engine.",
+  "batch_metadata": true,
+  "attribute_array_decode": true,
+  "filesync_snapshot_seeds": true,
+  "metadata_read_ahead_both_arms": false,
+  "declaration_reuse_both_arms": true,
+  "driver_sha256": "6b011f24b66b5e638f838d8727125cae72e40064511587dcc89ea94916cc26e9"
+}

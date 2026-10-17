@@ -1,0 +1,20 @@
+{
+  "recorded_at_unix": 1792223918.5878515,
+  "reason": "An unintentionally broad rg --files /tmp search ran while the listing cohort was active. Its handle 43535 was confirmed terminal with exit 0. Exact overlap cannot be proved from tool timing metadata, so conservatively exclude the whole first measured pair, plus the already-excluded initialization pair. Do not exclude any later pair based on its result.",
+  "search_handle": 43535,
+  "search_terminal_exit_code": 0,
+  "initialization_pairs": [
+    0
+  ],
+  "excluded_measured_pairs": [
+    1
+  ],
+  "usable_measured_pairs": [
+    2,
+    3,
+    4
+  ],
+  "minimum_scope": "Three paired complete-command measurements, both orders represented. Retain all successes, failures and resource samples.",
+  "performance_data_seen_when_deciding": "Initialization rows and first candidate only; no remaining-pair performance was inspected before setting this rule.",
+  "next_constraint": "Only bounded reads of known files during the remaining timings; no tests, builds, broad searches, compression or profile processing."
+}

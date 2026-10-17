@@ -1,5 +1,7 @@
 # Allocate Dang type maps only when used
 
+The [completed comparison after the span-index change](NATIVE_DANG_TYPE_MAPS_CONFIRMATION.md) returns correct rows and successful exits, but shows no material full-listing gain: **48.83 → 48.74 s** across three usable pairs. Allocation falls by about 1 GB per command. The candidate remains disabled. The earlier interrupted experiment below is retained for provenance.
+
 The Go collection profile attributes 2.32 GB of sampled allocations to `dang.NewType`. It allocates nine maps even for empty scopes used during evaluation. The same constructor is present on upstream Dang main at `da1bed304cb80f8a2f0714f1747e7f64e03297a3`.
 
 The candidate leaves those maps nil until their existing writers need them. Reads, iteration and deletion keep their existing behavior. `Add`, `AddObject` and `AddDirective` reuse the origin setters; explicit visibility before `Add` remains preserved. There is no new lock, shared cache or dependency.

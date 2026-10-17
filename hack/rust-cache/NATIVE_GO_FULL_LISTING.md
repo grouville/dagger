@@ -2,6 +2,8 @@ Latest engine follow-up: [avoid quadratic trace indexing](NATIVE_GO_WIDE_TRACE_I
 
 The latest [telemetry queue experiment](NATIVE_TELEMETRY_LINK_QUEUE.md) finds a genuine linear copy on every overflow, but replacing it with a circular queue does not improve complete listing: **45.98 → 46.76 s**, only one of four pairs faster. All rows and exits are correct. The candidate remains off; no cache identities, ownership checks or telemetry features are bypassed.
 
+The [completed scope-map experiment](NATIVE_DANG_TYPE_MAPS_CONFIRMATION.md) also remains unselected: **48.83 → 48.74 s** across three usable pairs, with about 1 GB less cumulative allocation. A potentially contaminated first pair is retained and excluded. Finer wcprof timings are being added inside module evaluation before choosing the next optimization.
+
 The following [native string-sort experiment](NATIVE_DANG_STRING_SORT.md) measures **48.06 → 45.98 s** across four successful full-command pairs, with identical rows. Three pairs improve and one regresses. It requires a provisional Dang API and remains unselected; the latest selected result above is unchanged.
 
 The subsequent [span-resource experiment](NATIVE_SPAN_RESOURCE_BATCHES.md) reduces CPU and allocations but has mixed full-command latency: **45.47 → 46.38 s**, three of four pairs faster. It remains disabled. A [complete CLI/wcprof capture](NATIVE_GO_CLI_PROFILE.md) follows the larger discovery and metadata costs; its diagnostic time is not another benchmark result.
