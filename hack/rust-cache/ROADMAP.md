@@ -55,6 +55,8 @@ Priorities:
    ordinary workspace control is flat. Profile the remaining engine cost of
    argument fields and repeated schema preparation before changing them.
 
+The immediate Go investigation measures `dagger check --module go --check test --list --all` on `dagger/dagger`: all 4,398 ordered rows and successful session cleanup count toward the complete time. Use fresh CLI processes and source edits on a retained engine, then distinguish those results from cold starts and isolated component benchmarks. Prefer small changes that remove measured work while preserving Dagger cache identity, ownership, collection granularity and telemetry. Check other graph shapes before keeping an optimization.
+
 Keep useful engine fixes separate, with focused regression tests and an
 adversarial review. Push experiments to Guillaume's fork; open new upstream PRs
 only after explicit approval.

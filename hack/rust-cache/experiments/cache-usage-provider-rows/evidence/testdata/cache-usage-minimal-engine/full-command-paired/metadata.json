@@ -1,0 +1,64 @@
+{
+  "diagnostic": "Full Go test collection listing with the same engine, CLI, module and settings in both arms. Only usage-sampling differs: minimal sparse disk-usage sampling is enabled. Prepared-schema remains off; declaration reuse, ordinary GC, telemetry and linear restored-posting deletion remain common. No profiling. One excluded initialization pair adds a real test; measured pairs alternate and remove it. Each arm starts a new CLI and edits a used source file. Every attempted command is retained and must return the correct ordered rows and exit successfully, including cleanup.",
+  "cli_sha256": "e7ba08d0e40f6a46ad3eb8df7397bd6827aa348f491a9cb9a726ff705e1fb122",
+  "api_version": "v1.0.0-beta.15",
+  "collection_expansion_limit": 0,
+  "source": "/tmp/dagger-go-real-repository-main",
+  "source_revision": "ff0b029a4d270a651b9a8c7286babc79089066e4",
+  "modules": {
+    "before": {
+      "path": "/tmp/dagger-go-module-test-name-index",
+      "revision": "7568cd0e5309a716fc94f310a488978fd97ce0c3",
+      "hashes": {
+        "go.dang": "6288486ec454c0cc9fb921666c97ce863e68210ae96fd1e79f75be5889497b2f",
+        "gomod/main.dang": "991c243cf37d267c711dd8b2858db686a6ea727df0a9017a23336bd0b0814e35"
+      }
+    },
+    "after": {
+      "path": "/tmp/dagger-go-module-test-name-index",
+      "revision": "7568cd0e5309a716fc94f310a488978fd97ce0c3",
+      "hashes": {
+        "go.dang": "6288486ec454c0cc9fb921666c97ce863e68210ae96fd1e79f75be5889497b2f",
+        "gomod/main.dang": "991c243cf37d267c711dd8b2858db686a6ea727df0a9017a23336bd0b0814e35"
+      }
+    }
+  },
+  "engine_sha256": "1f6f09ef9164a5487676baedfdf285444517bbd61ed11a6941db38dd2162b2a6",
+  "pairs": 5,
+  "orders": [
+    [
+      "before",
+      "after"
+    ],
+    [
+      "after",
+      "before"
+    ],
+    [
+      "before",
+      "after"
+    ],
+    [
+      "after",
+      "before"
+    ],
+    [
+      "before",
+      "after"
+    ]
+  ],
+  "wcprof": false,
+  "cpu_profiling": false,
+  "telemetry": true,
+  "ordinary_gc": true,
+  "fresh_edit_every_arm": true,
+  "warm_engine": true,
+  "warmup": "Pair 0 is retained as initial source-identity population and is excluded from all medians and paired gains. Measured pairs alternate order. Every invocation, including warmups, starts a fresh CLI and receives a fresh source comment on the warm engine.",
+  "batch_metadata": true,
+  "attribute_array_decode": true,
+  "filesync_snapshot_seeds": true,
+  "metadata_read_ahead_both_arms": false,
+  "declaration_reuse_both_arms": true,
+  "lazy_usage_maps_environment": null,
+  "driver_sha256": "67acd8d32456fd3ef8504249fa2070b507a6536b9a0301471ad4188b23664b01"
+}

@@ -1,0 +1,35 @@
+File: provider-dense-before.test
+Build ID: 75f1407c3f69d745efb81d72a66c1947b099fa22
+Type: cpu
+Time: 2026-10-17 07:02:59 PDT
+Duration: 6.36s, Total samples = 12380ms (194.77%)
+Active filters:
+   focus=Cache.*snapshotPruneState
+Showing nodes accounting for 490ms, 3.96% of 12380ms total
+Showing top 25 nodes out of 101
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%      850ms  6.87%  github.com/dagger/dagger/dagql.(*Cache).snapshotPruneState (inline)
+         0     0%     0%      850ms  6.87%  github.com/dagger/dagger/dagql.(*Cache).snapshotPruneStateCancelable
+         0     0%     0%      850ms  6.87%  github.com/dagger/dagger/dagql.BenchmarkCachePruneProviderDense
+         0     0%     0%      850ms  6.87%  testing.(*B).run1.func1
+         0     0%     0%      850ms  6.87%  testing.(*B).runN
+      60ms  0.48%  0.48%      380ms  3.07%  github.com/dagger/dagger/dagql.(*Cache).snapshotPruneStateLocked
+      20ms  0.16%  0.65%      280ms  2.26%  github.com/dagger/dagger/dagql.(*Cache).collectUsageMeasurementInputs
+      20ms  0.16%  0.81%      200ms  1.62%  github.com/dagger/dagger/dagql.(*cacheUsageSnapshot).capturePendingLocked
+         0     0%  0.81%      190ms  1.53%  github.com/dagger/dagger/dagql.(*Cache).pruneUsageIdentitiesLocked
+      50ms   0.4%  1.21%      160ms  1.29%  github.com/dagger/dagger/dagql.(*sharedResult).loadPayloadState
+      10ms 0.081%  1.29%      130ms  1.05%  runtime.mallocgc
+         0     0%  1.29%      120ms  0.97%  sync.(*RWMutex).RLock (inline)
+     120ms  0.97%  2.26%      120ms  0.97%  sync/atomic.(*Int32).Add (inline)
+      30ms  0.24%  2.50%       90ms  0.73%  github.com/dagger/dagger/dagql.(*Cache).publishUsageMeasurementsLocked
+         0     0%  2.50%       90ms  0.73%  github.com/dagger/dagger/dagql.cacheUsageMeasurementInput.validLocked (inline)
+         0     0%  2.50%       90ms  0.73%  runtime.mapassign
+         0     0%  2.50%       80ms  0.65%  runtime.mallocgcSmallScanNoHeader
+      80ms  0.65%  3.15%       80ms  0.65%  runtime.memmove
+         0     0%  3.15%       80ms  0.65%  runtime.newobject (partial-inline)
+      10ms 0.081%  3.23%       70ms  0.57%  github.com/dagger/dagger/dagql.(*Cache).cacheUsageDagqlCallLocked
+      20ms  0.16%  3.39%       70ms  0.57%  github.com/dagger/dagger/dagql.(*cacheUsageSnapshot).finalizeLocked
+      70ms  0.57%  3.96%       70ms  0.57%  internal/runtime/maps.ctrlGroup.matchH2 (inline)
+         0     0%  3.96%       70ms  0.57%  runtime.growslice
+         0     0%  3.96%       50ms   0.4%  fmt.Sprintf
+         0     0%  3.96%       50ms   0.4%  internal/runtime/maps.newobject

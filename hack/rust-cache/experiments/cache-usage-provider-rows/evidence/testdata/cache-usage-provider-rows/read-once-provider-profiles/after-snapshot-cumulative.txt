@@ -1,0 +1,35 @@
+File: read-once-after.test
+Build ID: 4daea6b0a7f5c59d6beb46d7ec3fd15562e35839
+Type: cpu
+Time: 2026-10-17 07:03:07 PDT
+Duration: 6.39s, Total samples = 12130ms (189.70%)
+Active filters:
+   focus=Cache.*snapshotPruneState
+Showing nodes accounting for 460ms, 3.79% of 12130ms total
+Showing top 25 nodes out of 77
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%      890ms  7.34%  github.com/dagger/dagger/dagql.(*Cache).snapshotPruneState (inline)
+         0     0%     0%      890ms  7.34%  github.com/dagger/dagger/dagql.(*Cache).snapshotPruneStateCancelable
+         0     0%     0%      890ms  7.34%  github.com/dagger/dagger/dagql.BenchmarkCachePruneProviderDense
+         0     0%     0%      890ms  7.34%  testing.(*B).run1.func1
+         0     0%     0%      890ms  7.34%  testing.(*B).runN
+      30ms  0.25%  0.25%      460ms  3.79%  github.com/dagger/dagger/dagql.(*Cache).collectUsageMeasurementInputs
+      40ms  0.33%  0.58%      270ms  2.23%  github.com/dagger/dagger/dagql.(*cacheUsageSnapshot).capturePendingLocked
+      40ms  0.33%  0.91%      240ms  1.98%  github.com/dagger/dagger/dagql.(*Cache).snapshotPruneStateLocked
+         0     0%  0.91%      190ms  1.57%  github.com/dagger/dagger/dagql.(*Cache).pruneUsageIdentitiesLocked
+      50ms  0.41%  1.32%      160ms  1.32%  github.com/dagger/dagger/dagql.(*cacheUsageSnapshot).inputLocked
+         0     0%  1.32%      120ms  0.99%  runtime.systemstack
+         0     0%  1.32%      120ms  0.99%  runtime.wbBufFlush
+         0     0%  1.32%      120ms  0.99%  runtime.wbBufFlush.func1
+         0     0%  1.32%      120ms  0.99%  runtime.wbBufFlush1
+     120ms  0.99%  2.31%      120ms  0.99%  sync/atomic.(*Int32).Add (inline)
+      10ms 0.082%  2.39%      100ms  0.82%  runtime.growslice
+         0     0%  2.39%      100ms  0.82%  sync.(*RWMutex).RLock (inline)
+      90ms  0.74%  3.13%       90ms  0.74%  runtime.memmove
+      30ms  0.25%  3.38%       80ms  0.66%  github.com/dagger/dagger/dagql.(*Cache).publishUsageMeasurementsLocked
+         0     0%  3.38%       80ms  0.66%  github.com/dagger/dagger/dagql.(*cacheUsageSnapshot).finalizeLocked
+      20ms  0.16%  3.54%       80ms  0.66%  runtime.bulkBarrierPreWrite
+         0     0%  3.54%       70ms  0.58%  github.com/dagger/dagger/dagql.(*Cache).cacheUsageDagqlCallLocked
+         0     0%  3.54%       70ms  0.58%  runtime.wbMove
+      30ms  0.25%  3.79%       60ms  0.49%  github.com/dagger/dagger/dagql.cacheUsageIdentitiesFromSelf
+         0     0%  3.79%       60ms  0.49%  runtime.(*wbBuf).get2 (inline)

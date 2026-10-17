@@ -1,0 +1,54 @@
+File: dagger-engine
+Build ID: f3f636d77f97c552fdb13407bdebf02508fdece9
+Type: cpu
+Time: 2026-10-17 07:27:45 PDT
+Duration: 5s, Total samples = 20.08s (401.55%)
+Showing nodes accounting for 4.29s, 21.36% of 20.08s total
+Dropped 2096 nodes (cum <= 0.10s)
+Showing top 45 nodes out of 336
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%     10.64s 52.99%  runtime.systemstack /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:562
+         0     0%     0%     10.34s 51.49%  runtime.gcBgMarkWorker /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgc.go:1847
+         0     0%     0%      7.36s 36.65%  runtime.gcBgMarkWorker.func2 /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgc.go:1881
+         0     0%     0%      7.36s 36.65%  runtime.gcDrainMarkWorkerIdle /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgcmark.go:1177 (inline)
+         0     0%     0%      6.27s 31.23%  runtime.gcDrain /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgcmark.go:1342
+     0.15s  0.75%  0.75%      4.25s 21.17%  runtime.tryDeferToSpanScan /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgcmark_greenteagc.go:283
+     4.10s 20.42% 21.17%      4.10s 20.42%  runtime.spanClass.sizeclass /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mheap.go:595 (inline)
+         0     0% 21.17%      3.80s 18.92%  runtime.gcDrain /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgcmark.go:1340
+         0     0% 21.17%      3.42s 17.03%  net/http.HandlerFunc.ServeHTTP /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:2284 (partial-inline)
+         0     0% 21.17%      3.42s 17.03%  net/http.serverHandler.ServeHTTP /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:3309
+         0     0% 21.17%      3.27s 16.28%  github.com/dagger/dagger/engine/server.(*Server).serveHTTPToClient /tmp/dagger-filesync-snapshot-seeds/engine/server/session.go:2566
+         0     0% 21.17%      3.27s 16.28%  net/http.(*ServeMux).ServeHTTP /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:2826
+         0     0% 21.17%      2.98s 14.84%  runtime.gcDrainMarkWorkerDedicated /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgcmark.go:1187 (inline)
+         0     0% 21.17%      2.92s 14.54%  github.com/dagger/dagger/dagql.(*Server).resolvePath /tmp/dagger-filesync-snapshot-seeds/dagql/server.go:2446
+         0     0% 21.17%      2.91s 14.49%  runtime.gcBgMarkWorker.func2 /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgc.go:1877
+         0     0% 21.17%      2.83s 14.09%  runtime.scanObject /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgcmark_greenteagc.go:1268
+         0     0% 21.17%      2.62s 13.05%  github.com/dagger/dagger/core/sdk/dang/shared.WithNestedClientServer.func1 /tmp/dagger-filesync-snapshot-seeds/core/sdk/dang/shared/shared.go:66
+         0     0% 21.17%      2.62s 13.05%  github.com/dagger/dagger/engine/server.(*Server).ServeHTTPToNestedClient /tmp/dagger-filesync-snapshot-seeds/engine/server/session.go:2371
+         0     0% 21.17%      2.62s 13.05%  github.com/dagger/dagger/engine/server..ServeHTTPToNestedClient.httpHandlerFunc[go.shape.*uint8].func1 /tmp/dagger-filesync-snapshot-seeds/engine/server/session.go:4493
+         0     0% 21.17%      2.62s 13.05%  net/http.(*conn).serve /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:2067
+         0     0% 21.17%      2.50s 12.45%  runtime.scanSpan /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgcmark_greenteagc.go:869
+         0     0% 21.17%      2.50s 12.45%  runtime.scanSpan /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgcmark_greenteagc.go:897
+         0     0% 21.17%      2.47s 12.30%  github.com/dagger/dagger/engine/server..serveHTTPToClient.httpHandlerFunc[go.shape.*uint8].func6 /tmp/dagger-filesync-snapshot-seeds/engine/server/session.go:4493
+         0     0% 21.17%      2.45s 12.20%  github.com/99designs/gqlgen/graphql/handler.(*Server).ServeHTTP /home/dagger/go/pkg/mod/github.com/99designs/gqlgen@v0.17.89/graphql/handler/server.go:166
+         0     0% 21.17%      2.45s 12.20%  github.com/dagger/dagger/engine/server.(*Server).serveQuery /tmp/dagger-filesync-snapshot-seeds/engine/server/session.go:2842
+         0     0% 21.17%      2.37s 11.80%  github.com/99designs/gqlgen/graphql/handler/transport.POST.Do /home/dagger/go/pkg/mod/github.com/99designs/gqlgen@v0.17.89/graphql/handler/transport/http_post.go:129
+         0     0% 21.17%      2.35s 11.70%  github.com/99designs/gqlgen/graphql/executor.(*Executor).DispatchOperation.func1.1 /home/dagger/go/pkg/mod/github.com/99designs/gqlgen@v0.17.89/graphql/executor/executor.go:135
+         0     0% 21.17%      2.35s 11.70%  github.com/99designs/gqlgen/graphql/executor.(*Executor).DispatchOperation.func1.1.1 /home/dagger/go/pkg/mod/github.com/99designs/gqlgen@v0.17.89/graphql/executor/executor.go:136
+         0     0% 21.17%      2.35s 11.70%  github.com/99designs/gqlgen/graphql/executor.processExtensions.func2 /home/dagger/go/pkg/mod/github.com/99designs/gqlgen@v0.17.89/graphql/executor/extensions.go:76
+         0     0% 21.17%      2.32s 11.55%  github.com/dagger/dagger/dagql.(*Server).Exec.func1 /tmp/dagger-filesync-snapshot-seeds/dagql/server.go:1132
+         0     0% 21.17%      2.32s 11.55%  github.com/dagger/dagger/dagql.(*Server).ExecOp /tmp/dagger-filesync-snapshot-seeds/dagql/server.go:1197
+         0     0% 21.17%      2.32s 11.55%  github.com/dagger/dagger/dagql.(*Server).Resolve /tmp/dagger-filesync-snapshot-seeds/dagql/server.go:1237
+         0     0% 21.17%      2.10s 10.46%  golang.org/x/sync/errgroup.(*Group).Go.func1 /home/dagger/go/pkg/mod/golang.org/x/sync@v0.22.0/errgroup/errgroup.go:93
+         0     0% 21.17%      2.06s 10.26%  github.com/dagger/dagger/dagql.ObjectResult[go.shape.*uint8].Select /tmp/dagger-filesync-snapshot-seeds/dagql/objects.go:548
+         0     0% 21.17%      1.87s  9.31%  github.com/dagger/dagger/core.(*ModuleFunction).DynamicInputsForCall /tmp/dagger-filesync-snapshot-seeds/core/modfunc.go:836
+         0     0% 21.17%      1.87s  9.31%  github.com/dagger/dagger/core.(*ModuleFunction).declaredGitClientsDigest /tmp/dagger-filesync-snapshot-seeds/core/modfunc.go:864
+         0     0% 21.17%      1.87s  9.31%  github.com/dagger/dagger/dagql.ObjectResult[go.shape.*uint8].preselect /tmp/dagger-filesync-snapshot-seeds/dagql/objects.go:670
+         0     0% 21.17%      1.72s  8.57%  github.com/dagger/dagger/dagql.(*Server).resolvePath /tmp/dagger-filesync-snapshot-seeds/dagql/server.go:2544
+         0     0% 21.17%      1.68s  8.37%  github.com/dagger/dagger/core.ModuleDeclaredGitClients /tmp/dagger-filesync-snapshot-seeds/core/module_git_clients.go:24
+     0.04s   0.2% 21.36%      1.60s  7.97%  runtime.scanObjectSmall /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgcmark_greenteagc.go:1007
+         0     0% 21.36%      1.52s  7.57%  google.golang.org/protobuf/encoding/protojson.MarshalOptions.marshal /home/dagger/go/pkg/mod/google.golang.org/protobuf@v1.36.11/encoding/protojson/encode.go:164
+         0     0% 21.36%      1.48s  7.37%  github.com/dagger/dagger/engine/server.sessionSpanExporter.ExportSpans.func1 /tmp/dagger-filesync-snapshot-seeds/engine/server/telemetry.go:293
+         0     0% 21.36%      1.48s  7.37%  google.golang.org/protobuf/encoding/protojson.encoder.marshalMessage /home/dagger/go/pkg/mod/google.golang.org/protobuf@v1.36.11/encoding/protojson/encode.go:259
+         0     0% 21.36%      1.47s  7.32%  github.com/dagger/dagger/engine/server.clientSpans.ExportSpans /tmp/dagger-filesync-snapshot-seeds/engine/server/telemetry.go:895
+         0     0% 21.36%      1.47s  7.32%  github.com/dagger/dagger/engine/server.exportSpansRecovered /tmp/dagger-filesync-snapshot-seeds/engine/server/telemetry.go:319

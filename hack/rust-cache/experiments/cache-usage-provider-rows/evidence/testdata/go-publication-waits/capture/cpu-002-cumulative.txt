@@ -1,0 +1,54 @@
+File: dagger-engine
+Build ID: c12979bf39c7d9e60a007b0c986575fb1fd0aa53
+Type: cpu
+Time: 2026-10-17 05:31:04 PDT
+Duration: 5.01s, Total samples = 27.28s (544.14%)
+Showing nodes accounting for 4.42s, 16.20% of 27.28s total
+Dropped 3136 nodes (cum <= 0.14s)
+Showing top 45 nodes out of 394
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%     12.65s 46.37%  runtime.systemstack /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:562
+         0     0%     0%     10.18s 37.32%  runtime.gcBgMarkWorker /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgc.go:1847
+         0     0%     0%      6.08s 22.29%  runtime.gcDrain /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgcmark.go:1342
+         0     0%     0%      5.65s 20.71%  net/http.HandlerFunc.ServeHTTP /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:2284 (partial-inline)
+         0     0%     0%      5.65s 20.71%  net/http.serverHandler.ServeHTTP /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:3309
+     0.01s 0.037% 0.037%      5.41s 19.83%  github.com/vito/dang/v2/pkg/dang.EvalNode /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/eval.go:2951
+         0     0% 0.037%      5.41s 19.83%  github.com/vito/dang/v2/pkg/dang.WithEvalErrorHandling /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/errors.go:395
+     0.02s 0.073%  0.11%      5.40s 19.79%  github.com/vito/dang/v2/pkg/dang.EvalNodeWithContext /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/eval.go:2962
+         0     0%  0.11%      5.37s 19.68%  github.com/vito/dang/v2/pkg/dang.(*FunCall).Eval /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/ast_expressions.go:308
+         0     0%  0.11%      5.33s 19.54%  github.com/vito/dang/v2/pkg/dang.(*FunCall).Eval.func1 /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/ast_expressions.go:351
+         0     0%  0.11%      5.33s 19.54%  github.com/vito/dang/v2/pkg/dang.(*FunCall).callFunction /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/ast_expressions.go:371
+         0     0%  0.11%      5.32s 19.50%  github.com/vito/dang/v2/pkg/dang.(*Block).Eval /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/block.go:471
+         0     0%  0.11%      5.12s 18.77%  net/http.(*conn).serve /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:2067
+         0     0%  0.11%      5.10s 18.70%  github.com/dagger/dagger/core/sdk/dang/shared.WithNestedClientServer.func1 /tmp/dagger-filesync-snapshot-seeds/core/sdk/dang/shared/shared.go:66
+         0     0%  0.11%      5.10s 18.70%  github.com/dagger/dagger/engine/server.(*Server).ServeHTTPToNestedClient /tmp/dagger-filesync-snapshot-seeds/engine/server/session.go:2371
+         0     0%  0.11%      5.10s 18.70%  github.com/dagger/dagger/engine/server..ServeHTTPToNestedClient.httpHandlerFunc[go.shape.*uint8].func1 /tmp/dagger-filesync-snapshot-seeds/engine/server/session.go:4493
+         0     0%  0.11%      5.10s 18.70%  runtime.gcBgMarkWorker.func2 /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgc.go:1881
+         0     0%  0.11%      5.10s 18.70%  runtime.gcDrainMarkWorkerIdle /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgcmark.go:1177 (inline)
+         0     0%  0.11%      5.08s 18.62%  runtime.gcDrainMarkWorkerDedicated /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgcmark.go:1187 (inline)
+         0     0%  0.11%      4.98s 18.26%  runtime.gcBgMarkWorker.func2 /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgc.go:1877
+         0     0%  0.11%      4.96s 18.18%  net/http.(*ServeMux).ServeHTTP /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:2826
+         0     0%  0.11%      4.95s 18.15%  github.com/dagger/dagger/engine/server.(*Server).serveHTTPToClient /tmp/dagger-filesync-snapshot-seeds/engine/server/session.go:2566
+         0     0%  0.11%      4.95s 18.15%  github.com/vito/dang/v2/pkg/dang.BoundBuiltinMethod.Call /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/eval.go:2170
+         0     0%  0.11%      4.95s 18.15%  github.com/vito/dang/v2/pkg/dang.BuiltinFunction.Call /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/eval.go:2201 (inline)
+         0     0%  0.11%      4.94s 18.11%  github.com/vito/dang/v2/pkg/dang.addBuiltinFunctions.ForEachMethod.addBuiltinFunctions.func2.func6 /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/eval.go:708
+     0.03s  0.11%  0.22%      4.91s 18.00%  github.com/vito/dang/v2/pkg/dang.callFunc /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/stdlib.go:1211
+         0     0%  0.22%      4.83s 17.71%  github.com/vito/dang/v2/pkg/dang.FunctionValue.Call /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/eval.go:1490
+         0     0%  0.22%      4.49s 16.46%  github.com/vito/dang/v2/pkg/dang.(*BinaryOperator).Eval.func1 /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/ast_operators.go:213
+         0     0%  0.22%      4.44s 16.28%  github.com/vito/dang/v2/pkg/dang.(*BinaryOperator).Eval /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/ast_operators.go:208
+         0     0%  0.22%      4.42s 16.20%  github.com/dagger/dagger/engine/server..serveHTTPToClient.httpHandlerFunc[go.shape.*uint8].func6 /tmp/dagger-filesync-snapshot-seeds/engine/server/session.go:4493
+     0.24s  0.88%  1.10%      4.34s 15.91%  runtime.tryDeferToSpanScan /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgcmark_greenteagc.go:283
+         0     0%  1.10%      4.21s 15.43%  github.com/99designs/gqlgen/graphql/handler.(*Server).ServeHTTP /home/dagger/go/pkg/mod/github.com/99designs/gqlgen@v0.17.89/graphql/handler/server.go:166
+         0     0%  1.10%      4.21s 15.43%  github.com/dagger/dagger/engine/server.(*Server).serveQuery /tmp/dagger-filesync-snapshot-seeds/engine/server/session.go:2842
+     4.12s 15.10% 16.20%      4.12s 15.10%  runtime.spanClass.sizeclass /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mheap.go:595 (inline)
+         0     0% 16.20%      3.95s 14.48%  github.com/vito/dang/v2/pkg/dang.(*FunCall).Eval.func1 /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/ast_expressions.go:309
+         0     0% 16.20%      3.93s 14.41%  runtime.gcDrain /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/mgcmark.go:1340
+         0     0% 16.20%      3.92s 14.37%  github.com/vito/dang/v2/pkg/dang.(*Select).Eval /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/ast_expressions.go:942
+         0     0% 16.20%      3.91s 14.33%  github.com/vito/dang/v2/pkg/dang.(*Select).Eval.func1 /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/ast_expressions.go:976
+         0     0% 16.20%      3.88s 14.22%  github.com/vito/dang/v2/pkg/dang.registerStdlib.func34 /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/stdlib.go:760
+         0     0% 16.20%      3.64s 13.34%  github.com/vito/dang/v2/pkg/dang.(*Coerce).Eval.func1 /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/materialize.go:50
+         0     0% 16.20%      3.36s 12.32%  github.com/99designs/gqlgen/graphql/handler/transport.POST.Do /home/dagger/go/pkg/mod/github.com/99designs/gqlgen@v0.17.89/graphql/handler/transport/http_post.go:129
+         0     0% 16.20%      3.30s 12.10%  github.com/vito/dang/v2/pkg/dang.(*Coerce).Eval /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/materialize.go:49
+         0     0% 16.20%      3.29s 12.06%  github.com/99designs/gqlgen/graphql/executor.(*Executor).DispatchOperation.func1.1 /home/dagger/go/pkg/mod/github.com/99designs/gqlgen@v0.17.89/graphql/executor/executor.go:135
+         0     0% 16.20%      3.29s 12.06%  github.com/99designs/gqlgen/graphql/executor.(*Executor).DispatchOperation.func1.1.1 /home/dagger/go/pkg/mod/github.com/99designs/gqlgen@v0.17.89/graphql/executor/executor.go:136
+         0     0% 16.20%      3.29s 12.06%  github.com/99designs/gqlgen/graphql/executor.processExtensions.func2 /home/dagger/go/pkg/mod/github.com/99designs/gqlgen@v0.17.89/graphql/executor/extensions.go:76

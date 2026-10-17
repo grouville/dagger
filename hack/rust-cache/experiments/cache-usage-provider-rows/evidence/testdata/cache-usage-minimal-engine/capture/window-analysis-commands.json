@@ -1,0 +1,106 @@
+[
+  {
+    "name": "cpu-001-cumulative.txt",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "tool",
+      "pprof",
+      "-top",
+      "-cum",
+      "-lines",
+      "-nodecount=45",
+      "/tmp/rust-cache-sipsma-review/cache-usage-minimal-engine/dagger-engine",
+      "/tmp/rust-cache-sipsma-review/cache-usage-minimal-engine/capture/engine-cpu-001.pprof"
+    ],
+    "seconds": 0.12096438300795853,
+    "exit_code": 0
+  },
+  {
+    "name": "cpu-002-cumulative.txt",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "tool",
+      "pprof",
+      "-top",
+      "-cum",
+      "-lines",
+      "-nodecount=45",
+      "/tmp/rust-cache-sipsma-review/cache-usage-minimal-engine/dagger-engine",
+      "/tmp/rust-cache-sipsma-review/cache-usage-minimal-engine/capture/engine-cpu-002.pprof"
+    ],
+    "seconds": 0.10884305997751653,
+    "exit_code": 0
+  },
+  {
+    "name": "mutex-002-top.txt",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "tool",
+      "pprof",
+      "-top",
+      "-sample_index=delay",
+      "-base",
+      "/tmp/rust-cache-sipsma-review/cache-usage-minimal-engine/capture/mutex-001.pprof",
+      "-cum",
+      "-lines",
+      "-nodecount=50",
+      "/tmp/rust-cache-sipsma-review/cache-usage-minimal-engine/dagger-engine",
+      "/tmp/rust-cache-sipsma-review/cache-usage-minimal-engine/capture/mutex-002.pprof"
+    ],
+    "seconds": 0.08889962499961257,
+    "exit_code": 0
+  },
+  {
+    "name": "mutex-002-traces.txt",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "tool",
+      "pprof",
+      "-traces",
+      "-sample_index=delay",
+      "-base",
+      "/tmp/rust-cache-sipsma-review/cache-usage-minimal-engine/capture/mutex-001.pprof",
+      "-focus=dagql|slog|engine/server",
+      "/tmp/rust-cache-sipsma-review/cache-usage-minimal-engine/dagger-engine",
+      "/tmp/rust-cache-sipsma-review/cache-usage-minimal-engine/capture/mutex-002.pprof"
+    ],
+    "seconds": 0.08999811008106917,
+    "exit_code": 0
+  },
+  {
+    "name": "block-002-top.txt",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "tool",
+      "pprof",
+      "-top",
+      "-sample_index=delay",
+      "-base",
+      "/tmp/rust-cache-sipsma-review/cache-usage-minimal-engine/capture/block-001.pprof",
+      "-cum",
+      "-lines",
+      "-nodecount=50",
+      "/tmp/rust-cache-sipsma-review/cache-usage-minimal-engine/dagger-engine",
+      "/tmp/rust-cache-sipsma-review/cache-usage-minimal-engine/capture/block-002.pprof"
+    ],
+    "seconds": 0.09155498503241688,
+    "exit_code": 0
+  },
+  {
+    "name": "block-002-traces.txt",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "tool",
+      "pprof",
+      "-traces",
+      "-sample_index=delay",
+      "-base",
+      "/tmp/rust-cache-sipsma-review/cache-usage-minimal-engine/capture/block-001.pprof",
+      "-focus=dagql|slog|engine/server",
+      "/tmp/rust-cache-sipsma-review/cache-usage-minimal-engine/dagger-engine",
+      "/tmp/rust-cache-sipsma-review/cache-usage-minimal-engine/capture/block-002.pprof"
+    ],
+    "seconds": 0.09056745294947177,
+    "exit_code": 0
+  }
+]

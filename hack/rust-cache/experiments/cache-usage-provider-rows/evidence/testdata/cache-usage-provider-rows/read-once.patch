@@ -1,0 +1,109 @@
+diff --git a/dagql/cache_usage.go b/dagql/cache_usage.go
+index bbe873c107..5b80853a62 100644
+--- a/dagql/cache_usage.go
++++ b/dagql/cache_usage.go
+@@ -9,7 +9,7 @@ import (
+ 	bkcache "github.com/dagger/dagger/engine/snapshots"
+ )
+ 
+-// cacheUsageSnapshot owns the rows while provider callbacks run outside E.
++// cacheUsageSnapshot owns sampled rows while provider callbacks run outside E.
+ // A Go pointer alone would not prevent OnRelease from closing their resources.
+ // Mutable provider identities remain best-effort samples: payloadRevision
+ // detects replacement of a row payload, not mutations inside its provider.
+@@ -88,21 +88,40 @@ func (c *Cache) collectUsageMeasurementInputs(ctx context.Context, measure bool)
+ 	return snapshot, nil
+ }
+ 
+-func cacheUsageInputLocked(res *sharedResult) cacheUsageMeasurementInput {
+-	state := res.loadPayloadState()
++// inputLocked reads the payload once for classification, revision checking and
++// capture. The caller holds E. Old measurements must still clear.
++func (snapshot *cacheUsageSnapshot) inputLocked(res *sharedResult) (cacheUsageMeasurementInput, bool) {
++	res.payloadMu.RLock()
++	materialized := res.hasValue && res.self != nil
++	if len(res.cacheUsageSizeByIdentity) == 0 {
++		if materialized {
++			if _, provider := res.self.(hasCacheUsageIdentity); !provider {
++				res.payloadMu.RUnlock()
++				return cacheUsageMeasurementInput{}, false
++			}
++		} else if len(res.snapshotOwnerLinks) == 0 {
++			res.payloadMu.RUnlock()
++			return cacheUsageMeasurementInput{}, false
++		}
++	}
++	if input, ok := snapshot.inputs[res.id]; ok && input.row == res && input.payloadRevision == res.payloadRevision {
++		res.payloadMu.RUnlock()
++		return input, true
++	}
+ 	input := cacheUsageMeasurementInput{
+-		resultID: res.id, row: res, payloadRevision: state.payloadRevision,
+-		existingSizeByID: make(map[string]int64, len(res.cacheUsageSizeByIdentity)),
++		resultID: res.id, row: res, payloadRevision: res.payloadRevision,
+ 	}
+-	if state.hasValue && state.self != nil {
+-		input.self = state.self
++	if materialized {
++		input.self = res.self
+ 	} else {
+-		input.snapshotLinks = cloneSnapshotRefLinks(state.snapshotOwnerLinks)
++		input.snapshotLinks = cloneSnapshotRefLinks(res.snapshotOwnerLinks)
+ 	}
++	res.payloadMu.RUnlock()
++	input.existingSizeByID = make(map[string]int64, len(res.cacheUsageSizeByIdentity))
+ 	for identity, size := range res.cacheUsageSizeByIdentity {
+ 		input.existingSizeByID[identity] = size
+ 	}
+-	return input
++	return input, false
+ }
+ 
+ // Identity-free values need no provider callback. Unmaterialized values instead
+@@ -122,14 +141,14 @@ func (input *cacheUsageMeasurementInput) identitiesWithoutCallbacks() bool {
+ func (snapshot *cacheUsageSnapshot) capturePendingLocked(ctx context.Context) []cacheUsageMeasurementInput {
+ 	var pending []cacheUsageMeasurementInput
+ 	for id, res := range snapshot.cache.resultsByID {
+-		if input, ok := snapshot.inputs[id]; ok && input.validLocked(snapshot.cache) {
++		input, sampled := snapshot.inputLocked(res)
++		if input.row == nil || sampled {
+ 			continue
+ 		}
+ 		if _, held := snapshot.holds[res]; !held {
+ 			snapshot.cache.incrementIncomingOwnershipLocked(ctx, res)
+ 			snapshot.holds[res] = struct{}{}
+ 		}
+-		input := cacheUsageInputLocked(res)
+ 		if input.identitiesWithoutCallbacks() && len(input.identities) == 0 {
+ 			snapshot.inputs[id] = input
+ 			continue
+@@ -143,12 +162,14 @@ func (snapshot *cacheUsageSnapshot) capturePendingLocked(ctx context.Context) []
+ // copying. Unknown provider membership prevents ALL physical reclaim credit;
+ // never feed a zero-credit fallback into a planner that can evict every root.
+ func (snapshot *cacheUsageSnapshot) finalizeLocked() (map[sharedResultID][]string, error) {
+-	identities := make(map[sharedResultID][]string, len(snapshot.cache.resultsByID))
++	identities := make(map[sharedResultID][]string, len(snapshot.inputs))
+ 	unknown := 0
+ 	for id, res := range snapshot.cache.resultsByID {
+-		input, sampled := snapshot.inputs[id]
+-		if !sampled || !input.validLocked(snapshot.cache) {
+-			input = cacheUsageInputLocked(res)
++		input, sampled := snapshot.inputLocked(res)
++		if input.row == nil {
++			continue
++		}
++		if !sampled {
+ 			if !input.identitiesWithoutCallbacks() {
+ 				unknown++
+ 				continue
+@@ -174,10 +195,6 @@ func (snapshot *cacheUsageSnapshot) finalizeLocked() (map[sharedResultID][]strin
+ 	return identities, nil
+ }
+ 
+-func (input cacheUsageMeasurementInput) validLocked(c *Cache) bool {
+-	return c.resultsByID[input.resultID] == input.row && input.row.loadPayloadState().payloadRevision == input.payloadRevision
+-}
+-
+ // releaseLocked removes measurement ownership before pruning copies incoming
+ // counts. Callbacks remain deferred until after E is released.
+ func (snapshot *cacheUsageSnapshot) releaseLocked(ctx context.Context) {

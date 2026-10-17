@@ -1,0 +1,56 @@
+{
+  "status": "Validated smaller sampler pushed. Full listing improves 49.10 to 45.40 s, all four pairs correct and successful. All six native histories retain hits after same-volume restart and after the Go cohort.",
+  "initial_sampler_commit": "0ac9ad557f292615446046395197cf36f12f4196",
+  "initial_sampler_fork": "perf/skip-empty-usage-sampling",
+  "policy_commit": "6f1252d6b4a1941eba4337bfe1889913b08e191b",
+  "policy_fork": "experiment/cache-usage-policy-preflight",
+  "refinement_worktree": "/tmp/dagger-cache-usage-sampler-only",
+  "refinement_branch": "perf/skip-empty-usage-sampling",
+  "refinement_race": "read-once-full-dagql-race.log",
+  "current_engine_sha256": "1f6f09ef9164a5487676baedfdf285444517bbd61ed11a6941db38dd2162b2a6",
+  "current_engine_optimization": false,
+  "initial_version_not_ready_reason": "Provider-heavy benchmark regresses 662.91 to 825.84 ms. Repeated payload reads/locks removed in refinement.",
+  "next": [
+    "Review standalone sampler description and evidence",
+    "Use current allocation/CPU/wcprof captures to measure repeated builtin temporary-scope construction or telemetry conversions",
+    "Do not retry the unchanged lazy-map constructor: its completed comparison is flat"
+  ],
+  "prs_opened": false,
+  "minimal_component": {
+    "metadata": {
+      "pairs": 3,
+      "median": {
+        "before": {
+          "ns/op": 589978667.0,
+          "B/op": 158934504.0,
+          "allocs/op": 1602878.0
+        },
+        "after": {
+          "ns/op": 334682546.0,
+          "B/op": 91121368.0,
+          "allocs/op": 1200280.0
+        }
+      },
+      "faster_pairs": 3
+    },
+    "providers": {
+      "pairs": 3,
+      "median": {
+        "before": {
+          "ns/op": 840053073.0,
+          "B/op": 296351856.0,
+          "allocs/op": 2002912.0
+        },
+        "after": {
+          "ns/op": 732875701.0,
+          "B/op": 296351856.0,
+          "allocs/op": 2002912.0
+        }
+      },
+      "faster_pairs": 3
+    }
+  },
+  "minimal_engine_family": "/tmp/rust-cache-sipsma-review/cache-usage-minimal-engine",
+  "minimal_commit": "9123b2e76bc59146de9e3f4c2505efb6f9f7d648",
+  "fork_branch": "perf/skip-empty-usage-sampling"
+}

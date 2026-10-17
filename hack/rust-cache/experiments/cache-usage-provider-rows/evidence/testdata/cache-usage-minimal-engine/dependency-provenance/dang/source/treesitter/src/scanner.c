@@ -1,0 +1,430 @@
+#include "tree_sitter/parser.h"
+#include <stdlib.h>
+#include <string.h>
+
+// External token types — must match the order in the grammar's "externals" array.
+enum {
+  AUTOMATIC_NEWLINE,
+  INLINE_SPACE,
+  TEMPLATE_MULTI_OPEN,
+  TEMPLATE_MULTI_CLOSE,
+  TEMPLATE_CONTENT_CHAR,
+  LANG_TAG_TERMINATOR,
+  COMMENT_TOKEN,
+};
+
+// Maximum nesting depth for backtick templates. Each level stores the open
+// fence length so the matching close fence can be enforced.
+#define TEMPLATE_MAX_DEPTH 32
+
+typedef struct {
+  unsigned char depth;
+  // After an open fence is consumed, the very next position might start a
+  // language tag. This flag tells the content scanner to refuse a leading
+  // letter once, so the internal lexer gets a chance to match the optional
+  // lang_tag_part. Reset after the first refusal or first successful match.
+  unsigned char just_opened;
+  unsigned char fence_stack[TEMPLATE_MAX_DEPTH];
+} Scanner;
+
+void *tree_sitter_dang_external_scanner_create(void) {
+  Scanner *s = (Scanner *)calloc(1, sizeof(Scanner));
+  return s;
+}
+
+void tree_sitter_dang_external_scanner_destroy(void *payload) {
+  free(payload);
+}
+
+unsigned tree_sitter_dang_external_scanner_serialize(void *payload, char *buffer) {
+  Scanner *s = (Scanner *)payload;
+  unsigned n = 0;
+  buffer[n++] = (char)s->depth;
+  buffer[n++] = (char)s->just_opened;
+  for (unsigned i = 0; i < s->depth && i < TEMPLATE_MAX_DEPTH; i++) {
+    buffer[n++] = (char)s->fence_stack[i];
+  }
+  return n;
+}
+
+void tree_sitter_dang_external_scanner_deserialize(void *payload, const char *buffer, unsigned length) {
+  Scanner *s = (Scanner *)payload;
+  s->depth = 0;
+  s->just_opened = 0;
+  memset(s->fence_stack, 0, sizeof(s->fence_stack));
+  if (length == 0) {
+    return;
+  }
+  unsigned d = (unsigned char)buffer[0];
+  if (d > TEMPLATE_MAX_DEPTH) {
+    d = TEMPLATE_MAX_DEPTH;
+  }
+  s->depth = (unsigned char)d;
+  if (length >= 2) {
+    s->just_opened = (unsigned char)buffer[1];
+  }
+  for (unsigned i = 0; i < d && (i + 2) < length; i++) {
+    s->fence_stack[i] = (unsigned char)buffer[i + 2];
+  }
+}
+
+// Returns true if `c` is a word character (matches [a-zA-Z0-9_]).
+static bool is_word_char(int32_t c) {
+  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+         (c >= '0' && c <= '9') || c == '_';
+}
+
+// Checks if the upcoming characters form the keyword `and` or `or` followed by
+// a non-word character (space, newline, paren, etc.). This is used to treat
+// leading `and`/`or` on a new line as expression continuation.
+//
+// The lexer is advanced past the keyword, so the caller must mark_end the
+// token before calling this; otherwise a false return emits a token that has
+// swallowed the advanced characters (e.g. the `a` of `agent`).
+static bool is_leading_logical_op(TSLexer *lexer) {
+  // Check for "and"
+  if (lexer->lookahead == 'a') {
+    lexer->advance(lexer, false);
+    if (lexer->lookahead == 'n') {
+      lexer->advance(lexer, false);
+      if (lexer->lookahead == 'd') {
+        lexer->advance(lexer, false);
+        if (!is_word_char(lexer->lookahead)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+  // Check for "or"
+  if (lexer->lookahead == 'o') {
+    lexer->advance(lexer, false);
+    if (lexer->lookahead == 'r') {
+      lexer->advance(lexer, false);
+      if (!is_word_char(lexer->lookahead)) {
+        return true;
+      }
+    }
+    return false;
+  }
+  return false;
+}
+
+
+// Scan a multi-line backtick template opening fence: 3 or more backticks
+// not followed by another backtick. Records the fence length on the stack.
+//
+// `at_newline` tells whether the caller has already determined it's safe to
+// also skip leading newlines (in addition to spaces/tabs) — used so a fence
+// can open on a fresh line inside paren-arg contexts. Callers must only set
+// it when AUTOMATIC_NEWLINE isn't otherwise valid at this position: peeking
+// past a newline advances the shared lexer position for the rest of this
+// scanner dispatch, which would otherwise prevent the subsequent
+// automatic_newline check from emitting a statement separator (and derail
+// error recovery for things like unterminated strings).
+static bool scan_template_open(Scanner *s, TSLexer *lexer, bool at_newline) {
+  if (s->depth >= TEMPLATE_MAX_DEPTH) {
+    return false;
+  }
+  // The external scanner runs before extras are skipped, so consume any
+  // leading inline whitespace ourselves (as extras, via skip=true).
+  while (lexer->lookahead == ' ' || lexer->lookahead == '\t' ||
+         (at_newline && (lexer->lookahead == '\n' || lexer->lookahead == '\r'))) {
+    lexer->advance(lexer, true);
+  }
+  if (lexer->lookahead != '`') {
+    return false;
+  }
+  unsigned count = 0;
+  while (lexer->lookahead == '`') {
+    count++;
+    lexer->advance(lexer, false);
+  }
+  if (count < 3) {
+    return false;
+  }
+  s->fence_stack[s->depth++] = (unsigned char)(count > 255 ? 255 : count);
+  s->just_opened = 1;
+  lexer->result_symbol = TEMPLATE_MULTI_OPEN;
+  return true;
+}
+
+// Scan a closing fence: the first N backticks close the current template,
+// where N matches the current top of the fence stack. Any extra backticks are
+// left for parser recovery, making longer runs invalid instead of content.
+static bool scan_template_close(Scanner *s, TSLexer *lexer) {
+  if (s->depth == 0 || lexer->lookahead != '`') {
+    return false;
+  }
+  unsigned expected = s->fence_stack[s->depth - 1];
+  for (unsigned i = 0; i < expected; i++) {
+    if (lexer->lookahead != '`') {
+      return false;
+    }
+    lexer->advance(lexer, false);
+  }
+  s->depth--;
+  lexer->result_symbol = TEMPLATE_MULTI_CLOSE;
+  return true;
+}
+
+// Scan the newline that terminates a language tag. Consuming it clears the
+// "just opened" flag so the first byte of actual content (which may be a
+// letter) isn't mistaken for the start of another lang tag.
+static bool scan_lang_tag_terminator(Scanner *s, TSLexer *lexer) {
+  if (!s->just_opened || lexer->lookahead != '\n') {
+    return false;
+  }
+  lexer->advance(lexer, false);
+  s->just_opened = 0;
+  lexer->result_symbol = LANG_TAG_TERMINATOR;
+  return true;
+}
+
+// Scan one piece of template content: one or more bytes that are neither a
+// ${...} interpolation marker nor part of a matching close fence. Shorter
+// backtick runs are content; longer runs are invalid and left for parser
+// recovery.
+//
+// The grammar marks TEMPLATE_CONTENT_CHAR valid inside both single-line
+// (single backtick) and multi-line (triple+ backtick) templates. In the
+// multi case, depth > 0 and the fence stack tracks the matching close
+// length. In the single case, depth is 0 and any `\`` is the close.
+static bool scan_template_content_char(Scanner *s, TSLexer *lexer) {
+  if (lexer->eof(lexer)) {
+    return false;
+  }
+  // In single-line templates, a newline is a parse error (no closing
+  // backtick on this line). Refuse so the parser can recover.
+  if (s->depth == 0 && lexer->lookahead == '\n') {
+    return false;
+  }
+  if (s->depth > 0) {
+    // Right after a multi-line open fence, defer letters to the internal
+    // lexer so it can try the optional language tag. After one refusal we
+    // hand control back; if no lang tag matched, the letter will be picked
+    // up as content on the next scan.
+    if (s->just_opened) {
+      s->just_opened = 0;
+      if ((lexer->lookahead >= 'A' && lexer->lookahead <= 'Z') ||
+          (lexer->lookahead >= 'a' && lexer->lookahead <= 'z')) {
+        return false;
+      }
+    }
+    if (lexer->lookahead == '`') {
+      unsigned expected = s->fence_stack[s->depth - 1];
+      unsigned count = 0;
+      while (lexer->lookahead == '`') {
+        count++;
+        lexer->advance(lexer, false);
+      }
+      if (count >= expected) {
+        // Matching close fence or invalid longer run; not content.
+        return false;
+      }
+      // Shorter backtick runs are content; we've already advanced past them.
+      lexer->result_symbol = TEMPLATE_CONTENT_CHAR;
+      return true;
+    }
+  } else if (lexer->lookahead == '`') {
+    // Single-line template: any backtick closes; let the parser take it.
+    return false;
+  }
+  if (lexer->lookahead == '\\') {
+    lexer->advance(lexer, false);
+    if (lexer->lookahead == '$') {
+      lexer->advance(lexer, false);
+      if (lexer->lookahead == '{') {
+        lexer->advance(lexer, false);
+      }
+    }
+    lexer->result_symbol = TEMPLATE_CONTENT_CHAR;
+    return true;
+  }
+  if (lexer->lookahead == '$') {
+    lexer->advance(lexer, false);
+    if (lexer->lookahead == '{') {
+      return false;
+    }
+    lexer->result_symbol = TEMPLATE_CONTENT_CHAR;
+    return true;
+  }
+  lexer->advance(lexer, false);
+  lexer->result_symbol = TEMPLATE_CONTENT_CHAR;
+  return true;
+}
+
+// Scan a `# ...` comment. Refuses whenever the parser would also accept a
+// template content char (i.e., inside any single- or multi-line backtick
+// template), so `#` in template content (Markdown headers, `issue #5`,
+// etc.) is treated as string content rather than absorbed into a comment by
+// the extras lexer.
+static bool scan_comment_token(TSLexer *lexer, const bool *valid_symbols) {
+  if (valid_symbols[TEMPLATE_CONTENT_CHAR]) {
+    return false;
+  }
+  if (lexer->lookahead != '#') {
+    return false;
+  }
+  lexer->advance(lexer, false);
+  while (!lexer->eof(lexer) && lexer->lookahead != '\n') {
+    lexer->advance(lexer, false);
+  }
+  lexer->result_symbol = COMMENT_TOKEN;
+  return true;
+}
+
+// Scan for an automatic newline separator.
+//
+// A newline acts as a statement separator UNLESS the first
+// non-whitespace character on a subsequent line is a continuation
+// token (dot, opening brace, pipe). Blank lines are skipped when
+// making this determination.
+//
+// When the newline should NOT be a separator, the scanner returns
+// false so tree-sitter treats it as whitespace (via extras), allowing
+// multi-line expressions to be parsed as a single chain.
+bool tree_sitter_dang_external_scanner_scan(
+  void *payload,
+  TSLexer *lexer,
+  const bool *valid_symbols
+) {
+  Scanner *s = (Scanner *)payload;
+
+  // Template tokens are checked before the generic newline/space ones because
+  // their content scanner may consume whitespace inside templates.
+  if (valid_symbols[LANG_TAG_TERMINATOR] && scan_lang_tag_terminator(s, lexer)) {
+    return true;
+  }
+  if (valid_symbols[TEMPLATE_MULTI_CLOSE] && scan_template_close(s, lexer)) {
+    return true;
+  }
+  // Skip leading newlines only when AUTOMATIC_NEWLINE isn't otherwise valid
+  // here — otherwise the newline-skip would steal a statement separator. In
+  // the contexts where the newline-skip matters (fences opening on a fresh
+  // line after `(` or `,` in arg lists), AUTOMATIC_NEWLINE isn't valid yet.
+  if (valid_symbols[TEMPLATE_MULTI_OPEN] &&
+      scan_template_open(s, lexer, !valid_symbols[AUTOMATIC_NEWLINE])) {
+    return true;
+  }
+  if (valid_symbols[TEMPLATE_CONTENT_CHAR] && scan_template_content_char(s, lexer)) {
+    return true;
+  }
+
+  // Trailing comments and `_inlineSpace` both begin with a run of spaces or
+  // tabs. The internal lexer only skips extras before *internal* tokens, so
+  // unless the run is consumed here, a comment after code on the same line
+  // (`foo { 1 } # note`) never reaches the comment scanner. Skip the run as
+  // whitespace once, then decide by what follows.
+  bool saw_inline_space = false;
+  while (lexer->lookahead == ' ' || lexer->lookahead == '\t') {
+    lexer->advance(lexer, true);
+    saw_inline_space = true;
+  }
+
+  if (valid_symbols[COMMENT_TOKEN] && scan_comment_token(lexer, valid_symbols)) {
+    return true;
+  }
+
+  // `_inlineSpace` is used before required same-line values. Do not let
+  // comments or newlines be consumed as extras before the value. The spaces
+  // were skipped above, so the token is zero-width at the value's position.
+  // A closer or comma can never start a value either — refusing those lets
+  // the parser take the no-value branch of `break`/`return` (the PEG
+  // backtracks out of `_inlineSpace Form`, but tree-sitter commits once the
+  // token is emitted, turning `for { break }` into an error).
+  if (valid_symbols[INLINE_SPACE] && saw_inline_space &&
+      lexer->lookahead != '\n' && lexer->lookahead != '\r' &&
+      lexer->lookahead != '#' && lexer->lookahead != '}' &&
+      lexer->lookahead != ')' && lexer->lookahead != ']' &&
+      lexer->lookahead != ',' && !lexer->eof(lexer)) {
+    lexer->result_symbol = INLINE_SPACE;
+    return true;
+  }
+
+  if (!valid_symbols[AUTOMATIC_NEWLINE]) {
+    return false;
+  }
+
+  // We must be looking at a newline character.
+  if (lexer->lookahead != '\n') {
+    return false;
+  }
+
+  // Consume the newline.
+  lexer->advance(lexer, false);
+
+  // Skip ALL whitespace including blank lines to find the first
+  // significant character on a subsequent line.
+  while (lexer->lookahead == ' ' || lexer->lookahead == '\t' ||
+         lexer->lookahead == '\r' || lexer->lookahead == '\n') {
+    lexer->advance(lexer, false);
+  }
+
+  // The separator token ends here; everything past this point is pure
+  // lookahead and must not be included in the token.
+  lexer->mark_end(lexer);
+
+  // A leading `.` continues a method chain — unless it's a `...` spread
+  // starting another inline fragment in a selection, where the newline IS
+  // the separator between entries. We're past mark_end, so this is pure
+  // lookahead.
+  if (lexer->lookahead == '.') {
+    lexer->advance(lexer, false);
+    if (lexer->lookahead != '.') {
+      return false;
+    }
+    lexer->result_symbol = AUTOMATIC_NEWLINE;
+    return true;
+  }
+
+  // `|` at the start of the next line continues the previous expression (pipe
+  // operator), so the newline is not a separator.
+  if (lexer->lookahead == '|') {
+    return false;
+  }
+
+  // `{` at the start of the next line usually continues the previous
+  // expression as a block-argument body — the PEG's `SymbolBlock <- Symbol _
+  // BlockArg` allows a newline before the block. But `{{` opens an object
+  // literal, which is a *new* statement: block-arg bodies open with a single
+  // `{`, and a bare `{{ … }}` is never a selection (those need a leading `.`,
+  // handled above). Without telling them apart, `foo` ⏎ `{{ … }}` mis-parses
+  // as `foo { … }` and errors on the record fields, where the PEG instead
+  // backtracks out of the block reading. Peek the second brace to decide.
+  // (We're past mark_end, so advancing is pure lookahead and does not extend
+  // the separator token.)
+  if (lexer->lookahead == '{') {
+    lexer->advance(lexer, false);
+    if (lexer->lookahead != '{') {
+      return false;  // single `{`: block-arg body continuation
+    }
+    // `{{`: a bare object literal begins a new statement.
+    lexer->result_symbol = AUTOMATIC_NEWLINE;
+    return true;
+  }
+
+  // A newline before a closing delimiter is plain whitespace: no grammar
+  // rule requires a separator there, and `block_arg`/`object_selection`/
+  // `arg_values` place separators *between* elements, so emitting one would
+  // wrongly demand another element (the PEG backtracks out of this; the
+  // tree-sitter lexer cannot).
+  if (lexer->lookahead == '}' || lexer->lookahead == ')' ||
+      lexer->lookahead == ']') {
+    return false;
+  }
+
+  // Check for leading `and`/`or` keyword (logical operator continuation).
+  if (is_leading_logical_op(lexer)) {
+    return false;
+  }
+
+  // If we hit EOF, don't emit a separator.
+  if (lexer->eof(lexer)) {
+    return false;
+  }
+
+  // Otherwise, this newline IS a statement separator.
+  lexer->result_symbol = AUTOMATIC_NEWLINE;
+  return true;
+}

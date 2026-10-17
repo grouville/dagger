@@ -1,0 +1,63 @@
+[
+  {
+    "label": "controlled-off",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/cache-usage-provider-rows/engine-overlay.json",
+      "-race",
+      "-count=1",
+      "-run",
+      "TestCache(Usage|Prune)",
+      "./dagql"
+    ],
+    "exit_code": 0,
+    "seconds": 68.54805443808436
+  },
+  {
+    "label": "controlled-on",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/cache-usage-provider-rows/engine-overlay.json",
+      "-race",
+      "-count=1",
+      "-run",
+      "TestCache(Usage|Prune)",
+      "./dagql"
+    ],
+    "exit_code": 0,
+    "seconds": 6.6590915829874575
+  },
+  {
+    "label": "engine-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "build",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/cache-usage-provider-rows/engine-overlay.json",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/cache-usage-provider-rows/dagger-engine",
+      "./cmd/engine"
+    ],
+    "exit_code": 0,
+    "seconds": 65.64014308003243
+  }
+]

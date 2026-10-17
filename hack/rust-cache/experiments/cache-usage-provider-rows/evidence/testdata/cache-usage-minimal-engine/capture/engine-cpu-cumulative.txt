@@ -1,0 +1,64 @@
+File: dagger-engine
+Build ID: f3f636d77f97c552fdb13407bdebf02508fdece9
+Type: cpu
+Time: 2026-10-17 07:27:33 PDT
+Duration: 50.26s, Total samples = 223.52s (444.71%)
+Showing nodes accounting for 58.96s, 26.38% of 223.52s total
+Dropped 3742 nodes (cum <= 1.12s)
+Showing top 55 nodes out of 471
+      flat  flat%   sum%        cum   cum%
+     0.15s 0.067% 0.067%     78.99s 35.34%  runtime.systemstack
+         0     0% 0.067%     52.24s 23.37%  runtime.gcBgMarkWorker
+         0     0% 0.067%     52.21s 23.36%  runtime.gcBgMarkWorker.func2
+     0.44s   0.2%  0.26%     52.21s 23.36%  runtime.gcDrain
+     2.33s  1.04%  1.31%     42.09s 18.83%  runtime.mallocgc
+    12.53s  5.61%  6.91%     40.98s 18.33%  runtime.tryDeferToSpanScan
+         0     0%  6.91%     40.80s 18.25%  net/http.serverHandler.ServeHTTP
+         0     0%  6.91%     40.70s 18.21%  net/http.HandlerFunc.ServeHTTP (partial-inline)
+         0     0%  6.91%     40.48s 18.11%  github.com/dagger/dagger/engine/server.(*Server).serveHTTPToClient
+     0.04s 0.018%  6.93%     40.45s 18.10%  golang.org/x/sync/errgroup.(*Group).Go.func1
+     7.61s  3.40% 10.33%     39.82s 17.81%  runtime.scanSpan
+         0     0% 10.33%     37.14s 16.62%  net/http.(*ServeMux).ServeHTTP
+     0.03s 0.013% 10.35%     30.01s 13.43%  github.com/dagger/dagger/dagql.ObjectResult[go.shape.*uint8].Select
+         0     0% 10.35%     28.60s 12.80%  runtime.gcDrainMarkWorkerDedicated (inline)
+     0.05s 0.022% 10.37%     26.05s 11.65%  github.com/dagger/dagger/dagql.(*Server).resolvePath
+     0.02s 0.0089% 10.38%     26.02s 11.64%  net/http.(*conn).serve
+    25.75s 11.52% 21.90%     25.75s 11.52%  runtime.spanClass.sizeclass (inline)
+         0     0% 21.90%     25.22s 11.28%  github.com/dagger/dagger/core/sdk/dang/shared.WithNestedClientServer.func1
+         0     0% 21.90%     25.19s 11.27%  github.com/dagger/dagger/engine/server.(*Server).ServeHTTPToNestedClient
+         0     0% 21.90%     25.16s 11.26%  github.com/dagger/dagger/engine/server..ServeHTTPToNestedClient.httpHandlerFunc[go.shape.*uint8].func1
+     2.53s  1.13% 23.03%     24.38s 10.91%  runtime.scanObject
+         0     0% 23.03%     23.61s 10.56%  runtime.gcDrainMarkWorkerIdle (inline)
+     0.01s 0.0045% 23.04%     22.48s 10.06%  github.com/dagger/dagger/engine/server..serveHTTPToClient.httpHandlerFunc[go.shape.*uint8].func6
+         0     0% 23.04%     22.47s 10.05%  github.com/dagger/dagger/engine/server.(*Server).serveQuery
+     0.03s 0.013% 23.05%     21.69s  9.70%  google.golang.org/protobuf/encoding/protojson.MarshalOptions.marshal
+     1.17s  0.52% 23.57%     21.67s  9.69%  runtime.newobject
+         0     0% 23.57%     21.59s  9.66%  github.com/dagger/dagger/engine/clientdb.UnmarshalProtoJSONs[go.shape.*uint8]
+     0.09s  0.04% 23.61%     21.59s  9.66%  github.com/dagger/dagger/engine/clientdb.unmarshalProtoJSONsOptimized[go.shape.*uint8]
+     0.01s 0.0045% 23.62%     21.44s  9.59%  github.com/99designs/gqlgen/graphql/handler.(*Server).ServeHTTP
+         0     0% 23.62%     21.42s  9.58%  github.com/99designs/gqlgen/graphql/handler/transport.POST.Do
+     0.43s  0.19% 23.81%     21.02s  9.40%  google.golang.org/protobuf/encoding/protojson.encoder.marshalMessage
+         0     0% 23.81%     20.59s  9.21%  github.com/dagger/dagger/engine/server.sessionSpanExporter.ExportSpans.func1
+         0     0% 23.81%     20.41s  9.13%  github.com/dagger/dagger/engine/server.clientSpans.ExportSpans
+         0     0% 23.81%     20.41s  9.13%  github.com/dagger/dagger/engine/server.exportSpansRecovered
+     0.28s  0.13% 23.94%     20.40s  9.13%  github.com/dagger/dagger/engine/server.clientSpans.exportSpansOriginal
+     3.44s  1.54% 25.47%     20.33s  9.10%  runtime.mallocgcSmallScanNoHeader
+     0.50s  0.22% 25.70%     19.98s  8.94%  google.golang.org/protobuf/internal/order.RangeFields
+     0.07s 0.031% 25.73%     19.08s  8.54%  github.com/dagger/otel-go.SpansToPB
+     0.01s 0.0045% 25.73%     18.74s  8.38%  github.com/dagger/dagger/engine/server.fetchSpanBatch
+         0     0% 25.73%     18.71s  8.37%  github.com/sourcegraph/conc.(*WaitGroup).Go.func1
+     0.01s 0.0045% 25.74%     18.67s  8.35%  github.com/sourcegraph/conc/panics.(*Catcher).Try
+         0     0% 25.74%     18.66s  8.35%  github.com/sourcegraph/conc/pool.(*Pool).worker
+     0.08s 0.036% 25.77%     18.27s  8.17%  github.com/dagger/otel-go.spanToPB
+         0     0% 25.77%     18.09s  8.09%  google.golang.org/protobuf/encoding/protojson.Unmarshal (inline)
+     0.01s 0.0045% 25.78%     18.09s  8.09%  google.golang.org/protobuf/encoding/protojson.UnmarshalOptions.Unmarshal (inline)
+     0.02s 0.0089% 25.79%     18.08s  8.09%  google.golang.org/protobuf/encoding/protojson.UnmarshalOptions.unmarshal
+         0     0% 25.79%     17.84s  7.98%  github.com/dagger/dagger/engine/clientdb.ForwardSpansToPB
+     0.73s  0.33% 26.11%     17.68s  7.91%  google.golang.org/protobuf/encoding/protojson.decoder.unmarshalMessage
+     0.02s 0.0089% 26.12%     17.60s  7.87%  github.com/dagger/dagger/dagql.ObjectResult[go.shape.*uint8].call
+         0     0% 26.12%     17.13s  7.66%  sync.(*WaitGroup).Go.func1
+     0.36s  0.16% 26.28%     17.12s  7.66%  google.golang.org/protobuf/encoding/protojson.encoder.marshalMessage.func1
+     0.01s 0.0045% 26.29%     16.97s  7.59%  github.com/dagger/dagger/dagql.(*Server).Resolve
+         0     0% 26.29%     16.82s  7.53%  github.com/dagger/dagger/engine/server.(*cloudForwarder).run
+         0     0% 26.29%     16.82s  7.53%  github.com/dagger/dagger/engine/server.newCloudForwarder.func5
+     0.20s 0.089% 26.38%     16.46s  7.36%  google.golang.org/protobuf/encoding/protojson.encoder.marshalValue

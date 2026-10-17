@@ -1,0 +1,54 @@
+File: dagger-engine
+Build ID: c12979bf39c7d9e60a007b0c986575fb1fd0aa53
+Type: cpu
+Time: 2026-10-17 05:30:59 PDT
+Duration: 5s, Total samples = 5.64s (112.78%)
+Showing nodes accounting for 2.31s, 40.96% of 5.64s total
+Dropped 537 nodes (cum <= 0.03s)
+Showing top 45 nodes out of 297
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%      4.97s 88.12%  github.com/dagger/dagger/dagql.(*Cache).Prune /tmp/dagger-filesync-snapshot-seeds/dagql/cache_prune.go:342
+         0     0%     0%      4.97s 88.12%  github.com/dagger/dagger/engine/server.(*Server).gc /tmp/dagger-filesync-snapshot-seeds/engine/server/gc.go:320
+         0     0%     0%      4.97s 88.12%  github.com/dagger/dagger/engine/server.(*Server).gcAfterSessionCompletion /tmp/dagger-filesync-snapshot-seeds/engine/server/gc.go:327
+         0     0%     0%      4.97s 88.12%  github.com/dagger/dagger/engine/server.(*Server).gcLocked /tmp/dagger-filesync-snapshot-seeds/engine/server/gc.go:353
+         0     0%     0%      4.97s 88.12%  github.com/dagger/dagger/engine/server.(*Server).pruneLocalCacheLocked /tmp/dagger-filesync-snapshot-seeds/engine/server/gc.go:396
+         0     0%     0%      4.97s 88.12%  github.com/dagger/dagger/engine/server.NewServer.After.throttle.func3.1 /tmp/dagger-filesync-snapshot-seeds/internal/buildkit/util/throttle/throttle.go:51
+         0     0%     0%      2.90s 51.42%  github.com/dagger/dagger/dagql.(*Cache).measurePruneState /tmp/dagger-filesync-snapshot-seeds/dagql/cache_prune.go:306
+         0     0%     0%      2.07s 36.70%  github.com/dagger/dagger/dagql.(*Cache).measurePruneState /tmp/dagger-filesync-snapshot-seeds/dagql/cache_prune.go:298
+         0     0%     0%      1.82s 32.27%  github.com/dagger/dagger/dagql.(*Cache).collectUsageMeasurementInputs /tmp/dagger-filesync-snapshot-seeds/dagql/cache_usage.go:49
+     1.32s 23.40% 23.40%      1.32s 23.40%  internal/runtime/maps.ctrlGroup.matchH2 /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/internal/runtime/maps/group.go:153 (inline)
+         0     0% 23.40%      1.23s 21.81%  github.com/dagger/dagger/dagql.(*Cache).snapshotPruneStateCancelable /tmp/dagger-filesync-snapshot-seeds/dagql/cache_prune.go:515
+         0     0% 23.40%      1.08s 19.15%  github.com/dagger/dagger/dagql.(*Cache).measureAllResultSizes /tmp/dagger-filesync-snapshot-seeds/dagql/cache.go:5538
+     0.05s  0.89% 24.29%      1.06s 18.79%  github.com/dagger/dagger/dagql.(*cacheUsageSnapshot).capturePendingLocked /tmp/dagger-filesync-snapshot-seeds/dagql/cache_usage.go:132
+         0     0% 24.29%      0.89s 15.78%  github.com/dagger/dagger/dagql.(*Cache).snapshotPruneStateCancelable /tmp/dagger-filesync-snapshot-seeds/dagql/cache_prune.go:511
+     0.79s 14.01% 38.30%      0.79s 14.01%  sync/atomic.(*Int32).Add /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/sync/atomic/type.go:94 (inline)
+         0     0% 38.30%      0.78s 13.83%  github.com/dagger/dagger/dagql.(*Cache).snapshotPruneStateCancelable /tmp/dagger-filesync-snapshot-seeds/dagql/cache_prune.go:484
+     0.04s  0.71% 39.01%      0.77s 13.65%  github.com/dagger/dagger/dagql.cacheUsageMeasurementInput.validLocked /tmp/dagger-filesync-snapshot-seeds/dagql/cache_usage.go:185 (inline)
+     0.01s  0.18% 39.18%      0.74s 13.12%  sync.(*RWMutex).RLock /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/sync/rwmutex.go:72 (inline)
+         0     0% 39.18%      0.72s 12.77%  github.com/dagger/dagger/dagql.(*sharedResult).loadPayloadState /tmp/dagger-filesync-snapshot-seeds/dagql/cache.go:2898
+         0     0% 39.18%      0.65s 11.52%  runtime.mapaccess2 /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/internal/runtime/maps/runtime.go:176
+         0     0% 39.18%      0.48s  8.51%  github.com/dagger/dagger/dagql.(*Cache).measureAllResultSizes /tmp/dagger-filesync-snapshot-seeds/dagql/cache.go:5554
+         0     0% 39.18%      0.39s  6.91%  github.com/dagger/dagger/dagql.(*Cache).pruneUsageIdentitiesLocked /tmp/dagger-filesync-snapshot-seeds/dagql/cache_prune.go:526
+         0     0% 39.18%      0.37s  6.56%  github.com/dagger/dagger/dagql.(*Cache).snapshotPruneStateLocked /tmp/dagger-filesync-snapshot-seeds/dagql/cache_prune.go:649
+         0     0% 39.18%      0.35s  6.21%  github.com/dagger/dagger/dagql.(*cacheUsageSnapshot).finalizeLocked /tmp/dagger-filesync-snapshot-seeds/dagql/cache_usage.go:157
+         0     0% 39.18%      0.35s  6.21%  github.com/dagger/dagger/dagql.(*cacheUsageSnapshot).releaseLocked /tmp/dagger-filesync-snapshot-seeds/dagql/cache_usage.go:198
+         0     0% 39.18%      0.34s  6.03%  runtime.mallocgc /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/malloc.go:1150
+     0.04s  0.71% 39.89%      0.33s  5.85%  github.com/dagger/dagger/dagql.(*cacheUsageSnapshot).finalizeLocked /tmp/dagger-filesync-snapshot-seeds/dagql/cache_usage.go:156
+         0     0% 39.89%      0.33s  5.85%  runtime.newobject /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/malloc.go:2157 (partial-inline)
+         0     0% 39.89%      0.32s  5.67%  github.com/dagger/dagger/dagql.(*Cache).measureAllResultSizes /tmp/dagger-filesync-snapshot-seeds/dagql/cache.go:5558
+         0     0% 39.89%      0.32s  5.67%  github.com/dagger/dagger/dagql.(*Cache).pruneUsageIdentitiesLocked /tmp/dagger-filesync-snapshot-seeds/dagql/cache_prune.go:530
+         0     0% 39.89%      0.27s  4.79%  github.com/dagger/dagger/dagql.(*Cache).decrementIncomingOwnershipLocked /tmp/dagger-filesync-snapshot-seeds/dagql/cache.go:1806
+     0.02s  0.35% 40.25%      0.27s  4.79%  github.com/dagger/dagger/dagql.(*cacheUsageSnapshot).capturePendingLocked /tmp/dagger-filesync-snapshot-seeds/dagql/cache_usage.go:139
+     0.01s  0.18% 40.43%      0.25s  4.43%  runtime.mapaccess2_fast64 /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/internal/runtime/maps/runtime_fast64.go:133
+     0.02s  0.35% 40.78%      0.24s  4.26%  github.com/dagger/dagger/dagql.(*Cache).publishUsageMeasurementsLocked /tmp/dagger-filesync-snapshot-seeds/dagql/cache.go:5691
+         0     0% 40.78%      0.23s  4.08%  github.com/dagger/dagger/dagql.(*Cache).enqueueCollectibleResultLocked /tmp/dagger-filesync-snapshot-seeds/dagql/cache.go:1787 (inline)
+         0     0% 40.78%      0.23s  4.08%  net/http.HandlerFunc.ServeHTTP /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:2284
+         0     0% 40.78%      0.23s  4.08%  net/http.serverHandler.ServeHTTP /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:3309
+         0     0% 40.78%      0.23s  4.08%  runtime.mapaccess1_fast64 /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/internal/runtime/maps/runtime_fast64.go:62
+     0.01s  0.18% 40.96%      0.22s  3.90%  github.com/dagger/dagger/dagql.(*cacheUsageSnapshot).capturePendingLocked /tmp/dagger-filesync-snapshot-seeds/dagql/cache_usage.go:141
+         0     0% 40.96%      0.22s  3.90%  golang.org/x/sync/errgroup.(*Group).Go.func1 /home/dagger/go/pkg/mod/golang.org/x/sync@v0.22.0/errgroup/errgroup.go:93
+         0     0% 40.96%      0.21s  3.72%  net/http.(*ServeMux).ServeHTTP /home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:2826
+         0     0% 40.96%      0.20s  3.55%  github.com/dagger/dagger/engine/server.(*Server).serveHTTPToClient /tmp/dagger-filesync-snapshot-seeds/engine/server/session.go:2566
+         0     0% 40.96%      0.19s  3.37%  github.com/dagger/dagger/dagql.(*Cache).measureAllResultSizes /tmp/dagger-filesync-snapshot-seeds/dagql/cache.go:5550
+         0     0% 40.96%      0.19s  3.37%  github.com/dagger/dagger/engine/server.clientSpans.ExportSpans /tmp/dagger-filesync-snapshot-seeds/engine/server/telemetry.go:895
+         0     0% 40.96%      0.19s  3.37%  github.com/dagger/dagger/engine/server.exportSpansRecovered /tmp/dagger-filesync-snapshot-seeds/engine/server/telemetry.go:319
