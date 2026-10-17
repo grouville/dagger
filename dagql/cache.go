@@ -2357,6 +2357,7 @@ type Cache struct {
 	// class-wide postings are deliberately omitted and marked broad instead.
 	resultIndexedDigests  map[sharedResultID][]string
 	broadlyIndexedResults map[sharedResultID]struct{}
+	restoredDigestGroups  map[sharedResultID][]*importedPostingGroup
 
 	// Explicit retained-root edges for persisted results.
 	persistedEdgesByResult map[sharedResultID]persistedEdge

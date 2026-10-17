@@ -72,16 +72,61 @@ func (p *resultDigestPosting) Items() iter.Seq[sharedResultID] {
 	}
 }
 
+// importedPostingGroup retains the original memberships and posting objects.
+// Class merges do not add digests or results to an imported snapshot.
+type importedPostingGroup struct {
+	members  map[sharedResultID]struct{}
+	postings []importedDigestPosting
+}
+
+type importedDigestPosting struct {
+	digest  string
+	posting *resultDigestPosting
+}
+
 // restoreDigestPostingsLocked requires egraphMu. Capture membership at import:
 // later unions must not silently broaden the postings of an existing digest.
 func (c *Cache) restoreDigestPostingsLocked() {
+	// Rebuild both directions together, including when restoring more than once.
+	c.restoredDigestGroups = make(map[sharedResultID][]*importedPostingGroup, len(c.resultsByID))
 	for outputEqID, resultIDs := range c.outputEqClassResults {
-		imported := maps.Clone(resultIDs)
-		for resultID := range imported {
+		group := &importedPostingGroup{
+			members:  maps.Clone(resultIDs),
+			postings: make([]importedDigestPosting, 0, len(c.eqClassToDigests[outputEqID])),
+		}
+		for resultID := range group.members {
 			c.markResultBroadlyIndexedLocked(resultID)
+			if resultID != 0 {
+				c.restoredDigestGroups[resultID] = append(c.restoredDigestGroups[resultID], group)
+			}
 		}
 		for dig := range c.eqClassToDigests[outputEqID] {
-			c.egraphResultsByDigest[dig] = &resultDigestPosting{imported: imported}
+			posting := &resultDigestPosting{imported: group.members}
+			c.egraphResultsByDigest[dig] = posting
+			group.postings = append(group.postings, importedDigestPosting{digest: dig, posting: posting})
 		}
+	}
+}
+
+// removeImportedPostingGroupsLocked requires egraphMu. Remove membership once
+// per original group; visit its digests only when its last result disappears.
+func (c *Cache) removeImportedPostingGroupsLocked(resultID sharedResultID, groups []*importedPostingGroup) {
+	for _, group := range groups {
+		delete(group.members, resultID)
+		if len(group.members) != 0 {
+			continue
+		}
+		for _, entry := range group.postings {
+			if c.egraphResultsByDigest[entry.digest] != entry.posting {
+				continue
+			}
+			// Keep later runtime postings while releasing the empty imported map.
+			entry.posting.imported = nil
+			if entry.posting.Empty() {
+				delete(c.egraphResultsByDigest, entry.digest)
+			}
+		}
+		group.members = nil
+		group.postings = nil
 	}
 }
