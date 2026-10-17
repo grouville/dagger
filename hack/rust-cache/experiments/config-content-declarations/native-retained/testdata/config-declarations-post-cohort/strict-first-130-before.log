@@ -1,0 +1,18 @@
+automatic cache actions=130 hits=130
+== TRACE ==  ✔ PASSED
+dagger-artifact-list-buffered api with-session -- /tmp/rust-cache-sipsma-review/native-batch-runtime-inspect -automatic-cache -cache-key native-config-entry-130-before -expected-actions 130 -expected-hits 130 -expected-batch-actions -1 -inspect-cache /tmp/rust-cache-sipsma-review/native-discovery-retained-config-declarations-post-cohort/130-before.cache.json -source /tmp/rust-native-config-entry-130-before check /tmp/rust-cache-sipsma-review/root-projection-no-host-state  0.3s
+
+✔ connect 0.0s
+
+✔ serveModule(address: "."): Void 0.1s
+
+✔ Host.directory(path: "/tmp/rust-native-config-entry-130-before", exclude: [".git", "target", "dagger.toml", "dagger.lock"]): Directory! 0.1s
+
+$ rust(image: "rust:1.77-bookworm@sha256:83101f6985c93e1e6501b3375de188ee3d2cbb89968bcc91611591f9f447bd42", cacheKey: "native-config-entry-130-before", locked: true): Rust! 0.0s CACHED
+✔ .nativeCheck(
+  ┆ source: Host.directory(path: "/tmp/rust-native-config-entry-130-before", exclude: [".git", "target", "dagger.toml", "dagger.lock"]): Directory!
+  ): RustNativeCompilation! 0.1s
+
+✔ File.contents: String! 0.0s
+
+Setup tracing at https://dagger.cloud/traces/setup. To hide set DAGGER_NO_NAG=1

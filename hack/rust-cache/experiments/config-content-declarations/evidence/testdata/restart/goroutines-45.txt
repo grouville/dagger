@@ -1,0 +1,375 @@
+goroutine 2927109 [running]:
+runtime/pprof.writeGoroutineStacks({0x5523a20, 0xd7dc9992000})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/pprof/pprof.go:819 +0x6b
+runtime/pprof.writeGoroutine({0x5523a20?, 0xd7dc9992000?}, 0xd7ebfd54920?)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/pprof/pprof.go:782 +0x25
+runtime/pprof.(*Profile).WriteTo(0x8ac0380?, {0x5523a20?, 0xd7dc9992000?}, 0xc?)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/pprof/pprof.go:408 +0x149
+net/http/pprof.handler.ServeHTTP({0x5116d36, 0x9}, {0x555ad40, 0xd7dc9992000}, 0xd7dc787c000)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/pprof/pprof.go:273 +0x52a
+net/http.(*ServeMux).ServeHTTP(0x48d739?, {0x555ad40, 0xd7dc9992000}, 0xd7dc787c000)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:2826 +0x1c7
+net/http.serverHandler.ServeHTTP({0xd7fb4c34840?}, {0x555ad40?, 0xd7dc9992000?}, 0x1?)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:3309 +0x8e
+net/http.(*conn).serve(0xd7dc7b26000, {0x55700b8, 0xd7f51ca0210})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:2067 +0x690
+created by net/http.(*Server).Serve in goroutine 196
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:3462 +0x485
+
+goroutine 1 [runnable, locked to thread]:
+syscall.Syscall(0xb, 0x7374fe620000, 0x10000, 0x0)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/syscall/syscall_linux.go:74 +0x25
+golang.org/x/sys/unix.munmap(0x73752c760c6c?, 0x0?)
+	/home/dagger/go/pkg/mod/golang.org/x/sys@v0.47.0/unix/zsyscall_linux.go:1874 +0x32
+golang.org/x/sys/unix.MunmapPtr(...)
+	/home/dagger/go/pkg/mod/golang.org/x/sys@v0.47.0/unix/syscall_unix.go:163
+modernc.org/memory.unmap(...)
+	/home/dagger/go/pkg/mod/modernc.org/memory@v1.11.0/mmap_unix.go:25
+modernc.org/memory.mmap(0xd7dc8800000?)
+	/home/dagger/go/pkg/mod/modernc.org/memory@v1.11.0/mmap_unix.go:60 +0x115
+modernc.org/memory.(*Allocator).mmap(0x9679620, 0xf8a732?)
+	/home/dagger/go/pkg/mod/modernc.org/memory@v1.11.0/memory.go:107 +0x1f
+modernc.org/memory.(*Allocator).newSharedPage(0x737534080468?, 0x7375340601e8?)
+	/home/dagger/go/pkg/mod/modernc.org/memory@v1.11.0/memory.go:146 +0x6e
+modernc.org/memory.(*Allocator).UintptrMalloc(0x9679620, 0xfc9f3c?)
+	/home/dagger/go/pkg/mod/modernc.org/memory@v1.11.0/memory.go:272 +0x85
+modernc.org/libc.Xmalloc(0xd7dc7cbe0b0, 0x100000000?)
+	/home/dagger/go/pkg/mod/modernc.org/libc@v1.70.0/mem_musl.go:40 +0xd0
+modernc.org/sqlite/lib._sqlite3MemMalloc(0xd7dc7cbe0b0, 0x6c8)
+	/home/dagger/go/pkg/mod/modernc.org/sqlite@v1.48.1/lib/sqlite_linux_amd64.go:12903 +0x79
+modernc.org/sqlite/lib._sqlite3Malloc(0xd7dc7cbe0b0, 0x6c8)
+	/home/dagger/go/pkg/mod/modernc.org/sqlite@v1.48.1/lib/sqlite_linux_amd64.go:14050 +0x102
+modernc.org/sqlite/lib._dbMallocRawFinish(0xd7dc7cbe0b0, 0x73752c760428, 0x73752c6f2020?)
+	/home/dagger/go/pkg/mod/modernc.org/sqlite@v1.48.1/lib/sqlite_linux_amd64.go:14357 +0x25
+modernc.org/sqlite/lib._sqlite3DbMallocRawNN(0xd7dc7cbe0b0?, 0x73752c6ea4c8?, 0x73752c6eb648?)
+	/home/dagger/go/pkg/mod/modernc.org/sqlite@v1.48.1/lib/sqlite_linux_amd64.go:14409 +0x4a
+modernc.org/sqlite/lib._sqlite3VdbeMakeReady(0xd7dc7cbe0b0, 0x73752c6e0028, 0x73752c760c20)
+	/home/dagger/go/pkg/mod/modernc.org/sqlite@v1.48.1/lib/sqlite_linux_amd64.go:57279 +0x365
+modernc.org/sqlite/lib._sqlite3FinishCoding(0xd7dc7cbe0b0, 0x73752c760c20?)
+	/home/dagger/go/pkg/mod/modernc.org/sqlite@v1.48.1/lib/sqlite_linux_amd64.go:91174 +0x159
+modernc.org/sqlite/lib._yy_reduce(0xd7dc7cbe0b0, 0x73752c701028, 0x2, 0xd7d?, {0xd7dc7348008?, 0xc72a61e0?}, 0x73752c760c20)
+	/home/dagger/go/pkg/mod/modernc.org/sqlite@v1.48.1/lib/sqlite_linux_amd64.go:153636 +0x13a
+modernc.org/sqlite/lib._sqlite3Parser(0xd7dc7cbe0b0, 0x73752c701028, 0x1, {0x64?, 0x2?})
+	/home/dagger/go/pkg/mod/modernc.org/sqlite@v1.48.1/lib/sqlite_linux_amd64.go:155407 +0xb1
+modernc.org/sqlite/lib._sqlite3RunParser(0xd7dc7cbe0b0, 0x73752c760c20, 0x73752c6cfc20)
+	/home/dagger/go/pkg/mod/modernc.org/sqlite@v1.48.1/lib/sqlite_linux_amd64.go:158089 +0x3b4
+modernc.org/sqlite/lib._sqlite3Prepare(0xd7dc7cbe0b0, 0x73752c760428, 0x73752c6cfc20, 0xffffffff, 0x80, 0x0, 0x73753406ffe0, 0x7375340601a0)
+	/home/dagger/go/pkg/mod/modernc.org/sqlite@v1.48.1/lib/sqlite_linux_amd64.go:113561 +0x393
+modernc.org/sqlite/lib._sqlite3LockAndPrepare(0xd7dc7cbe0b0, 0x73752c760428, 0x73752c6cfc20, 0xffffffff, 0x80, 0x0, 0x73753406ffe0, 0x7375340601a0)
+	/home/dagger/go/pkg/mod/modernc.org/sqlite@v1.48.1/lib/sqlite_linux_amd64.go:113620 +0x10b
+modernc.org/sqlite/lib.Xsqlite3_prepare_v2(...)
+	/home/dagger/go/pkg/mod/modernc.org/sqlite@v1.48.1/lib/sqlite_linux_amd64.go:113707
+modernc.org/sqlite.(*conn).prepareV2(0xd7dc7e092c0, 0xd7dc880c9b0)
+	/home/dagger/go/pkg/mod/modernc.org/sqlite@v1.48.1/conn.go:542 +0x175
+modernc.org/sqlite.newStmt(0xd7dc7e092c0, {0x526630d?, 0xd7e728a41c0?})
+	/home/dagger/go/pkg/mod/modernc.org/sqlite@v1.48.1/stmt.go:33 +0x85
+modernc.org/sqlite.(*conn).prepare(...)
+	/home/dagger/go/pkg/mod/modernc.org/sqlite@v1.48.1/conn.go:851
+modernc.org/sqlite.(*conn).exec(0xd7dc7e092c0?, {0x5570128, 0xd7e728a41c0}, {0x526630d?, 0x42b6de?}, {0xd7fb4cc98c8, 0xe, 0xe})
+	/home/dagger/go/pkg/mod/modernc.org/sqlite@v1.48.1/conn.go:825 +0x6a
+modernc.org/sqlite.(*conn).ExecContext(0x497392?, {0x5570128?, 0xd7e728a41c0?}, {0x526630d?, 0x28?}, {0xd7fb4cc98c8?, 0x737502a2c680?, 0xd7faeb75380?})
+	/home/dagger/go/pkg/mod/modernc.org/sqlite@v1.48.1/conn.go:1082 +0x27
+database/sql.ctxDriverExec({0x5570128?, 0xd7e728a41c0?}, {0x7375341682c0?, 0xd7dc7e092c0?}, {0x0?, 0x0?}, {0x526630d?, 0x20?}, {0xd7fb4cc98c8, 0xe, ...})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/database/sql/ctxutil.go:31 +0xd7
+database/sql.(*DB).execDC.func2()
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/database/sql/sql.go:1713 +0x15c
+database/sql.withLock({0x5549590, 0xd7dc76f9680}, 0xd7dc880cde0)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/database/sql/sql.go:3572 +0x71
+database/sql.(*DB).execDC(0x2000000000010?, {0x5570128, 0xd7e728a41c0}, 0xd7dc76f9680, 0x967a960?, {0x526630d, 0x144}, {0xd7fb4cca460, 0xe, 0xe})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/database/sql/sql.go:1708 +0x1f6
+database/sql.(*Tx).ExecContext(0xd7faaa36400, {0x5570128, 0xd7e728a41c0}, {0x526630d, 0x144}, {0xd7fb4cca460, 0xe, 0xe})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/database/sql/sql.go:2516 +0xad
+github.com/dagger/dagger/dagql/persistdb.(*Queries).exec(0xd7dcc4951a4?, {0x5570128?, 0xd7e728a41c0?}, 0x5570128?, {0x526630d?, 0x5234b15?}, {0xd7fb4cca460?, 0xd7faeb6b440?, 0x3?})
+	/tmp/dagger-filesync-snapshot-seeds/dagql/persistdb/db.go:58 +0xc7
+github.com/dagger/dagger/dagql/persistdb.(*Queries).InsertMirrorResult(0xd7dc880d610, {0x5570128, 0xd7e728a41c0}, {0x4f141d, {0xd7e2ca94180, 0x170}, {0xd7de7e22a00, 0x4a3, 0x500}, {0x0, ...}, ...})
+	/tmp/dagger-filesync-snapshot-seeds/dagql/persistdb/mirror_state.go:144 +0x3fe
+github.com/dagger/dagger/dagql.(*Cache).applyPersistStateSnapshot(_, {_, _}, {{0xd7ec80c9100, 0x6, 0x8}, 0xbdc8fe, {0xd7e559e6000, 0x26f66, 0x29100}, ...})
+	/tmp/dagger-filesync-snapshot-seeds/dagql/cache_persistence_worker.go:449 +0x9a5
+github.com/dagger/dagger/dagql.(*Cache).persistCurrentState(0xd7dc7716a08, {0x5570128, 0xd7e728a41c0})
+	/tmp/dagger-filesync-snapshot-seeds/dagql/cache_persistence_worker.go:47 +0x1e5
+github.com/dagger/dagger/dagql.(*Cache).CloseWithShutdownError.func1()
+	/tmp/dagger-filesync-snapshot-seeds/dagql/cache.go:5203 +0x5a7
+sync.(*Once).doSlow(0x132f513?, 0x3f10680?)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/sync/once.go:78 +0xac
+sync.(*Once).Do(...)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/sync/once.go:69
+github.com/dagger/dagger/dagql.(*Cache).CloseWithShutdownError(0xd7dc7716a08, {0x5570128?, 0xd7e728a41c0?}, {0x0?, 0x0?})
+	/tmp/dagger-filesync-snapshot-seeds/dagql/cache.go:5177 +0x68
+github.com/dagger/dagger/engine/server.(*Server).GracefulStop(0xd7dc78da808, {0x5570128, 0xd7e728a41c0})
+	/tmp/dagger-filesync-snapshot-seeds/engine/server/server.go:1018 +0xb8d
+main.main.func2.2(...)
+	/tmp/dagger-filesync-snapshot-seeds/cmd/engine/main.go:560
+main.main.func2(0xd7dc7b1e000)
+	/tmp/dagger-filesync-snapshot-seeds/cmd/engine/main.go:645 +0x30f9
+github.com/urfave/cli.HandleAction({0x44de2a0?, 0xd7dc78251a0?}, 0xd7dc74ea700?)
+	/home/dagger/go/pkg/mod/github.com/urfave/cli@v1.22.17/app.go:524 +0x9f
+github.com/urfave/cli.(*App).Run(0xd7dc74ea700, {0xd7dc7316230, 0x7, 0x7})
+	/home/dagger/go/pkg/mod/github.com/urfave/cli@v1.22.17/app.go:286 +0x786
+main.main()
+	/tmp/dagger-filesync-snapshot-seeds/cmd/engine/main.go:682 +0x490
+
+goroutine 25 [chan receive, 1 minutes]:
+github.com/dagger/dagger/internal/buildkit/util/appcontext.Context.func1.1()
+	/tmp/dagger-filesync-snapshot-seeds/internal/buildkit/util/appcontext/appcontext.go:37 +0x65
+created by github.com/dagger/dagger/internal/buildkit/util/appcontext.Context.func1 in goroutine 1
+	/tmp/dagger-filesync-snapshot-seeds/internal/buildkit/util/appcontext/appcontext.go:35 +0x17e
+
+goroutine 35 [syscall, 1 minutes]:
+os/signal.signal_recv()
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/sigqueue.go:152 +0x98
+os/signal.loop()
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/os/signal/signal_unix.go:23 +0x13
+created by os/signal.Notify.func1.1 in goroutine 1
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/os/signal/signal.go:152 +0x1f
+
+goroutine 26 [select]:
+github.com/dagger/dagger/engine/ebpf/nettracer.(*commandAccounting).reap(0xd7dc7bc4460)
+	/tmp/dagger-filesync-snapshot-seeds/engine/ebpf/nettracer/command_linux.go:156 +0xec
+created by github.com/dagger/dagger/engine/ebpf/nettracer.(*Tracer).newCommandAccounting in goroutine 1
+	/tmp/dagger-filesync-snapshot-seeds/engine/ebpf/nettracer/command_linux.go:133 +0xa0c
+
+goroutine 61 [select, 23 minutes]:
+github.com/dagger/dagger/engine/engineutil.(*GlobalNamespaceWorkerPool).workerLoop(0xd7dc7c84550, {0x55700f0, 0xd7dc7c84500})
+	/tmp/dagger-filesync-snapshot-seeds/engine/engineutil/linux_namespace.go:189 +0x8d
+github.com/sourcegraph/conc/pool.(*ContextPool).Go.func1()
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/pool/context_pool.go:38 +0x6c
+github.com/sourcegraph/conc/pool.(*ContextPool).Go.(*ErrorPool).Go.func2()
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/pool/error_pool.go:30 +0x23
+github.com/sourcegraph/conc/pool.(*Pool).worker(0x5bfeac?)
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/pool/pool.go:154 +0x69
+github.com/sourcegraph/conc/panics.(*Catcher).Try(0x0?, 0x0?)
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/panics/panics.go:23 +0x42
+github.com/sourcegraph/conc.(*WaitGroup).Go.func1()
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/waitgroup.go:32 +0x4d
+created by github.com/sourcegraph/conc.(*WaitGroup).Go in goroutine 1
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/waitgroup.go:30 +0x73
+
+goroutine 20553 [select, 1 minutes]:
+net/http.(*persistConn).writeLoop(0xd7dcd0a9040)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/transport.go:2652 +0xe6
+created by net/http.(*Transport).dialConn in goroutine 20551
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/transport.go:1995 +0x16fe
+
+goroutine 60 [select, 23 minutes]:
+github.com/dagger/dagger/engine/engineutil.(*GlobalNamespaceWorkerPool).workerLoop(0xd7dc7c84550, {0x55700f0, 0xd7dc7c84500})
+	/tmp/dagger-filesync-snapshot-seeds/engine/engineutil/linux_namespace.go:189 +0x8d
+github.com/sourcegraph/conc/pool.(*ContextPool).Go.func1()
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/pool/context_pool.go:38 +0x6c
+github.com/sourcegraph/conc/pool.(*ContextPool).Go.(*ErrorPool).Go.func2()
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/pool/error_pool.go:30 +0x23
+github.com/sourcegraph/conc/pool.(*Pool).worker(0x0?)
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/pool/pool.go:154 +0x69
+github.com/sourcegraph/conc/panics.(*Catcher).Try(0x0?, 0x0?)
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/panics/panics.go:23 +0x42
+github.com/sourcegraph/conc.(*WaitGroup).Go.func1()
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/waitgroup.go:32 +0x4d
+created by github.com/sourcegraph/conc.(*WaitGroup).Go in goroutine 1
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/waitgroup.go:30 +0x73
+
+goroutine 47 [select, 23 minutes]:
+github.com/dagger/dagger/engine/engineutil.(*GlobalNamespaceWorkerPool).workerLoop(0xd7dc7c84550, {0x55700f0, 0xd7dc7c84500})
+	/tmp/dagger-filesync-snapshot-seeds/engine/engineutil/linux_namespace.go:189 +0x8d
+github.com/sourcegraph/conc/pool.(*ContextPool).Go.func1()
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/pool/context_pool.go:38 +0x6c
+github.com/sourcegraph/conc/pool.(*ContextPool).Go.(*ErrorPool).Go.func2()
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/pool/error_pool.go:30 +0x23
+github.com/sourcegraph/conc/pool.(*Pool).worker(0x0?)
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/pool/pool.go:154 +0x69
+github.com/sourcegraph/conc/panics.(*Catcher).Try(0x0?, 0x0?)
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/panics/panics.go:23 +0x42
+github.com/sourcegraph/conc.(*WaitGroup).Go.func1()
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/waitgroup.go:32 +0x4d
+created by github.com/sourcegraph/conc.(*WaitGroup).Go in goroutine 1
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/waitgroup.go:30 +0x73
+
+goroutine 48 [select, 23 minutes]:
+github.com/dagger/dagger/engine/engineutil.(*GlobalNamespaceWorkerPool).workerLoop(0xd7dc7c84550, {0x55700f0, 0xd7dc7c84500})
+	/tmp/dagger-filesync-snapshot-seeds/engine/engineutil/linux_namespace.go:189 +0x8d
+github.com/sourcegraph/conc/pool.(*ContextPool).Go.func1()
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/pool/context_pool.go:38 +0x6c
+github.com/sourcegraph/conc/pool.(*ContextPool).Go.(*ErrorPool).Go.func2()
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/pool/error_pool.go:30 +0x23
+github.com/sourcegraph/conc/pool.(*Pool).worker(0x0?)
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/pool/pool.go:154 +0x69
+github.com/sourcegraph/conc/panics.(*Catcher).Try(0x0?, 0x0?)
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/panics/panics.go:23 +0x42
+github.com/sourcegraph/conc.(*WaitGroup).Go.func1()
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/waitgroup.go:32 +0x4d
+created by github.com/sourcegraph/conc.(*WaitGroup).Go in goroutine 1
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/waitgroup.go:30 +0x73
+
+goroutine 49 [select, 23 minutes]:
+github.com/dagger/dagger/engine/engineutil.(*GlobalNamespaceWorkerPool).workerLoop(0xd7dc7c84550, {0x55700f0, 0xd7dc7c84500})
+	/tmp/dagger-filesync-snapshot-seeds/engine/engineutil/linux_namespace.go:189 +0x8d
+github.com/sourcegraph/conc/pool.(*ContextPool).Go.func1()
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/pool/context_pool.go:38 +0x6c
+github.com/sourcegraph/conc/pool.(*ContextPool).Go.(*ErrorPool).Go.func2()
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/pool/error_pool.go:30 +0x23
+github.com/sourcegraph/conc/pool.(*Pool).worker(0x0?)
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/pool/pool.go:154 +0x69
+github.com/sourcegraph/conc/panics.(*Catcher).Try(0x0?, 0x0?)
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/panics/panics.go:23 +0x42
+github.com/sourcegraph/conc.(*WaitGroup).Go.func1()
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/waitgroup.go:32 +0x4d
+created by github.com/sourcegraph/conc.(*WaitGroup).Go in goroutine 1
+	/home/dagger/go/pkg/mod/github.com/sourcegraph/conc@v0.3.0/waitgroup.go:30 +0x73
+
+goroutine 114 [select, 23 minutes]:
+database/sql.(*DB).connectionOpener(0xd7dc7c92750, {0x55700f0, 0xd7dc7c840f0})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/database/sql/sql.go:1261 +0x89
+created by database/sql.OpenDB in goroutine 1
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/database/sql/sql.go:841 +0x130
+
+goroutine 197 [chan receive]:
+main.logMetrics({0x556f8c8, 0x96ad340}, {0x5134140, 0xf}, 0xd7dc78da808)
+	/tmp/dagger-filesync-snapshot-seeds/cmd/engine/debug.go:386 +0xcb
+created by main.main.func2 in goroutine 1
+	/tmp/dagger-filesync-snapshot-seeds/cmd/engine/main.go:584 +0x264d
+
+goroutine 196 [IO wait]:
+internal/poll.runtime_pollWait(0x73757de46800, 0x72)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xd7edf963c00?, 0x900000036?, 0x0)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/internal/poll/fd_poll_runtime.go:84 +0x27
+internal/poll.(*pollDesc).waitRead(...)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Accept(0xd7edf963c00)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/internal/poll/fd_unix.go:613 +0x28c
+net.(*netFD).accept(0xd7edf963c00)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/fd_unix.go:150 +0x29
+net.(*TCPListener).accept(0xd7e4d87f680)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/tcpsock_posix.go:159 +0x1b
+net.(*TCPListener).Accept(0xd7e4d87f680)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/tcpsock.go:387 +0x30
+net/http.(*Server).Serve(0xd7fed49a000, {0x555ab20, 0xd7e4d87f680})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:3432 +0x30c
+net/http.Serve(...)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:2940
+created by main.setupDebugHandlers in goroutine 1
+	/tmp/dagger-filesync-snapshot-seeds/cmd/engine/debug.go:356 +0x97d
+
+goroutine 195 [chan receive]:
+github.com/dagger/dagger/engine/server.(*Server).gcClientDBs(0xd7dc78da808)
+	/tmp/dagger-filesync-snapshot-seeds/engine/server/server.go:1196 +0x66
+created by github.com/dagger/dagger/engine/server.NewServer in goroutine 1
+	/tmp/dagger-filesync-snapshot-seeds/engine/server/server.go:513 +0x26d9
+
+goroutine 33638 [chan receive]:
+database/sql.(*Tx).awaitDone(0xd7faaa36400)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/database/sql/sql.go:2212 +0x29
+created by database/sql.(*DB).beginDC in goroutine 1
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/database/sql/sql.go:1925 +0x1ef
+
+goroutine 17969 [IO wait, 1 minutes]:
+internal/poll.runtime_pollWait(0x7375009fa800, 0x72)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xd7fa46f0a80?, 0xd7dc7a49000?, 0x0)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/internal/poll/fd_poll_runtime.go:84 +0x27
+internal/poll.(*pollDesc).waitRead(...)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xd7fa46f0a80, {0xd7dc7a49000, 0x1000, 0x1000})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/internal/poll/fd_unix.go:165 +0x2ae
+net.(*netFD).Read(0xd7fa46f0a80, {0xd7dc7a49000?, 0x0?, 0x2?})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/fd_posix.go:68 +0x25
+net.(*conn).Read(0xd7fa0e46090, {0xd7dc7a49000?, 0xd7f7fc52f60?, 0x475d040?})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/net.go:196 +0x45
+net/http.(*persistConn).Read(0xd7dc7a84b40, {0xd7dc7a49000?, 0x5521280?, 0x8ab3280?})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/transport.go:2174 +0x47
+bufio.(*Reader).fill(0xd7dc76e91a0)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/bufio/bufio.go:113 +0x103
+bufio.(*Reader).Peek(0xd7dc76e91a0, 0x1)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/bufio/bufio.go:152 +0x53
+net/http.(*persistConn).readLoop(0xd7dc7a84b40)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/transport.go:2330 +0x172
+created by net/http.(*Transport).dialConn in goroutine 17968
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/transport.go:1994 +0x16ac
+
+goroutine 19378 [IO wait, 1 minutes]:
+internal/poll.runtime_pollWait(0x7375009fac00, 0x72)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xd7e251b3b00?, 0xd7e087b8600?, 0x0)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/internal/poll/fd_poll_runtime.go:84 +0x27
+internal/poll.(*pollDesc).waitRead(...)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xd7e251b3b00, {0xd7e087b8600, 0x1300, 0x1300})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/internal/poll/fd_unix.go:165 +0x2ae
+net.(*netFD).Read(0xd7e251b3b00, {0xd7e087b8600?, 0x444137?, 0xd7dc7b4e940?})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/fd_posix.go:68 +0x25
+net.(*conn).Read(0xd7eab467938, {0xd7e087b8600?, 0x73751748ca80?, 0x73757dfcfde0?})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/net.go:196 +0x45
+crypto/tls.(*atLeastReader).Read(0xd7e71789c20, {0xd7e087b8600?, 0xd7dc7b4ea48?, 0x454fc8?})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/crypto/tls/conn.go:815 +0x3b
+bytes.(*Buffer).ReadFrom(0xd7e621797a8, {0x55289e0, 0xd7e71789c20})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/bytes/buffer.go:229 +0x98
+crypto/tls.(*Conn).readFromUntil(0xd7e62179508, {0x55231e0, 0xd7eab467938}, 0x730e8c?)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/crypto/tls/conn.go:837 +0xde
+crypto/tls.(*Conn).readRecordOrCCS(0xd7e62179508, 0x0)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/crypto/tls/conn.go:626 +0x3db
+crypto/tls.(*Conn).readRecord(...)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/crypto/tls/conn.go:588
+crypto/tls.(*Conn).Read(0xd7e62179508, {0xd7dca770000, 0x1000, 0xd7dc7b4ecf8?})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/crypto/tls/conn.go:1393 +0x145
+bufio.(*Reader).Read(0xd7deaad9620, {0xd7dc967cd64, 0x9, 0x737515011418?})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/bufio/bufio.go:245 +0x197
+io.ReadAtLeast({0x5521a00, 0xd7deaad9620}, {0xd7dc967cd64, 0x9, 0x9}, 0x9)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/io/io.go:335 +0x8e
+io.ReadFull(...)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/io/io.go:354
+net/http.http2readFrameHeader({0xd7dc967cd64, 0x9, 0xd7e63d35260?}, {0x5521a00?, 0xd7deaad9620?})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/h2_bundle.go:1805 +0x65
+net/http.(*http2Framer).ReadFrameHeader(0xd7dc967cd20)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/h2_bundle.go:2071 +0x6b
+net/http.(*http2Framer).ReadFrame(0xd7dc967cd20)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/h2_bundle.go:2130 +0x18
+net/http.(*http2clientConnReadLoop).run(0xd7dc7b4efa8)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/h2_bundle.go:9550 +0xca
+net/http.(*http2ClientConn).readLoop(0xd7dca720fc0)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/h2_bundle.go:9419 +0x52
+created by net/http.(*http2Transport).newClientConn in goroutine 19153
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/h2_bundle.go:8171 +0xda5
+
+goroutine 20552 [IO wait, 1 minutes]:
+internal/poll.runtime_pollWait(0x7375009fa200, 0x72)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0xd7dce382000?, 0xd7dcd4cd000?, 0x0)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/internal/poll/fd_poll_runtime.go:84 +0x27
+internal/poll.(*pollDesc).waitRead(...)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0xd7dce382000, {0xd7dcd4cd000, 0x1000, 0x1000})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/internal/poll/fd_unix.go:165 +0x2ae
+net.(*netFD).Read(0xd7dce382000, {0xd7dcd4cd000?, 0x0?, 0x1?})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/fd_posix.go:68 +0x25
+net.(*conn).Read(0xd7dd1fb3af0, {0xd7dcd4cd000?, 0xd7f7fc52f60?, 0x475d040?})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/net.go:196 +0x45
+net/http.(*persistConn).Read(0xd7dcd0a9040, {0xd7dcd4cd000?, 0x5521280?, 0x8ab3280?})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/transport.go:2174 +0x47
+bufio.(*Reader).fill(0xd7dce358ae0)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/bufio/bufio.go:113 +0x103
+bufio.(*Reader).Peek(0xd7dce358ae0, 0x1)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/bufio/bufio.go:152 +0x53
+net/http.(*persistConn).readLoop(0xd7dcd0a9040)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/transport.go:2330 +0x172
+created by net/http.(*Transport).dialConn in goroutine 20551
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/transport.go:1994 +0x16ac
+
+goroutine 17970 [select, 1 minutes]:
+net/http.(*persistConn).writeLoop(0xd7dc7a84b40)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/transport.go:2652 +0xe6
+created by net/http.(*Transport).dialConn in goroutine 17968
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/transport.go:1995 +0x16fe
+
+goroutine 25816 [sleep, 1 minutes]:
+time.Sleep(0xdf8475800)
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/time.go:363 +0x165
+github.com/dagger/dagger/engine/server.NewServer.After.throttle.func3.1()
+	/tmp/dagger-filesync-snapshot-seeds/internal/buildkit/util/throttle/throttle.go:52 +0xc5
+created by github.com/dagger/dagger/engine/server.NewServer.After.throttle.func3 in goroutine 25815
+	/tmp/dagger-filesync-snapshot-seeds/internal/buildkit/util/throttle/throttle.go:31 +0x11c
+
+goroutine 2927110 [runnable]:
+net/http.(*connReader).startBackgroundRead.gowrap2()
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:698
+runtime.goexit({})
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:1771 +0x1
+created by net/http.(*connReader).startBackgroundRead in goroutine 2927109
+	/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/net/http/server.go:698 +0xb6

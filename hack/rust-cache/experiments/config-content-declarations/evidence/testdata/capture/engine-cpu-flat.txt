@@ -1,0 +1,64 @@
+File: dagger-engine
+Build ID: 56c20c80bd292b9f0b59667895bdbb6db596bbda
+Type: cpu
+Time: 2026-10-17 09:12:39 PDT
+Duration: 45.20s, Total samples = 199.20s (440.69%)
+Showing nodes accounting for 115.16s, 57.81% of 199.20s total
+Dropped 3592 nodes (cum <= 1s)
+Showing top 55 nodes out of 476
+      flat  flat%   sum%        cum   cum%
+    18.99s  9.53%  9.53%     18.99s  9.53%  runtime.spanClass.sizeclass (inline)
+    10.57s  5.31% 14.84%     31.58s 15.85%  runtime.tryDeferToSpanScan
+     5.52s  2.77% 17.61%      5.52s  2.77%  internal/runtime/syscall/linux.Syscall6
+     5.09s  2.56% 20.17%      5.31s  2.67%  context.value
+     4.73s  2.37% 22.54%     26.71s 13.41%  runtime.scanSpan
+     4.48s  2.25% 24.79%      4.48s  2.25%  runtime.memclrNoHeapPointers
+     4.08s  2.05% 26.84%     12.76s  6.41%  runtime.scanObjectsSmall
+     3.97s  1.99% 28.83%      3.97s  1.99%  runtime.nextFreeFast (inline)
+     3.92s  1.97% 30.80%      3.92s  1.97%  runtime.memmove
+     3.22s  1.62% 32.41%     19.78s  9.93%  runtime.mallocgcSmallScanNoHeader
+     3.09s  1.55% 33.97%      3.48s  1.75%  runtime.(*mspan).writeHeapBitsSmall
+     2.63s  1.32% 35.29%      3.27s  1.64%  runtime.findObject
+     2.49s  1.25% 36.54%      2.49s  1.25%  crypto/internal/fips140/sha256.blockAVX2
+     2.27s  1.14% 37.68%      2.27s  1.14%  sync/atomic.(*Int32).Add
+     2.17s  1.09% 38.77%      2.17s  1.09%  internal/runtime/maps.ctrlGroup.matchH2 (inline)
+     2.12s  1.06% 39.83%     40.43s 20.30%  runtime.mallocgc
+     2.02s  1.01% 40.84%      8.52s  4.28%  runtime.scanObjectSmall
+     1.79s   0.9% 41.74%      1.79s   0.9%  runtime.extractHeapBitsSmall
+     1.71s  0.86% 42.60%     19.09s  9.58%  runtime.scanObject
+     1.62s  0.81% 43.41%      1.62s  0.81%  aeshashbody
+     1.62s  0.81% 44.23%      5.50s  2.76%  runtime.selectgo
+     1.44s  0.72% 44.95%      1.44s  0.72%  google.golang.org/protobuf/internal/encoding/json.indexNeedEscapeInString (inline)
+     1.32s  0.66% 45.61%      7.46s  3.74%  runtime.wbBufFlush1
+     1.31s  0.66% 46.27%      2.85s  1.43%  encoding/json.checkValid
+     1.30s  0.65% 46.92%      4.92s  2.47%  runtime.bulkBarrierPreWrite
+     1.24s  0.62% 47.55%      5.96s  2.99%  google.golang.org/protobuf/internal/encoding/json.(*Decoder).Read
+     1.14s  0.57% 48.12%     21.13s 10.61%  runtime.newobject
+     1.11s  0.56% 48.67%      1.26s  0.63%  runtime.lock2
+     1.10s  0.55% 49.23%      1.37s  0.69%  runtime.step
+     0.99s   0.5% 49.72%      1.09s  0.55%  encoding/json.stateInString
+     0.97s  0.49% 50.21%      1.49s  0.75%  runtime.unlock2
+     0.91s  0.46% 50.67%      1.48s  0.74%  internal/runtime/maps.(*Iter).Next
+     0.85s  0.43% 51.09%      1.18s  0.59%  runtime.(*mspan).markBitsForIndex (inline)
+     0.85s  0.43% 51.52%      2.12s  1.06%  runtime.gcmarknewobject
+     0.81s  0.41% 51.93%      1.59s   0.8%  internal/sync.(*Mutex).Lock
+     0.79s   0.4% 52.32%      1.52s  0.76%  reflect.Value.Elem
+     0.76s  0.38% 52.71%      5.32s  2.67%  gcWriteBarrier
+     0.74s  0.37% 53.08%     17.66s  8.87%  google.golang.org/protobuf/encoding/protojson.decoder.unmarshalMessage
+     0.72s  0.36% 53.44%      2.25s  1.13%  runtime.pcvalue
+     0.71s  0.36% 53.80%      5.88s  2.95%  google.golang.org/protobuf/internal/impl.(*messageState).Range
+     0.70s  0.35% 54.15%      2.91s  1.46%  google.golang.org/protobuf/internal/encoding/json.appendString
+     0.70s  0.35% 54.50%      1.09s  0.55%  internal/sync.(*HashTrieMap[go.shape.interface {},go.shape.interface {}]).Load
+     0.69s  0.35% 54.84%     21.79s 10.94%  google.golang.org/protobuf/internal/order.RangeFields
+     0.63s  0.32% 55.16%      1.31s  0.66%  internal/runtime/maps.(*Map).getWithoutKeySmallFastStr
+     0.62s  0.31% 55.47%      2.03s  1.02%  runtime.mapaccess1_faststr
+     0.59s   0.3% 55.77%      2.33s  1.17%  runtime.sweepone
+     0.58s  0.29% 56.06%      1.52s  0.76%  github.com/dagger/dagger/dagql.(*Cache).repairClassTermsLocked
+     0.52s  0.26% 56.32%     23.03s 11.56%  google.golang.org/protobuf/encoding/protojson.encoder.marshalMessage
+     0.47s  0.24% 56.56%      2.08s  1.04%  google.golang.org/protobuf/internal/impl.(*MessageInfo).sizePointerSlow
+     0.47s  0.24% 56.79%      1.14s  0.57%  sync.(*Pool).Get
+     0.46s  0.23% 57.02%         2s  1.00%  runtime.mapaccess2_faststr
+     0.43s  0.22% 57.24%      3.45s  1.73%  google.golang.org/protobuf/internal/encoding/json.(*Decoder).parseNext
+     0.39s   0.2% 57.43%      1.45s  0.73%  google.golang.org/protobuf/internal/impl.(*messageConverter).PBValueOf
+     0.38s  0.19% 57.63%      1.54s  0.77%  runtime.mapaccess1_fast64
+     0.37s  0.19% 57.81%      3.35s  1.68%  google.golang.org/protobuf/internal/encoding/json.(*Decoder).Peek

@@ -1,0 +1,54 @@
+File: dagger-after
+Build ID: ca708d2ab3c17fe2c0d05d19e84613b2a54f3ceb
+Type: cpu
+Time: 2026-10-17 09:12:39 PDT
+Duration: 44.87s, Total samples = 27.83s (62.02%)
+Showing nodes accounting for 5.63s, 20.23% of 27.83s total
+Dropped 1114 nodes (cum <= 0.14s)
+Showing top 45 nodes out of 371
+      flat  flat%   sum%        cum   cum%
+     0.06s  0.22%  0.22%      5.94s 21.34%  runtime.systemstack
+         0     0%  0.22%      4.70s 16.89%  golang.org/x/sync/errgroup.(*Group).Go.func1
+         0     0%  0.22%      4.69s 16.85%  google.golang.org/grpc.(*Server).serveStreams.func2.1
+         0     0%  0.22%      4.68s 16.82%  google.golang.org/grpc.(*Server).handleStream
+     0.02s 0.072%  0.29%      4.63s 16.64%  google.golang.org/grpc.(*Server).processStreamingRPC
+     0.01s 0.036%  0.32%      4.34s 15.59%  github.com/dagger/dagger/engine/client.FilesyncSource.DiffCopy
+         0     0%  0.32%      4.34s 15.59%  github.com/dagger/dagger/internal/buildkit/session/filesync._FileSync_DiffCopy_Handler
+         0     0%  0.32%      4.19s 15.06%  runtime.gcBgMarkWorker
+         0     0%  0.32%      4.19s 15.06%  runtime.gcBgMarkWorker.func2
+     0.12s  0.43%  0.75%      4.19s 15.06%  runtime.gcDrain
+         0     0%  0.75%      3.66s 13.15%  github.com/dagger/dagger/dagql/idtui.(*frontendPretty).dispatch
+     3.36s 12.07% 12.83%      3.36s 12.07%  internal/runtime/syscall/linux.Syscall6
+     0.32s  1.15% 13.98%      3.23s 11.61%  runtime.mallocgc
+     0.01s 0.036% 14.01%      3.09s 11.10%  syscall.RawSyscall6
+     0.01s 0.036% 14.05%      3.06s 11.00%  syscall.Syscall
+         0     0% 14.05%      3.01s 10.82%  github.com/dagger/dagger/engine/client.(*otlpConsumer).Consume.func2
+         0     0% 14.05%      3.01s 10.82%  github.com/dagger/dagger/engine/client.(*otlpConsumer).consumeResponse
+         0     0% 14.05%      2.95s 10.60%  github.com/dagger/dagger/engine/client.consumeTelemetryPayload
+         0     0% 14.05%      2.79s 10.03%  go.opentelemetry.io/otel/sdk/trace.(*batchSpanProcessor).processQueue
+         0     0% 14.05%      2.79s 10.03%  go.opentelemetry.io/otel/sdk/trace.NewBatchSpanProcessor.func2
+         0     0% 14.05%      2.79s 10.03%  sync.(*WaitGroup).Go.func1
+         0     0% 14.05%      2.76s  9.92%  go.opentelemetry.io/otel/sdk/trace.(*batchSpanProcessor).exportSpans
+         0     0% 14.05%      2.75s  9.88%  github.com/dagger/otel-go.CoalescingSpanExporter.ExportSpans
+         0     0% 14.05%      2.72s  9.77%  github.com/dagger/dagger/dagql/idtui.prettySpanExporter.ExportSpans
+         0     0% 14.05%      2.71s  9.74%  github.com/dagger/dagger/dagql/idtui.prettySpanExporter.ExportSpans.func1
+         0     0% 14.05%      2.70s  9.70%  internal/poll.ignoringEINTRIO (inline)
+     0.01s 0.036% 14.09%      2.69s  9.67%  github.com/dagger/dagger/dagql/dagui.(*DB).ExportSpans
+         0     0% 14.09%      2.58s  9.27%  google.golang.org/protobuf/proto.Unmarshal
+     0.02s 0.072% 14.16%      2.56s  9.20%  google.golang.org/protobuf/proto.UnmarshalOptions.unmarshal
+         0     0% 14.16%      2.56s  9.20%  runtime.gcDrainMarkWorkerIdle (inline)
+         0     0% 14.16%      2.53s  9.09%  google.golang.org/protobuf/internal/impl.(*MessageInfo).unmarshal
+     0.03s  0.11% 14.27%      2.53s  9.09%  google.golang.org/protobuf/internal/impl.(*MessageInfo).unmarshalPointer
+     0.36s  1.29% 15.56%      2.53s  9.09%  google.golang.org/protobuf/internal/impl.(*MessageInfo).unmarshalPointerEager
+     0.06s  0.22% 15.77%      2.46s  8.84%  google.golang.org/protobuf/internal/impl.consumeMessageSliceInfo
+         0     0% 15.77%      2.43s  8.73%  github.com/dagger/dagger/engine/client.unmarshalLiveTelemetry
+         0     0% 15.77%      2.40s  8.62%  path/filepath.WalkDir
+     0.03s  0.11% 15.88%      2.37s  8.52%  path/filepath.walkDir
+     0.01s 0.036% 15.92%      2.18s  7.83%  golang.org/x/net/http2.(*serverConn).writeFrameAsync
+         0     0% 15.92%      2.15s  7.73%  runtime.mcall
+     0.29s  1.04% 16.96%      2.05s  7.37%  runtime.mallocgcSmallScanNoHeader
+     0.70s  2.52% 19.48%      1.99s  7.15%  runtime.scanObject
+         0     0% 19.48%      1.98s  7.11%  github.com/dagger/dagger/engine/client.(*Client).exportTraces.func1
+     0.17s  0.61% 20.09%      1.95s  7.01%  runtime.scanSpan
+     0.03s  0.11% 20.19%      1.94s  6.97%  github.com/dagger/dagger/dagql/dagui.(*DB).recordOTelSpan
+     0.01s 0.036% 20.23%      1.91s  6.86%  golang.org/x/net/http2.(*serverConn).runHandler

@@ -1,0 +1,74 @@
+[
+  {
+    "label": "baseline-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-race",
+      "-count=1",
+      "./core/workspace"
+    ],
+    "cwd": "/tmp/dagger-config-declarations-only",
+    "exit_code": 0,
+    "seconds": 19.21873042092193
+  },
+  {
+    "label": "apply",
+    "command": [
+      "git",
+      "apply",
+      "--exclude=core/workspace/git_client_config_cache_test.go",
+      "/tmp/rust-cache-sipsma-review/config-content-declarations/candidate.patch"
+    ],
+    "cwd": "/tmp/dagger-config-declarations-only",
+    "exit_code": 0,
+    "seconds": 0.001986371004022658
+  },
+  {
+    "label": "format",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/gofmt",
+      "-w",
+      "/tmp/dagger-config-declarations-only/core/workspace/git_client_config_cache_bench_test.go"
+    ],
+    "cwd": "/tmp/dagger-config-declarations-only",
+    "exit_code": 0,
+    "seconds": 0.0022743080044165254
+  },
+  {
+    "label": "candidate-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-race",
+      "-count=1",
+      "./core/workspace"
+    ],
+    "cwd": "/tmp/dagger-config-declarations-only",
+    "exit_code": 0,
+    "seconds": 5.104337231023237
+  },
+  {
+    "label": "benchmark-values",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-run",
+      "^$",
+      "-bench",
+      "^BenchmarkGitClientDeclarations$",
+      "-benchtime=1x",
+      "-count=1",
+      "./core/workspace"
+    ],
+    "cwd": "/tmp/dagger-config-declarations-only",
+    "exit_code": 0,
+    "seconds": 9.777119339909405
+  }
+]
