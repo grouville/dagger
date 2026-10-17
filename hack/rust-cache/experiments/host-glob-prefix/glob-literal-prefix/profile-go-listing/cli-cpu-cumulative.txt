@@ -1,0 +1,49 @@
+File: dagger-after
+Build ID: 56416a93b3b01a175d1bf088ed6df56bc8931e0f
+Type: cpu
+Time: 2026-10-16 21:34:39 PDT
+Duration: 54s, Total samples = 38.84s (71.92%)
+Showing nodes accounting for 7.71s, 19.85% of 38.84s total
+Dropped 1189 nodes (cum <= 0.19s)
+Showing top 40 nodes out of 338
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%     15.09s 38.85%  golang.org/x/sync/errgroup.(*Group).Go.func1
+         0     0%     0%     13.29s 34.22%  path/filepath.WalkDir
+     0.16s  0.41%  0.41%     13.29s 34.22%  path/filepath.walkDir
+     0.01s 0.026%  0.44%     11.95s 30.77%  github.com/dagger/dagger/internal/fsutil.(*sender).run.func1
+         0     0%  0.44%     11.94s 30.74%  github.com/dagger/dagger/internal/fsutil.(*sender).walk
+     0.01s 0.026%  0.46%     11.90s 30.64%  github.com/dagger/dagger/internal/fsutil.(*filterFS).Walk
+         0     0%  0.46%     11.90s 30.64%  github.com/dagger/dagger/internal/fsutil.(*hardlinkFilter).Walk
+         0     0%  0.46%     11.88s 30.59%  github.com/dagger/dagger/internal/fsutil.(*fs).Walk
+     0.06s  0.15%  0.62%      8.08s 20.80%  runtime.systemstack
+     0.01s 0.026%  0.64%      6.54s 16.84%  os.ReadDir
+         0     0%  0.64%      5.47s 14.08%  runtime.gcBgMarkWorker
+         0     0%  0.64%      5.46s 14.06%  runtime.gcBgMarkWorker.func2
+     0.06s  0.15%   0.8%      5.46s 14.06%  runtime.gcDrain
+     5.43s 13.98% 14.78%      5.43s 13.98%  internal/runtime/syscall/linux.Syscall6
+     0.01s 0.026% 14.80%      5.28s 13.59%  syscall.RawSyscall6
+     0.02s 0.051% 14.86%      5.20s 13.39%  syscall.Syscall
+         0     0% 14.86%      4.87s 12.54%  internal/poll.ignoringEINTRIO (inline)
+     0.02s 0.051% 14.91%      4.67s 12.02%  google.golang.org/grpc.(*Server).handleStream
+         0     0% 14.91%      4.67s 12.02%  google.golang.org/grpc.(*Server).serveStreams.func2.1
+     0.03s 0.077% 14.98%      4.64s 11.95%  google.golang.org/grpc.(*Server).processStreamingRPC
+     0.03s 0.077% 15.06%      4.38s 11.28%  github.com/dagger/dagger/engine/client.FilesyncSource.DiffCopy
+         0     0% 15.06%      4.38s 11.28%  github.com/dagger/dagger/internal/buildkit/session/filesync._FileSync_DiffCopy_Handler
+     0.46s  1.18% 16.25%      4.20s 10.81%  runtime.mallocgc
+         0     0% 16.25%      4.08s 10.50%  os.(*File).ReadDir
+     0.26s  0.67% 16.92%      4.08s 10.50%  os.(*File).readdir
+     0.15s  0.39% 17.30%      4.03s 10.38%  github.com/dagger/dagger/internal/fsutil.(*fs).Walk.func1
+         0     0% 17.30%      3.37s  8.68%  runtime.gcDrainMarkWorkerIdle (inline)
+         0     0% 17.30%      3.31s  8.52%  github.com/dagger/dagger/dagql/idtui.(*frontendPretty).dispatch
+         0     0% 17.30%      2.92s  7.52%  internal/poll.(*FD).ReadDirent
+     0.01s 0.026% 17.33%      2.92s  7.52%  syscall.Getdents
+         0     0% 17.33%      2.92s  7.52%  syscall.ReadDirent (inline)
+     0.81s  2.09% 19.41%      2.86s  7.36%  runtime.scanObject
+         0     0% 19.41%      2.75s  7.08%  github.com/dagger/dagger/engine/client.(*otlpConsumer).Consume.func2
+         0     0% 19.41%      2.75s  7.08%  github.com/dagger/dagger/engine/client.(*otlpConsumer).consumeResponse
+         0     0% 19.41%      2.73s  7.03%  github.com/dagger/dagger/engine/client.consumeTelemetryPayload
+     0.17s  0.44% 19.85%      2.48s  6.39%  runtime.scanSpan
+         0     0% 19.85%      2.46s  6.33%  go.opentelemetry.io/otel/sdk/trace.NewBatchSpanProcessor.func2
+         0     0% 19.85%      2.46s  6.33%  sync.(*WaitGroup).Go.func1
+         0     0% 19.85%      2.45s  6.31%  go.opentelemetry.io/otel/sdk/trace.(*batchSpanProcessor).processQueue
+         0     0% 19.85%      2.43s  6.26%  go.opentelemetry.io/otel/sdk/trace.(*batchSpanProcessor).exportSpans

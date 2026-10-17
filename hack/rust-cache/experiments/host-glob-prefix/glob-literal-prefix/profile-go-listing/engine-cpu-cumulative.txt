@@ -1,0 +1,69 @@
+File: dagger-engine
+Build ID: 26a76713808f5f42c556b25916c0b3a55f4e00d5
+Type: cpu
+Time: 2026-10-16 21:34:44 PDT
+Duration: 15.01s, Total samples = 62.20s (414.46%)
+Showing nodes accounting for 12.89s, 20.72% of 62.20s total
+Dropped 2160 nodes (cum <= 0.31s)
+Showing top 60 nodes out of 390
+      flat  flat%   sum%        cum   cum%
+     0.02s 0.032% 0.032%     18.83s 30.27%  github.com/vito/dang/v2/pkg/dang.EvalNode
+     0.02s 0.032% 0.064%     18.83s 30.27%  github.com/vito/dang/v2/pkg/dang.WithEvalErrorHandling
+     0.21s  0.34%   0.4%     18.81s 30.24%  github.com/vito/dang/v2/pkg/dang.EvalNodeWithContext
+     0.03s 0.048%  0.45%     18.77s 30.18%  github.com/vito/dang/v2/pkg/dang.(*FunCall).Eval
+     0.10s  0.16%  0.61%     18.77s 30.18%  github.com/vito/dang/v2/pkg/dang.(*FunCall).Eval.func1
+         0     0%  0.61%     18.76s 30.16%  github.com/vito/dang/v2/pkg/dang.(*FunCall).callFunction
+     0.04s 0.064%  0.68%     18.72s 30.10%  github.com/vito/dang/v2/pkg/dang.(*Block).Eval
+     0.03s 0.048%  0.72%     18.61s 29.92%  github.com/vito/dang/v2/pkg/dang.FunctionValue.Call
+     0.02s 0.032%  0.76%     18.33s 29.47%  github.com/vito/dang/v2/pkg/dang.BoundBuiltinMethod.Call
+     0.09s  0.14%   0.9%     18.31s 29.44%  github.com/vito/dang/v2/pkg/dang.addBuiltinFunctions.ForEachMethod.addBuiltinFunctions.func2.func6
+         0     0%   0.9%     18.29s 29.41%  github.com/vito/dang/v2/pkg/dang.BuiltinFunction.Call (inline)
+     0.06s 0.096%     1%     18.26s 29.36%  github.com/vito/dang/v2/pkg/dang.callFunc
+     0.78s  1.25%  2.25%     17.16s 27.59%  runtime.mallocgc
+     0.06s 0.096%  2.35%     16.96s 27.27%  runtime.systemstack
+         0     0%  2.35%     16.92s 27.20%  github.com/vito/dang/v2/pkg/dang.(*BinaryOperator).Eval.func1
+         0     0%  2.35%     16.61s 26.70%  github.com/vito/dang/v2/pkg/dang.(*BinaryOperator).Eval
+     0.01s 0.016%  2.36%     14.37s 23.10%  golang.org/x/sync/errgroup.(*Group).Go.func1
+         0     0%  2.36%     14.35s 23.07%  github.com/vito/dang/v2/pkg/dang.registerStdlib.func34
+     0.01s 0.016%  2.38%     13.70s 22.03%  github.com/vito/dang/v2/pkg/dang.registerStdlib.func29
+     0.02s 0.032%  2.41%     13.39s 21.53%  github.com/vito/dang/v2/pkg/dang.(*FieldDecl).EvalValue
+     0.02s 0.032%  2.44%     13.26s 21.32%  github.com/vito/dang/v2/pkg/dang.(*FieldDecl).Eval.func1
+     0.01s 0.016%  2.46%     12.74s 20.48%  github.com/vito/dang/v2/pkg/dang.(*FieldDecl).Eval
+     0.02s 0.032%  2.49%     10.96s 17.62%  github.com/vito/dang/v2/pkg/dang.(*Select).Eval.func1
+     0.02s 0.032%  2.52%     10.94s 17.59%  github.com/vito/dang/v2/pkg/dang.(*Select).Eval
+     0.02s 0.032%  2.56%     10.57s 16.99%  github.com/vito/dang/v2/pkg/dang.(*Coerce).Eval.func1
+     0.43s  0.69%  3.25%      9.77s 15.71%  runtime.newobject
+         0     0%  3.25%      9.71s 15.61%  github.com/dagger/dagger/engine/server.sessionSpanExporter.ExportSpans.func1
+     0.01s 0.016%  3.26%      9.67s 15.55%  github.com/vito/dang/v2/pkg/dang.(*Coerce).Eval
+     0.06s 0.096%  3.36%      9.66s 15.53%  github.com/dagger/dagger/engine/server.clientSpans.ExportSpans
+         0     0%  3.36%      9.66s 15.53%  github.com/dagger/dagger/engine/server.exportSpansRecovered
+     1.99s  3.20%  6.56%      9.01s 14.49%  runtime.scanSpan
+     0.01s 0.016%  6.58%      8.17s 13.14%  github.com/vito/dang/v2/pkg/dang.BoundMethod.Call
+     2.26s  3.63% 10.21%      7.96s 12.80%  runtime.tryDeferToSpanScan
+         0     0% 10.21%      7.86s 12.64%  net/http.HandlerFunc.ServeHTTP (partial-inline)
+         0     0% 10.21%      7.86s 12.64%  net/http.serverHandler.ServeHTTP
+         0     0% 10.21%      7.84s 12.60%  github.com/dagger/dagger/engine/server.(*Server).serveHTTPToClient
+     1.19s  1.91% 12.12%      7.82s 12.57%  runtime.mallocgcSmallScanNoHeader
+         0     0% 12.12%      7.57s 12.17%  net/http.(*ServeMux).ServeHTTP
+         0     0% 12.12%      7.13s 11.46%  runtime.gcBgMarkWorker
+         0     0% 12.12%      7.13s 11.46%  runtime.gcBgMarkWorker.func2
+     0.03s 0.048% 12.17%      7.13s 11.46%  runtime.gcDrain
+     0.06s 0.096% 12.27%      6.63s 10.66%  runtime.deductAssistCredit
+         0     0% 12.27%      6.57s 10.56%  runtime.gcAssistAlloc
+         0     0% 12.27%      6.56s 10.55%  runtime.gcAssistAlloc.func2
+         0     0% 12.27%      6.56s 10.55%  runtime.gcAssistAlloc1
+     0.10s  0.16% 12.43%      6.56s 10.55%  runtime.gcDrainN
+         0     0% 12.43%      6.10s  9.81%  github.com/dagger/dagger/dagql.ObjectResult[go.shape.*uint8].Select
+         0     0% 12.43%      5.66s  9.10%  runtime.gcDrainMarkWorkerDedicated (inline)
+         0     0% 12.43%      5.36s  8.62%  github.com/dagger/dagger/dagql.(*Server).resolvePath
+         0     0% 12.43%      5.33s  8.57%  github.com/dagger/dagger/engine/clientdb.(*DB).AppendSpans
+     0.01s 0.016% 12.44%      5.33s  8.57%  github.com/dagger/dagger/engine/clientdb.(*logStream[go.shape.struct { ID int64; TraceID string; SpanID string; TraceState string; ParentSpanID database/sql.NullString; Flags int64; Name string; Kind string; StartTime int64; EndTime database/sql.NullInt64; Attributes []uint8; DroppedAttributesCount int64; Events []uint8; DroppedEventsCount int64; Links []uint8; DroppedLinksCount int64; StatusCode int64; StatusMessage string; InstrumentationScope []uint8; Resource []uint8; ResourceSchemaURL string }]).append
+         0     0% 12.44%      5.32s  8.55%  net/http.(*conn).serve
+         0     0% 12.44%      5.27s  8.47%  github.com/dagger/dagger/engine/clientdb.openStore.func3
+         0     0% 12.44%      5.19s  8.34%  github.com/dagger/dagger/engine/clientdb.(*spanLookup).addAll
+     5.15s  8.28% 20.72%      5.15s  8.28%  runtime.spanClass.sizeclass (inline)
+         0     0% 20.72%      5.14s  8.26%  github.com/dagger/dagger/core/sdk/dang/shared.WithNestedClientServer.func1
+         0     0% 20.72%      5.13s  8.25%  github.com/dagger/dagger/engine/server.(*Server).ServeHTTPToNestedClient
+         0     0% 20.72%      5.13s  8.25%  github.com/dagger/dagger/engine/server..ServeHTTPToNestedClient.httpHandlerFunc[go.shape.*uint8].func1
+         0     0% 20.72%      4.99s  8.02%  github.com/dagger/dagger/dagql.(*Server).Resolve
+         0     0% 20.72%      4.85s  7.80%  github.com/dagger/dagger/engine/server.(*Server).serveQuery

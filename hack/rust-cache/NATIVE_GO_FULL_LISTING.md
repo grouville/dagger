@@ -1,3 +1,5 @@
+Latest CLI follow-up: [prune host glob walks by their literal directory prefix](NATIVE_HOST_GLOB_PREFIX.md) improves complete listing **58.10 → 53.76 s** in two balanced pairs, with identical 4,398 rows and successful exits. CLI CPU falls **75.96 → 39.45 CPU-seconds**. This is a separate cohort with identical current-main-based CLIs; its gain must not be added to earlier measurements. A more complicated traversal bound shows no additional complete-command benefit and remains unselected.
+
 Latest module follow-up: [retain discovered module ownership](NATIVE_GO_PACKAGE_MODULE_OWNERSHIP.md) improves complete listing **68.37 → 56.81 s** in two balanced pairs, with identical 4,398 rows and successful exits. SDK invocations fall **1,762 → 963**. Adding/removing a real test produces exactly one added/removed row. Full listing remains too slow.
 
 Latest follow-up: [shared restored cache postings](NATIVE_SHARED_RESTORED_POSTINGS.md) removes a quadratic startup index and greatly reduces memory. Two full listings still take 66.42 and 65.86 s, exit successfully and return the same 4,398 rows. The remaining discovery latency is unresolved.

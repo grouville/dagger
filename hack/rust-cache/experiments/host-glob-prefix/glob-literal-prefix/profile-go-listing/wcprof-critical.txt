@@ -1,0 +1,56 @@
+critpath of 55 ops matching all ops (outermost matches only): 48.80s summed
+on-path time by class (sums to the roots' duration; concurrent work off the path gets nothing):
+     on_path      % segments  kind class
+      33.24s  68.1%        2  internal dang.invoke
+       4.29s   8.8%      502  call ArtifactDimensionKey.dimensionKeys
+       3.37s   6.9%        1  internal engine.gc
+       2.86s   5.9%      267  call Artifact.items
+       1.81s   3.7%      251  internal dagql.publishResult
+    957.14ms   2.0%        1  internal snapshot.collect
+    525.17ms   1.1%       83  call Artifact.dimensionKeys
+    437.13ms   0.9%       13  call Query.__schemaJSONFile
+    303.24ms   0.6%        5  call go:GoPackage.tests
+    188.08ms   0.4%        1  call Artifacts.items
+    171.94ms   0.4%       25  session_phase session.query
+    161.19ms   0.3%        3  internal dang.prepareSource
+    101.18ms   0.2%      209  call go:Go.packages
+     53.53ms   0.1%      463  call go:Query.go
+     46.72ms   0.1%        4  call ModuleSource.asModule
+     40.88ms   0.1%        2  call Host.directory
+     32.52ms   0.1%     1311  call Module._implementationScoped
+     26.55ms   0.1%        7  call Workspace.artifacts
+     22.00ms   0.0%       11  call go:GoPackages.get
+     19.32ms   0.0%        4  internal dang.openSchema
+     14.95ms   0.0%        3  internal dang.decodeSchema
+     11.12ms   0.0%       25  session_phase session.workspaceLoad
+     10.86ms   0.0%        4  internal dang.evalSource
+      9.05ms   0.0%        4  call Query.moduleSource
+      8.92ms   0.0%       25  session_phase session.schemaBuild
+      6.28ms   0.0%       18  call ArtifactDimension.dimensionDefinitions
+      5.25ms   0.0%        1  internal dang.runSource.parse
+      4.48ms   0.0%        2  internal dang.runSource
+      4.40ms   0.0%        1  internal dang.runSource.infer
+      4.33ms   0.0%        4  call ArtifactDimension.collectionType
+  … 64 more classes (raise `top`)
+
+path of the longest (offsets from its start; `dur` on the path, `own` not in any blocker):
++0ns dur 44.14s own 7.4µs  1036667 session_phase session.serveQuery [ok]
+  +17.2µs dur 44.14s own 154.95ms  1036671 session_phase session.query [ok]
+    +285.6µs dur 34.64s own 188.08ms  1036675 call Artifacts.items [executed] (exec 1036676)
+      +9.67ms dur 17.83s own 24.16ms  1036913 call go:Go.packages [executed] (exec 1036914)
+        +32.71ms dur 17.79s own 1.48ms  1037412 internal dang.evalSource [ok]
+          +51.11ms dur 17.77s own 17.77s  1037422 internal dang.invoke [ok]
+      +17.84s..+18.53s … 1954 shorter segments, 304.25ms: call Module._implementationScoped:1271 call go:Query.go:462 call go:Go.packages:208 +2 more
+      +18.22s dur 219.77ms own 11.30ms  1171659 call go:GoPackage.tests [executed] (exec 1171751)
+      +18.53s dur 180.85ms own 180.85ms  1173137 call go:GoPackage.tests [executed] (exec 1174282)
+      +18.71s dur 15.91s own 19.71ms  1174012 call go:GoPackage.tests [executed] (exec 1174013)
+        +19.12s dur 15.48s own 2.13ms  1175476 internal dang.evalSource [ok]
+          +19.13s dur 15.47s own 15.47s  1175505 internal dang.invoke [ok]
+    +34.69s..+44.06s … 915 shorter segments, 8.35s: call ArtifactDimensionKey.dimensionKeys:499 call Artifact.items:265 call Artifact.dimensionKeys:83 +4 more
+    +35.81s dur 165.21ms own 43.14ms  1349033 call Artifact.items [executed] (exec 1349533)
+    +40.48s dur 160.46ms own 103.21ms  1474763 call Artifact.items [executed] (exec 1475699)
+    +41.21s dur 166.19ms own 166.19ms  1480636 call ArtifactDimensionKey.dimensionKeys [executed] (exec 1480702)
+    +41.56s dur 317.92ms own 317.78ms  1482065 call ArtifactDimensionKey.dimensionKeys [executed] (exec 1482312)
+    +42.05s dur 183.41ms own 183.41ms  1484345 call ArtifactDimensionKey.dimensionKeys [executed] (exec 1485211)
+(755 segments not shown: runs of them totaling under 1% of the path, 843.67ms)
+(runs of sub-1% segments totaling 1%+ show their largest members, the rest as "… N shorter"; ▸ N: N segments not expanded, raise `depth` or re-root with `op`; (exec N): a call folded with its call_exec op N)

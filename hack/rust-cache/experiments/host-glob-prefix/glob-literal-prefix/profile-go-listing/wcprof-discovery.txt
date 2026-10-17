@@ -1,0 +1,8 @@
+classes: 4608 ops in 6 classes (class=~"(GoPackages|GoPackage.tests|Go.packages|Workspace.glob|moduleLayout|File.search)" kind=call) over 55.55s, self_tot 659.87s (summed across concurrent ops); sorted by self
+   count   self_tot  self_p50  self_max    dur_tot   dur_p50   dur_max   dup  kind class               outcomes
+     800    351.58s  428.33ms     1.11s   6082.02s     7.56s    15.92s     0  call go:GoPackage.tests  executed:800
+     800    162.99s  210.01ms  748.94ms    162.99s  210.01ms  748.94ms     0  call go:GoPackages.get   hit:800
+     801     99.31s  107.16ms  386.93ms     99.32s  107.16ms  386.93ms     0  call gomod:Gomod.moduleLayoutDigest hit:800 executed:1
+     357     25.41s   12.79ms  310.26ms     43.75s   39.85ms  693.80ms     0  call Workspace.glob      executed:278 joined:74 hit:5
+     801     19.03s    8.05ms  488.66ms     36.85s    8.05ms    17.83s     0  call go:Go.packages      hit:800 executed:1
+    1049      1.55s    23.8µs  135.94ms      1.55s    23.8µs  135.94ms     0  call File.search         hit:1049

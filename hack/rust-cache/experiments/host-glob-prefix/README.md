@@ -1,0 +1,7 @@
+The selected standalone change is `2481e74b3`, based on `ff0b029a4`. `glob-literal-prefix` retains the selected prefix-only implementation, all three component pairs, the initialization pair and two measured complete-command pairs, real test metadata edits, full client race tests, module checks and the diagnostic profiles. `glob-leaf-prefix` is an unselected extension, with all component and complete-command attempts retained.
+
+Go source snapshots live under `testdata` so repository-wide package discovery does not compile archived variants together. The selected final source is in `testdata/standalone/engine/client`. That worktree passes `go test -p 1 -race ./engine/client -count=1` without overlays. Timing CLIs additionally retain the same earlier artifact-output buffering change in both arms.
+
+Files ending in `.stdout.gz`, `.stderr.gz`, `.ndjson.gz`, `-memory.json.gz` and `samples.json.gz` retain their complete original contents using gzip. `manifest.json` records original and archived hashes. The profiles are diagnostics; the unprofiled paired cohorts supply the latency claims. Reproduction drivers retain their original absolute paths and existing experimental-engine protocol dependency for provenance. The report explains versions, flags and warm-state assumptions.
+
+The CLI runtime trace is stored as `.trace.gz`. The merged `wcprof-complete.ndjson` is derived from all retained raw wcprof chunks using the recorded profile driver; its hashes are retained without duplicating the merged file.
