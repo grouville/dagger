@@ -1,0 +1,55 @@
+critpath of 55 ops matching all ops (outermost matches only): 47.02s summed
+on-path time by class (sums to the roots' duration; concurrent work off the path gets nothing):
+     on_path      % segments  kind class
+      34.29s  72.9%        3  internal dang.invoke
+       3.28s   7.0%      494  call ArtifactDimensionKey.dimensionKeys
+       3.11s   6.6%        1  internal engine.gc
+       2.57s   5.5%      273  call Artifact.items
+       1.64s   3.5%      288  internal dagql.publishResult
+    663.53ms   1.4%      104  call Artifact.dimensionKeys
+    293.68ms   0.6%        6  call go:GoPackage.tests
+    290.15ms   0.6%        1  internal snapshot.collect
+    184.19ms   0.4%       25  session_phase session.query
+    142.17ms   0.3%       71  call go:Go.packages
+    126.30ms   0.3%        1  call Artifacts.items
+     79.10ms   0.2%      157  call go:Query.go
+     62.45ms   0.1%       12  call Query.__schemaJSONFile
+     53.10ms   0.1%        4  call ModuleSource.asModule
+     27.53ms   0.1%        7  call Workspace.artifacts
+     27.25ms   0.1%        2  call Host.directory
+     25.86ms   0.1%      961  call Module._implementationScoped
+     15.52ms   0.0%        3  internal dang.decodeSchema
+     14.91ms   0.0%       38  call go:GoPackages.get
+     11.98ms   0.0%       25  session_phase session.workspaceLoad
+      9.63ms   0.0%        4  call Query.moduleSource
+      9.00ms   0.0%       25  session_phase session.schemaBuild
+      8.38ms   0.0%        3  internal dang.evalSource
+      7.78ms   0.0%        5  call ArtifactDimension.collectionType
+      5.58ms   0.0%        8  call ArtifactDimension.kind
+      5.55ms   0.0%       18  call String.dimensions
+      5.09ms   0.0%        3  internal dang.runSource
+      4.57ms   0.0%      912  call Query.typeDef
+      4.55ms   0.0%      855  call TypeDef.withOptional
+      4.08ms   0.0%        1  internal dang.runSource.parse
+  … 63 more classes (raise `top`)
+
+path of the longest (offsets from its start; `dur` on the path, `own` not in any blocker):
++0ns dur 43.19s own 12.9µs  1538757 session_phase session.serveQuery [ok]
+  +35.7µs dur 43.19s own 166.43ms  1538761 session_phase session.query [ok]
+    +410.3µs dur 35.13s own 126.30ms  1538765 call Artifacts.items [executed] (exec 1538766)
+      +12.24ms dur 21.03s own 29.83ms  1539003 call go:Go.packages [executed] (exec 1539004)
+        +41.93ms dur 20.98s own 1.59ms  1539502 internal dang.evalSource [ok]
+          +59.21ms dur 20.96s own 20.96s  1539512 internal dang.invoke [ok]
+      +21.04s..+21.45s … 1189 shorter segments, 303.14ms: call Module._implementationScoped:921 call go:Query.go:156 call go:Go.packages:70 +2 more
+      +21.45s dur 138.87ms own 62.22ms  1674128 call go:GoPackage.tests [executed] (exec 1674594)
+      +21.59s dur 13.52s own 165.63ms  1675477 call go:GoPackage.tests [executed] (exec 1676001)
+        +21.74s dur 13.32s own 6.71ms  1677131 internal dang.evalSource [ok]
+          +21.75s dur 13.31s own 13.31s  1677250 internal dang.invoke [ok]
+    +35.19s..+43.10s … 964 shorter segments, 7.23s: call ArtifactDimensionKey.dimensionKeys:492 call Artifact.items:271 call Artifact.dimensionKeys:103 +4 more
+    +37.56s dur 116.42ms own 116.42ms  1911294 call Artifact.dimensionKeys [executed] (exec 1911688)
+    +38.27s dur 159.30ms own 155.27ms  1918807 call ArtifactDimensionKey.dimensionKeys [executed] (exec 1919938)
+    +38.90s dur 101.22ms own 92.35ms  1925830 call ArtifactDimensionKey.dimensionKeys [executed] (exec 1926797)
+    +39.58s dur 131.91ms own 41.93ms  1933524 call Artifact.items [executed] (exec 1933960)
+    +39.78s dur 162.25ms own 161.49ms  1935220 call Artifact.items [executed] (exec 1935775)
+(756 segments not shown: runs of them totaling under 1% of the path, 265.43ms)
+(runs of sub-1% segments totaling 1%+ show their largest members, the rest as "… N shorter"; ▸ N: N segments not expanded, raise `depth` or re-root with `op`; (exec N): a call folded with its call_exec op N)

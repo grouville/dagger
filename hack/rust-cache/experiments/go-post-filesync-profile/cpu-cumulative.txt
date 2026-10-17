@@ -1,0 +1,64 @@
+File: dagger-engine
+Build ID: 26a76713808f5f42c556b25916c0b3a55f4e00d5
+Type: cpu
+Time: 2026-10-16 22:46:54 PDT
+Duration: 15.06s, Total samples = 82.13s (545.51%)
+Showing nodes accounting for 25.28s, 30.78% of 82.13s total
+Dropped 2295 nodes (cum <= 0.41s)
+Showing top 55 nodes out of 346
+      flat  flat%   sum%        cum   cum%
+     0.07s 0.085% 0.085%     37.81s 46.04%  runtime.systemstack
+     0.82s     1%  1.08%     21.98s 26.76%  runtime.mallocgc
+         0     0%  1.08%     21.56s 26.25%  runtime.gcBgMarkWorker
+         0     0%  1.08%     21.56s 26.25%  runtime.gcBgMarkWorker.func2
+     0.23s  0.28%  1.36%     21.56s 26.25%  runtime.gcDrain
+     4.46s  5.43%  6.79%     21.21s 25.82%  runtime.scanSpan
+     0.03s 0.037%  6.83%     20.29s 24.70%  github.com/vito/dang/v2/pkg/dang.EvalNode
+     0.09s  0.11%  6.94%     20.29s 24.70%  github.com/vito/dang/v2/pkg/dang.EvalNodeWithContext
+         0     0%  6.94%     20.29s 24.70%  github.com/vito/dang/v2/pkg/dang.WithEvalErrorHandling
+     0.02s 0.024%  6.96%     20.22s 24.62%  github.com/vito/dang/v2/pkg/dang.(*FunCall).Eval
+     0.03s 0.037%  7.00%     20.22s 24.62%  github.com/vito/dang/v2/pkg/dang.(*FunCall).Eval.func1
+     0.07s 0.085%  7.09%     20.19s 24.58%  github.com/vito/dang/v2/pkg/dang.(*FunCall).callFunction
+     0.08s 0.097%  7.18%     20.18s 24.57%  github.com/vito/dang/v2/pkg/dang.(*Block).Eval
+     0.04s 0.049%  7.23%     20.03s 24.39%  github.com/vito/dang/v2/pkg/dang.FunctionValue.Call
+     0.06s 0.073%  7.31%     19.40s 23.62%  github.com/vito/dang/v2/pkg/dang.addBuiltinFunctions.ForEachMethod.addBuiltinFunctions.func2.func6
+     0.05s 0.061%  7.37%     19.40s 23.62%  github.com/vito/dang/v2/pkg/dang.callFunc
+         0     0%  7.37%     19.36s 23.57%  github.com/vito/dang/v2/pkg/dang.BoundBuiltinMethod.Call
+     0.02s 0.024%  7.39%     19.33s 23.54%  github.com/vito/dang/v2/pkg/dang.BuiltinFunction.Call (inline)
+     5.71s  6.95% 14.34%     18.77s 22.85%  runtime.tryDeferToSpanScan
+         0     0% 14.34%     18.53s 22.56%  github.com/vito/dang/v2/pkg/dang.(*BinaryOperator).Eval.func1
+         0     0% 14.34%     18.24s 22.21%  github.com/vito/dang/v2/pkg/dang.(*BinaryOperator).Eval
+         0     0% 14.34%     16.55s 20.15%  github.com/vito/dang/v2/pkg/dang.registerStdlib.func34
+         0     0% 14.34%     13.85s 16.86%  net/http.HandlerFunc.ServeHTTP (partial-inline)
+         0     0% 14.34%     13.85s 16.86%  net/http.serverHandler.ServeHTTP
+     0.02s 0.024% 14.37%     13.80s 16.80%  github.com/dagger/dagger/engine/server.(*Server).serveHTTPToClient
+     0.01s 0.012% 14.38%     13.48s 16.41%  github.com/vito/dang/v2/pkg/dang.(*Select).Eval.func1
+     0.02s 0.024% 14.40%     13.46s 16.39%  github.com/vito/dang/v2/pkg/dang.(*Select).Eval
+         0     0% 14.40%     12.81s 15.60%  net/http.(*ServeMux).ServeHTTP
+     0.02s 0.024% 14.43%     12.72s 15.49%  golang.org/x/sync/errgroup.(*Group).Go.func1
+     0.01s 0.012% 14.44%     12.54s 15.27%  net/http.(*conn).serve
+         0     0% 14.44%     12.27s 14.94%  github.com/dagger/dagger/core/sdk/dang/shared.WithNestedClientServer.func1
+         0     0% 14.44%     12.26s 14.93%  github.com/dagger/dagger/engine/server.(*Server).ServeHTTPToNestedClient
+         0     0% 14.44%     12.23s 14.89%  github.com/dagger/dagger/engine/server..ServeHTTPToNestedClient.httpHandlerFunc[go.shape.*uint8].func1
+         0     0% 14.44%     12.11s 14.74%  runtime.gcDrainMarkWorkerDedicated (inline)
+     0.03s 0.037% 14.48%     12.06s 14.68%  github.com/vito/dang/v2/pkg/dang.(*Coerce).Eval.func1
+    11.84s 14.42% 28.89%     11.84s 14.42%  runtime.spanClass.sizeclass (inline)
+         0     0% 28.89%     11.56s 14.08%  github.com/vito/dang/v2/pkg/dang.(*FieldDecl).EvalValue
+     0.28s  0.34% 29.23%     11.38s 13.86%  runtime.newobject
+         0     0% 29.23%     11.37s 13.84%  github.com/vito/dang/v2/pkg/dang.(*FieldDecl).Eval.func1
+         0     0% 29.23%     11.23s 13.67%  github.com/dagger/dagger/engine/server.(*Server).serveQuery
+         0     0% 29.23%     11.23s 13.67%  github.com/dagger/dagger/engine/server..serveHTTPToClient.httpHandlerFunc[go.shape.*uint8].func6
+     0.17s  0.21% 29.44%     11.14s 13.56%  runtime.deductAssistCredit
+     0.02s 0.024% 29.47%     10.97s 13.36%  runtime.gcAssistAlloc
+         0     0% 29.47%     10.95s 13.33%  runtime.gcAssistAlloc.func2
+         0     0% 29.47%     10.95s 13.33%  runtime.gcAssistAlloc1
+         0     0% 29.47%     10.94s 13.32%  github.com/99designs/gqlgen/graphql/handler.(*Server).ServeHTTP
+     0.07s 0.085% 29.55%     10.94s 13.32%  runtime.gcDrainN
+         0     0% 29.55%     10.92s 13.30%  github.com/99designs/gqlgen/graphql/handler/transport.POST.Do
+     0.01s 0.012% 29.56%     10.92s 13.30%  github.com/vito/dang/v2/pkg/dang.registerStdlib.func29
+     0.03s 0.037% 29.60%     10.79s 13.14%  github.com/vito/dang/v2/pkg/dang.(*Coerce).Eval
+     0.01s 0.012% 29.61%     10.64s 12.96%  github.com/vito/dang/v2/pkg/dang.(*FieldDecl).Eval
+     0.95s  1.16% 30.77%     10.54s 12.83%  runtime.scanObject
+         0     0% 30.77%      9.49s 11.55%  github.com/99designs/gqlgen/graphql/executor.(*Executor).DispatchOperation.func1.1
+     0.01s 0.012% 30.78%      9.49s 11.55%  github.com/99designs/gqlgen/graphql/executor.(*Executor).DispatchOperation.func1.1.1
+         0     0% 30.78%      9.49s 11.55%  github.com/99designs/gqlgen/graphql/executor.processExtensions.func2
