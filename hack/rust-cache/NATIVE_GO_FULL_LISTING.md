@@ -1,5 +1,9 @@
 # Full Go test listing on dagger/dagger
 
+The latest direct comparison improves median listing time **88.65 → 67.11 seconds** with two small Go-module changes: ordered parallel module validation and per-module package discovery. Every arm starts a fresh CLI and source edit on a warm experimental engine, returns identical 4,398 rows and exits successfully. Total engine CPU increases about 3.4% and allocation about 1%; listing still takes over a minute. Both source identities completed their initial full listing before this confirmation. [Results, source and next engine bottleneck](NATIVE_GO_PARALLEL_DISCOVERY.md); [prepared PR description](PR_GO_PARALLEL_DISCOVERY.md). Both commits are pushed to the grouville/go fork; no PR is opened.
+
+The older diagnostics below retain their original configurations and engine histories. Their timings must not be added to the latest gain.
+
 The full listing is slow even after the collection index and the Go discovery changes. A completed diagnostic takes 133.59 seconds and lists 4,398 test checks. An unprofiled fresh-edit command with the selected performance settings enabled takes 101.02 seconds. These are observations from different diagnostic configurations, not an estimate of profiler overhead.
 
 The source fixture is a clean `dagger/dagger` checkout at `ff0b029a4d270a651b9a8c7286babc79089066e4`. The module is `grouville/go` at `b5dd9434a52972787171a016a8aa9d8910c17c38`. The engine is the existing diagnostic engine `08a1f13ae88c61f3dadea8d834132d71a52d77ccf3a7d91f91ad760ef4702197`, with the earlier selected collection lookup changes present. This is not an unmodified upstream-engine measurement.
@@ -58,7 +62,9 @@ An earlier unprofiled diagnostic also produced the listing but failed during ses
 
 ## Next experiments
 
-Batch each package's file imports and test-name searches, then measure the complete command. Reduce repeated package-module resolution while preserving behavior when an item is used with a different workspace. Investigate reusing prepared Dang code and schema state while keeping each invocation's clients, values and cancellation independent. A prototype that simply retained module roots was set aside because it could use stale ownership after a workspace adds or removes `go.mod`.
+Batching each package's immutable file imports and test-name searches passes the four focused module checks, but gives no successful complete-command improvement. The two candidate attempts take 115.97 and 167.83 seconds and both fail during cleanup. Controls take 107.50 seconds (success) and 117.68 seconds (cleanup failure). All attempts return identical rows. The reverse candidate's package discovery is unusually long, so its extra command time cannot all be attributed to test-file searching. Allocations do not establish a memory gain either. The [unselected experiment and its complete attempts](experiments/go-batch-package-test-search/) are archived; it is not a production change.
+
+The next investigation isolates collection traversal from repeated SDK preparation using nested collections with no source discovery or test workloads. Reducing repeated package-module resolution can diagnose one part of that cost, but cannot alone deliver an order-of-magnitude improvement to collections generally. Investigate reusing prepared Dang code and schema state while keeping each invocation's clients, values and cancellation independent. A prototype that simply retained module roots was set aside because it could use stale ownership after a workspace adds or removes `go.mod`.
 
 The full command is `dagger check --module go --check test --list --all`. Every measured arm starts a fresh CLI and adds a new Go source comment. The engine and toolchains are warm. Telemetry and ordinary garbage collection remain enabled; no engine cache is reset. The unprofiled timing cohort enables the previously selected telemetry metadata, attribute decoding and filesync seed changes on both sides, then restores their original settings. The profiled diagnostics leave those optional modes disabled.
 

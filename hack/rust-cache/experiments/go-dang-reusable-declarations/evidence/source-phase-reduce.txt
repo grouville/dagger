@@ -1,0 +1,19 @@
+Total: 3.51s
+ROUTINE ======================== github.com/vito/dang/v2/pkg/dang.registerStdlib.func34 in /tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key/pkg/dang/stdlib.go
+         0      1.46s (flat, cum) 41.60% of Total
+         .          .    749:		Impl(func(ctx context.Context, self Value, args Args) (Value, error) {
+         .          .    750:			list := self.(ListValue)
+         .          .    751:
+         .          .    752:			if args.Block == nil {
+         .          .    753:				return nil, fmt.Errorf("reduce requires a block argument")
+         .          .    754:			}
+         .          .    755:			fn := *args.Block
+         .          .    756:			accumulator, _ := args.Get("initial")
+         .          .    757:
+         .          .    758:			for _, item := range list.Elements {
+         .      1.46s    759:				result, err := callFunc(ctx, fn, accumulator, item)
+         .          .    760:				if err != nil {
+         .          .    761:					return nil, fmt.Errorf("reduce function: %w", err)
+         .          .    762:				}
+         .          .    763:				accumulator = result
+         .          .    764:			}

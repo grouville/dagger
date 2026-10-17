@@ -1,0 +1,14 @@
+== TRACE ==  ✘ FAILED
+dagger-artifact-list-buffered check go-dev:tests-collection-check  4.5s
+! exit code 1
+! dag://?check=tests-collection-check: Go tests in testdata/go-module-with-testdata: json: error calling MarshalJSON for type dang.GraphQLValue: Dang invocation has no GraphQL client
+
+== CHECKS ==  ✘ 1 failed
+✘ dag://?check=tests-collection-check 4.3s ERROR
+  == CHECKS ==  ✘ 1 failed
+    ✘ test 0.0s ERROR
+      ✘ Gomod.toolBuilder: Container! 0.0s ERROR
+      ! json: error calling MarshalJSON for type dang.GraphQLValue: Dang invocation has no GraphQL client
+
+== RUN LOCALLY ==
+dagger check "dag://?check=tests-collection-check"

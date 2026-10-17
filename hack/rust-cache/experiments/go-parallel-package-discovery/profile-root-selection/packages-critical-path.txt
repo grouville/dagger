@@ -1,0 +1,29 @@
+critpath of 1 ops matching class=~"^go:Go.packages$" kind=call_exec (outermost matches only): 27.57s summed
+on-path time by class (sums to the roots' duration; concurrent work off the path gets nothing):
+     on_path      % segments  kind class
+      27.47s  99.6%        1  internal dang.invoke
+     54.70ms   0.2%        1  call_exec go:Go.packages
+     11.36ms   0.0%        1  internal dang.runSource
+     10.50ms   0.0%        1  internal dang.runSource.parse
+     10.12ms   0.0%        1  internal dang.runSource.infer
+      4.52ms   0.0%        1  internal dang.decodeSchema
+      1.84ms   0.0%        1  internal dang.runSource.evaluate
+      1.78ms   0.0%        1  internal dang.evalSource
+      1.75ms   0.0%      168  call Query.typeDef
+      1.53ms   0.0%      155  call TypeDef.withOptional
+     949.3µs   0.0%        1  internal dang.openSchema
+     903.7µs   0.0%        1  internal dang.prepareSource
+     735.5µs   0.0%       76  call TypeDef.withKind
+     581.3µs   0.0%       53  call TypeDef.withObject
+     516.5µs   0.0%       39  call TypeDef.withListOf
+     137.9µs   0.0%        1  internal dang.selfTypes
+      65.0µs   0.0%        1  call Query.__schemaJSONFile
+      36.1µs   0.0%        3  call FunctionArg.__withDefaultValue
+       1.2µs   0.0%        1  internal dang.retainDirectives
+
+path of the longest (offsets from its start; `dur` on the path, `own` not in any blocker):
++0ns dur 27.57s own 54.70ms  5765 call_exec go:Go.packages [ok]
+  +57.08ms dur 27.51s own 1.78ms  6261 internal dang.evalSource [ok]
+    +97.58ms dur 27.47s own 27.47s  6271 internal dang.invoke [ok]
+(498 segments not shown: runs of them totaling under 1% of the path, 45.55ms)
+(runs of sub-1% segments totaling 1%+ show their largest members, the rest as "… N shorter"; ▸ N: N segments not expanded, raise `depth` or re-root with `op`; (exec N): a call folded with its call_exec op N)

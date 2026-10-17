@@ -1,0 +1,116 @@
+package dang
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"reflect"
+	"testing"
+)
+
+func TestParseBlueprintAcrossPaths(t *testing.T) {
+	cache := newBlueprintCache(16, 1<<20)
+	firstPath := filepath.Join(t.TempDir(), "main.dang")
+	// A literal that happens to contain an old path must remain unchanged.
+	source := []byte(fmt.Sprintf("value: String! = %q\n", firstPath))
+	for i := range 4 {
+		filename := firstPath
+		if i != 0 {
+			filename = filepath.Join(t.TempDir(), "other.dang")
+		}
+		if err := os.WriteFile(filename, source, 0600); err != nil {
+			t.Fatal(err)
+		}
+		got, err := parseFileBlueprintWithCache(filename, cache)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want, err := ParseWithRecovery(filename, source, GlobalStore("filePath", filename))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("syntax or source locations changed at %s", filename)
+		}
+		got.(*FileBlock).Loc.Filename = "mutated by caller"
+	}
+	if got := cache.entries.Len(); got != 1 {
+		t.Fatalf("identical source retained %d entries across paths, want 1", got)
+	}
+}
+
+func TestParseBlueprintRelativeImportsAcrossPaths(t *testing.T) {
+	for i := range 2 {
+		dir := t.TempDir()
+		if err := os.Mkdir(filepath.Join(dir, "helpers"), 0700); err != nil {
+			t.Fatal(err)
+		}
+		files := map[string]string{
+			"main.dang":         "import Helpers\nresult: Int! = Helpers.value\n",
+			"dang.toml":         "[imports.Helpers]\npath = \"./helpers\"\n",
+			"helpers/main.dang": fmt.Sprintf("pub value: Int! = %d\n", i+1),
+		}
+		for filename, source := range files {
+			if err := os.WriteFile(filepath.Join(dir, filename), []byte(source), 0600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		env, err := RunDir(context.Background(), dir, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		value, found, err := env.Lookup(context.Background(), "result")
+		if err != nil || !found || value.(IntValue).Val != i+1 {
+			t.Fatalf("relative import at %s: got %v, found %t, error %v", dir, value, found, err)
+		}
+	}
+}
+
+func TestParseBlueprintDiagnosticAcrossPaths(t *testing.T) {
+	for range 2 {
+		dir := t.TempDir()
+		filename := filepath.Join(dir, "main.dang")
+		if err := os.WriteFile(filename, []byte("answer: Int! = \"wrong\"\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		_, err := RunDir(t.Context(), dir, false)
+		var sourceError *SourceError
+		if !errors.As(err, &sourceError) || sourceError.Location == nil || sourceError.Location.Filename != filename {
+			t.Fatalf("diagnostic should name %s, got %v", filename, err)
+		}
+		if err := os.Remove(filename); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkRustModuleBlueprintMountPaths(b *testing.B) {
+	sourcePath := os.Getenv("DANG_PERF_SOURCE")
+	if sourcePath == "" {
+		b.Skip("DANG_PERF_SOURCE is unset")
+	}
+	source, err := os.ReadFile(sourcePath)
+	if err != nil {
+		b.Fatal(err)
+	}
+	paths := make([]string, 64)
+	for i := range paths {
+		paths[i] = filepath.Join(b.TempDir(), "main.dang")
+		if err := os.WriteFile(paths[i], source, 0600); err != nil {
+			b.Fatal(err)
+		}
+	}
+	cache := newBlueprintCache(128, 64<<20)
+	if _, err := parseFileBlueprintWithCache(paths[0], cache); err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := range b.N {
+		if _, err := parseFileBlueprintWithCache(paths[(i+1)%len(paths)], cache); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
