@@ -1,0 +1,12 @@
+retained-before 0
+restart 0
+Traceback (most recent call last):
+  File "/tmp/rust-cache-sipsma-review/shared-restored-postings/activate.py", line 28, in <module>
+    logs=subprocess.check_output(['docker','logs','--since',started,engine],stderr=subprocess.STDOUT,text=True)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 466, in check_output
+    return run(*popenargs, stdout=PIPE, timeout=timeout, check=True,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['docker', 'logs', '--since', '2026-10-17T03:08:17.750240+00:00', 'dagger-rust-parser-state-pool-oct14']' returned non-zero exit status 143.

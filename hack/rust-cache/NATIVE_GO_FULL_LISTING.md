@@ -1,3 +1,5 @@
+Latest follow-up: [shared restored cache postings](NATIVE_SHARED_RESTORED_POSTINGS.md) removes a quadratic startup index and greatly reduces memory. Two full listings still take 66.42 and 65.86 s, exit successfully and return the same 4,398 rows. The remaining discovery latency is unresolved.
+
 # Full Go test listing on dagger/dagger
 
 The latest direct comparison improves median listing time **88.65 → 67.11 seconds** with two small Go-module changes: ordered parallel module validation and per-module package discovery. Every arm starts a fresh CLI and source edit on a warm experimental engine, returns identical 4,398 rows and exits successfully. Total engine CPU increases about 3.4% and allocation about 1%; listing still takes over a minute. Both source identities completed their initial full listing before this confirmation. [Results, source and next engine bottleneck](NATIVE_GO_PARALLEL_DISCOVERY.md); [prepared PR description](PR_GO_PARALLEL_DISCOVERY.md). Both commits are pushed to the grouville/go fork; no PR is opened.

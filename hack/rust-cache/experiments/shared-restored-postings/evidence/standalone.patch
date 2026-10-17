@@ -1,0 +1,218 @@
+--- a/dagql/cache.go
++++ b/dagql/cache.go
+@@ -2352,7 +2352,7 @@
+ 
+ 	// Reverse index from any known result-associated digest to materialized results.
+ 	// This includes request recipe+extra digests and result recipe+extra digests.
+-	egraphResultsByDigest map[string]*set.TreeSet[sharedResultID]
++	egraphResultsByDigest map[string]*resultDigestPosting
+ 	// Exact reverse postings recorded for ordinary runtime results. Imported
+ 	// class-wide postings are deliberately omitted and marked broad instead.
+ 	resultIndexedDigests  map[sharedResultID][]string
+--- a/dagql/cache_egraph.go
++++ b/dagql/cache_egraph.go
+@@ -207,7 +207,7 @@
+ 		c.egraphTermsByTermDigest = make(map[string]*set.TreeSet[egraphTermID])
+ 	}
+ 	if c.egraphResultsByDigest == nil {
+-		c.egraphResultsByDigest = make(map[string]*set.TreeSet[sharedResultID])
++		c.egraphResultsByDigest = make(map[string]*resultDigestPosting)
+ 	}
+ 	if c.resultIndexedDigests == nil {
+ 		c.resultIndexedDigests = make(map[sharedResultID][]string)
+@@ -878,7 +878,7 @@
+ 	}
+ 	results := c.egraphResultsByDigest[dig]
+ 	if results == nil {
+-		results = newSharedResultIDSet()
++		results = &resultDigestPosting{}
+ 		c.egraphResultsByDigest[dig] = results
+ 	}
+ 	inserted := results.Insert(resID)
+--- a/dagql/cache_persistence_import.go
++++ b/dagql/cache_persistence_import.go
+@@ -445,17 +445,7 @@
+ 			}
+ 		}
+ 
+-		for resultID := range c.resultsByID {
+-			outputEqClasses := c.outputEqClassesForResultLocked(resultID)
+-			if len(outputEqClasses) > 0 {
+-				c.markResultBroadlyIndexedLocked(resultID)
+-			}
+-			for outputEqID := range outputEqClasses {
+-				for dig := range c.eqClassToDigests[outputEqID] {
+-					c.addResultDigestPostingLocked(resultID, dig, resultDigestPostingBroad)
+-				}
+-			}
+-		}
++		c.restoreDigestPostingsLocked()
+ 
+ 		// Only move the result-ID counter forward: numeric result IDs must be
+ 		// engine-lifetime unique, so importing must never re-expose an ID the
+--- /dev/null
++++ b/dagql/cache_digest_posting.go
+@@ -0,0 +1,87 @@
++package dagql
++
++import (
++	"iter"
++	"maps"
++
++	set "github.com/hashicorp/go-set/v3"
++)
++
++// resultDigestPosting combines a digest's runtime postings with a snapshot of
++// its output class at import. All digests of that class share the snapshot;
++// copying its results once per digest would take quadratic space.
++//
++// Runtime insertions stay local to the digest. Removal is only used when a
++// result is collected globally, so it also removes the result from the shared
++// snapshot. All access is protected by Cache.egraphMu.
++type resultDigestPosting struct {
++	exact    *set.TreeSet[sharedResultID]
++	imported map[sharedResultID]struct{}
++}
++
++func (p *resultDigestPosting) Contains(id sharedResultID) bool {
++	_, ok := p.imported[id]
++	return ok || p.exact != nil && p.exact.Contains(id)
++}
++
++func (p *resultDigestPosting) Insert(id sharedResultID) bool {
++	if p.Contains(id) {
++		return false
++	}
++	if p.exact == nil {
++		p.exact = newSharedResultIDSet()
++	}
++	return p.exact.Insert(id)
++}
++
++func (p *resultDigestPosting) Remove(id sharedResultID) {
++	delete(p.imported, id)
++	if p.exact != nil {
++		p.exact.Remove(id)
++	}
++}
++
++func (p *resultDigestPosting) Size() int {
++	n := len(p.imported)
++	if p.exact != nil {
++		n += p.exact.Size()
++	}
++	return n
++}
++
++func (p *resultDigestPosting) Empty() bool {
++	return p.Size() == 0
++}
++
++// Items yields each result once. Callers sort candidates in their own set;
++// iteration order within an individual posting has no meaning.
++func (p *resultDigestPosting) Items() iter.Seq[sharedResultID] {
++	return func(yield func(sharedResultID) bool) {
++		for id := range p.imported {
++			if !yield(id) {
++				return
++			}
++		}
++		if p.exact != nil {
++			for id := range p.exact.Items() {
++				if !yield(id) {
++					return
++				}
++			}
++		}
++	}
++}
++
++// restoreDigestPostingsLocked requires egraphMu. Capture membership at import:
++// later unions must not silently broaden the postings of an existing digest.
++func (c *Cache) restoreDigestPostingsLocked() {
++	for outputEqID, resultIDs := range c.outputEqClassResults {
++		imported := maps.Clone(resultIDs)
++		for resultID := range imported {
++			c.markResultBroadlyIndexedLocked(resultID)
++		}
++		for dig := range c.eqClassToDigests[outputEqID] {
++			c.egraphResultsByDigest[dig] = &resultDigestPosting{imported: imported}
++		}
++	}
++}
+--- /dev/null
++++ b/dagql/cache_digest_posting_test.go
+@@ -0,0 +1,73 @@
++package dagql
++
++import (
++	"fmt"
++	"maps"
++	"slices"
++	"testing"
++
++	"gotest.tools/v3/assert"
++)
++
++func TestCacheImportedDigestPostingsRemainLocalAfterMerge(t *testing.T) {
++	f := cacheDerivedIndexWideOutputFixture(t, 4, true)
++	defer f.close(t)
++	c := f.cache
++	c.egraphMu.Lock()
++	roots := slices.Sorted(maps.Keys(c.outputEqClassResults))
++	assert.Equal(t, 2, len(roots))
++	first, second := roots[0], roots[1]
++	digests := slices.Sorted(maps.Keys(c.eqClassToDigests[first]))
++	assert.Assert(t, len(digests) > 1)
++	fromSecond := slices.Sorted(maps.Keys(c.outputEqClassResults[second]))[0]
++	before := make(map[string][]sharedResultID)
++	for dig, posting := range c.egraphResultsByDigest {
++		before[dig] = slices.Sorted(posting.Items())
++	}
++	c.mergeEqClassesLocked(f.ctx, first, second)
++	for dig, want := range before {
++		assert.Assert(t, slices.Equal(slices.Sorted(c.egraphResultsByDigest[dig].Items()), want),
++			"merging output classes changed the imported posting for %s", dig)
++	}
++	// Teaching one digest about a result must not teach its imported aliases.
++	c.addResultDigestPostingLocked(fromSecond, digests[0], resultDigestPostingExact)
++	assert.Assert(t, c.egraphResultsByDigest[digests[0]].Contains(fromSecond))
++	assert.Assert(t, !c.egraphResultsByDigest[digests[1]].Contains(fromSecond))
++	// Repeated insertion must not duplicate a result already in the shared set.
++	fromFirst := before[digests[0]][0]
++	c.addResultDigestPostingLocked(fromFirst, digests[0], resultDigestPostingExact)
++	assert.Equal(t, len(before[digests[0]])+1, c.egraphResultsByDigest[digests[0]].Size())
++	c.egraphMu.Unlock()
++
++	_, removed, err := c.removePersistedEdge(withMetadataPruneContext(f.ctx), fromFirst)
++	assert.NilError(t, err)
++	assert.Assert(t, removed)
++	c.egraphMu.Lock()
++	for dig, posting := range c.egraphResultsByDigest {
++		assert.Assert(t, !posting.Contains(fromFirst), "collected result remains under %s", dig)
++	}
++	indexErr := cacheDerivedIndexesErrorLocked(c)
++	c.egraphMu.Unlock()
++	assert.NilError(t, indexErr)
++}
++
++func BenchmarkCacheImportWideOutputClass(b *testing.B) {
++	for _, width := range []int{64, 256, 1024} {
++		b.Run(fmt.Sprint(width), func(b *testing.B) {
++			f := cacheDerivedIndexWideOutputFixture(b, width, true)
++			assert.NilError(b, f.cache.Close(b.Context()))
++			f.cache = nil
++			b.ReportAllocs()
++			b.ResetTimer()
++			for b.Loop() {
++				c, err := NewCache(f.ctx, f.dbPath, nil, nil)
++				assert.NilError(b, err)
++				b.StopTimer()
++				assert.Equal(b, CachePersistenceResetNone, c.PersistenceResetReason())
++				assert.Equal(b, 2*width+1, len(c.resultsByID))
++				assert.NilError(b, c.Close(b.Context()))
++				b.StartTimer()
++			}
++		})
++	}
++}
