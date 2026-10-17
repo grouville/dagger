@@ -35,3 +35,5 @@ A new diagnostic completes in 54.39 seconds with identical 4,398 rows, successfu
 The CLI CPU capture samples 38.84 CPU-seconds. Filesync's sender walk accounts for 11.94 CPU-seconds, or 30.7%, in a stack distinct from the optimized host glob. wcprof records 1,213 executed `Host.directory` imports. The next filesystem investigation should count visits and inspect the actual filters for those imports before changing traversal or cache behavior. On the engine, sampled CPU still includes interpreter evaluation and allocation/GC; span export also remains significant. A separate natural GC takes 4.32 seconds, including 0.96 seconds of snapshot collection. No observed goroutine sample catches a blocking containerd root scan. These diagnostic observations do not establish another speedup.
 
 [Prepared PR description](PR_CLIENT_HOST_GLOB_PREFIX.md). [Sources, complete attempts, correctness checks and profiles](experiments/host-glob-prefix/).
+
+The follow-up [parent-directory walk counter](NATIVE_FILESYNC_PARENT_WALKS.md) completes successfully and attributes 95.9% of visited entries to parent-only preparation. No optimization is claimed from that diagnostic yet.
