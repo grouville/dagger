@@ -1,0 +1,42 @@
+--- a/sdk/trace/evictedqueue.go
++++ b/sdk/trace/evictedqueue.go
+@@ -13,6 +13,7 @@
+ // evictedQueue is a FIFO queue with a configurable capacity.
+ type evictedQueue[T any] struct {
+ 	queue          []T
++	head           int
+ 	capacity       int
+ 	droppedCount   int
+ 	logDroppedMsg  string
+@@ -45,11 +46,15 @@
+ 	}
+ 
+ 	if eq.capacity > 0 && len(eq.queue) == eq.capacity {
+-		// Drop first-in while avoiding allocating more capacity to eq.queue.
+-		copy(eq.queue[:eq.capacity-1], eq.queue[1:])
+-		eq.queue = eq.queue[:eq.capacity-1]
++		// Replace the oldest value without shifting the retained values.
++		eq.queue[eq.head] = value
++		eq.head++
++		if eq.head == len(eq.queue) {
++			eq.head = 0
++		}
+ 		eq.droppedCount++
+ 		eq.logDropped()
++		return
+ 	}
+ 	eq.queue = append(eq.queue, value)
+ }
+@@ -60,5 +65,11 @@
+ 
+ // copy returns a copy of the evictedQueue.
+ func (eq *evictedQueue[T]) copy() []T {
+-	return slices.Clone(eq.queue)
++	if eq.head == 0 {
++		return slices.Clone(eq.queue)
++	}
++	queue := make([]T, len(eq.queue))
++	n := copy(queue, eq.queue[eq.head:])
++	copy(queue[n:], eq.queue[:eq.head])
++	return queue
+ }

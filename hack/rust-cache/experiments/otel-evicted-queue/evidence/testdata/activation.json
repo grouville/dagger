@@ -1,0 +1,44 @@
+[
+  {
+    "label": "retained-before",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/interface-field-snapshots/verify_retained.py",
+      "otel-evicted-queue-before"
+    ],
+    "exit_code": 0,
+    "unix_start": 1792222512.3858683,
+    "unix_end": 1792222524.2681897
+  },
+  {
+    "label": "restart",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/restart_owned_engine_clean.py",
+      "--engine",
+      "dagger-rust-parser-state-pool-oct14",
+      "--debug-port",
+      "16104",
+      "--output",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/restart",
+      "--binary",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/dagger-engine",
+      "--readiness-timeout",
+      "480"
+    ],
+    "exit_code": 0,
+    "unix_start": 1792222524.314821,
+    "unix_end": 1792222733.120858
+  },
+  {
+    "label": "retained-after",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/interface-field-snapshots/verify_retained.py",
+      "otel-evicted-queue-after"
+    ],
+    "exit_code": 0,
+    "unix_start": 1792222734.2237287,
+    "unix_end": 1792222749.5220554
+  }
+]
