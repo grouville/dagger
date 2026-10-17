@@ -1,0 +1,55 @@
+import Test
+
+# local bindings
+let hello = 42
+
+hel # test: ^ea<C-x><C-o> => hello┃
+
+# global functions (from Query type)
+ser # test: ^Ea<C-x><C-o> => serverInfo┃
+hom # test: ^Ea<C-x><C-o> => homepage┃
+# qualified functions
+Test.ser # test: ^Ea<C-x><C-o> => Test.serverInfo┃
+Test.hom # test: ^Ea<C-x><C-o> => Test.homepage┃
+
+# cross-file: addNums(...) is declared in gd.dang
+addN # test: ^Ea<C-x><C-o> => addNums┃
+# cross-file: multiply(...) is declared in hover.dang
+mult # test: ^Ea<C-x><C-o> => multiply┃
+
+# lexical bindings (function parameters)
+paramScope(jxkqv: Int!): [Int!] {
+  [] # test: ^ajx<C-x><C-o> => [jxkqv┃]
+}
+
+# lexical bindings (let within block)
+bar: ServerInfo! {
+  let ctr = serverInfo.ver # test: ^EEEEa<C-x><C-o> => serverInfo.version┃
+  let d = serverInfo.pl # test: ^EEEEa<C-x><C-o> => serverInfo.platform┃
+  ct # test: ^ea<C-x><C-o> => ctr┃
+}
+
+barQualified: Test.ServerInfo! {
+  let ctr = Test.serverInfo.ver # test: ^EEEEa<C-x><C-o> => serverInfo.version┃
+  let d = Test.serverInfo.pl # test: ^EEEEa<C-x><C-o> => serverInfo.platform┃
+  ct # test: ^ea<C-x><C-o> => ctr┃
+}
+
+# local variable member completion (receiver not in top-level env)
+baz: ServerInfo! {
+  let si = serverInfo
+  si.ver # test: ^Ea<C-x><C-o> => si.version┃
+}
+
+# argument completion
+fetchURL() # nofmt test: ^f(a<C-x><C-o> => fetchURL(url┃)
+user() # nofmt test: ^f(a<C-x><C-o> => user(id┃)
+
+# builtin type methods
+"hello".sp # test: ^Ea<C-x><C-o> => "hello".split┃
+"hello".toU # test: ^Ea<C-x><C-o> => "hello".toUpper┃
+[1, 2, 3].filt # test: ^EEEa<C-x><C-o> => [1, 2, 3].filter┃
+[1, 2, 3].red # test: ^EEEa<C-x><C-o> => [1, 2, 3].reduce┃
+
+# chained completion
+Test.serverInfo # test: ^Ea.ver<C-x><C-o>{delay:200ms}.sp<C-x><C-o> => serverInfo.version.split┃

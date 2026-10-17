@@ -1,0 +1,81 @@
+# Test all String trim methods
+
+# trimPrefix tests
+let prefix_basic = "/workspace/file.txt".trimPrefix("/workspace")
+assert { prefix_basic == "/file.txt" }
+
+let prefix_no_match = "hello".trimPrefix("goodbye")
+assert { prefix_no_match == "hello" }
+
+let prefix_empty = "test".trimPrefix("")
+assert { prefix_empty == "test" }
+
+# trimSuffix tests
+let suffix_basic = "hello.txt".trimSuffix(".txt")
+assert { suffix_basic == "hello" }
+
+let suffix_no_match = "hello".trimSuffix(".txt")
+assert { suffix_no_match == "hello" }
+
+let suffix_empty = "test".trimSuffix("")
+assert { suffix_empty == "test" }
+
+# trimSpace tests
+let space_both = "\thello\t".trimSpace
+assert { space_both == "hello" }
+
+let space_left = "\thello".trimSpace
+assert { space_left == "hello" }
+
+let space_right = "hello\t".trimSpace
+assert { space_right == "hello" }
+
+let space_tabs = "\t\thello\t\t".trimSpace
+assert { space_tabs == "hello" }
+
+let space_newlines = "\n\nhello\n\n".trimSpace
+assert { space_newlines == "hello" }
+
+let space_none = "hello".trimSpace
+assert { space_none == "hello" }
+
+# trim tests (cutset)
+let trim_both = "!!!hello!!!".trim("!")
+assert { trim_both == "hello" }
+
+let trim_multiple = "xxxhelloxxx".trim("x")
+assert { trim_multiple == "hello" }
+
+let trim_charset = "abcHELLOcba".trim("abc")
+assert { trim_charset == "HELLO" }
+
+let trim_none = "hello".trim("x")
+assert { trim_none == "hello" }
+
+# trimLeft tests
+let trimleft_basic = "!!!hello".trimLeft("!")
+assert { trimleft_basic == "hello" }
+
+let trimleft_charset = "abchello".trimLeft("abc")
+assert { trimleft_charset == "hello" }
+
+let trimleft_none = "hello".trimLeft("x")
+assert { trimleft_none == "hello" }
+
+let trimleft_preserves_right = "!!!hello!!!".trimLeft("!")
+assert { trimleft_preserves_right == "hello!!!" }
+
+# trimRight tests
+let trimright_basic = "hello!!!".trimRight("!")
+assert { trimright_basic == "hello" }
+
+let trimright_charset = "helloabc".trimRight("abc")
+assert { trimright_charset == "hello" }
+
+let trimright_none = "hello".trimRight("x")
+assert { trimright_none == "hello" }
+
+let trimright_preserves_left = "!!!hello!!!".trimRight("!")
+assert { trimright_preserves_left == "!!!hello" }
+
+print("All String trim tests passed!")

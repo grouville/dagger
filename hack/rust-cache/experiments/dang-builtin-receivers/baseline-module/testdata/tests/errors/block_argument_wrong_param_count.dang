@@ -1,0 +1,6 @@
+# Test: block with wrong number of parameters
+
+numbers: [Int!]! = [1, 2, 3]
+
+# ERROR: block has 2 parameters but expected 1
+result: [Int!]! = numbers.map { x, y, z => x + y + z }

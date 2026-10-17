@@ -1,0 +1,57 @@
+# Test String.hasPrefix, String.hasSuffix, and String.contains methods
+
+# hasPrefix tests
+let has_prefix_true = "/workspace/file.txt".hasPrefix("/workspace")
+assert { has_prefix_true == true }
+
+let has_prefix_false = "hello".hasPrefix("goodbye")
+assert { has_prefix_false == false }
+
+let has_prefix_empty = "test".hasPrefix("")
+assert { has_prefix_empty == true }
+
+let has_prefix_full = "prefix".hasPrefix("prefix")
+assert { has_prefix_full == true }
+
+let has_prefix_longer = "pre".hasPrefix("prefix")
+assert { has_prefix_longer == false }
+
+# hasSuffix tests
+let has_suffix_true = "file.txt".hasSuffix(".txt")
+assert { has_suffix_true == true }
+
+let has_suffix_false = "hello".hasSuffix("goodbye")
+assert { has_suffix_false == false }
+
+let has_suffix_empty = "test".hasSuffix("")
+assert { has_suffix_empty == true }
+
+let has_suffix_full = "suffix".hasSuffix("suffix")
+assert { has_suffix_full == true }
+
+let has_suffix_longer = "fix".hasSuffix("suffix")
+assert { has_suffix_longer == false }
+
+# contains tests
+let contains_true = "hello world".contains("world")
+assert { contains_true == true }
+
+let contains_false = "hello".contains("goodbye")
+assert { contains_false == false }
+
+let contains_empty = "test".contains("")
+assert { contains_empty == true }
+
+let contains_full = "exact".contains("exact")
+assert { contains_full == true }
+
+let contains_middle = "abcdef".contains("cde")
+assert { contains_middle == true }
+
+let contains_start = "prefix".contains("pre")
+assert { contains_start == true }
+
+let contains_end = "suffix".contains("fix")
+assert { contains_end == true }
+
+print("String.hasPrefix(), String.hasSuffix(), and String.contains() tests passed!")

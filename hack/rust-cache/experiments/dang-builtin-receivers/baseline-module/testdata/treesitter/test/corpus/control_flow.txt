@@ -1,0 +1,86 @@
+===
+Single-line return
+===
+
+pub f: Int! {
+  return 1
+}
+
+---
+
+(dang
+  last: (decl
+    decl: (field_decl
+      (type_and_block_field
+        vis: (visibility
+          (pub_token))
+        name: (symbol
+          name: (id
+            (word_token)))
+        (colon_token)
+        type_: (type
+          (non_null
+            inner: (type
+              (named_type
+                name: (upper_id
+                  (upper_token))))
+            (bang_token)))
+        block: (block
+          last: (return
+            (return_token)
+            value: (literal
+              (int
+                (non_zero_decimal_digit)))))))))
+
+===
+Multiline return value is not accepted
+===
+
+pub f: Int! {
+  return
+  1
+}
+
+---
+
+(dang
+  last: (decl
+    decl: (field_decl
+      (type_and_block_field
+        vis: (visibility
+          (pub_token))
+        name: (symbol
+          name: (id
+            (word_token)))
+        (colon_token)
+        type_: (type
+          (non_null
+            inner: (type
+              (named_type
+                name: (upper_id
+                  (upper_token))))
+            (bang_token)))
+        block: (block
+          (ERROR
+            (return_token))
+          last: (literal
+            (int
+              (non_zero_decimal_digit))))))))
+
+===
+Bare break in loop builtin
+===
+
+loop { break }
+
+---
+
+(dang
+  (symbol_or_call
+    (symbol_block
+      (symbol
+        (id
+          (word_token)))
+      (block_arg
+        (break
+          (break_token))))))

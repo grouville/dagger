@@ -1,0 +1,9 @@
+# Test basic deep assignment parsing
+type TestClass {
+  field: String! = "original"
+
+  test: TestClass! {
+    self.field = "updated"
+    self
+  }
+}

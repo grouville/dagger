@@ -1,0 +1,62 @@
+# Test @expectedType directives on GraphQL ID arguments and return values.
+# The GraphQL test server exposes ID-typed fields/arguments annotated with
+# @expectedType so Dang can treat those IDs as object/interface handles.
+
+import Test
+
+let john = primaryUser
+let jane = secondaryUser
+
+# ID arguments annotated with @expectedType(name: "User") accept User objects.
+assert { userName(user: john) == "John Doe" }
+assert { userName(user: jane) == "Jane Smith" }
+
+# Lists of ID arguments preserve the expected object type for each element.
+let selectedNames = userNames(users: [john, jane])
+assert { selectedNames[0] == "John Doe" }
+assert { selectedNames[1] == "Jane Smith" }
+
+# Interface expectations accept concrete implementers.
+assert { nodeLabel(node: john) == "User:John Doe" }
+
+# ID return values annotated with @expectedType(name: "User") infer as the
+# expected object type and can flow into arguments expecting that object type.
+returnedUser: User! = favoriteUserID
+syncedUser: User! = john.sync
+assert { userName(user: returnedUser) == "John Doe" }
+assert { userName(user: syncedUser) == "John Doe" }
+
+# Lists of ID return values preserve the expected object type for downstream args.
+returnedUsers: [User!]! = favoriteUserIDs
+let favoriteNames = userNames(users: returnedUsers)
+assert { favoriteNames[0] == "John Doe" }
+assert { favoriteNames[1] == "Jane Smith" }
+
+# Return values can also carry interface expectations.
+returnedNode: Node! = favoriteNodeID
+assert { nodeLabel(node: returnedNode) == "User:John Doe" }
+
+# Since they infer as the expected type, promoted ID return values are also
+# selectable as that type: the ID is loaded back into an object handle rather
+# than left as the raw ID string.
+assert { john.sync.name == "John Doe" }
+assert { favoriteUserID.name == "John Doe" }
+assert { favoriteUserID.{{name, age}}.name == "John Doe" }
+assert { john.sync.posts(first: 1).posts.{{title}}[0].title == "First Post" }
+assert { returnedUsers[1].name == "Jane Smith" }
+assert { returnedNode.id == john.id }
+
+# Same when the promoted ID comes back as part of a batched selection, whether
+# plain or inside an inline fragment.
+assert { john.{{sync}}.sync.name == "John Doe" }
+let syncedNodes = nodes.{{
+  ... on User {{ sync }}
+  ... on Post {{ title }}
+}}
+let syncedNode = case (syncedNodes[0]) {
+  u: User => u.sync.name
+  else => "other"
+}
+assert { syncedNode == "John Doe" }
+
+print("expectedType directive tests passed!")

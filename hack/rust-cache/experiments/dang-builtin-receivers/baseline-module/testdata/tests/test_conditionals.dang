@@ -1,0 +1,40 @@
+# Test conditional expressions (if/else)
+
+# Basic if/else
+let result1 = if (true) { "yes" } else { "no" }
+let result2 = if (false) { "yes" } else { "no" }
+
+assert { result1 == "yes" }
+assert { result2 == "no" }
+
+# If without else (should return null when condition is false)
+let result3 = if (true) { "value" }
+let result4 = if (false) { "value" }
+
+assert { result3 == "value" }
+assert { result4 == null }
+
+# Nested conditionals
+let nested = if (true) {
+  if (false) { "inner_false" } else { "inner_true" }
+} else {
+  "outer_false"
+}
+
+assert { nested == "inner_true" }
+
+# Conditionals with variables
+let x = 10
+let y = 20
+
+let max = if (x > y) {
+  x
+} else if (y > x) {
+  y
+} else {
+  x
+}
+
+assert { max == y }
+
+print("Conditional tests passed!")

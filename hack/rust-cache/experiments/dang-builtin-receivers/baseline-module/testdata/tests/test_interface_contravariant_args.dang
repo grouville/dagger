@@ -1,0 +1,38 @@
+# Test contravariant argument types in interface implementations
+# An object can accept more general (nullable) arguments when the interface requires specific types
+
+interface Processor {
+  process(input: String!): String!
+}
+
+# Test: Object accepts nullable where interface requires non-null (contravariance)
+type FlexibleProcessor implements Processor {
+  process(input: String): String! {
+    input ?? "default"
+  }
+}
+
+let processor = FlexibleProcessor
+let result1 = processor.process(input: "test")
+let result2 = processor.process(input: null)
+assert { result1 == "test" }
+assert { result2 == "default" }
+
+# Test: Additional optional arguments are allowed
+interface SimpleFormatter {
+  format(text: String!): String!
+}
+
+type AdvancedFormatter implements SimpleFormatter {
+  format(text: String!, prefix: String, suffix: String): String! {
+    (prefix ?? "") + text + (suffix ?? "")
+  }
+}
+
+let formatter = AdvancedFormatter
+let formatted1 = formatter.format(text: "hello")
+let formatted2 = formatter.format(text: "hello", prefix: "[", suffix: "]")
+assert { formatted1 == "hello" }
+assert { formatted2 == "[hello]" }
+
+print("Contravariant argument type tests passed!")

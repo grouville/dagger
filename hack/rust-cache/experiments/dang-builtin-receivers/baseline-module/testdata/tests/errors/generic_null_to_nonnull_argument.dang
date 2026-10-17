@@ -1,0 +1,6 @@
+# Null flowing through a generic function cannot be passed to a non-null argument
+id(x: a): a { x }
+
+takes(value: Int!): Int! { value }
+
+let result = takes(id(null))

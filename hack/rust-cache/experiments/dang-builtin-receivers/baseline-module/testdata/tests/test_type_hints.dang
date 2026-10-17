@@ -1,0 +1,70 @@
+# Test type hints with :: syntax
+
+# Basic type hints on literals (non-null types)
+let empty_list = [] :: [String!]!
+let number = 42 :: Int!
+let text = "hello" :: String!
+
+# String literals coerce to the built-in ID scalar
+let id_value = "foo" :: ID!
+let nullable_id = "bar" :: ID
+
+# A String! value coerces to ID! via an explicit cast
+raw_string: String! = "baz"
+let id_from_string = raw_string :: ID!
+
+# Casting to nullable types (subtyping: Int! <: Int)
+let nullable_number = 42 :: Int
+let nullable_empty_list = [] :: [String!]
+
+# Test case for the bug: empty list with nullable element type
+# This should work - type hint should bind the type variable to String
+let empty_list_nullable_strings = [] :: [String]
+
+# Type hints on function calls
+getValue: Int! { 100 }
+
+let result = getValue :: Int!
+
+# Type hints on complex expressions
+let sum = (1 + 2) :: Int!
+let concat = ("hello" + " world") :: String!
+
+# Type hints on nested list structures
+let nested_list = [[1, 2], [3, 4]] :: [[Int!]!]!
+let string_list = ["hello", "world"] :: [String!]!
+
+# Type hints on object structures
+let empty_obj = {{}} :: {{}}!
+let simple_obj = {{name: "test"}} :: {{name: String!}}!
+# Additional complex type hints
+let typed_empty_list = [] :: [String!]!
+# Note: Objects are always non-null in Dang, so no nullable object test
+# Complex nested object type hints work with concrete values
+let nested_obj = {{items: ["hello", "world"]}} :: {{items: [String!]!}}!
+let complex_obj = {{user: {{name: "Alice", age: 30}}}} :: {{user: {{name: String!, age: Int!}}!}}!
+
+# Test that values are correctly typed and evaluable
+assert { empty_list == [] }
+assert { number == 42 }
+assert { text == "hello" }
+assert { id_value == "foo" }
+assert { nullable_id == "bar" }
+assert { id_from_string == "baz" }
+assert { result == 100 }
+assert { sum == 3 }
+assert { concat == "hello world" }
+assert { nested_list == [[1, 2], [3, 4]] }
+assert { string_list == ["hello", "world"] }
+# Note: empty_obj equality test removed due to object comparison issues
+assert { simple_obj.name == "test" }
+assert { typed_empty_list == [] }
+assert { nullable_empty_list == [] }
+assert { nullable_number == 42 }
+assert { empty_list_nullable_strings == [] }
+# Nullable object test removed
+assert { nested_obj.items == ["hello", "world"] }
+assert { complex_obj.user.name == "Alice" }
+assert { complex_obj.user.age == 30 }
+
+print("Type hint tests passed!")

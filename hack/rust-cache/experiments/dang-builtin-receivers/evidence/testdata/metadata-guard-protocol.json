@@ -1,0 +1,19 @@
+{
+  "failure_command": [
+    "go",
+    "test",
+    "-p",
+    "2",
+    "-count=1",
+    "-run",
+    "^TestBuiltinReceiverCallableMetadata$",
+    "./pkg/dang"
+  ],
+  "failure_cwd": "/tmp/dang-direct-builtin-receivers",
+  "expected_failure_log": "metadata-guard-before-fix.log",
+  "failing_implementation": "source-as-measured/pkg/dang/builtin_method.go",
+  "regression_guard": "candidate-source/testdata/pkg/dang/builtin_receiver_test.go",
+  "final_patch": "final-candidate.patch",
+  "timed_sources": "source-as-measured",
+  "note": "Final JSON error wording and benchmark expected-value checks follow timing. They do not change the timed evaluator loop."
+}

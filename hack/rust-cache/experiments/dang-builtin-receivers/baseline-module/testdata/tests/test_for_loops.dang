@@ -1,0 +1,48 @@
+# Test basic list iteration with .each
+let numbers = [1, 2, 3, 4, 5]
+let sum = 0
+
+numbers.each { num => sum += num }
+
+assert { sum == 15 }
+
+# Test .each with index
+let fruits = ["apple", "banana", "cherry"]
+let result = ""
+let indices = []
+
+fruits.each { fruit, index =>
+  result += fruit
+  indices += [index]
+}
+
+assert { result == "applebananacherry" }
+assert { indices == [0, 1, 2] } # 0 + 1 + 2
+
+# Test nested .each
+let matrix = [[1, 2], [3, 4]]
+let total = 0
+
+matrix.each { row =>
+  row.each { value =>
+    total += value
+  }
+}
+
+assert { total == 10 }
+
+# Test empty list
+empty: [Int!]! = []
+let count = 0
+
+empty.each { item => count += 1 }
+
+assert { count == 0 }
+
+# Test single element list
+let single = [42]
+let captured = 0
+
+single.each { item => captured = item }
+
+assert { captured == 42 }

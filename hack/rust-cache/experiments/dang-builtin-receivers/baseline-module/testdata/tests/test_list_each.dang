@@ -1,0 +1,55 @@
+# Test list.each() method
+
+# Basic each iteration with side effects
+let numbers = [1, 2, 3, 4, 5]
+let sum = 0
+
+numbers.each { x => sum += x }
+
+assert { sum == 15 }
+
+# Each with index
+let fruits = ["apple", "banana", "cherry"]
+let result = ""
+let indices = []
+
+fruits.each { fruit, i =>
+  result += fruit
+  indices += [i]
+}
+
+assert { result == "applebananacherry" }
+assert { indices == [0, 1, 2] }
+
+# Each on empty list
+empty: [Int!]! = []
+let count = 0
+
+empty.each { x => count += 1 }
+
+assert { count == 0 }
+
+# Each with literal list
+let total = 0
+[10, 20, 30].each { x => total += x }
+
+assert { total == 60 }
+
+# Each returns the original list (like Ruby)
+let nums = [10, 20, 30]
+let returned = nums.each { x => x }
+assert { returned == [10, 20, 30] }
+
+# Nested each
+let matrix = [[1, 2], [3, 4]]
+let flat_sum = 0
+
+matrix.each { row =>
+  row.each { value =>
+    flat_sum += value
+  }
+}
+
+assert { flat_sum == 10 }
+
+print("List each tests passed!")

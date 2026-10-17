@@ -1,0 +1,27 @@
+# Test user-defined block arguments
+
+# Simple block arg that yields a value
+myFun(&block(x: Int!): String!): String! {
+  block(42)
+}
+
+result1: String! = myFun { x => JSON.encode(x) }
+assert { result1 == "42" }
+
+# Block arg with multiple calls
+twice(&block(x: Int!): Int!): Int! {
+  block(1) + block(2)
+}
+
+result2: Int! = twice { x => x * 10 }
+assert { result2 == 30 }
+
+# Function with both regular args and block arg
+withArg(prefix: String!, &block(x: Int!): String!): String! {
+  prefix + block(99)
+}
+
+result3: String! = withArg("Number: ") { x => JSON.encode(x) }
+assert { result3 == "Number: 99" }
+
+print("User-defined block args tests passed!")

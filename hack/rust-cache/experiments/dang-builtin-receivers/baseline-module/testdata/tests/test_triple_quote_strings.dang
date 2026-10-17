@@ -1,0 +1,27 @@
+# Test triple-quote string literals
+
+# Simple cases
+let test1 = """
+hello
+"""
+
+let test2 = """
+hello
+"""
+
+let test3 = """
+hello
+world
+"""
+
+assert { test1 == "hello" }
+assert { test2 == "hello" }
+assert { test3 == "hello\nworld" }
+
+# Inline triple-quote
+let inline = """just one line"""
+assert { inline == "just one line" }
+
+# Empty
+let empty = """"""
+assert { empty == "" }

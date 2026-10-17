@@ -1,0 +1,38 @@
+# Test basic multiline string
+let basic = """
+line one
+line two
+line three
+"""
+
+assert { basic == "line one\nline two\nline three" }
+
+# Test multiline string with indentation preserved
+let withIndent = """
+indented line
+	more indented
+back to original
+"""
+assert { withIndent == "indented line\n\tmore indented\nback to original" }
+
+# Test empty lines
+let withEmpty = """
+first
+
+third
+"""
+assert { withEmpty == "first\n\nthird" }
+
+# Test single line
+let single = """just one line"""
+assert { single == "just one line" }
+
+# Test in function call
+let inList = [
+  "sh", "-c",
+  """
+  echo "Hello"
+  echo "World"
+  """,
+]
+assert { inList == ["sh", "-c", "echo \"Hello\"\necho \"World\""] }

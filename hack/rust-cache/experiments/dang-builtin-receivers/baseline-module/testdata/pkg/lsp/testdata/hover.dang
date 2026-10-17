@@ -1,0 +1,113 @@
+import Test
+
+# directive hover
+
+"""
+Marks a field as deprecated.
+"""
+directive @deprecated(reason: String = "No longer supported") on FIELD_DEFINITION | OBJECT
+
+directive @experimental on FIELD_DEFINITION
+
+type Directives {
+  @deprecated(reason: "use new instead")
+  old: String! { # test: ^kwK => hover: Marks a field as deprecated.
+    "old"
+  }
+
+  @experimental
+  beta: String! { # test: ^kwK => hover: directive @experimental on FIELD_DEFINITION
+    "beta"
+  }
+}
+
+# local variable hover
+let greeting = 42
+
+greeting # test: K => hover: Int!
+
+# function hover (cross-file: addNums declared in gd.dang)
+addNums # test: K => hover: (x: Int!, y: Int!): Int!
+
+# function docs hover (cross-file: gd.dang's addNums has a docstring)
+addNums # test: K => hover: Adds two numbers
+
+# function with docs
+"""
+Multiplies two numbers together.
+Returns the product of x and y.
+"""
+multiply(x: Int!, y: Int!): Int! {
+  x * y
+}
+
+multiply # test: K => hover: Multiplies two numbers together
+
+# unqualified imported value hover (file-local: composite reads lexical)
+serverInfo # test: K => hover: ServerInfo!
+
+# qualified type hover
+Test.serverInfo # test: ^wwK => hover: ServerInfo!
+
+# field access hover
+Test.serverInfo.version # test: ^wwwwK => hover: String!
+
+type MyModule {
+  info: ServerInfo! {
+    serverInfo
+  }
+
+  build: String! {
+    generated.ver # test: ^K => hover: Generated server info.
+  }
+
+  """
+  Generated server info.
+  """
+  let generated: ServerInfo! {
+    serverInfo
+  }
+
+  buildQualified: Test.ServerInfo! {
+    generatedQualified.ver # test: ^K => hover: Generated server info.
+  }
+
+  """
+  Generated server info.
+  """
+  let generatedQualified: Test.ServerInfo! {
+    Test.serverInfo
+  }
+}
+
+# enum hover
+enum Color { RED GREEN BLUE }
+
+Color # test: K => hover: // Values:
+Color # test: K => hover: //   RED
+
+# union hover
+type Cat {
+  name: String! { "cat" }
+}
+
+type Dog {
+  name: String! { "dog" }
+}
+
+union Pet = Cat | Dog
+
+Pet # test: K => hover: // Members:
+Pet # test: K => hover: //   Cat
+
+# object with lexical scope
+let obj = {
+  """
+  Helper value for the object.
+  """
+  let helper = 42
+
+  value: Int! {
+    helper # test: ^K => hover: Helper value for the object.
+  }
+}

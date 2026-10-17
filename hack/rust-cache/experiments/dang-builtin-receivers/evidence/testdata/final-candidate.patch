@@ -1,0 +1,347 @@
+--- a/pkg/dang/eval.go
++++ b/pkg/dang/eval.go
+@@ -686,13 +686,14 @@
+ 	for _, receiverType := range MethodReceivers() {
+ 		ForEachMethod(receiverType, func(def BuiltinDef) {
+ 			fnType := createFunctionTypeFromDef(def)
+-			builtinFn := BuiltinFunction{
+-				Name:         def.Name,
+-				FnType:       fnType,
+-				AllDefaulted: allParamsDefaulted(def),
+-				Deprecated:   def.Deprecated,
+-				CallFn: func(ctx context.Context, scope ValueScope, args map[string]Value) (Value, error) {
+-					selfVal, _ := scope.Self()
++			builtinFn := builtinMethod{
++				BuiltinFunction: BuiltinFunction{
++					Name:         def.Name,
++					FnType:       fnType,
++					AllDefaulted: allParamsDefaulted(def),
++					Deprecated:   def.Deprecated,
++				},
++				callReceiver: func(ctx context.Context, selfVal Value, args map[string]Value) (Value, error) {
+ 					// Apply defaults for missing arguments
+ 					argsWithDefaults := applyDefaults(args, def)
+ 
+--- a/pkg/dang/ast_expressions.go
++++ b/pkg/dang/ast_expressions.go
+@@ -321,7 +321,11 @@
+ 		}
+ 
+ 		// Warn at the call site if the callee is a deprecated builtin.
+-		if fn, ok := funVal.(BuiltinFunction); ok && fn.Deprecated != "" {
++		fn, builtin := funVal.(BuiltinFunction)
++		if method, ok := funVal.(builtinMethod); ok {
++			fn, builtin = method.BuiltinFunction, true
++		}
++		if builtin && fn.Deprecated != "" {
+ 			WarnAtSource(ctx, c.Loc, fmt.Sprintf("%s is deprecated: %s", fn.Name, fn.Deprecated))
+ 		}
+ 
+@@ -1011,9 +1015,8 @@
+ 				if method, found, err := scope.Lookup(ctx, methodKey); err != nil {
+ 					return nil, err
+ 				} else if found {
+-					if builtinFn, ok := method.(BuiltinFunction); ok {
+-						// Create a bound method that will pass the string as self
+-						return BoundBuiltinMethod{Method: builtinFn, Receiver: rec}, nil
++					if bound, ok := bindBuiltinMethod(method, rec); ok {
++						return bound, nil
+ 					}
+ 				}
+ 				return nil, fmt.Errorf("string value does not have method %q", d.Field.Name)
+@@ -1027,8 +1030,8 @@
+ 					if method, found, err := scope.Lookup(ctx, methodKey); err != nil {
+ 						return nil, err
+ 					} else if found {
+-						if builtinFn, ok := method.(BuiltinFunction); ok {
+-							return BoundBuiltinMethod{Method: builtinFn, Receiver: rec}, nil
++						if bound, ok := bindBuiltinMethod(method, rec); ok {
++							return bound, nil
+ 						}
+ 					}
+ 					if methods := mod.ScalarMethods(); methods != nil {
+@@ -1050,9 +1053,8 @@
+ 				if method, found, err := scope.Lookup(ctx, methodKey); err != nil {
+ 					return nil, err
+ 				} else if found {
+-					if builtinFn, ok := method.(BuiltinFunction); ok {
+-						// Create a bound method that will pass the float as self
+-						return BoundBuiltinMethod{Method: builtinFn, Receiver: rec}, nil
++					if bound, ok := bindBuiltinMethod(method, rec); ok {
++						return bound, nil
+ 					}
+ 				}
+ 				return nil, fmt.Errorf("float value does not have method %q", d.Field.Name)
+@@ -1064,9 +1066,8 @@
+ 				if method, found, err := scope.Lookup(ctx, methodKey); err != nil {
+ 					return nil, err
+ 				} else if found {
+-					if builtinFn, ok := method.(BuiltinFunction); ok {
+-						// Create a bound method that will pass the list as self
+-						return BoundBuiltinMethod{Method: builtinFn, Receiver: rec}, nil
++					if bound, ok := bindBuiltinMethod(method, rec); ok {
++						return bound, nil
+ 					}
+ 				}
+ 				return nil, fmt.Errorf("list value does not have method %q", d.Field.Name)
+@@ -1078,9 +1079,8 @@
+ 				if method, found, err := scope.Lookup(ctx, methodKey); err != nil {
+ 					return nil, err
+ 				} else if found {
+-					if builtinFn, ok := method.(BuiltinFunction); ok {
+-						// Create a bound method that will pass the map as self
+-						return BoundBuiltinMethod{Method: builtinFn, Receiver: rec}, nil
++					if bound, ok := bindBuiltinMethod(method, rec); ok {
++						return bound, nil
+ 					}
+ 				}
+ 				return nil, fmt.Errorf("map value does not have method %q", d.Field.Name)
+--- /dev/null
++++ b/pkg/dang/builtin_method.go
+@@ -0,0 +1,47 @@
++package dang
++
++import (
++	"context"
++	"fmt"
++)
++
++// Registered methods accept the receiver as a value, so binding them does not
++// require an evaluation scope. BuiltinFunction supplies the callable metadata.
++// Hand-written BuiltinFunction callbacks still receive their original scope.
++type builtinMethod struct {
++	BuiltinFunction
++	callReceiver func(context.Context, Value, map[string]Value) (Value, error)
++}
++
++func (m builtinMethod) Call(ctx context.Context, scope ValueScope, args map[string]Value) (Value, error) {
++	receiver, _ := scope.Self()
++	return m.callReceiver(ctx, receiver, args)
++}
++
++type boundBuiltinMethod struct {
++	builtinMethod
++	receiver Value
++}
++
++func (m boundBuiltinMethod) Call(ctx context.Context, _ ValueScope, args map[string]Value) (Value, error) {
++	return m.callReceiver(ctx, m.receiver, args)
++}
++
++func (m boundBuiltinMethod) String() string {
++	return fmt.Sprintf("bound_builtin_method(%s)", m.builtinMethod.String())
++}
++
++func (boundBuiltinMethod) MarshalJSON() ([]byte, error) {
++	return nil, fmt.Errorf("cannot marshal bound builtin method value")
++}
++
++func bindBuiltinMethod(method, receiver Value) (Callable, bool) {
++	switch method := method.(type) {
++	case builtinMethod:
++		return boundBuiltinMethod{builtinMethod: method, receiver: receiver}, true
++	case BuiltinFunction:
++		return BoundBuiltinMethod{Method: method, Receiver: receiver}, true
++	default:
++		return nil, false
++	}
++}
+--- /dev/null
++++ b/pkg/dang/builtin_receiver_test.go
+@@ -0,0 +1,144 @@
++package dang
++
++import (
++	"context"
++	"encoding/json"
++	"strings"
++	"testing"
++)
++
++func builtinReceiverTestCall(t testing.TB, scope ValueScope, source string) Callable {
++	t.Helper()
++	parsed, err := ParseWithRecovery("receiver-test", []byte(source))
++	if err != nil {
++		t.Fatal(err)
++	}
++	value, err := EvalNode(context.Background(), scope, parsed.(*FileBlock).Forms[0])
++	if err != nil {
++		t.Fatal(err)
++	}
++	callable, ok := value.(Callable)
++	if !ok {
++		t.Fatalf("selection returned %T, want Callable", value)
++	}
++	return callable
++}
++
++func TestBuiltinReceiverDefaultsAndContext(t *testing.T) {
++	previous := builtins
++	builtins = newBuiltinRegistry()
++	t.Cleanup(func() { builtins = previous })
++	wantBlock := true
++	def := BuiltinDef{
++		Name: "receiverProbe", IsMethod: true, ReceiverType: StringType,
++		ParamTypes: []ParamDef{
++			{Name: "required", Type: NonNull(StringType)},
++			{Name: "suffix", Type: NonNull(StringType), DefaultValue: StringValue{Val: "!"}},
++		},
++		ReturnType: NonNull(StringType),
++		Impl: func(ctx context.Context, receiver Value, args Args) (Value, error) {
++			if (args.Block != nil) != wantBlock {
++				t.Fatalf("block present = %v, want %v", args.Block != nil, wantBlock)
++			}
++			if ctx.Value(contextKey("receiver-test")) != "context" {
++				t.Fatal("callback lost context")
++			}
++			return StringValue{Val: receiver.(StringValue).Val + args.Values["required"].(StringValue).Val + args.Values["suffix"].(StringValue).Val}, nil
++		},
++	}
++	Register(def)
++	scope := NewObject(NewType("test", ObjectKind))
++	addBuiltinFunctions(scope)
++	first := builtinReceiverTestCall(t, scope, `"first".receiverProbe`)
++	second := builtinReceiverTestCall(t, scope, `"second".receiverProbe`)
++	ctx := context.WithValue(t.Context(), contextKey("receiver-test"), "context")
++	args := map[string]Value{"required": StringValue{Val: " value"}}
++	value, err := first.Call(ContextWithBlock(ctx, FunctionValue{}), scope, args)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if got := value.(StringValue).Val; got != "first value!" {
++		t.Fatalf("got %q", got)
++	}
++	if len(args) != 1 {
++		t.Fatalf("defaults mutated caller arguments: %v", args)
++	}
++	wantBlock = false
++	value, err = second.Call(ctx, scope, map[string]Value{"required": StringValue{Val: " value"}, "suffix": StringValue{Val: "."}})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if got := value.(StringValue).Val; got != "second value." {
++		t.Fatalf("got %q", got)
++	}
++}
++
++func TestBuiltinReceiverCustomScope(t *testing.T) {
++	scope := NewObject(NewType("caller", ObjectKind))
++	scope.Bind("outside", StringValue{Val: "hidden"}, PublicVisibility)
++	scope.EnterSelf(StringValue{Val: "caller"})
++	var seen []*Object
++	fn := BuiltinFunction{
++		Name:   "receiverProbe",
++		FnType: createFunctionTypeFromDef(BuiltinDef{ParamTypes: []ParamDef{{Name: "required", Type: NonNull(StringType)}}, ReturnType: NonNull(StringType)}),
++		CallFn: func(_ context.Context, callback ValueScope, _ map[string]Value) (Value, error) {
++			object, ok := callback.(*Object)
++			if !ok {
++				t.Fatalf("custom callback received %T", callback)
++			}
++			if callback.Has("outside") || callback.Has("scratch") {
++				t.Fatal("custom callback inherited another scope")
++			}
++			value, _ := callback.Self()
++			callback.Bind("scratch", StringValue{Val: "local"}, PrivateVisibility)
++			callback.MutateSelf(StringValue{Val: "mutated"})
++			seen = append(seen, object)
++			return value, nil
++		},
++	}
++	scope.Bind(GetMethodKey(StringType, "receiverProbe"), fn, PrivateVisibility)
++	for _, source := range []string{`"first".receiverProbe`, `"second".receiverProbe`} {
++		callable := builtinReceiverTestCall(t, scope, source)
++		value, err := callable.Call(t.Context(), scope, nil)
++		if err != nil {
++			t.Fatal(err)
++		}
++		want := "first"
++		if len(seen) == 2 {
++			want = "second"
++		}
++		if got := value.(StringValue).Val; got != want {
++			t.Fatalf("got receiver %q, want %q", got, want)
++		}
++	}
++	if seen[0] == seen[1] {
++		t.Fatal("custom callback reused its local scope")
++	}
++	value, _ := scope.Self()
++	if got := value.(StringValue).Val; got != "caller" {
++		t.Fatalf("custom callback changed caller self to %q", got)
++	}
++}
++
++func TestBuiltinReceiverCallableMetadata(t *testing.T) {
++	scope := NewObject(NewType("test", ObjectKind))
++	addBuiltinFunctions(scope)
++	fn := builtinReceiverTestCall(t, scope, `"receiver".hasPrefix`)
++	if got := fn.String(); got != "bound_builtin_method(builtin:hasPrefix)" {
++		t.Fatalf("got callable name %q", got)
++	}
++	names := fn.ParameterNames()
++	if len(names) != 1 || names[0] != "prefix" || fn.IsAutoCallable() {
++		t.Fatalf("unexpected callable metadata: names=%v, auto=%v", names, fn.IsAutoCallable())
++	}
++	method, ok, err := scope.Lookup(t.Context(), GetMethodKey(StringType, "hasPrefix"))
++	if err != nil || !ok {
++		t.Fatalf("lookup method: found=%v, err=%v", ok, err)
++	}
++	if got, want := fn.Type().String(), method.Type().String(); got != want {
++		t.Fatalf("bound type %s, want %s", got, want)
++	}
++	if _, err := json.Marshal(fn); err == nil || !strings.HasSuffix(err.Error(), ": cannot marshal bound builtin method value") {
++		t.Fatalf("unexpected serialization error: %v", err)
++	}
++}
+--- /dev/null
++++ b/pkg/dang/builtin_receiver_bench_test.go
+@@ -0,0 +1,49 @@
++package dang
++
++import (
++	"context"
++	"testing"
++
++	"github.com/vito/dang/v2/pkg/hm"
++)
++
++func BenchmarkBuiltinReceiverExpression(b *testing.B) {
++	for _, scenario := range []struct{ name, source, want string }{
++		{"string", `"prefix/value".hasPrefix("prefix/")`, "true"},
++		{"list-block", `["a", "b", "c"].map { s => s + "!" }`, "[a!, b!, c!]"},
++	} {
++		b.Run(scenario.name, func(b *testing.B) {
++			source := scenario.source
++			parsed, err := ParseWithRecovery("receiver-bench", []byte(source))
++			if err != nil {
++				b.Fatal(err)
++			}
++			forms := parsed.(*FileBlock).Forms
++			types, scope := BuildScopesFromImports("", nil)
++			ctx := context.Background()
++			if _, err := InferFormsWithPhases(ctx, forms, types, hm.NewSimpleFresher()); err != nil {
++				b.Fatal(err)
++			}
++			first, err := EvalNode(ctx, scope, forms[0])
++			if err != nil {
++				b.Fatal(err)
++			}
++			if got := first.String(); got != scenario.want {
++				b.Fatalf("got %s, want %s", got, scenario.want)
++			}
++			var result Value
++			b.ReportAllocs()
++			b.ResetTimer()
++			for range b.N {
++				result, err = EvalNode(ctx, scope, forms[0])
++				if err != nil {
++					b.Fatal(err)
++				}
++			}
++			b.StopTimer()
++			if result.String() != scenario.want {
++				b.Fatalf("got %s, want %s", result.String(), scenario.want)
++			}
++		})
++	}
++}

@@ -1,0 +1,8 @@
+# Test: nested block with wrong return type
+
+nested: [[Int!]!]! = [[1, 2], [3, 4]]
+
+# ERROR: inner block returns String! but should return Int!
+result: [[Int!]!]! = nested.map { inner =>
+  inner.map { x => JSON.encode(x) + " is wrong" }
+}

@@ -1,0 +1,38 @@
+# Test equality operator with same types
+
+# Integers
+let a = 42
+let b = 42
+let c = 43
+
+assert { a == b }
+assert { a == 42 }
+assert("Different numbers should not be equal") { (a == c) == false }
+
+# Strings
+let str1 = "hello"
+let str2 = "hello"
+let str3 = "world"
+
+assert { str1 == str2 }
+assert { str1 == "hello" }
+assert("Different strings should not be equal") { (str1 == str3) == false }
+
+# Booleans
+let true1 = true
+let true2 = true
+let false1 = false
+
+assert { true1 == true2 }
+assert { true1 == true }
+assert { false1 == false }
+assert("True should not equal false") { (true1 == false1) == false }
+
+# Null values
+let null1 = null
+let null2 = null
+
+assert { null1 == null2 }
+assert { null1 == null }
+
+print("Type-safe equality tests passed!")

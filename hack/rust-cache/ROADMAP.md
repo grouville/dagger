@@ -57,6 +57,8 @@ Priorities:
 
 The immediate Go investigation measures `dagger check --module go --check test --list --all` on `dagger/dagger`: all 4,398 ordered rows and successful session cleanup count toward the complete time. Use fresh CLI processes and source edits on a retained engine, then distinguish those results from cold starts and isolated component benchmarks. Prefer small changes that remove measured work while preserving Dagger cache identity, ownership, collection granularity and telemetry. Check other graph shapes before keeping an optimization.
 
+The latest direct-receiver comparison improves 46.84 → 45.71 seconds in four of four full-command pairs. A separate trace finds 15,003 opens of identical current configuration bytes. Next measure sharing decoded declarations across calls and combining the existing stat/read requests, preserving live input checks and CLI compatibility. Neither potential saving is established. Distinguish the earlier 10.38 cumulative CPU-seconds in configuration preparation from elapsed time on the command's critical path.
+
 Keep useful engine fixes separate, with focused regression tests and an
 adversarial review. Push experiments to Guillaume's fork; open new upstream PRs
 only after explicit approval.

@@ -1,0 +1,68 @@
+# Variables with explicit or statically-known types are declared before type
+# bodies are checked, even when their values are evaluated later.
+
+computedDefault: String! = "A" + "da"
+
+type ComputedDefaultUser {
+  name: String! = computedDefault
+}
+
+assert { ComputedDefaultUser.name == "Ada" }
+
+let literalTemplateDefault = `Ada`
+
+type LiteralTemplateDefaultUser {
+  name: String! = literalTemplateDefault
+}
+
+assert { LiteralTemplateDefaultUser.name == "Ada" }
+
+let who = "Grace"
+let templatedDefault = `hello ${who}`
+
+type TemplateDefaultUser {
+  message: String! = templatedDefault
+}
+
+assert { TemplateDefaultUser.message == "hello Grace" }
+
+# A variable can construct a hoisted type before a later computed default's
+# value has been evaluated. The constructor must wait for the default's
+# dependency even though it is hidden inside the type body.
+let runtimeUser = RuntimeTemplateDefaultUser
+
+let runtimeWho = "Katherine"
+let runtimeTemplatedDefault = `hello ${runtimeWho}`
+
+type RuntimeTemplateDefaultUser {
+  message: String! = runtimeTemplatedDefault
+}
+
+assert { runtimeUser.message == "hello Katherine" }
+
+# Forward reads hidden behind function calls are handled by lazy module fields.
+let lazyFunctionValue = lazyFunction
+let lazyFunctionLater = "ok"
+
+lazyFunction: String! { lazyFunctionLater }
+
+assert { lazyFunctionValue == "ok" }
+
+let lazyExplicitCallValue = lazyExplicitCallFunction("called")
+let lazyExplicitCallLater = "ok"
+
+lazyExplicitCallFunction(prefix: String!): String! { prefix + lazyExplicitCallLater }
+
+assert { lazyExplicitCallValue == "calledok" }
+
+# Local bindings inside functions should not create false top-level cycles.
+let lazyLocalValue = lazyLocalFunction
+let lazyLocalLater = lazyLocalValue
+
+lazyLocalFunction: String! {
+  let lazyLocalLater = "x"
+  lazyLocalLater
+}
+
+assert { lazyLocalValue == "x" }
+assert { lazyLocalLater == "x" }

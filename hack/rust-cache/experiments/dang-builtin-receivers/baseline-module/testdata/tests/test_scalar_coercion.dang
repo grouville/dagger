@@ -1,0 +1,96 @@
+import Test
+
+# Test scalar coercion. String literals (and other literal expressions)
+# auto-coerce into compatible custom GraphQL scalars at value-handoff
+# boundaries; non-literal Strings require an explicit :: cast.
+
+# =============================================================================
+# Test 1: Literal string -> custom scalar at call sites
+# =============================================================================
+
+let urlResult = fetchURL(url: "https://example.com")
+assert { urlResult == "Fetched: https://example.com" }
+
+let tsResult = formatTimestamp(ts: "2024-01-15T10:30:00Z")
+assert { tsResult == "Formatted: 2024-01-15T10:30:00Z" }
+
+let jsonResult = parseJSON(data: "{\"key\": \"value\"}")
+assert { jsonResult == "Parsed JSON: {\"key\": \"value\"}" }
+
+let bigIntResult = addBigInt(a: "12345678901234567890", b: "98765432109876543210")
+assert { bigIntResult == "12345678901234567890+98765432109876543210" }
+
+# =============================================================================
+# Test 2: Nullable scalar parameters
+# =============================================================================
+
+let nullableWithValue = fetchURLNullable(url: "https://nullable.com")
+assert { nullableWithValue == "Fetched nullable: https://nullable.com" }
+
+# Nullable URL with null - omitting the argument
+let nullableWithNull = fetchURLNullable
+assert { nullableWithNull == null }
+
+# =============================================================================
+# Test 3: List literals -> [Scalar!]!
+# =============================================================================
+
+let multiResult = fetchMultipleURLs(urls: ["https://a.com", "https://b.com", "https://c.com"])
+assert { multiResult[0] == "Fetched[0]: https://a.com" }
+assert { multiResult[1] == "Fetched[1]: https://b.com" }
+assert { multiResult[2] == "Fetched[2]: https://c.com" }
+
+# =============================================================================
+# Test 4: Scalar values from GraphQL flow directly
+# =============================================================================
+
+let urlValue = homepage
+assert { urlValue == "https://dang-lang.dev" }
+
+let fetchedHomepage = fetchURL(url: urlValue)
+assert { fetchedHomepage == "Fetched: https://dang-lang.dev" }
+
+# =============================================================================
+# Test 5: Templates also auto-coerce, even with interpolations
+# =============================================================================
+
+let host = "templated.com"
+let templateResult = fetchURL(url: `https://${host}/path`)
+assert { templateResult == "Fetched: https://templated.com/path" }
+
+# =============================================================================
+# Test 6: Non-literal Strings require an explicit cast
+# =============================================================================
+
+let myUrl = "https://variable.com"
+let varResult = fetchURL(url: myUrl :: URL!)
+assert { varResult == "Fetched: https://variable.com" }
+
+let base = "https://"
+let domain = "concat.com"
+let concatResult = fetchURL(url: (base + domain) :: URL!)
+assert { concatResult == "Fetched: https://concat.com" }
+
+# =============================================================================
+# Test 7: Literal in a typed field, reassignment, and return
+# =============================================================================
+
+idSlot: ID! = "abc"
+assert { idSlot == "abc" }
+
+let currentID: ID! = "first"
+currentID = "second"
+assert { currentID == "second" }
+
+makeID: ID! { "abc" }
+
+assert { makeID == "abc" }
+
+# =============================================================================
+# Test 8: Mixed scalar and non-scalar arguments
+# =============================================================================
+
+let greeting = hello(name: "World")
+assert { greeting == "Hello, World!" }
+
+print("All scalar coercion tests passed!")

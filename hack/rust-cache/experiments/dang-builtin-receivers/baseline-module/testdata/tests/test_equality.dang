@@ -1,0 +1,20 @@
+# Test equality operator edge cases
+
+# Basic equality
+let a = 42
+let b = 42
+let c = 43
+
+assert { a == b }
+assert { a == 42 }
+assert { b == 42 }
+
+# Different types should not be equal
+let num = 42
+let str = "42"
+let bool_val = true
+
+# Cross-type comparisons should return false
+assert("Number should not equal string") { (num == str) == false }
+
+print("Equality edge case tests completed")

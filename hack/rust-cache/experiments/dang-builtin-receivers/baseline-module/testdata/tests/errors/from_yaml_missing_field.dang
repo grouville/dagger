@@ -1,0 +1,15 @@
+enum Status { PASSED FAILED }
+
+type Child {
+  name: String!
+  outcome: Status!
+}
+
+type Summary {
+  children: [Child!]!
+}
+
+let summary: Summary! = YAML.decode("""
+children:
+  - name: one
+""")

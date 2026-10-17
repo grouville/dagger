@@ -1,0 +1,14 @@
+type Calculator {
+  x: Int!
+
+  """
+  Start a coding agent with the provided module.
+  """
+  addY(y: Int!): Calculator! {
+    self.x += y
+    self
+  }
+}
+
+assert { Calculator(1).addY(4).x == 5 }
+assert { JSON.encode(Calculator(1).addY(4)) == "{\"x\":5}" }

@@ -1,0 +1,112 @@
+# dang.
+
+`dang` is a statically typed language for scripting GraphQL, where the types and functions are loaded directly from the schema.
+
+## hello, world!
+
+```graphql
+type Greeter {
+  name: String!
+  greet: String! { `Hello, ${name}!` }
+}
+
+["world", "Dang", "you"].map { who => print(Greeter(who).greet) }
+```
+
+## why?
+
+The initial goal was a native language for [Dagger]. Dagger is a polyglot
+function engine with an underlying GraphQL API serving as the common layer where
+functions written in different languages call one another.
+
+Combining Dang with Dagger gives you a polyglot language with an ecosystem of
+modules developed in any language that has a [Dagger SDK]. Dang is one such
+Dagger SDK, so it's perfect for writing Dagger modules that simply glue together
+APIs and don't need a heavy full-blown language runtime. As a result of not
+needing a codegen phase, it has potential to be much, much faster than the other
+SDKs.
+
+Architecturally, Dang is decoupled from Dagger; it just speaks GraphQL, so you
+can point it at any API endpoint you want.
+
+[Dagger]: https://dagger.io
+[Dagger SDK]: https://docs.dagger.io/getting-started/api/sdk
+
+
+## design philosophy
+
+* **familiarity** over theory
+  - I've had my fun with language design/impl, time to make one people might actually use. :)
+* **ergonomics** over syntactic purity
+  - Embrace keywords and first-class syntax for common patterns. Don't obsess over homoiconicity and macros.
+* **expressiveness** over performance
+  - This is a glue language; it's unlikely to be the bottleneck. Dev performance is more important than runtime performance.
+* **safety** over ... uh ... danger
+  - I should be able to have some confidence in my "production-shipping glue code" without having to ship to production.
+* **be a leaf in the wind**
+  - Dang shouldn't take too much brain juice; that's already been spent on the product that it's used to build/test/ship.
+
+
+### cute bits
+
+* **multi-field selection**
+  - `user.{{ name, posts.{{ title, createdAt }} }}` fetches everything in one query
+* **null tracking**
+  - `String` does not satisfy `String!`, but `String!` satisfies `String`
+* **optional parentheses** for functions without required args
+  - `container() == container`
+* **named arguments** with **positional shorthand**
+  - `container.from(address: "foo") == container.from("foo")`
+* **directives**
+  - structural type-checked metadata (`@defaultPath(...)`) instead of comment pragmas
+* **prototype-based objects**
+  - `type Foo { bar: String! }` declares a new `Foo` type and `Foo("xyz")` constructor
+* **directory-level loading**
+  - Similar to Go; split your code up at your liesure.
+
+
+## how the meat was made
+
+This language needs to be maintainable in very limited time as a side project.
+To that end:
+
+* There's a single [Pigeon] grammar from which a [Tree-sitter] grammar is
+  generated, so I don't have to maintain both. Feel free to steal this for your
+  own esolang!
+* The stdlib ships an `assert { ... }` function so that I can test the
+  language at a very high level (a Big Pile of Dang Scripts).
+* Large swathes of the codebase have been implemented with AI. The language
+  design is still my fault, but I've let AI do a lot of the typing.
+
+  Personally, having already created [Bass] recently I didn't feel the
+  motivation to start all over again. It didn't seem like I'd learn much along
+  the way, so it wasn't worth spending whatever mileage my fingers have left.
+  This was a great opportunity to learn about AI and reach my project goals at
+  the same time, so I took that direction instead.
+
+  This project sat unfinished for 2 years, and in a day of AI crunching I was
+  finally able to bring it to life. If you have ethical concerns with this or
+  think that makes the project lame, I respect that. If you can, just pretend
+  this project stayed in that unfinished state. Maybe check out [Bass] instead,
+  which may be more interesting to language nerds anyway. :)
+
+  If it's any consolation, I will not be using AI for the parts that interface
+  with humans. This README is 100% farm-raised, and the documentation and logo
+  will be, too. (I might use AI for tedious website stuff, but not the
+  content.)
+
+[Bass]: https://github.com/vito/bass
+[Pigeon]: https://github.com/mna/pigeon
+[Tree-sitter]: https://tree-sitter.github.io/tree-sitter/
+
+
+## thanks
+
+Special thanks to [@chewxy] for writing the [hm] package - having never
+implemented a typed language before, I initially leaned on this heavily.
+Eventually I had AI re-write a local version so I can better integrate it into
+Dang's local dialect, but I learned a lot from the original package, and its
+existence was the spark that led to Dang's creation.
+
+[@chewxy]: https://github.com/chewxy
+[hm]: https://github.com/chewxy/hm

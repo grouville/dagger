@@ -1,0 +1,35 @@
+# Conditional branches should infer the common interface/supertype.
+
+interface ConditionalPet {
+  name: String!
+}
+
+type ConditionalCat implements ConditionalPet {
+  name: String!
+  lives: Int!
+}
+
+type ConditionalDog implements ConditionalPet {
+  name: String!
+  bark: String!
+}
+
+let dogAsPet: ConditionalPet! = ConditionalDog(name: "Fido", bark: "woof")
+
+selectedPet: ConditionalPet! = if (false) {
+  ConditionalCat(name: "Mog", lives: 9)
+} else {
+  dogAsPet
+}
+
+assert { selectedPet.name == "Fido" }
+
+let concreteBranchPet = if (true) {
+  ConditionalCat(name: "Mog", lives: 9)
+} else {
+  ConditionalDog(name: "Fido", bark: "woof")
+}
+
+assert { concreteBranchPet.name == "Mog" }
+
+print("Conditional interface inference tests passed!")

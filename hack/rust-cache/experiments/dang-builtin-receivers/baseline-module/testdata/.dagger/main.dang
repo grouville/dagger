@@ -1,0 +1,333 @@
+type Dang {
+  """
+  The source directory for the Dang project.
+  """
+  source: Directory!
+
+  new(ws: Workspace!) {
+    self.source = ws.directory("/", gitignore: true)
+    self
+  }
+
+  """
+  Return a compiled Dang binary.
+  """
+  binary(race: Boolean! = false): File! {
+    let args = ["go", "build"]
+    if (race) {
+      args += ["-race"]
+    }
+    args += ["-o", "/bin/dang", "./cmd/dang"]
+
+    development.withExec(args).file("/bin/dang")
+  }
+
+  """
+  Build the Dang binary to ./bin/dang.
+  """
+  build: Changeset! {
+    source.withFile("bin/dang", binary).changes(source)
+  }
+
+  """
+  Build the documentation site, returning the changeset it produces under
+  docs/ (static HTML rendered from lit/, the playground wasm, the syntax
+  palette, the search index).
+
+  Mirrors docs/build.sh. The output is gitignored, so this is a check (it
+  verifies the build succeeds) rather than a generator — a generator's
+  changeset would always look unapplied in CI, where the gitignored artifacts
+  are absent.
+  """
+  docs: Changeset! @check {
+    let built = development
+      .withWorkdir("/src/docs")
+      .withExec(["bash", "./build.sh"])
+      .directory("/src/docs")
+    source.withDirectory("docs", built).changes(source)
+  }
+
+  """
+  Build the tree-sitter grammar wasms — the Dang grammar plus the embedded
+  toml/yaml/ruby/bash/go grammars used to highlight injected code blocks — and
+  upload them to the R2 bucket the docs build fetches them from. Run this after
+  changing the grammar or bumping a grammar dependency.
+
+  The wasms are deliberately not committed: the Cloudflare Pages build image
+  can't run the tree-sitter CLI to build them (its prebuilt binaries need a
+  newer glibc), so this is where they're produced and where they come from.
+  """
+  publishGrammars(
+    """
+    Cloudflare API token with R2 read/write on the bucket.
+    """
+    apiToken: Secret!,
+    """
+    R2 bucket the grammar wasms are uploaded to.
+    """
+    bucket: String! = "dang-docs-assets",
+    """
+    Cloudflare account ID that owns the bucket.
+    """
+    accountId: String! = "3f0bfdb3be67e29173fa82412c7afd07",
+  ): Void {
+    development
+      .withWorkdir("/src/docs")
+      .withExec(["bash", "./build-highlight-assets.sh", "--grammar-only"])
+      .withExec(["npm", "install", "-g", "wrangler"])
+      .withEnvVariable("R2_BUCKET", bucket)
+      .withEnvVariable("CLOUDFLARE_ACCOUNT_ID", accountId)
+      .withSecretVariable(name: "CLOUDFLARE_API_TOKEN", secret: apiToken)
+      .withExec([
+        "bash", "-c",
+        """
+        set -euo pipefail
+        for f in js/tree-sitter-*.wasm; do
+          echo "==> uploading $f"
+          wrangler r2 object put "$R2_BUCKET/grammars/$(basename "$f")" --file="$f" --remote
+        done
+        """,
+      ])
+      .sync
+
+    null
+  }
+
+  """
+  Reformat every Dang source file in place with `dang fmt`, returning the
+  changeset.
+
+  Skips the Dagger module sources under mod/, which must keep their explicit
+  `pub` keywords until the engine bumps its embedded dang. (The .dagger sources
+  are already excluded from `source` via @ignorePatterns.) Files that don't
+  parse are skipped too, since tests/errors/ holds deliberately-malformed
+  syntax fixtures the formatter can't read. Note that fixtures that PARSE but
+  fail type-checking (like the removed try/catch and bare-binding forms) get
+  reformatted — possibly into valid code — so they must be fmt-stable or live
+  in Go tests as inline sources instead.
+  """
+  @generate
+  fmt: Changeset! {
+    development
+      .withFile("/usr/bin/dang", binary)
+      .withExec([
+        "bash", "-c",
+        """
+        find . -name '*.dang' | while read f; do
+          dang fmt -lw "$f" || echo "skipping unparseable file: $f" >&2
+        done
+        """,
+      ])
+      .directory(".")
+      .changes(development.directory("."))
+  }
+
+  """
+  Run `go mod tidy` for each Go module in the repo.
+  """
+  tidy: Changeset! {
+    development
+      .withExec([
+        "sh", "-c",
+        """
+        find . -name go.mod | while read path; do
+          go -C $(dirname $path) mod tidy
+        done
+        """,
+      ])
+      .directory(".")
+      .changes(development.directory("."))
+  }
+
+  """
+  Build and run a `dang` command.
+
+  Example usage:
+
+    # Run a Dang script
+    dang script.dang
+
+    # Run all .dang files in a directory as a module
+    dang ./my-module
+
+    # Start interactive REPL
+    dang
+
+    # Run with debug logging enabled
+    dang --debug script.dang
+    dang -d ./my-module
+  """
+  dang(args: [String!]!): Void {
+    development
+      .withFile("/usr/bin/dang", binary)
+      .withExec(
+        ["dang"] + args,
+        experimentalPrivilegedNesting: true,
+      )
+      .sync
+
+    null
+  }
+
+  """
+  Update the tree-sitter test corpus.
+  """
+  treesitterUpdate: Changeset! {
+    generated
+      .withDirectory(
+        "./treesitter",
+        generated
+          .withWorkdir("./treesitter")
+          .withExec(["tree-sitter", "test", "--update"])
+          .directory("."),
+      )
+      .directory(".")
+      .changes(generated.directory("."))
+  }
+
+  """
+  Bump the pinned Dang version in each editor plugin.
+  """
+  bumpEditors(repo: GitRepository! @defaultPath(path: "/.git")): Changeset! {
+    let commit = repo.head.commit
+    development
+      .withExec([
+        "sed",
+        "-i", "editors/zed/extension.toml",
+        "-e", "s/commit = \".*\"/commit = \"" + commit + "\"/",
+      ])
+      .directory(".")
+      .changes(development.directory("."))
+  }
+
+  """
+  Enter a terminal for debugging the Neovim LSP setup.
+  """
+  nvimDebug: Container! {
+    development
+      .withFile("/usr/bin/dang", binary)
+      .withFile(
+        "/root/.config/nvim/init.vim",
+        source.file("pkg/lsp/testdata/config.vim"),
+      )
+      .withWorkdir("./pkg/lsp")
+      .terminal(experimentalPrivilegedNesting: true)
+  }
+
+  """
+  Go check dependencies, including the Dang binary used by the LSP tests.
+  """
+  base: Container! {
+    toolchain.withFile("/usr/bin/dang", binary(race: true))
+  }
+
+  let development: Container! {
+    toolchain
+      .withDirectory("/src", source)
+      .withWorkdir("/src")
+  }
+
+  let toolchain: Container! {
+    apko
+      .wolfi([
+        "bash",
+        "curl",
+        "git",
+        # Keep the checks on Go 1.26; current gRPC dependencies fail on Go 1.27.
+        "go-1.26",
+        "nodejs", "npm",
+        "neovim",
+        "clang",
+      ])
+      .withMountedCache("/go/pkg/mod", cacheVolume("go-mod"))
+      # cgo needs a C compiler: the docs build compiles the tree-sitter
+      # grammar (danglang) into its highlighter, and Wolfi ships clang, not
+      # gcc (Go's default CC).
+      .withEnvVariable("CC", "clang")
+      .withEnvVariable("GOMODCACHE", "/go/pkg/mod")
+      .withMountedCache("/go/build-cache", cacheVolume("go-build"))
+      .withEnvVariable("GOCACHE", "/go/build-cache")
+      .withExec(["npm", "install", "-g", "--allow-scripts=tree-sitter-cli", "tree-sitter-cli@v0.26.10"])
+      .withEnvVariable("GOBIN", "/go/bin")
+      .withEnvVariable("PATH", "${GOBIN}:${PATH}", expand: true)
+  }
+
+  """
+  Base with ./hack/generate ran.
+  """
+  generated: Container! {
+    development.withExec(["./hack/generate"])
+  }
+
+  test: Test! {
+    Test(self)
+  }
+}
+
+type Test {
+  let dang: Dang!
+
+  """
+  Run go tests.
+  """
+  @cache(policy: FunctionCachePolicy.Never)
+  go(
+    """
+    Arguments to pass along to go test.
+    """
+    args: [String!]! = ["./..."],
+  ): Container! {
+    dang
+      .generated
+      # install dang binary for LSP tests
+      .withFile("/usr/bin/dang", dang.binary(race: true))
+      .withExec(
+        ["go", "test"] + args,
+        experimentalPrivilegedNesting: true,
+      )
+  }
+
+  # Intentionally not marked @generate - so it's run intentionally and not
+  # redundant with full check runs.
+  """
+  Update the Golden-style test specimens, treating the current output as
+  correct.
+  """
+  update: Changeset! {
+    go(["./tests", "-update"])
+      .directory(".")
+      .changes(dang.generated.directory("."))
+  }
+
+  """
+  List available tests.
+  """
+  list(source: Workspace!): String! {
+    let out = "Tests from go test -list . ./...:\n"
+    out += go(["-list", ".", "./..."]).stdout
+    out += "\n\n"
+    out += "Tests from ./tests/test_*:\n"
+    source.directory("tests").glob("test_*").each { path =>
+      out += "- TestDang/TestLanguage/" + path + "\n"
+    }
+    out += "\n\n"
+    out += "Tests from ./tests/errors/*.dang:\n"
+    source.directory("tests/errors").glob("*.dang").each { path =>
+      out += "- TestDang/TestErrorMessages/" + path.trimSuffix(".dang") + "\n"
+    }
+    out
+  }
+
+  """
+  Run the tree-sitter tests.
+  """
+  treesitter: Void @check {
+    dang
+      .generated
+      .withWorkdir("./treesitter")
+      .withExec(["tree-sitter", "test"])
+      .sync
+
+    null
+  }
+}

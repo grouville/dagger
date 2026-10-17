@@ -1,0 +1,40 @@
+# Test that Error is a real interface you can reference
+
+type AppError implements Error {
+  message: String!
+  code: Int!
+}
+
+# rescue with Error type pattern matches any error
+let result = {
+  raise "hell"
+} rescue {
+  e: Error => e.message
+}
+
+assert { result == "hell" }
+
+# functions can accept the Error interface
+describe(err: Error!): String! {
+  "error: " + err.message
+}
+
+let described = {
+  raise AppError(message: "broken", code: 500)
+} rescue {
+  e: AppError => describe(e) + " (" + toString(e.code) + ")"
+}
+
+assert { described == "error: broken (500)" }
+
+# Error interface as a catch-all type pattern alongside specific types
+let triaged = {
+  raise "surprise"
+} rescue {
+  a: AppError => "app: " + a.message
+  e: Error => "generic: " + e.message
+}
+
+assert { triaged == "generic: surprise" }
+
+print("Error interface tests passed!")

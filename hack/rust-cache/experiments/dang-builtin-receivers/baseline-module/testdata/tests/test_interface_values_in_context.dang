@@ -1,0 +1,57 @@
+# Test using interface-typed values in various contexts
+
+interface Drawable {
+  draw: String!
+}
+
+type Circle implements Drawable {
+  radius: Int! = 5
+
+  draw: String! {
+    "Drawing circle with radius " + JSON.encode(self.radius)
+  }
+}
+
+type Rectangle implements Drawable {
+  width: Int! = 10
+  height: Int! = 20
+
+  draw: String! {
+    "Drawing rectangle " + JSON.encode(self.width) + "x" + JSON.encode(self.height)
+  }
+}
+
+# Test: Interface-typed values in variables
+let shape: Drawable! = Circle
+assert { shape.draw == "Drawing circle with radius 5" }
+
+# Test: Interface-typed values in type fields
+type Canvas {
+  shape: Drawable! = Rectangle
+}
+
+let canvas = Canvas
+assert { canvas.shape.draw == "Drawing rectangle 10x20" }
+
+# Test: Interface-typed values in function parameters
+type Renderer {
+  render(drawable: Drawable!): String! {
+    "Rendered: " + drawable.draw
+  }
+}
+
+let renderer = Renderer
+let result = renderer.render(Circle)
+assert { result == "Rendered: Drawing circle with radius 5" }
+
+# Test: Interface-typed return values
+type ShapeFactory {
+  createCircle: Drawable! = Circle
+  createRectangle: Drawable! = Rectangle
+}
+
+let factory = ShapeFactory
+let circle = factory.createCircle
+let rectangle = factory.createRectangle
+assert { circle.draw == "Drawing circle with radius 5" }
+assert { rectangle.draw == "Drawing rectangle 10x20" }

@@ -1,0 +1,54 @@
+import GitHub
+
+# Look up a repo and show its stats
+let repo = repository(owner: "golang", name: "go").{{
+  name,
+  description,
+  stargazerCount,
+  forkCount
+}}
+
+print(repo.name + " — " + repo.description)
+print(toString(repo.stargazerCount) + " stars · " + toString(repo.forkCount) + " forks")
+print("")
+
+# Fetch recently updated open issues using an input object for ordering
+let issues = repository(owner: "golang", name: "go")
+  .issues(
+    states: [IssueState.OPEN],
+    first: 5,
+    orderBy: IssueOrder(field: IssueOrderField.UPDATED_AT, direction: OrderDirection.DESC),
+  )
+  .edges.{{
+  node.{{number, title}}
+}}
+
+issues.each { edge =>
+  let issue = edge.node
+  if (issue != null) {
+    print("  #" + toString(issue.number) + "  " + issue.title)
+  }
+}
+
+print("")
+
+# Search returns a union type — select type-specific fields with inline
+# fragments, then pattern match each result with case
+let results = search(
+  query: "graphql client language:go stars:>100",
+  type: SearchType.REPOSITORY,
+  first: 5,
+).edges.{{
+  node.{{
+    ... on Repository {{ name, stargazerCount, owner.{{login}} }}
+  }}
+}}
+
+print("Top GraphQL clients for Go:")
+
+results.each { result =>
+  case (result.node) {
+    r: Repository => print("  " + r.owner.login + "/" + r.name + " (" + toString(r.stargazerCount) + " stars)")
+    else => print("  (other)")
+  }
+}

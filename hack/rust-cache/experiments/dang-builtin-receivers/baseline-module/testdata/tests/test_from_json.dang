@@ -1,0 +1,76 @@
+enum Status { PASSED FAILED }
+scalar CustomScalar
+
+type Child {
+  name: String!
+  outcome: Status!
+}
+
+type Summary {
+  children: [Child!]!
+  optional: String
+  withDefault: String! = "default"
+}
+
+echoStatus(status: Status!): Status! { status }
+
+parseSummary(data: String!): Summary! { JSON.decode(data) }
+
+parseSummaryReturn(data: String!): Summary! {
+  return JSON.decode(data)
+}
+
+let status1 = JSON.decode("\"PASSED\"") :: Status!
+assert { status1 == Status.PASSED }
+
+let status2: Status! = JSON.decode("\"FAILED\"")
+assert { status2 == Status.FAILED }
+
+let status3 = echoStatus(JSON.decode("\"PASSED\""))
+assert { status3 == Status.PASSED }
+
+let direct = "FAILED" :: Status!
+assert { direct == Status.FAILED }
+
+let scalar: CustomScalar! = JSON.decode("\"hello\"")
+assert { scalar == "hello" }
+
+let summary: Summary! = JSON.decode("""
+{
+  "children": [
+    {"name": "one", "outcome": "PASSED", "ignored": true},
+    {"name": "two", "outcome": "FAILED"}
+  ]
+}
+""")
+
+assert { summary.children.length == 2 }
+assert { summary.children[0].name == "one" }
+assert { summary.children[0].outcome == Status.PASSED }
+assert { summary.children[1].outcome == Status.FAILED }
+assert { summary.optional == null }
+assert { summary.withDefault == "default" }
+
+let parsed = parseSummary("""
+{
+  "children": [
+    {"name": "three", "outcome": "PASSED"}
+  ]
+}
+""")
+assert { parsed.children[0].name == "three" }
+assert { parsed.children[0].outcome == Status.PASSED }
+
+let parsedReturn = parseSummaryReturn("""
+{
+  "children": [
+    {"name": "four", "outcome": "FAILED"}
+  ]
+}
+""")
+assert { parsedReturn.children[0].name == "four" }
+assert { parsedReturn.children[0].outcome == Status.FAILED }
+
+let anon = JSON.decode("{\"foo\": 1, \"bar\": \"PASSED\", \"extra\": 2}") :: {{foo: Int!, bar: Status!}}!
+assert { anon.foo == 1 }
+assert { anon.bar == Status.PASSED }

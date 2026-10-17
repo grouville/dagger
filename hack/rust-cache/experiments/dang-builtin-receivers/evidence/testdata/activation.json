@@ -1,0 +1,44 @@
+[
+  {
+    "label": "retained-before",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/dang-builtin-receivers/verify_retained_first.py",
+      "builtin-receivers-before-first"
+    ],
+    "exit_code": 0,
+    "unix_start": 1792249362.732642,
+    "unix_end": 1792249369.3528469
+  },
+  {
+    "label": "restart",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/restart_owned_engine_clean.py",
+      "--engine",
+      "dagger-rust-parser-state-pool-oct14",
+      "--debug-port",
+      "16104",
+      "--output",
+      "/tmp/rust-cache-sipsma-review/dang-builtin-receivers/restart",
+      "--binary",
+      "/tmp/rust-cache-sipsma-review/dang-builtin-receivers/dagger-engine",
+      "--readiness-timeout",
+      "480"
+    ],
+    "exit_code": 0,
+    "unix_start": 1792249369.3956795,
+    "unix_end": 1792249590.6363657
+  },
+  {
+    "label": "retained-after",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/dang-builtin-receivers/verify_retained_first.py",
+      "builtin-receivers-after-first"
+    ],
+    "exit_code": 0,
+    "unix_start": 1792249591.7854476,
+    "unix_end": 1792249601.8026104
+  }
+]

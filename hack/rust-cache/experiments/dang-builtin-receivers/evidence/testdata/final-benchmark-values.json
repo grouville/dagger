@@ -1,0 +1,46 @@
+[
+  {
+    "arm": "baseline",
+    "cwd": "/tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/dang-builtin-receivers/baseline-tests-overlay.json",
+      "-run",
+      "^$",
+      "-bench",
+      "^BenchmarkBuiltinReceiverExpression$",
+      "-benchtime=1x",
+      "-count=1",
+      "./pkg/dang"
+    ],
+    "exit_code": 0,
+    "seconds": 3.180411633918993,
+    "correctness_only": true,
+    "not_performance_sample": true
+  },
+  {
+    "arm": "candidate",
+    "cwd": "/tmp/dang-direct-builtin-receivers",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-run",
+      "^$",
+      "-bench",
+      "^BenchmarkBuiltinReceiverExpression$",
+      "-benchtime=1x",
+      "-count=1",
+      "./pkg/dang"
+    ],
+    "exit_code": 0,
+    "seconds": 3.18182760104537,
+    "correctness_only": true,
+    "not_performance_sample": true
+  }
+]

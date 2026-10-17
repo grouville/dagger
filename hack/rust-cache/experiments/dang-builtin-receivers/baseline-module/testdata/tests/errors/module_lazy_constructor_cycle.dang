@@ -1,0 +1,8 @@
+# A real module initialization cycle can be hidden behind a constructor default.
+# The lazy runtime initializer should report the cycle when the field is evaluated.
+lazyCtorA: LazyCtorCycle! = LazyCtorCycle
+lazyCtorB: LazyCtorCycle! = lazyCtorA
+
+type LazyCtorCycle {
+  x: LazyCtorCycle! = lazyCtorB
+}

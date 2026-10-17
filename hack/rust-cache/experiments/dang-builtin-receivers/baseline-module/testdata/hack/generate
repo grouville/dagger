@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+set -e -u -x
+
+go generate ./...
+
+pushd treesitter
+  go generate ./...
+popd
+
+# The docs playground ships the grammar compiled to wasm, but building it needs
+# the tree-sitter CLI and it's large, so it isn't built here (nor committed):
+# the publishGrammars Dagger function builds it and uploads it to R2, and the
+# docs build fetches it back. Run `docs/build-highlight-assets.sh --grammar-only`
+# by hand to preview a local grammar change before publishing.

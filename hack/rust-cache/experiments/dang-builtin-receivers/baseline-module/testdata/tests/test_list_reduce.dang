@@ -1,0 +1,41 @@
+# Test list.reduce() method
+
+# Basic sum with integers
+numbers: [Int!]! = [1, 2, 3, 4, 5]
+sum: Int! = numbers.reduce(0) { acc, x => acc + x }
+assert { sum == 15 }
+
+# Product with integers
+product: Int! = numbers.reduce(1) { acc, x => acc * x }
+assert { product == 120 }
+
+# Concatenate strings
+words: [String!]! = ["hello", " ", "world"]
+sentence: String! = words.reduce("") { acc, word => acc + word }
+assert { sentence == "hello world" }
+
+# Count elements (alternative to length)
+count: Int! = numbers.reduce(0) { acc, x => acc + 1 }
+assert { count == 5 }
+
+# Find maximum
+max: Int! = [3, 7, 2, 9, 1].reduce(0) { acc, x => if (x > acc) { x } else { acc } }
+assert { max == 9 }
+
+# Empty list returns initial value
+empty: [Int!]! = []
+empty_sum: Int! = empty.reduce(42) { acc, x => acc + x }
+assert { empty_sum == 42 }
+
+# Single element
+single: [Int!]! = [5]
+single_sum: Int! = single.reduce(10) { acc, x => acc + x }
+assert { single_sum == 15 }
+
+# Build a list (reverse)
+original: [Int!]! = [1, 2, 3]
+empty_list: [Int!]! = []
+reversed: [Int!]! = original.reduce(empty_list) { acc, x => [x] + acc }
+assert { reversed == [3, 2, 1] }
+
+print("List reduce tests passed!")

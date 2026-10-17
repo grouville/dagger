@@ -1,0 +1,8 @@
+# Test: user-defined function requires block argument
+
+withBlock(&block(x: Int!): String!): String! {
+  block(42)
+}
+
+# ERROR: function requires a block argument
+result: String! = withBlock

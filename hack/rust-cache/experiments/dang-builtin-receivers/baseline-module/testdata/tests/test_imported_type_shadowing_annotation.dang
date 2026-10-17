@@ -1,0 +1,18 @@
+# Local type declarations shadow unqualified imported types before constant
+# annotations are resolved. The Test schema also exports User; this nullable
+# field must use the local User declared below, not Test.User.
+
+import Test
+
+maybe: User = null
+
+# This assignment is inferred after local types are declared. If `maybe` was
+# incorrectly inferred as Test.User during the constants phase, assigning it to
+# local User would fail with "cannot use Test.User as User".
+echoed: User = maybe
+
+type User {
+  name: String!
+}
+
+assert { echoed == null }

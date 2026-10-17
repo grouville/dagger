@@ -1,0 +1,24 @@
+# Test string literals and escape sequences
+
+# Basic strings
+let empty = ""
+let simple = "hello"
+let with_spaces = "hello world"
+let with_numbers = "test123"
+
+assert { empty == "" }
+assert { simple == "hello" }
+assert { with_spaces == "hello world" }
+assert { with_numbers == "test123" }
+
+# String escape sequences
+let quote_escape = "He said \"hello\""
+let backslash = "path\\file"
+let newline = "line1\nline2"
+let tab = "before\tafter"
+
+# Test that escapes work (can't test exact content easily without print)
+assert { quote_escape == "He said \"hello\"" }
+assert { backslash == "path\\file" }
+
+print("String tests passed!")

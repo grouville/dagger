@@ -1,0 +1,39 @@
+{
+  "command": [
+    "strace",
+    "-f",
+    "-qq",
+    "-ttt",
+    "-T",
+    "-s",
+    "256",
+    "-e",
+    "trace=openat,newfstatat,statx",
+    "-P",
+    "/tmp/dagger-go-module-test-name-index/dagger.toml",
+    "-o",
+    "/tmp/rust-cache-sipsma-review/dang-builtin-receivers/toml-host-read-probe/config-host.strace",
+    "--",
+    "/tmp/rust-cache-sipsma-review/filesync-literal-pathwalk/dagger-after",
+    "check",
+    "--module",
+    "go",
+    "--check",
+    "test",
+    "--list",
+    "--all"
+  ],
+  "diagnostic_only": true,
+  "not_a_latency_benchmark": true,
+  "note": "Trace one public module configuration path. Count host syscalls, not parser calls. Retain fresh file reads and normal telemetry/GC.",
+  "config_sha256_before": "ce4c1322b74d0c8fe5d8536794979cc6fef7aae2e8064f566cf73f2b8f87bdcd",
+  "config_bytes": 1649,
+  "initial_modes": {
+    "batch-metadata": false,
+    "attribute-array-decode": false,
+    "usage-sampling": false,
+    "restored-posting-removal": false,
+    "span-lookup-fanout": true,
+    "builtin-receivers": false
+  }
+}

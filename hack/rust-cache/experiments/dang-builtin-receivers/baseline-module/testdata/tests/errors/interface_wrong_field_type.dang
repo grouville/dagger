@@ -1,0 +1,10 @@
+# Test that interface field types must match
+
+interface Identifiable {
+  ref: ID!
+}
+
+type User implements Identifiable {
+  ref: String! # Wrong: should be ID!
+  name: String!
+}

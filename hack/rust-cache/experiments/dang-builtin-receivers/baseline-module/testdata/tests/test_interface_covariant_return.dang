@@ -1,0 +1,45 @@
+# Test covariant return types in interface implementations
+# An object can return a more specific (non-null) type when the interface returns a nullable type
+
+interface DataProvider {
+  getData: String
+}
+
+# Test: Object returns non-null where interface allows null (covariance)
+type StrictDataProvider implements DataProvider {
+  data: String!
+
+  getData: String! {
+    data
+  }
+}
+
+let provider = StrictDataProvider(data: "test data")
+let result = provider.getData
+assert { result == "test data" }
+
+# Test: Multiple levels of covariance
+interface OptionalResult {
+  value: String
+}
+
+type RequiredResult implements OptionalResult {
+  value: String!
+}
+
+let required = RequiredResult(value: "required")
+assert { required.value == "required" }
+
+# Test: List covariance - [String!] is subtype of [String]
+interface ItemProvider {
+  items: [String]
+}
+
+type StrictItemProvider implements ItemProvider {
+  items: [String!]
+}
+
+let strictItems = StrictItemProvider(items: ["a", "b", "c"])
+assert { strictItems.items[0] == "a" }
+
+print("Covariant return type tests passed!")

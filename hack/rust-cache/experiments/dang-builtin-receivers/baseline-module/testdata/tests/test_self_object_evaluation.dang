@@ -1,0 +1,24 @@
+# Regression test for self availability during object evaluation
+# This specifically tests the case that was broken before commit ebfec33
+
+type SelfDuringEvaluation {
+  pub config = {{
+    items: [],
+    name: "default"
+  }}
+
+  # This computed field uses self during object body evaluation
+  # It should fail if self is not bound during object construction
+  computedField: String! = config.name + "_computed"
+
+  # Regular method that should work after construction
+  getName: String! {
+    self.config.name
+  }
+}
+
+# Test that self works during object evaluation (the regression)
+assert { SelfDuringEvaluation.computedField == "default_computed" }
+
+# Test that regular method calls still work
+assert { SelfDuringEvaluation.getName == "default" }

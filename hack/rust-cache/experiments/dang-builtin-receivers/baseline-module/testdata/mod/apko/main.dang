@@ -1,0 +1,76 @@
+"""
+Builds containers from simple lists of packages using the Apko CLI.
+"""
+type Apko {
+  let arch = case (defaultPlatform) {
+    "linux/amd64" => "x86_64"
+    "linux/arm64" => "arm64"
+  }
+
+  let config = {{
+    contents: {{
+      packages: [] :: [String!]!,
+      repositories: [] :: [String!]!,
+      keyring: [] :: [String!]!
+    }},
+
+    cmd: "",
+    environment: ["PATH": "/usr/local/bin:/usr/bin:/bin"],
+
+    archs: [arch]
+  }}
+
+  withAlpine(branch: String! = "edge"): Apko! {
+    self.config.contents.packages += ["apk-tools"]
+    self.config.contents.repositories += [
+      "https://dl-cdn.alpinelinux.org/alpine/" + branch + "/main",
+    ]
+    self
+  }
+
+  withWolfi: Apko! {
+    self.config.contents.packages += ["wolfi-base"]
+    self.config.contents.keyring += [
+      "https://packages.wolfi.dev/os/wolfi-signing.rsa.pub",
+    ]
+    self.config.contents.repositories += [
+      "https://packages.wolfi.dev/os",
+    ]
+    self
+  }
+
+  withPackages(packages: [String!]!): Apko! {
+    self.config.contents.packages += packages
+    self
+  }
+
+  withArchs(archs: [String!]!): Apko! {
+    self.config.archs += archs
+    self
+  }
+
+  asContainer: Container! {
+    let apko = container.from("cgr.dev/chainguard/apko")
+    container
+      .import(
+        apko
+          .withMountedCache("/apkache/", cacheVolume("apko"), owner: apko.user)
+          .withNewFile("/config.yml", contents: toString(config))
+          .withExec(["apko", "build", "--cache-dir", "/apkache/", "/config.yml", "latest", "layout.tar"])
+          .file("layout.tar"),
+      )
+  }
+
+  alpine(packages: [String!]!, branch: String! = "edge"): Container! {
+    withAlpine(branch).withPackages(packages).asContainer
+  }
+
+  wolfi(packages: [String!]!, branch: String! = "edge"): Container! {
+    withWolfi.withPackages(packages).asContainer
+  }
+}
+
+# USAGE:
+# print(toString(Apko.withAlpine.config))
+# print(Apko.withAlpine.withPackages(["git"]).asContainer.withExec(["git", "version"]).stdout)
+# print(Apko.alpine(["git"]).withExec(["git", "version"]).stdout)

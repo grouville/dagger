@@ -1,0 +1,21 @@
+import Test
+
+type MyClass {
+  value: Int! = 0
+
+  new(v: Int!) {
+    self.value = v
+    self
+  }
+
+  add(value: Int!): MyClass! {
+    self.value += value
+    self
+  }
+
+  currentValue: Int! {
+    serverInfo.totalPosts + self.value
+  }
+}
+
+MyClass(42).currentValue

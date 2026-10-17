@@ -1,0 +1,23 @@
+# Test list.length method
+
+# Basic functionality with integers
+numbers: [Int!]! = [1, 2, 3, 4, 5]
+assert { numbers.length == 5 }
+
+# Single element
+single: [String!]! = ["hello"]
+assert { single.length == 1 }
+
+# Empty list
+empty: [Int!]! = []
+assert { empty.length == 0 }
+
+# List of strings
+words: [String!]! = ["hello", "world", "foo", "bar"]
+assert { words.length == 4 }
+
+# Nullable elements still count
+nullable: [Int]! = [1, null, 3, null, 5]
+assert { nullable.length == 5 }
+
+print("List length tests passed!")

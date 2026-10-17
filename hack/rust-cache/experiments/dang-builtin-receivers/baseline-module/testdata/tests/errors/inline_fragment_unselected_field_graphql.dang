@@ -1,0 +1,14 @@
+# Test that accessing a field not selected in a GraphQL inline fragment is caught at type-checking time
+
+import Test
+
+let results = search(query: "John").{{
+  ... on User {{ name }}
+  ... on Post {{ title }}
+}}
+
+let first = results[0]
+let desc = case (first) {
+  u: User => u.age
+  p: Post => p.title
+}

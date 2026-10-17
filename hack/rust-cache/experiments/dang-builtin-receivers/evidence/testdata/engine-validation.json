@@ -1,0 +1,97 @@
+[
+  {
+    "label": "off-library",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/dang-builtin-receivers/engine-overlay.json",
+      "-race",
+      "-count=1",
+      "github.com/vito/dang/v2/pkg/dang"
+    ],
+    "exit_code": 0,
+    "seconds": 35.705926973954774
+  },
+  {
+    "label": "off-sdk",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/dang-builtin-receivers/engine-overlay.json",
+      "-race",
+      "-count=1",
+      "./core/sdk/dang/v2"
+    ],
+    "exit_code": 0,
+    "seconds": 59.20617554499768
+  },
+  {
+    "label": "on-library",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/dang-builtin-receivers/engine-overlay.json",
+      "-race",
+      "-count=1",
+      "github.com/vito/dang/v2/pkg/dang"
+    ],
+    "exit_code": 0,
+    "seconds": 31.193788479897194
+  },
+  {
+    "label": "on-sdk",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/dang-builtin-receivers/engine-overlay.json",
+      "-race",
+      "-count=1",
+      "./core/sdk/dang/v2"
+    ],
+    "exit_code": 0,
+    "seconds": 8.265708046965301
+  },
+  {
+    "label": "engine-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "build",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/dang-builtin-receivers/engine-overlay.json",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/dang-builtin-receivers/dagger-engine",
+      "./cmd/engine"
+    ],
+    "exit_code": 0,
+    "seconds": 39.71235616900958
+  }
+]

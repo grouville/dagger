@@ -1,0 +1,27 @@
+# Test default operator that works
+
+# Basic null coalescing in function
+get_fallback: String! {
+  null ?? "fallback_value"
+}
+
+get_existing: String! {
+  "existing" ?? "fallback_value"
+}
+
+# Test results
+let result1 = get_fallback
+let result2 = get_existing
+
+assert { result1 == "fallback_value" }
+assert { result2 == "existing" }
+
+# Test with numbers
+get_number: Int! {
+  null ?? 42
+}
+
+let number_result = get_number
+assert { number_result == 42 }
+
+print("Default operator tests passed!")

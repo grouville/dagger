@@ -1,0 +1,8 @@
+# Simplified nested block test
+
+nested: [[Int!]!]! = [[1, 2], [3, 4]]
+doubled: [[Int!]!]! = nested.map { inner => inner.map { x => x * 2 } }
+
+assert { doubled[0][0] == 2 }
+
+print("Nested block test passed!")

@@ -1,0 +1,10 @@
+# Test that a type implementing an interface must have all required fields
+
+interface Greetable {
+  greet: String!
+}
+
+type Person implements Greetable {
+  name: String!
+  # Missing: pub greet: String!
+}

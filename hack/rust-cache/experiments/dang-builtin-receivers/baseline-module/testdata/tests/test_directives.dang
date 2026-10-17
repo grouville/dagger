@@ -1,0 +1,30 @@
+# Test GraphQL directive declarations and applications
+
+# Test basic directive declaration
+directive @deprecated(reason: String = "No longer supported") on FIELD_DEFINITION | OBJECT
+
+# Test simple directive with no arguments
+directive @experimental on FIELD_DEFINITION | ARGUMENT_DEFINITION
+
+# Test directive with required argument
+directive @auth(role: String!) on FIELD_DEFINITION
+
+# Test directive with multiple arguments
+directive @cache(ttl: Int! = 300, key: String) on FIELD_DEFINITION
+
+# Test directive applications on type declarations
+type Person @deprecated(reason: "Use NewPerson instead") {
+  id: String!
+  name: String! @deprecated(reason: "Use displayName instead")
+  displayName: String!
+  email: String! @experimental
+  adminData: String! @auth(role: "admin")
+  cachedData: String! @cache(ttl: 60, key: "user_cache")
+}
+
+# Test directive application on function arguments
+processUser(user: Person! @experimental): String! {
+  user.displayName
+}
+
+print("Directive tests passed!")

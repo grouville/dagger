@@ -1,0 +1,54 @@
+# Test case expression with type patterns on interfaces
+
+interface Named {
+  name: String!
+}
+
+type Person implements Named {
+  name: String!
+  age: Int! = 25
+}
+
+type Company implements Named {
+  name: String!
+  employees: Int! = 10
+}
+
+# An interface's implementer set is open, so matching specific implementers
+# is never exhaustive: the result is nullable without an else or an
+# interface catch-all
+describe(named: Named!): String {
+  case (named) {
+    p: Person => p.name + " (age " + toString(p.age) + ")"
+    c: Company => c.name + " (" + toString(c.employees) + " employees)"
+  }
+}
+
+let person = Person(name: "Alice", age: 30)
+let company = Company(name: "Acme", employees: 50)
+
+assert { describe(person) == "Alice (age 30)" }
+assert { describe(company) == "Acme (50 employees)" }
+
+# interface as a type pattern — matches any implementer
+getName(named: Named!): String! {
+  case (named) {
+    n: Named => n.name
+  }
+}
+
+assert { getName(person) == "Alice" }
+assert { getName(company) == "Acme" }
+
+# interface as a fallback after specific types
+describeWithFallback(named: Named!): String! {
+  case (named) {
+    p: Person => "person: " + p.name
+    n: Named => "other: " + n.name
+  }
+}
+
+assert { describeWithFallback(person) == "person: Alice" }
+assert { describeWithFallback(company) == "other: Acme" }
+
+print("Interface case discrimination tests passed!")

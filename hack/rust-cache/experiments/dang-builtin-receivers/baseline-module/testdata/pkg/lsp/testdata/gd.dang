@@ -1,0 +1,35 @@
+# local binding
+let bound = 42
+
+bound # test: gd => ┃bound = 42
+
+# function definition
+"""
+Adds two numbers.
+"""
+addNums(x: Int!, y: Int!): Int! {
+  x + y # test: ^gd => addNums(┃x: Int!, y: Int!): Int! {
+}
+
+addNums # test: ^gd => ┃addNums(x: Int!, y: Int!): Int! {
+
+# nested scope
+let outer = 1
+
+innerFn: Int! {
+  let inner = 2
+  outer + inner # test: ^gd => let ┃outer = 1
+}
+
+innerFn # test: ^gd => ┃innerFn: Int! {
+
+# type/class definition
+type Person {
+  name: String!
+  age: Int!
+}
+
+Person # test: ^gd => type ┃Person {
+
+# cross-file: multiply(...) is declared in hover.dang
+multiply # test: ^gd => ┃multiply(x: Int!, y: Int!): Int! {

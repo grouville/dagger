@@ -1,0 +1,74 @@
+# Test custom error types implementing the Error interface
+
+type NotFoundError implements Error {
+  message: String!
+  resource: String!
+}
+
+type ValidationError implements Error {
+  message: String!
+  field: String!
+}
+
+# raise a custom error type, typed catch-all
+let result = {
+  raise NotFoundError(message: "user not found", resource: "User")
+} rescue {
+  err: Error => err.message
+}
+
+assert { result == "user not found" }
+
+# rescue with type patterns — like case but directly in rescue
+let matched = {
+  raise ValidationError(message: "too short", field: "name")
+} rescue {
+  v: ValidationError => "invalid " + v.field + ": " + v.message
+  n: NotFoundError => "missing " + n.resource
+}
+
+assert { matched == "invalid name: too short" }
+
+# match the other branch
+let matched2 = {
+  raise NotFoundError(message: "gone", resource: "Post")
+} rescue {
+  v: ValidationError => "invalid " + v.field
+  n: NotFoundError => "missing " + n.resource
+}
+
+assert { matched2 == "missing Post" }
+
+# type patterns with a catch-all fallback
+let withFallback = {
+  raise "plain error"
+} rescue {
+  v: ValidationError => "validation"
+  err: Error => "other: " + err.message
+}
+
+assert { withFallback == "other: plain error" }
+
+# custom errors propagate through function calls
+validate(name: String!): String! {
+  if (name == "") {
+    raise ValidationError(message: "must not be empty", field: "name")
+  } else {
+    name
+  }
+}
+
+let validated = validate("") rescue {
+  v: ValidationError => v.field + " " + v.message
+}
+
+assert { validated == "name must not be empty" }
+
+# non-error path works normally
+let ok = validate("Alice") rescue {
+  err: Error => "unreachable"
+}
+
+assert { ok == "Alice" }
+
+print("Custom error type tests passed!")

@@ -1,0 +1,41 @@
+# Test reassignment functionality
+
+let x = 42
+let y = "hello"
+let flag = true
+
+# Test basic reassignment
+x = 100
+assert { x == 100 }
+
+# Test string reassignment
+y = "world"
+assert { y == "world" }
+
+# Test boolean reassignment
+flag = false
+assert { flag == false }
+
+# Test reassignment in blocks
+{
+  assert("field inherited type and was assigned locally") { x == 100 }
+  x = 200
+  assert("field inherited type and was assigned locally") { x == 200 }
+}
+assert("updates the outer field, because the block did not declare its own") { x == 200 }
+
+let fs = {{a: {{b: {{c: 42}}}}}}
+fs.a.b.c = 100
+assert { fs.a.b.c == 100 }
+
+fs.a.b.c += 50
+assert { fs.a.b.c == 150 }
+
+# Test copy-on-write semantics
+let original = {{a: {{b: {{c: 1}}}}}}
+let modified = original
+modified.a.b.c = 2
+assert { original.a.b.c == 1 }
+assert { modified.a.b.c == 2 }
+
+print("Reassignment tests passed!")

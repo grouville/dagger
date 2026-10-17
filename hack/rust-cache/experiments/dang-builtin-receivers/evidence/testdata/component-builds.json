@@ -1,0 +1,55 @@
+[
+  {
+    "label": "baseline-guards",
+    "cwd": "/tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-race",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/dang-builtin-receivers/baseline-tests-overlay.json",
+      "-count=1",
+      "-run",
+      "TestBuiltinReceiver",
+      "./pkg/dang"
+    ],
+    "exit_code": 0,
+    "seconds": 6.775319273932837
+  },
+  {
+    "label": "before-build",
+    "cwd": "/tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-c",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/dang-builtin-receivers/before.test",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/dang-builtin-receivers/baseline-tests-overlay.json",
+      "./pkg/dang"
+    ],
+    "exit_code": 0,
+    "seconds": 4.0181433979887515
+  },
+  {
+    "label": "after-build",
+    "cwd": "/tmp/dang-direct-builtin-receivers",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-c",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/dang-builtin-receivers/after.test",
+      "./pkg/dang"
+    ],
+    "exit_code": 0,
+    "seconds": 5.597313401987776
+  }
+]

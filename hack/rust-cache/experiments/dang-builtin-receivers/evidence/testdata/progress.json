@@ -1,0 +1,163 @@
+{
+  "stage": "Direct registered builtin receivers validated and selected; full Go listing goal remains unresolved.",
+  "full_command": {
+    "pairs": 4,
+    "warmup_pairs": 1,
+    "all_commands_succeeded": true,
+    "successful_commands": {
+      "before": 4,
+      "after": 4
+    },
+    "failed_commands": {
+      "before": 0,
+      "after": 0
+    },
+    "median_seconds_all_attempts": {
+      "before": 46.83822647394845,
+      "after": 45.70578133693198
+    },
+    "successful_seconds": {
+      "before": [
+        46.59823111793958,
+        47.07822182995733,
+        46.463340651011094,
+        55.195790481055155
+      ],
+      "after": [
+        45.88678875193,
+        41.39389226702042,
+        45.524773921933956,
+        47.78885251097381
+      ]
+    },
+    "median_last_row_seconds": {
+      "before": 46.74819114600541,
+      "after": 45.610026437963825
+    },
+    "median_allocated_bytes": {
+      "before": 36814853084.0,
+      "after": 34818561648.0
+    },
+    "median_engine_cpu": {
+      "before": 240.64710600000006,
+      "after": 229.24976399999997
+    },
+    "both_succeeded_pairs": 4,
+    "faster_successful_pairs": 4,
+    "same_rows": true,
+    "rows": 4398,
+    "warmup_rows": 4399,
+    "metadata_edit_add_then_remove": true
+  },
+  "host_read_probe": {
+    "exit_code": 0,
+    "diagnostic_elapsed_seconds": 58.541637001908384,
+    "same_rows": true,
+    "rows": 4398,
+    "host_calls": {
+      "openat": 15003,
+      "newfstatat": 15005,
+      "statx": 0
+    },
+    "config_unchanged": true,
+    "config_sha256_after": "ce4c1322b74d0c8fe5d8536794979cc6fef7aae2e8064f566cf73f2b8f87bdcd",
+    "trace_bytes": 5198603,
+    "parser_call_count_not_measured": true
+  },
+  "native_histories": "All six pass before restart, first call after restart, and after the full Go cohort and trace.",
+  "new_pr_opened": false,
+  "final_engine_sha256": "31d34ab1db479241b727df982269cd2ee73254e64b7ad443de2af95e4f1cbfa9",
+  "final_validation": [
+    {
+      "label": "baseline-final-guards",
+      "cwd": "/tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-p",
+        "2",
+        "-race",
+        "-overlay",
+        "/tmp/rust-cache-sipsma-review/dang-builtin-receivers/baseline-tests-overlay.json",
+        "-count=1",
+        "-run",
+        "^TestBuiltinReceiver",
+        "./pkg/dang"
+      ],
+      "exit_code": 0,
+      "seconds": 6.814211191027425
+    },
+    {
+      "label": "pure-final-race",
+      "cwd": "/tmp/dang-direct-builtin-receivers",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-p",
+        "2",
+        "-race",
+        "-count=1",
+        "./pkg/dang"
+      ],
+      "exit_code": 0,
+      "seconds": 35.58838521502912
+    },
+    {
+      "label": "final-activation",
+      "cwd": "/tmp/rust-cache-sipsma-review/dang-builtin-receivers",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/dang-builtin-receivers/json-compatibility/activate.py"
+      ],
+      "exit_code": 0,
+      "seconds": 229.39001823810395
+    }
+  ],
+  "final_metadata_guard_fixed": true,
+  "benchmark_expected_values": [
+    {
+      "arm": "baseline",
+      "cwd": "/tmp/rust-cache-sipsma-review/dang-module-blueprint-content-key",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-p",
+        "2",
+        "-overlay",
+        "/tmp/rust-cache-sipsma-review/dang-builtin-receivers/baseline-tests-overlay.json",
+        "-run",
+        "^$",
+        "-bench",
+        "^BenchmarkBuiltinReceiverExpression$",
+        "-benchtime=1x",
+        "-count=1",
+        "./pkg/dang"
+      ],
+      "exit_code": 0,
+      "seconds": 3.180411633918993,
+      "correctness_only": true,
+      "not_performance_sample": true
+    },
+    {
+      "arm": "candidate",
+      "cwd": "/tmp/dang-direct-builtin-receivers",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-p",
+        "2",
+        "-run",
+        "^$",
+        "-bench",
+        "^BenchmarkBuiltinReceiverExpression$",
+        "-benchtime=1x",
+        "-count=1",
+        "./pkg/dang"
+      ],
+      "exit_code": 0,
+      "seconds": 3.18182760104537,
+      "correctness_only": true,
+      "not_performance_sample": true
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+# Local declarations should shadow unqualified GraphQL imports while qualified
+# imports remain available. Test and Other expose the same schema, so these
+# local declarations also prove a local type resolves import ambiguity.
+
+import Other
+import Test
+
+type User {
+  name: String!
+  origin: String! = "local"
+}
+
+localUser: User! = User("Local User")
+assert { localUser.name == "Local User" }
+assert { localUser.origin == "local" }
+
+testUser: Test.User! = Test.primaryUser
+assert { testUser.name == "John Doe" }
+
+otherUser: Other.User! = Other.secondaryUser
+assert { otherUser.name == "Jane Smith" }
+
+enum Status { LOCAL REMOTE }
+
+localStatus: Status! = Status.LOCAL
+assert { localStatus == Status.LOCAL }
+assert { localStatus != Status.REMOTE }
+assert { Test.status == Test.Status.ACTIVE }
+assert { Other.status == Other.Status.ACTIVE }
+
+scalar URL
+
+let localURL = URL
+assert { localURL != null }
+
+testURL: Test.URL! = Test.homepage
+assert { testURL == "https://dang-lang.dev" }
+
+otherURL: Other.URL! = Other.homepage
+assert { otherURL == "https://dang-lang.dev" }
+
+interface Node {
+  label: String!
+}
+
+type Labelled implements Node {
+  label: String!
+}
+
+localNode: Node! = Labelled("local-node")
+assert { Node != null }
+assert { localNode.label == "local-node" }
+
+testNode: Test.Node = Test.node(id: "1")
+assert { testNode.id == "1" }
+
+otherNode: Other.Node = Other.node(id: "2")
+assert { otherNode.id == "2" }
+
+type Cat {
+  name: String!
+}
+
+type Dog {
+  name: String!
+}
+
+union SearchResult = Cat | Dog
+
+localSearchResult: SearchResult! = Cat("Whiskers")
+assert { SearchResult != null }
+
+let localSearchName = case (localSearchResult) {
+  c: Cat => c.name
+  d: Dog => d.name
+}
+assert { localSearchName == "Whiskers" }
+
+testSearchResults: [Test.SearchResult!]! = Test.search(query: "John")
+assert { testSearchResults != null }
+
+otherSearchResults: [Other.SearchResult!]! = Other.search(query: "Jane")
+assert { otherSearchResults != null }
