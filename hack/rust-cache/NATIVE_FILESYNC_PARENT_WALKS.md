@@ -1,3 +1,5 @@
+The [validated literal-include walk](NATIVE_FILESYNC_LITERAL_WALKS.md) reduces visited entries to 237,287 and improves complete listing **55.81 → 52.03 seconds** in a separate balanced cohort. The original diagnostic below identified that opportunity.
+
 The next filesystem target is parent-directory synchronization. A complete diagnostic visits **5,581,952 host entries** across **2,426 directory-walk streams**. Of these, **1,213 parent-only streams visit 5,351,714 entries (95.9%)**; the 1,213 content streams visit 230,238. This establishes repeated traversal work, not a measured speedup.
 
 The diagnostic CLI delegates every original FS operation and counts callbacks before the include/exclude filter. Listing completes in 53.60 seconds, exits successfully and returns the same 4,398 rows. Telemetry and ordinary GC remain enabled; CPU profiling and wcprof are disabled for this capture. Instrumentation timing is not a clean performance comparison.
