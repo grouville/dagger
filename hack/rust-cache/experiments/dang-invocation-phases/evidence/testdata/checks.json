@@ -1,0 +1,77 @@
+[
+  {
+    "label": "shared-tests",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/test-overlay.json",
+      "-count=1",
+      "./core/sdk/dang/shared"
+    ],
+    "seconds": 7.762012313003652,
+    "exit_code": 0
+  },
+  {
+    "label": "v2-tests",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/test-overlay.json",
+      "-count=1",
+      "./core/sdk/dang/v2"
+    ],
+    "seconds": 11.050521473982371,
+    "exit_code": 0
+  },
+  {
+    "label": "shared-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/test-overlay.json",
+      "-race",
+      "-count=1",
+      "./core/sdk/dang/shared"
+    ],
+    "seconds": 59.239813129999675,
+    "exit_code": 0
+  },
+  {
+    "label": "engine-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "build",
+      "-p",
+      "2",
+      "-buildvcs=false",
+      "-modfile",
+      "/tmp/rust-cache-sipsma-review/otel-evicted-queue/engine.go.mod",
+      "-overlay",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/engine-overlay.json",
+      "-o",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/dagger-engine",
+      "./cmd/engine"
+    ],
+    "seconds": 41.880022214958444,
+    "exit_code": 0,
+    "sha256": "0ffed89755b618fd5b44ed15f3873b6236a51a3b3fc1a4829bc74457124413c5"
+  }
+]

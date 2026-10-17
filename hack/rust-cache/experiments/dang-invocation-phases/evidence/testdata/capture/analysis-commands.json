@@ -1,0 +1,94 @@
+[
+  {
+    "command": [
+      "/tmp/rust-cache-wcprof-report",
+      "-view",
+      "critpath",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/wcprof-complete.ndjson"
+    ],
+    "output": "wcprof-critical.txt",
+    "seconds": 1.9859845830360427,
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "/tmp/rust-cache-wcprof-report",
+      "-view",
+      "classes",
+      "-kind",
+      "internal",
+      "-sort",
+      "self",
+      "-top",
+      "35",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/wcprof-complete.ndjson"
+    ],
+    "output": "wcprof-internal.txt",
+    "seconds": 2.0556509640300646,
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "/tmp/rust-cache-wcprof-report",
+      "-view",
+      "classes",
+      "-kind",
+      "call",
+      "-sort",
+      "self",
+      "-top",
+      "30",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/wcprof-complete.ndjson"
+    ],
+    "output": "wcprof-calls.txt",
+    "seconds": 1.9704835279844701,
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "tool",
+      "pprof",
+      "-top",
+      "-nodecount=50",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/dagger-engine",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/engine-cpu-000.pprof",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/engine-cpu-001.pprof",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/engine-cpu-002.pprof",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/engine-cpu-003.pprof",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/engine-cpu-004.pprof",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/engine-cpu-005.pprof",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/engine-cpu-006.pprof",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/engine-cpu-007.pprof",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/engine-cpu-008.pprof",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/engine-cpu-009.pprof"
+    ],
+    "output": "cpu-flat.txt",
+    "seconds": 0.2976219920674339,
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "tool",
+      "pprof",
+      "-top",
+      "-cum",
+      "-nodecount=50",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/dagger-engine",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/engine-cpu-000.pprof",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/engine-cpu-001.pprof",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/engine-cpu-002.pprof",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/engine-cpu-003.pprof",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/engine-cpu-004.pprof",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/engine-cpu-005.pprof",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/engine-cpu-006.pprof",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/engine-cpu-007.pprof",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/engine-cpu-008.pprof",
+      "/tmp/rust-cache-sipsma-review/dang-invocation-phases/capture/engine-cpu-009.pprof"
+    ],
+    "output": "cpu-cumulative.txt",
+    "seconds": 0.3056757899466902,
+    "exit_code": 0
+  }
+]

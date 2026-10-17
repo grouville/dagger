@@ -4,6 +4,8 @@ The latest [telemetry queue experiment](NATIVE_TELEMETRY_LINK_QUEUE.md) finds a 
 
 The [completed scope-map experiment](NATIVE_DANG_TYPE_MAPS_CONFIRMATION.md) also remains unselected: **48.83 → 48.74 s** across three usable pairs, with about 1 GB less cumulative allocation. A potentially contaminated first pair is retained and excluded. Finer wcprof timings are being added inside module evaluation before choosing the next optimization.
 
+Those [finer timings](NATIVE_DANG_API_REQUEST_PROFILE.md) now locate **29.42 s of the main query's critical path inside synchronous API processing**, versus 6.77 ms in telemetry flushing. The diagnostic lists the same rows successfully in 45.54 s; this is not another benchmark gain. CPU attribution identifies repeated configuration parsing before module cache lookup, including parsing the same TOML bytes twice. Fresh configuration reads and validation must be preserved in the next experiment.
+
 The following [native string-sort experiment](NATIVE_DANG_STRING_SORT.md) measures **48.06 → 45.98 s** across four successful full-command pairs, with identical rows. Three pairs improve and one regresses. It requires a provisional Dang API and remains unselected; the latest selected result above is unchanged.
 
 The subsequent [span-resource experiment](NATIVE_SPAN_RESOURCE_BATCHES.md) reduces CPU and allocations but has mixed full-command latency: **45.47 → 46.38 s**, three of four pairs faster. It remains disabled. A [complete CLI/wcprof capture](NATIVE_GO_CLI_PROFILE.md) follows the larger discovery and metadata costs; its diagnostic time is not another benchmark result.
