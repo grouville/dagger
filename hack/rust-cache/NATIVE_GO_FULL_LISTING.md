@@ -2,6 +2,8 @@ Latest engine follow-up: [avoid quadratic trace indexing](NATIVE_GO_WIDE_TRACE_I
 
 The following [native string-sort experiment](NATIVE_DANG_STRING_SORT.md) measures **48.06 → 45.98 s** across four successful full-command pairs, with identical rows. Three pairs improve and one regresses. It requires a provisional Dang API and remains unselected; the latest selected result above is unchanged.
 
+The subsequent [span-resource experiment](NATIVE_SPAN_RESOURCE_BATCHES.md) reduces CPU and allocations but has mixed full-command latency: **45.47 → 46.38 s**, three of four pairs faster. It remains disabled. A [complete CLI/wcprof capture](NATIVE_GO_CLI_PROFILE.md) follows the larger discovery and metadata costs; its diagnostic time is not another benchmark result.
+
 Latest filesync follow-up: [walk literal includes directly](NATIVE_FILESYNC_LITERAL_WALKS.md) improves complete listing **55.81 → 52.03 s** in two balanced pairs. CLI CPU falls **39.50 → 26.81 CPU-seconds**. Metadata, ordering and real test additions/removals are verified. A diagnostic reduces visited entries **5.58 million → 237,287**; the populated development host amplifies this cost. This is a separate comparison and must not be added to earlier gains.
 
 Latest CLI follow-up: [prune host glob walks by their literal directory prefix](NATIVE_HOST_GLOB_PREFIX.md) improves complete listing **58.10 → 53.76 s** in two balanced pairs, with identical 4,398 rows and successful exits. CLI CPU falls **75.96 → 39.45 CPU-seconds**. This is a separate cohort with identical current-main-based CLIs; its gain must not be added to earlier measurements. A more complicated traversal bound shows no additional complete-command benefit and remains unselected.

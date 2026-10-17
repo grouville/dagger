@@ -1,0 +1,31 @@
+--- a/engine/server/telemetry.go
++++ b/engine/server/telemetry.go
+@@ -865,6 +865,8 @@
+ 	start := time.Now()
+ 
+ 	var inserts []clientdb.Span
++	// A resource is immutable and normally shared by an entire batch.
++	resources := make(map[*sdkresource.Resource][]byte)
+ 	for _, span := range spans {
+ 		traceID := span.SpanContext().TraceID().String()
+ 		spanID := span.SpanContext().SpanID().String()
+@@ -907,10 +909,15 @@
+ 			slog.Warn("failed to marshal instrumentation scope", "error", err)
+ 			continue
+ 		}
+-		resource, err := protojson.Marshal(telemetry.ResourcePtrToPB(span.Resource()))
+-		if err != nil {
+-			slog.Warn("failed to marshal resource", "error", err)
+-			continue
++		spanResource := span.Resource()
++		resource, ok := resources[spanResource]
++		if !ok {
++			resource, err = protojson.Marshal(telemetry.ResourcePtrToPB(spanResource))
++			if err != nil {
++				slog.Warn("failed to marshal resource", "error", err)
++				continue
++			}
++			resources[spanResource] = resource
+ 		}
+ 
+ 		inserts = append(inserts, clientdb.Span{

@@ -1,0 +1,41 @@
+File: dagger-after
+Build ID: ca708d2ab3c17fe2c0d05d19e84613b2a54f3ceb
+Type: cpu
+Time: 2026-10-17 00:05:46 PDT
+Duration: 42.01s, Total samples = 26.18s (62.31%)
+Active filters:
+   focus=dagui|idtui
+Showing nodes accounting for 0.30s, 1.15% of 26.18s total
+Dropped 108 nodes (cum <= 0.13s)
+Showing top 30 nodes out of 264
+      flat  flat%   sum%        cum   cum%
+         0     0%     0%      3.80s 14.51%  github.com/dagger/dagger/dagql/idtui.(*frontendPretty).dispatch
+         0     0%     0%      2.72s 10.39%  github.com/dagger/dagger/dagql/dagui.(*DB).ExportSpans
+         0     0%     0%      2.72s 10.39%  github.com/dagger/dagger/dagql/idtui.prettySpanExporter.ExportSpans
+         0     0%     0%      2.72s 10.39%  github.com/dagger/dagger/dagql/idtui.prettySpanExporter.ExportSpans.func1
+         0     0%     0%      2.72s 10.39%  github.com/dagger/otel-go.CoalescingSpanExporter.ExportSpans
+         0     0%     0%      2.72s 10.39%  go.opentelemetry.io/otel/sdk/trace.(*batchSpanProcessor).exportSpans
+         0     0%     0%      2.72s 10.39%  go.opentelemetry.io/otel/sdk/trace.(*batchSpanProcessor).processQueue
+         0     0%     0%      2.72s 10.39%  go.opentelemetry.io/otel/sdk/trace.NewBatchSpanProcessor.func2
+         0     0%     0%      2.72s 10.39%  sync.(*WaitGroup).Go.func1
+     0.01s 0.038% 0.038%      1.94s  7.41%  github.com/dagger/dagger/dagql/dagui.(*DB).recordOTelSpan
+         0     0% 0.038%      1.09s  4.16%  github.com/dagger/dagger/dagql/idtui.prettyLogExporter.Export
+         0     0% 0.038%      1.09s  4.16%  go.opentelemetry.io/otel/sdk/log.(*timeoutExporter).Export
+         0     0% 0.038%      1.09s  4.16%  go.opentelemetry.io/otel/sdk/log.chunkExporter.Export
+         0     0% 0.038%      1.09s  4.16%  go.opentelemetry.io/otel/sdk/log.exportData.DoExport
+         0     0% 0.038%      1.09s  4.16%  go.opentelemetry.io/otel/sdk/log.exportSync.func1
+         0     0% 0.038%      1.08s  4.13%  github.com/dagger/dagger/dagql/idtui.prettyLogExporter.Export.func1
+     0.05s  0.19%  0.23%      0.83s  3.17%  runtime.mallocgc
+     0.01s 0.038%  0.27%      0.73s  2.79%  github.com/dagger/dagger/dagql/dagui.(*Span).PropagateStatusToParentsAndLinks
+         0     0%  0.27%      0.71s  2.71%  github.com/dagger/dagger/dagql/idtui.(*prettyLogs).Export
+     0.02s 0.076%  0.34%      0.59s  2.25%  github.com/dagger/dagger/dagql/dagui.(*DB).integrateSpan
+     0.08s  0.31%  0.65%      0.55s  2.10%  runtime.mallocgcSmallScanNoHeader
+         0     0%  0.65%      0.52s  1.99%  github.com/dagger/otel-go.(*readOnlySpan).Resource
+         0     0%  0.65%      0.52s  1.99%  github.com/dagger/otel-go.ResourceFromPB
+     0.01s 0.038%  0.69%      0.46s  1.76%  fmt.Fprint
+     0.04s  0.15%  0.84%      0.44s  1.68%  github.com/dagger/dagger/dagql/dagui.(*Span).Parents
+         0     0%  0.84%      0.44s  1.68%  github.com/dagger/dagger/dagql/idtui.(*Vterm).Write
+     0.02s 0.076%  0.92%      0.44s  1.68%  github.com/danielgatis/go-ansicode.(*Decoder).Write
+         0     0%  0.92%      0.44s  1.68%  github.com/vito/midterm.(*Terminal).Write
+     0.01s 0.038%  0.95%      0.42s  1.60%  github.com/danielgatis/go-ansicode.(*Decoder).WriteByte (inline)
+     0.05s  0.19%  1.15%      0.41s  1.57%  github.com/danielgatis/go-vte.(*Parser).Advance

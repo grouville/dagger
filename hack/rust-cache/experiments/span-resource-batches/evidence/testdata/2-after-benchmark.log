@@ -1,0 +1,14 @@
+goos: linux
+goarch: amd64
+pkg: github.com/dagger/dagger/engine/server
+cpu: Intel(R) Core(TM) i5-9300H CPU @ 2.40GHz
+BenchmarkSpanResourceBatch/spans=1/distinct=false-4         	   10000	     10445 ns/op	    6230 B/op	      85 allocs/op
+BenchmarkSpanResourceBatch/spans=1/distinct=false-4         	   13024	      9393 ns/op	    6413 B/op	      86 allocs/op
+BenchmarkSpanResourceBatch/spans=1/distinct=true-4          	   13965	      8608 ns/op	    5811 B/op	      69 allocs/op
+BenchmarkSpanResourceBatch/spans=1/distinct=true-4          	   15692	      7828 ns/op	    5770 B/op	      69 allocs/op
+BenchmarkSpanResourceBatch/spans=128/distinct=false-4       	     445	    253696 ns/op	  412875 B/op	    1971 allocs/op
+BenchmarkSpanResourceBatch/spans=128/distinct=false-4       	     468	    245546 ns/op	  414480 B/op	    1975 allocs/op
+BenchmarkSpanResourceBatch/spans=128/distinct=true-4        	     201	    600557 ns/op	  549275 B/op	    5596 allocs/op
+BenchmarkSpanResourceBatch/spans=128/distinct=true-4        	     211	    578593 ns/op	  560515 B/op	    5629 allocs/op
+PASS
+ok  	github.com/dagger/dagger/engine/server	1.016s
