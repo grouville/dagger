@@ -653,7 +653,7 @@ func (r ObjectResult[T]) preselect(ctx context.Context, srv *Server, sel Selecto
 			ImplicitInputs: implicitInputs,
 		},
 		TTL:                  field.Spec.TTL,
-		DoNotCache:           field.Spec.DoNotCache != "",
+		DoNotCache:           field.Spec.DoNotCache != "" || (field.Spec.Trivial && sel.Nth == 0 && trivialBuiltinScalar(field.Spec.Type)),
 		IsPersistable:        field.Spec.IsPersistable,
 		PassthroughTelemetry: field.Spec.PassthroughTelemetry,
 		// The immediate receiver's type name is free here (r is the receiver);
@@ -1021,7 +1021,8 @@ type FieldSpec struct {
 	// Trivial marks fields that only unwrap data from their receiver rather
 	// than performing meaningful work. Their telemetry spans are internal, and
 	// they skip install-span capture so they don't claim ownership of values
-	// they merely return.
+	// they merely return. Builtin scalar values are returned directly; object,
+	// array and custom value results keep their existing cache policy.
 	Trivial bool
 
 	// PassthroughTelemetry keeps this field's telemetry span available for call
@@ -2054,5 +2055,19 @@ func appendAssign(slice reflect.Value, val any) error {
 		return nil
 	} else {
 		return fmt.Errorf("appendAssign: cannot assign %T to %s", val, slice.Type())
+	}
+}
+
+// Use concrete builtin values: a custom value can advertise Int while owning
+// resources. Object, array and custom scalar fields keep their existing paths.
+func trivialBuiltinScalar(value Typed) bool {
+	switch value := value.(type) {
+	case String, Int, Float, Boolean,
+		Nullable[String], Nullable[Int], Nullable[Float], Nullable[Boolean]:
+		return true
+	case DynamicNullable:
+		return trivialBuiltinScalar(value.Elem)
+	default:
+		return false
 	}
 }
