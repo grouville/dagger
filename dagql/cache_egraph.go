@@ -207,7 +207,7 @@ func (c *Cache) initEgraphLocked() {
 		c.egraphTermsByTermDigest = make(map[string]*set.TreeSet[egraphTermID])
 	}
 	if c.egraphResultsByDigest == nil {
-		c.egraphResultsByDigest = make(map[string]*set.TreeSet[sharedResultID])
+		c.egraphResultsByDigest = make(map[string]*resultDigestPosting)
 	}
 	if c.resultIndexedDigests == nil {
 		c.resultIndexedDigests = make(map[sharedResultID][]string)
@@ -878,7 +878,7 @@ func (c *Cache) addResultDigestPostingLocked(resID sharedResultID, dig string, k
 	}
 	results := c.egraphResultsByDigest[dig]
 	if results == nil {
-		results = newSharedResultIDSet()
+		results = &resultDigestPosting{}
 		c.egraphResultsByDigest[dig] = results
 	}
 	inserted := results.Insert(resID)
