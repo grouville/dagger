@@ -1,0 +1,43 @@
+package dagql
+
+import (
+	"fmt"
+	"testing"
+)
+
+func restoredPostingRemovalFixture(n int) *Cache {
+	c := &Cache{}
+	c.initEgraphLocked()
+	c.egraphParents = []eqClassID{0, 1}
+	digests := make(map[string]struct{}, n)
+	results := make(map[sharedResultID]struct{}, n)
+	for i := range n {
+		digests[fmt.Sprintf("digest-%08x", i)] = struct{}{}
+		results[sharedResultID(i+1)] = struct{}{}
+	}
+	c.eqClassToDigests[1] = digests
+	c.outputEqClassResults[1] = results
+	c.restoreDigestPostingsLocked()
+	return c
+}
+
+func BenchmarkRestoredDigestPostingRemoval(b *testing.B) {
+	for _, n := range []int{128, 512, 2048, 4096} {
+		b.Run(fmt.Sprint(n), func(b *testing.B) {
+			b.ReportAllocs()
+			outputs := map[eqClassID]struct{}{1: {}}
+			for range b.N {
+				b.StopTimer()
+				c := restoredPostingRemovalFixture(n)
+				b.StartTimer()
+				for id := sharedResultID(1); id <= sharedResultID(n); id++ {
+					c.removeResultDigestsLocked(id, outputs)
+				}
+				b.StopTimer()
+				if len(c.egraphResultsByDigest) != 0 || len(c.broadlyIndexedResults) != 0 {
+					b.Fatal("removed results left stale digest postings")
+				}
+			}
+		})
+	}
+}

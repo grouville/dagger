@@ -1,0 +1,60 @@
+diff --git a/gomod/main.dang b/gomod/main.dang
+index ee2e78f..c4d0b3f 100644
+--- a/gomod/main.dang
++++ b/gomod/main.dang
+@@ -51,9 +51,10 @@ type Gomod {
+   ): [GoMod!]! {
+     # Answered from the workspace directly rather than from the scan, so that
+     # listing modules never builds or runs the scanner.
++    let paths = WorkspacePaths(cwd: ws.cwd)
+     ws
+       .findRoots(markers: ["go.mod"])
+-      .map { root => at(workspaceRootPath(ws, root)) }.{{path, valid: isGoModule(ws: ws)}}
++      .map { root => at(paths.root(root)) }.{{path, valid: isGoModule(ws: ws)}}
+       .filter { found => found.valid }
+       .filter { found => pathIncluded(ws, found.path, include, exclude) }
+       .map { found => at(found.path) }
+@@ -212,12 +213,7 @@ type Gomod {
+   is workspace-root-relative.
+   """
+   workspaceRootPath(ws: Workspace!, cwdPath: String!): String! {
+-    let segments = cwdPath.split("/").filter { segment => segment != "" and segment != "." }
+-    let up = segments.filter { segment => segment == ".." }.length
+-    let down = segments.filter { segment => segment != ".." }
+-    let resolved = ws.cwd.split("/").filter { segment => segment != "" }.dropLast(up) + down
+-
+-    if (resolved.length == 0) { "." } else { resolved.join("/") }
++    WorkspacePaths(cwd: ws.cwd).root(cwdPath)
+   }
+ 
+   let normalize(path: String!): String! {
+@@ -605,9 +601,10 @@ type GoMod {
+   Module roots below this one.
+   """
+   nestedRoots(ws: Workspace!): [String!]! {
++    let paths = WorkspacePaths(cwd: ws.cwd)
+     ws
+       .findRoots(start: "/" + subpath(""), markers: ["go.mod"])
+-      .map { root => gomod.workspaceRootPath(ws, root) }
++      .map { root => paths.root(root) }
+       .filter { root => root != path }
+   }
+ 
+@@ -873,3 +870,17 @@ type GoScope {
+   """
+   skip: [String!]!
+ }
++
++# Shared path conversion needs only the workspace's immutable working directory.
++type WorkspacePaths {
++  let cwd: String!
++
++  let root(path: String!): String! {
++    let segments = path.split("/").filter { segment => segment != "" and segment != "." }
++    let up = segments.filter { segment => segment == ".." }.length
++    let down = segments.filter { segment => segment != ".." }
++    let resolved = cwd.split("/").filter { segment => segment != "" }.dropLast(up) + down
++
++    if (resolved.length == 0) { "." } else { resolved.join("/") }
++  }
++}
