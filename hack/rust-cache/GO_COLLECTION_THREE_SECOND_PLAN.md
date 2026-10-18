@@ -4,6 +4,10 @@ The goal is complete listing on the real dagger/dagger repository after an edit,
 
 The latest useful prototype reaches 9.30 seconds after ordinary-source edits, but test-file edits remain mixed at about 20 seconds. Three seconds is unachieved. The subsequent package-snapshot prototype is rejected after 18.60 → 55.76 seconds. See [the complete comparison and profile](NATIVE_GO_PACKAGE_TEST_SNAPSHOTS.md).
 
+The first identity experiment now works for real test-file edits: [scoped getter content identity and native directory views](NATIVE_COLLECTION_GETTER_CONTENT.md) turn 800 discovery executions into one execution and 799 hits. Complete listing improves **18.10 → 16.24 seconds** across four pairs; root discovery still takes about 8.5 seconds and getter preparation about 7.5 seconds in wcprof. Ordinary-source edits show no additional gain. The prototype remains default-off on a separate engine, with the retained Rust-cache engine untouched.
+
+The next order-of-magnitude experiment must reduce the 800 getter evaluations themselves while preserving ordinary collection behavior. Separately, inspect root discovery's repeated config checks against immutable module dependencies. The earlier live-config sharing approach was rejected for staleness; freshness is a required invariant.
+
 ## Working hypothesis
 
 The order-of-magnitude opportunity is less work after an edit. A collection with 800 packages should not rediscover all 800 when one package's test file changes. Returning 4,398 rows still requires reading and formatting those rows; repeated discovery and module setup are additional costs.
