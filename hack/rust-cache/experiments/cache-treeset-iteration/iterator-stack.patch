@@ -1,0 +1,132 @@
+diff --git a/iteration_stack_test.go b/iteration_stack_test.go
+new file mode 100644
+index 0000000..e410702
+--- /dev/null
++++ b/iteration_stack_test.go
+@@ -0,0 +1,79 @@
++// SPDX-License-Identifier: MPL-2.0
++
++package set
++
++import (
++	"cmp"
++	"fmt"
++	"testing"
++)
++
++func TestTreeSetIterationStopsAndRestarts(t *testing.T) {
++	for _, count := range []int{0, 1, 8, 128, 4096} {
++		for _, descending := range []bool{false, true} {
++			t.Run(fmt.Sprintf("count=%d/descending=%v", count, descending), func(t *testing.T) {
++				compare := cmp.Compare[int]
++				if descending {
++					compare = func(a, b int) int { return cmp.Compare(b, a) }
++				}
++				values := NewTreeSet(compare)
++				for i := range count {
++					values.Insert(i)
++				}
++				for _, limit := range []int{1, 4, count + 1, 1} {
++					seen := 0
++					for value := range values.Items() {
++						want := seen
++						if descending {
++							want = count - 1 - seen
++						}
++						if value != want {
++							t.Fatalf("item %d: got %d, want %d", seen, value, want)
++						}
++						seen++
++						if seen == limit {
++							break
++						}
++					}
++					if seen != min(count, limit) || values.Size() != count {
++						t.Fatalf("iteration changed contents: seen=%d size=%d", seen, values.Size())
++					}
++				}
++			})
++		}
++	}
++}
++
++var treeIterationSum int
++
++func BenchmarkTreeSetIteration(b *testing.B) {
++	for _, count := range []int{0, 1, 8, 128, 4096} {
++		b.Run(fmt.Sprint(count), func(b *testing.B) {
++			values := NewTreeSet(cmp.Compare[int])
++			for i := range count {
++				values.Insert(i)
++			}
++			b.Run("all", func(b *testing.B) {
++				b.ReportAllocs()
++				var sum int
++				for range b.N {
++					for value := range values.Items() {
++						sum += value
++					}
++				}
++				treeIterationSum = sum
++			})
++			b.Run("first", func(b *testing.B) {
++				b.ReportAllocs()
++				var sum int
++				for range b.N {
++					for value := range values.Items() {
++						sum += value
++						break
++					}
++				}
++				treeIterationSum = sum
++			})
++		})
++	}
++}
+diff --git a/stack.go b/stack.go
+index 02db84b..bce5569 100644
+--- a/stack.go
++++ b/stack.go
+@@ -4,12 +4,7 @@
+ package set
+ 
+ type stack[T any] struct {
+-	top *object[T]
+-}
+-
+-type object[T any] struct {
+-	item T
+-	next *object[T]
++	items []T
+ }
+ 
+ func makeStack[T any]() *stack[T] {
+@@ -17,20 +12,18 @@ func makeStack[T any]() *stack[T] {
+ }
+ 
+ func (s *stack[T]) push(item T) {
+-	obj := &object[T]{
+-		item: item,
+-		next: s.top,
+-	}
+-	s.top = obj
++	s.items = append(s.items, item)
+ }
+ 
+ func (s *stack[T]) pop() T {
+-	obj := s.top
+-	s.top = obj.next
+-	obj.next = nil
+-	return obj.item
++	last := len(s.items) - 1
++	item := s.items[last]
++	var zero T
++	s.items[last] = zero
++	s.items = s.items[:last]
++	return item
+ }
+ 
+ func (s *stack[T]) empty() bool {
+-	return s.top == nil
++	return len(s.items) == 0
+ }
