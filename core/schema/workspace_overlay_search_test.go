@@ -143,6 +143,33 @@ func TestSearchSourcePaths(t *testing.T) {
 	})
 }
 
+func TestSearchSourcePathsHostOverlay(t *testing.T) {
+	ws := &core.Workspace{}
+	ws.SetSource(core.NewWorkspaceSourceOverlay(
+		core.NewWorkspaceSourceClientLocal("/src"),
+		[]string{"created.txt", "edited.txt"}, nil,
+		dagql.ObjectResult[*core.Changeset]{},
+	))
+	s := &workspaceSchema{}
+	for _, tc := range []struct {
+		name   string
+		paths  []string
+		want   []string
+		search bool
+	}{
+		{"overlay only", []string{"/created.txt", "edited.txt"}, []string{}, false},
+		{"mixed sources", []string{"existing.txt", "/created.txt"}, []string{"existing.txt"}, true},
+		{"unrelated missing path", []string{"missing.txt"}, []string{"missing.txt"}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			paths, search, err := s.searchSourcePaths(context.Background(), ws, tc.paths)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, paths)
+			require.Equal(t, tc.search, search)
+		})
+	}
+}
+
 func TestMergeGlobMatches(t *testing.T) {
 	t.Run("overlay replaces host matches per path", func(t *testing.T) {
 		host := []string{"untouched.txt", "edited.txt", "doomed.txt"}
