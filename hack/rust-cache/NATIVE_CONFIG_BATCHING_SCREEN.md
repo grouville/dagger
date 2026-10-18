@@ -40,4 +40,6 @@ That breakdown should guide a reduction in the work of each fresh lookup. The ea
 
 The [subsequent runtime-trace experiment](NATIVE_GRPC_ATTACHABLES.md) identifies the existing HTTP/2-to-gRPC adapter as a concrete transport target. Native gRPC reduces CLI CPU in all twelve measured pairs, with freshness checks intact, but opposite-order confirmation does not reproduce the listing-time gain. The candidate stays off. The next diagnostic targets cache-metadata maintenance near the recorded 4 GiB estimate.
 
+That [maintenance diagnostic](NATIVE_CACHE_COMPACTION_INDEXES.md) captures an 8.167-second compaction under the graph lock. Both subsequent reverse-index changes are rejected: map reuse makes a surviving index much slower after deletion, while rebuilding by class slows the larger compaction benchmarks. No new complete-listing speedup is established.
+
 [Evidence](experiments/local-import-metadata/) retains the focused CPU reports, screen driver and all three admission-point results. The source captures remain in the [engine](experiments/telemetry-native-storage/) and [CLI](experiments/go-listing-cli-cpu/) archives. Native writing remains disabled in the controlled engine, with v2 and dual-format readers retained. No PR is opened.
