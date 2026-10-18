@@ -1,0 +1,7 @@
+# Typed artifact metadata experiment
+
+See [the assessment](../../NATIVE_TYPED_ARTIFACT_METADATA.md). Complete edited listing on real dagger/dagger improves 40.86 → 26.76 seconds median, faster in all four pairs with identical rows and successful cleanup. The frozen control improves 12.26 → 6.74 seconds. The generic query projection component improves 318.76 → 39.05 ms; those component timings exclude network and final JSON encoding.
+
+The archive contains the implementation, diagnostic controls, prototype patch, tests and expected-failure control, both full DagQL race runs, core ownership checks, builds, all thirty listing commands, compatibility checks and their initial harness failure, cache checks before/after restart and feature activation, lossless wcprof captures, source identities and final restoration. This is not a standalone patch on upstream main; the implementation extends the preceding experimental data/scalar projection support.
+
+MANIFEST.json verifies every member and the archive. Lossless combined traces are included directly; recorded-chunks.json preserves per-dump headers, string-prefix lengths, event boundaries and hashes without duplicate trace data. The exact inherited engine source/dependency context is in the preceding [log flush archive](../log-flush-buffer/). Original absolute paths and local telemetry receiver need adapting for replay. Binaries and the retained engine volume are excluded. No new PR is open.
