@@ -2,7 +2,23 @@
 
 The goal is complete listing on the real dagger/dagger repository after an edit, with a fresh CLI, correct current-source rows, normal telemetry and successful session cleanup. Report ordinary-source edits and test-file edits separately. An engine restart and first discovery are distinct cold scenarios; a warm result does not establish either.
 
-The latest useful prototype reaches 9.30 seconds after ordinary-source edits, but test-file edits remain mixed at about 20 seconds. Three seconds is unachieved. The subsequent package-snapshot prototype is rejected after 18.60 → 55.76 seconds. See [the complete comparison and profile](NATIVE_GO_PACKAGE_TEST_SNAPSHOTS.md).
+The latest controlled cohort's baseline is **6.70 seconds after ordinary-source edits and 13.59 seconds after test-file edits**, on a warm isolated engine. The interpreter-context candidate does not improve either workload and remains disabled. These baselines come from a later engine/cohort; do not count their difference from earlier measurements as a gain caused by the candidate. [Complete comparison and profiles](NATIVE_DANG_EVALUATION_CONTEXT.md).
+
+## Approach to a tenfold improvement
+
+Start with the amount of work, its growth with repository size and its position on the critical path. The current listing performs 804 module evaluations and 2,293 nested SDK requests despite reusing 799 of 800 test discoveries. A tenfold gain needs much less repeated setup and conversion. A cheaper operation inside every evaluation is insufficient unless it materially reduces the complete command.
+
+The first target is receiver preparation. Each package getter receives the full stored collection state; the SDK decodes its lists and reconstructs nested objects again. The collection holds all package paths and shared module owners. Measure parent bytes and conversion counts at increasing package and owner counts to establish whether this introduces quadratic cost. Then compare sharing immutable preparation with bounded batches of item evaluations. Preserve per-key results and normal collection selection. A new public API is justified only if existing boundaries cannot safely support the improvement.
+
+The second target is the repeated engine work around those calls. The latest control capture places 3.14 seconds of session lifecycle lock waits on its 14.35-second main-query critical path. Earlier parallel admission did not establish a complete-command win. Identify what the lock protects and how repeated calls cause contention before changing its scope. Shared preparation must preserve module/schema/view identity, resource ownership and cancellation, with a fresh invocation state for mutation. Do not reuse a creating session or cache live configuration by time.
+
+Use **one second for discovery, one second for collection expansion and one second for CLI startup, source import, output and cleanup combined** as an initial three-second budget. These are design targets, not measured phase durations or promised gains. Replace them with measured sub-budgets as the complete command changes. Root discovery is itself about six seconds in the latest profile, so improving only getter execution cannot reach the target.
+
+Prototype one structural change at a time. First prove that it reduces the intended counts, bytes and critical-path work; then run balanced complete-command pairs on real edits. Compare fresh discovery, post-restart discovery, ordinary edits and test edits separately. Verify exact rows, additions/removals, module-boundary changes, fields as dimensions, selections and test execution. Keep only changes whose measured gain justifies their complexity and risk.
+
+## Earlier evidence
+
+An earlier prototype reached 9.30 seconds after ordinary-source edits, with test-file edits mixed at about 20 seconds. The subsequent package-snapshot prototype was rejected after 18.60 → 55.76 seconds. See [the complete comparison and profile](NATIVE_GO_PACKAGE_TEST_SNAPSHOTS.md).
 
 The first identity experiment now works for real test-file edits: [scoped getter content identity and native directory views](NATIVE_COLLECTION_GETTER_CONTENT.md) turn 800 discovery executions into one execution and 799 hits. Complete listing improves **18.10 → 16.24 seconds** across four pairs; root discovery still takes about 8.5 seconds and getter preparation about 7.5 seconds in wcprof. Ordinary-source edits show no additional gain. The prototype remains default-off on a separate engine, with the retained Rust-cache engine untouched.
 
@@ -10,7 +26,7 @@ The next order-of-magnitude experiment must reduce the 800 getter evaluations th
 
 A module-only follow-up now batches validation and owned-file discovery. Final confirmation improves test-file-edited listing **17.35 → 15.92 seconds** and ordinary-source-edited listing **10.39 → 7.56 seconds**. It removes 160 module evaluations and 1,510 SDK requests while retaining 799 unchanged discoveries. [Source, complete cohorts and scope review](NATIVE_GO_BATCH_PACKAGE_DISCOVERY.md).
 
-The new CPU profile provides a concrete algorithmic lead before adding a collection API: Dang repeatedly walks Go context chains for evaluation and initializer state. Test bounded lookup for these private values, preserving context propagation and cycle detection, then compare the full command. Captured source paths are `dang-builtin-receivers/controlled-eval.go` for `withForceChain` and the Dang checkout's `errors.go` for evaluation context. Existing sorting and ID shortcuts remain unselected.
+The context-chain lead has now been tested. A depth benchmark improves by roughly 200× at depth 512, but complete listing does not improve: **13.59 → 14.51 seconds** after test-file edits and **6.70 → 6.77 seconds** after ordinary-source edits. Race tests and real collection checks pass. The candidate stays disabled; the profile still shows substantial context lookup cost. Existing sorting and ID shortcuts remain unselected.
 
 ## Working hypothesis
 
