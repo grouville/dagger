@@ -1,5 +1,9 @@
 # Rust compiler cache experiment
 
+The [native workspace search comparison](NATIVE_GO_WORKSPACE_SEARCH.md) batches each Go package's selected test files. Complete listing improves **36.43 → 34.99 seconds**, faster in all four pairs, with **961 fewer engine queries** and the same collection granularity. Allocation and CLI memory increase, so the prototype remains isolated. The experiment exposes a real host-overlay search bug on current main; its [standalone fix and regression](NATIVE_WORKSPACE_SEARCH_OVERLAY_PATHS.md) are pushed for review as the seventeenth Dagger proposal. No PR is open.
+
+The [routed-span study](NATIVE_TELEMETRY_SPAN_ROWS.md) removes repeated serialization across client histories but establishes no complete-command improvement. Lazy sharing measures **39.49 → 35.87 seconds**, faster in two of four pairs; preparing rows without per-span locks measures **37.38 → 43.35 seconds**, faster in one of four. Cache pruning overlaps the slowest runs. Both variants stay disabled. All commands return the correct rows and exit successfully, and every retained Rust compilation remains reusable. Collection behavior and telemetry delivery are preserved.
+
 The latest [Go collection listing comparison](NATIVE_COLLECTION_RESTORED_METADATA.md) takes **36.34 seconds** for the selected implementation and **36.19 seconds** for the candidate, faster in only two of four pairs. Removing every indexed search-result publication does not establish a command speedup, so that candidate stays disabled. The study also rejects the earlier per-item HTTP-request attribution: 4,398 indexed reads already occur within 895 bulk queries. Discovery remains the larger target; cold startup is unmeasured.
 
 `rcexp` records Cargo's actual compiler commands and replays each compilation as
