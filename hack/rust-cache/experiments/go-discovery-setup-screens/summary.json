@@ -1,0 +1,3321 @@
+{
+  "go-compact-owner-state": {
+    "selected": false,
+    "reason": "Allocation decreases, but test-edit latency is flat and both workloads improve in only two of four pairs. Preserve the screen without counting it as a speedup.",
+    "new_candidate_cold_effect_measured": false,
+    "test-edit-paired": {
+      "medians": {
+        "before": {
+          "median_seconds": 10.594436627463438,
+          "median_engine_cpu": 55.673197500000015,
+          "median_allocated_bytes": 15385402328.0,
+          "commands": 4
+        },
+        "combined": {
+          "median_seconds": 10.532475471438374,
+          "median_engine_cpu": 54.34992149999994,
+          "median_allocated_bytes": 13282116344.0,
+          "commands": 4
+        }
+      },
+      "faster_pairs": 2,
+      "median_paired_seconds_saved": -0.11752540851011872,
+      "all_12_commands_successful_and_correct": true
+    },
+    "source-edit-paired": {
+      "medians": {
+        "before": {
+          "median_seconds": 6.400005893025082,
+          "median_engine_cpu": 27.85483350000004,
+          "median_allocated_bytes": 6262339668.0,
+          "commands": 4
+        },
+        "combined": {
+          "median_seconds": 5.918634347501211,
+          "median_engine_cpu": 24.174129499999935,
+          "median_allocated_bytes": 6255145612.0,
+          "commands": 4
+        }
+      },
+      "faster_pairs": 2,
+      "median_paired_seconds_saved": 0.43616013252176344,
+      "all_12_commands_successful_and_correct": true
+    },
+    "profiles": {
+      "before": {
+        "function_evaluations": 804,
+        "sdk_requests": 1494,
+        "events": 231589,
+        "dropped": 0,
+        "open_ops": 0,
+        "selected_calls": {
+          "go:Go.packages": {
+            "executed": 1,
+            "hit": 800
+          },
+          "go:GoPackage.tests": {
+            "hit": 799,
+            "executed": 1
+          },
+          "go:GoPackages.get": {
+            "executed": 800
+          },
+          "go:Query.go": {
+            "hit": 801
+          },
+          "gomod:Gomod.moduleLayoutDigest": {
+            "executed": 1
+          },
+          "gomod:Gomod.packageFacts": {
+            "executed": 1
+          },
+          "gomod:Gomod.selectedPaths": {
+            "hit": 79
+          },
+          "gomod:GomodPackageFacts.files": {
+            "executed": 80
+          },
+          "gomod:GomodPackageFacts.path": {
+            "do_not_cache": 80
+          },
+          "gomod:GomodPackageFacts.prefix": {
+            "do_not_cache": 80
+          },
+          "gomod:GomodPackageFacts.skipTest": {
+            "do_not_cache": 80
+          },
+          "gomod:Query.gomod": {
+            "hit": 81
+          }
+        },
+        "main_query": {
+          "id": 1028259,
+          "seconds": 10.815985539
+        },
+        "classes": [
+          {
+            "kind": "internal",
+            "name": "dagql.invokeField",
+            "count": 31236
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.prepareField",
+            "count": 31236
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.instantiateResult",
+            "count": 30587
+          },
+          {
+            "kind": "call",
+            "name": "Query.typeDef",
+            "count": 7684
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withKind",
+            "count": 6836
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.snapshotLeaseLockHeld",
+            "count": 6441
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.syncSnapshotOwnerLinks",
+            "count": 6441
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.collectSnapshotOwnerLinks",
+            "count": 6441
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.releaseOperationLease",
+            "count": 5020
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.resolveField",
+            "count": 5020
+          },
+          {
+            "kind": "call",
+            "name": "Module._implementationScoped",
+            "count": 4971
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.parseSelections",
+            "count": 4547
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.stat",
+            "count": 3526
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.backendClient",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.localClientGuard",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.ownerMetadata",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.moduleDynamicInputs",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.readGitClientDeclarations",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.gitClientGuard",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.read",
+            "count": 3364
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.querySchema",
+            "count": 3038
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.publishResult",
+            "count": 2780
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.clientAdmission",
+            "count": 1523
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.clientMetadata",
+            "count": 1523
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.workspaceLoad",
+            "count": 1519
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.marshalResponse",
+            "count": 1519
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.validateOperation",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.modulesLoad",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.queryResolve",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.query",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.serveQuery",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.schemaBuild",
+            "count": 1519
+          },
+          {
+            "kind": "internal",
+            "name": "dang.apiRequest",
+            "count": 1494
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withOptional",
+            "count": 1329
+          },
+          {
+            "kind": "call",
+            "name": "Query.__schemaJSONFile",
+            "count": 812
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.clientRuntimeInit",
+            "count": 806
+          },
+          {
+            "kind": "internal",
+            "name": "dang.retainDirectives",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.prepareSource",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.encodeResult",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.selfTypes",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.openSchema",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.decodeSchema",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.invoke",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.decodeParent",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.evaluateFunction",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.runSource",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.evalSource",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.convertParent",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.flushTelemetry",
+            "count": 804
+          },
+          {
+            "kind": "call",
+            "name": "go:Query.go",
+            "count": 801
+          },
+          {
+            "kind": "call",
+            "name": "go:Go.packages",
+            "count": 801
+          },
+          {
+            "kind": "call",
+            "name": "Directory.id",
+            "count": 801
+          },
+          {
+            "kind": "call_exec",
+            "name": "go:GoPackages.get",
+            "count": 800
+          },
+          {
+            "kind": "call",
+            "name": "go:GoPackages.get",
+            "count": 800
+          },
+          {
+            "kind": "call",
+            "name": "go:GoPackage.tests",
+            "count": 800
+          },
+          {
+            "kind": "internal",
+            "name": "core.recoverModuleSchema",
+            "count": 725
+          },
+          {
+            "kind": "internal",
+            "name": "core.scanInstalledModules",
+            "count": 725
+          },
+          {
+            "kind": "call",
+            "name": "Query.node",
+            "count": 725
+          },
+          {
+            "kind": "call",
+            "name": "Query.directory",
+            "count": 708
+          },
+          {
+            "kind": "call",
+            "name": "SearchResult.matchedLines",
+            "count": 668
+          },
+          {
+            "kind": "call_exec",
+            "name": "SearchResult.search",
+            "count": 668
+          },
+          {
+            "kind": "call",
+            "name": "SearchResult.search",
+            "count": 668
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withObject",
+            "count": 474
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.attachSnapshotLease",
+            "count": 380
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.mutate",
+            "count": 380
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.commit",
+            "count": 380
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.transaction",
+            "count": 380
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.transactionWait",
+            "count": 380
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withListOf",
+            "count": 350
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.projectResponseData",
+            "count": 241
+          },
+          {
+            "kind": "call",
+            "name": "Workspace.search",
+            "count": 239
+          },
+          {
+            "kind": "call",
+            "name": "Directory.file",
+            "count": 202
+          },
+          {
+            "kind": "call_exec",
+            "name": "Directory.file",
+            "count": 199
+          },
+          {
+            "kind": "call",
+            "name": "Workspace.glob",
+            "count": 161
+          },
+          {
+            "kind": "call",
+            "name": "File.search",
+            "count": 121
+          },
+          {
+            "kind": "call",
+            "name": "String.dimensions",
+            "count": 105
+          },
+          {
+            "kind": "call_exec",
+            "name": "String.dimensions",
+            "count": 105
+          },
+          {
+            "kind": "call",
+            "name": "Directory.filter",
+            "count": 94
+          },
+          {
+            "kind": "call_exec",
+            "name": "Directory.directory",
+            "count": 94
+          },
+          {
+            "kind": "call",
+            "name": "Directory.directory",
+            "count": 94
+          }
+        ]
+      },
+      "candidate": {
+        "function_evaluations": 804,
+        "sdk_requests": 1494,
+        "events": 231596,
+        "dropped": 0,
+        "open_ops": 0,
+        "selected_calls": {
+          "go:Go.packages": {
+            "hit": 800,
+            "executed": 1
+          },
+          "go:GoPackage.tests": {
+            "hit": 799,
+            "executed": 1
+          },
+          "go:GoPackages.get": {
+            "executed": 800
+          },
+          "go:Query.go": {
+            "hit": 801
+          },
+          "gomod:Gomod.moduleLayoutDigest": {
+            "executed": 1
+          },
+          "gomod:Gomod.packageFacts": {
+            "executed": 1
+          },
+          "gomod:Gomod.selectedPaths": {
+            "hit": 79
+          },
+          "gomod:GomodPackageFacts.files": {
+            "executed": 80
+          },
+          "gomod:GomodPackageFacts.path": {
+            "do_not_cache": 80
+          },
+          "gomod:GomodPackageFacts.prefix": {
+            "do_not_cache": 80
+          },
+          "gomod:GomodPackageFacts.skipTest": {
+            "do_not_cache": 80
+          },
+          "gomod:Query.gomod": {
+            "hit": 81
+          }
+        },
+        "main_query": {
+          "id": 1254638,
+          "seconds": 10.770250689
+        },
+        "classes": [
+          {
+            "kind": "internal",
+            "name": "dagql.prepareField",
+            "count": 31236
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.invokeField",
+            "count": 31236
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.instantiateResult",
+            "count": 30587
+          },
+          {
+            "kind": "call",
+            "name": "Query.typeDef",
+            "count": 7684
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withKind",
+            "count": 6836
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.collectSnapshotOwnerLinks",
+            "count": 6441
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.syncSnapshotOwnerLinks",
+            "count": 6441
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.snapshotLeaseLockHeld",
+            "count": 6441
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.resolveField",
+            "count": 5020
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.releaseOperationLease",
+            "count": 5020
+          },
+          {
+            "kind": "call",
+            "name": "Module._implementationScoped",
+            "count": 4971
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.parseSelections",
+            "count": 4547
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.stat",
+            "count": 3526
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.ownerMetadata",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.backendClient",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.localClientGuard",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.moduleDynamicInputs",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.readGitClientDeclarations",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.read",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.gitClientGuard",
+            "count": 3364
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.querySchema",
+            "count": 3038
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.publishResult",
+            "count": 2780
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.clientAdmission",
+            "count": 1523
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.clientMetadata",
+            "count": 1523
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.modulesLoad",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.workspaceLoad",
+            "count": 1519
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.marshalResponse",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.queryResolve",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.schemaBuild",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.query",
+            "count": 1519
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.validateOperation",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.serveQuery",
+            "count": 1519
+          },
+          {
+            "kind": "internal",
+            "name": "dang.apiRequest",
+            "count": 1494
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withOptional",
+            "count": 1329
+          },
+          {
+            "kind": "call",
+            "name": "Query.__schemaJSONFile",
+            "count": 812
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.clientRuntimeInit",
+            "count": 806
+          },
+          {
+            "kind": "internal",
+            "name": "dang.prepareSource",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.evaluateFunction",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.openSchema",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.runSource",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.decodeParent",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.retainDirectives",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.flushTelemetry",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.decodeSchema",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.invoke",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.convertParent",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.selfTypes",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.evalSource",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.encodeResult",
+            "count": 804
+          },
+          {
+            "kind": "call",
+            "name": "go:Query.go",
+            "count": 801
+          },
+          {
+            "kind": "call",
+            "name": "go:Go.packages",
+            "count": 801
+          },
+          {
+            "kind": "call",
+            "name": "Directory.id",
+            "count": 801
+          },
+          {
+            "kind": "call_exec",
+            "name": "go:GoPackages.get",
+            "count": 800
+          },
+          {
+            "kind": "call",
+            "name": "go:GoPackages.get",
+            "count": 800
+          },
+          {
+            "kind": "call",
+            "name": "go:GoPackage.tests",
+            "count": 800
+          },
+          {
+            "kind": "internal",
+            "name": "core.scanInstalledModules",
+            "count": 725
+          },
+          {
+            "kind": "internal",
+            "name": "core.recoverModuleSchema",
+            "count": 725
+          },
+          {
+            "kind": "call",
+            "name": "Query.node",
+            "count": 725
+          },
+          {
+            "kind": "call",
+            "name": "Query.directory",
+            "count": 708
+          },
+          {
+            "kind": "call_exec",
+            "name": "SearchResult.search",
+            "count": 668
+          },
+          {
+            "kind": "call",
+            "name": "SearchResult.matchedLines",
+            "count": 668
+          },
+          {
+            "kind": "call",
+            "name": "SearchResult.search",
+            "count": 668
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withObject",
+            "count": 474
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.attachSnapshotLease",
+            "count": 380
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.commit",
+            "count": 380
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.transactionWait",
+            "count": 380
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.transaction",
+            "count": 380
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.mutate",
+            "count": 380
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withListOf",
+            "count": 350
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.projectResponseData",
+            "count": 241
+          },
+          {
+            "kind": "call",
+            "name": "Workspace.search",
+            "count": 239
+          },
+          {
+            "kind": "call",
+            "name": "Directory.file",
+            "count": 202
+          },
+          {
+            "kind": "call_exec",
+            "name": "Directory.file",
+            "count": 199
+          },
+          {
+            "kind": "call",
+            "name": "Workspace.glob",
+            "count": 161
+          },
+          {
+            "kind": "call",
+            "name": "File.search",
+            "count": 121
+          },
+          {
+            "kind": "call_exec",
+            "name": "String.dimensions",
+            "count": 105
+          },
+          {
+            "kind": "call",
+            "name": "String.dimensions",
+            "count": 105
+          },
+          {
+            "kind": "call",
+            "name": "Directory.filter",
+            "count": 94
+          },
+          {
+            "kind": "call",
+            "name": "Directory.directory",
+            "count": 94
+          },
+          {
+            "kind": "call_exec",
+            "name": "Directory.directory",
+            "count": 94
+          }
+        ]
+      }
+    },
+    "checks": [
+      {
+        "arm": "candidate",
+        "check": "go-dev:package-owner-settings-check",
+        "seconds": 3.001413403893821,
+        "exit_code": 0
+      },
+      {
+        "arm": "control",
+        "check": "go-dev:package-owner-settings-check",
+        "seconds": 2.7995543209835887,
+        "exit_code": 0
+      },
+      {
+        "arm": "candidate",
+        "check": "go-dev:test-snapshot-directories-check",
+        "seconds": 1.8486139960587025,
+        "exit_code": 0
+      },
+      {
+        "arm": "candidate",
+        "check": "go-dev:discovery-check",
+        "seconds": 0.9909201130503789,
+        "exit_code": 0
+      },
+      {
+        "arm": "candidate",
+        "check": "go-dev:package-layout-rebind-check",
+        "seconds": 0.5378852600697428,
+        "exit_code": 0
+      },
+      {
+        "arm": "candidate",
+        "check": "go-dev:tests-collection-check",
+        "seconds": 6.035050892969593,
+        "exit_code": 0
+      },
+      {
+        "arm": "candidate",
+        "check": "go-dev:binary-check",
+        "seconds": 3.135133097996004,
+        "exit_code": 0
+      },
+      {
+        "arm": "candidate",
+        "check": "go-dev:generate-check",
+        "seconds": 4.1614412979688495,
+        "exit_code": 0
+      }
+    ]
+  },
+  "go-batch-source-markers": {
+    "selected": false,
+    "reason": "Test-edited complete listing is flat and ordinary-source improvement is small/mixed; the larger change is not justified by these measurements.",
+    "cold_effect_measured": false,
+    "test-edit-paired": {
+      "medians": {
+        "before": {
+          "median_seconds": 10.96354040451115,
+          "median_engine_cpu": 57.05596699999978,
+          "median_allocated_bytes": 15397301448.0,
+          "commands": 4
+        },
+        "combined": {
+          "median_seconds": 10.972978728532325,
+          "median_engine_cpu": 60.553179000000455,
+          "median_allocated_bytes": 15398435736.0,
+          "commands": 4
+        }
+      },
+      "faster_pairs": 2,
+      "median_paired_seconds_saved": -0.05018877104157582,
+      "all_12_commands_correct": true
+    },
+    "source-edit-paired": {
+      "medians": {
+        "before": {
+          "median_seconds": 6.159447368525434,
+          "median_engine_cpu": 25.635141499999918,
+          "median_allocated_bytes": 6257560712.0,
+          "commands": 4
+        },
+        "combined": {
+          "median_seconds": 6.010809723986313,
+          "median_engine_cpu": 25.870303999999578,
+          "median_allocated_bytes": 6133279764.0,
+          "commands": 4
+        }
+      },
+      "faster_pairs": 3,
+      "median_paired_seconds_saved": 0.27983439300442114,
+      "all_12_commands_correct": true
+    },
+    "profiles": {
+      "before": {
+        "function_evaluations": 804,
+        "sdk_requests": 1494,
+        "events": 231589,
+        "dropped": 0,
+        "open_ops": 0,
+        "selected_calls": {
+          "go:Go.packages": {
+            "hit": 800,
+            "executed": 1
+          },
+          "go:GoPackage.tests": {
+            "hit": 799,
+            "executed": 1
+          },
+          "go:GoPackages.get": {
+            "executed": 800
+          },
+          "go:Query.go": {
+            "hit": 801
+          },
+          "gomod:Gomod.moduleLayoutDigest": {
+            "executed": 1
+          },
+          "gomod:Gomod.packageFacts": {
+            "executed": 1
+          },
+          "gomod:Gomod.selectedPaths": {
+            "hit": 79
+          },
+          "gomod:GomodPackageFacts.files": {
+            "executed": 80
+          },
+          "gomod:GomodPackageFacts.path": {
+            "do_not_cache": 80
+          },
+          "gomod:GomodPackageFacts.prefix": {
+            "do_not_cache": 80
+          },
+          "gomod:GomodPackageFacts.skipTest": {
+            "do_not_cache": 80
+          },
+          "gomod:Query.gomod": {
+            "hit": 81
+          }
+        },
+        "main_query": {
+          "id": 1481022,
+          "seconds": 11.19309395
+        },
+        "classes": [
+          {
+            "kind": "internal",
+            "name": "dagql.prepareField",
+            "count": 31236
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.invokeField",
+            "count": 31236
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.instantiateResult",
+            "count": 30587
+          },
+          {
+            "kind": "call",
+            "name": "Query.typeDef",
+            "count": 7684
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withKind",
+            "count": 6836
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.collectSnapshotOwnerLinks",
+            "count": 6441
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.syncSnapshotOwnerLinks",
+            "count": 6441
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.snapshotLeaseLockHeld",
+            "count": 6441
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.resolveField",
+            "count": 5020
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.releaseOperationLease",
+            "count": 5020
+          },
+          {
+            "kind": "call",
+            "name": "Module._implementationScoped",
+            "count": 4971
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.parseSelections",
+            "count": 4547
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.stat",
+            "count": 3526
+          },
+          {
+            "kind": "internal",
+            "name": "core.localClientGuard",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.ownerMetadata",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.gitClientGuard",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.readGitClientDeclarations",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.moduleDynamicInputs",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.read",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.backendClient",
+            "count": 3364
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.querySchema",
+            "count": 3038
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.publishResult",
+            "count": 2780
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.clientAdmission",
+            "count": 1523
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.clientMetadata",
+            "count": 1523
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.modulesLoad",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.workspaceLoad",
+            "count": 1519
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.marshalResponse",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.queryResolve",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.schemaBuild",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.query",
+            "count": 1519
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.validateOperation",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.serveQuery",
+            "count": 1519
+          },
+          {
+            "kind": "internal",
+            "name": "dang.apiRequest",
+            "count": 1494
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withOptional",
+            "count": 1329
+          },
+          {
+            "kind": "call",
+            "name": "Query.__schemaJSONFile",
+            "count": 812
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.clientRuntimeInit",
+            "count": 806
+          },
+          {
+            "kind": "internal",
+            "name": "dang.prepareSource",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.evaluateFunction",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.openSchema",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.selfTypes",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.runSource",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.retainDirectives",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.decodeParent",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.convertParent",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.encodeResult",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.decodeSchema",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.flushTelemetry",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.invoke",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.evalSource",
+            "count": 804
+          },
+          {
+            "kind": "call",
+            "name": "go:Query.go",
+            "count": 801
+          },
+          {
+            "kind": "call",
+            "name": "go:Go.packages",
+            "count": 801
+          },
+          {
+            "kind": "call",
+            "name": "Directory.id",
+            "count": 801
+          },
+          {
+            "kind": "call_exec",
+            "name": "go:GoPackages.get",
+            "count": 800
+          },
+          {
+            "kind": "call",
+            "name": "go:GoPackages.get",
+            "count": 800
+          },
+          {
+            "kind": "call",
+            "name": "go:GoPackage.tests",
+            "count": 800
+          },
+          {
+            "kind": "internal",
+            "name": "core.scanInstalledModules",
+            "count": 725
+          },
+          {
+            "kind": "internal",
+            "name": "core.recoverModuleSchema",
+            "count": 725
+          },
+          {
+            "kind": "call",
+            "name": "Query.node",
+            "count": 725
+          },
+          {
+            "kind": "call",
+            "name": "Query.directory",
+            "count": 708
+          },
+          {
+            "kind": "call_exec",
+            "name": "SearchResult.search",
+            "count": 668
+          },
+          {
+            "kind": "call",
+            "name": "SearchResult.matchedLines",
+            "count": 668
+          },
+          {
+            "kind": "call",
+            "name": "SearchResult.search",
+            "count": 668
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withObject",
+            "count": 474
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.attachSnapshotLease",
+            "count": 380
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.transaction",
+            "count": 380
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.mutate",
+            "count": 380
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.commit",
+            "count": 380
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.transactionWait",
+            "count": 380
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withListOf",
+            "count": 350
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.projectResponseData",
+            "count": 241
+          },
+          {
+            "kind": "call",
+            "name": "Workspace.search",
+            "count": 239
+          },
+          {
+            "kind": "call",
+            "name": "Directory.file",
+            "count": 202
+          },
+          {
+            "kind": "call_exec",
+            "name": "Directory.file",
+            "count": 199
+          },
+          {
+            "kind": "call",
+            "name": "Workspace.glob",
+            "count": 161
+          },
+          {
+            "kind": "call",
+            "name": "File.search",
+            "count": 121
+          },
+          {
+            "kind": "call_exec",
+            "name": "String.dimensions",
+            "count": 105
+          },
+          {
+            "kind": "call",
+            "name": "String.dimensions",
+            "count": 105
+          },
+          {
+            "kind": "call",
+            "name": "Directory.filter",
+            "count": 94
+          },
+          {
+            "kind": "call_exec",
+            "name": "Directory.directory",
+            "count": 94
+          },
+          {
+            "kind": "call",
+            "name": "Directory.directory",
+            "count": 94
+          }
+        ]
+      },
+      "candidate": {
+        "function_evaluations": 804,
+        "sdk_requests": 1257,
+        "events": 221423,
+        "dropped": 0,
+        "open_ops": 0,
+        "selected_calls": {
+          "go:Go.packages": {
+            "hit": 800,
+            "executed": 1
+          },
+          "go:GoPackage.tests": {
+            "hit": 799,
+            "executed": 1
+          },
+          "go:GoPackages.get": {
+            "executed": 800
+          },
+          "go:Query.go": {
+            "hit": 801
+          },
+          "gomod:Gomod.moduleLayoutDigest": {
+            "executed": 1
+          },
+          "gomod:Gomod.packageFacts": {
+            "executed": 1
+          },
+          "gomod:Gomod.selectedPaths": {
+            "hit": 79
+          },
+          "gomod:GomodPackageFacts.files": {
+            "executed": 80
+          },
+          "gomod:GomodPackageFacts.path": {
+            "do_not_cache": 80
+          },
+          "gomod:GomodPackageFacts.prefix": {
+            "do_not_cache": 80
+          },
+          "gomod:GomodPackageFacts.skipTest": {
+            "do_not_cache": 80
+          },
+          "gomod:Query.gomod": {
+            "hit": 81
+          }
+        },
+        "main_query": {
+          "id": 1707401,
+          "seconds": 10.384058437
+        },
+        "classes": [
+          {
+            "kind": "internal",
+            "name": "dagql.invokeField",
+            "count": 30288
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.prepareField",
+            "count": 30288
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.instantiateResult",
+            "count": 29639
+          },
+          {
+            "kind": "call",
+            "name": "Query.typeDef",
+            "count": 7684
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withKind",
+            "count": 6836
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.syncSnapshotOwnerLinks",
+            "count": 6364
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.collectSnapshotOwnerLinks",
+            "count": 6364
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.snapshotLeaseLockHeld",
+            "count": 6364
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.releaseOperationLease",
+            "count": 4546
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.resolveField",
+            "count": 4546
+          },
+          {
+            "kind": "call",
+            "name": "Module._implementationScoped",
+            "count": 4497
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.parseSelections",
+            "count": 3599
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.stat",
+            "count": 3526
+          },
+          {
+            "kind": "internal",
+            "name": "core.readGitClientDeclarations",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.localClientGuard",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.backendClient",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.ownerMetadata",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.moduleDynamicInputs",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.read",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.gitClientGuard",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.publishResult",
+            "count": 2703
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.querySchema",
+            "count": 2564
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withOptional",
+            "count": 1329
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.clientMetadata",
+            "count": 1286
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.clientAdmission",
+            "count": 1286
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.query",
+            "count": 1282
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.schemaBuild",
+            "count": 1282
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.queryResolve",
+            "count": 1282
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.modulesLoad",
+            "count": 1282
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.validateOperation",
+            "count": 1282
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.workspaceLoad",
+            "count": 1282
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.serveQuery",
+            "count": 1282
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.marshalResponse",
+            "count": 1282
+          },
+          {
+            "kind": "internal",
+            "name": "dang.apiRequest",
+            "count": 1257
+          },
+          {
+            "kind": "call",
+            "name": "Query.__schemaJSONFile",
+            "count": 812
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.clientRuntimeInit",
+            "count": 806
+          },
+          {
+            "kind": "internal",
+            "name": "dang.prepareSource",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.encodeResult",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.retainDirectives",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.decodeSchema",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.evaluateFunction",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.convertParent",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.runSource",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.flushTelemetry",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.selfTypes",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.invoke",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.decodeParent",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.evalSource",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.openSchema",
+            "count": 804
+          },
+          {
+            "kind": "call",
+            "name": "go:Query.go",
+            "count": 801
+          },
+          {
+            "kind": "call",
+            "name": "go:Go.packages",
+            "count": 801
+          },
+          {
+            "kind": "call",
+            "name": "Directory.id",
+            "count": 801
+          },
+          {
+            "kind": "call_exec",
+            "name": "go:GoPackages.get",
+            "count": 800
+          },
+          {
+            "kind": "call",
+            "name": "go:GoPackage.tests",
+            "count": 800
+          },
+          {
+            "kind": "call",
+            "name": "go:GoPackages.get",
+            "count": 800
+          },
+          {
+            "kind": "call",
+            "name": "Query.directory",
+            "count": 708
+          },
+          {
+            "kind": "call",
+            "name": "SearchResult.search",
+            "count": 668
+          },
+          {
+            "kind": "call",
+            "name": "SearchResult.matchedLines",
+            "count": 668
+          },
+          {
+            "kind": "call_exec",
+            "name": "SearchResult.search",
+            "count": 668
+          },
+          {
+            "kind": "internal",
+            "name": "core.scanInstalledModules",
+            "count": 488
+          },
+          {
+            "kind": "internal",
+            "name": "core.recoverModuleSchema",
+            "count": 488
+          },
+          {
+            "kind": "call",
+            "name": "Query.node",
+            "count": 488
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withObject",
+            "count": 474
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.transactionWait",
+            "count": 382
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.attachSnapshotLease",
+            "count": 382
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.transaction",
+            "count": 382
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.mutate",
+            "count": 382
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.commit",
+            "count": 382
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withListOf",
+            "count": 350
+          },
+          {
+            "kind": "call",
+            "name": "Directory.file",
+            "count": 202
+          },
+          {
+            "kind": "call_exec",
+            "name": "Directory.file",
+            "count": 201
+          },
+          {
+            "kind": "call",
+            "name": "Workspace.glob",
+            "count": 161
+          },
+          {
+            "kind": "call",
+            "name": "File.search",
+            "count": 121
+          },
+          {
+            "kind": "call",
+            "name": "String.dimensions",
+            "count": 105
+          },
+          {
+            "kind": "call_exec",
+            "name": "String.dimensions",
+            "count": 105
+          },
+          {
+            "kind": "call_exec",
+            "name": "Directory.directory",
+            "count": 94
+          },
+          {
+            "kind": "call",
+            "name": "Directory.filter",
+            "count": 94
+          },
+          {
+            "kind": "call",
+            "name": "Directory.directory",
+            "count": 94
+          },
+          {
+            "kind": "call",
+            "name": "Query.host",
+            "count": 92
+          },
+          {
+            "kind": "call",
+            "name": "Query._clientFilesyncMirror",
+            "count": 86
+          }
+        ]
+      }
+    },
+    "checks": [
+      {
+        "arm": "candidate",
+        "check": "go-dev:package-markers-check",
+        "seconds": 2.516444005072117,
+        "exit_code": 0
+      },
+      {
+        "arm": "control",
+        "check": "go-dev:package-markers-check",
+        "seconds": 1.2430791680235416,
+        "exit_code": 0
+      },
+      {
+        "arm": "candidate",
+        "check": "go-dev:test-snapshot-directories-check",
+        "seconds": 1.1670279620448127,
+        "exit_code": 0
+      },
+      {
+        "arm": "candidate",
+        "check": "go-dev:discovery-check",
+        "seconds": 2.2766541950404644,
+        "exit_code": 0
+      },
+      {
+        "arm": "candidate",
+        "check": "go-dev:package-layout-rebind-check",
+        "seconds": 1.042648011003621,
+        "exit_code": 0
+      },
+      {
+        "arm": "candidate",
+        "check": "go-dev:tests-collection-check",
+        "seconds": 4.080762598081492,
+        "exit_code": 0
+      },
+      {
+        "arm": "candidate",
+        "check": "go-dev:binary-check",
+        "seconds": 3.439967454993166,
+        "exit_code": 0
+      },
+      {
+        "arm": "candidate",
+        "check": "go-dev:generate-check",
+        "seconds": 3.316744168056175,
+        "exit_code": 0
+      }
+    ]
+  },
+  "go-parallel-test-file-search": {
+    "selected": false,
+    "reason": "Test-edit latency regresses and engine CPU increases; ordinary-source listing does not exercise the changed function.",
+    "nested_element_type_fix_common": true,
+    "cold_effect_measured": false,
+    "test-edit-paired": {
+      "medians": {
+        "before": {
+          "median_seconds": 10.331453104969114,
+          "median_engine_cpu": 52.304352499999936,
+          "median_allocated_bytes": 15406065688.0,
+          "commands": 4
+        },
+        "combined": {
+          "median_seconds": 10.687988609017339,
+          "median_engine_cpu": 57.106694999999974,
+          "median_allocated_bytes": 15475891836.0,
+          "commands": 4
+        }
+      },
+      "faster_pairs": 1,
+      "median_paired_seconds_saved": -0.4411172505351715,
+      "all_12_commands_correct": true
+    },
+    "source-edit-paired": {
+      "medians": {
+        "before": {
+          "median_seconds": 6.053889722505119,
+          "median_engine_cpu": 26.526594999999986,
+          "median_allocated_bytes": 6407683248.0,
+          "commands": 4
+        },
+        "combined": {
+          "median_seconds": 5.877633428492118,
+          "median_engine_cpu": 23.789859499999977,
+          "median_allocated_bytes": 6360530580.0,
+          "commands": 4
+        }
+      },
+      "faster_pairs": 3,
+      "median_paired_seconds_saved": 0.4241442289785482,
+      "all_12_commands_correct": true
+    },
+    "profiles": {
+      "before": {
+        "function_evaluations": 804,
+        "sdk_requests": 1494,
+        "events": 231589,
+        "dropped": 0,
+        "open_ops": 0,
+        "selected_calls": {
+          "go:Go.packages": {
+            "executed": 1,
+            "hit": 800
+          },
+          "go:GoPackage.tests": {
+            "hit": 799,
+            "executed": 1
+          },
+          "go:GoPackages.get": {
+            "executed": 800
+          },
+          "go:Query.go": {
+            "hit": 801
+          },
+          "gomod:Gomod.moduleLayoutDigest": {
+            "executed": 1
+          },
+          "gomod:Gomod.packageFacts": {
+            "executed": 1
+          },
+          "gomod:Gomod.selectedPaths": {
+            "hit": 79
+          },
+          "gomod:GomodPackageFacts.files": {
+            "executed": 80
+          },
+          "gomod:GomodPackageFacts.path": {
+            "do_not_cache": 80
+          },
+          "gomod:GomodPackageFacts.prefix": {
+            "do_not_cache": 80
+          },
+          "gomod:GomodPackageFacts.skipTest": {
+            "do_not_cache": 80
+          },
+          "gomod:Query.gomod": {
+            "hit": 81
+          }
+        },
+        "main_query": {
+          "id": 12115,
+          "seconds": 10.038007956
+        },
+        "classes": [
+          {
+            "kind": "internal",
+            "name": "dagql.invokeField",
+            "count": 31236
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.prepareField",
+            "count": 31236
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.instantiateResult",
+            "count": 30587
+          },
+          {
+            "kind": "call",
+            "name": "Query.typeDef",
+            "count": 7684
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withKind",
+            "count": 6836
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.snapshotLeaseLockHeld",
+            "count": 6441
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.syncSnapshotOwnerLinks",
+            "count": 6441
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.collectSnapshotOwnerLinks",
+            "count": 6441
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.resolveField",
+            "count": 5020
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.releaseOperationLease",
+            "count": 5020
+          },
+          {
+            "kind": "call",
+            "name": "Module._implementationScoped",
+            "count": 4971
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.parseSelections",
+            "count": 4547
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.stat",
+            "count": 3526
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.backendClient",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.localClientGuard",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.gitClientGuard",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.moduleDynamicInputs",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.readGitClientDeclarations",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.ownerMetadata",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.read",
+            "count": 3364
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.querySchema",
+            "count": 3038
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.publishResult",
+            "count": 2780
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.clientAdmission",
+            "count": 1523
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.clientMetadata",
+            "count": 1523
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.workspaceLoad",
+            "count": 1519
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.marshalResponse",
+            "count": 1519
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.validateOperation",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.modulesLoad",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.queryResolve",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.query",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.serveQuery",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.schemaBuild",
+            "count": 1519
+          },
+          {
+            "kind": "internal",
+            "name": "dang.apiRequest",
+            "count": 1494
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withOptional",
+            "count": 1329
+          },
+          {
+            "kind": "call",
+            "name": "Query.__schemaJSONFile",
+            "count": 812
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.clientRuntimeInit",
+            "count": 806
+          },
+          {
+            "kind": "internal",
+            "name": "dang.retainDirectives",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.prepareSource",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.openSchema",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.runSource",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.evaluateFunction",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.decodeSchema",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.encodeResult",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.flushTelemetry",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.selfTypes",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.convertParent",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.evalSource",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.decodeParent",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.invoke",
+            "count": 804
+          },
+          {
+            "kind": "call",
+            "name": "go:Query.go",
+            "count": 801
+          },
+          {
+            "kind": "call",
+            "name": "go:Go.packages",
+            "count": 801
+          },
+          {
+            "kind": "call",
+            "name": "Directory.id",
+            "count": 801
+          },
+          {
+            "kind": "call_exec",
+            "name": "go:GoPackages.get",
+            "count": 800
+          },
+          {
+            "kind": "call",
+            "name": "go:GoPackages.get",
+            "count": 800
+          },
+          {
+            "kind": "call",
+            "name": "go:GoPackage.tests",
+            "count": 800
+          },
+          {
+            "kind": "internal",
+            "name": "core.recoverModuleSchema",
+            "count": 725
+          },
+          {
+            "kind": "internal",
+            "name": "core.scanInstalledModules",
+            "count": 725
+          },
+          {
+            "kind": "call",
+            "name": "Query.node",
+            "count": 725
+          },
+          {
+            "kind": "call",
+            "name": "Query.directory",
+            "count": 708
+          },
+          {
+            "kind": "call",
+            "name": "SearchResult.matchedLines",
+            "count": 668
+          },
+          {
+            "kind": "call_exec",
+            "name": "SearchResult.search",
+            "count": 668
+          },
+          {
+            "kind": "call",
+            "name": "SearchResult.search",
+            "count": 668
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withObject",
+            "count": 474
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.attachSnapshotLease",
+            "count": 380
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.mutate",
+            "count": 380
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.transaction",
+            "count": 380
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.transactionWait",
+            "count": 380
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.commit",
+            "count": 380
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withListOf",
+            "count": 350
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.projectResponseData",
+            "count": 241
+          },
+          {
+            "kind": "call",
+            "name": "Workspace.search",
+            "count": 239
+          },
+          {
+            "kind": "call",
+            "name": "Directory.file",
+            "count": 202
+          },
+          {
+            "kind": "call_exec",
+            "name": "Directory.file",
+            "count": 199
+          },
+          {
+            "kind": "call",
+            "name": "Workspace.glob",
+            "count": 161
+          },
+          {
+            "kind": "call",
+            "name": "File.search",
+            "count": 121
+          },
+          {
+            "kind": "call_exec",
+            "name": "String.dimensions",
+            "count": 105
+          },
+          {
+            "kind": "call",
+            "name": "String.dimensions",
+            "count": 105
+          },
+          {
+            "kind": "call_exec",
+            "name": "Directory.directory",
+            "count": 94
+          },
+          {
+            "kind": "call",
+            "name": "Directory.filter",
+            "count": 94
+          },
+          {
+            "kind": "call",
+            "name": "Directory.directory",
+            "count": 94
+          }
+        ]
+      },
+      "candidate": {
+        "function_evaluations": 804,
+        "sdk_requests": 1494,
+        "events": 231588,
+        "dropped": 0,
+        "open_ops": 0,
+        "selected_calls": {
+          "go:Go.packages": {
+            "hit": 800,
+            "executed": 1
+          },
+          "go:GoPackage.tests": {
+            "hit": 799,
+            "executed": 1
+          },
+          "go:GoPackages.get": {
+            "executed": 800
+          },
+          "go:Query.go": {
+            "hit": 801
+          },
+          "gomod:Gomod.moduleLayoutDigest": {
+            "executed": 1
+          },
+          "gomod:Gomod.packageFacts": {
+            "executed": 1
+          },
+          "gomod:Gomod.selectedPaths": {
+            "hit": 79
+          },
+          "gomod:GomodPackageFacts.files": {
+            "executed": 80
+          },
+          "gomod:GomodPackageFacts.path": {
+            "do_not_cache": 80
+          },
+          "gomod:GomodPackageFacts.prefix": {
+            "do_not_cache": 80
+          },
+          "gomod:GomodPackageFacts.skipTest": {
+            "do_not_cache": 80
+          },
+          "gomod:Query.gomod": {
+            "hit": 81
+          }
+        },
+        "main_query": {
+          "id": 238494,
+          "seconds": 9.536472183
+        },
+        "classes": [
+          {
+            "kind": "internal",
+            "name": "dagql.prepareField",
+            "count": 31236
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.invokeField",
+            "count": 31236
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.instantiateResult",
+            "count": 30587
+          },
+          {
+            "kind": "call",
+            "name": "Query.typeDef",
+            "count": 7684
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withKind",
+            "count": 6836
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.collectSnapshotOwnerLinks",
+            "count": 6441
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.syncSnapshotOwnerLinks",
+            "count": 6441
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.snapshotLeaseLockHeld",
+            "count": 6441
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.releaseOperationLease",
+            "count": 5020
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.resolveField",
+            "count": 5020
+          },
+          {
+            "kind": "call",
+            "name": "Module._implementationScoped",
+            "count": 4971
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.parseSelections",
+            "count": 4547
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.stat",
+            "count": 3526
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.backendClient",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.ownerMetadata",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.localClientGuard",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.gitClientGuard",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.moduleDynamicInputs",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.config.read",
+            "count": 3364
+          },
+          {
+            "kind": "internal",
+            "name": "core.readGitClientDeclarations",
+            "count": 3364
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.querySchema",
+            "count": 3038
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.publishResult",
+            "count": 2780
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.clientAdmission",
+            "count": 1523
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.clientMetadata",
+            "count": 1523
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.modulesLoad",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.workspaceLoad",
+            "count": 1519
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.marshalResponse",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.queryResolve",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.schemaBuild",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.query",
+            "count": 1519
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.validateOperation",
+            "count": 1519
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.serveQuery",
+            "count": 1519
+          },
+          {
+            "kind": "internal",
+            "name": "dang.apiRequest",
+            "count": 1494
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withOptional",
+            "count": 1329
+          },
+          {
+            "kind": "call",
+            "name": "Query.__schemaJSONFile",
+            "count": 812
+          },
+          {
+            "kind": "session_phase",
+            "name": "session.clientRuntimeInit",
+            "count": 806
+          },
+          {
+            "kind": "internal",
+            "name": "dang.prepareSource",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.evaluateFunction",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.decodeSchema",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.decodeParent",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.convertParent",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.flushTelemetry",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.invoke",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.evalSource",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.openSchema",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.selfTypes",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.runSource",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.retainDirectives",
+            "count": 804
+          },
+          {
+            "kind": "internal",
+            "name": "dang.encodeResult",
+            "count": 804
+          },
+          {
+            "kind": "call",
+            "name": "go:Query.go",
+            "count": 801
+          },
+          {
+            "kind": "call",
+            "name": "go:Go.packages",
+            "count": 801
+          },
+          {
+            "kind": "call",
+            "name": "Directory.id",
+            "count": 801
+          },
+          {
+            "kind": "call_exec",
+            "name": "go:GoPackages.get",
+            "count": 800
+          },
+          {
+            "kind": "call",
+            "name": "go:GoPackage.tests",
+            "count": 800
+          },
+          {
+            "kind": "call",
+            "name": "go:GoPackages.get",
+            "count": 800
+          },
+          {
+            "kind": "internal",
+            "name": "core.scanInstalledModules",
+            "count": 725
+          },
+          {
+            "kind": "internal",
+            "name": "core.recoverModuleSchema",
+            "count": 725
+          },
+          {
+            "kind": "call",
+            "name": "Query.node",
+            "count": 725
+          },
+          {
+            "kind": "call",
+            "name": "Query.directory",
+            "count": 708
+          },
+          {
+            "kind": "call",
+            "name": "SearchResult.search",
+            "count": 668
+          },
+          {
+            "kind": "call_exec",
+            "name": "SearchResult.search",
+            "count": 668
+          },
+          {
+            "kind": "call",
+            "name": "SearchResult.matchedLines",
+            "count": 668
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withObject",
+            "count": 474
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.attachSnapshotLease",
+            "count": 380
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.transaction",
+            "count": 380
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.commit",
+            "count": 380
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.mutate",
+            "count": 380
+          },
+          {
+            "kind": "internal",
+            "name": "snapshot.ownerLease.transactionWait",
+            "count": 380
+          },
+          {
+            "kind": "call",
+            "name": "TypeDef.withListOf",
+            "count": 350
+          },
+          {
+            "kind": "internal",
+            "name": "dagql.projectResponseData",
+            "count": 241
+          },
+          {
+            "kind": "call",
+            "name": "Workspace.search",
+            "count": 239
+          },
+          {
+            "kind": "call",
+            "name": "Directory.file",
+            "count": 202
+          },
+          {
+            "kind": "call_exec",
+            "name": "Directory.file",
+            "count": 199
+          },
+          {
+            "kind": "call",
+            "name": "Workspace.glob",
+            "count": 161
+          },
+          {
+            "kind": "call",
+            "name": "File.search",
+            "count": 121
+          },
+          {
+            "kind": "call",
+            "name": "String.dimensions",
+            "count": 105
+          },
+          {
+            "kind": "call_exec",
+            "name": "String.dimensions",
+            "count": 105
+          },
+          {
+            "kind": "call_exec",
+            "name": "Directory.directory",
+            "count": 94
+          },
+          {
+            "kind": "call",
+            "name": "Directory.directory",
+            "count": 94
+          },
+          {
+            "kind": "call",
+            "name": "Directory.filter",
+            "count": 94
+          }
+        ]
+      }
+    },
+    "checks": [
+      {
+        "arm": "candidate",
+        "check": "go-dev:test-snapshot-directories-check",
+        "seconds": 3.433135896921158,
+        "exit_code": 0
+      },
+      {
+        "arm": "control",
+        "check": "go-dev:test-snapshot-directories-check",
+        "seconds": 4.436018157051876,
+        "exit_code": 0
+      },
+      {
+        "arm": "candidate",
+        "check": "go-dev:discovery-check",
+        "seconds": 0.876331647974439,
+        "exit_code": 0
+      },
+      {
+        "arm": "candidate",
+        "check": "go-dev:package-layout-rebind-check",
+        "seconds": 0.475673736887984,
+        "exit_code": 0
+      },
+      {
+        "arm": "candidate",
+        "check": "go-dev:tests-collection-check",
+        "seconds": 5.451736635994166,
+        "exit_code": 0
+      },
+      {
+        "arm": "candidate",
+        "check": "go-dev:binary-check",
+        "seconds": 4.401803586981259,
+        "exit_code": 0
+      },
+      {
+        "arm": "candidate",
+        "check": "go-dev:generate-check",
+        "seconds": 4.230540201999247,
+        "exit_code": 0
+      }
+    ]
+  },
+  "dang-nested-selection-elements": {
+    "standalone_upstream_commit": "da1bed304cb80f8a2f0714f1747e7f64e03297a3",
+    "before_regression_failed": true,
+    "before_module_repro_failed": true,
+    "after_upstream_checks": [
+      {
+        "label": "after-focused",
+        "command": [
+          "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+          "test",
+          "-p=2",
+          "-overlay=/tmp/rust-cache-sipsma-review/dang-nested-selection-elements/after-upstream-overlay.json",
+          "-count=1",
+          "-run",
+          "^TestNestedSelectionPreservesElementNullability$",
+          "./pkg/dang"
+        ],
+        "seconds": 3.5466982240322977,
+        "exit_code": 0
+      },
+      {
+        "label": "after-upstream-race",
+        "command": [
+          "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+          "test",
+          "-p=2",
+          "-overlay=/tmp/rust-cache-sipsma-review/dang-nested-selection-elements/after-upstream-overlay.json",
+          "-count=1",
+          "-race",
+          "-timeout=120s",
+          "./pkg/dang"
+        ],
+        "seconds": 9.681243080995046,
+        "exit_code": 0
+      }
+    ],
+    "development_build_checks": [
+      {
+        "label": "development-dang-race",
+        "command": [
+          "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+          "test",
+          "-p=2",
+          "-mod=mod",
+          "-modfile=/tmp/rust-cache-sipsma-review/dang-evaluation-context/dang.go.mod",
+          "-overlay=/tmp/rust-cache-sipsma-review/dang-nested-selection-elements/engine-overlay.json",
+          "-count=1",
+          "-race",
+          "-timeout=120s",
+          "./pkg/dang"
+        ],
+        "seconds": 35.818527329014614,
+        "exit_code": 0
+      },
+      {
+        "label": "development-sdk-race",
+        "command": [
+          "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+          "test",
+          "-p=2",
+          "-modfile=/tmp/rust-cache-sipsma-review/log-flush-buffer/engine.go.mod",
+          "-overlay=/tmp/rust-cache-sipsma-review/dang-nested-selection-elements/engine-overlay.json",
+          "-count=1",
+          "-race",
+          "-timeout=120s",
+          "./core/sdk/dang/v2"
+        ],
+        "seconds": 20.62460395297967,
+        "exit_code": 0
+      },
+      {
+        "label": "engine-build",
+        "command": [
+          "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+          "build",
+          "-p=2",
+          "-buildvcs=false",
+          "-modfile=/tmp/rust-cache-sipsma-review/log-flush-buffer/engine.go.mod",
+          "-overlay=/tmp/rust-cache-sipsma-review/dang-nested-selection-elements/engine-overlay.json",
+          "-o",
+          "/tmp/rust-cache-sipsma-review/dang-nested-selection-elements/dagger-engine",
+          "./cmd/engine"
+        ],
+        "seconds": 21.53933547192719,
+        "exit_code": 0,
+        "sha256": "053e9d5db9959b04259d48b8fc635721cfc7375652b43953010f767f7bf16118"
+      }
+    ],
+    "activation": {
+      "engine": "dagger-collection-content-oct18",
+      "container_id": "c852f474863db6e93f76740af2d3a00e22e3204c5a881faacb0c8584059283d2",
+      "mounts": [
+        {
+          "Type": "volume",
+          "Name": "dagger-collection-content-oct18",
+          "Source": "/var/lib/docker/volumes/dagger-collection-content-oct18/_data",
+          "Destination": "/var/lib/dagger",
+          "Driver": "local",
+          "Mode": "z",
+          "RW": true,
+          "Propagation": ""
+        }
+      ],
+      "old_sha256": "37d4c555e4c5bf4370f7aa70b653a53b576ba08fa9c615898bb03bff6b8eb122",
+      "new_sha256": "053e9d5db9959b04259d48b8fc635721cfc7375652b43953010f767f7bf16118",
+      "flags_before": {
+        "batch-metadata": false,
+        "attribute-array-decode": false,
+        "reusable-declarations": true,
+        "span-lookup-fanout": true,
+        "usage-sampling": true,
+        "builtin-receivers": true,
+        "config-declarations": true,
+        "trivial-scalar-fields": true,
+        "direct-span-protobuf": false,
+        "span-resource-batches": false,
+        "lazy-type-maps": false,
+        "telemetry-flush-coalescing": false,
+        "callback-caller-reuse": false,
+        "otel-evicted-queue": false,
+        "single-toml-parse": false,
+        "parallel-client-admission": false,
+        "prepared-schema": false,
+        "restored-posting-removal": true,
+        "scalar-list-projection": true,
+        "upstream-leaf-arrays": false,
+        "native-search-projection": false,
+        "restored-data-list-projection": false,
+        "span-row-sharing": false,
+        "interface-field-snapshots": false,
+        "metric-flush-pruning": false,
+        "compaction-digest-sets": false,
+        "metadata-snapshot-unlocked": false,
+        "upstream-log-queue": false,
+        "recovered-schema-templates": false,
+        "canonical-core-providers": false,
+        "lazy-schema-candidates": false,
+        "schema-read-buffers": false,
+        "native-telemetry-storage": false,
+        "response-data-projection": false,
+        "known-input-ids": false,
+        "collection-item-content": false,
+        "evaluation-context": false,
+        "receiver-preparation": false,
+        "coerced-method-hoisting": false,
+        "lazy-eval-error-context": false,
+        "shared-function-metadata": false
+      },
+      "forced_stop": false,
+      "volume_reset": false,
+      "original_rust_cache_engine_replaced": false,
+      "native_telemetry_v2_dual_readers_preserved": true,
+      "ready": true,
+      "flags_after": {
+        "batch-metadata": {
+          "enabled": false,
+          "log_rows": 0,
+          "record": false,
+          "resource_decodes": 0,
+          "scope_decodes": 0,
+          "span_rows": 0
+        },
+        "attribute-array-decode": {
+          "enabled": false
+        },
+        "reusable-declarations": {
+          "enabled": true,
+          "entries": 0,
+          "fallbacks": 0,
+          "hits": 0,
+          "misses": 0
+        },
+        "span-lookup-fanout": {
+          "enabled": true,
+          "new_parent_scan_comparisons": 0,
+          "record": false,
+          "rows": 0
+        },
+        "usage-sampling": {
+          "enabled": true
+        },
+        "builtin-receivers": {
+          "direct_calls": 0,
+          "enabled": true,
+          "record": false,
+          "scoped_calls": 0
+        },
+        "config-declarations": {
+          "control_calls": 0,
+          "enabled": true,
+          "entries": 0,
+          "lookups": 0,
+          "parses": 0,
+          "record": false
+        },
+        "trivial-scalar-fields": {
+          "enabled": true
+        },
+        "direct-span-protobuf": {
+          "enabled": false
+        },
+        "span-resource-batches": {
+          "batches": 0,
+          "enabled": false,
+          "encodings": 0,
+          "record": false,
+          "rows": 0
+        },
+        "lazy-type-maps": {
+          "enabled": false
+        },
+        "telemetry-flush-coalescing": {
+          "client_flushes": 0,
+          "enabled": false,
+          "executions": 0,
+          "requests": 0
+        },
+        "callback-caller-reuse": {
+          "enabled": false
+        },
+        "otel-evicted-queue": {
+          "enabled": false
+        },
+        "single-toml-parse": {
+          "enabled": false
+        },
+        "parallel-client-admission": {
+          "enabled": false
+        },
+        "prepared-schema": {
+          "enabled": false
+        },
+        "restored-posting-removal": {
+          "enabled": true
+        },
+        "scalar-list-projection": {
+          "enabled": true
+        },
+        "upstream-leaf-arrays": {
+          "enabled": false
+        },
+        "native-search-projection": {
+          "enabled": false
+        },
+        "restored-data-list-projection": {
+          "enabled": false
+        },
+        "span-row-sharing": {
+          "destinations": 0,
+          "enabled": false,
+          "encodings": 0,
+          "record": false,
+          "routed_spans": 0
+        },
+        "interface-field-snapshots": {
+          "enabled": false
+        },
+        "metric-flush-pruning": {
+          "candidates": 0,
+          "dispatched": 0,
+          "enabled": false,
+          "record": false
+        },
+        "compaction-digest-sets": {
+          "enabled": false,
+          "events": null,
+          "record": false
+        },
+        "metadata-snapshot-unlocked": {
+          "enabled": false
+        },
+        "upstream-log-queue": {
+          "enabled": false
+        },
+        "recovered-schema-templates": {
+          "enabled": false
+        },
+        "canonical-core-providers": {
+          "enabled": false
+        },
+        "lazy-schema-candidates": {
+          "enabled": false
+        },
+        "schema-read-buffers": {
+          "enabled": false
+        },
+        "native-telemetry-storage": {
+          "enabled": false
+        },
+        "response-data-projection": {
+          "enabled": false,
+          "hits": 0
+        },
+        "known-input-ids": {
+          "converted": 0,
+          "enabled": false
+        },
+        "collection-item-content": {
+          "enabled": false
+        },
+        "evaluation-context": {
+          "enabled": false
+        },
+        "receiver-preparation": {
+          "enabled": false,
+          "rows": {}
+        },
+        "coerced-method-hoisting": {
+          "enabled": false
+        },
+        "lazy-eval-error-context": {
+          "enabled": false
+        }
+      },
+      "nested_selection_fix_enabled": true,
+      "shared_function_metadata_default_off": true,
+      "original_engine_sha256": "1a514c536c6bf10d2463faab2d4e4329f187dd4c0af5f46aba1cbe91460e2fb7"
+    },
+    "scope": "Preserve only the existing non-null list-element flag in nested selections; outer-container behavior remains unchanged. No new cache, lock, directive, library or runtime scheduling policy.",
+    "performance_effect_measured": false
+  }
+}
