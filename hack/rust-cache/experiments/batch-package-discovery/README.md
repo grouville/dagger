@@ -1,0 +1,15 @@
+# Batch Go package discovery
+
+Final confirmation improves complete test-file-edited listing 17.35 → 15.92 seconds across four balanced pairs, and ordinary-source-edited listing 10.39 → 7.56 seconds across four pairs. All 40 commands in initial and final cohorts return correct rows and exit successfully. This is a Go module/library change on the existing development stack; no engine rebuild is involved.
+
+`evidence.tar.xz` contains exact initial and final source snapshots and patches, all focused checks and timing attempts, source hashes, pressure/restoration records, three lossless wcprof captures and CPU profiles. `MANIFEST.json` verifies the archive and every member. Duplicate combined traces and inherited binaries are omitted. The engine, CLI and base module sources come from `../collection-getter-content/` and its referenced archives.
+
+The measured initial source is commit `3525dec`; the final revision is `09518aac0858390722e71c82a719c2f6e131e611` on `grouville/go:experiment/batch-package-discovery`, based on `846aebb814d3356cdf7658ea97aeaecb4e99d818`. `module-source/` and `module.patch` preserve the initial version, while `final-module-source/`, `final-module.patch` and `final-source-identity.json` preserve the confirmed final version. The compatibility commit confines the global-boundary predicate to the batch path.
+
+Extract into a temporary directory. `python3 assemble-traces.py <capture>` reconstructs and verifies the exact combined trace for `capture-before`, `capture-candidate` or `capture-final`. `python3 analyze.py <capture>` uses the existing `/tmp/rust-cache-wcprof-report` tool; prepared critical-path and CPU reports are included. `assess.py` checks all four complete-command cohorts and verifies final source identity against the recorded worktree. The initial captures have no CPU profiler; the final capture includes four five-second CPU windows and some post-command activity. Diagnostics are not timing comparisons.
+
+Timing drivers and overlays refer to the recorded local development checkouts and persistent engine. Restore the inherited engine/CLI sources and base Go worktree before replaying. These are local experiment drivers, not a self-contained stock-main benchmark. Both arms enable getter content identity, native telemetry storage and typed artifact metadata, with the same engine binary and selected settings. Every invocation edits real source; every timing includes exit, cleanup and final log flush. Do not run build, tests, profiling, compression or Git packing during measurements.
+
+The isolated engine remains `dagger-collection-content-oct18`, runner port 16277 and debug port 16105, with a separate volume. All experiment flags are restored to disabled and the engine is idle. The original retained-cache engine binary and volume are not replaced or reset. No PR is open.
+
+`next-target-source/` and `next-target-identity.json` preserve the exact compiled interpreter code identified by CPU profiling: evaluation and force-chain state use context-value chains. This is an investigation lead, not an implemented optimization. The existing known-ID and native-sort candidates remain unselected.

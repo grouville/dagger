@@ -8,6 +8,10 @@ The first identity experiment now works for real test-file edits: [scoped getter
 
 The next order-of-magnitude experiment must reduce the 800 getter evaluations themselves while preserving ordinary collection behavior. Separately, inspect root discovery's repeated config checks against immutable module dependencies. The earlier live-config sharing approach was rejected for staleness; freshness is a required invariant.
 
+A module-only follow-up now batches validation and owned-file discovery. Final confirmation improves test-file-edited listing **17.35 → 15.92 seconds** and ordinary-source-edited listing **10.39 → 7.56 seconds**. It removes 160 module evaluations and 1,510 SDK requests while retaining 799 unchanged discoveries. [Source, complete cohorts and scope review](NATIVE_GO_BATCH_PACKAGE_DISCOVERY.md).
+
+The new CPU profile provides a concrete algorithmic lead before adding a collection API: Dang repeatedly walks Go context chains for evaluation and initializer state. Test bounded lookup for these private values, preserving context propagation and cycle detection, then compare the full command. Captured source paths are `dang-builtin-receivers/controlled-eval.go` for `withForceChain` and the Dang checkout's `errors.go` for evaluation context. Existing sorting and ID shortcuts remain unselected.
+
 ## Working hypothesis
 
 The order-of-magnitude opportunity is less work after an edit. A collection with 800 packages should not rediscover all 800 when one package's test file changes. Returning 4,398 rows still requires reading and formatting those rows; repeated discovery and module setup are additional costs.
