@@ -38,4 +38,6 @@ The recorded median request intervals are **19.75 ms for stat** and **20.59 ms f
 
 That breakdown should guide a reduction in the work of each fresh lookup. The earlier combined stat/read experiment removed requests without demonstrating a command speedup, so a new proposal needs stronger evidence than request counts. Configuration edits, nearest-file selection, host ownership, metadata errors, cancellation and older-client compatibility remain required.
 
+The [subsequent runtime-trace experiment](NATIVE_GRPC_ATTACHABLES.md) identifies the existing HTTP/2-to-gRPC adapter as a concrete transport target. Native gRPC improves the first complete-command screen and reduces CLI CPU, with freshness checks intact. A compaction-overlapped control prevents assigning the entire observed gap to transport; opposite-order confirmation remains required.
+
 [Evidence](experiments/local-import-metadata/) retains the focused CPU reports, screen driver and all three admission-point results. The source captures remain in the [engine](experiments/telemetry-native-storage/) and [CLI](experiments/go-listing-cli-cpu/) archives. Native writing remains disabled in the controlled engine, with v2 and dual-format readers retained. No PR is opened.
