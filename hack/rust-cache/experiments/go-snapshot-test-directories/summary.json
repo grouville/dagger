@@ -1,0 +1,169 @@
+{
+  "test-edit-paired": {
+    "all_commands_successful_and_rows_correct": true,
+    "commands": 12,
+    "initialization_commands": 4,
+    "measured_pairs": 4,
+    "medians": {
+      "before": {
+        "median_seconds": 12.222399533027783,
+        "median_engine_cpu": 68.91538650000007,
+        "median_allocated_bytes": 16558525792.0,
+        "commands": 4
+      },
+      "combined": {
+        "median_seconds": 11.25330570503138,
+        "median_engine_cpu": 59.24220800000012,
+        "median_allocated_bytes": 15429361816.0,
+        "commands": 4
+      }
+    },
+    "faster_pairs": 4,
+    "median_paired_seconds_saved": 0.9799901174847037,
+    "cpu_lower_pairs": 4,
+    "allocation_lower_pairs": 4,
+    "max_pressure": {
+      "host.cpu.some": 0.2516787662730589,
+      "host.cpu.full": 0.0,
+      "host.io.some": 0.0017949068257689118,
+      "host.io.full": 0.0013576202755792837,
+      "host.memory.some": 0.005421346774005305,
+      "host.memory.full": 0.004291903161726401,
+      "engine.cpu.some": 0.15318249467032066,
+      "engine.cpu.full": 0.05390508132403423,
+      "engine.io.some": 0.0005240995770595373,
+      "engine.io.full": 0.0005127007210100154,
+      "engine.memory.some": 9.545549388044013e-08,
+      "engine.memory.full": 9.545549388044013e-08
+    }
+  },
+  "source-edit-paired": {
+    "all_commands_successful_and_rows_correct": true,
+    "commands": 12,
+    "initialization_commands": 4,
+    "measured_pairs": 4,
+    "medians": {
+      "before": {
+        "median_seconds": 6.014572708518244,
+        "median_engine_cpu": 25.403797499999882,
+        "median_allocated_bytes": 6301682300.0,
+        "commands": 4
+      },
+      "combined": {
+        "median_seconds": 5.981353857554495,
+        "median_engine_cpu": 25.645844000000125,
+        "median_allocated_bytes": 6260656196.0,
+        "commands": 4
+      }
+    },
+    "faster_pairs": 2,
+    "median_paired_seconds_saved": 0.03321885096374899,
+    "cpu_lower_pairs": 2,
+    "allocation_lower_pairs": 3,
+    "max_pressure": {
+      "host.cpu.some": 0.23909715395202097,
+      "host.cpu.full": 0.0,
+      "host.io.some": 0.0013360130569159171,
+      "host.io.full": 0.0010157264539435943,
+      "host.memory.some": 0.00012653763458016692,
+      "host.memory.full": 0.00010749226629979264,
+      "engine.cpu.some": 0.18156383931766223,
+      "engine.cpu.full": 0.04423660634946378,
+      "engine.io.some": 0.0007632883917011612,
+      "engine.io.full": 0.000521084402082462,
+      "engine.memory.some": 9.506959773115471e-08,
+      "engine.memory.full": 9.506959773115471e-08
+    }
+  },
+  "profiles": {
+    "before": {
+      "events": 270127,
+      "dropped": 0,
+      "open_ops": 0,
+      "function_evaluations": 804,
+      "sdk_requests": 2293,
+      "main_query": {
+        "id": 538623,
+        "seconds": 12.493235759
+      },
+      "directory_calls": [
+        {
+          "name": "Directory.directory",
+          "outcome": "executed",
+          "count": 164
+        },
+        {
+          "name": "Directory.exists",
+          "outcome": "executed",
+          "count": 800
+        },
+        {
+          "name": "Directory.filter",
+          "outcome": "executed",
+          "count": 1
+        },
+        {
+          "name": "Directory.filter",
+          "outcome": "hit",
+          "count": 163
+        },
+        {
+          "name": "Directory.glob",
+          "outcome": "executed",
+          "count": 1
+        },
+        {
+          "name": "Directory.glob",
+          "outcome": "hit",
+          "count": 1
+        }
+      ],
+      "complete_profiled_command_seconds": 13.01507734193001
+    },
+    "candidate": {
+      "events": 231597,
+      "dropped": 0,
+      "open_ops": 0,
+      "function_evaluations": 804,
+      "sdk_requests": 1494,
+      "main_query": {
+        "id": 801872,
+        "seconds": 13.487091336
+      },
+      "directory_calls": [
+        {
+          "name": "Directory.directory",
+          "outcome": "executed",
+          "count": 94
+        },
+        {
+          "name": "Directory.filter",
+          "outcome": "executed",
+          "count": 1
+        },
+        {
+          "name": "Directory.filter",
+          "outcome": "hit",
+          "count": 93
+        },
+        {
+          "name": "Directory.glob",
+          "outcome": "executed",
+          "count": 2
+        },
+        {
+          "name": "Directory.glob",
+          "outcome": "hit",
+          "count": 1
+        }
+      ],
+      "complete_profiled_command_seconds": 14.019833650905639
+    }
+  },
+  "checks": {
+    "commands": 7,
+    "all_successful": true
+  },
+  "new_candidate_cold_effect_measured": false,
+  "selected": true
+}

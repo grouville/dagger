@@ -12,8 +12,11 @@ The progression from roughly 40 seconds toward 12 seconds comes from engine/CLI 
 | Batch module validation and owned-file discovery | Go module + gomod | **17.35 → 15.92 s**, test-file edits; **10.39 → 7.56 s**, ordinary-source edits |
 | Classify typed method declarations as functions instead of deferred variables | Dang interpreter | **14.31 → 12.71 s**, test-file edits |
 | Read inherited source-error context only when evaluation fails | Dang interpreter | **12.88 → 11.51 s**, test-file edits; **6.67 → 5.75 s**, ordinary-source edits |
+| Derive package test directories from one native snapshot walk | Go module | **12.22 → 11.25 s**, test-file edits; ordinary-source listing flat at **6.01 → 5.98 s** |
 
 Evidence and scope: [typed metadata](NATIVE_TYPED_ARTIFACT_METADATA.md), [initial batched facts](NATIVE_GO_BATCHED_DISCOVERY_FACTS.md), [getter identity and snapshots](NATIVE_COLLECTION_GETTER_CONTENT.md), [batched package discovery](NATIVE_GO_BATCH_PACKAGE_DISCOVERY.md), [method classification](NATIVE_DANG_COERCED_METHOD_HOISTING.md), [error context](NATIVE_DANG_LAZY_ERROR_CONTEXT.md).
+
+The [snapshot-directory follow-up](NATIVE_GO_TEST_DIRECTORY_DISCOVERY.md) removes 800 existence queries with one snapshot walk. All four test-edit pairs improve, with lower CPU and allocation in each. It leaves 804 module evaluations and uses linear membership in a 103-directory list. All 24 timing commands return correct rows and exit successfully; seven focused commands pass. This is a module-only follow-up on the experimental API, without an engine change or measured cold-start benefit.
 
 The earlier **19.70 → 9.30 s** result belongs to the [first native-input prototype](NATIVE_GO_NATIVE_TEST_DISCOVERY.md), after an ordinary-source edit with unchanged test files. Test-file edits did not show that improvement. Later revisions refine this mechanism. It is not evidence of a ten-second cold start or a ten-second test-edit command.
 

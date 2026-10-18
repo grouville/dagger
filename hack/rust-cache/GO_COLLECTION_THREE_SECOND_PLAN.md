@@ -2,7 +2,9 @@
 
 The goal is complete listing on the real dagger/dagger repository after an edit, with a fresh CLI, correct current-source rows, normal telemetry and successful session cleanup. Report ordinary-source edits and test-file edits separately. An engine restart and first discovery are distinct cold scenarios; a warm result does not establish either.
 
-The latest candidate improves test-file-edited listing **12.88 → 11.51 seconds** and ordinary-source-edited listing **6.67 → 5.75 seconds**, faster in all eight measured pairs. Node evaluation now reads source-error context only when an error needs wrapping. The preceding method fix is common to both arms. The minimal patch and full upstream interpreter race suite also pass independently on pristine upstream source. [Complete comparison and scope](NATIVE_DANG_LAZY_ERROR_CONTEXT.md). Three seconds remains unachieved.
+The latest module follow-up improves test-file-edited listing **12.22 → 11.25 seconds**, faster in all four pairs; ordinary-source results are flat at **6.01 → 5.98 seconds**. One native snapshot walk replaces 800 existence queries, reducing SDK requests **2,293 → 1,494** while keeping 804 evaluations. Seven focused commands pass and all 24 timing commands return correct rows and exit successfully. [Complete comparison and scope](NATIVE_GO_TEST_DIRECTORY_DISCOVERY.md). This candidate's cold effect is unmeasured. Three seconds remains unachieved.
+
+The preceding Dang candidate improves test-file-edited listing **12.88 → 11.51 seconds** and ordinary-source-edited listing **6.67 → 5.75 seconds**, faster in all eight measured pairs. Node evaluation reads source-error context only when an error needs wrapping. Its minimal patch and full upstream interpreter race suite pass independently on pristine upstream source. [Complete comparison and scope](NATIVE_DANG_LAZY_ERROR_CONTEXT.md).
 
 The preceding method-classification comparison measured **14.31 → 12.71 seconds** for test edits and **6.75 → 6.90 seconds** for ordinary edits. [Its separate source, regression and review description](NATIVE_DANG_COERCED_METHOD_HOISTING.md) remain available. Both diagnostic switches are restored to disabled.
 
@@ -10,7 +12,7 @@ These are fresh CLI processes and real edits on a warm isolated engine. Earlier 
 
 ## Approach to a tenfold improvement
 
-Start with the amount of work, its growth with repository size and its position on the critical path. The current listing performs 804 module evaluations and 2,293 nested SDK requests despite reusing 799 of 800 test discoveries. A tenfold gain needs much less repeated setup and conversion. A cheaper operation inside every evaluation is insufficient unless it materially reduces the complete command.
+Start with the amount of work, its growth with repository size and its position on the critical path. The latest listing performs 804 module evaluations and 1,494 nested SDK requests despite reusing 799 of 800 test discoveries. A tenfold gain needs much less repeated setup and conversion. A cheaper operation inside every evaluation is insufficient unless it materially reduces the complete command.
 
 Receiver preparation is now measured: 800 getters process 79.6 MB of parent JSON, 1.87 million values and 64,800 nested objects. A method-heavy scaling fixture confirms substantial repeated allocation. Profiling led to a narrow first fix: typed methods were entering deferred variable initialization. Recognizing their conversion wrappers reduces sampled CPU under parent conversion from 13.52 to 7.92 CPU-seconds, with the complete-command benefit above. The same 804 evaluations and 2,293 SDK requests remain.
 
