@@ -1,0 +1,141 @@
+--- a/sdk/log/batch.go
++++ b/sdk/log/batch.go
+@@ -241,7 +241,9 @@
+ 		return nil
+ 	}
+ 
+-	buf := make([]Record, b.q.cap)
++	// Flush the records queued at this point. The exporter flush below still
++	// waits for exports already in progress, including when the queue is empty.
++	buf := make([]Record, b.q.Len())
+ 	notFlushed := func() bool {
+ 		var flushed bool
+ 		_ = b.q.TryDequeue(buf, func(r []Record) bool {
+--- /dev/null
++++ b/sdk/log/flush_buffer_test.go
+@@ -0,0 +1,125 @@
++// Copyright The OpenTelemetry Authors
++// SPDX-License-Identifier: Apache-2.0
++
++package log
++
++import (
++	"context"
++	"fmt"
++	"sync"
++	"testing"
++	"time"
++
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
++	otellog "go.opentelemetry.io/otel/log"
++)
++
++// The SDK's test exporter retains record slices. Clone them so subsequent
++// batches cannot overwrite the IDs checked by the concurrent-delivery test.
++type flushTestExporter struct{ *testExporter }
++
++func (e flushTestExporter) Export(ctx context.Context, records []Record) error {
++	copy := make([]Record, len(records))
++	for i := range records {
++		copy[i] = records[i].Clone()
++	}
++	return e.testExporter.Export(ctx, copy)
++}
++
++func newFlushTestProcessor(t testing.TB, exporter Exporter, options ...BatchProcessorOption) *BatchProcessor {
++	t.Helper()
++	processor := NewBatchProcessor(exporter, options...)
++	t.Cleanup(func() {
++		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
++		defer cancel()
++		require.NoError(t, processor.Shutdown(ctx))
++	})
++	return processor
++}
++
++func TestFlushEmptyQueueStillFlushesExporter(t *testing.T) {
++	exporter := flushTestExporter{newTestExporter(nil)}
++	t.Cleanup(exporter.Stop)
++	processor := newFlushTestProcessor(t, exporter, WithExportInterval(time.Hour))
++	require.Zero(t, processor.q.Len())
++	require.NoError(t, processor.ForceFlush(t.Context()))
++	require.Equal(t, 1, exporter.ForceFlushN())
++}
++
++func TestFlushEmptyQueueWaitsForInflightExport(t *testing.T) {
++	exporter := flushTestExporter{newTestExporter(nil)}
++	t.Cleanup(exporter.Stop)
++	exporter.ExportTrigger = make(chan struct{})
++	processor := newFlushTestProcessor(t, exporter, WithExportMaxBatchSize(1), WithExportInterval(time.Hour))
++	var release sync.Once
++	finish := func() { release.Do(func() { close(exporter.ExportTrigger) }) }
++	t.Cleanup(finish)
++	var record Record
++	record.SetBody(otellog.StringValue("pending export"))
++	require.NoError(t, processor.OnEmit(t.Context(), &record))
++	require.Eventually(t, func() bool { return exporter.ExportN() == 1 && processor.q.Len() == 0 }, time.Second, time.Millisecond)
++
++	ctx, cancel := context.WithCancel(t.Context())
++	cancel()
++	require.ErrorIs(t, processor.ForceFlush(ctx), context.Canceled)
++	finish()
++	require.NoError(t, processor.ForceFlush(t.Context()))
++	require.Equal(t, "pending export", exporter.Records()[0][0].Body().AsString())
++}
++
++func TestFlushConcurrentWritersPreservesRecords(t *testing.T) {
++	exporter := flushTestExporter{newTestExporter(nil)}
++	t.Cleanup(exporter.Stop)
++	processor := newFlushTestProcessor(t, exporter, WithMaxQueueSize(2048), WithExportMaxBatchSize(128), WithExportInterval(time.Hour))
++	var writers sync.WaitGroup
++	for writer := range 8 {
++		writers.Add(1)
++		go func() {
++			defer writers.Done()
++			for item := range 32 {
++				var record Record
++				record.SetBody(otellog.Int64Value(int64(writer*32 + item)))
++				assert.NoError(t, processor.OnEmit(t.Context(), &record))
++				if item%8 == 0 {
++					assert.NoError(t, processor.ForceFlush(t.Context()))
++				}
++			}
++		}()
++	}
++	writers.Wait()
++	require.NoError(t, processor.ForceFlush(t.Context()))
++	seen := make(map[int64]bool)
++	for _, batch := range exporter.Records() {
++		for _, record := range batch {
++			id := record.Body().AsInt64()
++			require.False(t, seen[id], "duplicate record %d", id)
++			seen[id] = true
++		}
++	}
++	require.Len(t, seen, 256)
++}
++
++func BenchmarkLogFlushBuffer(b *testing.B) {
++	for _, capacity := range []int{128, 2048} {
++		for _, queued := range []int{0, 1, 16} {
++			b.Run(fmt.Sprintf("capacity=%d/queued=%d", capacity, queued), func(b *testing.B) {
++				processor := newFlushTestProcessor(b, defaultNoopExporter, WithMaxQueueSize(capacity), WithExportMaxBatchSize(min(capacity, 512)), WithExportInterval(time.Hour))
++				var record Record
++				record.SetBody(otellog.StringValue("log message"))
++				b.ReportAllocs()
++				b.ResetTimer()
++				for range b.N {
++					for range queued {
++						if err := processor.OnEmit(b.Context(), &record); err != nil {
++							b.Fatal(err)
++						}
++					}
++					if err := processor.ForceFlush(b.Context()); err != nil {
++						b.Fatal(err)
++					}
++				}
++			})
++		}
++	}
++}

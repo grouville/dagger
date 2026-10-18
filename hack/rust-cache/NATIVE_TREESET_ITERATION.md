@@ -31,6 +31,8 @@ The [saved real listing](NATIVE_CACHE_COMPACTION_INDEXES.md) provides an allocat
 
 That fraction does not support treating this change as a major listing improvement. The same profile places about 4.67 GiB cumulatively in Dang function calls and 0.79 GiB directly in log `ForceFlush`, out of 24.58 GiB sampled allocation. Those frames overlap other entries and cannot be added as independent costs. They identify more consequential work to examine next.
 
+The subsequent [flush-buffer comparison](NATIVE_LOG_FLUSH_BUFFER.md) saves about 800 MB of allocation per paired listing but does not establish a command-time gain. It remains off; reducing a large allocation source alone does not prove lower latency.
+
 A separate two-pair inline-ID prototype reduces singleton construction **105.10 → 31.34 ns**, using 24 instead of 128 bytes, but construction of two-member sets slows **150.25 → 214.75 ns** and adds two allocations. It remains unselected; the real workload's set cardinalities and complete-command effect are unmeasured. No new cache representation is installed.
 
 [Prepared library description](upstream-prs/treeset-iterator-stack.md). [Verified evidence](experiments/cache-treeset-iteration/) contains the exact patch, both pinned dependency copies, every measurement, checks and real-profile reports. [Inline-ID evidence](experiments/cache-small-id-sets/) retains the separate experiment. Both are tracked on the Dagger fork; no library fork or PR has been created.
