@@ -21,4 +21,4 @@ Existing graph and metadata tests pass under the race detector before and after 
 go test -run '^$' -bench '^BenchmarkCompactLiveDigestSets$' -benchtime=1x -count=1 -cpu=8 -benchmem ./dagql
 ```
 
-A full-listing profile motivated investigating compaction. This PR's measurements establish the component allocation reduction and larger-case timing; complete-command improvement has not been measured.
+A full-listing profile under cache pressure motivated investigating compaction. A subsequent complete-command screen did not establish its impact: path activity was unrecorded during timing, and a separate listing recorded zero compaction calls. This proposal claims the component allocation reduction and larger-case timing above.
