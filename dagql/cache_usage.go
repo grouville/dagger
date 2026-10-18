@@ -89,16 +89,17 @@ func (c *Cache) collectUsageMeasurementInputs(ctx context.Context, measure bool)
 }
 
 func cacheUsageInputLocked(res *sharedResult) cacheUsageMeasurementInput {
-	state := res.loadPayloadState()
+	res.payloadMu.RLock()
 	input := cacheUsageMeasurementInput{
-		resultID: res.id, row: res, payloadRevision: state.payloadRevision,
-		existingSizeByID: make(map[string]int64, len(res.cacheUsageSizeByIdentity)),
+		resultID: res.id, row: res, payloadRevision: res.payloadRevision,
 	}
-	if state.hasValue && state.self != nil {
-		input.self = state.self
+	if res.hasValue && res.self != nil {
+		input.self = res.self
 	} else {
-		input.snapshotLinks = cloneSnapshotRefLinks(state.snapshotOwnerLinks)
+		input.snapshotLinks = cloneSnapshotRefLinks(res.snapshotOwnerLinks)
 	}
+	res.payloadMu.RUnlock()
+	input.existingSizeByID = make(map[string]int64, len(res.cacheUsageSizeByIdentity))
 	for identity, size := range res.cacheUsageSizeByIdentity {
 		input.existingSizeByID[identity] = size
 	}
@@ -175,7 +176,12 @@ func (snapshot *cacheUsageSnapshot) finalizeLocked() (map[sharedResultID][]strin
 }
 
 func (input cacheUsageMeasurementInput) validLocked(c *Cache) bool {
-	return c.resultsByID[input.resultID] == input.row && input.row.loadPayloadState().payloadRevision == input.payloadRevision
+	if c.resultsByID[input.resultID] != input.row {
+		return false
+	}
+	input.row.payloadMu.RLock()
+	defer input.row.payloadMu.RUnlock()
+	return input.row.payloadRevision == input.payloadRevision
 }
 
 // releaseLocked removes measurement ownership before pruning copies incoming
