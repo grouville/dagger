@@ -4,7 +4,7 @@ The complete Go test listing improves in two fixed cohorts with opposite startin
 
 Across both cohorts, pooled medians are **38.92 → 33.28 seconds**, about **14.5% faster**. Allocation and engine CPU decrease in **all sixteen pairs**: **29.54 → 25.05 GB allocated per command** and **191.42 → 148.93 engine CPU-seconds** at the pooled medians. Allocated bytes are cumulative, not resident memory; concurrent CPU totals are not elapsed-time savings.
 
-**Performance is confirmed; native writing stays disabled pending standalone extraction and migration review.** The first cohort has maintenance and pressure differences, retained below. The reversed-order confirmation has no recorded class-table reductions and improves in every pair. No new upstream proposal or PR is opened.
+**Performance is confirmed and a standalone review branch is prepared; native writing stays disabled in the controlled engine.** The first cohort has maintenance and pressure differences, retained below. The reversed-order confirmation has no recorded class-table reductions and improves in every pair. The [description](PR_ENGINE_NATIVE_TELEMETRY_STORAGE.md) is ready for review. No PR is opened.
 
 ## What changes
 
@@ -102,7 +102,23 @@ CPU samples positively identify the native codec: **5.28 cumulative CPU-seconds*
 
 Configuration stats and reads still occupy **9.33 seconds on the main query's critical path**; session-lifecycle waits occupy **3.33 seconds**. These configuration reads remain fresh and independent. The rejected in-progress sharing from the previous study is not installed.
 
-The final engine is idle, with profiling off and native writing disabled. Its dual-format readers and v2 store support remain installed. Independent-order confirmation is complete. Before selection or an upstream-ready proposal, extract the production patch and review crash/upgrade durability and downgrade behavior. The existing upstream review queue is unchanged.
+The final engine is idle, with profiling off and native writing disabled. Its dual-format readers and v2 store support remain installed. Independent-order confirmation is complete. The standalone extraction and durability review below are subsequent work; the controlled engine has not been replaced with that extraction.
+
+## Standalone patch and migration review
+
+[`perf/native-telemetry-storage`](https://github.com/grouville/dagger/tree/perf/native-telemetry-storage), commit `24413663907fe2cbe03e3c68740541ab5f591f80`, contains the production change on upstream main `ff0b029a`. It removes the experimental writer switch and has no unrelated performance overlays or new dependency. The measured full-command cohorts use the controlled engine described above, with other common optimizations in both arms; they are not a comparison against otherwise unmodified main.
+
+The review catches an additional durability requirement in the prototype: rewriting the version byte is insufficient if a crash persists a native frame before the rewritten header. The standalone patch recovers the v1 file, writes its v2 header and **syncs that upgrade before permitting appends**. Write or sync failure aborts opening the writer. A regression fails when that sync is removed. The barrier runs once per upgraded file, not on ordinary appends or reopening v2. Migration latency is unmeasured. A downgraded v1-only engine rejects upgraded telemetry files; disabling a writer does not reverse the migration. These are telemetry files, separate from compiler-cache storage.
+
+The complete client-database and archive race suites pass on the standalone patch. Focused server race checks cover telemetry export, missing resources, the Cloud published-record filter, forwarding/retries and archive recovery. Focused core race checks cover inspection tools, loaded traces and log filtering. The affected core and CLI/engine binaries compile. Existing archive reopening coverage runs against both JSON and native fixtures without weakening its assertions.
+
+The mixed-history regression additionally requires the **newest native call frame**, not merely the presence of a digest also carried by an older JSON row. Restoring the old span-index implementation fails with the older frame instead of the expected new one. Both expected control failures and every passing log are retained.
+
+The patch includes a reproducible attribute benchmark. Four alternating fresh-process pairs on main plus the standalone patch give **21.44 → 11.92 µs** for encoding plus call-frame indexing, with allocations **171 → 64**, and **47.93 → 6.19 µs** for decoding. Every pair improves. These component measurements are separate from the earlier controlled-engine component and full-command cohorts.
+
+The reader audit also finds the historical trace-inspection importer, which still writes legacy JSON. Its rows remain readable through the dual-format readers; its encoding is outside the live-export change. The inspection race checks retain coverage for that path.
+
+[Standalone evidence](experiments/telemetry-native-storage-standalone/) retains the exact main-based patch, before/after sources, all validation commands, both failing controls and all component observations. The branch is for review only. No PR is opened and no new edited-Rust or cold-start gain is claimed.
 
 [Evidence](experiments/telemetry-native-storage/) retains exact source overlays, before/after sources, tests and expected control failure, all benchmark observations, maintenance/pressure counters, raw compressed profiles, retained native histories and final state. Binaries are identified by hash and excluded.
 

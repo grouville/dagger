@@ -33,7 +33,7 @@ The data supports investigating fewer host round trips for one logical lookup, t
 
 Configuration freshness and metadata errors stay part of the contract. The previous in-progress-sharing prototype fails a regression when an edit completes before a later caller starts, so it remains rejected. A future batched lookup must retain a fresh read for each module call, nearest-file behavior, the correct source owner, metadata failures, cancellation, size limits and older-client compatibility. This profile does not establish that a new batching design meets those conditions.
 
-No telemetry suppression, shared mutable filesystem cache, CLI optimization or new library is selected by this capture. The confirmed native-storage result remains a separate engine change, pending standalone extraction and migration review.
+No telemetry suppression, shared mutable filesystem cache, CLI optimization or new library is selected by this capture. The confirmed native-storage result remains a separate engine change; its [standalone extraction and migration review](NATIVE_TELEMETRY_STORAGE.md#standalone-patch-and-migration-review) are now ready on a fork branch.
 
 ## Source and final state
 
