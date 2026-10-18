@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 
 	"github.com/dagger/dagger/dagql"
@@ -12,13 +13,15 @@ import (
 
 type installedPreferenceServer struct {
 	*persistedFamiliesTestQueryServer
-	served *SchemaBuilder
+	served        *SchemaBuilder
+	servedLookups atomic.Int64
 }
 
 func (s *installedPreferenceServer) CurrentServedDeps(context.Context) (*SchemaBuilder, error) {
+	s.servedLookups.Add(1)
 	return s.served, nil
 }
-func installPreferenceScope(t *testing.T, srv *dagql.Server) {
+func installPreferenceScope(t testing.TB, srv *dagql.Server) {
 	t.Helper()
 	dagql.Fields[*Module]{dagql.NodeFunc("_implementationScoped", func(ctx context.Context, self dagql.ObjectResult[*Module], _ struct{}) (dagql.ObjectResult[*Module], error) {
 		value, err := dagql.NewObjectResultForCurrentCall(ctx, srv, self.Self().Clone())
@@ -28,7 +31,7 @@ func installPreferenceScope(t *testing.T, srv *dagql.Server) {
 		return value.WithContentDigest(ctx, digest.FromString("implementation:"+self.Self().Name()))
 	})}.Install(srv)
 }
-func preferenceModule(t *testing.T, env *persistedFamiliesTestEnv, ctx context.Context, cache *dagql.Cache, srv *dagql.Server, field, name string, dependencies ...dagql.ObjectResult[*Module]) dagql.ObjectResult[*Module] {
+func preferenceModule(t testing.TB, env *persistedFamiliesTestEnv, ctx context.Context, cache *dagql.Cache, srv *dagql.Server, field, name string, dependencies ...dagql.ObjectResult[*Module]) dagql.ObjectResult[*Module] {
 	t.Helper()
 	query, err := CurrentQuery(ctx)
 	require.NoError(t, err)
@@ -150,4 +153,33 @@ func TestModDepsForCallInstalledPreferenceTraversal(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, scopedID, candidates[i].ScopedResultID)
 	}
+}
+
+// Core result recipes do not need a schema for modules they never reference.
+func TestModDepsForCallCoreOnly(t *testing.T) {
+	env := newPersistedFamiliesTestEnv(t, "core-only")
+	ctx, cache, srv := env.open(t)
+	installPreferenceScope(t, srv)
+	query, err := CurrentQuery(ctx)
+	require.NoError(t, err)
+	unused := preferenceModule(t, env, ctx, cache, srv, "unused", "unused")
+	facade := &installedPreferenceServer{
+		persistedFamiliesTestQueryServer: query.Server.(*persistedFamiliesTestQueryServer),
+		served:                           NewSchemaBuilder(query, []Mod{NewUserMod(unused)}),
+	}
+	query.Server = facade
+	frame := &dagql.ResultCall{
+		Kind:  dagql.ResultCallKindField,
+		Field: "name",
+		Type:  dagql.NewResultCallType(dagql.String("").Type()),
+		Receiver: &dagql.ResultCallRef{Call: &dagql.ResultCall{
+			Kind:  dagql.ResultCallKindField,
+			Field: "currentWorkspace",
+			Type:  dagql.NewResultCallType((&Workspace{}).Type()),
+		}},
+	}
+	deps, err := query.ModDepsForCall(ctx, frame)
+	require.NoError(t, err)
+	require.Empty(t, deps.Mods())
+	require.Zero(t, facade.servedLookups.Load(), "a core-only recipe must not prepare unrelated modules")
 }

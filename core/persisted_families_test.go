@@ -49,7 +49,7 @@ type persistedFamiliesTestEnv struct {
 	attachables map[string]*grpc.ClientConn
 }
 
-func newPersistedFamiliesTestEnv(t *testing.T, session string) *persistedFamiliesTestEnv {
+func newPersistedFamiliesTestEnv(t testing.TB, session string) *persistedFamiliesTestEnv {
 	t.Helper()
 	return &persistedFamiliesTestEnv{
 		dbPath:  filepath.Join(t.TempDir(), "cache.db"),
@@ -60,7 +60,7 @@ func newPersistedFamiliesTestEnv(t *testing.T, session string) *persistedFamilie
 
 // open starts (or restarts) the cache on the environment's database and
 // returns a context carrying the query, cache and client metadata.
-func (env *persistedFamiliesTestEnv) open(t *testing.T) (context.Context, *dagql.Cache, *dagql.Server) {
+func (env *persistedFamiliesTestEnv) open(t testing.TB) (context.Context, *dagql.Cache, *dagql.Server) {
 	t.Helper()
 	ctx := engine.ContextWithClientMetadata(t.Context(), &engine.ClientMetadata{ClientID: env.session, SessionID: env.session})
 	cache, err := dagql.NewCache(ctx, env.dbPath, env.manager, nil)
@@ -123,7 +123,7 @@ func (env *persistedFamiliesTestEnv) restart(t *testing.T, ctx context.Context, 
 }
 
 // attach retains one persistable row for a value whose class is installed.
-func (env *persistedFamiliesTestEnv) attach(t *testing.T, ctx context.Context, cache *dagql.Cache, srv *dagql.Server, field string, self dagql.Typed) dagql.AnyResult {
+func (env *persistedFamiliesTestEnv) attach(t testing.TB, ctx context.Context, cache *dagql.Cache, srv *dagql.Server, field string, self dagql.Typed) dagql.AnyResult {
 	t.Helper()
 	frame := &dagql.ResultCall{Kind: dagql.ResultCallKindField, Field: field, Type: dagql.NewResultCallType(self.Type())}
 	res, err := cache.GetOrInitCall(ctx, env.session, srv, &dagql.CallRequest{ResultCall: frame, IsPersistable: true}, func(context.Context) (dagql.AnyResult, error) {
