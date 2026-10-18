@@ -1,7 +1,6 @@
 package clientdb
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"encoding/base64"
@@ -46,7 +45,7 @@ func (*recordTemplateCapture) ForceFlush(context.Context) error                 
 func DecodeLogRecord(row Log) (sdklog.Record, error) {
 	var rec = archiveRecordTemplate.Clone()
 	var attrs []*commonpb.KeyValue
-	if err := UnmarshalProtoJSONs(row.Attributes, &commonpb.KeyValue{}, &attrs); err != nil {
+	if err := UnmarshalStoredProtos(row.Attributes, &commonpb.KeyValue{}, &attrs); err != nil {
 		return rec, err
 	}
 	seen := map[string]bool{}
@@ -99,7 +98,7 @@ func (idx *archiveLookup) addAll(rows []Log) {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
 	for _, row := range rows {
-		if !bytes.Contains(row.Attributes, controlVersionMarker) {
+		if !storedProtoContains(row.Attributes, controlVersionMarker) {
 			continue
 		}
 		rec, err := DecodeLogRecord(row)
@@ -252,7 +251,7 @@ func (s *DB) callPayloadFromSpan(ctx context.Context, traceID, digest string, id
 // the span. The frame must carry digest.
 func SpanCallPayloadLog(row Span, digest string) (Log, error) {
 	var attrs []*commonpb.KeyValue
-	if err := UnmarshalProtoJSONs(row.Attributes, &commonpb.KeyValue{}, &attrs); err != nil {
+	if err := UnmarshalStoredProtos(row.Attributes, &commonpb.KeyValue{}, &attrs); err != nil {
 		return Log{}, fmt.Errorf("decode call span %s attributes: %w", digest, err)
 	}
 	var encoded string
@@ -279,7 +278,7 @@ func SpanCallPayloadLog(row Span, digest string) (Log, error) {
 	if err != nil {
 		return Log{}, err
 	}
-	logAttrs, err := MarshalProtoJSONs([]*commonpb.KeyValue{
+	logAttrs, err := MarshalStoredProtos([]*commonpb.KeyValue{
 		{Key: telemetry.ContentTypeAttr, Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: telemetryattrs.CallPayloadContentType}}},
 		{Key: telemetryattrs.CallPayloadDigestAttr, Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: digest}}},
 	})

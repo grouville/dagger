@@ -1,7 +1,6 @@
 package clientdb
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"errors"
@@ -125,11 +124,11 @@ func (l *spanLookup) addLocked(row Span, causalTargets []string) {
 	// current state, and check/test markers may only appear on a snapshot
 	// taken after the attribute was set.
 	l.lastRow[row.SpanID] = row.ID
-	if _, marked := l.checkSpans[row.SpanID]; !marked && bytes.Contains(row.Attributes, checkNameAttrMarker) {
+	if _, marked := l.checkSpans[row.SpanID]; !marked && storedProtoContains(row.Attributes, checkNameAttrMarker) {
 		l.checkSpans[row.SpanID] = struct{}{}
 	}
 	if _, marked := l.testSpans[row.SpanID]; !marked &&
-		(bytes.Contains(row.Attributes, testCaseNameAttrMarker) || bytes.Contains(row.Attributes, testSuiteNameAttrMarker)) {
+		(storedProtoContains(row.Attributes, testCaseNameAttrMarker) || storedProtoContains(row.Attributes, testSuiteNameAttrMarker)) {
 		l.testSpans[row.SpanID] = struct{}{}
 	}
 	if row.ParentSpanID.Valid {
@@ -171,12 +170,12 @@ var (
 // purpose, which imply causality — are parent→child edges; other purposes
 // (error_origin, wait) are not.
 func causalLinkTargets(row Span) []string {
-	if len(row.Links) <= len("[]") {
-		// no links: nil, or an empty JSON array
+	if len(row.Links) <= len("[]") || emptyNativeProtoList(row.Links, storedLinks) {
+		// No links: nil, an empty JSON array, or an empty native list.
 		return nil
 	}
 	var linksPB []*otlptracev1.Span_Link
-	if err := UnmarshalProtoJSONs(row.Links, &otlptracev1.Span_Link{}, &linksPB); err != nil {
+	if err := UnmarshalStoredProtos(row.Links, &otlptracev1.Span_Link{}, &linksPB); err != nil {
 		slog.Warn("failed to unmarshal span links", "span", row.SpanID, "error", err)
 		return nil
 	}

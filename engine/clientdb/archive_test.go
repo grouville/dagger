@@ -46,6 +46,18 @@ func TestArchiveCheckpointFsyncFailureAndReopen(t *testing.T) {
 }
 
 func TestArchiveIndexRevisionAndReopening(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		encode func([]*commonpb.KeyValue) ([]byte, error)
+	}{
+		{"JSON", MarshalProtoJSONs[*commonpb.KeyValue]},
+		{"native", MarshalStoredProtos[*commonpb.KeyValue]},
+	} {
+		t.Run(tc.name, func(t *testing.T) { testArchiveIndexRevisionAndReopening(t, tc.encode) })
+	}
+}
+
+func testArchiveIndexRevisionAndReopening(t *testing.T, encode func([]*commonpb.KeyValue) ([]byte, error)) {
 	const traceID = "01000000000000000000000000000000"
 	root := t.TempDir()
 	db, err := openStore(t.Context(), root, "client", telemetryTailBudget)
@@ -58,7 +70,7 @@ func TestArchiveIndexRevisionAndReopening(t *testing.T) {
 			attrs = append(attrs, &commonpb.KeyValue{Key: kv.Key, Value: telemetry.LogValueToPB(kv.Value)})
 			return true
 		})
-		encoded, err := MarshalProtoJSONs(attrs)
+		encoded, err := encode(attrs)
 		require.NoError(t, err)
 		body, err := proto.Marshal(telemetry.LogValueToPB(r.Body()))
 		require.NoError(t, err)

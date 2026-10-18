@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	storeFormatVersion byte  = 1
+	storeFormatVersion byte  = 2
 	sparseIndexStride  int64 = 256
 	spillBufferSize          = 64 << 10
 )
@@ -67,6 +67,7 @@ func openSpillFile[Row any](
 		return nil, fmt.Errorf("stat spill file: %w", err)
 	}
 	size := info.Size()
+	legacyFormat := false
 	if size == 0 {
 		if _, err := file.Write([]byte{storeFormatVersion}); err != nil {
 			return nil, fmt.Errorf("write spill header: %w", err)
@@ -77,9 +78,10 @@ func openSpillFile[Row any](
 		if _, err := file.ReadAt(header[:], 0); err != nil {
 			return nil, fmt.Errorf("read spill header: %w", err)
 		}
-		if header[0] != storeFormatVersion {
+		if !supportedStoreVersion(header[0]) {
 			return nil, fmt.Errorf("unsupported telemetry store format version %d", header[0])
 		}
+		legacyFormat = header[0] != storeFormatVersion
 	}
 
 	spill := &spillFile[Row]{
@@ -90,11 +92,34 @@ func openSpillFile[Row any](
 	if err := spill.recover(ctx, size, onRecover); err != nil {
 		return nil, err
 	}
+	// Recover first, then make the new version durable before appending.
+	if legacyFormat {
+		if err := upgradeStoreHeader(file); err != nil {
+			return nil, err
+		}
+	}
 	if _, err := file.Seek(spill.writeOffset, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("seek spill writer: %w", err)
 	}
 	spill.writer = bufio.NewWriterSize(spillWriterFunc(spill.write), spillBufferSize)
 	return spill, nil
+}
+
+type syncedWriterAt interface {
+	io.WriterAt
+	Sync() error
+}
+
+// Persist the version before a native frame can become durable. Otherwise a
+// crash could leave new records behind a previously durable v1 header.
+func upgradeStoreHeader(file syncedWriterAt) error {
+	if _, err := file.WriteAt([]byte{storeFormatVersion}, 0); err != nil {
+		return fmt.Errorf("upgrade telemetry store header: %w", err)
+	}
+	if err := file.Sync(); err != nil {
+		return fmt.Errorf("sync upgraded telemetry store header: %w", err)
+	}
+	return nil
 }
 
 type spillWriterFunc func([]byte) (int, error)

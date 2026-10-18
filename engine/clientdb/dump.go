@@ -66,7 +66,7 @@ func dumpFile[Row any](ctx context.Context, path, stream string, codec rowCodec[
 	if _, err := file.ReadAt(header[:], 0); err != nil {
 		return fmt.Errorf("read %s stream header: %w", stream, err)
 	}
-	if header[0] != storeFormatVersion {
+	if !supportedStoreVersion(header[0]) {
 		return fmt.Errorf("unsupported %s stream format version %d", stream, header[0])
 	}
 

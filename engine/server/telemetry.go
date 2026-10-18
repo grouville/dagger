@@ -882,19 +882,19 @@ func (ps clientSpans) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnly
 			endTime.Int64 = 0
 			endTime.Valid = false
 		}
-		attributes, err := clientdb.MarshalProtoJSONs(telemetry.KeyValues(span.Attributes()))
+		attributes, err := clientdb.MarshalStoredProtos(telemetry.KeyValues(span.Attributes()))
 		if err != nil {
 			slog.Warn("failed to marshal attributes", "error", err)
 			continue
 		}
 		droppedAttributesCount := int64(span.DroppedAttributes())
-		events, err := clientdb.MarshalProtoJSONs(telemetry.SpanEventsToPB(span.Events()))
+		events, err := clientdb.MarshalStoredProtos(telemetry.SpanEventsToPB(span.Events()))
 		if err != nil {
 			slog.Warn("failed to marshal events", "error", err)
 			continue
 		}
 		droppedEventsCount := int64(span.DroppedEvents())
-		links, err := clientdb.MarshalProtoJSONs(telemetry.SpanLinksToPB(span.Links()))
+		links, err := clientdb.MarshalStoredProtos(telemetry.SpanLinksToPB(span.Links()))
 		if err != nil {
 			slog.Warn("failed to marshal links", "error", err)
 			continue
@@ -902,12 +902,12 @@ func (ps clientSpans) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnly
 		droppedLinksCount := int64(span.DroppedLinks())
 		statusCode := int64(span.Status().Code)
 		statusMessage := span.Status().Description
-		instrumentationScope, err := protojson.Marshal(telemetry.InstrumentationScopeToPB(span.InstrumentationScope()))
+		instrumentationScope, err := clientdb.MarshalStoredProto(telemetry.InstrumentationScopeToPB(span.InstrumentationScope()))
 		if err != nil {
 			slog.Warn("failed to marshal instrumentation scope", "error", err)
 			continue
 		}
-		resource, err := protojson.Marshal(telemetry.ResourcePtrToPB(span.Resource()))
+		resource, err := clientdb.MarshalStoredProto(telemetry.ResourcePtrToPB(span.Resource()))
 		if err != nil {
 			slog.Warn("failed to marshal resource", "error", err)
 			continue
@@ -1046,18 +1046,18 @@ func logRecordRow(rec *sdklog.Record) (clientdb.Log, error) {
 		})
 		return true
 	})
-	attributes, err := clientdb.MarshalProtoJSONs(attrs)
+	attributes, err := clientdb.MarshalStoredProtos(attrs)
 	if err != nil {
 		return clientdb.Log{}, fmt.Errorf("marshal log record attributes: %w", err)
 	}
 
-	scope, err := protojson.Marshal(telemetry.InstrumentationScopeToPB(rec.InstrumentationScope()))
+	scope, err := clientdb.MarshalStoredProto(telemetry.InstrumentationScopeToPB(rec.InstrumentationScope()))
 	if err != nil {
 		return clientdb.Log{}, fmt.Errorf("marshal log record instrumentation scope: %w", err)
 	}
 
 	res := rec.Resource()
-	resource, err := protojson.Marshal(telemetry.ResourcePtrToPB(res))
+	resource, err := clientdb.MarshalStoredProto(telemetry.ResourcePtrToPB(res))
 	if err != nil {
 		return clientdb.Log{}, fmt.Errorf("marshal log record resource: %w", err)
 	}
@@ -1157,7 +1157,7 @@ func (ps clientMetrics) Export(ctx context.Context, metrics *metricdata.Resource
 		return fmt.Errorf("convert metrics to pb: %w", err)
 	}
 
-	metricsPBBytes, err := protojson.Marshal(pbMetrics)
+	metricsPBBytes, err := clientdb.MarshalStoredProto(pbMetrics)
 	if err != nil {
 		return fmt.Errorf("marshal metrics to pb: %w", err)
 	}

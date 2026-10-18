@@ -83,10 +83,10 @@ func (l *callLookup) addSpans(rows []Span) {
 // a span with a digest but no frame (an older engine, or a frame that failed
 // to encode) cannot serve a rebuild.
 func spanCallDigest(row Span) (string, bool) {
-	if !bytes.Contains(row.Attributes, dagCallAttrMarker) {
+	if !storedProtoContains(row.Attributes, dagCallAttrMarker) {
 		return "", false
 	}
-	return protoJSONStringAttr(row.Attributes, dagDigestAttrMarker)
+	return storedProtoStringAttr(row.Attributes, dagDigestAttrMarker)
 }
 
 // protoJSONStringAttr extracts the string value of the attribute whose quoted
@@ -183,7 +183,7 @@ func (l *callLookup) addLogs(rows []Log) {
 // digest is the one the producer stamped into the payload, used verbatim so
 // the index never re-derives a digest under this engine's scheme.
 func logCallDigest(row Log) (string, bool) {
-	if !bytes.Contains(row.Attributes, callPayloadContentMarker) {
+	if !storedProtoContains(row.Attributes, callPayloadContentMarker) {
 		return "", false
 	}
 	payload, err := CallPayloadBody(row)
