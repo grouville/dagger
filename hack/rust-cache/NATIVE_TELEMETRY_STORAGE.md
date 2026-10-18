@@ -1,10 +1,10 @@
-# Native telemetry storage: lower CPU and allocation, promising listing time
+# Native telemetry storage: listing improvement confirmed
 
-The complete Go test listing measures **38.98 → 33.83 seconds median** across eight alternating pairs, about **13% faster**. Native storage wins **6/8 pairs**; two regressions of **0.13 and 0.35 seconds** remain included. Every command returns the exact ordered rows and exits successfully through cleanup.
+The complete Go test listing improves in two fixed cohorts with opposite starting orders: **38.98 → 33.83 seconds median**, then **38.10 → 32.78 seconds** in confirmation. Native storage wins **14/16 pairs**, including **8/8 in confirmation**. Every command returns the exact ordered rows and exits successfully through cleanup.
 
-Allocation and CPU are more consistent: both decrease in **all eight pairs**. Separate column medians are **29.76 → 25.16 GB allocated per command** and **190.32 → 150.70 engine CPU-seconds**. Allocated bytes are cumulative, not resident memory. These concurrent CPU totals are not elapsed-time savings.
+Across both cohorts, pooled medians are **38.92 → 33.28 seconds**, about **14.5% faster**. Allocation and engine CPU decrease in **all sixteen pairs**: **29.54 → 25.05 GB allocated per command** and **191.42 → 148.93 engine CPU-seconds** at the pooled medians. Allocated bytes are cumulative, not resident memory; concurrent CPU totals are not elapsed-time savings.
 
-**Native writing stays disabled pending confirmation and migration review.** Two slow JSON runs overlap cache compaction, later host I/O pressure rises, and cache state changes between arms. This first cohort supports further work but does not establish a reliable selected improvement. No new upstream proposal or PR is opened.
+**Performance is confirmed; native writing stays disabled pending standalone extraction and migration review.** The first cohort has maintenance and pressure differences, retained below. The reversed-order confirmation has no recorded class-table reductions and improves in every pair. No new upstream proposal or PR is opened.
 
 ## What changes
 
@@ -44,7 +44,31 @@ Median paired saving is **9.29 seconds**. That is a different statistic from the
 
 JSON pair 5's class slots fall **829,970 → 652,017**, and pair 7's fall **724,071 → 667,345**. Pair 8 starts its native arm with **495,139** slots, after the JSON arm ends with **671,177**. The counters therefore do not support assigning those entire timing gaps to encoding. Native pair 6 sees about **5.0% host I/O pressure**; JSON pair 7 about **6.9%**, and JSON pair 8 about **8.3%**. These observations remain in the aggregate. Go GC and snapshot collection continue normally throughout.
 
-CLI CPU barely changes: it remains roughly 26 CPU-seconds per invocation. The substantial reduction in engine CPU does not remove all command work. A CLI profile and an independent-order confirmation are concrete next steps; another favorable component result would not settle the end-to-end question.
+CLI CPU barely changes: it remains roughly 26 CPU-seconds per invocation. The substantial reduction in engine CPU does not remove all command work. The independent-order confirmation below and the separate CLI profile now test those two remaining questions; another favorable component result would not settle the end-to-end question.
+
+## Independent-order confirmation
+
+The second cohort uses the identical engine binary, CLI, physical source, Go module, cache volume and feature settings. It reverses the starting order, including initialization, then keeps eight fixed alternating measured pairs. No implementation changes, profiling, reset, forced collection or outlier removal occur during timing.
+
+| Pair | JSON storage | Native storage |
+| --- | ---: | ---: |
+| 1, JSON first | 36.27 s | 32.36 s |
+| 2, native first | 39.66 s | 30.19 s |
+| 3, JSON first | 39.84 s | 29.87 s |
+| 4, native first | 39.07 s | 33.36 s |
+| 5, JSON first | 35.74 s | 33.20 s |
+| 6, native first | 37.12 s | 31.50 s |
+| 7, JSON first | 39.76 s | 34.57 s |
+| 8, native first | 36.70 s | 33.85 s |
+| Median | **38.10 s** | **32.78 s** |
+
+All eighteen commands succeed. Initialization finds the expected 4,399 rows and takes **35.50 seconds native, then 39.80 seconds JSON**; it remains excluded as planned. All sixteen measured commands return the exact 4,398 ordered rows. Native storage is faster in all eight pairs. Allocated-byte medians are **29.32 → 24.98 GB**, and engine CPU medians **194.93 → 148.33 CPU-seconds**, lower in every pair.
+
+Every confirmation run's class-slot count grows by roughly the same 24,018 slots; no start/end reduction is recorded. Host I/O pressure stays below 0.2% for the first five pairs, then rises to roughly 2.8–5.3% in some later runs. Those observations remain included. Native storage wins with either starting order and throughout the later pressure changes. Ordinary maintenance is still enabled; these counters do not prove the absence of every background effect.
+
+Across both cohorts, all **32 measured commands and four initialization commands** succeed. The median of the sixteen paired savings is **5.66 seconds**, separately from the **5.64-second difference between pooled medians**. Both cohorts and all regressions remain in the evidence. No cold-start or edited-Rust timing improvement is inferred.
+
+The six retained Rust histories are checked again with native writing enabled after confirmation and the separate CLI capture: every expected compiler action remains cached. The [unchanged-CLI profile](NATIVE_GO_LISTING_CLI_CPU.md) is diagnostic only and is excluded from both cohorts.
 
 ## Component cost includes indexing
 
@@ -78,6 +102,8 @@ CPU samples positively identify the native codec: **5.28 cumulative CPU-seconds*
 
 Configuration stats and reads still occupy **9.33 seconds on the main query's critical path**; session-lifecycle waits occupy **3.33 seconds**. These configuration reads remain fresh and independent. The rejected in-progress sharing from the previous study is not installed.
 
-The final engine is idle, with profiling off and native writing disabled. Its dual-format readers and v2 store support remain installed. Before selecting or preparing this migration for upstream, confirm the full-command gain with independent ordering and review crash/upgrade and downgrade behavior. The existing upstream review queue is unchanged.
+The final engine is idle, with profiling off and native writing disabled. Its dual-format readers and v2 store support remain installed. Independent-order confirmation is complete. Before selection or an upstream-ready proposal, extract the production patch and review crash/upgrade durability and downgrade behavior. The existing upstream review queue is unchanged.
 
 [Evidence](experiments/telemetry-native-storage/) retains exact source overlays, before/after sources, tests and expected control failure, all benchmark observations, maintenance/pressure counters, raw compressed profiles, retained native histories and final state. Binaries are identified by hash and excluded.
+
+[Confirmation evidence](experiments/telemetry-native-storage-confirmation/) retains the reversed protocol, every command, combined statistics and maintenance counters, source/flag restoration, retained-cache checks and current decision. The first archive's disabled/pending-confirmation decision is historical; this report and the confirmation decision record the completed follow-up.
