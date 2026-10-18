@@ -1,0 +1,7 @@
+# Bound the cost of native SDK loopback transport
+
+The native Dang SDK evaluates inside the engine, but WithNestedClientServer creates an invocation-local TCP listener, HTTP server and connection pool. The lossless Go listing capture records 3,898 Dang invocations and 7,822 API requests. These counts do not establish the time spent in transport.
+
+Before implementing a production transport, screen its upper bound with the real serveNestedClient function and genqlient GraphQL client. Compare the existing TCP path with an in-process HTTP handler invoked through a benchmark-only RoundTripper using httptest.ResponseRecorder. The handler, payload, request encoding and response decoding are common. Each benchmark operation constructs a fresh invocation and makes 0, 2 or 8 sequential requests. The direct path is a lower-cost model, not production-ready code or a correctness proof.
+
+Compile once, run existing shared SDK tests, then four fixed alternating pairs per request count with normal runtime GC. Capture every observation and allocation count. No engine change, cache reset, telemetry suppression or PR. Do not turn component savings multiplied by invocation counts into a whole-command claim. Production work is justified only if this screen is substantial; lifecycle draining, client identity, cancellation, panic handling, tracing, body ownership and response semantics would still need tests on the actual backend.
