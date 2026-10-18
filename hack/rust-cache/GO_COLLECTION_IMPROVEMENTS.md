@@ -27,4 +27,6 @@ The combined listing prototype also passes real discovery, module-boundary and c
 
 The latest shared-function-metadata experiment is not counted as another speedup: test-edited listing is **11.74 → 11.69 s**, faster in two of four pairs; ordinary-source listing is **5.96 → 6.25 s**, faster in one pair. It stays unselected. Its source-only protocol completes the test-layout transition in both arms before measured pairs, correcting an earlier first-pair confound. All 24 commands return correct rows and exit successfully.
 
-Three seconds, cold-engine performance and integration of these collection changes into the Rust module remain unfinished.
+A subsequent [cold-cache study](NATIVE_GO_COLD_LISTING.md) measures three independent new engines: **20.19 s median from engine start through first listing**, followed by **5.85 s** for ordinary-source edits and **12.27 s** for test additions. The image is already local and the host OS page cache is not flushed. All 12 commands succeed with correct rows. This is first use with an empty Dagger cache; a retained-cache restart is not measured.
+
+Three seconds and integration of these collection changes into the Rust module remain unfinished.

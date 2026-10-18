@@ -38,6 +38,10 @@ Use **one second for discovery, one second for collection expansion and one seco
 
 Prototype one structural change at a time. First prove that it reduces the intended counts, bytes and critical-path work; then run balanced complete-command pairs on real edits. Compare fresh discovery, post-restart discovery, ordinary edits and test edits separately. Verify exact rows, additions/removals, module-boundary changes, fields as dimensions, selections and test execution. Keep only changes whose measured gain justifies their complexity and risk.
 
+## First use with an empty engine cache
+
+[Three independent cold-cache measurements](NATIVE_GO_COLD_LISTING.md) now establish **20.19 seconds median from engine start through first listing**, versus **5.85 seconds** after ordinary-source edits and **12.27 seconds** after adding a test on those engines. All 12 commands have correct rows and exit successfully. Engine readiness takes only 0.55 seconds median. The image is already local and the host page cache is not flushed; retained-cache restarts remain separate. A cold-specific wcprof capture can now distinguish first discovery and initialization from the known warm getter/discovery costs. This does not replace the warm edited-listing target.
+
 ## Earlier evidence
 
 An earlier prototype reached 9.30 seconds after ordinary-source edits, with test-file edits mixed at about 20 seconds. The subsequent package-snapshot prototype was rejected after 18.60 → 55.76 seconds. See [the complete comparison and profile](NATIVE_GO_PACKAGE_TEST_SNAPSHOTS.md).
