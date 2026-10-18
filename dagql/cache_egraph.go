@@ -2091,22 +2091,18 @@ func (c *Cache) compactEqClassesModeLocked(force, freeAll bool) (changed bool, o
 		liveDigests += len(c.eqClassToDigests[oldRoot])
 	}
 	newEgraphDigestToClass := make(map[string]eqClassID, liveDigests)
+	// These owned sets only grow; their contents do not name class IDs. Move
+	// each live set under its new ID while rebuilding the outer tables.
 	for _, oldRoot := range oldRoots {
 		newRoot := remap[oldRoot]
 		if oldDigests := c.eqClassToDigests[oldRoot]; len(oldDigests) > 0 {
-			newDigests := make(map[string]struct{}, len(oldDigests))
 			for dig := range oldDigests {
-				newDigests[dig] = struct{}{}
 				newEgraphDigestToClass[dig] = newRoot
 			}
-			newEqClassToDigests[newRoot] = newDigests
+			newEqClassToDigests[newRoot] = oldDigests
 		}
 		if oldExtras := c.eqClassExtraDigests[oldRoot]; len(oldExtras) > 0 {
-			newExtras := make(map[call.ExtraDigest]struct{}, len(oldExtras))
-			for extra := range oldExtras {
-				newExtras[extra] = struct{}{}
-			}
-			newEqClassExtraDigests[newRoot] = newExtras
+			newEqClassExtraDigests[newRoot] = oldExtras
 		}
 	}
 
