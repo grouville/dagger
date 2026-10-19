@@ -1,0 +1,11 @@
+{
+  "affected_field": "samples.json: indexed_interface_matching",
+  "issue": "Copied result annotation still uses the arm name; it does not control engine routing.",
+  "actual_indexed_interface_matching": true,
+  "actual_spill_recovery_reader_reuse": {
+    "before": false,
+    "combined": true
+  },
+  "evidence": "Both executed drivers call mode(interface-candidate-pruning, True) and then toggle only spill-recovery-reader by arm. The exact drivers and raw samples are preserved. Timing, CPU, allocation, rows and exit fields are unaffected.",
+  "raw_samples_preserved": true
+}

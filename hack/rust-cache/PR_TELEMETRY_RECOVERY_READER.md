@@ -1,0 +1,7 @@
+`spillFile.recover` borrows a 64 KiB buffered reader but never returns it to the existing pool. Add the missing `defer scanner.release()`, including recovery's error paths. Reading records, recovery callbacks and telemetry delivery keep their behavior.
+
+Four alternating benchmark pairs on Go 1.26.6 reduce empty-file recovery **8.21 → 0.11 µs** and **65,732 → 72 B/op**. Recovering 512 records changes **58.11 → 52.36 µs**, with about 65 KiB less allocation. Existing store race tests pass on both the standalone patch and the engine port, including recovery, cancellation, failed writes and concurrent access. The patch adds one production line and a recovery benchmark.
+
+On the experimental stack, complete Go listing after a test edit allocates **9.59 → 9.13 GB**, but elapsed time is **8.45 → 8.68 seconds**, faster in only one of four pairs. Ordinary-source listing is **5.51 → 5.54 seconds**. These are warm-engine runs with fresh CLIs and normal telemetry/cleanup. All 24 commands return correct rows and exit successfully; Go and Rust selection/execution checks pass. This establishes an allocation reduction, not a command-level latency improvement.
+
+This description is for fork review; no PR is open and the candidate remains disabled. The latency result needs further investigation before including the fix in the selected performance stack. [Source branch](https://github.com/grouville/dagger/tree/experiment/telemetry-recovery-reader), [measurements and limits](NATIVE_TELEMETRY_RECOVERY_READER.md).
