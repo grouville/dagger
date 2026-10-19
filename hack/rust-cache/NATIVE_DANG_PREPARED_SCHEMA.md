@@ -1,4 +1,35 @@
-Reusing schema data with cached Dang declarations removes repeated engine work but does not establish a useful speedup for full Go test collection listing. The candidate remains disabled and unselected. No PR is proposed.
+# Reuse schema preparation while executing normal module logic
+
+Retesting this existing prototype on the current getter-based stack improves complete Go test listing after a test-file edit **11.92 → 10.86 seconds median**, faster in all four balanced pairs. Ordinary-source edits are effectively flat at **6.43 → 6.45 seconds**. The median paired test-edit saving is **1.14 seconds**. This is a useful candidate on the development stack, with the flag restored to disabled after validation. Cold performance and a Rust latency gain remain unmeasured; three seconds is still unachieved.
+
+| Complete-command workload | Prepare schema each time | Reuse retained schema |
+| --- | ---: | ---: |
+| Test-file edit | 11.92 s | 10.86 s |
+| Ordinary-source edit | 6.43 s | 6.45 s |
+| Test-file edit, engine CPU | 62.39 CPU-s | 56.63 CPU-s |
+| Test-file edit, cumulative allocation | 15.33 GB | 13.63 GB |
+
+Both versions use the same Go module, engine binary and CLI. Every command starts a fresh CLI and makes a real source edit on a warm engine. Each version completes test addition and removal before four measured pairs per workload. All 24 timing commands have correct ordered names, identical full rows and successful cleanup. Telemetry, ordinary GC and final log flushing are included, with no concurrent profiler, build or tests. The earlier 47-second comparison below belongs to a different stack and must not be combined with this gain.
+
+## Why the full workflow is preserved
+
+This shares the immutable schema already retained by eligible compiled module declarations. The existing key includes module source, schema file and source mount path. A cache hit avoids opening and decoding that same schema again. Each invocation still receives its current client, receiver, arguments and cancellation context; object initialization, getter bodies and return conversion use their existing paths. Modules requiring per-invocation top-level initialization retain the fallback path. No function result is substituted, and no cache input, test selection, telemetry flush or resource cleanup is removed.
+
+A new sampled allocation capture attributes about **1.68 GB** to schema reading and decoding in a full edited listing, motivating this retest. Its exclusive categories assign each sampled allocation to one stack category; cumulative frame totals are not added together. Natural GC remains enabled and allocation-profile reporting can lag. This diagnostic command is separate from latency measurements.
+
+Separate lossless wcprof captures confirm **804 → 2** schema opens, decodes and self-type preparations. Both versions still execute **804 module evaluations**, **1,494 SDK requests** and all **800 authored package getters**. One test discovery executes and 799 hit in each. The optimization removes repeated preparation while preserving normal getter execution.
+
+Six actual Go checks pass with the candidate enabled, covering source snapshots, discovery, ownership rebinding, collection execution, binaries and generation. Eighteen public-API probe cases edit the module's own source: nested initializers change their results, fresh arguments remain independent, argument and return types change, errors report the current version, and restored source behaves correctly. These complement the existing exact-build SDK race coverage of concurrency, current clients, source/schema changes, initialization fallback and retries.
+
+The Rust module and its native cache are exercised in both modes through 28 cases: fresh test names after edits, restored source, passing and failing selections, exclusion of an invalid neighboring crate, reporting that crate when selected, repair and the public workspace test API. Public `nativeTest` queries recover **2/2 native compilation actions** in both modes. These are correctness checks, not a new Rust performance comparison or transferred-cache test.
+
+The initial Rust fixture omitted the Git boundary used by the established fixtures. Its `Workspace.directory("/")` began importing `/tmp`; cancellation output reports 12 GB, and a diagnostic snapshot shows 99,891 goroutines. Only that CLI was cancelled; engines and cache volumes were retained. Correcting the fixture removes the broad import. Two further inspection-query attempts used a private helper and an obsolete ID type; the final checks use the public API, an explicit source directory and this engine's universal `ID` input. All attempts are retained and excluded from performance claims.
+
+The engine remains `3d1c4deeef3ca394ac64302263ff1d9a30b4b6e18c740ecb5b9d55ef64a784b1` on the isolated `dagger-collection-receiver-decode-oct18` engine. Go module commit is `a3d0e4bf562b834c31135bff24e5931fd32b3acc`; CLI is `97f7d82dc2f7b3da203aa683971ea3658b6de6a8e9b968a44905e379f499f965`. Shared receiver decoding stays disabled. This extends the private declaration-reuse prototype and is not a standalone upstream fix. No new PR is opened. [Current sources, every attempt and complete evidence](experiments/dang-prepared-schema-current-getters/).
+
+## Earlier comparison on the older stack
+
+The earlier comparison removed repeated preparation without a useful full-listing speedup. Its measurements and limits follow.
 
 The previous profile records 961 declaration-cache hits and two misses during a listing. Before each lookup, the SDK still opens the immutable schema file, reads its contents and prepares the decoded schema. The cached imports already retain that schema. The candidate returns it alongside the prepared declarations and loads it only when preparing declarations. This extends the existing private declaration-reuse experiment; it is not a standalone fix against upstream.
 
