@@ -1,0 +1,102 @@
+{
+  "timings": {
+    "test": {
+      "medians": {
+        "before": {
+          "median_seconds": 9.359086005482823,
+          "median_engine_cpu": 47.252433499999825,
+          "median_allocated_bytes": 10006324428.0,
+          "commands": 4
+        },
+        "combined": {
+          "median_seconds": 9.276991596096195,
+          "median_engine_cpu": 46.48036849999971,
+          "median_allocated_bytes": 9822539652.0,
+          "commands": 4
+        }
+      },
+      "paired_seconds": [
+        3.171055879909545,
+        0.26187884202226996,
+        -0.744050077162683,
+        -0.16292858915403485
+      ],
+      "median_paired_saving": 0.049475126434117556,
+      "faster_pairs": 2,
+      "commands": 12,
+      "all_correct": true
+    },
+    "source": {
+      "medians": {
+        "before": {
+          "median_seconds": 6.1296701319515705,
+          "median_engine_cpu": 28.908755999999812,
+          "median_allocated_bytes": 5170403224.0,
+          "commands": 4
+        },
+        "combined": {
+          "median_seconds": 5.928854432888329,
+          "median_engine_cpu": 26.221519999999146,
+          "median_allocated_bytes": 5032909612.0,
+          "commands": 4
+        }
+      },
+      "paired_seconds": [
+        0.32345869997516274,
+        0.034177119145169854,
+        0.3674542789813131,
+        0.1649449858814478
+      ],
+      "median_paired_saving": 0.24420184292830527,
+      "faster_pairs": 4,
+      "commands": 12,
+      "all_correct": true
+    }
+  },
+  "diagnostics": [
+    {
+      "arm": "before",
+      "seconds": 1.9008847940713167,
+      "module_evaluations": 804,
+      "sdk_requests": 1494,
+      "main_query": {
+        "id": 3455626,
+        "seconds": 9.680509887
+      },
+      "dropped": 0,
+      "open": 0
+    },
+    {
+      "arm": "candidate",
+      "seconds": 1.7807829231023788,
+      "module_evaluations": 804,
+      "sdk_requests": 1415,
+      "main_query": {
+        "id": 3672211,
+        "seconds": 8.607055922
+      },
+      "dropped": 0,
+      "open": 0
+    }
+  ],
+  "selected": false,
+  "reason": "Four source-edit pairs improve modestly, but only two test-edit pairs improve and their median paired saving is 0.05 seconds. The extra search and fallback logic is not selected.",
+  "source_references": {
+    "baseline_module_commit": "de633b12ed2aa02e42adb698a23fcecc13faf36d",
+    "real_repository_commit": "ff0b029a4d270a651b9a8c7286babc79089066e4",
+    "engine_sha256": "3d1c4deeef3ca394ac64302263ff1d9a30b4b6e18c740ecb5b9d55ef64a784b1",
+    "cli_sha256": "97f7d82dc2f7b3da203aa683971ea3658b6de6a8e9b968a44905e379f499f965",
+    "common_engine_sources": "hack/rust-cache/experiments/shared-receiver-decode/evidence.tar.gz",
+    "common_callback_patch": "hack/rust-cache/experiments/go-runtime-preparation-current/callback-standalone.patch"
+  },
+  "checked_and_timed_sources": [
+    {
+      "path": "gomod/.dagger/modules/e2e/main.dang",
+      "sha256": "2f2e865c9333e00d03277f384ff59c22b03afc85d0496c3723dfc08c164ab19a"
+    },
+    {
+      "path": "gomod/main.dang",
+      "sha256": "0ef81190f23e8e49030da4a549b6ecc52db15fa4f02aa47b54161667f83eccc0"
+    }
+  ]
+}

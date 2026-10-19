@@ -1,0 +1,108 @@
+diff --git a/gomod/.dagger/modules/e2e/main.dang b/gomod/.dagger/modules/e2e/main.dang
+index c8e4ec5..c7872f5 100644
+--- a/gomod/.dagger/modules/e2e/main.dang
++++ b/gomod/.dagger/modules/e2e/main.dang
+@@ -401,6 +401,61 @@ type E2e {
+     null
+   }
+ 
++  """
++  Ownership checks are local to each file and ignore names relative to the module.
++  """
++  ownershipPathsCheck: Void @check {
++    let source = directory
++      .withNewFile("go.mod", "module example.com/root\n")
++      .withNewFile("a/nested/go.mod", "not a module declaration\n")
++      .withNewFile("a/nested/deep/file.go", "package nested\n")
++      .withNewFile("a/sibling/file.go", "package sibling\n")
++      .withNewFile("z.go", "package root\n")
++      .withNewFile("_ignored.go", "package ignored\n")
++      .withNewFile(".hidden.go", "package hidden\n")
++      .withNewFile("a/testdata/ignored.go", "package ignored\n")
++      .withNewFile("a/_private/ignored.go", "package ignored\n")
++      .withNewFile("testdata/go.mod", "module example.com/testdata\n")
++      .withNewFile("testdata/own.go", "package own\n")
++      .withNewFile("testdata/nested/go.mod", "module example.com/child\n")
++      .withNewFile("testdata/nested/child.go", "package child\n")
++      .withNewFile("_private/go.mod", "module example.com/private\n")
++      .withNewFile("_private/own.go", "package own\n")
++      .withNewFile("_private/nested/go.mod", "module example.com/child\n")
++      .withNewFile("_private/nested/child.go", "package child\n")
++      .asWorkspace
++    assert(
++      gomod.at(".").ownFiles(source, "*.go") == ["a/sibling/file.go", "z.go"],
++      "nested or ignored files leaked, or a previous file's early exit hid a sibling",
++    )
++    ["testdata", "_private"].each { root =>
++      assert(
++        gomod.at(root).ownFiles(source, "*.go") == [root + "/own.go"],
++        "ownership applied ignore rules to the module root: " + root,
++      )
++    }
++    comparePackageFacts(source)
++    comparePackageFacts(source.withWorkdir("testdata"))
++    # A glob metacharacter in the root can match paths outside its literal prefix.
++    # Keep the existing ownership policy for those paths too.
++    let globRoot = directory
++      .withNewFile("go.mod", "module example.com/root\n")
++      .withNewFile("bracket[x]/go.mod", "module example.com/bracket\n")
++      .withNewFile("bracket[x]/own.go", "package own\n")
++      .withNewFile("bracket[x]/nested/go.mod", "module example.com/child\n")
++      .withNewFile("bracket[x]/nested/child.go", "package child\n")
++      .withNewFile("bracketx/neighbor.go", "package neighbor\n")
++      .withNewFile("bracketx/invalid/go.mod", "not a module declaration\n")
++      .withNewFile("bracketx/invalid/deep/file.go", "package deep\n")
++      .asWorkspace
++    assert(
++      gomod.at("bracket[x]").ownFiles(globRoot, "*.go") == ["bracketx/invalid/deep/file.go", "bracketx/neighbor.go"],
++      "ownership changed for glob-matched paths outside the module prefix",
++    )
++    comparePackageFacts(globRoot)
++    null
++  }
++
+   let comparePackageFacts(ws: Workspace!): Void {
+     let patterns = ["a", "child/**"]
+     let expected = gomod.modules(ws).{{path}}.map { mod => mod.path }
+diff --git a/gomod/main.dang b/gomod/main.dang
+index 327ea06..6239a75 100644
+--- a/gomod/main.dang
++++ b/gomod/main.dang
+@@ -640,20 +640,24 @@ type GoMod {
+     nested: Map[Boolean!]!,
+     globalRoots: Boolean! = false,
+   ): Boolean! {
+-    if (goIgnores(relative(file))) {
+-      false
+-    } else if (nested.isEmpty) {
+-      true
++    if (nested.isEmpty) {
++      goIgnores(relative(file)) == false
+     } else {
+-      let parent = file.split("/").dropLast(1).reduce({{
+-        directory: "",
+-        nested: false
+-      }}) { state, segment =>
+-        let dir = if (state.directory == "") { segment } else { state.directory + "/" + segment }
+-        let boundary = nested.has(dir) and (globalRoots == false or (dir != path and (path == "." or dir.hasPrefix(path + "/"))))
+-        {{directory: dir, nested: state.nested or boundary}}
+-      }
+-      parent.nested == false
++      let inModule = path == "." or file.hasPrefix(path + "/")
++      let parts = relative(file).split("/")
++      let remaining = parts.length
++      let parent = if (inModule and path != ".") { path } else { "" }
++      parts.any { segment =>
++        remaining = remaining - 1
++        if (segment == "testdata" or segment.hasPrefix(".") or segment.hasPrefix("_")) {
++          true
++        } else if (remaining == 0) {
++          false
++        } else {
++          parent = if (parent == "") { segment } else { parent + "/" + segment }
++          nested.has(parent) and (inModule or globalRoots == false or (parent != path and (path == "." or parent.hasPrefix(path + "/"))))
++        }
++      } == false
+     }
+   }
+ 

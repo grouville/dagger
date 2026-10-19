@@ -31,6 +31,8 @@ First use with an empty Dagger cache was measured separately on an older stack: 
 
 Three seconds and a current Rust performance comparison remain unfinished.
 
+The following [discovery screens](NATIVE_GO_DISCOVERY_PATH_WALKS.md) keep that pipeline intact. Header batching removes per-file reads but does not establish a useful test-edit gain. A single ownership walk improves ordinary-source listing **6.30 → 5.73 s** in all four pairs, with lower CPU and allocation. It remains experimental because the test-edit cohort encounters varying host CPU pressure and nearly flat engine CPU. The new ownership fixture also passes unchanged production code, preserving existing behavior for ignored names, nested boundaries and glob characters. No new latency claim is made for cold starts or Rust.
+
 ## Next targets
 
 1. **Reduce repeated getter preparation where it costs time.** The edited listing still performs 804 module evaluations and 1,494 SDK requests. Its 640,000 repeated key-list entries account for only 0.16 sampled CPU-s in the motivating capture, so an extra conversion cache is not justified by the count alone. The callback-caller fix removes measured allocation scaffolding without changing callback-body execution. The parallel-admission retest stays unselected at **10.16 → 9.64 seconds** for test edits and **6.70 → 6.79 seconds** for ordinary edits. Attribute the remaining current-client, schema, configuration and resource preparation before proposing another shared context or cache. Preserve invalid-input errors, initializers, per-call state and freshness checks.

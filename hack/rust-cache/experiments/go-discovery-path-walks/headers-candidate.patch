@@ -1,0 +1,141 @@
+diff --git a/gomod/.dagger/modules/e2e/main.dang b/gomod/.dagger/modules/e2e/main.dang
+index c8e4ec5..8b67c2b 100644
+--- a/gomod/.dagger/modules/e2e/main.dang
++++ b/gomod/.dagger/modules/e2e/main.dang
+@@ -466,6 +466,49 @@ type E2e {
+     null
+   }
+ 
++  """
++  Header validation agrees with individual discovery for unusual contents and
++  filenames, including when search cannot confirm a match.
++  """
++  packageHeaderVariantsCheck: Void @check {
++    let headers = [
++      {{data: "module example.com/normal\n", valid: true}},
++      {{data: "\x00\nmodule example.com/binary\n", valid: true}},
++      {{data: "\tmodule(example.com/legacy\n", valid: true}},
++      {{data: "module\r\n", valid: false}},
++      {{data: "# module example.com/comment\n", valid: false}},
++      {{data: "moduledifferent example.com/invalid\n", valid: false}},
++    ]
++    headers.each { header =>
++      let ws = directory
++        .withNewFile("go.mod", header.data)
++        .withNewFile("item.go", "package item\n")
++        .asWorkspace
++      assert(gomod.at(".").isGoModule(ws) == header.valid, "header classification changed")
++      comparePackageFacts(ws)
++    }
++    let unusual = directory
++      .withNewFile("go.mod", "go 1.26.6\n")
++      .withNewFile("root.go", "package root\n")
++      .withNewFile("prefix\nnormal/go.mod", "module example.com/newline\n")
++      .withNewFile("prefix\nnormal/item.go", "package item\n")
++      .withNewFile("normal/go.mod", "# module example.com/comment\n")
++      .withNewFile("normal/item.go", "package normal\n")
++    comparePackageFacts(unusual.asWorkspace)
++    let linked = directory
++      .withNewFile("declaration", "module example.com/linked\n")
++      .withNewFile("linked/item.go", "package linked\n")
++      .withSymlink(target: "../declaration", linkName: "linked/go.mod")
++    let individual = { gomod.modules(linked.asWorkspace).{{path}}; "accepted" } rescue {
++      err: Error => "" + err.message
++    }
++    let batched = { gomod.packageFacts(linked.asWorkspace, []).{{path}}; "accepted" } rescue {
++      err: Error => "" + err.message
++    }
++    assert(individual.contains("stat go.mod: no such file or directory") and batched.contains("stat go.mod: no such file or directory"), "symlink read failure changed: " + JSON.encode({{individual: individual, batched: batched}}))
++    null
++  }
++
+   """
+   The source scanner's own unit tests.
+   """
+diff --git a/gomod/main.dang b/gomod/main.dang
+index 327ea06..9b0cffe 100644
+--- a/gomod/main.dang
++++ b/gomod/main.dang
+@@ -83,7 +83,9 @@ type Gomod {
+     let boundaries = rootIndex(
+       allRoots.map { root => resolveRootPath(cwd, root) },
+     )
+-    roots.map { root => at(resolveRootPath(cwd, root)) }.{{path, files: validFiles(ws: ws, boundaries: boundaries)}}
++    let paths = roots.map { root => resolveRootPath(cwd, root) }
++    let headers = moduleHeaders(ws, paths)
++    paths.map { root => at(root) }.{{path, files: validFiles(ws: ws, boundaries: boundaries, headers: headers)}}
+       .filter { found => found.files.length > 0 }
+       .map { found =>
+         let mod = at(found.path)
+@@ -96,6 +98,32 @@ type Gomod {
+       }
+   }
+ 
++  # Search establishes positive headers in one request. Unmatched paths still
++  # use the original reader, including its binary, symlink and error behavior.
++  let moduleHeaders(ws: Workspace!, roots: [String!]!): Map[Boolean!]! {
++    let empty: [String!]! = []
++    let pattern = at(".").moduleHeaderPattern
++    let found = if (roots.length == 0) {
++      empty
++    } else {
++      {
++        ws.search(
++          paths: roots.map { root => absolute(at(root).subpath("go.mod")) },
++          pattern: "module",
++          literal: true,
++        ).{{filePath, matchedLines}}
++          .filter { match => match.matchedLines.match(pattern) != null }
++          .map { match =>
++            let parent = match.filePath.trimPrefix("/").trimPrefix("./").split("/").dropLast(1).join("/")
++            if (parent == "") { "." } else { parent }
++          }
++      } rescue {
++        err: Error => empty
++      }
++    }
++    rootIndex(found)
++  }
++
+   # Balanced merges avoid repeatedly copying a growing immutable map.
+   let rootIndex(paths: [String!]!): Map[Boolean!]! {
+     let empty: Map[Boolean!]! = [:]
+@@ -618,7 +646,7 @@ type GoMod {
+   line, and it holds Go files that Go would read.
+   """
+   isGoModule(ws: Workspace!): Boolean! {
+-    if (ws.file("/" + subpath("go.mod")).contents.match(`(?m)^[ \t]*module([ \t(]|$)`) == null) {
++    if (ws.file("/" + subpath("go.mod")).contents.match(moduleHeaderPattern) == null) {
+       false
+     } else {
+       let nested = nestedRootSet(ws)
+@@ -629,6 +657,8 @@ type GoMod {
+     }
+   }
+ 
++  let moduleHeaderPattern: Regexp! { `(?m)^[ \t]*module([ \t(]|$)` }
++
+   let nestedRootSet(ws: Workspace!): Map[Boolean!]! {
+     let empty: Map[Boolean!]! = [:]
+     nestedRoots(ws).reduce(empty) { roots, root => roots.with(root, true) }
+@@ -665,12 +695,16 @@ type GoMod {
+     filesWithBoundaries(ws, glob, nestedRootSet(ws))
+   }
+ 
+-  let validFiles(ws: Workspace!, boundaries: Map[Boolean!]!): [String!]! {
++  let validFiles(
++    ws: Workspace!,
++    boundaries: Map[Boolean!]!,
++    headers: Map[Boolean!]!,
++  ): [String!]! {
+     let empty: [String!]! = []
+-    if (ws.file("/" + subpath("go.mod")).contents.match(`(?m)^[ \t]*module([ \t(]|$)`) == null) {
+-      empty
+-    } else {
++    if (headers.has(path) or ws.file("/" + subpath("go.mod")).contents.match(moduleHeaderPattern) != null) {
+       filesWithBoundaries(ws, "*.go", boundaries, globalRoots: true)
++    } else {
++      empty
+     }
+   }
+ 

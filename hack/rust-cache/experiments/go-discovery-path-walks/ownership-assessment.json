@@ -1,0 +1,348 @@
+{
+  "timings": {
+    "test": {
+      "medians": {
+        "before": {
+          "median_seconds": 17.131880081025884,
+          "median_engine_cpu": 50.590486000000055,
+          "median_allocated_bytes": 9945030584.0,
+          "commands": 4
+        },
+        "combined": {
+          "median_seconds": 16.10528283251915,
+          "median_engine_cpu": 50.5071954999994,
+          "median_allocated_bytes": 9823730732.0,
+          "commands": 4
+        }
+      },
+      "paired_seconds": [
+        5.839203904848546,
+        -3.614604825153947,
+        0.3894115041475743,
+        2.2093107278924435
+      ],
+      "median_paired_saving": 1.299361116020009,
+      "faster_pairs": 3,
+      "commands": 12,
+      "all_correct": true
+    },
+    "source": {
+      "medians": {
+        "before": {
+          "median_seconds": 6.296048416523263,
+          "median_engine_cpu": 26.964767000000393,
+          "median_allocated_bytes": 5208611576.0,
+          "commands": 4
+        },
+        "combined": {
+          "median_seconds": 5.728805881924927,
+          "median_engine_cpu": 24.395148999999947,
+          "median_allocated_bytes": 5023726660.0,
+          "commands": 4
+        }
+      },
+      "paired_seconds": [
+        0.4319224508944899,
+        0.3520597582682967,
+        0.49927115300670266,
+        0.8853705090004951
+      ],
+      "median_paired_saving": 0.4655968019505963,
+      "faster_pairs": 4,
+      "commands": 12,
+      "all_correct": true
+    }
+  },
+  "diagnostics": [
+    {
+      "arm": "before",
+      "seconds": 3.612726296996698,
+      "module_evaluations": 804,
+      "sdk_requests": 1494,
+      "main_query": {
+        "id": 4185454,
+        "seconds": 13.225001256
+      },
+      "dropped": 0,
+      "open": 0
+    },
+    {
+      "arm": "candidate",
+      "seconds": 3.1360629710834473,
+      "module_evaluations": 804,
+      "sdk_requests": 1494,
+      "main_query": {
+        "id": 4401541,
+        "seconds": 18.922374784
+      },
+      "dropped": 0,
+      "open": 0
+    }
+  ],
+  "selected": false,
+  "reason": "Source edits improve in all four pairs, but varying host CPU pressure and nearly flat test-edit CPU leave that workload inconclusive. Hold the candidate for a cleaner test-edit comparison; no cold or Rust performance gain is established.",
+  "profiles": [
+    {
+      "arm": "before",
+      "function_evaluations": 804,
+      "sdk_requests": 1494,
+      "dropped": 0,
+      "open_ops": 0,
+      "selected_calls": {
+        "go:Go.packages": {
+          "hit": 800,
+          "executed": 1
+        },
+        "go:GoPackage.tests": {
+          "hit": 799,
+          "executed": 1
+        },
+        "go:GoPackages.get": {
+          "executed": 800
+        },
+        "go:Query.go": {
+          "hit": 801
+        },
+        "gomod:Gomod.moduleLayoutDigest": {
+          "executed": 1
+        },
+        "gomod:Gomod.packageFacts": {
+          "executed": 1
+        },
+        "gomod:Gomod.selectedPaths": {
+          "hit": 79
+        },
+        "gomod:GomodPackageFacts.files": {
+          "executed": 80
+        },
+        "gomod:GomodPackageFacts.path": {
+          "do_not_cache": 80
+        },
+        "gomod:GomodPackageFacts.prefix": {
+          "do_not_cache": 80
+        },
+        "gomod:GomodPackageFacts.skipTest": {
+          "do_not_cache": 80
+        },
+        "gomod:Query.gomod": {
+          "hit": 81
+        }
+      },
+      "main_query": {
+        "id": 4185454,
+        "seconds": 13.225001256
+      }
+    },
+    {
+      "arm": "candidate",
+      "function_evaluations": 804,
+      "sdk_requests": 1494,
+      "dropped": 0,
+      "open_ops": 0,
+      "selected_calls": {
+        "go:Go.packages": {
+          "hit": 800,
+          "executed": 1
+        },
+        "go:GoPackage.tests": {
+          "hit": 799,
+          "executed": 1
+        },
+        "go:GoPackages.get": {
+          "executed": 800
+        },
+        "go:Query.go": {
+          "hit": 801
+        },
+        "gomod:Gomod.moduleLayoutDigest": {
+          "executed": 1
+        },
+        "gomod:Gomod.packageFacts": {
+          "executed": 1
+        },
+        "gomod:Gomod.selectedPaths": {
+          "hit": 79
+        },
+        "gomod:GomodPackageFacts.files": {
+          "executed": 80
+        },
+        "gomod:GomodPackageFacts.path": {
+          "do_not_cache": 80
+        },
+        "gomod:GomodPackageFacts.prefix": {
+          "do_not_cache": 80
+        },
+        "gomod:GomodPackageFacts.skipTest": {
+          "do_not_cache": 80
+        },
+        "gomod:Query.gomod": {
+          "hit": 81
+        }
+      },
+      "main_query": {
+        "id": 4401541,
+        "seconds": 18.922374784
+      }
+    },
+    {
+      "arm": "root-before",
+      "function_evaluations": 3,
+      "sdk_requests": 572,
+      "dropped": 0,
+      "open_ops": 0,
+      "selected_calls": {
+        "go:Go.packages": {
+          "hit": 800,
+          "executed": 1
+        },
+        "go:GoPackage.tests": {
+          "hit": 800
+        },
+        "go:GoPackages.get": {
+          "hit": 800
+        },
+        "go:Query.go": {
+          "hit": 801
+        },
+        "gomod:Gomod.moduleLayoutDigest": {
+          "executed": 1
+        },
+        "gomod:Gomod.packageFacts": {
+          "executed": 1
+        },
+        "gomod:Gomod.selectedPaths": {
+          "hit": 79
+        },
+        "gomod:GomodPackageFacts.files": {
+          "executed": 80
+        },
+        "gomod:GomodPackageFacts.path": {
+          "do_not_cache": 80
+        },
+        "gomod:GomodPackageFacts.prefix": {
+          "do_not_cache": 80
+        },
+        "gomod:GomodPackageFacts.skipTest": {
+          "do_not_cache": 80
+        },
+        "gomod:Query.gomod": {
+          "hit": 81
+        }
+      },
+      "main_query": {
+        "id": 4618128,
+        "seconds": 9.024563091
+      }
+    },
+    {
+      "arm": "root-candidate",
+      "function_evaluations": 3,
+      "sdk_requests": 572,
+      "dropped": 0,
+      "open_ops": 0,
+      "selected_calls": {
+        "go:Go.packages": {
+          "hit": 800,
+          "executed": 1
+        },
+        "go:GoPackage.tests": {
+          "hit": 800
+        },
+        "go:GoPackages.get": {
+          "hit": 800
+        },
+        "go:Query.go": {
+          "hit": 801
+        },
+        "gomod:Gomod.moduleLayoutDigest": {
+          "executed": 1
+        },
+        "gomod:Gomod.packageFacts": {
+          "executed": 1
+        },
+        "gomod:Gomod.selectedPaths": {
+          "hit": 79
+        },
+        "gomod:GomodPackageFacts.files": {
+          "executed": 80
+        },
+        "gomod:GomodPackageFacts.path": {
+          "do_not_cache": 80
+        },
+        "gomod:GomodPackageFacts.prefix": {
+          "do_not_cache": 80
+        },
+        "gomod:GomodPackageFacts.skipTest": {
+          "do_not_cache": 80
+        },
+        "gomod:Query.gomod": {
+          "hit": 81
+        }
+      },
+      "main_query": {
+        "id": 4773605,
+        "seconds": 9.353611551
+      }
+    }
+  ],
+  "pressure": {
+    "source": {
+      "host_cpu_some": [
+        0.2196643916188886,
+        0.1933193289269988,
+        0.21334514730190782,
+        0.24444030461508298,
+        0.2670954540537971,
+        0.21149558201823884,
+        0.21487576566814026,
+        0.1955082638718764
+      ]
+    },
+    "test": {
+      "host_cpu_some": [
+        0.24451580506788922,
+        0.44543872980060223,
+        0.4989817712624874,
+        0.46841865863579535,
+        0.45782816370115903,
+        0.41795396541153257,
+        0.39843463834907517,
+        0.4291190758360273
+      ]
+    }
+  },
+  "source_references": {
+    "baseline_module_commit": "de633b12ed2aa02e42adb698a23fcecc13faf36d",
+    "real_repository_commit": "ff0b029a4d270a651b9a8c7286babc79089066e4",
+    "engine_sha256": "3d1c4deeef3ca394ac64302263ff1d9a30b4b6e18c740ecb5b9d55ef64a784b1",
+    "cli_sha256": "97f7d82dc2f7b3da203aa683971ea3658b6de6a8e9b968a44905e379f499f965",
+    "common_engine_sources": "hack/rust-cache/experiments/shared-receiver-decode/evidence.tar.gz",
+    "common_callback_patch": "hack/rust-cache/experiments/go-runtime-preparation-current/callback-standalone.patch"
+  },
+  "checked_and_timed_sources": [
+    {
+      "path": "dagger.toml",
+      "sha256": "ce4c1322b74d0c8fe5d8536794979cc6fef7aae2e8064f566cf73f2b8f87bdcd"
+    },
+    {
+      "path": "go.dang",
+      "sha256": "14578875b505f14333aac38abc69b32eb9f1102bbdd5098486d0f5ecdd26c238"
+    },
+    {
+      "path": "gomod/.dagger/modules/e2e/main.dang",
+      "sha256": "6d32454fcb04fe8801f10d8cc48cf8a45391094665c86bd90d235a2025df2db2"
+    },
+    {
+      "path": "gomod/main.dang",
+      "sha256": "152518cb8103a26a9565d480988375a50a26ac4578e5309bd42f465ed73923e7"
+    }
+  ],
+  "confirmation": {
+    "selected": false,
+    "excluded_from_latency_comparison": true,
+    "reason": "CPU pressure during initialization remained high despite quiet admission: 37\u201362% host CPU some pressure in the first three completed commands. Stop before measured pairs; every completed initialization and the interrupted owned CLI are retained. No additional performance gain is claimed.",
+    "completed_commands": 3,
+    "all_completed_commands_correct": true,
+    "measured_pairs_completed": 0
+  }
+}
