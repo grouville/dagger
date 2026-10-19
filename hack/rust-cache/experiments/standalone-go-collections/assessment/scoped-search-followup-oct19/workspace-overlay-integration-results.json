@@ -1,0 +1,47 @@
+[
+  {
+    "label": "integration-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-c",
+      "-o",
+      "/tmp/go-collection-upstream-review-oct19/workspace-overlay-integration.test",
+      "./core/integration"
+    ],
+    "exit_code": 0,
+    "seconds": 29.790802518837154,
+    "sha256": "19e9019ce7617611d6fd7172a5e0f2f0eca5ca37739fbb42cb06a56d43014f03"
+  },
+  {
+    "label": "main",
+    "runner": "tcp://127.0.0.1:16310",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "-test.v",
+      "-test.count=1",
+      "-test.timeout=180s",
+      "-test.run=^TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths$"
+    ],
+    "exit_code": 1,
+    "seconds": 0.3717695800587535,
+    "log": "/tmp/go-collection-upstream-review-oct19/workspace-overlay-integration-main.log"
+  },
+  {
+    "label": "fix",
+    "runner": "tcp://127.0.0.1:32838",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "-test.v",
+      "-test.count=1",
+      "-test.timeout=180s",
+      "-test.run=^TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths$"
+    ],
+    "exit_code": 0,
+    "seconds": 0.3579192201141268,
+    "log": "/tmp/go-collection-upstream-review-oct19/workspace-overlay-integration-fix.log"
+  }
+]

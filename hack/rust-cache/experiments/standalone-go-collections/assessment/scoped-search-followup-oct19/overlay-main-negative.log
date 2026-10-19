@@ -1,0 +1,39 @@
+--- FAIL: TestSearchSourcePathsHostOverlay (0.00s)
+    --- FAIL: TestSearchSourcePathsHostOverlay/overlay_only (0.00s)
+        workspace_overlay_search_test.go:167: 
+            	Error Trace:	/tmp/go-collection-upstream-review-oct19/span-main/core/schema/workspace_overlay_search_test.go:167
+            	Error:      	Not equal: 
+            	            	expected: []string{}
+            	            	actual  : []string{"/created.txt", "edited.txt"}
+            	            	
+            	            	Diff:
+            	            	--- Expected
+            	            	+++ Actual
+            	            	@@ -1,2 +1,4 @@
+            	            	-([]string) {
+            	            	+([]string) (len=2) {
+            	            	+ (string) (len=12) "/created.txt",
+            	            	+ (string) (len=10) "edited.txt"
+            	            	 }
+            	Test:       	TestSearchSourcePathsHostOverlay/overlay_only
+    --- FAIL: TestSearchSourcePathsHostOverlay/mixed_sources (0.00s)
+        workspace_overlay_search_test.go:167: 
+            	Error Trace:	/tmp/go-collection-upstream-review-oct19/span-main/core/schema/workspace_overlay_search_test.go:167
+            	Error:      	Not equal: 
+            	            	expected: []string{"existing.txt"}
+            	            	actual  : []string{"existing.txt", "/created.txt"}
+            	            	
+            	            	Diff:
+            	            	--- Expected
+            	            	+++ Actual
+            	            	@@ -1,3 +1,4 @@
+            	            	-([]string) (len=1) {
+            	            	- (string) (len=12) "existing.txt"
+            	            	+([]string) (len=2) {
+            	            	+ (string) (len=12) "existing.txt",
+            	            	+ (string) (len=12) "/created.txt"
+            	            	 }
+            	Test:       	TestSearchSourcePathsHostOverlay/mixed_sources
+FAIL
+FAIL	github.com/dagger/dagger/core/schema	0.158s
+FAIL

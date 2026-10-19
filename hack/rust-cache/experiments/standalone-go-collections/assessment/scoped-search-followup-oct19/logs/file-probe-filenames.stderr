@@ -1,0 +1,12 @@
+== TRACE ==  ✘ FAILED
+main-dagger check go-dev:package-search-filenames-check  4.3s
+! exit code 1
+! dag://?check=package-search-filenames-check: stat bracket[1]_test.go: no such file or directory
+
+== CHECKS ==  ✘ 1 failed
+✘ dag://?check=package-search-filenames-check 2.6s ERROR
+  ✘ File.search(pattern: "^func (Test([^a-z(]\\w*)?\\(\\s*\\w+\\s+\\*testing\\.T\\s*\\)|Fuzz([^a-z(]\\w*)?\\(\\s*\\w+\\s+\\*testing\\.F\\s*\\)|Example([^a-z(]\\w*)?\\(\\s*\\))"): [SearchResult!]! 0.0s ERROR
+  ! stat bracket[1]_test.go: no such file or directory
+
+== RUN LOCALLY ==
+dagger check "dag://?check=package-search-filenames-check"

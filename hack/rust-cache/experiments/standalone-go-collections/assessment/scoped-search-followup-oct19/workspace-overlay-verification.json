@@ -1,0 +1,55 @@
+[
+  {
+    "label": "overlay-main-negative",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-race",
+      "-count=1",
+      "-timeout=240s",
+      "-run",
+      "^TestSearchSourcePathsHostOverlay$",
+      "./core/schema"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/span-main",
+    "log": "/tmp/go-collection-upstream-review-oct19/overlay-main-negative.log",
+    "exit_code": 1,
+    "seconds": 131.85876069194637
+  },
+  {
+    "label": "overlay-candidate-focused",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-race",
+      "-count=1",
+      "-timeout=240s",
+      "-run",
+      "^Test(SearchSourcePaths.*|MergeSearchResults.*|SearchPathInScopes.*)$",
+      "./core/schema"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-workspace-overlay",
+    "log": "/tmp/go-collection-upstream-review-oct19/overlay-candidate-focused.log",
+    "exit_code": 0,
+    "seconds": 131.77332002297044
+  },
+  {
+    "label": "overlay-candidate-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "build",
+      "-p=2",
+      "-mod=readonly",
+      "-buildvcs=false",
+      "-o",
+      "/tmp/go-collection-upstream-review-oct19/workspace-overlay-engine",
+      "./cmd/engine"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-workspace-overlay",
+    "log": "/tmp/go-collection-upstream-review-oct19/overlay-candidate-build.log",
+    "exit_code": 0,
+    "seconds": 79.14395879721269
+  }
+]

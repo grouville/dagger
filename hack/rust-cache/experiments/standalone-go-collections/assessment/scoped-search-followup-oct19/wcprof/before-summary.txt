@@ -1,0 +1,40 @@
+wcprof dump: 66338 ops, 10912 waits, 0 links over 21.21s; dropped events: 0; open ops: 0
+calls: 43673 (hit:32651 executed:10883 do_not_cache:139)
+top clients (of 39) by ops:
+       ops   self_tot  active               client
+     11557    400.92s  +1.75s..+21.21s      ZGR3UX6PIQ7URK6OYUTAQVN3DK
+     10883    388.58s  +38.46ms..+21.21s    (none)
+      6431      2.27s  +0ns..+1.59s         67UXIB26Z4H7A42WMIBNP2NFGI
+      2211     10.16s  +2.95s..+8.48s       YXJNFNMOPOLSLUV5XLKLNGQY55
+      1562     66.91s  +12.45s..+16.66s     3KTXJF3KR77ZZLTL5C4TXXIEHC
+      1561     50.33s  +12.75s..+16.13s     3Z4AOXOKEF2XJQYJT4J4YHFRZK
+      1561     88.23s  +13.07s..+19.48s     45RH2HMIO4IOLJO6BLA3ZZCPR6
+      1561     13.41s  +13.18s..+17.52s     AO5FSXZNEJRP63BPQQ3RBMZQ43
+      1561     32.17s  +12.96s..+16.97s     BYIR6B3TYQNKZBDPXQWSVHJHYP
+      1561    147.24s  +13.16s..+19.66s     FTCEDBNCX274JQZT4ZXKXGCL74
+top classes (of 240) by count:
+     count   self_tot  kind class
+     10640      2.41s  call Query.typeDef
+      9823      1.33s  call TypeDef.withOptional
+      4938   526.16ms  call TypeDef.withKind
+      3297   558.37ms  call TypeDef.withObject
+      2381   189.25ms  call TypeDef.withListOf
+      2176    344.73s  call SearchResult.filePath
+      2176    471.86s  call SearchResult.matchedLines
+      2176    648.65s  call SearchResult.search
+      2176     16.83s  call_exec SearchResult.filePath
+      2176     22.12s  call_exec SearchResult.matchedLines
+top classes by self time:
+     count   self_tot  kind class
+      2176    648.65s  call SearchResult.search
+      2176    471.86s  call SearchResult.matchedLines
+      2176    344.73s  call SearchResult.filePath
+        16    129.90s  call_exec go:GoPackage.tests
+       512     69.40s  call ArtifactDimensionKey.dimensionKeys
+       512     54.58s  call ArtifactDimensionKey.key
+       512     47.31s  call ArtifactDimensionKey.dimension
+        16     36.22s  call_exec gomod:Gomod.module
+        16     29.55s  call_exec go:GoPackages.get
+      2176     22.12s  call_exec SearchResult.matchedLines
+(left out: 10883 internal-kind ops, self_tot 388.58s; kind: "internal" ranks them)
+(times are relative to the first recorded op; self = duration minus child ops and waits; self_tot sums it across ops, concurrent ones included, so it can exceed wall time)

@@ -4,6 +4,8 @@ Current contribution assessment: **five drafts are open (#14730, #14731, #14736,
 
 Outside this extraction queue, recovered [span indexing (#14738)](https://github.com/dagger/dagger/pull/14738) and [Go package-local search (Go #68)](https://github.com/dagger/go/pull/68) now also have drafts. Their fresh standalone measurements and held alternatives are in the [October 19 follow-up](experiments/standalone-go-collections/assessment/independent-followup-oct19/).
 
+A separately reproduced [workspace-search correctness fix (#14740)](https://github.com/dagger/dagger/pull/14740) brings the reviewed queues to eight drafts. It follows the existing design for searching Dagger-created files. Go #68 remains blocked by a filename regression in its published version; the scoped replacement and its variable timing controls are recorded in the [scoped-search follow-up](experiments/standalone-go-collections/assessment/scoped-search-followup-oct19/).
+
 This queue covers **eight engine/CLI performance proposals, three Dang interpreter proposals, two Go module proposals and three correctness fixes**. It excludes several larger prototypes behind the earlier full-listing gains. Their unfinished upstream preparation is tracked in the [overall reconciliation](GO_COLLECTION_STANDALONE_REVIEW.md#earlier-gains-and-unfinished-larger-changes); the five-draft count is not the status of the entire project.
 
 Sixteen descriptions are prepared for review: **13 performance proposals and 3 correctness fixes**. All sixteen source branches are pushed, each one signed-off commit directly on its upstream main base. The [published branch manifest](experiments/standalone-go-collections/published-branches.json) links every clean source branch. This description branch remains separate.

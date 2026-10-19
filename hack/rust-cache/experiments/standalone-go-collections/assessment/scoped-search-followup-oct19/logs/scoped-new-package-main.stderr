@@ -1,0 +1,14 @@
+== TRACE ==  ✘ FAILED
+main-dagger check go-dev:package-search-overlay-check  6.4s
+! exit code 1
+! dag://?check=package-search-overlay-check: search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: ripgrep error: rg: testdata/go-module-with-testdata/review-added-package: IO error for operation on testdata/go-module-with-testdata/review-added-package: No such file or directory (os error 2)
+
+== CHECKS ==  ✘ 1 failed
+✘ dag://?check=package-search-overlay-check 6.2s ERROR
+  ✘ exec /home/dagger/.codex/packages/app-server-daemon/releases/0.163.0-x86_64-unknown-linux-musl/codex-path/rg --no-ignore --hidden --json --regexp=^func (Test([^a-z(]\w*)?\(\s*\w+\s+\*testing\.T\s*\)|Fuzz([^a-z(]\w*)?\(\s*\w+\s+\*testing\.F\s*\)|Example([^a-z(]\w*)?\(\s*\)) --no-follow --glob=/testdata/go-module-with-testdata/review-added-package/*_test.go -- testdata/go-module-with-testdata/review-added-package 0.0s ERROR
+  ┃ rg: testdata/go-module-with-testdata/review-added-package: IO error for operation on testdata/go-module-with-testdata/review-added-package: No such file or directory (os error 2)
+  ┃ {"data":{"elapsed_total":{"human":"0.003369s","nanos":3368588,"secs":0},"stats":{"bytes_printed":0,"bytes_searched":0,"elapsed":{"human":"0.000000s","nanos":0,"secs":0},"matched_lines":0,"matches":0,"searches":0,"searches_with_match":0}},"type":"summary"}
+  ! ripgrep error: rg: testdata/go-module-with-testdata/review-added-package: IO error for operation on testdata/go-module-with-testdata/review-added-package: No such file or directory (os error 2)
+
+== RUN LOCALLY ==
+dagger check "dag://?check=package-search-overlay-check"

@@ -1,0 +1,82 @@
+=== RUN   TestWorkspaceAPI
+=== PAUSE TestWorkspaceAPI
+=== CONT  TestWorkspaceAPI
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_parent
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_parent
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_parent
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_parent
+    testctx.go:198: Error: make request: input: currentWorkspace.withNewFile.search search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: ripgrep error: rg: created: IO error for operation on created: No such file or directory (os error 2)
+    testctx.go:174: 
+        	Error Trace:	/tmp/go-collection-upstream-review-oct19/engine-workspace-overlay/core/integration/workspace_overlay_search_test.go:44
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:296
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/otel-go@v1.43.1-0.20260917165636-2bca4f5622cf/oteltestctx/trace.go:163
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/middleware.go:25
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:150
+        	            				/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:1771
+        	Error:      	Received unexpected error:
+        	            	stdout: 
+        	            	stderr: Error: make request: input: currentWorkspace.withNewFile.search search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: ripgrep error: rg: created: IO error for operation on created: No such file or directory (os error 2)
+        	            	: exit status 1
+        	Test:       	TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_parent
+    testctx.go:206: sending interrupt: [/tmp/go-collection-clean-branches/main-dagger --silent query --doc /tmp/TestWorkspaceAPITestHostWorkspaceOverlaySearchPaths3567175863/001/overlay parent.graphql]
+    testctx.go:206: exited: [/tmp/go-collection-clean-branches/main-dagger --silent query --doc /tmp/TestWorkspaceAPITestHostWorkspaceOverlaySearchPaths3567175863/001/overlay parent.graphql]
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file
+    testctx.go:198: Error: make request: input: currentWorkspace.withNewFile.search search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: ripgrep error: rg: created/new.txt: IO error for operation on created/new.txt: No such file or directory (os error 2)
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources
+    testctx.go:198: Error: make request: input: currentWorkspace.withNewFile.search search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: ripgrep error: rg: created/new.txt: No such file or directory (os error 2)
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file
+    testctx.go:174: 
+        	Error Trace:	/tmp/go-collection-upstream-review-oct19/engine-workspace-overlay/core/integration/workspace_overlay_search_test.go:44
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:296
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/otel-go@v1.43.1-0.20260917165636-2bca4f5622cf/oteltestctx/trace.go:163
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/middleware.go:25
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:150
+        	            				/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:1771
+        	Error:      	Received unexpected error:
+        	            	stdout: 
+        	            	stderr: Error: make request: input: currentWorkspace.withNewFile.search search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: ripgrep error: rg: created/new.txt: IO error for operation on created/new.txt: No such file or directory (os error 2)
+        	            	: exit status 1
+        	Test:       	TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file
+    testctx.go:206: sending interrupt: [/tmp/go-collection-clean-branches/main-dagger --silent query --doc /tmp/TestWorkspaceAPITestHostWorkspaceOverlaySearchPaths3567175863/001/overlay file.graphql]
+    testctx.go:206: exited: [/tmp/go-collection-clean-branches/main-dagger --silent query --doc /tmp/TestWorkspaceAPITestHostWorkspaceOverlaySearchPaths3567175863/001/overlay file.graphql]
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources
+    testctx.go:174: 
+        	Error Trace:	/tmp/go-collection-upstream-review-oct19/engine-workspace-overlay/core/integration/workspace_overlay_search_test.go:44
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:296
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/otel-go@v1.43.1-0.20260917165636-2bca4f5622cf/oteltestctx/trace.go:163
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/middleware.go:25
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:150
+        	            				/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:1771
+        	Error:      	Received unexpected error:
+        	            	stdout: 
+        	            	stderr: Error: make request: input: currentWorkspace.withNewFile.search search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: ripgrep error: rg: created/new.txt: No such file or directory (os error 2)
+        	            	: exit status 1
+        	Test:       	TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources
+    testctx.go:206: sending interrupt: [/tmp/go-collection-clean-branches/main-dagger --silent query --doc /tmp/TestWorkspaceAPITestHostWorkspaceOverlaySearchPaths3567175863/001/mixed sources.graphql]
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path
+    testctx.go:198: Error: make request: input: currentWorkspace.withNewFile.search search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: ripgrep error: rg: created/new.txt: No such file or directory (os error 2)
+    testctx.go:198: rg: missing.txt: No such file or directory (os error 2)
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources
+    testctx.go:206: exited: [/tmp/go-collection-clean-branches/main-dagger --silent query --doc /tmp/TestWorkspaceAPITestHostWorkspaceOverlaySearchPaths3567175863/001/mixed sources.graphql]
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path
+    testctx.go:206: sending interrupt: [/tmp/go-collection-clean-branches/main-dagger --silent query --doc /tmp/TestWorkspaceAPITestHostWorkspaceOverlaySearchPaths3567175863/001/unrelated missing path.graphql]
+    testctx.go:206: exited: [/tmp/go-collection-clean-branches/main-dagger --silent query --doc /tmp/TestWorkspaceAPITestHostWorkspaceOverlaySearchPaths3567175863/001/unrelated missing path.graphql]
+--- FAIL: TestWorkspaceAPI (0.00s)
+    --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths (0.00s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_parent (0.28s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file (0.29s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources (0.29s)
+        --- PASS: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path (0.30s)
+FAIL
