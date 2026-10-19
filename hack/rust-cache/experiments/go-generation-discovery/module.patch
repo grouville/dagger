@@ -1,0 +1,180 @@
+diff --git a/.dagger/modules/go-dev/main.dang b/.dagger/modules/go-dev/main.dang
+index c446a9f..7277706 100644
+--- a/.dagger/modules/go-dev/main.dang
++++ b/.dagger/modules/go-dev/main.dang
+@@ -1476,4 +1476,32 @@ type GoDev {
+     }
+     null
+   }
++
++  """
++  Shared generation matches retain each module's selection and workspace version.
++  """
++  generationDiscoveryCheck: Void @check {
++    let source = directory
++      .withNewFile("go.mod", "module example.com/root\n\ngo 1.26.6\n")
++      .withNewFile("root.go", "package root\n//go:generate true\n")
++      .withNewFile("nested/go.mod", "module example.com/nested\n\ngo 1.26.6\n")
++      .withNewFile("nested/value.go", "package nested\n//go:generate true\n")
++      .withNewFile("other/value.go", "package other\n//go:generate true\n")
++    let ws = source.asWorkspace
++    let selected = go(version: "1.26.6", test: ["!**"], generate: ["nested"])
++    assert(selected.packages(ws).keys == ["nested"], "discovery included unselected generation directories")
++    assert(selected.module(ws, ".").generateDirectories(ws) == [], "root generation selection changed")
++    assert(
++      selected.module(ws, "nested").generateDirectories(ws) == ["nested"],
++      "nested generation selection changed",
++    )
++    let removed = source.withoutFile("nested/value.go").asWorkspace
++    assert(selected.packages(removed).keys == [], "removed generation package reused old matches")
++    let other = go(version: "1.26.6", test: ["!**"], generate: ["other"])
++    assert(other.packages(removed).keys == ["other"], "new selection reused another tool's matches")
++    assert(selected.packages(ws).keys == ["nested"], "old workspace changed after another discovery")
++    let excluded = go(version: "1.26.6", test: ["!**"], generate: ["**", "!nested"])
++    assert(excluded.packages(ws).keys == [".", "other"], "generation exclusion changed after grouping")
++    null
++  }
+ }
+diff --git a/go.dang b/go.dang
+index 23ee5a3..dffaf1d 100644
+--- a/go.dang
++++ b/go.dang
+@@ -198,7 +198,13 @@ type Go {
+           files: fact.files,
+         )
+       }
+-    let found = prepared.{{owner, paths(ws: ws)}}
++    # Matching depends on workspace and tool settings, not the module root.
++    # Keep it local to this discovery; getters receive only owners and paths.
++    let matches = if (prepared.length == 0) { null } else { GoGenerateMatches(
++      ws,
++      generate,
++    ) }
++    let found = prepared.{{owner, paths(ws: ws, matches: matches)}}
+     let owners = found.map { row => row.owner }
+     let testSource = ws.directory("/", include: ["**/go.mod", "**/*_test.go"])
+     # One snapshot walk replaces an existence query for every package. A
+@@ -721,29 +727,7 @@ type GoModule {
+ 
+   # The workspace directories among dirs that the generate setting selects.
+   let selectGenerate(ws: Workspace!, dirs: [String!]!): [String!]! {
+-    let included = generatePatterns.filter { p => p.hasPrefix("!") == false }
+-    let excluded = generatePatterns.filter { p => p.hasPrefix("!") }.map { p => p.trimPrefix("!") }
+-    let includeDirs = matchingGenerateDirectories(ws, included)
+-    let excludeDirs = matchingGenerateDirectories(ws, excluded)
+-    dirs.filter { dir =>
+-      (included.length == 0 or includeDirs.any { match => match == dir })
+-        and excludeDirs.any { match => match == dir } == false
+-    }
+-  }
+-
+-  # Match direct Go files to include the workspace root and avoid treating a
+-  # literal directory as recursive. Glob syntax is entirely Dagger's.
+-  let matchingGenerateDirectories(ws: Workspace!, patterns: [String!]!): [String!]! {
+-    let empty: [String!]! = []
+-    patterns.reduce(empty) { dirs, pattern =>
+-      dirs + ws
+-        .glob(pattern.trimSuffix("/") + "/*.go")
+-        .filter { file => file.hasSuffix("/") == false }
+-        .map { file =>
+-          let dir = file.split("/").dropLast(1).join("/")
+-          if (dir == "") { "." } else { dir }
+-        }
+-    }
++    GoGenerateMatches(ws, generatePatterns).select(dirs)
+   }
+ 
+   let discoveredGenerateDirectories(ws: Workspace!): [String!]! {
+@@ -837,7 +821,11 @@ type GoModule {
+   # Workspace paths of this module's packages that have something to do: tests
+   # to run, a main package to build, or go:generate commands to run. Each is
+   # found by searching the source, so listing packages runs no container.
+-  let packagePaths(ws: Workspace!, files: [String!]!): [String!]! {
++  let packagePaths(
++    ws: Workspace!,
++    files: [String!]!,
++    matches: GoGenerateMatches = null,
++  ): [String!]! {
+     # The library already validated ownership and listed these files.
+     let empty: [String!]! = []
+     let testDirs = if (skipTest) {
+@@ -846,21 +834,29 @@ type GoModule {
+       let withTests = testFiles(ws)
+       files.filter { f => f.hasSuffix("_test.go") and withTests.contains(f) }.map { f => packageDirectory(f) }
+     }
+-    let dirs = testDirs + binaryPackagesIn(ws, files) + generatePackagesIn(ws, files)
++    let dirs = testDirs + binaryPackagesIn(ws, files) + generatePackagesIn(
++      ws,
++      files,
++      matches,
++    )
+     dirs.uniq.map { dir => packagePath(dir) }
+   }
+ 
+   # Module-relative directories holding a go:generate command and selected by
+   # the generate setting. A go:generate:include or :container annotation alone
+   # is not a command.
+-  let generatePackagesIn(ws: Workspace!, files: [String!]!): [String!]! {
++  let generatePackagesIn(
++    ws: Workspace!,
++    files: [String!]!,
++    matches: GoGenerateMatches,
++  ): [String!]! {
+     let empty: [String!]! = []
+     if (files.length == 0) {
+       empty
+     } else {
+       let found = markedFiles(ws, "generate")
+       let dirs = files.filter { f => found.contains(f) }.map { f => packagePath(packageDirectory(f)) }.uniq
+-      selectGenerate(ws, dirs).map { dir => relativeDir(dir) }
++      (matches ?? GoGenerateMatches(ws, generatePatterns)).select(dirs).map { dir => relativeDir(dir) }
+     }
+   }
+ 
+@@ -1323,7 +1319,44 @@ type GoPackageDiscovery {
+   owner: GoModule!
+   files: [String!]!
+ 
+-  let paths(ws: Workspace!): [String!]! {
+-    owner.packagePaths(ws, files)
++  let paths(ws: Workspace!, matches: GoGenerateMatches = null): [String!]! {
++    owner.packagePaths(ws, files, matches)
++  }
++}
++
++# Immutable generation matches for one workspace and set of tool settings.
++# Discovery shares this value locally; it is not stored in collection getters.
++type GoGenerateMatches {
++  let includeAll: Boolean!
++  let included: [String!]!
++  let excluded: [String!]!
++
++  new(ws: Workspace!, patterns: [String!]!) {
++    let include = patterns.filter { p => p.hasPrefix("!") == false }
++    let exclude = patterns.filter { p => p.hasPrefix("!") }.map { p => p.trimPrefix("!") }
++    self.includeAll = include.length == 0
++    self.included = matchingGenerateDirectories(ws, include)
++    self.excluded = matchingGenerateDirectories(ws, exclude)
++    self
++  }
++
++  let select(dirs: [String!]!): [String!]! {
++    dirs.filter { dir =>
++      (includeAll or included.any { match => match == dir })
++        and excluded.any { match => match == dir } == false
++    }
++  }
++
++  let matchingGenerateDirectories(ws: Workspace!, patterns: [String!]!): [String!]! {
++    let empty: [String!]! = []
++    patterns.reduce(empty) { dirs, pattern =>
++      dirs + ws
++        .glob(pattern.trimSuffix("/") + "/*.go")
++        .filter { file => file.hasSuffix("/") == false }
++        .map { file =>
++          let dir = file.split("/").dropLast(1).join("/")
++          if (dir == "") { "." } else { dir }
++        }
++    }
+   }
+ }

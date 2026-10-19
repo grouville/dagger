@@ -1,0 +1,248 @@
+{
+  "timings": {
+    "test": {
+      "medians": {
+        "before": {
+          "median_seconds": 9.275361253530718,
+          "median_engine_cpu": 45.6398535000003,
+          "median_allocated_bytes": 9573861280.0,
+          "commands": 4
+        },
+        "combined": {
+          "median_seconds": 7.328453734982759,
+          "median_engine_cpu": 31.102031000000352,
+          "median_allocated_bytes": 6466608120.0,
+          "commands": 4
+        }
+      },
+      "commands": 12,
+      "all_correct": true,
+      "pairs": 4,
+      "faster_pairs": 4,
+      "paired_seconds": [
+        2.4394838390871882,
+        1.9030527677387,
+        1.6185344709083438,
+        2.2752805661875755
+      ],
+      "median_paired_saving": 2.0891666669631377
+    },
+    "source": {
+      "medians": {
+        "before": {
+          "median_seconds": 5.909902794635855,
+          "median_engine_cpu": 25.174690000000282,
+          "median_allocated_bytes": 5145477668.0,
+          "commands": 4
+        },
+        "combined": {
+          "median_seconds": 4.161992983426899,
+          "median_engine_cpu": 11.052978499999881,
+          "median_allocated_bytes": 2067146484.0,
+          "commands": 4
+        }
+      },
+      "commands": 12,
+      "all_correct": true,
+      "pairs": 4,
+      "faster_pairs": 4,
+      "paired_seconds": [
+        1.7419421733357012,
+        1.901096812915057,
+        1.0114640230312943,
+        1.8034537031780928
+      ],
+      "median_paired_saving": 1.772697938256897
+    }
+  },
+  "diagnostics": [
+    {
+      "arm": "before",
+      "analysis_seconds": 1.7885412860196084,
+      "command_seconds": 9.048147263936698,
+      "module_evaluations": 804,
+      "sdk_requests": 1494,
+      "main_query": {
+        "id": 2601562,
+        "seconds": 8.498018226
+      },
+      "dropped": 0,
+      "open": 0,
+      "getters": {
+        "executed": 800
+      },
+      "discoveries": {
+        "hit": 799,
+        "executed": 1
+      }
+    },
+    {
+      "arm": "candidate",
+      "analysis_seconds": 1.8092078841291368,
+      "command_seconds": 7.257696382002905,
+      "module_evaluations": 804,
+      "sdk_requests": 1415,
+      "main_query": {
+        "id": 2818123,
+        "seconds": 6.830499777
+      },
+      "dropped": 0,
+      "open": 0,
+      "getters": {
+        "executed": 800
+      },
+      "discoveries": {
+        "hit": 799,
+        "executed": 1
+      }
+    },
+    {
+      "arm": "root-before",
+      "analysis_seconds": 1.3627811470068991,
+      "command_seconds": 5.798808655003086,
+      "module_evaluations": 3,
+      "sdk_requests": 572,
+      "main_query": {
+        "id": 3031208,
+        "seconds": 5.32606876
+      },
+      "dropped": 0,
+      "open": 0,
+      "getters": {
+        "hit": 800
+      },
+      "discoveries": {
+        "hit": 800
+      }
+    },
+    {
+      "arm": "root-candidate",
+      "analysis_seconds": 1.2787709049880505,
+      "command_seconds": 4.25750852515921,
+      "module_evaluations": 3,
+      "sdk_requests": 493,
+      "main_query": {
+        "id": 3186665,
+        "seconds": 3.759417928
+      },
+      "dropped": 0,
+      "open": 0,
+      "getters": {
+        "hit": 800
+      },
+      "discoveries": {
+        "hit": 800
+      }
+    }
+  ],
+  "selected": true,
+  "reason": "All eight real-repository measured pairs improve, with substantially lower CPU and allocation. Sharing remains local to existing discovery and removes 79 SDK requests; no authored getter or selection is suppressed.",
+  "small_repositories": {
+    "one_module": {
+      "medians": {
+        "before": {
+          "median_seconds": 0.5674140290357172,
+          "median_engine_cpu": 0.9504109999998036,
+          "median_allocated_bytes": 183944944.0,
+          "commands": 4
+        },
+        "combined": {
+          "median_seconds": 0.5690543520031497,
+          "median_engine_cpu": 0.6783505000003061,
+          "median_allocated_bytes": 185214092.0,
+          "commands": 4
+        }
+      },
+      "commands": 12,
+      "all_correct": true,
+      "pairs": 4,
+      "faster_pairs": 2,
+      "paired_seconds": [
+        -0.05012474418617785,
+        0.5010054800659418,
+        -0.0019691609777510166,
+        0.00022812699899077415
+      ],
+      "median_paired_saving": -0.0008705169893801212
+    },
+    "sixteen_modules_initial": {
+      "medians": {
+        "before": {
+          "median_seconds": 0.6960817123763263,
+          "median_engine_cpu": 1.0682889999998224,
+          "median_allocated_bytes": 270713564.0,
+          "commands": 4
+        },
+        "combined": {
+          "median_seconds": 0.6729782525217161,
+          "median_engine_cpu": 1.0321619999999712,
+          "median_allocated_bytes": 257574460.0,
+          "commands": 4
+        }
+      },
+      "commands": 12,
+      "all_correct": true,
+      "pairs": 4,
+      "faster_pairs": 1,
+      "paired_seconds": [
+        -0.14394859201274812,
+        -0.005348799051716924,
+        0.053250710712745786,
+        -0.0025588860735297203
+      ],
+      "median_paired_saving": -0.003953842562623322
+    },
+    "sixteen_modules_followup": {
+      "medians": {
+        "before": {
+          "median_seconds": 0.7678885279456154,
+          "median_engine_cpu": 1.0942605000000185,
+          "median_allocated_bytes": 267080340.0,
+          "commands": 8
+        },
+        "combined": {
+          "median_seconds": 0.6945800881367177,
+          "median_engine_cpu": 1.0337169999997968,
+          "median_allocated_bytes": 264868388.0,
+          "commands": 8
+        }
+      },
+      "commands": 20,
+      "all_correct": true,
+      "pairs": 8,
+      "faster_pairs": 5,
+      "paired_seconds": [
+        0.04827406001277268,
+        0.09933141176588833,
+        -0.2545007849112153,
+        0.04496591305360198,
+        0.4523150180466473,
+        -0.000686227111145854,
+        -0.05147208203561604,
+        0.0009418139234185219
+      ],
+      "median_paired_saving": 0.02295386348851025
+    }
+  },
+  "small_repository_assessment": "One module is flat at about 0.57s. Sixteen-module results are mixed: the separate eight-pair follow-up is faster in five pairs, with a 23ms median paired saving. This does not establish a reliable small-repository latency gain or universal absence of outliers.",
+  "conditions": "Fresh CLI processes and real edits on one warm isolated engine. Normal telemetry, GC, output, final flushing and session cleanup retained. Before each cohort, both modes complete test addition and removal. No simultaneous heavy work, no cache clearing or widened limits.",
+  "cold_measured": false,
+  "rust_latency_measured": false,
+  "new_engine_change": false,
+  "new_builtin": false,
+  "new_dagger_api": false,
+  "shared_state_lifetime": "One Go.packages invocation; readonly arrays and boolean, not stored in collection getter results.",
+  "functional_gates": {
+    "successful_checks": 27,
+    "new_discovery_regression_passes_baseline_and_candidate": true,
+    "existing_go_checks": 25,
+    "coverage": [
+      "discovery and ownership",
+      "selected test execution and expected failures",
+      "source overrides and layout changes",
+      "binary execution",
+      "generation execution, globs, exclusions and cwd",
+      "independent workspace and selection inputs"
+    ]
+  }
+}

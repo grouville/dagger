@@ -4,7 +4,7 @@ The command remains `dagger check --module go --check test --list --all` on the 
 
 The newest [sealed-metadata encoding screen](NATIVE_SEALED_METADATA_JSON.md) is **not another selected improvement**. Complete test-edited listing moves **8.75 → 8.49 s**, ordinary-source listing **5.44 → 5.35 s**, with mixed paired results. It reduces measured lock contention without establishing enough command-level benefit for its added cache. Eighteen Go commands, 28 Rust/native-cache cases and race checks pass; all 800 getters remain. The unchanged pipeline remains the acceptance criterion.
 
-The progression from roughly 40 seconds toward 12 seconds comes from engine/CLI changes, Go module changes and the embedded Dang interpreter. Each row below is its own controlled comparison; different source revisions, engine builds and cache states prevent treating the rows as a single additive waterfall.
+The progression from roughly 40 seconds toward seven seconds comes from engine/CLI changes, Go module changes and the embedded Dang interpreter. Each row below is its own controlled comparison; different source revisions, engine builds and cache states prevent treating the rows as a single additive waterfall.
 
 | Improvement | Where | Complete-command comparison |
 | --- | --- | --- |
@@ -19,6 +19,9 @@ The progression from roughly 40 seconds toward 12 seconds comes from engine/CLI 
 | Retain indexed ownership facts and shared tool settings instead of every full module owner | Go module | **11.47 → 9.56 s**, test-file edits; **6.54 → 6.21 s**, ordinary-source edits |
 | Reuse the empty synthetic caller for concrete Dang callbacks | Dang interpreter | **10.01 → 9.53 s**, test-file edits; **6.75 → 6.13 s**, ordinary-source edits |
 | Index structural interface candidates while preserving compatibility checks | Engine | **8.56 → 8.27 s**, test-file edits; ordinary-source listing essentially flat at **5.46 → 5.40 s** |
+| Share immutable generation matches inside package discovery | Go module | **9.28 → 7.33 s**, test-file edits; **5.91 → 4.16 s**, ordinary-source edits |
+
+The latest [generation-matching change](NATIVE_GO_GENERATION_MATCHES.md) improves all eight real-repository pairs while preserving all 800 getter executions and 799 unchanged test-discovery hits. It removes 79 SDK requests and roughly 3.1 GB of allocation. Twenty-seven check invocations pass. One-module latency is flat; sixteen-module results remain mixed across two retained cohorts. The source is pushed to the Go fork and its [review description](PR_GO_GENERATION_MATCHES.md) is prepared; no PR is opened. The API-based sharing variant and native-sort retest stay unselected. This is a follow-up on the existing prototype, without a current-upstream, cold or Rust latency claim.
 
 Evidence and scope: [typed metadata](NATIVE_TYPED_ARTIFACT_METADATA.md), [initial batched facts](NATIVE_GO_BATCHED_DISCOVERY_FACTS.md), [getter identity and snapshots](NATIVE_COLLECTION_GETTER_CONTENT.md), [batched package discovery](NATIVE_GO_BATCH_PACKAGE_DISCOVERY.md), [method classification](NATIVE_DANG_COERCED_METHOD_HOISTING.md), [error context](NATIVE_DANG_LAZY_ERROR_CONTEXT.md).
 
