@@ -11,6 +11,8 @@ A native stored-item prototype improves complete Go test listing after a test-fi
 
 The median paired test-edit saving is 3.70 seconds; the source-edit regression is 0.52 seconds. These are real edits with a fresh CLI on a warmed, independent development engine. Telemetry, ordinary GC, command exit, cleanup and final log flushing are included. Both versions finish the test-addition/removal transition before four measured pairs per workload. All **24 commands** exit successfully and return the correct ordered names and full rows: 4,399 during initialization's addition and 4,398 afterward. No profiler, build or check runs alongside timings. This comparison is not stock released Dagger and is not an additive gain against previous cohorts.
 
+The preferred next investigation retains function getters and shares their preparation. This stored form explicitly moves the Go construction logic into parent discovery and eagerly creates all package values; the checks preserve behavior, but that is a different authoring shape. It does not establish that existing arbitrary getters can be skipped or automatically replaced. A subsequent [shared receiver-decoding screen](experiments/shared-receiver-decode/) runs the unchanged function getter for every miss. It improves only a small part of complete-command latency and remains disabled. Grouped runtime execution with independent per-key identity, state, errors, cancellation, resources and telemetry remains unfinished.
+
 ## Change
 
 The existing `@get` marker can point to a stored list of entry objects, each with a required `key` and object `value`. A function getter keeps its existing behavior. A stored getter is an explicit choice; the engine does not inspect or bypass an authored getter's body.

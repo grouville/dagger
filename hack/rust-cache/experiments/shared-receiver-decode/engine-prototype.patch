@@ -1,0 +1,267 @@
+--- a/core/sdk/dang/v2/helpers.go
++++ b/core/sdk/dang/v2/helpers.go
+@@ -634,11 +634,8 @@
+ 		return nil, fmt.Errorf("unknown parent type: %s", fnCall.ParentName)
+ 	}
+ 
+-	var parentState map[string]any
+-	dec := json.NewDecoder(bytes.NewReader(fnCall.Parent))
+-	dec.UseNumber()
+ 	_, decodeOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.decodeParent", wcprof.OpOpts{Ident: fnCall.ParentName})
+-	decodeErr := dec.Decode(&parentState)
++	parentState, decodeErr := decodeDangParent(ctx, fnCall.Parent)
+ 	decodeOp.EndErr(decodeErr)
+ 	if decodeErr != nil {
+ 		return nil, fmt.Errorf("unmarshal parent: %w", decodeErr)
+--- /dev/null
++++ b/core/sdk/dang/v2/shared_receiver_decode.go
+@@ -0,0 +1,91 @@
++package dangv2
++
++import (
++	"bytes"
++	"context"
++	"encoding/json"
++	"net/http"
++	"os"
++	"strconv"
++	"sync"
++	"sync/atomic"
++
++	lru "github.com/hashicorp/golang-lru/v2"
++)
++
++// This screen shares JSON data only. Every call still converts fresh Dang
++// values, evaluates class initializers, binds methods and invokes the getter.
++// Neither a client, a context nor a converted object is retained here.
++var sharedReceiverDecodeEnabled atomic.Bool
++var receiverDecodeHits, receiverDecodeMisses atomic.Uint64
++
++func init() {
++	sharedReceiverDecodeEnabled.Store(os.Getenv("DAGGER_BENCH_SHARED_RECEIVER_DECODE") == "true")
++}
++
++type decodedReceiver struct {
++	mu     sync.Mutex
++	fields map[string]any
++	ready  bool
++}
++
++var decodedReceivers, _ = lru.New[string, *decodedReceiver](32)
++
++func decodeDangParent(ctx context.Context, data []byte) (map[string]any, error) {
++	decode := func() (map[string]any, error) {
++		var fields map[string]any
++		decoder := json.NewDecoder(bytes.NewReader(data))
++		decoder.UseNumber()
++		err := decoder.Decode(&fields)
++		return fields, err
++	}
++	if !sharedReceiverDecodeEnabled.Load() || len(data) > 256*1024 {
++		return decode()
++	}
++	key := string(data)
++	entry, exists := decodedReceivers.Get(key)
++	if !exists {
++		entry = &decodedReceiver{}
++		previous, exists, _ := decodedReceivers.PeekOrAdd(key, entry)
++		if exists {
++			entry = previous
++		}
++	}
++	entry.mu.Lock()
++	defer entry.mu.Unlock()
++	if err := ctx.Err(); err != nil {
++		return nil, err
++	}
++	if !entry.ready {
++		receiverDecodeMisses.Add(1)
++		fields, err := decode()
++		if err != nil {
++			return nil, err
++		}
++		entry.fields, entry.ready = fields, true
++	} else {
++		receiverDecodeHits.Add(1)
++	}
++	// The converter reads these maps and slices, constructing new values rather
++	// than exposing the decoded containers to evaluated module code.
++	return entry.fields, nil
++}
++
++func SharedReceiverDecodeDiagnostic(w http.ResponseWriter, r *http.Request) {
++	if r.Method == http.MethodPost {
++		enabled, err := strconv.ParseBool(r.URL.Query().Get("enabled"))
++		if err != nil {
++			http.Error(w, err.Error(), http.StatusBadRequest)
++			return
++		}
++		sharedReceiverDecodeEnabled.Store(enabled)
++	} else if r.Method != http.MethodGet {
++		http.Error(w, "GET or POST required", http.StatusMethodNotAllowed)
++		return
++	}
++	w.Header().Set("Content-Type", "application/json")
++	_ = json.NewEncoder(w).Encode(map[string]any{
++		"enabled": sharedReceiverDecodeEnabled.Load(), "entries": decodedReceivers.Len(),
++		"hits": receiverDecodeHits.Load(), "misses": receiverDecodeMisses.Load(),
++	})
++}
+--- /dev/null
++++ b/core/sdk/dang/v2/shared_receiver_decode_test.go
+@@ -0,0 +1,145 @@
++package dangv2
++
++import (
++	"bytes"
++	"context"
++	"encoding/json"
++	"fmt"
++	"os"
++	"path/filepath"
++	"strings"
++	"sync"
++	"testing"
++
++	"github.com/dagger/dagger/core"
++	"github.com/vito/dang/v2/pkg/dang"
++	"github.com/vito/dang/v2/pkg/ioctx"
++)
++
++func sharedReceiverFixture(tb testing.TB, packages, owners int) (dang.ValueScope, *core.FunctionCall) {
++	tb.Helper()
++	dir := tb.TempDir()
++	source := `type Owner {
++  path: String!
++  name(): String! { path }
++}
++type Group {
++  paths: [String!]!
++  owners: [Owner!]!
++  get(path: String!): String! {
++    if (path == "fail") { raise "requested failure" }
++    path + ":" + owners.map { owner => owner.name() }.join(",")
++  }
++}`
++	if err := os.WriteFile(filepath.Join(dir, "main.dang"), []byte(source), 0600); err != nil {
++		tb.Fatal(err)
++	}
++	env, err := dang.RunDir(context.Background(), dir, false)
++	if err != nil {
++		tb.Fatal(err)
++	}
++	paths := make([]string, packages)
++	for i := range paths {
++		paths[i] = fmt.Sprintf("package/%04d", i)
++	}
++	rows := make([]map[string]string, owners)
++	for i := range rows {
++		rows[i] = map[string]string{"path": fmt.Sprintf("module/%04d", i)}
++	}
++	parent, err := json.Marshal(map[string]any{"paths": paths, "owners": rows})
++	if err != nil {
++		tb.Fatal(err)
++	}
++	return env, &core.FunctionCall{ParentName: "Group", Name: "get", Parent: core.JSON(parent)}
++}
++
++func TestSharedReceiverDecodePreservesGetterCalls(t *testing.T) {
++	previous := sharedReceiverDecodeEnabled.Load()
++	sharedReceiverDecodeEnabled.Store(true)
++	t.Cleanup(func() { sharedReceiverDecodeEnabled.Store(previous) })
++	env, template := sharedReceiverFixture(t, 16, 2)
++	var wg sync.WaitGroup
++	for i := range 24 {
++		wg.Go(func() {
++			key := fmt.Sprintf("selected/%d", i)
++			arg, _ := json.Marshal(key)
++			call := &core.FunctionCall{ParentName: template.ParentName, Name: template.Name, Parent: template.Parent,
++				InputArgs: []*core.FunctionCallArgValue{{Name: "path", Value: core.JSON(arg)}}}
++			result, err := callDangFunction(t.Context(), env, call, dangModule{})
++			if err != nil {
++				t.Error(err)
++				return
++			}
++			if got := result.(dang.StringValue).Val; got != key+":module/0000,module/0001" {
++				t.Errorf("getter returned %q for %q", got, key)
++			}
++		})
++	}
++	wg.Wait()
++	call := &core.FunctionCall{ParentName: template.ParentName, Name: template.Name, Parent: template.Parent,
++		InputArgs: []*core.FunctionCallArgValue{{Name: "path", Value: core.JSON(`"fail"`)}}}
++	if _, err := callDangFunction(t.Context(), env, call, dangModule{}); err == nil || !strings.Contains(err.Error(), "requested failure") {
++		t.Fatalf("getter error was lost: %v", err)
++	}
++}
++
++func TestSharedReceiverDecodePreservesInitializerEffects(t *testing.T) {
++	previous := sharedReceiverDecodeEnabled.Load()
++	sharedReceiverDecodeEnabled.Store(true)
++	t.Cleanup(func() { sharedReceiverDecodeEnabled.Store(previous) })
++	dir := t.TempDir()
++	source := `type Group {
++  name: String!
++  let prefix: String! = { print("initialize " + name); name }
++  get(path: String!): String! { print("get " + path); prefix + ":" + path }
++}`
++	if err := os.WriteFile(filepath.Join(dir, "main.dang"), []byte(source), 0600); err != nil {
++		t.Fatal(err)
++	}
++	env, err := dang.RunDir(t.Context(), dir, false)
++	if err != nil {
++		t.Fatal(err)
++	}
++	for _, item := range []struct{ key, owner string }{{"first", "owner"}, {"second", "owner"}, {"third", "edited"}} {
++		key, owner := item.key, item.owner
++		var stdout bytes.Buffer
++		arg, _ := json.Marshal(key)
++		parent, _ := json.Marshal(map[string]string{"name": owner})
++		ctx := ioctx.StdoutToContext(t.Context(), &stdout)
++		call := &core.FunctionCall{ParentName: "Group", Name: "get", Parent: core.JSON(parent),
++			InputArgs: []*core.FunctionCallArgValue{{Name: "path", Value: core.JSON(arg)}}}
++		result, err := callDangFunction(ctx, env, call, dangModule{})
++		if err != nil {
++			t.Fatal(err)
++		}
++		if got := result.(dang.StringValue).Val; got != owner+":"+key {
++			t.Fatalf("getter returned %q", got)
++		}
++		if got := stdout.String(); !strings.Contains(got, "initialize "+owner) || !strings.Contains(got, "get "+key) {
++			t.Fatalf("call %s lost its own initializer/getter output: %q", key, got)
++		}
++	}
++}
++
++func BenchmarkSharedReceiverDecode(b *testing.B) {
++	for _, packages := range []int{64, 256, 800} {
++		b.Run(fmt.Sprintf("packages=%d", packages), func(b *testing.B) {
++			env, template := sharedReceiverFixture(b, packages, max(1, packages/10))
++			calls := make([]*core.FunctionCall, packages)
++			for i := range calls {
++				arg, _ := json.Marshal(fmt.Sprintf("selected/%d", i))
++				calls[i] = &core.FunctionCall{ParentName: template.ParentName, Name: template.Name, Parent: template.Parent,
++					InputArgs: []*core.FunctionCallArgValue{{Name: "path", Value: core.JSON(arg)}}}
++			}
++			b.ReportAllocs()
++			b.ResetTimer()
++			for range b.N {
++				for _, call := range calls {
++					if _, err := callDangFunction(b.Context(), env, call, dangModule{}); err != nil {
++						b.Fatal(err)
++					}
++				}
++			}
++		})
++	}
++}
+--- a/cmd/engine/debug.go
++++ b/cmd/engine/debug.go
+@@ -48,6 +48,7 @@
+ func setupDebugHandlers(addr string, eng *server.Server) error {
+ 	var blockProfileRate atomic.Int64
+ 	m := http.NewServeMux()
++	m.HandleFunc("/debug/shared-receiver-decode", dangv2.SharedReceiverDecodeDiagnostic)
+ 	m.HandleFunc("/debug/lazy-eval-error-context", dang.LazyEvalErrorContextDiagnostic)
+ 	m.HandleFunc("/debug/shared-function-metadata", dang.SharedFunctionMetadataDiagnostic)
+ 	m.HandleFunc("/debug/coerced-method-hoisting", dang.CoercedMethodHoistingDiagnostic)
