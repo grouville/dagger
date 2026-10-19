@@ -272,6 +272,7 @@ type Pattern struct {
 	cleanedPattern string
 	dirs           []string
 	regexp         *regexp.Regexp
+	literalSuffix  string
 	exclusion      bool
 }
 
@@ -359,6 +360,9 @@ func (p *Pattern) match(path string) (bool, error) {
 		// **/foo matches "foo"
 		return suffix[0] == os.PathSeparator && path == suffix[1:], nil
 	case regexpMatch:
+		if p.literalSuffix != "" && !strings.HasSuffix(path, p.literalSuffix) {
+			return false, nil
+		}
 		return p.regexp.MatchString(path), nil
 	}
 
@@ -460,6 +464,15 @@ func (p *Pattern) compile(sl string) error {
 	}
 
 	p.regexp = re
+	// Reject impossible literal endings before running the regexp. Keep escapes
+	// and character classes on the general path. ASCII suffixes also preserve
+	// regexp's treatment of invalid UTF-8 in paths as replacement runes.
+	if !strings.ContainsAny(pattern, `[]\`) {
+		suffix := pattern[strings.LastIndexAny(pattern, "*?^")+1:]
+		if strings.IndexFunc(suffix, func(r rune) bool { return r > 127 }) == -1 {
+			p.literalSuffix = suffix
+		}
+	}
 	p.matchType = regexpMatch
 	return nil
 }
