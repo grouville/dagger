@@ -4,9 +4,9 @@ Every source branch is one signed-off commit directly on its repository's pinned
 
 | Change | Standalone result | Verification status |
 | --- | --- | --- |
-| [Shared result lists (#14730)](https://github.com/dagger/dagger/pull/14730) | Import 2,049 results: **713.15 → 49.53 ms**; prune 8,192 roots: **31.43 s → 45.59 ms**. All four pairs faster. | Main plus only this PR; full DagQL race suite passes. Complete-listing gain unmeasured. |
+| [Shared result lists (#14730)](https://github.com/dagger/dagger/pull/14730) | Import 2,049 results: **713.15 → 49.53 ms**; prune 8,192 roots: **31.43 s → 45.59 ms**. All four pairs faster. | Main plus only this PR; full DagQL race suite passes. Cost controls: separate-list import **39.75 → 40.53 ms**; fresh insertion **38.57 → 39.81 ms**, six pairs. Complete-listing gain unmeasured. |
 
-| [Skip unrelated host directories](PR_CLIENT_HOST_GLOB_PREFIX.md) | Package pattern: **9.28 → 0.10 ms**; module pattern: **10.01 → 0.60 ms**; whole-tree control: **14.13 → 14.12 ms**. | Four pairs; full client race suite. Description and commit explain the prefix checks and the control. Draft ready. |
+| [Skip unrelated host directories (#14731)](https://github.com/dagger/dagger/pull/14731) | Package pattern: **9.28 → 0.10 ms**; module pattern: **10.01 → 0.60 ms**; whole-tree control: **14.13 → 14.12 ms**. | Four pairs; full client race suite. Description and commit explain the prefix checks and the control. Draft #14731 opened. |
 
 The remaining standalone cohorts and additional tradeoff controls are running. No unverified cumulative figure is used as a standalone result. Draft PRs are opened only after the individual result and its scope justify them.
 

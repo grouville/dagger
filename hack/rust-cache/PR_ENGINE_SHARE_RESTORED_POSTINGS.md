@@ -8,7 +8,7 @@ This PR shares that list between the keys. It also tracks which lists contain ea
 
 Sharing must preserve what each key can find. In particular, adding a new result to one key must not make it available through the other keys. Those later additions stay separate; only the original list is shared.
 
-The cost is extra tracking for cleanup. This should help most when many keys share a large list, as we saw during the Go listing investigation. It may be less efficient when each list contains only one result; that case still needs measuring. All access uses the existing cache lock.
+The cost is extra tracking for cleanup. With 2,048 separate one-result lists, restoring the cache is about 2% slower; adding 2,048 fresh results is about 3% slower. The benefit therefore depends on how much the keys share. All access uses the existing cache lock.
 
 ### Results
 
@@ -23,7 +23,16 @@ Comparing main `80699ac67a` with only this change applied:
 
 Medians from four pairs of runs, alternating which version runs first. This change was faster in every pair. The filesystem cache was warm; setup and cache closing are excluded. Go 1.26.6, Linux amd64, `GOMAXPROCS=8`.
 
-These measure cache restoration and cleanup. The effect on the complete Go test listing command has not yet been measured for this change alone.
+The controls below measure workloads with no large shared lists:
+
+| Control | Main | This PR | Memory allocated, before → after |
+| --- | ---: | ---: | ---: |
+| Restore 2,048 separate one-result lists | 39.75 ms | 40.53 ms | 23.69 → 23.75 MB |
+| Add 2,048 fresh results | 38.57 ms | 39.81 ms | 15.38 → 15.31 MB |
+
+These controls use six alternating pairs, one second per case, with setup and closing excluded. This PR was slower in five of six restore pairs and four of six fresh-result pairs. The initial shorter runs are retained with the raw measurements.
+
+These measure cache restoration, cleanup and insertion. The effect on the complete Go test listing command has not yet been measured for this change alone.
 
 ### Reproducing
 
@@ -33,10 +42,11 @@ The regression tests check that sharing preserves which results each key can fin
 go test -race -count=1 ./dagql
 ```
 
-To run the restoration and cleanup benchmarks added by this PR:
+To run the restoration, cleanup and cost-control benchmarks added by this PR:
 
 ```sh
 GOMAXPROCS=8 go test ./dagql -run '^$' -bench 'Benchmark(CacheImportWideOutputClass|MetadataPruneRestoredWideOutput)/(64|1024|4096)$' -benchmem -benchtime=1x
+GOMAXPROCS=8 go test ./dagql -run '^$' -bench '^BenchmarkResultList(SingletonImport|FreshInsert)$' -benchmem -benchtime=1s
 ```
 
-[Raw measurements and instructions for running the same benchmarks against main](https://github.com/grouville/dagger/tree/experiment/rust-native-cache/hack/rust-cache/experiments/standalone-go-collections/restored-index).
+[Raw measurements and instructions for comparing against main](https://github.com/grouville/dagger/tree/experiment/rust-native-cache/hack/rust-cache/experiments/standalone-go-collections/restored-index).
