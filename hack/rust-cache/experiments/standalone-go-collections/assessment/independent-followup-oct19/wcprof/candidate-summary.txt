@@ -1,0 +1,40 @@
+wcprof dump: 48364 ops, 4833 waits, 0 links over 13.25s; dropped events: 0; open ops: 0
+calls: 37865 (hit:32922 executed:4800 do_not_cache:139 joined:4)
+top clients (of 39) by ops:
+       ops   self_tot  active               client
+     11621    197.47s  +1.43s..+13.25s      5VSOJPMKPSAPEUNSHOMCXGJSKX
+      6431      1.91s  +0ns..+1.30s         PNGVHLGOSN3LR66BCKA5MHXSIS
+      4800     39.46s  +31.85ms..+13.25s    (none)
+      2211      7.27s  +2.29s..+6.71s       FJMHQKX6KQI3P33G7W5OOA4M5T
+       829      1.99s  +10.29s..+12.39s     MZKD7IIRFZKHCAC6PQNH3C6MIB
+       825      2.80s  +9.97s..+12.28s      7AUNYXR5RNAT3A74HFR5USFNC3
+       819      2.43s  +10.13s..+12.27s     YHCKKUIBWRDSY2HSFJVULVPGZI
+       817      2.46s  +9.92s..+12.27s      UIKI3A62XM2X4UEOZD7HT3RI2Q
+       811      1.45s  +10.85s..+12.50s     6HAHTW47FZJE4BBRTOH3OUM2DZ
+       811      1.96s  +10.45s..+12.50s     7TDFK3AVNYJY4VCKH6ICAIAU5F
+top classes (of 242) by count:
+     count   self_tot  kind class
+     10640   671.53ms  call Query.typeDef
+      9823   731.38ms  call TypeDef.withOptional
+      4938   287.92ms  call TypeDef.withKind
+      3297   147.59ms  call TypeDef.withObject
+      2381    74.41ms  call TypeDef.withListOf
+       512     22.67s  call ArtifactDimensionKey.dimension
+       512     29.05s  call ArtifactDimensionKey.dimensionKeys
+       512     27.41s  call ArtifactDimensionKey.key
+       512   287.81ms  call_exec ArtifactDimensionKey.dimension
+       512   737.59ms  call_exec ArtifactDimensionKey.dimensionKeys
+top classes by self time:
+     count   self_tot  kind class
+        16     57.59s  call_exec go:GoPackage.tests
+        16     29.08s  call_exec go:GoPackages.get
+       512     29.05s  call ArtifactDimensionKey.dimensionKeys
+       512     27.41s  call ArtifactDimensionKey.key
+       512     22.67s  call ArtifactDimensionKey.dimension
+        16     16.98s  call_exec gomod:Gomod.module
+       179      7.33s  session_phase session.query
+       128      7.09s  call Artifact.items
+       179      5.64s  session_phase session.schemaBuild
+       128      5.11s  call Artifact.description
+(left out: 4800 internal-kind ops, self_tot 39.46s; kind: "internal" ranks them)
+(times are relative to the first recorded op; self = duration minus child ops and waits; self_tot sums it across ops, concurrent ones included, so it can exceed wall time)

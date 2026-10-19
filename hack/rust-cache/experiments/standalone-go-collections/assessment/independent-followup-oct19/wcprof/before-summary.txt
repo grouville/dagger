@@ -1,0 +1,40 @@
+wcprof dump: 59724 ops, 9509 waits, 0 links over 15.54s; dropped events: 0; open ops: 0
+calls: 39861 (hit:30238 executed:9484 do_not_cache:139)
+top clients (of 39) by ops:
+       ops   self_tot  active               client
+     11515    265.05s  +333.66ms..+15.54s   QUEKYVCESWHVEX63WHR2G4YIAF
+      9484    460.31s  +23.44ms..+15.54s    (none)
+      2113      9.54s  +853.03ms..+5.10s    GLE6Z42IJBE7JERRY7ZCHTKEHO
+      1562     44.68s  +8.25s..+11.67s      YBNMDY3PPJDIOJTEOHKL53LIAM
+      1561    140.19s  +8.66s..+12.34s      24XVC76N3BTEPXVBPXF36TMEX6
+      1561     44.86s  +8.82s..+13.53s      54RWTOHAVPGKYXVMXCFURV7HUB
+      1561     65.09s  +8.84s..+13.46s      6MYXSXUGA6EOQWQ7MEX4W3RN4S
+      1561    131.40s  +8.66s..+12.17s      AAYANIIHYZCGNUYFCNVKRIFKJX
+      1561     25.64s  +8.88s..+14.19s      CLIRRK25L3QSBEV7BVNYVODI4Y
+      1561     37.14s  +9.01s..+14.13s      DOTQUY72VE76SKFPYW477J4VF4
+top classes (of 170) by count:
+     count   self_tot  kind class
+     10070      2.76s  call Query.typeDef
+      9067      1.54s  call TypeDef.withOptional
+      4626   679.82ms  call TypeDef.withKind
+      3133   485.35ms  call TypeDef.withObject
+      2287   150.19ms  call TypeDef.withListOf
+      2176    346.95s  call SearchResult.filePath
+      2176    415.74s  call SearchResult.matchedLines
+      2176    418.08s  call SearchResult.search
+      2176      5.63s  call_exec SearchResult.filePath
+      2176      6.43s  call_exec SearchResult.matchedLines
+top classes by self time:
+     count   self_tot  kind class
+      2176    418.08s  call SearchResult.search
+      2176    415.74s  call SearchResult.matchedLines
+      2176    346.95s  call SearchResult.filePath
+        16    104.23s  call_exec go:GoPackage.tests
+       512     34.80s  call ArtifactDimensionKey.dimensionKeys
+       512     32.13s  call ArtifactDimensionKey.key
+        16     27.57s  call_exec gomod:Gomod.module
+        16     27.42s  call_exec go:GoPackages.get
+       512     16.80s  call ArtifactDimensionKey.dimension
+       128     12.04s  call Artifact.items
+(left out: 9484 internal-kind ops, self_tot 460.31s; kind: "internal" ranks them)
+(times are relative to the first recorded op; self = duration minus child ops and waits; self_tot sums it across ops, concurrent ones included, so it can exceed wall time)

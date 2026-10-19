@@ -1,0 +1,230 @@
+[
+  {
+    "label": "span-main-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-race",
+      "-count=1",
+      "-timeout=180s",
+      "./engine/clientdb"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/span-main",
+    "exit_code": 0,
+    "seconds": 8.485071597853675
+  },
+  {
+    "label": "span-main-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-c",
+      "-o",
+      "/tmp/go-collection-upstream-review-oct19/span-main.test",
+      "./engine/clientdb"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/span-main",
+    "exit_code": 0,
+    "seconds": 1.6215669279918075
+  },
+  {
+    "label": "span-candidate-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-race",
+      "-count=1",
+      "-timeout=180s",
+      "./engine/clientdb"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/span-index",
+    "exit_code": 0,
+    "seconds": 3.7763242160435766
+  },
+  {
+    "label": "span-candidate-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-c",
+      "-o",
+      "/tmp/go-collection-upstream-review-oct19/span-candidate.test",
+      "./engine/clientdb"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/span-index",
+    "exit_code": 0,
+    "seconds": 1.6183840620797127
+  },
+  {
+    "label": "span-0-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/span-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$/(parent|cause)/(1|1026|4096)$",
+      "-test.benchmem",
+      "-test.benchtime=200ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/span-main",
+    "exit_code": 0,
+    "seconds": 2.167862967122346
+  },
+  {
+    "label": "span-0-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/span-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$/(parent|cause)/(1|1026|4096)$",
+      "-test.benchmem",
+      "-test.benchtime=200ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/span-index",
+    "exit_code": 0,
+    "seconds": 1.8182064827997237
+  },
+  {
+    "label": "span-1-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/span-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$/(parent|cause)/(1|1026|4096)$",
+      "-test.benchmem",
+      "-test.benchtime=200ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/span-index",
+    "exit_code": 0,
+    "seconds": 2.217726614093408
+  },
+  {
+    "label": "span-1-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/span-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$/(parent|cause)/(1|1026|4096)$",
+      "-test.benchmem",
+      "-test.benchtime=200ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/span-main",
+    "exit_code": 0,
+    "seconds": 1.9688481830526143
+  },
+  {
+    "label": "span-2-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/span-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$/(parent|cause)/(1|1026|4096)$",
+      "-test.benchmem",
+      "-test.benchtime=200ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/span-main",
+    "exit_code": 0,
+    "seconds": 1.867440580856055
+  },
+  {
+    "label": "span-2-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/span-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$/(parent|cause)/(1|1026|4096)$",
+      "-test.benchmem",
+      "-test.benchtime=200ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/span-index",
+    "exit_code": 0,
+    "seconds": 1.7169451809022576
+  },
+  {
+    "label": "span-3-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/span-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$/(parent|cause)/(1|1026|4096)$",
+      "-test.benchmem",
+      "-test.benchtime=200ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/span-index",
+    "exit_code": 0,
+    "seconds": 1.7169322280678898
+  },
+  {
+    "label": "span-3-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/span-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$/(parent|cause)/(1|1026|4096)$",
+      "-test.benchmem",
+      "-test.benchtime=200ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/span-main",
+    "exit_code": 0,
+    "seconds": 1.86734290397726
+  },
+  {
+    "label": "span-4-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/span-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$/(parent|cause)/(1|1026|4096)$",
+      "-test.benchmem",
+      "-test.benchtime=200ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/span-main",
+    "exit_code": 0,
+    "seconds": 2.3195063089951873
+  },
+  {
+    "label": "span-4-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/span-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$/(parent|cause)/(1|1026|4096)$",
+      "-test.benchmem",
+      "-test.benchtime=200ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/span-index",
+    "exit_code": 0,
+    "seconds": 2.117547637084499
+  },
+  {
+    "label": "span-5-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/span-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$/(parent|cause)/(1|1026|4096)$",
+      "-test.benchmem",
+      "-test.benchtime=200ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/span-index",
+    "exit_code": 0,
+    "seconds": 2.1677601381670684
+  },
+  {
+    "label": "span-5-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/span-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkSpanLookupFanout$/(parent|cause)/(1|1026|4096)$",
+      "-test.benchmem",
+      "-test.benchtime=200ms",
+      "-test.count=1"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/span-main",
+    "exit_code": 0,
+    "seconds": 2.119352327892557
+  }
+]

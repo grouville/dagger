@@ -1,28 +1,28 @@
-# perf: avoid quadratic span indexing
+[Draft #14738](https://github.com/dagger/dagger/pull/14738) · [current source](https://github.com/grouville/dagger/tree/perf/review-span-child-index)
 
-Adding a span currently scans its parent's existing children to avoid duplicate IDs. With thousands of siblings, indexing the trace becomes quadratic. The parent map already tells us whether an ID has been seen with a parent: skip the scan for new IDs and retain it for cross-trace collisions. Deduplicate cause links through their existing reverse index as well.
+This is part of the work to make Go test collection listing faster. Listing the tests in dagger/dagger creates a wide trace: many spans share the same parent. The telemetry store currently scans all the existing children whenever it adds a new child. A diagnostic listing recorded more than two billion comparisons in that loop.
 
-Six fresh-process pairs directly on main, including construction of a new index on every iteration:
+A new span ID cannot already be in a child list. Use the existing parent map to recognize that case and append directly. Keep the old duplicate check when an ID is reused across traces. Cause links have the same problem; their existing reverse index already tells us whether the edge exists.
 
-| Children | Parent index, before → patch | Cause index, before → patch |
+The change adds no map or lock. It does less work under the existing lock and keeps the current duplicate, ordering and late-update behavior.
+
+Building a fresh index on upstream main, with this change applied independently:
+
+| Children sharing one parent | Main | This change |
 | --- | ---: | ---: |
-| 1 | 0.890 → 0.822 µs | 0.891 → 0.879 µs |
-| 1,026 | 1.878 → 0.462 ms | 1.978 → 0.484 ms |
-| 4,096 | 24.742 → 1.942 ms | 25.511 → 2.099 ms |
+| 1,026 | 1.97 ms | 0.48 ms |
+| 4,096 | 25.64 ms | 2.05 ms |
 
-Allocation counts are unchanged. Fixtures use mixed IDs and decoded links; storage and link decoding are outside this index benchmark. Go 1.26.6, linux/amd64, `GOMAXPROCS=8`, 150 ms per case.
+The equivalent 4,096-child cause-link case improves 26.36 → 2.16 ms. Six alternating pairs per case; all the larger cases improve, with unchanged allocation counts. The one-child controls establish no benefit: parent indexing takes 0.878 → 0.907 µs and cause-link indexing 0.908 → 0.909 µs.
 
-On the full `dagger/dagger` Go test listing, new-session indexing performs over **two billion** ordinary-child comparisons. Three successful paired comparisons improve complete-command medians **53.58 → 46.72 seconds**, with **7.05 seconds** median paired saving and identical 4,398 rows. All four optimized attempts succeed; one control times out during session shutdown and is excluded from paired latency statistics. Each command uses a fresh source edit and CLI on the same warm engine, with telemetry and ordinary GC enabled. No profiling or counters run during timings.
+An earlier complete Go listing comparison took 53.58 → 46.72 seconds across three successful pairs, returning the same 4,398 rows. One additional baseline command failed during cleanup and is retained in the results. Those measurements used an experimental engine with other changes held constant; they are not stock-main timings. The fresh small-command comparisons do not establish an end-to-end gain. The reason to propose this change is the quadratic work observed in a real listing, removed with the existing indexes and without extra tracking state.
 
-The isolated index adds no allocations. This full-command cohort does not establish a memory gain: cumulative allocation is 36.32 → 37.19 GB, and disk-pressure differences affect the last pair. The low-IO pair still saves 7.78 seconds. A diagnostic attributes 4.74 → 0.12 sampled CPU-seconds to the index functions in different phase windows; this confirms the removed work, not a matched total-CPU comparison.
-
-Earlier 1,026-package Rust listings remain mixed across 32 pairs: 119 ms median paired saving, with an uncertainty interval including zero. No compilation speedup is claimed.
-
-No map, lock or retained state is added. Cause links update both directions under the existing lock. The compatibility test preserves cross-trace duplicates, ordering and late parent/link updates; it passes before and after the patch. The full `engine/clientdb` race suite passes on the standalone branch. All six native Rust compiler-cache histories remain reusable.
+`go test -race -count=1 ./engine/clientdb` passes on main and this change. The added test covers repeated snapshots, IDs reused across traces, late parent/link updates and edge order. To reproduce the index benchmark:
 
 ```sh
-go test -race ./engine/clientdb -count=1
 go test ./engine/clientdb -run '^$' -bench '^BenchmarkSpanLookupFanout$' -benchmem
 ```
 
-[Branch](https://github.com/grouville/dagger/tree/perf/upstream-span-lookup-fanout) · [Go listing measurements and limitations](../NATIVE_GO_WIDE_TRACE_INDEX.md) · [Component and Rust evidence](../NATIVE_SPAN_LOOKUP_FANOUT.md). No PR is open.
+[Earlier full-listing measurements](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/NATIVE_GO_WIDE_TRACE_INDEX.md).
+
+[Fresh raw measurements and checks](../experiments/standalone-go-collections/assessment/independent-followup-oct19/). The earlier source branch remains preserved separately.

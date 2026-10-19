@@ -1,0 +1,70 @@
+critpath of 179 ops matching all ops (outermost matches only): 52.63s summed
+on-path time by class (sums to the roots' duration; concurrent work off the path gets nothing):
+     on_path      % segments  kind class
+      17.31s  32.9%       16  call gomod:Gomod.module
+       7.33s  13.9%      179  session_phase session.query
+       5.64s  10.7%      179  session_phase session.schemaBuild
+       4.63s   8.8%        1  call go:Go.packages
+       4.20s   8.0%        1  call go:GoPackage.tests
+       2.88s   5.5%       32  call gomod:GomodGoMod.subpath
+       1.53s   2.9%        2  call go:GoPackages.get
+    807.15ms   1.5%        4  call ModuleSource._moduleTypesDefinition
+    783.42ms   1.5%       22  call Host.directory
+    703.83ms   1.3%      104  call Query.node
+    650.81ms   1.2%     8727  call TypeDef.withOptional
+    615.83ms   1.2%       16  call Workspace.findUp
+    583.44ms   1.1%        1  call gomod:Gomod.modules
+    533.83ms   1.0%     1767  internal dagql.publishResult
+    516.75ms   1.0%     9286  call Query.typeDef
+    420.21ms   0.8%       69  call gomod:Query.gomod
+    324.06ms   0.6%      395  call Module._implementationScoped
+    292.77ms   0.6%        2  call go:Query.go
+    271.67ms   0.5%       50  call gomod:Gomod.at
+    238.07ms   0.5%     4175  call TypeDef.withKind
+    190.96ms   0.4%        7  call ArtifactDimensionKey.key
+    188.61ms   0.4%        1  call gomod:GomodGoMod.ownFiles
+    176.47ms   0.3%       17  call gomod:GomodGoMod.selected
+    171.64ms   0.3%       19  call Workspace.glob
+    158.76ms   0.3%        2  call gomod:Gomod.workspaceRootPath
+    150.17ms   0.3%      102  call SearchResult.search
+    114.42ms   0.2%       85  call SearchResult.matchedLines
+    106.34ms   0.2%     2926  call TypeDef.withObject
+     85.45ms   0.2%        8  call Artifact.items
+     84.60ms   0.2%        6  call ModuleSource.asModule
+     81.84ms   0.2%       16  call File.search
+     81.80ms   0.2%      179  session_phase session.serveQuery
+     79.40ms   0.2%        7  call Workspace.artifacts
+     63.57ms   0.1%     2162  call TypeDef.withListOf
+     61.46ms   0.1%       14  call ArtifactDimension.keyDescription
+     59.87ms   0.1%       17  call Workspace.file
+     56.89ms   0.1%        1  call Artifact.description
+     32.99ms   0.1%       20  call Query._clientFilesyncMirror
+     29.02ms   0.1%       54  call Query.__schemaJSONFile
+     24.20ms   0.0%        4  call Workspace.search
+     23.65ms   0.0%        2  call_exec SearchResult.matchedLines
+     22.39ms   0.0%        1  call_exec File.search
+     22.09ms   0.0%        1  call Artifacts.items
+     18.18ms   0.0%      179  session_phase session.workspaceLoad
+     15.45ms   0.0%       13  call ArtifactDimension.identifier
+     15.34ms   0.0%        4  call ModuleSource._moduleNamespacedDefinition
+     15.04ms   0.0%      157  call FunctionArg.__withSourceMap
+     14.67ms   0.0%        4  call Query.moduleSource
+     12.15ms   0.0%       13  call ArtifactDimension.keyName
+     11.62ms   0.0%      157  call Function.withArg
+  … 80 more classes (raise `top`)
+
+path of the longest (offsets from its start; `dur` on the path, `own` not in any blocker):
++0ns dur 11.29s own 16.1µs  814303 session_phase session.serveQuery [ok]
+  +35.8µs dur 11.29s own 17.15ms  814307 session_phase session.query [ok]
+    +609.3µs dur 10.76s own 22.09ms  814311 call Artifacts.items [executed] (exec 814312)
+      +14.57ms dur 306.16ms own 292.38ms  814547 call go:Query.go [executed] (exec 814548)
+      +323.14ms dur 4.63s own 4.63s  815075 call go:Go.packages [executed] (exec 815076)
+      +5.03s dur 278.74ms own 278.70ms  822969 call go:GoPackages.get [executed] (exec 823071)
+      +5.31s dur 1.25s own 1.25s  823392 call go:GoPackages.get [executed] (exec 823393)
+      +6.56s dur 4.20s own 4.20s  823402 call go:GoPackage.tests [executed] (exec 823403)
+    +10.77s..+10.99s … 12 shorter segments, 102.23ms: call Artifact.items:6 call Artifact.uri:2 call ArtifactDimensionKey.dimension:2 +1 more
+    +10.77s dur 47.89ms own 2.45ms  845649 call Artifact.items [executed] (exec 845650)
+    +10.83s dur 68.49ms own 3.64ms  847635 call Artifact.items [executed] (exec 847765)
+    +10.99s dur 179.67ms own 137.27ms  849535 call ArtifactDimensionKey.key [executed] (exec 849920)
+(1283 segments not shown: runs of them totaling under 1% of the path, 350.56ms)
+(runs of sub-1% segments totaling 1%+ show their largest members, the rest as "… N shorter"; ▸ N: N segments not expanded, raise `depth` or re-root with `op`; (exec N): a call folded with its call_exec op N)

@@ -2,6 +2,10 @@
 
 Current contribution assessment: **five drafts are open (#14730, #14731, #14736, #14737 and Dang #194); #14732 and #14733 are closed. Nine performance proposals remain on hold.** No further PR is being opened on a microbenchmark win alone. [Evidence and decisions](GO_COLLECTION_STANDALONE_REVIEW.md).
 
+Outside this extraction queue, recovered [span indexing (#14738)](https://github.com/dagger/dagger/pull/14738) and [Go package-local search (Go #68)](https://github.com/dagger/go/pull/68) now also have drafts. Their fresh standalone measurements and held alternatives are in the [October 19 follow-up](experiments/standalone-go-collections/assessment/independent-followup-oct19/).
+
+This queue covers **eight engine/CLI performance proposals, three Dang interpreter proposals, two Go module proposals and three correctness fixes**. It excludes several larger prototypes behind the earlier full-listing gains. Their unfinished upstream preparation is tracked in the [overall reconciliation](GO_COLLECTION_STANDALONE_REVIEW.md#earlier-gains-and-unfinished-larger-changes); the five-draft count is not the status of the entire project.
+
 Sixteen descriptions are prepared for review: **13 performance proposals and 3 correctness fixes**. All sixteen source branches are pushed, each one signed-off commit directly on its upstream main base. The [published branch manifest](experiments/standalone-go-collections/published-branches.json) links every clean source branch. This description branch remains separate.
 
 The [standalone verification report](GO_COLLECTION_STANDALONE_REVIEW.md) is the current source of performance claims. Figures in the queue below are historical experiments unless that report confirms a fresh standalone result. Opening requires a separate assessment of actual benefit, complexity and correctness risk. Historical gains and synthetic speedups alone are insufficient.
@@ -26,11 +30,11 @@ The earlier experimental listing contains 4,398 ordered rows; the fresh upstream
 | 6 | [Read trivial scalar fields without another cache result](PR_ENGINE_TRIVIAL_SCALARS.md) | dagger/dagger | Listing: 40.49 → 39.20 s, all four pairs faster. | Retain repeated-read allocation and mixed CPU controls. |
 | 7 | [Build argument definitions without copying input specs](PR_SCHEMA_ARGUMENT_ITERATION.md) | dagger/dagger | Test-edited listing: 6.76 → 6.58 s; about 204 MB median paired allocation saving. | Retain the extra allocation for direct Inputs calls above 15 arguments. |
 | 8 | [Reject impossible suffixes before regexp matching](PR_GLOB_LITERAL_SUFFIX.md) | dagger/dagger | Test-edited listing: 6.93 → 6.69 s; 13 production lines. | Independent CLI optimization. |
-| 9 | [Recognize typed methods during declaration classification](PR_DANG_COERCED_METHOD_HOISTING.md) | vito/dang | Historical test-edited listing: 14.31 → 12.71 s. | Clean branch pushed; full upstream interpreter race suite passes; standalone timings pending. |
-| 10 | [Read source-error context only when evaluation fails](PR_DANG_LAZY_ERROR_CONTEXT.md) | vito/dang | Historical test-edited listing: 12.88 → 11.51 s. | Clean branch pushed; full upstream interpreter race suite passes; standalone timings pending. |
-| 11 | [Reuse empty callers for concrete function callbacks](PR_DANG_CALLBACK_CALLER.md) | vito/dang | Historical test-edited listing: 10.01 → 9.53 s. | Clean branch pushed; full upstream interpreter race suite passes; standalone timings pending. |
-| 12 | [Share generation matching during package discovery](PR_GO_GENERATION_MATCHES.md) | dagger/go | Historical test-edited listing: 9.28 → 7.33 s. | Independent upstream-main port pushed; 11 checks pass. Main-engine comparison pending. |
-| 13 | [Use native membership for generation directories](PR_GO_NATIVE_MEMBERSHIP.md) | dagger/go | Historical test-edited listing: 7.63 → 7.44 s, 6/8 faster. | Independent two-line upstream-main port pushed; 10 checks pass. Main-engine comparison pending. |
+| 9 | [Recognize typed methods during declaration classification](PR_DANG_COERCED_METHOD_HOISTING.md) | vito/dang | Historical test-edited listing: 14.31 → 12.71 s. | Current-main race checks and component measurements pass; complete-command gain remains unproven. Held. |
+| 10 | [Read source-error context only when evaluation fails](PR_DANG_LAZY_ERROR_CONTEXT.md) | vito/dang | Historical test-edited listing: 12.88 → 11.51 s. | Patch no longer applies after the newer upstream runtime changes. Held. |
+| 11 | [Reuse empty callers for concrete function callbacks](PR_DANG_CALLBACK_CALLER.md) | vito/dang | Historical test-edited listing: 10.01 → 9.53 s. | Current-main race checks and component measurements pass; complete-command gain remains unproven. Held. |
+| 12 | [Share generation matching during package discovery](PR_GO_GENERATION_MATCHES.md) | dagger/go | Historical test-edited listing: 9.28 → 7.33 s. | Independent current-main fixture: 12.60 → 12.47 s, 2/4 pairs. Held. |
+| 13 | [Use native membership for generation directories](PR_GO_NATIVE_MEMBERSHIP.md) | dagger/go | Historical test-edited listing: 7.63 → 7.44 s, 6/8 faster. | Independent main fixture regresses in most pairs. Held. |
 
 The two restored-membership descriptions are counted as **one** proposal. The [older removal description](PR_ENGINE_REMOVE_RESTORED_POSTINGS.md) is retained for traceability, not as another PR.
 

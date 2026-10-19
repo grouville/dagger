@@ -1,0 +1,69 @@
+diff --git a/go.dang b/go.dang
+index 709896e..afa41be 100644
+--- a/go.dang
++++ b/go.dang
+@@ -947,11 +947,13 @@ type GoModule {
+     } else {
+       let mains = markedFiles(ws, "main")
+       let ignored = markedFiles(ws, "ignore")
+-      files
++      let packages = files
+         .filter { f => mains.contains(f) and ignored.contains(f) == false }
+         .map { f => packageDirectory(f) }
+         .uniq
+-        .filter { pkg => lib.at(pkg).selected(buildPatterns) }
++      if (packages.length == 0) { empty } else {
++        lib.selectedPaths(packages, buildPatterns)
++      }
+     }
+   }
+ 
+diff --git a/gomod/.dagger/modules/e2e/main.dang b/gomod/.dagger/modules/e2e/main.dang
+index 0ee95e2..c6bdd6b 100644
+--- a/gomod/.dagger/modules/e2e/main.dang
++++ b/gomod/.dagger/modules/e2e/main.dang
+@@ -158,6 +158,25 @@ type E2e {
+     null
+   }
+ 
++  """
++  Selecting several paths preserves the single-path rules and input order.
++  """
++  batchedSelectionCheck: Void @check {
++    let paths = ["docs/keep", "core", "/docs/", "docs-tools", "docs/keep", "."]
++    assert(gomod.selectedPaths([], ["**"]) == [], "empty input gained paths")
++    assert(gomod.selectedPaths(paths, []) == paths, "select-all changed paths or order")
++    assert(
++      gomod.selectedPaths(paths, ["/docs/**/"]) == ["docs/keep", "/docs/", "docs/keep"],
++      "selection changed normalization, duplicates or path boundaries",
++    )
++    assert(
++      gomod.selectedPaths(paths, ["**", "!docs", "docs/keep"]) == ["core", "docs-tools", "."],
++      "an include overrode an exclusion",
++    )
++    assert(gomod.selectedPaths(paths, ["."]) == ["."], "root selection included another path")
++    null
++  }
++
+   """
+   One selection syntax for every tool. These are the cases each tool used to
+   assert separately.
+diff --git a/gomod/main.dang b/gomod/main.dang
+index e30864a..812baf4 100644
+--- a/gomod/main.dang
++++ b/gomod/main.dang
+@@ -59,6 +59,14 @@ type Gomod {
+       .map { modPath => at(modPath) }
+   }
+ 
++  """
++  Paths selected by the same rules as GoMod.selected, in input order.
++  Return each path as given, including duplicates.
++  """
++  selectedPaths(paths: [String!]!, patterns: [String!]!): [String!]! {
++    paths.filter { path => at(path).selected(patterns) }
++  }
++
+   """
+   The Go module containing a workspace path.
+ 

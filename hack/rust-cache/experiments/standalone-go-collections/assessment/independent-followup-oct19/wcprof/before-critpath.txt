@@ -1,0 +1,76 @@
+critpath of 179 ops matching all ops (outermost matches only): 98.33s summed
+on-path time by class (sums to the roots' duration; concurrent work off the path gets nothing):
+     on_path      % segments  kind class
+      27.68s  28.1%       16  call gomod:Gomod.module
+      11.62s  11.8%      179  session_phase session.query
+       8.44s   8.6%      498  internal dagql.publishResult
+       7.84s   8.0%        4  call go:GoPackage.tests
+       6.26s   6.4%      179  session_phase session.schemaBuild
+       4.99s   5.1%      162  call SearchResult.matchedLines
+       4.51s   4.6%        3  call go:Go.packages
+       3.39s   3.4%       16  call Workspace.findUp
+       3.20s   3.3%      203  call SearchResult.search
+       2.77s   2.8%      155  call SearchResult.filePath
+       2.69s   2.7%       32  call gomod:GomodGoMod.subpath
+       2.41s   2.5%     8800  call Query.typeDef
+       2.08s   2.1%       20  call Workspace.search
+       1.50s   1.5%      104  call Query.node
+       1.47s   1.5%     7915  call TypeDef.withOptional
+       1.47s   1.5%        3  call go:GoPackages.get
+       1.17s   1.2%      402  call Module._implementationScoped
+    879.84ms   0.9%       19  call Workspace.glob
+    511.76ms   0.5%        1  call gomod:Gomod.modules
+    454.34ms   0.5%     2762  call TypeDef.withObject
+    394.69ms   0.4%       17  call gomod:GomodGoMod.selected
+    301.11ms   0.3%       50  call gomod:Gomod.at
+    292.59ms   0.3%     3927  call TypeDef.withKind
+    285.55ms   0.3%       69  call gomod:Query.gomod
+    258.67ms   0.3%        1  call gomod:GomodGoMod.ownFiles
+    213.94ms   0.2%        2  call gomod:Gomod.workspaceRootPath
+    143.85ms   0.1%     2072  call TypeDef.withListOf
+    140.76ms   0.1%        9  call Artifact.items
+    109.39ms   0.1%       13  call ArtifactDimensionKey.key
+    106.70ms   0.1%       13  call ArtifactDimensionKey.dimensionKeys
+     99.97ms   0.1%      179  session_phase session.serveQuery
+     97.75ms   0.1%        7  call Workspace.artifacts
+     93.23ms   0.1%        6  call Host.directory
+     80.14ms   0.1%        4  call ModuleSource.asModule
+     63.94ms   0.1%        3  call Artifact.dimensionKeys
+     46.81ms   0.0%       20  call ArtifactDimension.dimensionDefinitions
+     36.43ms   0.0%       19  call ArtifactPath.loadError
+     35.34ms   0.0%        6  call ArtifactDimension.identifier
+     31.36ms   0.0%        7  call ArtifactDimensionKey.dimension
+     29.16ms   0.0%        1  call Artifacts.items
+     21.65ms   0.0%       12  call ArtifactDimension.kind
+     15.15ms   0.0%      179  session_phase session.workspaceLoad
+     13.47ms   0.0%       16  call ArtifactPath.moduleName
+     13.22ms   0.0%        4  call Query.moduleSource
+     12.11ms   0.0%        4  call ArtifactDimension.keyDescription
+     10.39ms   0.0%       24  call Query.__objectTypeDef
+      9.42ms   0.0%        7  call ArtifactDimension.name
+      7.76ms   0.0%      136  call FunctionArg.__withDefaultValue
+      5.82ms   0.0%        6  call ArtifactDimension.itemType
+      4.67ms   0.0%        3  call Workspace.findRoots
+  … 45 more classes (raise `top`)
+
+path of the longest (offsets from its start; `dur` on the path, `own` not in any blocker):
++0ns dur 14.62s own 14.1µs  748195 session_phase session.serveQuery [ok]
+  +31.3µs dur 14.62s own 13.19ms  748199 session_phase session.query [ok]
+    +627.4µs dur 13.93s own 29.16ms  748203 call Artifacts.items [executed] (exec 748204)
+      +17.49ms dur 4.53s own 4.51s  748441 call go:Go.packages [executed] (exec 748442)
+      +4.55s..+4.67s … 409 shorter segments, 111.10ms: call Query.typeDef:155 call TypeDef.withOptional:96 call TypeDef.withObject:76 +6 more
+      +4.67s dur 72.04ms own 71.99ms  757042 call go:GoPackages.get [executed] (exec 757043)
+      +4.74s dur 1.34s own 1.34s  757051 call go:GoPackages.get [executed] (exec 757052)
+      +6.09s dur 133.16ms own 133.12ms  757068 call go:GoPackage.tests [executed] (exec 757069)
+      +6.22s dur 139.61ms own 139.56ms  757071 call go:GoPackage.tests [executed] (exec 757072)
+      +6.36s dur 48.51ms own 48.46ms  757093 call go:GoPackage.tests [executed] (exec 757094)
+      +6.41s dur 7.52s own 7.52s  757103 call go:GoPackage.tests [executed] (exec 757104)
+    +13.93s..+14.41s … 19 shorter segments, 212.43ms: call ArtifactDimensionKey.dimensionKeys:7 call Artifact.items:6 call ArtifactDimensionKey.dimension:3 +2 more
+    +13.93s dur 41.30ms own 7.79ms  797277 call Artifact.items [executed] (exec 797403)
+    +14.14s dur 90.65ms own 90.65ms  799781 call Artifact.items [executed] (exec 800554)
+    +14.23s dur 37.39ms own 37.39ms  800631 call ArtifactDimensionKey.dimensionKeys [executed] (exec 801188)
+    +14.27s dur 57.94ms own 57.94ms  800781 call Artifact.dimensionKeys [executed] (exec 801231)
+    +14.34s dur 38.68ms own 38.68ms  801078 call ArtifactDimensionKey.key [executed] (exec 801564)
+    +14.41s dur 159.78ms own 14.43ms  801489 call Artifact.items [executed] (exec 801566)
+(769 segments not shown: runs of them totaling under 1% of the path, 244.42ms)
+(runs of sub-1% segments totaling 1%+ show their largest members, the rest as "… N shorter"; ▸ N: N segments not expanded, raise `depth` or re-root with `op`; (exec N): a call folded with its call_exec op N)

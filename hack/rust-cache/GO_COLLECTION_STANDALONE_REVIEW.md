@@ -1,6 +1,47 @@
 # Go collection contributions: verification and decisions
 
-The original sixteen proposals now have **five open drafts, two closed PRs and nine performance proposals on hold**. The three newly opened fixes were reproduced on current upstream main before publication. Earlier source branches remain on the forks.
+The original sixteen proposals now have **five open drafts, two closed PRs and nine performance proposals on hold**. The three correctness fixes were reproduced on current upstream main before publication. Earlier source branches remain on the forks. Two recovered proposals now also have drafts: [span indexing, #14738](https://github.com/dagger/dagger/pull/14738) and [Go package-local search, Go #68](https://github.com/dagger/go/pull/68). This makes seven open drafts across the reviewed queues.
+
+This is the status of the extracted PR queue, not the whole Go listing project. Its thirteen performance proposals comprise **eight engine/CLI changes, three Dang interpreter changes and two Go module changes**. The three correctness fixes are additional. Preparing and pushing a branch does not establish that its independent benefit justifies a PR.
+
+Of the eight engine/CLI performance proposals, two are open drafts, two were closed and four remain on hold. Both Go module performance proposals remain on their fork branches without PRs: shared generation matching did not repeat its earlier gain in the new comparison; native membership regresses in most independent fixture pairs and does not currently qualify as a performance contribution.
+
+## Earlier gains and unfinished larger changes
+
+There is also an [older catalogue](upstream-prs/README.md), containing nineteen engine branches and a separate [Go package test-discovery proposal](upstream-prs/go-package-test-discovery.md). Two engine proposals overlap with this queue: empty disk-usage sampling and trivial scalar fields. The earlier catalogue includes scalar-array ownership/encoding, collection indexing, artifact output, SDK input batching and configuration-declaration reuse. Most have not been reassessed in the recent standalone review; their old descriptions must not be read as current approval to open PRs.
+
+The roughly hundred-to-forty-second period included [parallel Go discovery](NATIVE_GO_PARALLEL_DISCOVERY.md), measured 88.65 → 67.11 s; [retained module ownership](NATIVE_GO_PACKAGE_MODULE_OWNERSHIP.md), 68.37 → 56.81 s; [span indexing](NATIVE_GO_WIDE_TRACE_INDEX.md), 53.58 → 46.72 s; and [configuration-declaration reuse](PR_ENGINE_CONFIG_DECLARATIONS.md), 45.51 → 40.65 s. These are separate controlled comparisons, not an additive waterfall or fresh current-main measurements. Their unpublished source remains available.
+
+The earlier experimental stack successfully listed all 4,398 rows in roughly seven seconds after test-file edits and four seconds after ordinary-source edits, using fresh CLIs on warm engines. Those results remain recorded in the [complete project history](GO_COLLECTION_THREE_SECOND_PLAN.md). The recent bare-upstream timeouts below do not measure that stack or establish a regression of it. Cold results are a separate study on an older stack.
+
+Several larger changes behind the earlier gains were not included in the sixteen-proposal extraction queue. Their upstream preparation is unfinished:
+
+| Change | Earlier complete-command comparison | Current contribution assessment |
+| --- | --- | --- |
+| [Typed artifact metadata and immutable field projection](NATIVE_TYPED_ARTIFACT_METADATA.md) | Ordinary-source edit: 40.86 → 26.76 s | Substantial measured benefit; extends experimental engine/CLI APIs. Needs standalone extraction, API review and validation on the intended upstream base. |
+| [Batch Go module paths and selection facts](NATIVE_GO_BATCHED_DISCOVERY_FACTS.md) | Ordinary-source edit: 25.45 → 19.21 s | Useful measured benefit; the fork commit depends on an earlier ownership prototype. Standalone port and ownership/selection checks remain. |
+| [Retain indexed package-owner facts](NATIVE_GO_INDEXED_OWNER_FACTS.md) | Test-file edit: 11.47 → 9.56 s | The gain removes full-owner lists introduced by our unpublished prototype. Upstream main does not carry those lists, so this is not a directly applicable standalone improvement. |
+| [Reuse prepared schema metadata](NATIVE_DANG_PREPARED_SCHEMA.md) | Test-file edit: 11.92 → 10.86 s | Extends private declaration reuse. Sharing boundaries, initialization and client isolation need review before this can qualify as an upstream contribution. |
+
+These are separate controlled comparisons on different stages of the development stack, not additive savings or current-main measurements. They remain candidates, not contributions that have already passed the standalone quality bar. Earlier reviewed performance work is already merged, including [#14383](https://github.com/dagger/dagger/pull/14383), [#14384](https://github.com/dagger/dagger/pull/14384), [#14375](https://github.com/dagger/dagger/pull/14375) and [#14179](https://github.com/dagger/dagger/pull/14179); those are separate from this queue.
+
+## Recovered standalone reviews, October 19
+
+[Raw samples, checks, source patches and wcprof reports](experiments/standalone-go-collections/assessment/independent-followup-oct19/) now cover the two new drafts and the proposals held after fresh verification.
+
+| Change | Fresh evidence | Decision |
+| --- | --- | --- |
+| [Span indexing, #14738](https://github.com/dagger/dagger/pull/14738) | Current-main fresh index, 4,096 children: 25.64 → 2.05 ms, 6/6 pairs; unchanged allocations. Full clientdb races pass. A real earlier listing recorded over two billion comparisons. | Draft. Small change reuses existing maps without adding locks or state. Earlier full-listing gain is disclosed as an experimental-engine comparison; the new small-command cohort establishes no end-to-end gain. |
+| [Go package-local search, Go #68](https://github.com/dagger/go/pull/68) | Complete listing of 128 tests across 16 packages: 18.91 → 11.16 s, 4/4 pairs; 7.06 → 3.89 GB allocated. Matched-line reads: 2,176 → 256. | Draft. One-package, 16-file control is slower: 7.02 → 8.10 s. Testing a grouped search to remove that cost; the published version is unchanged. |
+| Parallel module discovery | Fixed-configuration comparison: 19.35 → 14.27 s, 3/4 pairs. CPU rises 42.65 → 52.78 CPU-seconds and allocation 6.09 → 6.73 GB. | Held. The earlier 14.85 → 7.32 s screen is not the confirmed headline. Run-order-dependent work and resource cost need another control before publication. |
+| Batch main-package selection | 16 main packages: 10.52 → 10.78 s, 2/4 pairs, with more CPU and allocations. | Held. Behavior checks pass, but this cohort does not justify a performance PR. |
+| Retain module ownership | 26.34 → 24.97 s, 3/4 pairs; eight behavior checks pass, including rebinding to another module layout. | Held. Benefit is too uncertain to justify new retained state and guards. |
+
+These are separate warm-engine workloads, not additive savings. The one-package and many-package fixtures have the same test count but different search costs: the published Go change starts one search per test file. All timed commands start a new CLI, edit source and tests, validate ordered rows, and include successful cleanup. Normal telemetry and cache policies stay enabled. A same-code control measures 15.72 → 15.71 s over two pairs; individual observations remain variable and are retained.
+
+The older collection-index benchmark uses 1,000 independent collection field definitions, not 1,000 collection keys. The official Go module has only a few such definitions. That stress result alone does not establish a useful listing improvement.
+
+## Extracted PR queue
 
 | Proposal | State | Evidence and decision |
 | --- | --- | --- |
@@ -18,9 +59,9 @@ The original sixteen proposals now have **five open drafts, two closed PRs and n
 - Argument preparation: fewer bytes allocated, but direct-input controls add an allocation and have mixed timing.
 - Glob suffix filtering: matching paths cost about 1.6% more; construction cost and real-workload benefit still need assessment.
 - Host config reads: fewer successful-read requests are proven, not an independent current-main command gain.
-- Go generation matching: the sixteen-module main fixture improves in three of four pairs, with large variation. Representative workload and complexity review remain.
+- Go generation matching: the fresh sixteen-module fixture is 12.60 → 12.47 s, faster in two of four pairs. Its earlier gain did not repeat.
 - Go native membership: the independent-main fixture is slower in most pairs.
-- Dang typed methods and callback setup: both pass the full race suite on the newer bf649b8d main. Performance still needs measuring on that base.
+- Dang typed methods and callback setup: current-main race checks and component benchmarks pass. Matched complete-command measurements remain too variable to establish a reliable gain. The typed-method negative check asserts an optimization invariant, not a user-visible correctness regression.
 - Dang error context: the patch no longer applies after upstream runtime changes. It needs a fresh review before its old performance evidence can be used.
 
 ## New discovery lead
@@ -29,7 +70,7 @@ The full upstream listing remains unresolved: the initial real-repository attemp
 
 The completed discovery phase in the diagnostic spends about 260 seconds in roughly 700 pairs of Gomod.at and selected calls. A separate 726 subpath calls total about 173 seconds. Each small operation prepares another module invocation. These profile durations identify work to remove; they are not complete-command speedups.
 
-A [small batching experiment](https://github.com/grouville/go/tree/experiment/go-collection-batched-selection) applies the existing selection rules to a package list in one call. Four behavior checks pass, including exclusions, normalization, duplicate/order preservation and binary building. Empty lists avoid a new module call. It is on the fork without a PR; the full-command benefit is not measured yet.
+A [small batching experiment](https://github.com/grouville/go/tree/experiment/go-collection-batched-selection) applies the existing selection rules to a package list in one call. Four behavior checks pass, including exclusions, normalization, duplicate/order preservation and binary building. Empty lists avoid a new module call. It is on the fork without a PR. The fresh 16-main-package command comparison is 10.52 → 10.78 s, faster in 2/4 pairs; no full-repository benefit is established.
 
 ## Standard before opening
 

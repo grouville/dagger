@@ -1,0 +1,143 @@
+diff --git a/engine/clientdb/span_lookup_fanout_test.go b/engine/clientdb/span_lookup_fanout_test.go
+new file mode 100644
+index 0000000000..f645f1c055
+--- /dev/null
++++ b/engine/clientdb/span_lookup_fanout_test.go
+@@ -0,0 +1,82 @@
++package clientdb
++
++import (
++	"fmt"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++func TestSpanLookupRepeatedIDsAndLateEdges(t *testing.T) {
++	lookup := newSpanLookup()
++	events := []struct {
++		trace, span, parent string
++		targets             []string
++	}{
++		{"a", "one", "root", []string{"cause", "cause"}},
++		{"a", "two", "root", []string{"cause"}},
++		// Later snapshots add cause links but do not duplicate parent edges.
++		{"a", "one", "root", []string{"cause", "later", "later"}},
++		// Reusing an ID across traces retains span-ID-only child uniqueness.
++		{"b", "one", "root", []string{"later"}},
++		{"c", "one", "other", []string{"cause"}},
++		// A parent first seen after the initial snapshot keeps existing rules.
++		{"a", "late", "", nil},
++		{"a", "late", "root", nil},
++		{"b", "late", "root", nil},
++	}
++	for i, event := range events {
++		row := Span{ID: int64(i + 1), TraceID: event.trace, SpanID: event.span}
++		if event.parent != "" {
++			row.ParentSpanID = validString(event.parent)
++		}
++		lookup.addLocked(row, event.targets)
++	}
++	require.Equal(t, []string{"one", "two", "late"}, lookup.children["root"])
++	require.Equal(t, []string{"one"}, lookup.children["other"])
++	require.Equal(t, []string{"one", "two"}, lookup.causalChildren["cause"])
++	require.Equal(t, []string{"one"}, lookup.causalChildren["later"])
++	require.Equal(t, []string{"cause", "later"}, lookup.causalParents["one"])
++	require.Equal(t, "root", lookup.parent["one"])
++	require.Equal(t, int64(1), lookup.firstRow[spanLookupKey{traceID: "a", spanID: "one"}])
++	require.Equal(t, int64(4), lookup.firstRow[spanLookupKey{traceID: "b", spanID: "one"}])
++	require.Equal(t, int64(5), lookup.lastRow["one"])
++	require.Equal(t, int64(8), lookup.lastRow["late"])
++}
++
++var fanoutLookupSink *spanLookup
++
++func BenchmarkSpanLookupFanout(b *testing.B) {
++	for _, kind := range []string{"parent", "cause"} {
++		for _, count := range []int{1, 16, 128, 1026, 4096} {
++			b.Run(fmt.Sprintf("%s/%d", kind, count), func(b *testing.B) {
++				rows := make([]Span, count)
++				var targets []string
++				if kind == "cause" {
++					targets = []string{"root"}
++				}
++				for i := range rows {
++					rows[i] = Span{ID: int64(i + 1), TraceID: "trace", SpanID: fmt.Sprintf("%016x", uint64(i+1)*0x9e3779b97f4a7c15)}
++					if kind == "parent" {
++						rows[i].ParentSpanID = validString("root")
++					}
++				}
++				b.ReportAllocs()
++				b.ResetTimer()
++				for range b.N {
++					lookup := newSpanLookup()
++					for _, row := range rows {
++						lookup.addLocked(row, targets)
++					}
++					fanoutLookupSink = lookup
++				}
++				b.StopTimer()
++				if kind == "parent" {
++					require.Len(b, fanoutLookupSink.children["root"], count)
++				} else {
++					require.Len(b, fanoutLookupSink.causalChildren["root"], count)
++				}
++			})
++		}
++	}
++}
+diff --git a/engine/clientdb/telemetry_store.go b/engine/clientdb/telemetry_store.go
+index b729b9b805..d8030d77b6 100644
+--- a/engine/clientdb/telemetry_store.go
++++ b/engine/clientdb/telemetry_store.go
+@@ -112,14 +112,14 @@ func (l *spanLookup) addLocked(row Span, causalTargets []string) {
+ 	// suppression below: a later snapshot of an already-seen span may carry
+ 	// links its first row lacked.
+ 	for _, target := range causalTargets {
+-		kids := l.causalChildren[target]
+-		if !slices.Contains(kids, row.SpanID) {
+-			l.causalChildren[target] = append(kids, row.SpanID)
+-		}
+ 		parents := l.causalParents[row.SpanID]
+-		if !slices.Contains(parents, target) {
+-			l.causalParents[row.SpanID] = append(parents, target)
++		if slices.Contains(parents, target) {
++			continue
+ 		}
++		// Both directions are populated together. Check the linking span's
++		// targets rather than every span that links to a shared target.
++		l.causalParents[row.SpanID] = append(parents, target)
++		l.causalChildren[target] = append(l.causalChildren[target], row.SpanID)
+ 	}
+ 	// Likewise per-row, not per-span: the newest snapshot is the span's
+ 	// current state, and check/test markers may only appear on a snapshot
+@@ -132,8 +132,10 @@ func (l *spanLookup) addLocked(row Span, causalTargets []string) {
+ 		(bytes.Contains(row.Attributes, testCaseNameAttrMarker) || bytes.Contains(row.Attributes, testSuiteNameAttrMarker)) {
+ 		l.testSpans[row.SpanID] = struct{}{}
+ 	}
++	var parentKnown bool
+ 	if row.ParentSpanID.Valid {
+-		if _, known := l.parent[row.SpanID]; !known {
++		_, parentKnown = l.parent[row.SpanID]
++		if !parentKnown {
+ 			l.parent[row.SpanID] = row.ParentSpanID.String
+ 		}
+ 	}
+@@ -144,13 +146,10 @@ func (l *spanLookup) addLocked(row Span, causalTargets []string) {
+ 	l.firstRow[key] = row.ID
+ 	if row.ParentSpanID.Valid {
+ 		children := l.children[row.ParentSpanID.String]
+-		// A repeated span ID in another trace is vanishingly rare, but the
+-		// children map follows the SQL query's span-ID-only identity and must
+-		// remain unique if it happens.
+-		for _, child := range children {
+-			if child == row.SpanID {
+-				return
+-			}
++		// New span IDs cannot already be in a child list. Only a repeated
++		// ID in another trace needs the span-ID-only uniqueness check.
++		if parentKnown && slices.Contains(children, row.SpanID) {
++			return
+ 		}
+ 		l.children[row.ParentSpanID.String] = append(children, row.SpanID)
+ 	}
