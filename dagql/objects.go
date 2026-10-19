@@ -245,6 +245,13 @@ func (class Class[T]) FieldSpec(name string, view call.View) (FieldSpec, bool) {
 	return *field.Spec, true
 }
 
+// fieldCount bounds the visible field count without copying their specs.
+func (class Class[T]) fieldCount() int {
+	class.fieldsL.RLock()
+	defer class.fieldsL.RUnlock()
+	return len(class.fields)
+}
+
 func (class Class[T]) FieldSpecs(view call.View) []FieldSpec {
 	class.fieldsL.Lock()
 	defer class.fieldsL.Unlock()

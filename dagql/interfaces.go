@@ -225,19 +225,7 @@ func (iface *Interface) Satisfies(obj ObjectType, view call.View, checkers ...Im
 	if len(checkers) > 0 {
 		checker = checkers[0]
 	}
-	for _, ifaceField := range iface.FieldSpecs(view) {
-		objField, ok := obj.FieldSpec(ifaceField.Name, view)
-		if !ok {
-			return false
-		}
-		if !typeCompatible(ifaceField.Type.Type(), objField.Type.Type(), checker) {
-			return false
-		}
-		if !argsCompatible(ifaceField.Args, objField.Args, view, checker) {
-			return false
-		}
-	}
-	return true
+	return satisfiesInterfaceFields(iface.FieldSpecs(view), obj.FieldSpec, view, checker)
 }
 
 // SatisfiedByInterface returns true if the given interface structurally satisfies
@@ -251,15 +239,19 @@ func (iface *Interface) SatisfiedByInterface(other *Interface, view call.View, c
 	if len(checkers) > 0 {
 		checker = checkers[0]
 	}
-	for _, ifaceField := range iface.FieldSpecs(view) {
-		otherField, ok := other.FieldSpec(ifaceField.Name, view)
+	return satisfiesInterfaceFields(iface.FieldSpecs(view), other.FieldSpec, view, checker)
+}
+
+func satisfiesInterfaceFields(fields []FieldSpec, lookup func(string, call.View) (FieldSpec, bool), view call.View, checker ImplementsChecker) bool {
+	for _, ifaceField := range fields {
+		objField, ok := lookup(ifaceField.Name, view)
 		if !ok {
 			return false
 		}
-		if !typeCompatible(ifaceField.Type.Type(), otherField.Type.Type(), checker) {
+		if !typeCompatible(ifaceField.Type.Type(), objField.Type.Type(), checker) {
 			return false
 		}
-		if !argsCompatible(ifaceField.Args, otherField.Args, view, checker) {
+		if !argsCompatible(ifaceField.Args, objField.Args, view, checker) {
 			return false
 		}
 	}

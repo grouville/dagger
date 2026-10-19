@@ -703,28 +703,6 @@ func (s *Server) reconcileInterfaceImplsLocked(view call.View) {
 	rels := interfaceRelationSet{}
 	permanent := interfaceRelationSet{}
 
-	// Seed every (object, interface) and (interface, interface) pair as a
-	// candidate, then whittle the set down in the loop below. Assuming all
-	// pairs hold and only removing the disproven ones computes a greatest
-	// fixed point, which is what lets mutually recursive, covariant
-	// relationships resolve: e.g. `Obj.self: Obj` satisfies `Iface.self: Iface`
-	// only if Obj implements Iface, which is the very pair we're proving.
-	sortutil.RangeSorted(s.objects, func(objName string, obj ObjectType) {
-		if _, ok := obj.(InterfaceImplementor); !ok {
-			return
-		}
-		sortutil.RangeSorted(s.interfaces, func(ifaceName string, _ *Interface) {
-			rels.add(objName, ifaceName)
-		})
-	})
-	sortutil.RangeSorted(s.interfaces, func(typeName string, _ *Interface) {
-		sortutil.RangeSorted(s.interfaces, func(ifaceName string, _ *Interface) {
-			if typeName != ifaceName {
-				rels.add(typeName, ifaceName)
-			}
-		})
-	})
-
 	// Relationships that were declared explicitly (or inferred by an earlier
 	// pass) are facts, not candidates: keep them in permanent so the loop
 	// never disproves them, and add them to rels so they count as evidence
@@ -755,6 +733,87 @@ func (s *Server) reconcileInterfaceImplsLocked(view call.View) {
 		}
 	})
 
+	// Required fields are constant for this reconciliation view. Reuse their
+	// snapshots for both candidate selection and compatibility checks.
+	var required map[*Interface][]FieldSpec
+	fieldsFor := func(iface *Interface) []FieldSpec {
+		if fields, found := required[iface]; found {
+			return fields
+		}
+		if required == nil {
+			required = make(map[*Interface][]FieldSpec)
+		}
+		fields := iface.FieldSpecs(view)
+		required[iface] = fields
+		return fields
+	}
+	if len(s.interfaces) == 1 {
+		// One interface needs only a linear object scan; indexing all fields
+		// would add work, especially when relationships are already declared.
+		for name := range s.interfaces {
+			for objectName, object := range s.objects {
+				if _, ok := object.(InterfaceImplementor); ok {
+					rels.add(objectName, name)
+				}
+			}
+		}
+	} else {
+		// An implementation must expose every required field. Index visible field
+		// names once and seed from each interface's least common field, rather than
+		// creating all object/interface pairs. Type and argument compatibility are
+		// still checked by the fixed-point loop below.
+		byField := map[string][]string{}
+		for _, iface := range s.interfaces {
+			fields := fieldsFor(iface)
+			for _, field := range fields {
+				byField[field.Name] = nil
+			}
+		}
+		var types []string
+		index := func(name string, fields []FieldSpec) {
+			types = append(types, name)
+			for _, field := range fields {
+				if _, needed := byField[field.Name]; needed {
+					byField[field.Name] = append(byField[field.Name], name)
+				}
+			}
+		}
+		sortutil.RangeSorted(s.objects, func(name string, obj ObjectType) {
+			// Fully declared objects already provide every possible relation.
+			if _, ok := obj.(InterfaceImplementor); !ok || len(permanent[name]) == len(s.interfaces) {
+				return
+			}
+			// Field-rich objects need only a few lookups when interfaces use
+			// few distinct names. Sparse objects are cheaper to scan once.
+			if sized, ok := obj.(interface{ fieldCount() int }); ok && len(byField) < sized.fieldCount() {
+				types = append(types, name)
+				for field := range byField {
+					if _, found := obj.FieldSpec(field, view); found {
+						byField[field] = append(byField[field], name)
+					}
+				}
+				return
+			}
+			index(name, obj.FieldSpecs(view))
+		})
+		sortutil.RangeSorted(s.interfaces, func(name string, _ *Interface) {
+			index(name, fieldsFor(s.interfaces[name]))
+		})
+		sortutil.RangeSorted(s.interfaces, func(name string, _ *Interface) {
+			candidates := types
+			for _, field := range fieldsFor(s.interfaces[name]) {
+				if matches := byField[field.Name]; len(matches) < len(candidates) {
+					candidates = matches
+				}
+			}
+			for _, candidate := range candidates {
+				if candidate != name {
+					rels.add(candidate, name)
+				}
+			}
+		})
+	}
+
 	// Drop any candidate pair whose fields don't structurally line up, using
 	// the shrinking rels set as the oracle for nested type comparisons.
 	// Removing one pair can invalidate another, so iterate until stable.
@@ -766,22 +825,24 @@ func (s *Server) reconcileInterfaceImplsLocked(view call.View) {
 		}
 
 		sortutil.RangeSorted(s.objects, func(objName string, obj ObjectType) {
-			sortutil.RangeSorted(s.interfaces, func(ifaceName string, iface *Interface) {
+			sortutil.RangeSorted(rels[objName], func(ifaceName string, _ struct{}) {
+				iface := s.interfaces[ifaceName]
 				if !rels.has(objName, ifaceName) || permanent.has(objName, ifaceName) {
 					return
 				}
-				if !iface.Satisfies(obj, view, checker) {
+				if !satisfiesInterfaceFields(fieldsFor(iface), obj.FieldSpec, view, checker) {
 					changed = rels.del(objName, ifaceName) || changed
 				}
 			})
 		})
 
 		sortutil.RangeSorted(s.interfaces, func(typeName string, typ *Interface) {
-			sortutil.RangeSorted(s.interfaces, func(ifaceName string, iface *Interface) {
+			sortutil.RangeSorted(rels[typeName], func(ifaceName string, _ struct{}) {
+				iface := s.interfaces[ifaceName]
 				if typeName == ifaceName || !rels.has(typeName, ifaceName) || permanent.has(typeName, ifaceName) {
 					return
 				}
-				if !iface.SatisfiedByInterface(typ, view, checker) {
+				if !satisfiesInterfaceFields(fieldsFor(iface), typ.FieldSpec, view, checker) {
 					changed = rels.del(typeName, ifaceName) || changed
 				}
 			})
