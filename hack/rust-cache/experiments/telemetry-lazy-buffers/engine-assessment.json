@@ -1,0 +1,174 @@
+{
+  "timings": {
+    "test": {
+      "medians": {
+        "before": {
+          "median_seconds": 6.912361676921137,
+          "median_engine_cpu": 28.213934999999992,
+          "median_allocated_bytes": 6328169348.0,
+          "commands": 4
+        },
+        "combined": {
+          "median_seconds": 6.718939243000932,
+          "median_engine_cpu": 27.361639999999966,
+          "median_allocated_bytes": 5607185896.0,
+          "commands": 4
+        }
+      },
+      "paired_seconds": [
+        0.1510027509648353,
+        2.615298369899392,
+        0.235842116875574,
+        -0.5100731397978961
+      ],
+      "median_paired_saving": 0.19342243392020464,
+      "faster_pairs": 3,
+      "commands": 12,
+      "all_correct": true
+    },
+    "source": {
+      "medians": {
+        "before": {
+          "median_seconds": 4.084237433504313,
+          "median_engine_cpu": 10.223509000000007,
+          "median_allocated_bytes": 1936952904.0,
+          "commands": 4
+        },
+        "combined": {
+          "median_seconds": 4.174757478991523,
+          "median_engine_cpu": 10.26392149999998,
+          "median_allocated_bytes": 1932003800.0,
+          "commands": 4
+        }
+      },
+      "paired_seconds": [
+        -0.18733424926176667,
+        -0.0687896169256419,
+        -0.10725099709816277,
+        0.03118935925886035
+      ],
+      "median_paired_saving": -0.08802030701190233,
+      "faster_pairs": 1,
+      "commands": 12,
+      "all_correct": true
+    }
+  },
+  "diagnostics": [
+    {
+      "arm": "before",
+      "analysis_seconds": 2.221143016126007,
+      "command_seconds": 7.004694891162217,
+      "module_evaluations": 804,
+      "sdk_requests": 1415,
+      "main_query": {
+        "id": 12115,
+        "seconds": 6.440336452
+      },
+      "dropped": 0,
+      "open": 0
+    },
+    {
+      "arm": "candidate",
+      "analysis_seconds": 1.6507806219160557,
+      "command_seconds": 6.68814627896063,
+      "module_evaluations": 804,
+      "sdk_requests": 1415,
+      "main_query": {
+        "id": 225190,
+        "seconds": 6.179992906
+      },
+      "dropped": 0,
+      "open": 0
+    },
+    {
+      "arm": "root-before",
+      "analysis_seconds": 1.2541148790623993,
+      "command_seconds": 4.249603936914355,
+      "module_evaluations": 3,
+      "sdk_requests": 493,
+      "main_query": {
+        "id": 438275,
+        "seconds": 3.730608358
+      },
+      "dropped": 0,
+      "open": 0
+    },
+    {
+      "arm": "root-candidate",
+      "analysis_seconds": 1.2217397140339017,
+      "command_seconds": 4.202679571928456,
+      "module_evaluations": 3,
+      "sdk_requests": 493,
+      "main_query": {
+        "id": 590740,
+        "seconds": 3.681005174
+      },
+      "dropped": 0,
+      "open": 0
+    }
+  ],
+  "follow_up": {
+    "source": {
+      "medians": {
+        "before": {
+          "median_seconds": 4.148855697014369,
+          "median_engine_cpu": 11.00747599999994,
+          "median_allocated_bytes": 1926828540.0,
+          "commands": 8
+        },
+        "combined": {
+          "median_seconds": 4.191180226509459,
+          "median_engine_cpu": 11.144487500000082,
+          "median_allocated_bytes": 1921831956.0,
+          "commands": 8
+        }
+      },
+      "paired_seconds": [
+        0.1300425990484655,
+        0.016082901041954756,
+        -0.0002875139471143484,
+        -0.13203910808078945,
+        -0.03525856416672468,
+        -0.24656109209172428,
+        -0.2492941680829972,
+        0.10181668307632208
+      ],
+      "median_paired_saving": -0.017773039056919515,
+      "faster_pairs": 3,
+      "commands": 20,
+      "all_correct": true,
+      "reason": "Fixed eight-pair follow-ups in both workloads after initial source latency regressed slightly and test latency varied despite consistent allocation savings. Preserve all cohorts separately; no forced GC, cache reset or budget changes."
+    },
+    "test": {
+      "medians": {
+        "before": {
+          "median_seconds": 7.149239559075795,
+          "median_engine_cpu": 30.309116000000017,
+          "median_allocated_bytes": 6360643232.0,
+          "commands": 8
+        },
+        "combined": {
+          "median_seconds": 7.000528045464307,
+          "median_engine_cpu": 29.399220000000014,
+          "median_allocated_bytes": 5614417648.0,
+          "commands": 8
+        }
+      },
+      "paired_seconds": [
+        0.30214200308546424,
+        -0.002579344902187586,
+        0.12695988803170621,
+        0.011337741976603866,
+        -1.695313167059794,
+        0.20802441099658608,
+        0.11336874798871577,
+        0.11825389112345874
+      ],
+      "median_paired_saving": 0.11581131955608726,
+      "faster_pairs": 6,
+      "commands": 20,
+      "all_correct": true,
+      "reason": "Fixed eight-pair follow-ups in both workloads after initial source latency regressed slightly and test latency varied despite consistent allocation savings. Preserve all cohorts separately; no forced GC, cache reset or budget changes."
+    }
+  }
+}

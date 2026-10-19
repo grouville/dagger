@@ -1,0 +1,175 @@
+diff --git a/engine/clientdb/store_lazy_buffers_test.go b/engine/clientdb/store_lazy_buffers_test.go
+new file mode 100644
+index 0000000000..ab79594042
+--- /dev/null
++++ b/engine/clientdb/store_lazy_buffers_test.go
+@@ -0,0 +1,67 @@
++package clientdb
++
++import (
++	"path/filepath"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++func TestSpillFileEmptyReopenThenAppend(t *testing.T) {
++	path := filepath.Join(t.TempDir(), "metrics.log")
++	spill, err := openSpillFile(t.Context(), path, metricCodec, nil)
++	require.NoError(t, err)
++	require.NoError(t, spill.append(nil))
++	rows, err := spill.readSince(t.Context(), 0, 1)
++	require.NoError(t, err)
++	require.Empty(t, rows)
++	require.NoError(t, spill.close())
++
++	spill, err = openSpillFile(t.Context(), path, metricCodec, nil)
++	require.NoError(t, err)
++	want := []Metric{{ID: 1, Data: []byte("first row")}}
++	require.NoError(t, spill.append(want))
++	require.NoError(t, spill.close())
++
++	var recovered []Metric
++	spill, err = openSpillFile(t.Context(), path, metricCodec, func(row Metric) {
++		recovered = append(recovered, row)
++	})
++	require.NoError(t, err)
++	require.Equal(t, want, recovered)
++	require.NoError(t, spill.close())
++}
++
++func BenchmarkSpillFileOpenClose(b *testing.B) {
++	for _, count := range []int{0, 1, 256} {
++		name := "empty"
++		if count > 0 {
++			name = "one-row"
++		}
++		if count > 1 {
++			name = "256-rows"
++		}
++		b.Run(name, func(b *testing.B) {
++			path := filepath.Join(b.TempDir(), "metrics.log")
++			spill, err := openSpillFile(b.Context(), path, metricCodec, nil)
++			require.NoError(b, err)
++			rows := make([]Metric, count)
++			for i := range rows {
++				rows[i] = Metric{ID: int64(i + 1), Data: []byte("metric")}
++			}
++			require.NoError(b, spill.append(rows))
++			require.NoError(b, spill.close())
++			b.ReportAllocs()
++			b.ResetTimer()
++			for b.Loop() {
++				spill, err := openSpillFile(b.Context(), path, metricCodec, nil)
++				if err != nil {
++					b.Fatal(err)
++				}
++				if err := spill.close(); err != nil {
++					b.Fatal(err)
++				}
++			}
++		})
++	}
++}
+diff --git a/engine/clientdb/store_spill.go b/engine/clientdb/store_spill.go
+index 6416d9dd9d..2732065ef0 100644
+--- a/engine/clientdb/store_spill.go
++++ b/engine/clientdb/store_spill.go
+@@ -83,9 +83,10 @@ func openSpillFile[Row any](
+ 	}
+ 
+ 	spill := &spillFile[Row]{
+-		file:      file,
+-		codec:     codec,
+-		committed: size,
++		file:        file,
++		codec:       codec,
++		committed:   size,
++		writeOffset: size,
+ 	}
+ 	if err := spill.recover(ctx, size, onRecover); err != nil {
+ 		return nil, err
+@@ -93,7 +94,6 @@ func openSpillFile[Row any](
+ 	if _, err := file.Seek(spill.writeOffset, io.SeekStart); err != nil {
+ 		return nil, fmt.Errorf("seek spill writer: %w", err)
+ 	}
+-	spill.writer = bufio.NewWriterSize(spillWriterFunc(spill.write), spillBufferSize)
+ 	return spill, nil
+ }
+ 
+@@ -111,6 +111,10 @@ func (s *spillFile[Row]) write(buf []byte) (int, error) {
+ }
+ 
+ func (s *spillFile[Row]) recover(ctx context.Context, size int64, onRecover func(Row)) error {
++	// A header-only file has no frames to recover.
++	if size == 1 {
++		return nil
++	}
+ 	scanner := newFrameScanner(s.file, 1, size)
+ 	for {
+ 		frameOffset := scanner.offset
+@@ -175,6 +179,10 @@ func (s *spillFile[Row]) append(rows []Row) error {
+ 		previousID = id
+ 	}
+ 
++	if s.writer == nil {
++		s.writer = bufio.NewWriterSize(spillWriterFunc(s.write), spillBufferSize)
++	}
++
+ 	start := s.writeOffset
+ 	offset := start
+ 	rowCount := s.rowCount
+@@ -388,7 +396,11 @@ func (s *spillFile[Row]) readBounds(id int64) (offset, committed int64, ok bool)
+ }
+ 
+ func (s *spillFile[Row]) close() error {
+-	return errors.Join(s.writer.Flush(), s.file.Close())
++	var flushErr error
++	if s.writer != nil {
++		flushErr = s.writer.Flush()
++	}
++	return errors.Join(flushErr, s.file.Close())
+ }
+ 
+ type frameScanner struct {
+diff --git a/engine/clientdb/store_write_buffers_test.go b/engine/clientdb/store_write_buffers_test.go
+new file mode 100644
+index 0000000000..6144067259
+--- /dev/null
++++ b/engine/clientdb/store_write_buffers_test.go
+@@ -0,0 +1,35 @@
++package clientdb
++
++import (
++	"os"
++	"path/filepath"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++func BenchmarkSpillFileOpenAppendClose(b *testing.B) {
++	path := filepath.Join(b.TempDir(), "metrics.log")
++	spill, err := openSpillFile(b.Context(), path, metricCodec, nil)
++	require.NoError(b, err)
++	require.NoError(b, spill.close())
++	rows := []Metric{{ID: 1, Data: []byte("metric")}}
++	b.ReportAllocs()
++	b.ResetTimer()
++	for b.Loop() {
++		// Reset the existing file to its header so each iteration writes ID 1.
++		if err := os.Truncate(path, 1); err != nil {
++			b.Fatal(err)
++		}
++		spill, err := openSpillFile(b.Context(), path, metricCodec, nil)
++		if err != nil {
++			b.Fatal(err)
++		}
++		if err := spill.append(rows); err != nil {
++			b.Fatal(err)
++		}
++		if err := spill.close(); err != nil {
++			b.Fatal(err)
++		}
++	}
++}
