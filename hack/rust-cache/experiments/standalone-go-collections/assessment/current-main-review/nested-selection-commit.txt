@@ -1,0 +1,19 @@
+fix: preserve list item types in nested selections
+
+A valid program selecting pages.{{matches.{{text}}}} can be rejected when
+it collects the texts. Even when neither the matches nor their text can
+be null, the nested selection loses that rule. The texts become [String]!
+instead of [String!]!, so combining them with required strings fails.
+
+Preserve whether list items can be null when constructing a nested
+selection's type, as ordinary selections already do.
+
+The regression runs a complete program, checks the returned values and
+order, and includes an empty nested list. It also checks that nullable
+items and nullable fields stay rejected where required strings are
+expected. The valid case fails on main bf649b8d and passes with this fix.
+The full interpreter suite passes:
+
+    go test -race -count=1 ./pkg/dang
+
+Signed-off-by: Guillaume de Rouville <guillaume@dagger.io>

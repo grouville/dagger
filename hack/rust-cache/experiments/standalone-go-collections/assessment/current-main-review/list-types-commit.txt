@@ -1,0 +1,17 @@
+fix(dang): keep the element type when converting a list
+
+Dagger can pass a list of strings to Dang but report its type as a list
+of lists: [String!]! becomes [[String!]]!.
+
+A Dang list stores the type of one item in ElemType. The SDK currently
+puts the type of the whole list there, and Dang adds another list wrapper
+when reporting its type. Store the item type instead.
+
+This changes one line. The values, their order and JSON output stay the
+same. The regression covers ordinary and empty lists, nullable items,
+and nested lists. All four cases fail on main c5456d9cbf and pass with
+the fix:
+
+    go test -race -count=1 ./core/sdk/dang/v2 -run '^TestConvertListPreservesElementType$'
+
+Signed-off-by: Guillaume de Rouville <guillaume@dagger.io>

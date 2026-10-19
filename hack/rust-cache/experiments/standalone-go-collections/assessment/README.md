@@ -1,5 +1,7 @@
 # Contribution assessment
 
+The [current-main review](current-main-review/) adds the independently verified correctness fixes (#14736, #14737 and Dang #194), the new batching experiment and the failed full-repository diagnostic. Five original proposals are drafts, two are closed, and nine performance proposals remain on hold.
+
 PRs #14732 and #14733 were closed after assessing real-workload value against complexity. Their benchmark improvements remain valid, but do not establish worthwhile current-main collection-listing contributions. Comments explain the supporting older evidence and its limitations.
 
 The unchanged-main engine comparison contains 16 Go modules and real source/test edits, fresh CLIs, ordinary telemetry and cleanup. Each candidate starts from Go module main independently. Both the generation-matching and membership comparisons include every raw sample, including slower candidates. The matching change is promising; native membership is held after regressions. Neither is an opened PR.

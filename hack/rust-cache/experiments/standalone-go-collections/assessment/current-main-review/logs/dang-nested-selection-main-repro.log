@@ -1,0 +1,16 @@
+--- FAIL: TestNestedSelectionPreservesElementNullability (0.93s)
+    --- FAIL: TestNestedSelectionPreservesElementNullability/non-null_elements_and_fields (0.88s)
+        nested_selection_elements_test.go:46: [1m[31mError:[0m cannot use [String]! as [String!]!
+              [2m[34m--> /tmp/TestNestedSelectionPreservesElementNullabilitynon-null_elements2901126890/001/main.dang:8:3[0m
+             [2m    |[0m
+             [2m  6 | let empty: [String!]! = [][0m
+             [2m  7 | let values: [String!]! = selected.reduce(empty) { all, page =>[0m
+             [2m[34m[1m  8 | [0m  all + page.matches.map { row => row.text }
+            [2m         [31m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+             [2m  9 | }[0m
+             [2m 10 | [0m
+             [2m    |[0m
+            
+FAIL
+FAIL	github.com/vito/dang/v2/pkg/dang	0.950s
+FAIL

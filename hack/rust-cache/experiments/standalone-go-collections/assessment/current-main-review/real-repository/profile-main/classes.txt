@@ -1,0 +1,20 @@
+classes: 702650 ops in 224 classes (all ops) over 906.61s, self_tot 206436.78s (summed across concurrent ops); sorted by self
+(left out: 26524 internal-kind ops, self_tot 3986.11s; kind: "internal" ranks them)
+   count   self_tot  self_p50  self_max    dur_tot   dur_p50   dur_max   dup  kind class               outcomes
+     800  97343.09s   107.49s   273.06s  99154.44s   109.24s   273.15s     0  call_exec go:GoPackage.tests open:611 error:189
+     800  38207.50s    50.21s    91.48s  40752.62s    51.56s    97.52s     0  call_exec go:GoPackages.get ok:800
+  198748  17901.61s     9.3µs    13.42s  17901.61s     9.3µs    13.42s     0  call Query.typeDef       hit:198729 open:19
+  187465  11442.74s     9.1µs    14.92s  11442.74s     9.1µs    14.92s     6  call TypeDef.withOptional hit:187413 executed:41 open:11
+     800   7631.30s     8.15s    34.67s  48459.21s    61.39s   105.79s     0  call go:GoPackages.get   executed:800
+   63969   6248.48s     9.9µs    11.52s   6248.49s     9.9µs    11.52s     0  call TypeDef.withObject  hit:63933 executed:31 open:5
+    4010   6054.79s     1.6µs    90.93s  13753.73s     1.6µs   242.12s     0  session_phase session.schemaBuild ok:3904 open:106
+   92694   5512.02s     9.0µs    10.52s   5512.02s     9.0µs    10.52s     0  call TypeDef.withKind    hit:92678 open:13 executed:3
+    3928   4357.10s    44.6µs    15.41s   4357.11s    44.6µs    15.41s     0  call Query.__schemaJSONFile hit:3925 executed:3
+   42049   2606.20s     8.4µs    15.30s   2606.20s     8.4µs    15.30s     1  call TypeDef.withListOf  hit:42041 executed:6 open:2
+   11638   2220.94s    17.4µs    15.14s   2220.94s    17.4µs    15.14s     0  call Module._implementationScoped hit:11512 canceled:122 executed:4
+     800   1502.09s  580.59ms    16.42s  96151.77s   110.39s   269.09s     0  call go:GoPackage.tests  canceled:800
+     801   1089.47s  985.60ms    15.76s   1712.52s  989.75ms   623.07s     0  call go:Go.packages      hit:800 executed:1
+     801   1088.83s  995.04ms    12.44s   1089.11s  995.04ms    12.44s     0  call go:Query.go         hit:800 executed:1
+       1    623.05s   623.05s   623.05s    623.05s   623.05s   623.05s     0  call_exec go:Go.packages ok:1
+    4865    555.43s    13.4µs    10.20s    555.43s    13.4µs    10.20s     7  call FunctionArg.__withDefaultValue hit:4851 executed:14
+… 208 more classes (raise `top`)

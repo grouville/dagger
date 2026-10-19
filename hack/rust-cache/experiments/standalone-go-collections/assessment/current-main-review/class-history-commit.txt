@@ -1,0 +1,19 @@
+fix(dagql): keep copied schema types independent
+
+Changing a copied schema type can also change the original. The field map
+is copied, but its lists of field definitions still share arrays.
+If the original and copy both append a new definition into unused array
+space, the second write overwrites the first.
+
+Make appending allocate a separate array in Install and Extend. Existing
+definitions remain shared. This costs an extra allocation when adding a
+definition that previously fit in unused space; a field's first definition
+has the same allocation behavior.
+
+The regression adds three definitions, copies the type, then adds a
+different fourth definition to each. It fails on main c5456d9cbf and
+passes with the fix for both Install and Extend:
+
+    go test -race -count=1 ./dagql -run '^TestClassForkHistoryIsolation$'
+
+Signed-off-by: Guillaume de Rouville <guillaume@dagger.io>

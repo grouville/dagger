@@ -1,0 +1,222 @@
+[
+  {
+    "label": "batch-gomod-checks-batched-selection-check",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "check",
+      "gomod-checks:batched-selection-check"
+    ],
+    "cwd": "/tmp/go-collection-batch-main-selection",
+    "seconds": 3.1792806671001017,
+    "exit_code": 0,
+    "expected_failure": false,
+    "verified": true,
+    "log": "batch-gomod-checks-batched-selection-check.log"
+  },
+  {
+    "label": "batch-gomod-checks-selection-check",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "check",
+      "gomod-checks:selection-check"
+    ],
+    "cwd": "/tmp/go-collection-batch-main-selection",
+    "seconds": 4.880494490964338,
+    "exit_code": 0,
+    "expected_failure": false,
+    "verified": true,
+    "log": "batch-gomod-checks-selection-check.log"
+  },
+  {
+    "label": "batch-go-dev-selection-check",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "check",
+      "go-dev:selection-check"
+    ],
+    "cwd": "/tmp/go-collection-batch-main-selection",
+    "seconds": 142.46028912509792,
+    "exit_code": 0,
+    "expected_failure": false,
+    "verified": true,
+    "log": "batch-go-dev-selection-check.log"
+  },
+  {
+    "label": "batch-go-dev-binary-check",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "check",
+      "go-dev:binary-check"
+    ],
+    "cwd": "/tmp/go-collection-batch-main-selection",
+    "seconds": 124.879195692949,
+    "exit_code": 0,
+    "expected_failure": false,
+    "verified": true,
+    "log": "batch-go-dev-binary-check.log"
+  },
+  {
+    "label": "class-history-main-repro",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-race",
+      "-count=1",
+      "-timeout=180s",
+      "-run",
+      "^TestClassForkHistoryIsolation$",
+      "./dagql"
+    ],
+    "cwd": "/tmp/go-collection-clean-branches/remaining-verification/class-history",
+    "seconds": 114.7319488460198,
+    "exit_code": 1,
+    "expected_failure": true,
+    "verified": true,
+    "log": "class-history-main-repro.log"
+  },
+  {
+    "label": "class-history-fixed",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-race",
+      "-count=1",
+      "-timeout=180s",
+      "-run",
+      "^TestClassForkHistoryIsolation$",
+      "./dagql"
+    ],
+    "cwd": "/tmp/go-collection-clean-branches/remaining-verification/class-history",
+    "seconds": 72.08092742692679,
+    "exit_code": 0,
+    "expected_failure": false,
+    "verified": true,
+    "log": "class-history-fixed.log"
+  },
+  {
+    "label": "list-types-main-repro",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-race",
+      "-count=1",
+      "-timeout=180s",
+      "-run",
+      "^TestConvertListPreservesElementType$",
+      "./core/sdk/dang/v2"
+    ],
+    "cwd": "/tmp/go-collection-clean-branches/remaining-verification/list-types",
+    "seconds": 72.55181871610694,
+    "exit_code": 1,
+    "expected_failure": true,
+    "verified": true,
+    "log": "list-types-main-repro.log"
+  },
+  {
+    "label": "list-types-fixed",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-race",
+      "-count=1",
+      "-timeout=180s",
+      "-run",
+      "^TestConvertListPreservesElementType$",
+      "./core/sdk/dang/v2"
+    ],
+    "cwd": "/tmp/go-collection-clean-branches/remaining-verification/list-types",
+    "seconds": 12.346242354018614,
+    "exit_code": 0,
+    "expected_failure": false,
+    "verified": true,
+    "log": "list-types-fixed.log"
+  },
+  {
+    "label": "dang-typed-methods-current-main-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-race",
+      "-count=1",
+      "-timeout=180s",
+      "./pkg/dang"
+    ],
+    "cwd": "/tmp/go-collection-clean-branches/remaining-verification/dang-typed-methods",
+    "seconds": 42.175953516038135,
+    "exit_code": 0,
+    "expected_failure": false,
+    "verified": true,
+    "log": "dang-typed-methods-current-main-race.log"
+  },
+  {
+    "label": "dang-lazy-error-context-apply",
+    "verified": false,
+    "reason": "The patch no longer applies to current main; it needs a fresh review, not publication.",
+    "details": "error: patch failed: pkg/dang/eval.go:2924\nerror: pkg/dang/eval.go: patch does not apply\n"
+  },
+  {
+    "label": "dang-callback-caller-current-main-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-race",
+      "-count=1",
+      "-timeout=180s",
+      "./pkg/dang"
+    ],
+    "cwd": "/tmp/go-collection-clean-branches/remaining-verification/dang-callback-caller",
+    "seconds": 40.20888019702397,
+    "exit_code": 0,
+    "expected_failure": false,
+    "verified": true,
+    "log": "dang-callback-caller-current-main-race.log"
+  },
+  {
+    "label": "dang-nested-selection-main-repro",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-race",
+      "-count=1",
+      "-timeout=180s",
+      "-run",
+      "^TestNestedSelectionPreservesElementNullability$",
+      "./pkg/dang"
+    ],
+    "cwd": "/tmp/go-collection-clean-branches/remaining-verification/dang-nested-selection",
+    "seconds": 8.634693801170215,
+    "exit_code": 1,
+    "expected_failure": true,
+    "verified": true,
+    "log": "dang-nested-selection-main-repro.log"
+  },
+  {
+    "label": "dang-nested-selection-current-main-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-race",
+      "-count=1",
+      "-timeout=180s",
+      "./pkg/dang"
+    ],
+    "cwd": "/tmp/go-collection-clean-branches/remaining-verification/dang-nested-selection",
+    "seconds": 40.516430465038866,
+    "exit_code": 0,
+    "expected_failure": false,
+    "verified": true,
+    "log": "dang-nested-selection-current-main-race.log"
+  }
+]

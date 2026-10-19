@@ -1,6 +1,6 @@
 {
   "prepared_at_utc": "2026-10-19T18:17:48.200511+00:00",
-  "status": "Sixteen source branches preserved on forks. Two draft PRs remain open; two were closed after contribution assessment. Further PR openings are held until real-workload value justifies complexity and risk.",
+  "status": "Sixteen original proposals: five open drafts, two closed, nine performance changes held. Three correctness fixes independently reproduce on current main and pass with their scoped fixes. A separate batching experiment has four passing checks and no measured full-command gain.",
   "scope": "Go collection listing investigation: 13 performance proposals plus 3 correctness fixes.",
   "measurement_notice": "Fresh standalone results and contribution decisions are in GO_COLLECTION_STANDALONE_REVIEW.md. Earlier experimental-stack results are supporting context, not standalone main command gains.",
   "reviewed_style_examples": [
@@ -374,10 +374,29 @@
       "production_files": [
         "dagql/objects.go"
       ],
-      "source_branch_status": "Verified pushed head; no new source changes in this preparation.",
-      "title": "fix(dagql): keep field overrides independent after a class fork",
-      "description_sha256": "acebc7579fa37511f8cd2f63bca0ec85c32168c1a5897bab8ed170d32b466b7e",
+      "source_branch_status": "Current-main regression verified, scoped fix pushed, draft PR opened.",
+      "title": "fix(dagql): keep copied schema types independent",
+      "description_sha256": "d56c2eec5b5f9df388fb531ffead7e4d61b120384d21c17b7549da3544f5a7f0",
       "clean_source": {
+        "id": "class-history",
+        "fork": "grouville/dagger",
+        "branch": "pr/go-collections-class-history-reviewed",
+        "base": "c5456d9cbf47e432b89aba43e35211425e8e1f03",
+        "head": "ad7cc9cf22b34259a8ccaca502a33242eb82877b",
+        "url": "https://github.com/grouville/dagger/tree/pr/go-collections-class-history-reviewed",
+        "compare": "https://github.com/dagger/dagger/compare/c5456d9cbf47e432b89aba43e35211425e8e1f03...grouville:dagger:pr/go-collections-class-history-reviewed",
+        "previous_source": {
+          "id": "class-history",
+          "fork": "grouville/dagger",
+          "branch": "pr/go-collections-class-history",
+          "base": "80699ac67a1c72dc38d30c4186105cd9dd3afde6",
+          "head": "46d8c5727cf40a5f5b16b03284a03fb6b933b509",
+          "url": "https://github.com/grouville/dagger/tree/pr/go-collections-class-history",
+          "compare": "https://github.com/dagger/dagger/compare/80699ac67a1c72dc38d30c4186105cd9dd3afde6...grouville:dagger:pr/go-collections-class-history"
+        },
+        "pr_url": "https://github.com/dagger/dagger/pull/14736"
+      },
+      "previous_clean_source": {
         "id": "class-history",
         "fork": "grouville/dagger",
         "branch": "pr/go-collections-class-history",
@@ -385,7 +404,9 @@
         "head": "46d8c5727cf40a5f5b16b03284a03fb6b933b509",
         "url": "https://github.com/grouville/dagger/tree/pr/go-collections-class-history",
         "compare": "https://github.com/dagger/dagger/compare/80699ac67a1c72dc38d30c4186105cd9dd3afde6...grouville:dagger:pr/go-collections-class-history"
-      }
+      },
+      "draft_pr": "https://github.com/dagger/dagger/pull/14736",
+      "opening_assessment": "Verified correctness regression on current upstream main; small fix and useful regression checks; no performance claim."
     },
     {
       "id": "list-types",
@@ -406,10 +427,29 @@
       "production_files": [
         "core/sdk/dang/v2/helpers.go"
       ],
-      "source_branch_status": "Verified pushed head; no new source changes in this preparation.",
+      "source_branch_status": "Current-main regression verified, scoped fix pushed, draft PR opened.",
       "title": "fix(dang): keep the element type when converting a list",
-      "description_sha256": "15c9683b01770aacd4fb2f1450851dacbad0b455961e47af406fab838693a349",
+      "description_sha256": "87721634ddc90396907a7bede08bb45879f39cd4d49cac7434f142157c213e3a",
       "clean_source": {
+        "id": "list-types",
+        "fork": "grouville/dagger",
+        "branch": "pr/go-collections-list-types-reviewed",
+        "base": "c5456d9cbf47e432b89aba43e35211425e8e1f03",
+        "head": "771b82a1e5b50826029dda52263ead4e44465bcf",
+        "url": "https://github.com/grouville/dagger/tree/pr/go-collections-list-types-reviewed",
+        "compare": "https://github.com/dagger/dagger/compare/c5456d9cbf47e432b89aba43e35211425e8e1f03...grouville:dagger:pr/go-collections-list-types-reviewed",
+        "previous_source": {
+          "id": "list-types",
+          "fork": "grouville/dagger",
+          "branch": "pr/go-collections-list-types",
+          "base": "80699ac67a1c72dc38d30c4186105cd9dd3afde6",
+          "head": "94db4bc6339e7875f2a07fb302cff745c5761ee3",
+          "url": "https://github.com/grouville/dagger/tree/pr/go-collections-list-types",
+          "compare": "https://github.com/dagger/dagger/compare/80699ac67a1c72dc38d30c4186105cd9dd3afde6...grouville:dagger:pr/go-collections-list-types"
+        },
+        "pr_url": "https://github.com/dagger/dagger/pull/14737"
+      },
+      "previous_clean_source": {
         "id": "list-types",
         "fork": "grouville/dagger",
         "branch": "pr/go-collections-list-types",
@@ -417,7 +457,9 @@
         "head": "94db4bc6339e7875f2a07fb302cff745c5761ee3",
         "url": "https://github.com/grouville/dagger/tree/pr/go-collections-list-types",
         "compare": "https://github.com/dagger/dagger/compare/80699ac67a1c72dc38d30c4186105cd9dd3afde6...grouville:dagger:pr/go-collections-list-types"
-      }
+      },
+      "draft_pr": "https://github.com/dagger/dagger/pull/14737",
+      "opening_assessment": "Verified correctness regression on current upstream main; small fix and useful regression checks; no performance claim."
     },
     {
       "id": "typed-methods",
@@ -469,7 +511,8 @@
         "head": "e57b98e3104996993801a36e519578397750aec3",
         "url": "https://github.com/grouville/dang/tree/pr/go-collections-lazy-error-context",
         "compare": "https://github.com/vito/dang/compare/da1bed304cb80f8a2f0714f1747e7f64e03297a3...grouville:dang:pr/go-collections-lazy-error-context"
-      }
+      },
+      "current_main_assessment": "Held: patch no longer applies to Dang bf649b8d after eval-frame changes. Earlier timings do not justify publication on the new base."
     },
     {
       "id": "callback-caller",
@@ -513,9 +556,28 @@
         "pkg/dang/ast_expressions.go",
         "pkg/dang/nested_selection_elements_test.go"
       ],
-      "title": "fix: preserve required elements in nested list selections",
-      "description_sha256": "00864e17153abe6f3b2f8732a1a8543a2239b467ab4c97703a1fb042d88b4946",
+      "title": "fix: preserve list item types in nested selections",
+      "description_sha256": "6d5d779e4d386a05e22c4be7813cd31ab08adcab76d0d152d538560bc1a1d764",
       "clean_source": {
+        "id": "nested-selection",
+        "fork": "grouville/dang",
+        "branch": "pr/go-collections-nested-selection-reviewed",
+        "base": "bf649b8dd99f321984bc9cd9d1a3494acf2c0c39",
+        "head": "9567b11ccdac314fc20732ede39427f050056659",
+        "url": "https://github.com/grouville/dang/tree/pr/go-collections-nested-selection-reviewed",
+        "compare": "https://github.com/vito/dang/compare/bf649b8dd99f321984bc9cd9d1a3494acf2c0c39...grouville:dang:pr/go-collections-nested-selection-reviewed",
+        "previous_source": {
+          "id": "nested-selection",
+          "fork": "grouville/dang",
+          "branch": "pr/go-collections-nested-selection",
+          "base": "da1bed304cb80f8a2f0714f1747e7f64e03297a3",
+          "head": "9ea940f63429fdef91a831e83c6e3df634062525",
+          "url": "https://github.com/grouville/dang/tree/pr/go-collections-nested-selection",
+          "compare": "https://github.com/vito/dang/compare/da1bed304cb80f8a2f0714f1747e7f64e03297a3...grouville:dang:pr/go-collections-nested-selection"
+        },
+        "pr_url": "https://github.com/vito/dang/pull/194"
+      },
+      "previous_clean_source": {
         "id": "nested-selection",
         "fork": "grouville/dang",
         "branch": "pr/go-collections-nested-selection",
@@ -523,7 +585,10 @@
         "head": "9ea940f63429fdef91a831e83c6e3df634062525",
         "url": "https://github.com/grouville/dang/tree/pr/go-collections-nested-selection",
         "compare": "https://github.com/vito/dang/compare/da1bed304cb80f8a2f0714f1747e7f64e03297a3...grouville:dang:pr/go-collections-nested-selection"
-      }
+      },
+      "draft_pr": "https://github.com/vito/dang/pull/194",
+      "source_branch_status": "Current-main regression verified, scoped fix pushed, draft PR opened.",
+      "opening_assessment": "Verified correctness regression on current upstream main; small fix and useful regression checks; no performance claim."
     },
     {
       "id": "generation-matches",
