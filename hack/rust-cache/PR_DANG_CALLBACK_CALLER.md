@@ -1,26 +1,36 @@
-# perf(dang): reuse empty callers for concrete function callbacks
+# perf: avoid building an empty object for every callback
 
-`callFunc` allocates an empty caller object and type for each list or map callback, including nine empty maps. Concrete Dang functions only read its self, which is absent here; arguments and locals belong to a fresh function scope.
+While profiling Go test collection listing, I found repeated allocations when Dang calls functions passed to operations such as `map` and `each`. Every callback builds an empty type and object to represent its caller.
 
-Reuse the empty caller for `FunctionValue` callbacks. Other `Callable` implementations retain a fresh caller because their Go implementation may mutate it. This was found while reducing Go test collection listing overhead on dagger/dagger.
+A concrete Dang function only reads that caller's `self`; its arguments and local variables live in a separate scope created from its closure. Reuse one empty caller for those functions. Other implementations of `Callable` can modify their caller, so they still receive a fresh object.
 
-### Performance
+The cost is one shared empty object kept for the interpreter's lifetime, plus a type check per callback. The custom-callable control measures the path that cannot benefit.
 
-Complete-command measurements use `dagger check --module go --check test --list --all`.
+### Results
 
-| Complete listing after a fresh edit | Before | After | Reduction |
-| --- | ---: | ---: | ---: |
-| Test file | 10.01 s | 9.53 s | 4.8% |
-| Ordinary source | 6.75 s | 6.13 s | 9.2% |
+Comparing main `da1bed304c` with only this change:
 
-Four alternating pairs per workload, faster in all eight. Allocation falls **11.07 → 10.01 GB** for test edits and **6.29 → 5.19 GB** for source edits. CPU also falls in both workloads.
+| Callback | Main | This PR | Allocated bytes | Allocations |
+| --- | ---: | ---: | ---: | ---: |
+| Dang function | 6.85 µs | 4.99 µs | 2,648 → 1,464 | 30 → 17 |
+| Custom callable, control | 1.87 µs | 1.72 µs | 2,048 → 2,048 | 19 → 19 |
 
-Commands start a fresh CLI, make real edits on the same warm experimental engine, and include telemetry, final flushing and successful cleanup. All 24 commands return correct rows. Profiles retain all 800 package getters, existing discovery hits and callback-body execution.
+Medians from four alternating pairs. Dang function calls improved in every pair; the custom control was faster in three of four, with unchanged allocation counts. Function samples run for 100 ms and controls for 300 ms; program loading is excluded. Go 1.26.6, Linux amd64, `GOMAXPROCS=8`.
 
-### Validation and tradeoffs
+These measure callbacks, not the complete Go collection listing command.
 
-The standalone patch applies to pristine Dang da1bed304c and passes its full race suite. The development interpreter and Dagger SDK race suites also pass. Tests cover concurrent arguments, captured self and custom caller mutation. Sharing with every `Callable` deliberately makes the custom-callable regression fail.
+### Reproducing
 
-Nine Go checks and 28 Rust/native-cache cases have their expected outcomes. The shared object contains no invocation data; fresh function scopes remain essential. No function results or user data are cached. Cold-start and Rust latency gains are unmeasured.
+The tests check concurrent calls with different arguments, captured `self`, and custom callables that modify their caller:
 
-[Standalone patch](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/experiments/go-runtime-preparation-current/callback-standalone.patch). [Measurements and validation](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/NATIVE_DANG_CALLBACK_CALLER.md).
+```sh
+go test -race -count=1 ./pkg/dang
+```
+
+To run the function callback benchmark:
+
+```sh
+GOMAXPROCS=8 go test ./pkg/dang -run '^$' -bench '^BenchmarkCallbackCaller$' -benchmem -benchtime=100ms
+```
+
+[Raw measurements and instructions for reproducing the function and custom-callable cases](https://github.com/grouville/dagger/tree/experiment/rust-native-cache/hack/rust-cache/experiments/standalone-go-collections/callback-caller).

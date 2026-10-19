@@ -6,6 +6,8 @@ Skip that bookkeeping when a value has no disk-usage provider, no snapshot links
 
 This adds a check per value. The saving depends on how many values have no disk data; a cache made entirely of disk-usage providers still takes the normal measurement path.
 
+Closed pending a representative current-main result that justifies this change. The 200,000-scalar fixture below is a stress benchmark, not a measured scalar count from one Go listing.
+
 ### Results
 
 Comparing main `80699ac67a` with only this change:

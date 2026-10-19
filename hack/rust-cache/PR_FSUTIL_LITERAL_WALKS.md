@@ -1,5 +1,7 @@
 # perf(fsutil): avoid listing unrelated directories for a single include
 
+Closed pending evidence that the real-workload saving on current main justifies the added filesystem traversal logic. [Assessment](https://github.com/dagger/dagger/pull/14733#issuecomment-6275861689).
+
 While investigating slow Go test collection listing on dagger/dagger, I found repeated host imports that selected a single path but still listed unrelated directories on the way to it. Importing `a/b/selected`, for example, first lists the root's other entries, even though none can be included.
 
 For a single include with no wildcards, let the native filesystem visit the path's ancestors directly, then walk the selected subtree. The existing filter still receives the ancestors and selected entries in order.

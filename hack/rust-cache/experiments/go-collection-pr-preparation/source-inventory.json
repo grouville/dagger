@@ -1,8 +1,8 @@
 {
   "prepared_at_utc": "2026-10-19T18:17:48.200511+00:00",
-  "status": "All sixteen clean source branches pushed, each one commit on upstream main. Standalone performance verification in progress; draft PRs authorized for confirmed improvements.",
+  "status": "Sixteen source branches preserved on forks. Two draft PRs remain open; two were closed after contribution assessment. Further PR openings are held until real-workload value justifies complexity and risk.",
   "scope": "Go collection listing investigation: 13 performance proposals plus 3 correctness fixes.",
-  "measurement_notice": "Historical evidence only. No new performance or test runs in this description preparation. Future ports have not been measured.",
+  "measurement_notice": "Fresh standalone results and contribution decisions are in GO_COLLECTION_STANDALONE_REVIEW.md. Earlier experimental-stack results are supporting context, not standalone main command gains.",
   "reviewed_style_examples": [
     {
       "number": 14383,
@@ -88,7 +88,7 @@
       "description": "PR_ENGINE_SHARE_RESTORED_POSTINGS.md",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/commit/52125b89732b29749748b7a81796fd911a3eb33c",
-      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
+      "opening_gate": "Assess actual benefit, implementation complexity and correctness risk before opening. Microbenchmark wins alone do not qualify.",
       "numstat": "2\t1\tdagql/cache.go\n132\t0\tdagql/cache_digest_posting.go\n114\t0\tdagql/cache_digest_posting_removal_bench_test.go\n61\t0\tdagql/cache_digest_posting_removal_test.go\n73\t0\tdagql/cache_digest_posting_test.go\n12\t3\tdagql/cache_egraph.go\n1\t11\tdagql/cache_persistence_import.go",
       "production_files": [
         "dagql/cache.go",
@@ -98,7 +98,7 @@
       ],
       "source_branch_status": "Verified pushed head; no new source changes in this preparation.",
       "title": "perf(dagql): share result lists when restoring the cache",
-      "description_sha256": "6d607a8fcc2ae6bc6649cf2b804abf3a8bd41456447793c1886f1912c824e95e",
+      "description_sha256": "138c5ff694ed4c955ad447a082e4416e863e3e4ae570573e02d080cf6f9a76f0",
       "clean_source": {
         "id": "restored-index",
         "fork": "grouville/dagger",
@@ -111,7 +111,8 @@
         "measured_head": "abdd06e31131e9f178c2176c946fce84f0438495",
         "production_unchanged": true
       },
-      "pr": "https://github.com/dagger/dagger/pull/14730"
+      "pr": "https://github.com/dagger/dagger/pull/14730",
+      "pr_state": "OPEN"
     },
     {
       "id": "usage-sampling",
@@ -127,14 +128,14 @@
       "description": "PR_ENGINE_SKIP_EMPTY_USAGE_SAMPLING.md",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/commit/9123b2e76bc59146de9e3f4c2505efb6f9f7d648",
-      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
+      "opening_gate": "Assess actual benefit, implementation complexity and correctness risk before opening. Microbenchmark wins alone do not qualify.",
       "numstat": "19\t2\tdagql/cache_usage.go\n77\t0\tdagql/cache_usage_sparse_test.go",
       "production_files": [
         "dagql/cache_usage.go"
       ],
       "source_branch_status": "Verified pushed head; no new source changes in this preparation.",
       "title": "perf(dagql): skip disk-usage bookkeeping for values with no disk data",
-      "description_sha256": "b1b3acb0f0be87765cc308a819bc6d4da6c2dc75043d212e58cccc5de67b8728",
+      "description_sha256": "58d16b58bdd203d55282ac202cca533c7ecbea05a89db5f3886edca892dc5c46",
       "clean_source": {
         "id": "usage-sampling",
         "fork": "grouville/dagger",
@@ -145,7 +146,9 @@
         "compare": "https://github.com/dagger/dagger/compare/80699ac67a1c72dc38d30c4186105cd9dd3afde6...grouville:dagger:pr/go-collections-usage-sampling",
         "measured_head": "a72f656bc2dc914c9910417abd83ce1a81ef2cad",
         "message_only_rewrite": true
-      }
+      },
+      "pr": "https://github.com/dagger/dagger/pull/14732",
+      "pr_state": "CLOSED"
     },
     {
       "id": "config-read",
@@ -161,7 +164,7 @@
       "description": "PR_READ_CONFIG_BEFORE_STAT.md",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/commit/98d6b5c3f3c6b572bbf8d5712cb7ecb9276e7c8c",
-      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
+      "opening_gate": "Assess actual benefit, implementation complexity and correctness risk before opening. Microbenchmark wins alone do not qualify.",
       "numstat": "22\t7\tcore/module_git_clients.go\n96\t0\tcore/module_git_clients_host_test.go",
       "production_files": [
         "core/module_git_clients.go"
@@ -193,7 +196,7 @@
       "description": "PR_CLIENT_HOST_GLOB_PREFIX.md",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/commit/2481e74b3e02d185d9ba566199e5f4dfdca28eca",
-      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
+      "opening_gate": "Assess actual benefit, implementation complexity and correctness risk before opening. Microbenchmark wins alone do not qualify.",
       "numstat": "13\t2\tengine/client/filesync.go\n117\t0\tengine/client/glob_prefix_test.go",
       "production_files": [
         "engine/client/filesync.go"
@@ -211,7 +214,9 @@
         "compare": "https://github.com/dagger/dagger/compare/80699ac67a1c72dc38d30c4186105cd9dd3afde6...grouville:dagger:pr/go-collections-host-glob",
         "measured_head": "c672d7a90ac331a8235e9d616a66fd23f584df7c",
         "message_only_rewrite": true
-      }
+      },
+      "pr": "https://github.com/dagger/dagger/pull/14731",
+      "pr_state": "OPEN"
     },
     {
       "id": "literal-import",
@@ -230,7 +235,7 @@
       "description": "PR_FSUTIL_LITERAL_WALKS.md",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/commit/c22eaa55863fb2ca22919119ff30e952f54f8076",
-      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
+      "opening_gate": "Assess actual benefit, implementation complexity and correctness risk before opening. Microbenchmark wins alone do not qualify.",
       "numstat": "20\t1\tinternal/fsutil/filter.go\n57\t0\tinternal/fsutil/fs.go\n47\t0\tinternal/fsutil/literal_include_callback_test.go\n35\t0\tinternal/fsutil/literal_include_linux_test.go\n164\t0\tinternal/fsutil/literal_include_test.go",
       "production_files": [
         "internal/fsutil/filter.go",
@@ -238,7 +243,7 @@
       ],
       "source_branch_status": "Verified pushed head; no new source changes in this preparation.",
       "title": "perf(fsutil): avoid listing unrelated directories for a single include",
-      "description_sha256": "1090f9a06e92d0973108d9edd0a2f77074fb53388260e772ae520d299a5d56a9",
+      "description_sha256": "8cbd0f65c70a930e5b2e792dd98ad220725ee500aae620b314b79d4289e92c03",
       "clean_source": {
         "id": "literal-import",
         "fork": "grouville/dagger",
@@ -249,7 +254,9 @@
         "compare": "https://github.com/dagger/dagger/compare/80699ac67a1c72dc38d30c4186105cd9dd3afde6...grouville:dagger:pr/go-collections-literal-import",
         "measured_head": "61c5f1cbd2d6b9868549097c715197a422dd5abf",
         "message_only_rewrite": true
-      }
+      },
+      "pr": "https://github.com/dagger/dagger/pull/14733",
+      "pr_state": "CLOSED"
     },
     {
       "id": "trivial-scalars",
@@ -266,7 +273,7 @@
       "description": "PR_ENGINE_TRIVIAL_SCALARS.md",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/commit/e08f2f4f55f2f16189bcf9580148032e993745bf",
-      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
+      "opening_gate": "Assess actual benefit, implementation complexity and correctness risk before opening. Microbenchmark wins alone do not qualify.",
       "numstat": "17\t2\tdagql/objects.go\n31\t0\tdagql/trivial_scalar_projection_bench_test.go\n160\t0\tdagql/trivial_scalar_projection_test.go",
       "production_files": [
         "dagql/objects.go"
@@ -298,7 +305,7 @@
       "description": "PR_SCHEMA_ARGUMENT_ITERATION.md",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/commit/67eec58314e531fb96eb2eed8b1d6c02617a3594",
-      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
+      "opening_gate": "Assess actual benefit, implementation complexity and correctness risk before opening. Microbenchmark wins alone do not qualify.",
       "numstat": "100\t0\tdagql/input_definition_iteration_test.go\n25\t9\tdagql/objects.go",
       "production_files": [
         "dagql/objects.go"
@@ -330,7 +337,7 @@
       "description": "PR_GLOB_LITERAL_SUFFIX.md",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/commit/3d347c3228f0f31d1ad7688d0d60dd4f36c3f6fc",
-      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
+      "opening_gate": "Assess actual benefit, implementation complexity and correctness risk before opening. Microbenchmark wins alone do not qualify.",
       "numstat": "76\t0\tutil/patternmatcher/literal_suffix_test.go\n13\t0\tutil/patternmatcher/patternmatcher.go",
       "production_files": [
         "util/patternmatcher/patternmatcher.go"
@@ -362,14 +369,14 @@
       "description": "PR_CLASS_FORK_HISTORY_ISOLATION.md",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/commit/ba6a61922371c499bf473b5beb3f51f170f8ed52",
-      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
+      "opening_gate": "Assess actual benefit, implementation complexity and correctness risk before opening. Microbenchmark wins alone do not qualify.",
       "numstat": "39\t0\tdagql/class_fork_history_test.go\n2\t2\tdagql/objects.go",
       "production_files": [
         "dagql/objects.go"
       ],
       "source_branch_status": "Verified pushed head; no new source changes in this preparation.",
-      "title": "fix(dagql): isolate field override histories across class forks",
-      "description_sha256": "378b9dcc4784854de2e73bee5e661d0964bb47e2325f43c30bf0756fcc86d01a",
+      "title": "fix(dagql): keep field overrides independent after a class fork",
+      "description_sha256": "acebc7579fa37511f8cd2f63bca0ec85c32168c1a5897bab8ed170d32b466b7e",
       "clean_source": {
         "id": "class-history",
         "fork": "grouville/dagger",
@@ -394,14 +401,14 @@
       "description": "PR_DANG_LIST_ELEMENT_TYPES.md",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/commit/231995ae7f4b0a2c5edc863addd946bad05ff8b2",
-      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
+      "opening_gate": "Assess actual benefit, implementation complexity and correctness risk before opening. Microbenchmark wins alone do not qualify.",
       "numstat": "1\t1\tcore/sdk/dang/v2/helpers.go\n39\t0\tcore/sdk/dang/v2/list_conversion_test.go",
       "production_files": [
         "core/sdk/dang/v2/helpers.go"
       ],
       "source_branch_status": "Verified pushed head; no new source changes in this preparation.",
-      "title": "fix(dang): preserve element types when restoring lists",
-      "description_sha256": "62e4bcdf86d73b8a8033ac0c60b3409fc652d8f7a5960bd77e7732984cb9e414",
+      "title": "fix(dang): keep the element type when converting a list",
+      "description_sha256": "15c9683b01770aacd4fb2f1450851dacbad0b455961e47af406fab838693a349",
       "clean_source": {
         "id": "list-types",
         "fork": "grouville/dagger",
@@ -422,7 +429,7 @@
       "patch_sha256": "a1a99b636b83c9e35d99c764c4e259fa78e4073f8339d60b19f59012bb47e773",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/experiments/dang-coerced-method-hoisting/method-hoisting.patch",
-      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
+      "opening_gate": "Assess actual benefit, implementation complexity and correctness risk before opening. Microbenchmark wins alone do not qualify.",
       "files": [
         "pkg/dang/block.go"
       ],
@@ -448,12 +455,12 @@
       "patch_sha256": "bf643ca1f65e3a029610a5bbc5910829777b0b49681f67453715aaebc5c12c3b",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/experiments/dang-lazy-error-context/lazy-eval-error-context.patch",
-      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
+      "opening_gate": "Assess actual benefit, implementation complexity and correctness risk before opening. Microbenchmark wins alone do not qualify.",
       "files": [
         "pkg/dang/eval.go"
       ],
-      "title": "perf(dang): read source-error context only when evaluation fails",
-      "description_sha256": "b27c10c49d4a27cf6b0e8f04f58d6858919af460d76e917a30aa5bbf445a98bf",
+      "title": "perf: look up source context only when evaluation fails",
+      "description_sha256": "874708e7e255f6b8de8876b271ae7a5bb855a7fe1b8fbfe6f9d112db4b1d9e26",
       "clean_source": {
         "id": "lazy-error-context",
         "fork": "grouville/dang",
@@ -474,13 +481,13 @@
       "patch_sha256": "3b6f7bd6fd2c3a4fa74336e08006a8397790c17cd2ed9297c58e0b3473469ae3",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/experiments/go-runtime-preparation-current/callback-standalone.patch",
-      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
+      "opening_gate": "Assess actual benefit, implementation complexity and correctness risk before opening. Microbenchmark wins alone do not qualify.",
       "files": [
         "pkg/dang/callback_caller_test.go",
         "pkg/dang/stdlib.go"
       ],
-      "title": "perf(dang): reuse empty callers for concrete function callbacks",
-      "description_sha256": "f3d4135cebd94e349ccc00af7c670c6dce5d99645af17c72052349aa0b53c5cc",
+      "title": "perf: avoid building an empty object for every callback",
+      "description_sha256": "415f285b0c7f2a0cdb18b9e675689263554d907f69af59c7ca6ca35a8695de87",
       "clean_source": {
         "id": "callback-caller",
         "fork": "grouville/dang",
@@ -501,13 +508,13 @@
       "patch_sha256": "dcc01064de46b175f29f72f092cefe4a2a56482d555c62c4e12f80ec2a3a8940",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/experiments/dang-nested-selection-elements/standalone.patch",
-      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
+      "opening_gate": "Assess actual benefit, implementation complexity and correctness risk before opening. Microbenchmark wins alone do not qualify.",
       "files": [
         "pkg/dang/ast_expressions.go",
         "pkg/dang/nested_selection_elements_test.go"
       ],
-      "title": "fix(dang): preserve non-null elements in nested list selections",
-      "description_sha256": "1618002cfc3702f22414f6c7337cc2b4fcfd735f1ecad904cf73d065c2e880c8",
+      "title": "fix: preserve required elements in nested list selections",
+      "description_sha256": "00864e17153abe6f3b2f8732a1a8543a2239b467ab4c97703a1fb042d88b4946",
       "clean_source": {
         "id": "nested-selection",
         "fork": "grouville/dang",
@@ -533,7 +540,7 @@
         "go.dang"
       ],
       "numstat": "28\t0\t.dagger/modules/go-dev/main.dang\n63\t30\tgo.dang",
-      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
+      "opening_gate": "Assess actual benefit, implementation complexity and correctness risk before opening. Microbenchmark wins alone do not qualify.",
       "title": "perf(go): share generation matching during package discovery",
       "description_sha256": "38162a5372c8e34b7d9ea50cb64732d5d74f1fa3e85cb16dd0b0d280764ac3d9",
       "clean_source": {
@@ -560,7 +567,7 @@
         "go.dang"
       ],
       "numstat": "2\t2\tgo.dang",
-      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
+      "opening_gate": "Assess actual benefit, implementation complexity and correctness risk before opening. Microbenchmark wins alone do not qualify.",
       "title": "perf(go): use native membership for generation directories",
       "description_sha256": "0dacca126acf70c5d0334de07ccccd7e67c0b9df67087f046e466bd6bc93123f",
       "clean_source": {

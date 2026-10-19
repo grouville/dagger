@@ -1,8 +1,10 @@
 # Go collection performance: draft PR review queue
 
+Current contribution assessment: **#14730 and #14731 remain drafts; #14732 and #14733 are closed pending stronger justification.** No further PR is being opened on a microbenchmark win alone. [Evidence and decisions](GO_COLLECTION_STANDALONE_REVIEW.md).
+
 Sixteen descriptions are prepared for review: **13 performance proposals and 3 correctness fixes**. All sixteen source branches are pushed, each one signed-off commit directly on its upstream main base. The [published branch manifest](experiments/standalone-go-collections/published-branches.json) links every clean source branch. This description branch remains separate.
 
-The [standalone verification report](GO_COLLECTION_STANDALONE_REVIEW.md) is the current source of performance claims. Figures in the queue below are historical experiments unless that report confirms a fresh standalone result. Draft PRs are authorized once the individual improvement and its scope are supported; an old combined-stack win is not sufficient.
+The [standalone verification report](GO_COLLECTION_STANDALONE_REVIEW.md) is the current source of performance claims. Figures in the queue below are historical experiments unless that report confirms a fresh standalone result. Opening requires a separate assessment of actual benefit, complexity and correctness risk. Historical gains and synthetic speedups alone are insufficient.
 
 The work comes from profiling the cost of listing Go test collections on the real dagger/dagger repository:
 
@@ -52,6 +54,6 @@ Published percentage reductions are calculated from the displayed column medians
 
 The ten clean dagger/dagger branches pass their package race checks on main `80699ac67a`. Both Go changes are independently ported onto module main `334136faaa`, with 21 targeted checks passing on the retained diagnostic engine. The four clean Dang branches pass the full interpreter race suite on main `da1bed304c` and are pushed to the newly created grouville/dang fork. Every branch is one commit on its own upstream main; none contains the other performance proposals.
 
-Before opening a PR, confirm its standalone result and the complexity/performance tradeoff. Mixed or unverified candidates stay on the forks. Fresh benchmarks preserve every attempt and use the same main source and fixtures on both sides, applying only that PR's production files to the candidate. The existing engines, volumes, telemetry settings and cache policies are preserved; a separate unchanged-main engine is planned for the module comparison.
+Before opening a PR, establish its real-workload value and explain why that justifies its complexity and correctness risk. Mixed or unverified candidates stay on the forks. Fresh benchmarks preserve every attempt and use the same main source and fixtures on both sides, applying only that PR's production files to the candidate. The existing engines, volumes, telemetry settings and cache policies are preserved; a separate unchanged-main engine is planned for the module comparison.
 
 The [source inventory](experiments/go-collection-pr-preparation/source-inventory.json) records exact reviewed heads, bases, patch hashes and publication status. Historical validation belongs to those sources; it is not reported as a fresh test run on a future port.

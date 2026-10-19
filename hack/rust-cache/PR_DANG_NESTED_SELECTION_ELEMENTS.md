@@ -1,19 +1,25 @@
-# fix(dang): preserve non-null elements in nested list selections
+# fix: preserve required elements in nested list selections
 
-Nested selection changes a list of required objects into a list whose objects appear nullable. Mapping their required string fields then fails with "cannot use [String]! as `[String!]!`". An otherwise valid program cannot compile.
+A nested selection can make Dang reject a valid program. We hit this while working on Go test collection listing, when selecting fields from lists of test-file search results.
 
-Carry the inferred element's non-null marker into the nested selected list type, as the top-level selection path already does. Runtime values and the outer list retain their existing behavior.
+For a list declared to contain required objects, selecting their fields should preserve that requirement. The nested-selection code drops it, so accessing a required string field later produces `[String]!` instead of `[String!]!`. Combining that result with a list of required strings then fails with `cannot use [String]! as [String!]!`.
 
-This was found while reducing Go test collection listing overhead on dagger/dagger: a normal nested selection over test-file search results exposed it. It is a correctness fix; no speedup is claimed.
+Preserve the element's non-null marker when building the nested selected type, as the top-level selection already does. Nullable elements and nullable fields must still be rejected where required strings are expected.
 
-### Regression
+### Reproducing
 
-A complete nested-selection program fails on pristine Dang da1bed304c and passes with the six-line inference change. The test verifies values and order, including an empty nested list, and keeps nullable elements and nullable fields rejected.
+The regression runs a complete program that selects `pages.{{matches.{{text}}}}`, combines the nested lists, and checks the values and their order. It includes an empty nested list, plus cases where the elements or fields really are nullable.
 
-The full pristine upstream interpreter, development interpreter and Dagger SDK race suites pass. Seven focused real-module checks pass after rebuilding the experimental engine, including the previously rejected selection, Unicode ordering, source overrides, test execution, binaries and generation.
+The valid case fails on main `da1bed304c` and passes with this fix; the nullable cases stay rejected:
 
-### Scope
+```sh
+go test -race -count=1 ./pkg/dang -run '^TestNestedSelectionPreservesElementNullability$'
+```
 
-The standalone patch changes type inference and its regression only. It adds no cache, lock, scheduling change or engine API.
+To check the rest of the interpreter:
 
-[Standalone patch](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/experiments/dang-nested-selection-elements/standalone.patch). [Reproduction and validation](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/NATIVE_DANG_NESTED_SELECTION_ELEMENTS.md).
+```sh
+go test -race -count=1 ./pkg/dang
+```
+
+This changes type inference, with no claimed speedup or change to runtime values.

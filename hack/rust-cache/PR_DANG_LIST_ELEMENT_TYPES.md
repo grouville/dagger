@@ -1,19 +1,23 @@
-# fix(dang): preserve element types when restoring lists
+# fix(dang): keep the element type when converting a list
 
-The Dagger SDK's Dang converter stores an incoming list's whole type in ListValue.ElemType. `ListValue.Type` then adds another list wrapper: restoring `[String!]!` reports [[String!]]!.
+While investigating Go test collection listing, I found that the Dagger SDK could turn a list of strings into a value whose reported type was a list of lists.
 
-Store the declared element type instead. Runtime contents and their JSON representation remain unchanged.
+The converter puts the whole list type in Dang's `ListValue.ElemType`. Dang then wraps that type in another list when reporting the value's type. For example, `[String!]!` is reported as `[[String!]]!`.
 
-This was found while profiling Go test collection listing on dagger/dagger, where list conversion runs during collection getters. It is a correctness fix; no speedup is claimed.
+Store the element type in `ElemType` instead. This changes one line in Dagger's Dang converter. The contents and serialized output stay the same; the reported type matches the list that was received.
 
-### Regression
+### Reproducing
 
-A table checks flat strings, empty lists, nullable elements and nested lists. All four cases fail on upstream main ff0b029a4d and pass with the one-line fix. Each case checks both the reported type and serialized contents.
+The regression covers strings, empty lists, nullable elements and nested lists. Each case checks the reported type and JSON contents. All four fail on main `80699ac67a` and pass with this fix:
 
-The full `core/sdk/dang/v2` race suite passes.
+```sh
+go test -race -count=1 ./core/sdk/dang/v2 -run '^TestConvertListPreservesElementType$'
+```
 
-### Scope
+To check the rest of the converter and SDK tests:
 
-The change belongs to Dagger's SDK converter, rather than the standalone Dang interpreter. It changes one production line and adds no cache, lock or runtime representation. It has not been installed in the benchmark engines, so no performance conclusion is attached to it.
+```sh
+go test -race -count=1 ./core/sdk/dang/v2
+```
 
-[Source](https://github.com/grouville/dagger/commit/231995ae7f4b0a2c5edc863addd946bad05ff8b2). [Regression and validation](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/NATIVE_DANG_LIST_ELEMENT_TYPES.md).
+This is a type-correctness fix found during the performance investigation; it does not claim a speedup.
