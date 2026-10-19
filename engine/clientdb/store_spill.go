@@ -83,9 +83,10 @@ func openSpillFile[Row any](
 	}
 
 	spill := &spillFile[Row]{
-		file:      file,
-		codec:     codec,
-		committed: size,
+		file:        file,
+		codec:       codec,
+		committed:   size,
+		writeOffset: size,
 	}
 	if err := spill.recover(ctx, size, onRecover); err != nil {
 		return nil, err
@@ -93,7 +94,6 @@ func openSpillFile[Row any](
 	if _, err := file.Seek(spill.writeOffset, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("seek spill writer: %w", err)
 	}
-	spill.writer = bufio.NewWriterSize(spillWriterFunc(spill.write), spillBufferSize)
 	return spill, nil
 }
 
@@ -111,6 +111,10 @@ func (s *spillFile[Row]) write(buf []byte) (int, error) {
 }
 
 func (s *spillFile[Row]) recover(ctx context.Context, size int64, onRecover func(Row)) error {
+	// A header-only file has no frames to recover.
+	if size == 1 {
+		return nil
+	}
 	scanner := newFrameScanner(s.file, 1, size)
 	for {
 		frameOffset := scanner.offset
@@ -173,6 +177,10 @@ func (s *spillFile[Row]) append(rows []Row) error {
 			return fmt.Errorf("append spill row ID %d after %d", id, previousID)
 		}
 		previousID = id
+	}
+
+	if s.writer == nil {
+		s.writer = bufio.NewWriterSize(spillWriterFunc(s.write), spillBufferSize)
 	}
 
 	start := s.writeOffset
@@ -388,7 +396,11 @@ func (s *spillFile[Row]) readBounds(id int64) (offset, committed int64, ok bool)
 }
 
 func (s *spillFile[Row]) close() error {
-	return errors.Join(s.writer.Flush(), s.file.Close())
+	var flushErr error
+	if s.writer != nil {
+		flushErr = s.writer.Flush()
+	}
+	return errors.Join(flushErr, s.file.Close())
 }
 
 type frameScanner struct {
