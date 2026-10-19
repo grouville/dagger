@@ -2122,6 +2122,16 @@ func (s *Server) Select(ctx context.Context, self AnyObjectResult, dest any, sel
 			if i+1 < len(sels) {
 				return fmt.Errorf("cannot sub-select enum of %s", res.Type())
 			}
+			switch values := enum.(type) {
+			case Array[String], Array[Int], Array[Float], Array[Boolean]:
+				// A value slice needs no per-element result identities. Append a
+				// copy so the destination cannot mutate the cached array.
+				plain := reflect.ValueOf(values)
+				if !isObj && destV.Type().Elem() == plain.Type().Elem() {
+					destV.Set(reflect.AppendSlice(destV, plain.Convert(destV.Type())))
+					return nil
+				}
+			}
 			for nth := 1; nth <= enum.Len(); nth++ {
 				val, err := s.loadNthValue(ctx, res, nth, false)
 				if err != nil {
