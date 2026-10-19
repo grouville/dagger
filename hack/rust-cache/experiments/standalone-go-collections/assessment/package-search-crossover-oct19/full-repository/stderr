@@ -1,0 +1,40 @@
+2026/10/19 16:46:40 WARN failed to open git repository err="core.repositoryformatversion does not support extension: worktreeconfig"
+[dagger] 30.0s elapsed · 1 steps running
+[dagger] 1m0s elapsed · 1 steps running
+[dagger] 1m30s elapsed · 2 steps running
+[dagger] 2m0s elapsed · 1 steps running
+[dagger] 2m30s elapsed · 3 steps running
+[dagger] 3m0s elapsed · 1 steps running
+[dagger] 3m30s elapsed · 3 steps running
+== TRACE ==  ✘ FAILED
+main-dagger check --module go --check test --list --all  3m59s
+! Post "http://dagger/query": context canceled
+
+✔ list artifacts 3m59s
+  ✔ uploading /tmp/dagger-go-collection-current-main 0.1s ████████████ 200 kB
+
+✘ main-dagger check --module go --check test --list --all 3m59s ERROR
+! Post "http://dagger/query": context canceled
+∅ Go.packages(
+  ┆ ws: currentWorkspace: Workspace!
+  ): GoPackages! 3m58s
+! context canceled
+∅ GomodGoMod.subpath(relativePath: "versioned_docs/version-0.16/api/snippets/debugging/go/terminal-container"): String! 0.1s
+! context canceled
+Traceback (most recent call last):
+  File "/tmp/rust-cache-sipsma-review/local_cli_collector.py", line 12, in <module>
+    raise SystemExit(subprocess.call([cli, *sys.argv[1:]], env=env))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 391, in call
+    return p.wait(timeout=timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 1264, in wait
+    return self._wait(timeout=timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 2053, in _wait
+    (pid, sts) = self._try_wait(0)
+                 ^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 2011, in _try_wait
+    (pid, sts) = os.waitpid(self.pid, wait_flags)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

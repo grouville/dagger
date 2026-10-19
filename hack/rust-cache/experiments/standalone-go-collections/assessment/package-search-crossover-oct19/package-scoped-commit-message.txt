@@ -1,0 +1,21 @@
+perf(go): discover test names within each package
+
+Listing one package currently expands the matching test lines from the
+whole module, then filters them by filename. Repeating that for every
+package makes the work grow with the package and test counts together.
+
+Search each package directory for its direct test files instead. Keep the
+existing matcher and filename order. Directory traversal preserves literal
+filenames and skips symlinked test files, as the module-wide search does.
+Package-path discovery still uses the module-wide search.
+
+The complete 16-package fixture improves from 7.94 to 6.16 seconds across
+six alternating pairs, with about 29% fewer allocated bytes. One-package
+controls are close to flat. An identical-code control is 8.25 seconds on
+both sides. Separate wcprof captures show 2,176 to 256 matched-line reads.
+
+Check Unicode names, literal filenames, symlinks, mounted content and
+files and package directories added through Dagger. The last case requires
+the separate engine fix in dagger/dagger#14740 before this can merge.
+
+Signed-off-by: Guillaume de Rouville <guillaume@dagger.io>
