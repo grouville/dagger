@@ -11,6 +11,7 @@ import (
 	"github.com/dagger/dagger/core/workspace"
 	"github.com/dagger/dagger/dagql"
 	"github.com/dagger/dagger/engine"
+	fstypes "github.com/dagger/dagger/internal/fsutil/types"
 )
 
 // ModuleDeclaredGitClients reads the git clients that the config governing a
@@ -88,19 +89,33 @@ func hostFileReader(ctx context.Context, src *ModuleSource) (workspace.TreeFileR
 	if err != nil {
 		return nil, err
 	}
+	return hostTreeFileReader(hostCtx, root, bk), nil
+}
+
+type hostTreeReaderClient interface {
+	ReadCallerHostFile(context.Context, string) ([]byte, error)
+	StatCallerHostPath(context.Context, string, bool) (*fstypes.Stat, error)
+}
+
+func hostTreeFileReader(ctx context.Context, root string, client hostTreeReaderClient) workspace.TreeFileReader {
 	return func(rel string) ([]byte, bool, error) {
 		abs := filepath.Join(root, filepath.FromSlash(rel))
-		stat, err := bk.StatCallerHostPath(hostCtx, abs, false)
+		data, readErr := client.ReadCallerHostFile(ctx, abs)
+		if readErr == nil {
+			return data, true, nil
+		}
+		if status.Code(readErr) == codes.NotFound {
+			return nil, false, nil
+		}
+		// A directory is not a config file. Stat only after a failed read so
+		// successful reads need one host request and all other errors survive.
+		stat, err := client.StatCallerHostPath(ctx, abs, false)
 		if status.Code(err) == codes.NotFound {
 			return nil, false, nil
 		}
 		if err != nil || stat.IsDir() {
 			return nil, false, err
 		}
-		data, err := bk.ReadCallerHostFile(hostCtx, abs)
-		if err != nil {
-			return nil, false, err
-		}
-		return data, true, nil
-	}, nil
+		return nil, false, readErr
+	}
 }
