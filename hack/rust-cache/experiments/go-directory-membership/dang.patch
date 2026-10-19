@@ -1,0 +1,142 @@
+diff --git a/pkg/dang/eval.go b/pkg/dang/eval.go
+index e1eaaaa..1e1ae51 100644
+--- a/pkg/dang/eval.go
++++ b/pkg/dang/eval.go
+@@ -1351,6 +1351,27 @@ func (m MapValue) With(key string, value Value) MapValue {
+ 	return MapValue{Keys: keys, Entries: entries, ValType: m.ValType}
+ }
+ 
++// Merge returns a new map, preserving left-hand key positions and appending
++// new right-hand keys in order. Right-hand values win on overlapping keys.
++func (m MapValue) Merge(other MapValue) MapValue {
++	if len(other.Keys) == 0 {
++		return m
++	}
++	keys := make([]string, len(m.Keys), len(m.Keys)+len(other.Keys))
++	copy(keys, m.Keys)
++	entries := make(map[string]Value, len(m.Entries)+len(other.Keys))
++	for key, value := range m.Entries {
++		entries[key] = value
++	}
++	for _, key := range other.Keys {
++		if _, exists := entries[key]; !exists {
++			keys = append(keys, key)
++		}
++		entries[key] = other.Entries[key]
++	}
++	return MapValue{Keys: keys, Entries: entries, ValType: m.ValType}
++}
++
+ // Without returns a copy of the map with key removed.
+ func (m MapValue) Without(key string) MapValue {
+ 	if _, exists := m.Entries[key]; !exists {
+diff --git a/pkg/dang/map_merge_test.go b/pkg/dang/map_merge_test.go
+new file mode 100644
+index 0000000..6537c1e
+--- /dev/null
++++ b/pkg/dang/map_merge_test.go
+@@ -0,0 +1,87 @@
++package dang
++
++import (
++	"fmt"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++func TestMapMerge(t *testing.T) {
++	t.Parallel()
++	require.NoError(t, evalExample(`
++let left = ["a": 1, "b": 2]
++let right = ["b": 20, "c": 3]
++let merged = left.merge(right)
++assert { merged.keys == ["a", "b", "c"] }
++assert { merged.values == [1, 20, 3] }
++assert { left.keys == ["a", "b"] and left.values == [1, 2] }
++assert { right.keys == ["b", "c"] and right.values == [20, 3] }
++let empty: Map[Int!]! = [:]
++assert { left.merge(empty) == left }
++assert { empty.merge(right) == right }
++assert { left.merge(left) == left }
++`))
++}
++
++func TestMapMergeDoesNotAliasInputs(t *testing.T) {
++	t.Parallel()
++	left := MapValue{Keys: []string{"a", "b"}, Entries: map[string]Value{"a": IntValue{Val: 1}, "b": IntValue{Val: 2}}, ValType: IntValue{}.Type()}
++	right := MapValue{Keys: []string{"b", "c"}, Entries: map[string]Value{"b": IntValue{Val: 20}, "c": IntValue{Val: 3}}, ValType: left.ValType}
++	merged := left.Merge(right)
++	require.Equal(t, []string{"a", "b", "c"}, merged.Keys)
++	require.Equal(t, left.ValType, merged.ValType)
++	merged.Keys[0] = "changed"
++	merged.Entries["a"] = IntValue{Val: 100}
++	merged.Entries["b"] = IntValue{Val: 200}
++	require.Equal(t, []string{"a", "b"}, left.Keys)
++	require.Equal(t, IntValue{Val: 1}, left.Entries["a"])
++	require.Equal(t, IntValue{Val: 2}, left.Entries["b"])
++	require.Equal(t, []string{"b", "c"}, right.Keys)
++	require.Equal(t, IntValue{Val: 20}, right.Entries["b"])
++	fromZero := (MapValue{}).Merge(right)
++	require.Equal(t, right.Keys, fromZero.Keys)
++	require.Equal(t, right.Entries, fromZero.Entries)
++	require.Nil(t, fromZero.ValType)
++}
++
++var benchmarkMapMerge MapValue
++
++func BenchmarkMapMerge(b *testing.B) {
++	for _, count := range []int{8, 128, 512} {
++		for _, overlap := range []bool{false, true} {
++			left := MapValue{Entries: map[string]Value{}, ValType: IntValue{}.Type()}
++			right := MapValue{Entries: map[string]Value{}, ValType: left.ValType}
++			for i := range count {
++				key := fmt.Sprintf("key-%05d", i)
++				left.Keys = append(left.Keys, key)
++				left.Entries[key] = IntValue{Val: i}
++				if !overlap {
++					key = fmt.Sprintf("other-%05d", i)
++				}
++				right.Keys = append(right.Keys, key)
++				right.Entries[key] = IntValue{Val: -i}
++			}
++			b.Run(fmt.Sprintf("keys=%d/overlap=%t", count, overlap), func(b *testing.B) {
++				got := left.Merge(right)
++				wantLen := 2 * count
++				if overlap {
++					wantLen = count
++				}
++				require.Len(b, got.Entries, wantLen)
++				require.Equal(b, left.Keys, got.Keys[:count])
++				if !overlap {
++					require.Equal(b, right.Keys, got.Keys[count:])
++				}
++				for _, key := range right.Keys {
++					require.Equal(b, right.Entries[key], got.Entries[key])
++				}
++				b.ReportAllocs()
++				b.ResetTimer()
++				for b.Loop() {
++					benchmarkMapMerge = left.Merge(right)
++				}
++			})
++		}
++	}
++}
+diff --git a/pkg/dang/stdlib.go b/pkg/dang/stdlib.go
+index da174c4..7aa152d 100644
+--- a/pkg/dang/stdlib.go
++++ b/pkg/dang/stdlib.go
+@@ -1014,11 +1014,7 @@ func registerStdlib() {
+ 			if !ok {
+ 				return nil, fmt.Errorf("merge expects a map, got %T", otherVal)
+ 			}
+-			result := m
+-			for _, k := range other.Keys {
+-				result = result.With(k, other.Entries[k])
+-			}
+-			return result, nil
++			return m.Merge(other), nil
+ 		})
+ 
+ 	// Map.keys method: keys -> [String!]!

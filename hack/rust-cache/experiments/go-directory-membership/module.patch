@@ -1,0 +1,15 @@
+diff --git a/go.dang b/go.dang
+index dffaf1d..44837ac 100644
+--- a/go.dang
++++ b/go.dang
+@@ -1342,8 +1342,8 @@ type GoGenerateMatches {
+ 
+   let select(dirs: [String!]!): [String!]! {
+     dirs.filter { dir =>
+-      (includeAll or included.any { match => match == dir })
+-        and excluded.any { match => match == dir } == false
++      (includeAll or included.contains(dir))
++        and excluded.contains(dir) == false
+     }
+   }
+ 
