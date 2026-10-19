@@ -1,0 +1,120 @@
+diff --git a/util/patternmatcher/literal_suffix_test.go b/util/patternmatcher/literal_suffix_test.go
+new file mode 100644
+index 0000000000..c25f96bccf
+--- /dev/null
++++ b/util/patternmatcher/literal_suffix_test.go
+@@ -0,0 +1,76 @@
++package patternmatcher
++
++import (
++	"fmt"
++	"strings"
++	"testing"
++)
++
++func TestLiteralSuffixMatchesRegexp(t *testing.T) {
++	patterns := []string{
++		"**/*.go", "*.go", "module/**/*.go", "a/**/b?.go", "**/*.go*", "**/*^.go",
++		"**/*[a-c].go", `**/\n`, `**/\*.go`, "**/*é.go", "**/*�.go", "**/*.$",
++	}
++	paths := []string{"", "file.go", "file.rs", "file.go/", "file.go/child", ".go", "a/.go", "a/bc.go", "module/a/b.go", "module/a/b.txt", "a/é.go", "a/�.go", "a/\xff.go", "a/\n", "a/n", "a/*.go", "a/file.$"}
++	for depth := range 8 {
++		for _, extension := range []string{".go", ".rs", ".go.tmp", ".txt"} {
++			paths = append(paths, strings.Repeat("some-directory/", depth)+"file"+extension)
++		}
++	}
++	for _, pattern := range patterns {
++		for _, exclude := range []bool{false, true} {
++			t.Run(fmt.Sprintf("%s/exclude=%t", pattern, exclude), func(t *testing.T) {
++				input := pattern
++				if exclude {
++					input = "!" + input
++				}
++				p, err := NewPattern(input)
++				if err != nil {
++					t.Fatal(err)
++				}
++				if err := p.compile("/"); err != nil {
++					t.Fatal(err)
++				}
++				if p.regexp == nil {
++					t.Fatal("test requires a regexp pattern")
++				}
++				for _, path := range paths {
++					want := p.regexp.MatchString(path)
++					got, err := p.match(path)
++					if err != nil || got != want {
++						t.Errorf("match(%q)=%t,%v; regexp=%t", path, got, err, want)
++					}
++					public, err := p.Match(path)
++					if err != nil || public != (want && !exclude) {
++						t.Errorf("Match(%q)=%t,%v", path, public, err)
++					}
++				}
++			})
++		}
++	}
++}
++
++var literalSuffixMatchSink bool
++
++func BenchmarkLiteralSuffix(b *testing.B) {
++	for _, path := range []string{"short.txt", strings.Repeat("some-directory/", 8) + "file.txt", strings.Repeat("some-directory/", 8) + "file.go"} {
++		b.Run(path, func(b *testing.B) {
++			p, err := NewPattern("**/*.go")
++			if err != nil {
++				b.Fatal(err)
++			}
++			if _, err := p.Match(path); err != nil {
++				b.Fatal(err)
++			}
++			b.ReportAllocs()
++			b.ResetTimer()
++			for b.Loop() {
++				matched, err := p.Match(path)
++				if err != nil {
++					b.Fatal(err)
++				}
++				literalSuffixMatchSink = matched
++			}
++		})
++	}
++}
+diff --git a/util/patternmatcher/patternmatcher.go b/util/patternmatcher/patternmatcher.go
+index 4a469f25cd..531069ec96 100644
+--- a/util/patternmatcher/patternmatcher.go
++++ b/util/patternmatcher/patternmatcher.go
+@@ -272,6 +272,7 @@ type Pattern struct {
+ 	cleanedPattern string
+ 	dirs           []string
+ 	regexp         *regexp.Regexp
++	literalSuffix  string
+ 	exclusion      bool
+ }
+ 
+@@ -359,6 +360,9 @@ func (p *Pattern) match(path string) (bool, error) {
+ 		// **/foo matches "foo"
+ 		return suffix[0] == os.PathSeparator && path == suffix[1:], nil
+ 	case regexpMatch:
++		if p.literalSuffix != "" && !strings.HasSuffix(path, p.literalSuffix) {
++			return false, nil
++		}
+ 		return p.regexp.MatchString(path), nil
+ 	}
+ 
+@@ -460,6 +464,15 @@ func (p *Pattern) compile(sl string) error {
+ 	}
+ 
+ 	p.regexp = re
++	// Reject impossible literal endings before running the regexp. Keep escapes
++	// and character classes on the general path. ASCII suffixes also preserve
++	// regexp's treatment of invalid UTF-8 in paths as replacement runes.
++	if !strings.ContainsAny(pattern, `[]\`) {
++		suffix := pattern[strings.LastIndexAny(pattern, "*?^")+1:]
++		if strings.IndexFunc(suffix, func(r rune) bool { return r > 127 }) == -1 {
++			p.literalSuffix = suffix
++		}
++	}
+ 	p.matchType = regexpMatch
+ 	return nil
+ }

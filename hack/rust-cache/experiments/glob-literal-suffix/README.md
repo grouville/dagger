@@ -1,0 +1,13 @@
+This study follows current profiles of both the CLI and engine. A 13-line matcher change rejects paths with impossible literal endings before entering the existing regexp. The production source is pushed to `grouville/dagger`, branch `experiment/glob-literal-suffix`; no PR is opened.
+
+[Measurements and limits](../../NATIVE_GLOB_LITERAL_SUFFIX.md). [Prepared PR description](../../PR_GLOB_LITERAL_SUFFIX.md). [Standalone source and tests](change.patch).
+
+Complete warm test-edited listing is 6.93 → 6.69 seconds median, faster in all four pairs; ordinary-source listing is 4.03 → 3.96 seconds, faster in three of four pairs. CLI CPU decreases in all eight pairs. The component's large rejection gain is not an end-to-end multiplier. These results are not additive with earlier cohorts and establish no cold-cache, restart, engine-only or Rust latency gain.
+
+The same diagnostic CLI binary runs both modes on the retained engine. The original CLI and all sixteen engine binaries and volumes are preserved. `final-state.json` verifies restoration and idle lifecycle state. No new engine is created.
+
+The archive includes original/candidate component pairs, pattern and host-glob race results, 27 Go checks, 28 Rust/native-cache cases, all 24 complete timed invocations, initial CLI CPU attribution, and four independent comparative wcprof/CPU captures. Every comparative trace retains all 800 getters, 804 module evaluations, 799 discovery hits and 1,415 SDK requests. Each compressed wcprof chunk sequence was reconstructed byte-for-byte against the original complete stream, with no dropped events or open operations. CLI profile windows omit startup and an unfinished exit tail; their expected connection closure is recorded. Diagnostic durations are not timing samples.
+
+`archive.json` records the archive size and digest; `manifest.json` hashes every member. `timing-analysis.json` contains all paired differences, including the slower source pair. `cli-attribution.json` gives sampled regex/glob CPU. `source-identity.json` identifies the standalone review commit. `cli-source-manifest.json` identifies every exact CLI overlay input; their contents are archived. The production patch has no diagnostic switch. `source-parent.json` identifies the verified prior archive containing the unchanged engine and common development-stack source evidence.
+
+Engine binaries, the diagnostic CLI binary and redundant uncompressed wcprof streams are excluded. All archive members were independently checked against their manifest entries. The larger schema-sharing idea remains unimplemented until custom forks and class mutations have a sound snapshot identity.
