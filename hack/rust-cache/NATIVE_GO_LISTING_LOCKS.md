@@ -1,5 +1,19 @@
 # Parallel client admission does not establish a listing improvement
 
+## Current compact-owner retest
+
+The current-stack retest remains unselected: complete test-edited listing changes **10.16 → 9.64 seconds median**, faster in three of four pairs; ordinary-source listing changes **6.70 → 6.79 seconds**, faster in two pairs. Test-edit engine CPU rises slightly **52.25 → 52.53 CPU-s**. The modest, mixed command-level result does not justify selecting the additional concurrency.
+
+The preceding compact-owner profile records 2.35 seconds of lifecycle waiting on the main-query critical path, motivating the retest. Both arms use the same engine binary, CLI and Go module `de633b12ed2aa02e42adb698a23fcecc13faf36d`; only the existing parallel-admission switch changes. Prepared-schema reuse is enabled in both, with callback-caller reuse and shared receiver decoding disabled. Each command starts a fresh CLI and makes a real edit on the warm engine; both arms complete test addition and removal before four measured pairs per workload. All 24 commands return correct ordered names and identical full rows, and exit successfully with telemetry, ordinary GC and full cleanup included.
+
+Four lossless captures separate test edits from shared discovery, with no dropped or open operations. Increasing admission concurrency makes lifecycle waits cease dominating the candidate's critical path, while API waits, telemetry flushing and other work take more of it. Those diagnostic durations are not additional latency gains. Test-edited captures retain 804 evaluations, 1,494 SDK requests, 800 getter executions and the same 799 discovery hits plus one execution.
+
+The separate current allocation attribution also finds that converting the repeated collection-key lists costs only **0.16 sampled CPU-s out of 51.04 CPU-s**. Their 640,000 entries are a scaling concern, not evidence that a new conversion cache would materially improve this command. Direct callback-wrapper allocation has a larger measured cost and leads to the useful [callback-caller retest](NATIVE_DANG_CALLBACK_CALLER.md). Configuration freshness guards still issue many requests; earlier in-progress read sharing remains rejected for stale observations after edits.
+
+No new admission code is added and the switch is restored to disabled. All four retained engines and cache volumes remain unchanged. [Current measurements, attribution and all profiles](experiments/go-runtime-preparation-current/).
+
+## Earlier comparison on the older stack
+
 Complete Go test listing takes **48.69 → 48.48 seconds median** over four alternating pairs. All commands return the correct rows and exit successfully, but the variation is much larger than the difference. The candidate remains disabled. The selected full-command result remains **53.58 → 46.72 seconds** from the separate [span-index comparison](NATIVE_GO_WIDE_TRACE_INDEX.md).
 
 ## The measured queue
