@@ -1,0 +1,17 @@
+--- a/pkg/dang/stdlib.go
++++ b/pkg/dang/stdlib.go
+@@ -1190,6 +1190,14 @@
+ 		return nil, fmt.Errorf("function has %d parameters but %d arguments provided", len(paramNames), len(args))
+ 	}
+ 
++	if function, ok := callable.(FunctionValue); ok {
++		callArgs := make(map[string]Value)
++		for i, arg := range args {
++			callArgs[paramNames[i]] = arg
++		}
++		return function.Call(ctx, NewObject(NewType("_temp_", ObjectKind)), callArgs)
++	}
++
+ 	callArgs := make(map[string]Value)
+ 	for i, arg := range args {
+ 		callArgs[paramNames[i]] = arg
