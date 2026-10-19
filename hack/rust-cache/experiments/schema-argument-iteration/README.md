@@ -1,0 +1,13 @@
+This study compares the same complete Go test-collection listing with schema argument selection disabled and enabled. All 800 authored getters still execute after a test-file edit. The standalone source is pushed to `grouville/dagger`, branch `experiment/schema-argument-iteration`, commit `67eec58314e531fb96eb2eed8b1d6c02617a3594`. No PR is opened.
+
+[Review and limitations](../../NATIVE_SCHEMA_ARGUMENT_ITERATION.md). [Prepared PR description](../../PR_SCHEMA_ARGUMENT_ITERATION.md). [Production patch and tests](change.patch).
+
+Complete warm test-edited listing is 6.76 → 6.58 seconds median across four alternating pairs; exact allocation is 6.313 → 6.114 GB. This is a modest improvement, with an extra small allocation for direct argument-list callers above 15 inputs. It does not establish cold-cache, restart or Rust latency improvements. Prior cohort gains are not additive.
+
+The archive contains standalone baseline/candidate tests and component pairs, both full DagQL race results, 27 Go checks, 28 Rust cases, all 24 timed invocations, four independent lossless wcprof/CPU/allocation captures, and the earlier allocation attribution that selected this target. Uncompressed wcprof streams and engine binaries are excluded. Each compressed chunk sequence was reconstructed byte-for-byte against its original complete stream. All archive members were independently checked against the manifest.
+
+`archive.json` records the archive digest and size. `manifest.json` lists every member's digest and size. `timing-analysis.json` exposes every paired difference. `capture-attribution.json` verifies equal getter/discovery work, with no dropped events or open operations. Sampled allocation profiles can lag GC and include work from the preceding mode; per-command TotalAlloc counters are authoritative. Diagnostic captures are separate from timing cohorts.
+
+`source-parent.json` identifies the verified native-glob evidence archive containing the unchanged engine build inputs. `engine-source-delta.json` records the four changed/new build inputs; their exact contents are in the archive. The effective production-source manifest is `build-source-manifest.json`, with additional mode/test files described by the delta. `source-identity.json` identifies the standalone review commit. Its final test-only formatting changes do not alter the tested behavior.
+
+`final-state.json` verifies all sixteen prior/new engines and volumes remain intact, flags and profilers are restored, source worktrees are clean and no requests or runtimes remain active. The same original CLI is used throughout. Timings use warmed development engines and current-source edits; telemetry and normal cleanup remain enabled.
