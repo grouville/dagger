@@ -33,6 +33,8 @@ The earlier roughly 100-to-40-second period was also not engine-only. Parallel G
 
 ## What is ready
 
+An independent [Dang SDK list-type fix](NATIVE_DANG_LIST_ELEMENT_TYPES.md) is pushed on a standalone branch based on current main. Its regression fails before the one-line fix and passes afterward; the complete SDK package race suite passes. The [description](PR_DANG_LIST_ELEMENT_TYPES.md) is ready for review, with no PR open or latency claim. The latest [parallel-admission retest](NATIVE_PARALLEL_ADMISSION_CURRENT.md) regresses both current workloads and remains disabled.
+
 The two final Dang fixes each reproduce independently on pristine upstream and pass its full interpreter race suite. Their minimal patches and review descriptions are prepared. No new PR is opened.
 
 The combined listing prototype also passes real discovery, module-boundary and collection test-execution checks. The engine getter-identity change has focused cache/resource race coverage, and bulk metadata/projection has DagQL race and output-equivalence coverage. This does not establish universal compatibility across SDKs. The Go snapshot variant changes the direct discovery API; compatibility and a standalone upstream port remain work. The bulk metadata API requires the corresponding CLI and engine changes.

@@ -1,0 +1,43 @@
+[
+  {
+    "label": "baseline-regression",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-race",
+      "-count=1",
+      "-run=^TestConvertListPreservesElementType$",
+      "./core/sdk/dang/v2"
+    ],
+    "seconds": 10.847175140865147,
+    "exit_code": 1
+  },
+  {
+    "label": "candidate-regression",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-race",
+      "-count=1",
+      "-run=^TestConvertListPreservesElementType$",
+      "./core/sdk/dang/v2"
+    ],
+    "seconds": 11.731138264993206,
+    "exit_code": 0
+  },
+  {
+    "label": "candidate-sdk-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-race",
+      "-count=1",
+      "./core/sdk/dang/v2"
+    ],
+    "seconds": 6.368547049118206,
+    "exit_code": 0
+  }
+]

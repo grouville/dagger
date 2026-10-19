@@ -1,0 +1,146 @@
+{
+  "timings": {
+    "test": {
+      "medians": {
+        "before": {
+          "median_seconds": 7.149537649936974,
+          "median_engine_cpu": 31.103665999999976,
+          "median_allocated_bytes": 6485434480.0,
+          "commands": 4
+        },
+        "combined": {
+          "median_seconds": 8.339728956460021,
+          "median_engine_cpu": 34.466772499999934,
+          "median_allocated_bytes": 6389985900.0,
+          "commands": 4
+        }
+      },
+      "paired_seconds": [
+        -1.6963020202238113,
+        -0.7374521337915212,
+        0.09534821892157197,
+        -1.9963795349467546
+      ],
+      "median_paired_saving": -1.2168770770076662,
+      "faster_pairs": 1,
+      "commands": 12,
+      "all_correct": true
+    },
+    "source": {
+      "medians": {
+        "before": {
+          "median_seconds": 4.313704408006743,
+          "median_engine_cpu": 11.494093499999963,
+          "median_allocated_bytes": 2047894616.0,
+          "commands": 4
+        },
+        "combined": {
+          "median_seconds": 4.693756209919229,
+          "median_engine_cpu": 13.890387500000088,
+          "median_allocated_bytes": 2043241340.0,
+          "commands": 4
+        }
+      },
+      "paired_seconds": [
+        0.3002752079628408,
+        -0.31998869706876576,
+        -0.6607393729500473,
+        -0.2893694418016821
+      ],
+      "median_paired_saving": -0.30467906943522394,
+      "faster_pairs": 1,
+      "commands": 12,
+      "all_correct": true
+    }
+  },
+  "diagnostics": [
+    {
+      "arm": "before",
+      "analysis_seconds": 1.839227810036391,
+      "command_seconds": 8.743543183198199,
+      "module_evaluations": 804,
+      "sdk_requests": 1415,
+      "main_query": {
+        "id": 3552235,
+        "seconds": 8.243618798
+      },
+      "dropped": 0,
+      "open": 0,
+      "getters": {
+        "executed": 800
+      },
+      "discoveries": {
+        "hit": 799,
+        "executed": 1
+      }
+    },
+    {
+      "arm": "candidate",
+      "analysis_seconds": 1.8072174608241767,
+      "command_seconds": 6.89229478687048,
+      "module_evaluations": 804,
+      "sdk_requests": 1415,
+      "main_query": {
+        "id": 3765792,
+        "seconds": 6.42270364
+      },
+      "dropped": 0,
+      "open": 0,
+      "getters": {
+        "executed": 800
+      },
+      "discoveries": {
+        "hit": 799,
+        "executed": 1
+      }
+    },
+    {
+      "arm": "root-before",
+      "analysis_seconds": 1.294669761089608,
+      "command_seconds": 4.393425029003993,
+      "module_evaluations": 3,
+      "sdk_requests": 493,
+      "main_query": {
+        "id": 3978887,
+        "seconds": 3.857674701
+      },
+      "dropped": 0,
+      "open": 0,
+      "getters": {
+        "hit": 800
+      },
+      "discoveries": {
+        "hit": 800
+      }
+    },
+    {
+      "arm": "root-candidate",
+      "analysis_seconds": 1.2990757911466062,
+      "command_seconds": 4.323894327972084,
+      "module_evaluations": 3,
+      "sdk_requests": 493,
+      "main_query": {
+        "id": 4131362,
+        "seconds": 3.809876291
+      },
+      "dropped": 0,
+      "open": 0,
+      "getters": {
+        "hit": 800
+      },
+      "discoveries": {
+        "hit": 800
+      }
+    }
+  ],
+  "selected": false,
+  "reason": "Complete-command time and CPU regress in both workloads; each candidate improves only one of four pairs. Reduced lifecycle waiting in instrumented traces is not an end-to-end gain.",
+  "go_checks": 27,
+  "rust_native_cache_cases": 28,
+  "all_functional_expected_results": true,
+  "new_source_change": false,
+  "new_engine_change": false,
+  "cold_measured": false,
+  "rust_latency_measured": false,
+  "failed_capture": "The first baseline profile completed the CLI but failed during counter restoration because the script used a tuple as a flag key. All other restoration steps had run. The remaining counter was restored immediately, the engine was verified idle, and the raw trace buffer was preserved. The failed attempt is not counted as a successful profile. Only the four corrected captures are analyzed."
+}
