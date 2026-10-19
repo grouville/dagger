@@ -1,0 +1,26 @@
+The shared discovery-source snapshot is **not selected**. It preserves the tested discovery and execution behavior but makes complete Go collection listing slower in every measured pair.
+
+The current module queries the live workspace for module roots, owned Go files and source markers, then imports a native snapshot containing go.mod and test sources. The experiment imports all Go sources and go.mod files once, creates a synthetic workspace with the original cwd, and runs the same discovery functions against it. Test discovery receives the filtered test-source snapshot. The original workspace address remains the execution mount identity. No getter, configuration guard, selection rule or cleanup step is removed.
+
+| Complete listing after a real edit | Current module | Shared snapshot | Faster candidate pairs |
+| --- | ---: | ---: | ---: |
+| Ordinary Go source | 4.02 s | 5.43 s | 0/4 |
+| Test file | 7.47 s | 8.34 s | 0/4 |
+
+These medians come from four alternating measured pairs per workload, after both arms finish test-addition and removal initialization. Every invocation starts a fresh CLI on the same warm engine and includes telemetry, output, final flushing and successful session cleanup. All 24 commands return the expected ordered rows: 4,399 during the addition initialization and 4,398 thereafter. CPU profiling and wcprof are disabled during timings; ordinary garbage collection remains enabled. These are development-stack measurements, not a cold-start or released-engine result.
+
+Engine CPU rises **11.13 → 18.73 CPU-seconds** after ordinary-source edits and **30.02 → 37.55 CPU-seconds** after test edits. Exact TotalAlloc counter medians rise **1.90 → 2.81 GB** and **6.31 → 7.26 GB**, respectively. The median paired regressions are **1.29 s** and **1.25 s**; differences between separate medians are not those paired statistics.
+
+The comparison uses Go module 720a5258ad8212ab643bbeaa4084127b2e866800 and experimental commit 58c979f, on the identical p13 engine binary bab4d3a10f5499e86480aee4c70117c939e47a6bee2401005fb13d24349febcb. The CLI remains 97f7d82dc2f7b3da203aa683971ea3658b6de6a8e9b968a44905e379f499f965. The read-first configuration reader is enabled in both arms; lazy telemetry buffers and linear map merging remain disabled. Other selected switches match. No engine, cache volume or telemetry support is removed.
+
+Five public module checks pass: test-source snapshot freshness and test execution, ownership rebinding after module-layout changes, collections, generation globs and selection. Those checks cover edits, removals, source overrides, nested modules, cwd and literal/Unicode paths. This is enough to reject a slower experiment, not a claim of universal compatibility or a full Rust validation.
+
+Four separate lossless wcprof/CPU captures explain the regression without using diagnostic timings as benchmark results. Both test-edit captures execute 804 module evaluations and all 800 authored getters, with 799 unchanged test-discovery hits. Both ordinary-source captures execute only three module evaluations and retain all 800 getter and discovery hits. The regression is shared discovery work, rather than lost per-package cache reuse.
+
+The native path exposes an engine cost in `Server.Select`: when copying a terminal list into a typed slice, it loads and publishes a separate result for each scalar element. This is distinct from JSON output, where the prototype already handles primitive arrays in bulk. In the ordinary-source capture, scalar records labelled `String.glob` rise **80 → 9,450** and result-publication operations **1,092 → 6,527**. These labels describe scalar elements of glob results, not thousands of additional authored glob functions.
+
+On that candidate's 5.20-second diagnostic main-query critical path, host import occupies 0.934 s, result publication 0.706 s, scalar glob-result records 0.391 s, directory copying 0.211 s and filtering 0.081 s. The baseline diagnostic main query is 4.01 s. These are observations from separate captures, include waits and GC, and must not be added as promised savings. Broader import and snapshot copying remain costs even if scalar selection improves.
+
+The next engine experiment should preserve field evaluation and guards while copying plain immutable primitive arrays in bulk for destinations that require values. It must retain destination append/copy ownership and fall back for identity-bearing results, object lists, explicit Nth selections, nullable/custom enumerables and custom conversion behavior. Focused semantic tests and a direct-selection benchmark should precede another engine build. That experiment is not implemented or measured here. It would make the normal native-directory path cheaper rather than replace authored collection getters.
+
+The rejected source is retained on [the fork experiment branch](https://github.com/grouville/go/tree/experiment/go-discovery-source-snapshot). No PR is opened. All thirteen engines and volumes remain intact, diagnostic flags and files are restored, and no requests or runtimes remain active. [Complete attempts, source, counters and profiles](experiments/go-discovery-source-snapshot/) include the full module source, exact patch and a verified reference to the unchanged engine source archive.
