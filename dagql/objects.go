@@ -1319,6 +1319,18 @@ func (specs InputSpecs) Input(name string, view call.View) (InputSpec, bool) {
 }
 
 func (specs InputSpecs) Inputs(view call.View) (args []InputSpec) {
+	var inline [15]int
+	selected := specs.inputIndices(view, inline[:0])
+	args = make([]InputSpec, 0, len(specs.raw))
+	for _, i := range selected {
+		args = append(args, specs.raw[i])
+	}
+	return args
+}
+
+// inputIndices resolves view-specific overrides in their declaration order.
+// Callers can keep small selections on the stack without copying InputSpecs.
+func (specs InputSpecs) inputIndices(view call.View, indices []int) []int {
 	// This function is currently in the hot path, so we optimize duplicate checks by only using
 	// a map when the number of args is above a certain threshold, using slice iteration otherwise.
 	// The previous implementation that only used a map was a genuine bottleneck since most of the
@@ -1331,7 +1343,9 @@ func (specs InputSpecs) Inputs(view call.View) (args []InputSpec) {
 		seen = make(map[string]struct{}, len(specs.raw))
 	}
 
-	args = make([]InputSpec, 0, len(specs.raw))
+	if cap(indices) < len(specs.raw) {
+		indices = make([]int, 0, len(specs.raw))
+	}
 	for i := len(specs.raw) - 1; i >= 0; i-- {
 		// iterate backwards to allow last-defined spec to have precedence
 		spec := specs.raw[i]
@@ -1341,8 +1355,8 @@ func (specs InputSpecs) Inputs(view call.View) (args []InputSpec) {
 			_, alreadySeen = seen[spec.Name]
 		} else {
 			// check for duplicates w/ O(n^2) iteration since n is small
-			for _, a := range args {
-				if a.Name == spec.Name {
+			for _, selected := range indices {
+				if specs.raw[selected].Name == spec.Name {
 					alreadySeen = true
 					break
 				}
@@ -1356,13 +1370,13 @@ func (specs InputSpecs) Inputs(view call.View) (args []InputSpec) {
 			continue
 		}
 
-		args = append(args, spec)
+		indices = append(indices, i)
 		if seen != nil {
 			seen[spec.Name] = struct{}{}
 		}
 	}
-	slices.Reverse(args)
-	return args
+	slices.Reverse(indices)
+	return indices
 }
 
 func (specs InputSpecs) InputsFromResultCallArgs(ctx context.Context, args []*ResultCallArg, view call.View) (map[string]Input, error) {
@@ -1400,10 +1414,12 @@ func (specs InputSpecs) InputsFromResultCallArgs(ctx context.Context, args []*Re
 }
 
 func (specs InputSpecs) ArgumentDefinitions(view call.View) []*ast.ArgumentDefinition {
-	args := specs.Inputs(view)
-	defs := make([]*ast.ArgumentDefinition, 0, len(args))
+	var inline [15]int
+	selected := specs.inputIndices(view, inline[:0])
+	defs := make([]*ast.ArgumentDefinition, 0, len(selected))
 
-	for _, arg := range args {
+	for _, i := range selected {
+		arg := specs.raw[i]
 		schemaArg := &ast.ArgumentDefinition{
 			Name:        arg.Name,
 			Description: arg.Description,
