@@ -1,0 +1,42 @@
+{
+  "commit": "25c45058ec35fa3de7f717b0d996aef012d44d77",
+  "base": "b6a8e7900f1dfbb464e986d59ea66e49d620762c",
+  "upstream": "18d51f8291eabe93dc2b8e93dd47c8cfa6397625",
+  "branch": "experiment/frozen-core-field-definitions",
+  "url": "https://github.com/grouville/dagger/commit/25c45058ec35fa3de7f717b0d996aef012d44d77",
+  "dependency_branch": "experiment/class-fork-copy-on-write",
+  "clean": true,
+  "standalone_full_dagql_race_passed": true,
+  "exact_engine_overlay_full_dagql_race_passed": true,
+  "production_and_test_files": [
+    {
+      "path": "dagql/objects.go",
+      "sha256": "e684092070582fcc68fc06603f1d9869e6aee88664dafc776178cc15531a675a",
+      "bytes": 65824
+    },
+    {
+      "path": "dagql/server.go",
+      "sha256": "a96ed24d9fb22e0940a714c1e87d0374df1454d27a5d94adf2a2aa14d6418355",
+      "bytes": 94756
+    },
+    {
+      "path": "core/schema/coremod.go",
+      "sha256": "f45c6754ebe1600baac91b3d8d0ff5fb0a9850bc662bb9141013a429f868aa5a",
+      "bytes": 38885
+    },
+    {
+      "path": "dagql/frozen_field_definitions_test.go",
+      "sha256": "c7c3d14b405132a9682a4deb9483b922cd1c8e5dadfdd4b71dfcbdcb62bf0fa0",
+      "bytes": 6870
+    },
+    {
+      "path": "dagql/schema_definition_ownership_test.go",
+      "sha256": "4684f3eb48be087850404150c4c784bd345b5c3c005226e1812119d8bd4800aa",
+      "bytes": 2312
+    }
+  ],
+  "engine_sha256": "ee20d5d2cf7b93577e290b4a68c731b51f325a498aed0fd330873f2262fd831f",
+  "cli_sha256": "ca716780a17686774e2df72e69f10116e41b1f195426f9eaa6f6f5bc35a2efe2",
+  "scope": "Explicit opt-in at the private installed core-view boundary; new client execution state and getter evaluations remain private.",
+  "experimental_matrix": "Copy-on-write class storage is enabled in both arms, as required by the production parent commit; frozen metadata consumption alone changes."
+}
