@@ -1,11 +1,21 @@
-# dagql: isolate field override histories across forks
+# fix(dagql): isolate field override histories across class forks
 
-Class.ForkObjectType copies the field map but retains the backing arrays of its per-name override slices. If an override history has spare capacity, the parent and fork can append into the same slot. The later append silently replaces the other branch's field definition.
+Class.ForkObjectType copies the field map but retains the backing arrays of its per-name override histories. If a history has spare capacity, the parent and fork can append into the same slot. The later append silently replaces the other branch's definition.
 
-The regression checks both Install and Extend. It installs three versions, forks the class, then installs a different fourth version in each branch. On main the parent's definition becomes the fork's definition. With the fix each branch retains its own override.
+Clip each existing history's capacity before appending in Install and Extend. Both branches retain their previous entries, and the next append receives independent storage.
 
-Clip the existing history's capacity before appending in Install and Extend. This forces a new backing array instead of writing into shared storage. The existing entries and order remain the same. No locks or cache identity change.
+This was found while investigating schema preparation during Go test collection listing on dagger/dagger. It is a correctness fix; no listing speedup is claimed.
 
-The regression fails against freshly verified upstream main, 18d51f8291, with expected parent and actual fork. It passes with the two-line fix and the race detector. The tradeoff is an allocation when appending an override that would otherwise reuse spare capacity; read-only forks are unchanged. No listing speedup or production incident is claimed.
+### Regression
 
-[Source and regression evidence](experiments/class-fork-history-isolation/).
+Install three versions of a field, fork the class, and install a different fourth version in each branch. On upstream main 18d51f8291, the parent unexpectedly returns the fork's definition. The same regression passes with the fix.
+
+Both Install and Extend are covered, and the race check passes.
+
+### Scope and tradeoffs
+
+Two production lines change. No locks, cache identities or fork APIs change. Appending an override can allocate where it previously reused spare capacity; read-only forks are unaffected.
+
+This is independent of the proposed class copy-on-write optimization and should be reviewed separately.
+
+[Source](https://github.com/grouville/dagger/tree/fix/class-fork-history-isolation). [Reproduction and validation](https://github.com/grouville/dagger/tree/experiment/rust-native-cache/hack/rust-cache/experiments/class-fork-history-isolation).

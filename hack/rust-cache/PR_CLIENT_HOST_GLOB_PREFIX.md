@@ -1,18 +1,26 @@
-`Workspace.glob("core/*_test.go")` currently walks the entire host checkout. The existing shortcut handles literals and a final `*` or `**`, so it misses wildcard filenames. Listing tests across many packages repeats the same filesystem work.
+# perf(filesync): prune host globs by their directory prefix
 
-Skip subtrees outside the literal directory prefix before the first pattern character. The walk still starts at the workspace root, preserving traversal order and symlink handling. Patterns without a fixed prefix keep their full traversal.
+`Workspace.glob("core/*_test.go")` walks the entire host checkout. Its shortcut handles literal paths and a final * or **, but misses wildcard filenames. Go test discovery repeats this traversal across many packages.
 
-On the full `dagger/dagger` Go collection listing, two balanced pairs give:
+Skip subtrees outside the literal directory prefix before the first pattern character. Traversal still starts at the workspace root, retaining the existing matching and order. Patterns without a fixed prefix keep the full walk. This is part of reducing Go test collection listing overhead on dagger/dagger.
 
-| Metric | Before | After |
-| --- | ---: | ---: |
-| Complete command, median | 58.10 s | 53.76 s |
-| CLI CPU, median | 75.96 CPU-s | 39.45 CPU-s |
+### Performance
 
-All commands return identical 4,398 rows and exit successfully. Each starts a fresh CLI and edits the workspace on the same warm experimental engine, with telemetry and ordinary GC enabled. Both arms use the same Go module and CLI source; the host glob implementation is the only difference. An initialization pair is retained separately and excluded from the medians. Engine CPU and allocation remain comparable.
+Complete-command measurements use `dagger check --module go --check test --list --all`.
 
-On a 4,608-file fixture, `module00/pkg00/*_test.go` takes 8.33 → 0.085 ms and allocates 1.24 MB → 22.6 kB per call. The full-tree `**/*.go` control takes 12.06 → 12.14 ms. These are medians of three alternating pairs.
+| Complete listing | Before | After | Reduction |
+| --- | ---: | ---: | ---: |
+| Command time | 58.10 s | 53.76 s | 7.5% |
+| CLI CPU | 75.96 CPU-s | 39.45 CPU-s | 48.1% |
 
-The full client race suite passes. Added tests compare exact results and order against an unpruned walk, covering wildcard directory tails, character classes, escapes, Unicode, symlinks, absent prefixes and cancellation. Existing Go collection checks pass. Adding and removing a real test produces exactly 4,399 then 4,398 rows, with every other row preserved.
+Two alternating pairs, both faster. Every command starts a fresh CLI, edits source on the same warm experimental engine, returns identical 4,398 rows, and exits through normal telemetry and cleanup. Initialization is retained separately. Engine CPU and allocation remain comparable.
 
-This removes repeated host filesystem work; full-repository listing still has substantial engine overhead. The change is confined to the host glob walker and introduces no shared state or dependency. [Complete measurements and reproduction details](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/NATIVE_HOST_GLOB_PREFIX.md).
+On a 4,608-file fixture, `module00/pkg00/*_test.go` improves **8.33 → 0.085 ms**, allocating **1.24 MB → 22.6 kB**. The full-tree `**/*.go` control is effectively flat at **12.06 → 12.14 ms**. Component medians use three alternating pairs.
+
+### Validation and tradeoffs
+
+The full client race suite passes. Parity tests compare exact results and order with an unpruned walk, covering wildcard roots and tails, classes, escapes, Unicode, symlinks, absent prefixes and cancellation. Adding and removing a real test changes listing by exactly the expected row.
+
+The production patch is confined to the host walker, with no shared state or dependency. Two full-command pairs are limited evidence; they do not establish cold-start or clean-host performance.
+
+[Source](https://github.com/grouville/dagger/commit/2481e74b3e02d185d9ba566199e5f4dfdca28eca). [Measurements and reproduction](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/NATIVE_HOST_GLOB_PREFIX.md).

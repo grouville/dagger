@@ -1,3 +1,5 @@
+This historical description is superseded by the [combined import-and-removal draft](PR_ENGINE_SHARE_RESTORED_POSTINGS.md). Review those changes as one PR; do not open a second removal PR from this file. Its source and measurements remain below for traceability.
+
 Pruning a restored output class visits every digest for every result. Even when the digests share one imported membership map, removing R results with D aliases still does D × R work. Large groups occur in Go module discovery: one recorded class had 19,456 results and 19,457 digests.
 
 Record each result's original imported groups. Remove its membership once per group, then clean up that group's aliases when its last result disappears. Keep later digest-specific entries and the original membership boundaries after class merges. The existing graph lock protects the index; ownership and eviction policy follow the existing path.

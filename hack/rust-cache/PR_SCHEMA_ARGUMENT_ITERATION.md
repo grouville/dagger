@@ -1,13 +1,27 @@
-# dagql: avoid temporary input copies when building schemas
+# perf(dagql): build argument definitions without copying input specs
 
-When building argument definitions, DagQL first copies every selected InputSpec into a temporary slice, then reads that slice to construct the definitions. Most observed input-list allocation comes from this schema-building path.
+Schema construction copies selected `InputSpec` values into a temporary slice, then reads that slice to build argument definitions. Repeated schema preparation during Go collection expansion makes these short-lived copies expensive.
 
-Share the existing selection algorithm between callers, returning indices into the original specs. ArgumentDefinitions builds its output directly; Inputs still returns a separate list. View overrides, argument order, defaults, directives and validation remain the same. There is no new cache, lock or API.
+Share the selection algorithm as indices into the original specs. `ArgumentDefinitions` builds its output directly; Inputs still returns a separate list. This is part of reducing Go test collection listing overhead on dagger/dagger.
 
-Four alternating component pairs reduce allocation for eight definitions from **4,012 to 2,731 bytes** and time from **3.45 to 2.94 µs**. On complete dagger/dagger Go test listing after a test-file edit, the same warm experimental engine moves **6.76 → 6.58 s median**, allocating **6.313 → 6.114 GB**. All four pairs are faster, although paired savings range from 6 to 414 ms. Each command starts a fresh CLI and includes telemetry and cleanup. These are experimental-stack results, not cold-start or stock-release measurements.
+### Performance
 
-The tradeoff is one extra temporary allocation for direct Inputs calls with more than 15 raw arguments. The 16-argument benchmark moves **1.712 → 1.767 µs**, adding 128 bytes. Source-edit listing has flat CPU and allocation; no general latency gain is claimed.
+Complete-command measurements use `dagger check --module go --check test --list --all`.
 
-The full DagQL race suite passes on the standalone branch and development engine. Compatibility tests cover visibility, override precedence, metadata and output ownership. All 27 public Go checks, 28 Rust/native-cache cases and 24 timed listings pass with expected outcomes. Four lossless profiles retain all 800 getters, the same 804 module evaluations and 799 discovery hits.
+| Measurement | Before | After |
+| --- | ---: | ---: |
+| Complete listing after a test edit | 6.76 s | 6.58 s |
+| Cumulative engine allocation | 6.313 GB | 6.114 GB |
+| Eight argument definitions | 3.45 µs / 4,012 B | 2.94 µs / 2,731 B |
 
-[Source, complete measurements and limits](NATIVE_SCHEMA_ARGUMENT_ITERATION.md).
+Four alternating pairs per comparison. Complete listing improves **2.7%**, faster with lower CPU and allocation in every pair. Paired elapsed savings range from 6 to 414 ms, with a 157 ms median.
+
+Commands start a fresh CLI on the same warm experimental engine, make real edits, and include telemetry and successful cleanup. All 800 getters, 804 module evaluations and 799 discovery hits remain. Source-edit CPU and allocation are effectively flat.
+
+### Validation and tradeoffs
+
+Both standalone and development-engine full DagQL race suites pass. Tests cover visibility, override precedence, metadata and output ownership. The 27 Go checks, 28 Rust/native-cache cases and all 24 timed commands have their expected outcomes.
+
+Direct Inputs callers above 15 raw arguments incur one extra temporary allocation. The 16-argument control moves **1.712 → 1.767 µs**, adding 128 bytes. The patch adds no cache or lock and retains argument order, defaults and validation.
+
+[Source](https://github.com/grouville/dagger/tree/experiment/schema-argument-iteration). [Measurements and reproduction](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/NATIVE_SCHEMA_ARGUMENT_ITERATION.md).

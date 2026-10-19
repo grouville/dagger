@@ -1,18 +1,26 @@
-# Read source-error context only when evaluation fails
+# perf(dang): read source-error context only when evaluation fails
 
-Every `EvalNode` call currently looks up its source-error context before evaluating the node. When present, the same value is then stored in another context wrapper. Successful evaluations do not use it; absent values may require walking a deep caller context chain. Profiling Go test collection listing found about eight CPU-seconds in this lookup.
+Every `EvalNode` call looks up source-error context before evaluating its node. Successful evaluation does not use that value; an absent value can still require a deep context-chain walk. Go collection profiling found about eight CPU-seconds in this lookup.
 
-Use the received context directly during ordinary node dispatch and fetch source-error information only when an error needs wrapping. Keep the explicit `EvalNodeWithContext` behavior, including an explicit nil argument. Control-flow sentinels, raised errors and nil-value validation retain their existing paths. This adds no cache, lock or retained invocation state.
+Use the received context for ordinary dispatch and fetch source-error information when wrapping an error. Explicit `EvalNodeWithContext` calls retain their replacement behavior, including an explicit nil argument. This was found while reducing Go test collection listing overhead on dagger/dagger.
 
-On our development Dagger engine, complete listing improves:
+### Performance
 
-| Fresh edit on a warm engine | Before | After |
-| --- | ---: | ---: |
-| Test file | 12.88 s | 11.51 s |
-| Ordinary Go source | 6.67 s | 5.75 s |
+Complete-command measurements use `dagger check --module go --check test --list --all`.
 
-Both workloads improve in all four balanced pairs. Test-edit engine CPU falls 73.59 → 65.77 CPU-seconds; ordinary-source CPU falls 28.22 → 23.36. Full-command allocations are essentially unchanged. Every command starts a fresh CLI, edits real source, keeps telemetry and normal GC, includes cleanup and returns the correct ordered rows. Other development optimizations are enabled in both arms, including the separate typed-method fix. These measurements do not establish cold-start or stock-main Dagger performance.
+| Complete listing after a fresh edit | Before | After | Reduction |
+| --- | ---: | ---: | ---: |
+| Test file | 12.88 s | 11.51 s | 10.6% |
+| Ordinary source | 6.67 s | 5.75 s | 13.8% |
 
-The regression independently fails on pristine upstream `da1bed304cb80f8a2f0714f1747e7f64e03297a3` and passes with only this production patch. Tests cover source locations, inherited/replaced/explicitly nil contexts, cancellation causes, unsupported nodes and control-flow behavior. The full upstream interpreter race suite and full development interpreter race suite pass. Seven focused Go/library checks also pass, including collection test execution and module-boundary changes. All 20 complete listing commands succeed.
+Four alternating pairs per workload, faster in all eight. Engine CPU falls **73.59 → 65.77 CPU-s** for test edits and **28.22 → 23.36 CPU-s** for source edits. Allocation is essentially unchanged.
 
-Separate CPU captures support the intended mechanism: `GetEvalContext` falls from 8.07 CPU-seconds to no samples. The existing function evaluations, SDK request counts and collection discovery hits remain the same.
+Each command starts a fresh CLI on the same warm experimental engine, includes telemetry and successful cleanup, and returns the same ordered rows. Other development changes are present in both arms. Separate CPU captures show GetEvalContext dropping from 8.07 CPU-seconds to no samples; evaluations, SDK requests and discovery hits remain.
+
+### Validation and tradeoffs
+
+The focused regression fails on pristine Dang da1bed304c and passes with only this production patch. Tests cover source locations, inherited/replaced/nil contexts, cancellation, unsupported nodes, control-flow sentinels and nil-value validation.
+
+The full upstream and development interpreter race suites pass, as do seven focused Go/library checks. All 20 listings succeed. The standalone patch changes only `pkg/dang/eval.go`, with no cache, lock or retained invocation state. Cold-start and stock-main Dagger latency are unmeasured.
+
+[Standalone patch, commands and measurements](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/NATIVE_DANG_LAZY_ERROR_CONTEXT.md).

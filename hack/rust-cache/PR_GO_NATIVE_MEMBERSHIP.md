@@ -1,18 +1,28 @@
 # perf(go): use native membership for generation directories
 
-Generation-directory selection calls an interpreted equality callback for each candidate path. One real dagger/dagger listing performs 94,232 of these calls.
+Generation selection calls an interpreted equality callback for each candidate path. A real dagger/dagger listing performs 94,232 of these calls.
 
-Use the existing `List.contains` operation for the include and exclude lists. It uses the same string-equality implementation, preserves the existing globs and selection rules, and changes two lines. No engine change or cache is needed.
+Use the existing `List.contains` operation for include and exclude lists. It uses the same string-equality implementation and changes two lines. This is part of reducing Go test collection listing overhead on dagger/dagger.
 
-Complete listing on real dagger/dagger, with a fresh CLI and a warm development engine:
+### Performance
 
-| Edit | Before | After | Faster pairs |
+Complete-command measurements use `dagger check --module go --check test --list --all`.
+
+| Complete listing after a fresh edit | Before | After | Faster pairs |
 | --- | ---: | ---: | ---: |
 | Test file | 7.63 s | 7.44 s | 6/8 |
 | Ordinary source | 4.40 s | 4.17 s | 3/4 |
 
-Test-edit timing uses a fixed eight-pair follow-up after the first four-pair screen varied against earlier baselines. Its median paired saving is 111 ms; one slower candidate outlier remains in the evidence. Ordinary-source timing uses four pairs. Both cohorts remain in the evidence. Timings include telemetry, output and successful cleanup. All 44 real-repository commands across the four-pair screen, eight-pair follow-up and ordinary-source cohort return matching rows. Profiles retain all 800 authored getters and the existing per-package discovery hits. The 27 Go checks and 44 one-/sixteen-module timing commands pass, including generation exclusions, edits, selected execution and workspace restoration.
+Test-edit timing uses a fixed eight-pair follow-up: **2.5%** lower column median, with **111 ms median paired saving**. A slower candidate outlier remains included. Ordinary-source timing uses four pairs.
 
-The sixteen-module control is mixed: the initial cohort is 0.746 → 0.893 s (2/4 faster pairs), while a fixed follow-up is 0.744 → 0.694 s (5/8). Natural GC boundaries are uneven across arms; this does not establish a uniform small-repository gain.
+Each command starts a fresh CLI on the same warm experimental engine and includes telemetry and successful cleanup. All 44 real-repository commands across the initial screen and follow-ups return matching rows. Profiles retain all 800 getters and existing per-package discovery hits.
 
-This follows the discovery prototype at `511d381`; current upstream, cold and Rust timings remain unmeasured. [Source and complete evidence](NATIVE_GO_DIRECTORY_MEMBERSHIP.md).
+### Validation and tradeoffs
+
+The 27 Go checks and 44 one-/sixteen-module timing commands pass, covering generation exclusions, edits, selected execution and workspace restoration. Small-workspace results are mixed: the sixteen-module screen is **0.746 → 0.893 s**, while its fixed follow-up is **0.744 → 0.694 s**. No uniform small-repository gain is established.
+
+The patch adds no cache, engine change or selection rule. It removes interpreted callbacks using an existing operation.
+
+**Draft:** the measured commit follows shared generation matching on the discovery prototype. Port and validate the two-line change on the intended upstream base before review; cold and Rust timings remain unmeasured.
+
+[Measured commit](https://github.com/grouville/go/commit/720a5258ad8212ab643bbeaa4084127b2e866800). [All cohorts and reproduction](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/NATIVE_GO_DIRECTORY_MEMBERSHIP.md).

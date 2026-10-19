@@ -1,13 +1,28 @@
-# Recognize typed method declarations after type checking
+# perf(dang): recognize typed methods during declaration classification
 
-Type checking wraps typed methods in a conversion node. The declaration classifier checks only for a directly held function, so it treats those methods as variables that need initialization. Rebuilding an object then allocates a deferred initializer for every method and immediately runs it just to create the function value.
+Type checking wraps typed methods in a conversion node. The declaration classifier only recognizes a directly held function, so it treats those methods as variables needing initialization. Reconstructing an object then allocates and runs a deferred initializer just to create each method.
 
-Look through the conversion node when choosing the declaration phase. Evaluation keeps the original node, so type conversion, receivers and default arguments retain their existing behavior. This adds no cache, lock or public API.
+Look through the conversion node when choosing the declaration phase. Evaluation still uses the original node, retaining its conversion, receiver and defaults. This was found while reducing Go test collection listing overhead on dagger/dagger.
 
-This showed up while profiling Go test collections on dagger/dagger: expanding 800 package getters reconstructs 64,800 nested objects. On our development Dagger engine, complete listing after a real test-file edit improves **14.31 → 12.71 seconds**, faster in all four balanced pairs. Engine CPU falls **78.97 → 68.79 CPU-seconds** and allocation **17.40 → 16.62 GB**. A receiver-preparation fixture with 800 packages, 80 owners and 32 methods per owner improves **2.50 → 1.68 seconds**, with allocations **2.33 → 1.78 GB**.
+### Performance
 
-Ordinary-source-edited listing does not improve: **6.75 → 6.90 seconds**, faster in one of four pairs. The change helps when collection receivers must be rebuilt. The complete-command comparison uses the same local engine binary and Go module in both arms, with a warm engine, fresh CLI processes, real edits, telemetry, ordinary GC and successful cleanup. It does not establish a stock-main Dagger speedup or cold-start performance.
+Complete-command measurements use `dagger check --module go --check test --list --all`.
 
-The regression fails on clean upstream `da1bed304cb80f8a2f0714f1747e7f64e03297a3` and passes with the patch. It checks that a parsed, inferred method avoids variable initialization and still uses its current receiver and default argument. A second test covers a computed initializer calling a later method. The full upstream `./pkg/dang` race suite passes. Seven focused Go/library checks also pass, including collection test execution and module-boundary changes. All 20 complete listing commands return correct ordered rows and exit successfully.
+| Workload | Before | After |
+| --- | ---: | ---: |
+| Complete listing after a test-file edit | 14.31 s | 12.71 s |
+| Engine CPU | 78.97 CPU-s | 68.79 CPU-s |
+| Cumulative engine allocation | 17.40 GB | 16.62 GB |
+| Receiver preparation: 800 packages, 80 owners, 32 methods | 2.50 s | 1.68 s |
 
-The main behavior to review is declaration ordering: wrapped methods now enter the existing function phase before computed variables. Function bodies still run only when called, and their conversion wrappers remain intact.
+Complete test-edited listing improves **11.2%**, in all four alternating pairs. Expansion reconstructs 64,800 nested objects in this workload.
+
+Ordinary-source listing is **6.75 → 6.90 s**, faster in only one of four pairs; no gain is established there. Every command starts a fresh CLI on the same warm experimental engine, includes telemetry and successful cleanup, and returns correct rows. These are not stock-release or cold-start measurements.
+
+### Validation and tradeoffs
+
+The regression fails on pristine Dang da1bed304c and passes with the patch. It checks a parsed, inferred typed method, its initializer classification, current receiver and default argument. Another case covers an initializer calling a later method.
+
+The full upstream interpreter race suite and seven focused Go/library checks pass. All 20 complete listings succeed. The standalone production change touches only `pkg/dang/block.go`, adding no cache, lock or API.
+
+[Standalone patch and validation](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/experiments/dang-coerced-method-hoisting/method-hoisting.patch). [Complete measurements](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/NATIVE_DANG_COERCED_METHOD_HOISTING.md).

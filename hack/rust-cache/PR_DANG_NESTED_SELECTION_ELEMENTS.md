@@ -1,11 +1,19 @@
-Review draft for a standalone patch against upstream Dang `da1bed304cb80f8a2f0714f1747e7f64e03297a3`. No PR is open.
+# fix(dang): preserve non-null elements in nested list selections
 
-Title: **Preserve non-null list elements in nested selections**
+Nested selection changes a list of required objects into a list whose objects appear nullable. Mapping their required string fields then fails with "cannot use [String]! as `[String!]!`". An otherwise valid program cannot compile.
 
-Nested selection currently turns a list of required objects into a list whose objects appear nullable. Mapping their required string fields then fails with `cannot use [String]! as [String!]!`. This prevents an ordinary list selection over Go test-file search results from compiling.
+Carry the inferred element's non-null marker into the nested selected list type, as the top-level selection path already does. Runtime values and the outer list retain their existing behavior.
 
-Carry the already inferred element's `!` into the selected list type, as the top-level selection path does. The change only adjusts type inference; runtime values and outer-list behavior are unchanged.
+This was found while reducing Go test collection listing overhead on dagger/dagger: a normal nested selection over test-file search results exposed it. It is a correctness fix; no speedup is claimed.
 
-The regression runs a complete nested-selection program, verifies its values and order, and keeps nullable elements and fields rejected. Its valid case fails without the patch and passes with it. The full pristine upstream interpreter race suite, development interpreter race suite and Dagger SDK race suite pass. The real module program compiles afterward and its seven focused checks pass.
+### Regression
 
-This fixes a rejected valid program. No performance gain is claimed.
+A complete nested-selection program fails on pristine Dang da1bed304c and passes with the six-line inference change. The test verifies values and order, including an empty nested list, and keeps nullable elements and nullable fields rejected.
+
+The full pristine upstream interpreter, development interpreter and Dagger SDK race suites pass. Seven focused real-module checks pass after rebuilding the experimental engine, including the previously rejected selection, Unicode ordering, source overrides, test execution, binaries and generation.
+
+### Scope
+
+The standalone patch changes type inference and its regression only. It adds no cache, lock, scheduling change or engine API.
+
+[Standalone patch](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/experiments/dang-nested-selection-elements/standalone.patch). [Reproduction and validation](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/NATIVE_DANG_NESTED_SELECTION_ELEMENTS.md).
