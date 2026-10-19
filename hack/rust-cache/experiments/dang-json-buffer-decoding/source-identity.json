@@ -1,0 +1,40 @@
+{
+  "commit": "bd513bc5bc8067440a74d43921027096465ed70f",
+  "base": "18d51f8291eabe93dc2b8e93dd47c8cfa6397625",
+  "upstream": "18d51f8291eabe93dc2b8e93dd47c8cfa6397625",
+  "branch": "experiment/dang-json-buffer-decoding",
+  "url": "https://github.com/grouville/dagger/commit/bd513bc5bc8067440a74d43921027096465ed70f",
+  "clean": true,
+  "production_and_test_files": [
+    {
+      "path": "go.mod",
+      "sha256": "7c9fc52beef73f13c257736ed848037ae0ec0856be65ef2042fd1367068e8b03",
+      "bytes": 17526
+    },
+    {
+      "path": "core/sdk/dang/v2/helpers.go",
+      "sha256": "a13381ba8699b35b7eec5f77f74cf84e8853e4c2067840fa3dedfea569827524",
+      "bytes": 55769
+    },
+    {
+      "path": "core/sdk/dang/v2/call_json.go",
+      "sha256": "ba57c688c1073eb6df7aa45d60fa68f34b51edc503637b55c7836e5d601e85da",
+      "bytes": 661
+    },
+    {
+      "path": "core/sdk/dang/v2/call_json_test.go",
+      "sha256": "05d474fdca9a0ac932e03bc6bac4f40b946cfa8b78d01eb04b0495a98afb1b5f",
+      "bytes": 3460
+    }
+  ],
+  "engine_sha256": "67ca2c2c9d1639074bb9435850e447fbcb3f922ff101583ea782cabe4fb705fe",
+  "cli_sha256": "ca716780a17686774e2df72e69f10116e41b1f195426f9eaa6f6f5bc35a2efe2",
+  "standalone_sdk_race_passed": true,
+  "exact_engine_overlay_sdk_race_passed": true,
+  "differential_fuzz_executions": 266289,
+  "interesting_fuzz_inputs_retained": 268,
+  "small_input_allocation_regression": true,
+  "selected": false,
+  "scope": "Existing in-memory function parent/argument JSON only; use exact-number parsing and copied strings, preserve existing invalid-input errors by the standard decoder fallback. All getter calls and client state remain.",
+  "experimental_matrix": "Same field-definition snapshots and COW storage in both modes; only JSON parser changes. Warm caches, current cold/restart/Rust latency unmeasured."
+}

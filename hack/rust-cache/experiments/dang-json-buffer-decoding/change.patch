@@ -1,0 +1,196 @@
+diff --git a/core/sdk/dang/v2/call_json.go b/core/sdk/dang/v2/call_json.go
+new file mode 100644
+index 0000000000..6fcc239894
+--- /dev/null
++++ b/core/sdk/dang/v2/call_json.go
+@@ -0,0 +1,21 @@
++package dangv2
++
++import (
++	"bytes"
++	"encoding/json"
++
++	bufferjson "github.com/segmentio/encoding/json"
++)
++
++// decodeCallJSON keeps numbers exact and decodes one value, as Decoder.Decode
++// does. Inputs already reside in memory; parsing them directly avoids a second
++// growing read buffer. Default copy flags keep decoded strings private.
++func decodeCallJSON(data []byte, dest any) error {
++	if _, err := bufferjson.Parse(data, dest, bufferjson.UseNumber); err == nil {
++		return nil
++	}
++	// Keep the existing error types, offsets and messages for invalid inputs.
++	decoder := json.NewDecoder(bytes.NewReader(data))
++	decoder.UseNumber()
++	return decoder.Decode(dest)
++}
+diff --git a/core/sdk/dang/v2/call_json_test.go b/core/sdk/dang/v2/call_json_test.go
+new file mode 100644
+index 0000000000..62e875e82c
+--- /dev/null
++++ b/core/sdk/dang/v2/call_json_test.go
+@@ -0,0 +1,115 @@
++package dangv2
++
++import (
++	"bytes"
++	"encoding/json"
++	"fmt"
++	"reflect"
++	"strings"
++	"testing"
++)
++
++func decodeCallJSONReference(data []byte, dest any) error {
++	decoder := json.NewDecoder(bytes.NewReader(data))
++	decoder.UseNumber()
++	return decoder.Decode(dest)
++}
++
++func compareCallJSON(t testing.TB, data []byte) {
++	t.Helper()
++	for _, object := range []bool{false, true} {
++		var want, got any
++		var wantErr, gotErr error
++		if object {
++			var a, b map[string]any
++			wantErr, gotErr = decodeCallJSONReference(data, &a), decodeCallJSON(data, &b)
++			want, got = a, b
++		} else {
++			wantErr, gotErr = decodeCallJSONReference(data, &want), decodeCallJSON(data, &got)
++		}
++		if (wantErr == nil) != (gotErr == nil) {
++			t.Fatalf("object=%v input=%q: standard error=%v, buffer error=%v", object, data, wantErr, gotErr)
++		}
++		if wantErr != nil {
++			if reflect.TypeOf(wantErr) != reflect.TypeOf(gotErr) || wantErr.Error() != gotErr.Error() {
++				t.Fatalf("object=%v input=%q: standard %T %v, buffer %T %v", object, data, wantErr, wantErr, gotErr, gotErr)
++			}
++		} else if !reflect.DeepEqual(want, got) {
++			t.Fatalf("object=%v input=%q: standard %#v, buffer %#v", object, data, want, got)
++		}
++	}
++}
++
++var callJSONCases = []string{
++	`{}`, `null`, `[]`, `true`, `42`, `"text"`, "", " \n\t ",
++	`{"big":9007199254740993,"negative":-9223372036854775809,"exp":1.234567890123456789e1000,"zero":-0}`,
++	`{"duplicate":1,"duplicate":2,"nested":{"array":[null,true,false,1,"value"]}}`,
++	`{"unicode":"é 🦀 \uD83E\uDD80 \uD800 \uDC00","escaped":"\u0000\n\t\\\""}`,
++	"{\"invalid\":\"\xff\xfe\"}", `{"n":NaN}`, `{"n":01}`, `{"n":1e}`, `{"n":+1}`,
++	`{"a":1,}`, `{"a":}`, `{"a":`, `{"a":1} {"second":2}`, `{"a":1} trailing`,
++}
++
++func TestDecodeCallJSONMatchesDecoder(t *testing.T) {
++	for i, data := range callJSONCases {
++		t.Run(fmt.Sprint(i), func(t *testing.T) { compareCallJSON(t, []byte(data)) })
++	}
++	compareCallJSON(t, []byte(strings.Repeat("[", 1024)+"null"+strings.Repeat("]", 1024)))
++}
++
++func TestDecodeCallJSONKeepsInputPrivate(t *testing.T) {
++	data := []byte(`{"key":"private-value","number":9007199254740993}`)
++	var got map[string]any
++	if err := decodeCallJSON(data, &got); err != nil {
++		t.Fatal(err)
++	}
++	for i := range data {
++		data[i] = 'x'
++	}
++	if got["key"] != "private-value" || got["number"] != json.Number("9007199254740993") {
++		t.Fatalf("decoded values alias input: %#v", got)
++	}
++}
++
++func FuzzDecodeCallJSONMatchesDecoder(f *testing.F) {
++	for _, data := range callJSONCases {
++		f.Add([]byte(data))
++	}
++	f.Fuzz(func(t *testing.T, data []byte) {
++		if len(data) > 128*1024 {
++			t.Skip()
++		}
++		compareCallJSON(t, data)
++	})
++}
++
++var callJSONBenchmarkSink map[string]any
++
++func BenchmarkDecodeCallJSON(b *testing.B) {
++	for _, paths := range []int{1, 64, 800} {
++		values := make([]string, paths)
++		for i := range values {
++			values[i] = fmt.Sprintf("module/package/%04d", i)
++		}
++		data, err := json.Marshal(map[string]any{"paths": values, "name": "collection", "identity": json.Number("9007199254740993")})
++		if err != nil {
++			b.Fatal(err)
++		}
++		for _, fast := range []bool{false, true} {
++			b.Run(fmt.Sprintf("paths%d/buffer%t", paths, fast), func(b *testing.B) {
++				decode := decodeCallJSONReference
++				if fast {
++					decode = decodeCallJSON
++				}
++				b.SetBytes(int64(len(data)))
++				b.ReportAllocs()
++				for b.Loop() {
++					var result map[string]any
++					if err := decode(data, &result); err != nil {
++						b.Fatal(err)
++					}
++					callJSONBenchmarkSink = result
++				}
++			})
++		}
++	}
++}
+diff --git a/core/sdk/dang/v2/helpers.go b/core/sdk/dang/v2/helpers.go
+index 02832f36bb..de39f2db43 100644
+--- a/core/sdk/dang/v2/helpers.go
++++ b/core/sdk/dang/v2/helpers.go
+@@ -1,7 +1,6 @@
+ package dangv2
+ 
+ import (
+-	"bytes"
+ 	"context"
+ 	"encoding/binary"
+ 	"encoding/json"
+@@ -536,9 +535,7 @@ func callDangFunction(ctx context.Context, env dang.ValueScope, fnCall *core.Fun
+ 	}
+ 
+ 	var parentState map[string]any
+-	dec := json.NewDecoder(bytes.NewReader(fnCall.Parent))
+-	dec.UseNumber()
+-	if err := dec.Decode(&parentState); err != nil {
++	if err := decodeCallJSON(fnCall.Parent, &parentState); err != nil {
+ 		return nil, fmt.Errorf("unmarshal parent: %w", err)
+ 	}
+ 
+@@ -582,10 +579,8 @@ func callDangFunction(ctx context.Context, env dang.ValueScope, fnCall *core.Fun
+ 		if !provided {
+ 			continue
+ 		}
+-		dec := json.NewDecoder(bytes.NewReader(jsonValue))
+-		dec.UseNumber()
+ 		var val any
+-		if err := dec.Decode(&val); err != nil {
++		if err := decodeCallJSON(jsonValue, &val); err != nil {
+ 			return nil, fmt.Errorf("unmarshal arg %s: %w", arg.Key, err)
+ 		}
+ 		dangVal, err := conv.convert(ctx, val, argType)
+diff --git a/go.mod b/go.mod
+index b2c92e1dcd..ce84ebbc4a 100644
+--- a/go.mod
++++ b/go.mod
+@@ -332,7 +332,7 @@ require (
+ 	github.com/sasha-s/go-deadlock v0.3.5 // indirect
+ 	github.com/secure-systems-lab/go-securesystemslib v0.10.0 // indirect
+ 	github.com/segmentio/asm v1.1.3 // indirect
+-	github.com/segmentio/encoding v0.5.4 // indirect
++	github.com/segmentio/encoding v0.5.4
+ 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
+ 	github.com/shibumi/go-pathspec v1.3.0 // indirect
+ 	github.com/skeema/knownhosts v1.3.1 // indirect
