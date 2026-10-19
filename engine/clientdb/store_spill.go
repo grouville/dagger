@@ -112,6 +112,7 @@ func (s *spillFile[Row]) write(buf []byte) (int, error) {
 
 func (s *spillFile[Row]) recover(ctx context.Context, size int64, onRecover func(Row)) error {
 	scanner := newFrameScanner(s.file, 1, size)
+	defer scanner.release()
 	for {
 		frameOffset := scanner.offset
 		payload, err := scanner.next()
