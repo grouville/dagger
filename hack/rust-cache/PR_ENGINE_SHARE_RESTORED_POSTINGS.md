@@ -1,34 +1,42 @@
-# perf(dagql): avoid quadratic restored-cache indexing
+# perf(dagql): share result lists when restoring the cache
 
-A populated Go test collection cache exposed quadratic work when the engine restored its result index. Each equivalent digest received a separate copy of the same result set. The captured cache expanded 198,689 results into roughly 394 million associations; an idle heap profile attributed about 18 GB to that index.
+While investigating slow Go test collection listing on dagger/dagger, I found that the engine was doing unnecessary work when restoring its cache and deleting old results.
 
-Share each imported group's membership across its digests, and remove a result once per original group during pruning. Later digest-specific additions remain separate. This addresses both construction and removal of the shared representation in one PR.
+The cache can find the same saved results through several different keys. When the engine restores the cache, it copies the list of results for every key. With 1,000 keys pointing to the same 1,000 results, that means storing a million entries instead of one shared list.
 
-This is part of the work to reduce Go test collection listing overhead on dagger/dagger.
+This PR shares that list between the keys. It also tracks which lists contain each result, so deleting a result updates each shared list once instead of repeating the work for every key.
 
-### Performance
+Sharing must preserve what each key can find. In particular, adding a new result to one key must not make it available through the other keys. Those later additions stay separate; only the original list is shared.
 
-The complete-command check is `dagger check --module go --check test --list --all`; the import and prune fixtures below measure their named cache operations separately.
+The cost is extra tracking for cleanup. This should help most when many keys share a large list, as we saw during the Go listing investigation. It may be less efficient when each list contains only one result; that case still needs measuring. All access uses the existing cache lock.
 
-Fresh standalone measurements compare main `80699ac67a` with only this PR's production changes. Both binaries use identical import and prune fixtures.
+### Results
 
-| Operation | Main median | PR median | Allocated before → after | Faster pairs |
-| --- | ---: | ---: | ---: | ---: |
-| Import 129 results | 7.31 ms | 4.66 ms | 2.41 → 1.58 MB | 4/4 |
-| Import 2,049 results | 713.15 ms | 49.53 ms | 227.81 → 25.91 MB | 4/4 |
-| Prune 2,049 roots | 844.75 ms | 12.75 ms | 3.95 → 3.95 MB | 4/4 |
-| Prune 8,192 roots | 31.43 s | 45.59 ms | 16.01 → 16.01 MB | 4/4 |
+Comparing main `80699ac67a` with only this change applied:
 
-Four alternating A/B and B/A pairs, Go 1.26.6, linux/amd64, GOMAXPROCS=8, one operation per sample. Import reopens the same persisted fixture shape with a warm filesystem cache. Setup and close are outside the measured operation. The slowest baseline prune, 67.16 s, remains included.
+| Operation | Main | This PR | Memory allocated, before → after |
+| --- | ---: | ---: | ---: |
+| Restore 129 results | 7.31 ms | 4.66 ms | 2.41 → 1.58 MB |
+| Restore 2,049 results | 713.15 ms | 49.53 ms | 227.81 → 25.91 MB |
+| Delete 2,049 results | 844.75 ms | 12.75 ms | 3.95 → 3.95 MB |
+| Delete 8,192 results | 31.43 s | 45.59 ms | 16.01 → 16.01 MB |
 
-Import construction and storage become proportional to digests + results, instead of digests × results. Removal visits each original membership once and releases a group's digest aliases when it becomes empty.
+Medians from four pairs of runs, alternating which version runs first. This change was faster in every pair. The filesystem cache was warm; setup and cache closing are excluded. Go 1.26.6, Linux amd64, `GOMAXPROCS=8`.
 
-These are cache-operation measurements, not complete Go listing timings. The earlier 5.12-second prune baseline already included the sharing change; it is not the main baseline above.
+These measure cache restoration and cleanup. The effect on the complete Go test listing command has not yet been measured for this change alone.
 
-### Validation and tradeoffs
+### Reproducing
 
-The complete standalone branch passes `go test -race -count=1 ./dagql` on main `80699ac67a`. Regressions check that class merges do not broaden old memberships, later exact additions stay local, and collection removes memberships across original groups. Import and prune fixtures verify retained result counts, no persistence reset, and the expected removals.
+The regression tests check that sharing preserves which results each key can find, including after additions and deletions:
 
-The change adds an in-memory group index under the existing graph lock. The persistence format and eviction policy are unchanged. Small groups still pay group bookkeeping; this fresh cohort measures wide groups and does not establish singleton-import overhead or a complete-listing gain. Candidate lookup keeps its existing compatibility checks and final result ordering.
+```sh
+go test -race -count=1 ./dagql
+```
 
-[Clean source branch](https://github.com/grouville/dagger/tree/pr/go-collections-restored-index). [Standalone fixtures, raw samples and reproduction](https://github.com/grouville/dagger/tree/experiment/rust-native-cache/hack/rust-cache/experiments/standalone-go-collections/restored-index).
+To run the restoration and cleanup benchmarks added by this PR:
+
+```sh
+GOMAXPROCS=8 go test ./dagql -run '^$' -bench 'Benchmark(CacheImportWideOutputClass|MetadataPruneRestoredWideOutput)/(64|1024|4096)$' -benchmem -benchtime=1x
+```
+
+[Raw measurements and instructions for running the same benchmarks against main](https://github.com/grouville/dagger/tree/experiment/rust-native-cache/hack/rust-cache/experiments/standalone-go-collections/restored-index).

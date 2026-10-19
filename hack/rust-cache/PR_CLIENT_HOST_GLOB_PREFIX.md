@@ -1,26 +1,37 @@
-# perf(filesync): prune host globs by their directory prefix
+# perf(filesync): skip directories outside the host glob prefix
 
-`Workspace.glob("core/*_test.go")` walks the entire host checkout. Its shortcut handles literal paths and a final * or **, but misses wildcard filenames. Go test discovery repeats this traversal across many packages.
+While profiling Go test collection listing on dagger/dagger, I found that looking for test files in one package still walked the entire checkout. For example, `Workspace.glob("core/*_test.go")` visits unrelated directories even though every match must be under `core`.
 
-Skip subtrees outside the literal directory prefix before the first pattern character. Traversal still starts at the workspace root, retaining the existing matching and order. Patterns without a fixed prefix keep the full walk. This is part of reducing Go test collection listing overhead on dagger/dagger.
+Use the part of the pattern before the first wildcard to skip unrelated directories. The walk still starts at the workspace root and uses the existing matcher, so matching rules and result order stay the same.
 
-### Performance
+The cost is a few extra prefix comparisons while walking directories. Patterns such as `**/*.go` have no fixed directory prefix and cannot benefit; the benchmark includes that case to check the overhead.
 
-Complete-command measurements use `dagger check --module go --check test --list --all`.
+### Results
 
-| Complete listing | Before | After | Reduction |
+Comparing main `80699ac67a` with only this change, on a fixture with 24 modules, 24 packages per module and eight files per package:
+
+| Pattern | Main | This PR | Memory allocated, before → after |
 | --- | ---: | ---: | ---: |
-| Command time | 58.10 s | 53.76 s | 7.5% |
-| CLI CPU | 75.96 CPU-s | 39.45 CPU-s | 48.1% |
+| `module00/pkg00/*_test.go` | 9.28 ms | 0.10 ms | 1.24 MB → 22.60 kB |
+| `module00/**/*.go` | 10.01 ms | 0.60 ms | 1.24 MB → 75.86 kB |
+| `**/*.go`, whole-tree control | 14.13 ms | 14.12 ms | 1.47 → 1.47 MB |
 
-Two alternating pairs, both faster. Every command starts a fresh CLI, edits source on the same warm experimental engine, returns identical 4,398 rows, and exits through normal telemetry and cleanup. Initialization is retained separately. Engine CPU and allocation remain comparable.
+Medians from four pairs of runs, alternating which version runs first. Both patterns with a directory prefix improved in all four pairs; the whole-tree case was effectively unchanged. Each sample ran for 100 ms with a warm filesystem cache. Fixture creation is excluded. Go 1.26.6, Linux amd64, `GOMAXPROCS=8`.
 
-On a 4,608-file fixture, `module00/pkg00/*_test.go` improves **8.33 → 0.085 ms**, allocating **1.24 MB → 22.6 kB**. The full-tree `**/*.go` control is effectively flat at **12.06 → 12.14 ms**. Component medians use three alternating pairs.
+These measure file discovery separately. The effect on the complete Go test listing command has not yet been measured for this change alone.
 
-### Validation and tradeoffs
+### Reproducing
 
-The full client race suite passes. Parity tests compare exact results and order with an unpruned walk, covering wildcard roots and tails, classes, escapes, Unicode, symlinks, absent prefixes and cancellation. Adding and removing a real test changes listing by exactly the expected row.
+The tests compare matches and their order with the original full walk, including wildcard directories, exclusions, Unicode names, escaped characters and symlinks. They also check cancellation when the prefix does not exist:
 
-The production patch is confined to the host walker, with no shared state or dependency. Two full-command pairs are limited evidence; they do not establish cold-start or clean-host performance.
+```sh
+go test -race -count=1 ./engine/client
+```
 
-[Source](https://github.com/grouville/dagger/commit/2481e74b3e02d185d9ba566199e5f4dfdca28eca). [Measurements and reproduction](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/NATIVE_HOST_GLOB_PREFIX.md).
+To run the three benchmark cases:
+
+```sh
+GOMAXPROCS=8 go test ./engine/client -run '^$' -bench '^BenchmarkGlobHostPathLiteralDirectoryPrefix$' -benchmem -benchtime=100ms
+```
+
+[Raw measurements and instructions for comparing against main](https://github.com/grouville/dagger/tree/experiment/rust-native-cache/hack/rust-cache/experiments/standalone-go-collections/host-glob).

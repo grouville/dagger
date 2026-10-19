@@ -4,8 +4,12 @@ Every source branch is one signed-off commit directly on its repository's pinned
 
 | Change | Standalone result | Verification status |
 | --- | --- | --- |
-| [Restored cache indexing](PR_ENGINE_SHARE_RESTORED_POSTINGS.md) | Import 2,049 results: **713.15 → 49.53 ms**; prune 8,192 roots: **31.43 s → 45.59 ms**. All four pairs faster. | Main plus only this PR; full DagQL race suite passes. Complete-listing gain unmeasured. |
+| [Shared result lists (#14730)](https://github.com/dagger/dagger/pull/14730) | Import 2,049 results: **713.15 → 49.53 ms**; prune 8,192 roots: **31.43 s → 45.59 ms**. All four pairs faster. | Main plus only this PR; full DagQL race suite passes. Complete-listing gain unmeasured. |
 
-The remaining standalone cohorts are running. No unverified cumulative figure is used as a standalone result. Draft PRs are opened only after the individual result and its scope justify them.
+| [Skip unrelated host directories](PR_CLIENT_HOST_GLOB_PREFIX.md) | Package pattern: **9.28 → 0.10 ms**; module pattern: **10.01 → 0.60 ms**; whole-tree control: **14.13 → 14.12 ms**. | Four pairs; full client race suite. Description and commit explain the prefix checks and the control. Draft ready. |
+
+The remaining standalone cohorts and additional tradeoff controls are running. No unverified cumulative figure is used as a standalone result. Draft PRs are opened only after the individual result and its scope justify them.
 
 The [review queue](GO_COLLECTION_PR_SERIES.md) contains the proposed descriptions. Source publication is recorded in [the branch manifest](experiments/standalone-go-collections/published-branches.json).
+
+Each proposed PR and commit message must explain the user-visible context, the repeated work, the change, the measured benefit and cost, and how to reproduce the checks. Metadata about branch preparation belongs in this report, not in the PR narrative. Measure the workload that cannot benefit as well as the one that does; retain slower results.
