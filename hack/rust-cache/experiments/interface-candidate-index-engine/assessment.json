@@ -1,0 +1,870 @@
+{
+  "timings": {
+    "test": {
+      "medians": {
+        "before": {
+          "median_seconds": 8.561357666389085,
+          "median_engine_cpu": 41.88484450000004,
+          "median_allocated_bytes": 9990501364.0,
+          "commands": 4
+        },
+        "combined": {
+          "median_seconds": 8.268734192941338,
+          "median_engine_cpu": 40.48608350000001,
+          "median_allocated_bytes": 9582265028.0,
+          "commands": 4
+        }
+      },
+      "paired_seconds": [
+        0.7392296588514,
+        0.024746517883613706,
+        0.5461270939558744,
+        0.38235176098532975
+      ],
+      "median_paired_saving": 0.4642394274706021,
+      "faster_pairs": 4,
+      "commands": 12,
+      "all_correct": true
+    },
+    "source": {
+      "medians": {
+        "before": {
+          "median_seconds": 5.456487290095538,
+          "median_engine_cpu": 22.61835899999997,
+          "median_allocated_bytes": 5184488660.0,
+          "commands": 4
+        },
+        "combined": {
+          "median_seconds": 5.399827282410115,
+          "median_engine_cpu": 22.245720999999975,
+          "median_allocated_bytes": 5174499264.0,
+          "commands": 4
+        }
+      },
+      "paired_seconds": [
+        -0.0489934969227761,
+        0.023585692048072815,
+        0.22095211711712182,
+        0.08973432332277298
+      ],
+      "median_paired_saving": 0.0566600076854229,
+      "faster_pairs": 3,
+      "commands": 12,
+      "all_correct": true
+    }
+  },
+  "diagnostics": [
+    {
+      "arm": "before",
+      "seconds": 1.715296695008874,
+      "module_evaluations": 804,
+      "sdk_requests": 1494,
+      "main_query": {
+        "id": 12115,
+        "seconds": 8.363188455
+      },
+      "dropped": 0,
+      "open": 0
+    },
+    {
+      "arm": "candidate",
+      "seconds": 1.7135098199360073,
+      "module_evaluations": 804,
+      "sdk_requests": 1494,
+      "main_query": {
+        "id": 228202,
+        "seconds": 7.804482001
+      },
+      "dropped": 0,
+      "open": 0
+    }
+  ],
+  "selected_for_further_experiments": true,
+  "reason": "Complete test-edited listing improves in all four balanced pairs, with lower CPU and about 408 MB less allocation by column medians. Ordinary-source listing stays nearly flat. Keep the algorithm for follow-up performance work, with no cold or Rust latency claim and no PR opened.",
+  "warm_engine": true,
+  "fresh_cli": true,
+  "normal_telemetry": true,
+  "normal_gc": true,
+  "cleanup_included": true,
+  "engine_sha256": "0df377c84e39ae7f85914fa1eb6b8eeb425c7e50454cb55db8e4742db5c8e856",
+  "go_checks": [
+    {
+      "arm": "before",
+      "check": "go-dev:package-owner-index-check",
+      "seconds": 47.70988193992525,
+      "exit_code": 0
+    },
+    {
+      "arm": "before",
+      "check": "go-dev:package-owner-settings-check",
+      "seconds": 1.6170008541084826,
+      "exit_code": 0
+    },
+    {
+      "arm": "before",
+      "check": "go-dev:collection-check",
+      "seconds": 1.674489594064653,
+      "exit_code": 0
+    },
+    {
+      "arm": "before",
+      "check": "go-dev:test-snapshot-directories-check",
+      "seconds": 1.8724515500944108,
+      "exit_code": 0
+    },
+    {
+      "arm": "before",
+      "check": "go-dev:discovery-check",
+      "seconds": 0.9664801601320505,
+      "exit_code": 0
+    },
+    {
+      "arm": "before",
+      "check": "go-dev:package-layout-rebind-check",
+      "seconds": 0.9659804310649633,
+      "exit_code": 0
+    },
+    {
+      "arm": "before",
+      "check": "go-dev:tests-collection-check",
+      "seconds": 9.523434774950147,
+      "exit_code": 0
+    },
+    {
+      "arm": "before",
+      "check": "go-dev:binary-check",
+      "seconds": 11.524852260015905,
+      "exit_code": 0
+    },
+    {
+      "arm": "before",
+      "check": "go-dev:generate-check",
+      "seconds": 3.6388443070463836,
+      "exit_code": 0
+    },
+    {
+      "arm": "candidate",
+      "check": "go-dev:package-owner-index-check",
+      "seconds": 1.8683404880575836,
+      "exit_code": 0
+    },
+    {
+      "arm": "candidate",
+      "check": "go-dev:package-owner-settings-check",
+      "seconds": 0.6652118628844619,
+      "exit_code": 0
+    },
+    {
+      "arm": "candidate",
+      "check": "go-dev:collection-check",
+      "seconds": 1.4703641540836543,
+      "exit_code": 0
+    },
+    {
+      "arm": "candidate",
+      "check": "go-dev:test-snapshot-directories-check",
+      "seconds": 1.1685511919204146,
+      "exit_code": 0
+    },
+    {
+      "arm": "candidate",
+      "check": "go-dev:discovery-check",
+      "seconds": 1.0171066001057625,
+      "exit_code": 0
+    },
+    {
+      "arm": "candidate",
+      "check": "go-dev:package-layout-rebind-check",
+      "seconds": 0.6152181641664356,
+      "exit_code": 0
+    },
+    {
+      "arm": "candidate",
+      "check": "go-dev:tests-collection-check",
+      "seconds": 3.8964677460025996,
+      "exit_code": 0
+    },
+    {
+      "arm": "candidate",
+      "check": "go-dev:binary-check",
+      "seconds": 3.226319805951789,
+      "exit_code": 0
+    },
+    {
+      "arm": "candidate",
+      "check": "go-dev:generate-check",
+      "seconds": 3.2268460020422935,
+      "exit_code": 0
+    }
+  ],
+  "rust_cases": [
+    {
+      "label": "before_a-list",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "check",
+        "dag://?check=rust/packages/tests/test&rust-package=pkg_000",
+        "--list",
+        "--all"
+      ],
+      "seconds": 51.34916174900718,
+      "exit_code": 0,
+      "cancelled": false,
+      "expected": 0,
+      "diagnostic": null
+    },
+    {
+      "label": "before_a-selected-pass",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "check",
+        "dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::fresh_before_a"
+      ],
+      "seconds": 0.4153935401700437,
+      "exit_code": 0,
+      "cancelled": false,
+      "expected": 0,
+      "diagnostic": null
+    },
+    {
+      "label": "before_a-selected-fail",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "check",
+        "dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::must_fail"
+      ],
+      "seconds": 0.4161931478884071,
+      "exit_code": 1,
+      "cancelled": false,
+      "expected": 1,
+      "diagnostic": "pipeline-required-failure-before_a"
+    },
+    {
+      "label": "before_b-list",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "check",
+        "dag://?check=rust/packages/tests/test&rust-package=pkg_000",
+        "--list",
+        "--all"
+      ],
+      "seconds": 0.8167453021742404,
+      "exit_code": 0,
+      "cancelled": false,
+      "expected": 0,
+      "diagnostic": null
+    },
+    {
+      "label": "before_b-selected-pass",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "check",
+        "dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::fresh_before_b"
+      ],
+      "seconds": 0.4164268998429179,
+      "exit_code": 0,
+      "cancelled": false,
+      "expected": 0,
+      "diagnostic": null
+    },
+    {
+      "label": "before_b-selected-fail",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "check",
+        "dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::must_fail"
+      ],
+      "seconds": 0.41540703317150474,
+      "exit_code": 1,
+      "cancelled": false,
+      "expected": 1,
+      "diagnostic": "pipeline-required-failure-before_b"
+    },
+    {
+      "label": "before_a_restored-list",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "check",
+        "dag://?check=rust/packages/tests/test&rust-package=pkg_000",
+        "--list",
+        "--all"
+      ],
+      "seconds": 0.3655530880205333,
+      "exit_code": 0,
+      "cancelled": false,
+      "expected": 0,
+      "diagnostic": null
+    },
+    {
+      "label": "before_a_restored-selected-pass",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "check",
+        "dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::fresh_before_a"
+      ],
+      "seconds": 0.314815767807886,
+      "exit_code": 0,
+      "cancelled": false,
+      "expected": 0,
+      "diagnostic": null
+    },
+    {
+      "label": "before_a_restored-selected-fail",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "check",
+        "dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::must_fail"
+      ],
+      "seconds": 0.36504357401281595,
+      "exit_code": 1,
+      "cancelled": false,
+      "expected": 1,
+      "diagnostic": "pipeline-required-failure-before_a"
+    },
+    {
+      "label": "before-all-reports-invalid",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "check",
+        "rust:packages/tests/test"
+      ],
+      "seconds": 0.5161112460773438,
+      "exit_code": 101,
+      "cancelled": false,
+      "expected": 1,
+      "diagnostic": "mismatched types"
+    },
+    {
+      "label": "before-all-repaired",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "check",
+        "rust:packages/tests/test"
+      ],
+      "seconds": 1.469376316992566,
+      "exit_code": 0,
+      "cancelled": false,
+      "expected": 0,
+      "diagnostic": null
+    },
+    {
+      "label": "before-workspace-api",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "api",
+        "call",
+        "rust",
+        "test",
+        "--source",
+        "."
+      ],
+      "seconds": 1.1192059610038996,
+      "exit_code": 0,
+      "cancelled": false,
+      "expected": 0,
+      "diagnostic": null
+    },
+    {
+      "label": "before-native-cache-0",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "api",
+        "with-session",
+        "--load-workspace-modules",
+        "python3",
+        "/tmp/rust-cache-sipsma-review/interface-candidate-index-engine/rust-cache-query.py",
+        "/tmp/rust-cache-sipsma-review/interface-candidate-index-engine/rust-pipeline/cache-stats.graphql"
+      ],
+      "seconds": 0.46661644289270043,
+      "exit_code": 0,
+      "cancelled": false,
+      "expected": 0,
+      "diagnostic": null,
+      "native_cache_stats": {
+        "actions": 2,
+        "hits": 2
+      }
+    },
+    {
+      "label": "before-native-cache-1",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "api",
+        "with-session",
+        "--load-workspace-modules",
+        "python3",
+        "/tmp/rust-cache-sipsma-review/interface-candidate-index-engine/rust-cache-query.py",
+        "/tmp/rust-cache-sipsma-review/interface-candidate-index-engine/rust-pipeline/cache-stats.graphql"
+      ],
+      "seconds": 0.3147174019832164,
+      "exit_code": 0,
+      "cancelled": false,
+      "expected": 0,
+      "diagnostic": null,
+      "native_cache_stats": {
+        "actions": 2,
+        "hits": 2
+      }
+    },
+    {
+      "label": "candidate_a-list",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "check",
+        "dag://?check=rust/packages/tests/test&rust-package=pkg_000",
+        "--list",
+        "--all"
+      ],
+      "seconds": 0.8666194670367986,
+      "exit_code": 0,
+      "cancelled": false,
+      "expected": 0,
+      "diagnostic": null
+    },
+    {
+      "label": "candidate_a-selected-pass",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "check",
+        "dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::fresh_candidate_a"
+      ],
+      "seconds": 0.41611231584101915,
+      "exit_code": 0,
+      "cancelled": false,
+      "expected": 0,
+      "diagnostic": null
+    },
+    {
+      "label": "candidate_a-selected-fail",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "check",
+        "dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::must_fail"
+      ],
+      "seconds": 0.4161918309982866,
+      "exit_code": 1,
+      "cancelled": false,
+      "expected": 1,
+      "diagnostic": "pipeline-required-failure-candidate_a"
+    },
+    {
+      "label": "candidate_b-list",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "check",
+        "dag://?check=rust/packages/tests/test&rust-package=pkg_000",
+        "--list",
+        "--all"
+      ],
+      "seconds": 0.8657356949988753,
+      "exit_code": 0,
+      "cancelled": false,
+      "expected": 0,
+      "diagnostic": null
+    },
+    {
+      "label": "candidate_b-selected-pass",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "check",
+        "dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::fresh_candidate_b"
+      ],
+      "seconds": 0.3647793789859861,
+      "exit_code": 0,
+      "cancelled": false,
+      "expected": 0,
+      "diagnostic": null
+    },
+    {
+      "label": "candidate_b-selected-fail",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "check",
+        "dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::must_fail"
+      ],
+      "seconds": 0.4148628329858184,
+      "exit_code": 1,
+      "cancelled": false,
+      "expected": 1,
+      "diagnostic": "pipeline-required-failure-candidate_b"
+    },
+    {
+      "label": "candidate_a_restored-list",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "check",
+        "dag://?check=rust/packages/tests/test&rust-package=pkg_000",
+        "--list",
+        "--all"
+      ],
+      "seconds": 0.4149000041652471,
+      "exit_code": 0,
+      "cancelled": false,
+      "expected": 0,
+      "diagnostic": null
+    },
+    {
+      "label": "candidate_a_restored-selected-pass",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "check",
+        "dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::fresh_candidate_a"
+      ],
+      "seconds": 0.36485164100304246,
+      "exit_code": 0,
+      "cancelled": false,
+      "expected": 0,
+      "diagnostic": null
+    },
+    {
+      "label": "candidate_a_restored-selected-fail",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "check",
+        "dag://?check=rust/packages/tests/test&rust-package=pkg_000&rust-test=src/lib.rs::must_fail"
+      ],
+      "seconds": 0.3648461690172553,
+      "exit_code": 1,
+      "cancelled": false,
+      "expected": 1,
+      "diagnostic": "pipeline-required-failure-candidate_a"
+    },
+    {
+      "label": "candidate-all-reports-invalid",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "check",
+        "rust:packages/tests/test"
+      ],
+      "seconds": 0.4656291229184717,
+      "exit_code": 1,
+      "cancelled": false,
+      "expected": 1,
+      "diagnostic": "mismatched types"
+    },
+    {
+      "label": "candidate-all-repaired",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "check",
+        "rust:packages/tests/test"
+      ],
+      "seconds": 0.9661419880576432,
+      "exit_code": 0,
+      "cancelled": false,
+      "expected": 0,
+      "diagnostic": null
+    },
+    {
+      "label": "candidate-workspace-api",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "api",
+        "call",
+        "rust",
+        "test",
+        "--source",
+        "."
+      ],
+      "seconds": 1.1179236790630966,
+      "exit_code": 0,
+      "cancelled": false,
+      "expected": 0,
+      "diagnostic": null
+    },
+    {
+      "label": "candidate-native-cache-0",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "api",
+        "with-session",
+        "--load-workspace-modules",
+        "python3",
+        "/tmp/rust-cache-sipsma-review/interface-candidate-index-engine/rust-cache-query.py",
+        "/tmp/rust-cache-sipsma-review/interface-candidate-index-engine/rust-pipeline/cache-stats.graphql"
+      ],
+      "seconds": 0.5692760939709842,
+      "exit_code": 0,
+      "cancelled": false,
+      "expected": 0,
+      "diagnostic": null,
+      "native_cache_stats": {
+        "actions": 2,
+        "hits": 2
+      }
+    },
+    {
+      "label": "candidate-native-cache-1",
+      "command": [
+        "python3",
+        "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+        "api",
+        "with-session",
+        "--load-workspace-modules",
+        "python3",
+        "/tmp/rust-cache-sipsma-review/interface-candidate-index-engine/rust-cache-query.py",
+        "/tmp/rust-cache-sipsma-review/interface-candidate-index-engine/rust-pipeline/cache-stats.graphql"
+      ],
+      "seconds": 0.41522205201908946,
+      "exit_code": 0,
+      "cancelled": false,
+      "expected": 0,
+      "diagnostic": null,
+      "native_cache_stats": {
+        "actions": 2,
+        "hits": 2
+      }
+    }
+  ],
+  "rust_failure_code_check": [
+    {
+      "arm": "before",
+      "exit_code": 1,
+      "seconds": 0.5152296910528094,
+      "compiler_diagnostic": true,
+      "native_worker": true
+    },
+    {
+      "arm": "candidate",
+      "exit_code": 1,
+      "seconds": 0.566245264839381,
+      "compiler_diagnostic": true,
+      "native_worker": true
+    }
+  ],
+  "source_provenance": {
+    "sha256": "0df377c84e39ae7f85914fa1eb6b8eeb425c7e50454cb55db8e4742db5c8e856",
+    "matches_measured_engine": true
+  },
+  "profiles": [
+    {
+      "arm": "before",
+      "function_evaluations": 804,
+      "sdk_requests": 1494,
+      "dropped": 0,
+      "open_ops": 0,
+      "selected_calls": {
+        "go:Go.packages": {
+          "executed": 1,
+          "hit": 800
+        },
+        "go:GoPackage.tests": {
+          "hit": 799,
+          "executed": 1
+        },
+        "go:GoPackages.get": {
+          "executed": 800
+        },
+        "go:Query.go": {
+          "hit": 801
+        },
+        "gomod:Gomod.moduleLayoutDigest": {
+          "executed": 1
+        },
+        "gomod:Gomod.packageFacts": {
+          "executed": 1
+        },
+        "gomod:Gomod.selectedPaths": {
+          "hit": 79
+        },
+        "gomod:GomodPackageFacts.files": {
+          "executed": 80
+        },
+        "gomod:GomodPackageFacts.path": {
+          "do_not_cache": 80
+        },
+        "gomod:GomodPackageFacts.prefix": {
+          "do_not_cache": 80
+        },
+        "gomod:GomodPackageFacts.skipTest": {
+          "do_not_cache": 80
+        },
+        "gomod:Query.gomod": {
+          "hit": 81
+        }
+      },
+      "main_query": {
+        "id": 12115,
+        "seconds": 8.363188455
+      }
+    },
+    {
+      "arm": "candidate",
+      "function_evaluations": 804,
+      "sdk_requests": 1494,
+      "dropped": 0,
+      "open_ops": 0,
+      "selected_calls": {
+        "go:Go.packages": {
+          "hit": 800,
+          "executed": 1
+        },
+        "go:GoPackage.tests": {
+          "hit": 799,
+          "executed": 1
+        },
+        "go:GoPackages.get": {
+          "executed": 800
+        },
+        "go:Query.go": {
+          "hit": 801
+        },
+        "gomod:Gomod.moduleLayoutDigest": {
+          "executed": 1
+        },
+        "gomod:Gomod.packageFacts": {
+          "executed": 1
+        },
+        "gomod:Gomod.selectedPaths": {
+          "hit": 79
+        },
+        "gomod:GomodPackageFacts.files": {
+          "executed": 80
+        },
+        "gomod:GomodPackageFacts.path": {
+          "do_not_cache": 80
+        },
+        "gomod:GomodPackageFacts.prefix": {
+          "do_not_cache": 80
+        },
+        "gomod:GomodPackageFacts.skipTest": {
+          "do_not_cache": 80
+        },
+        "gomod:Query.gomod": {
+          "hit": 81
+        }
+      },
+      "main_query": {
+        "id": 228202,
+        "seconds": 7.804482001
+      }
+    },
+    {
+      "arm": "root-before",
+      "function_evaluations": 3,
+      "sdk_requests": 572,
+      "dropped": 0,
+      "open_ops": 0,
+      "selected_calls": {
+        "go:Go.packages": {
+          "hit": 800,
+          "executed": 1
+        },
+        "go:GoPackage.tests": {
+          "hit": 800
+        },
+        "go:GoPackages.get": {
+          "hit": 800
+        },
+        "go:Query.go": {
+          "hit": 801
+        },
+        "gomod:Gomod.moduleLayoutDigest": {
+          "executed": 1
+        },
+        "gomod:Gomod.packageFacts": {
+          "executed": 1
+        },
+        "gomod:Gomod.selectedPaths": {
+          "hit": 79
+        },
+        "gomod:GomodPackageFacts.files": {
+          "executed": 80
+        },
+        "gomod:GomodPackageFacts.path": {
+          "do_not_cache": 80
+        },
+        "gomod:GomodPackageFacts.prefix": {
+          "do_not_cache": 80
+        },
+        "gomod:GomodPackageFacts.skipTest": {
+          "do_not_cache": 80
+        },
+        "gomod:Query.gomod": {
+          "hit": 81
+        }
+      },
+      "main_query": {
+        "id": 444279,
+        "seconds": 5.816212503
+      }
+    },
+    {
+      "arm": "root-candidate",
+      "function_evaluations": 3,
+      "sdk_requests": 572,
+      "dropped": 0,
+      "open_ops": 0,
+      "selected_calls": {
+        "go:Go.packages": {
+          "hit": 800,
+          "executed": 1
+        },
+        "go:GoPackage.tests": {
+          "hit": 800
+        },
+        "go:GoPackages.get": {
+          "hit": 800
+        },
+        "go:Query.go": {
+          "hit": 801
+        },
+        "gomod:Gomod.moduleLayoutDigest": {
+          "executed": 1
+        },
+        "gomod:Gomod.packageFacts": {
+          "executed": 1
+        },
+        "gomod:Gomod.selectedPaths": {
+          "hit": 79
+        },
+        "gomod:GomodPackageFacts.files": {
+          "executed": 80
+        },
+        "gomod:GomodPackageFacts.path": {
+          "do_not_cache": 80
+        },
+        "gomod:GomodPackageFacts.prefix": {
+          "do_not_cache": 80
+        },
+        "gomod:GomodPackageFacts.skipTest": {
+          "do_not_cache": 80
+        },
+        "gomod:Query.gomod": {
+          "hit": 81
+        }
+      },
+      "main_query": {
+        "id": 599744,
+        "seconds": 5.105366678
+      }
+    }
+  ]
+}
