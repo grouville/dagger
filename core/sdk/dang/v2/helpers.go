@@ -1,7 +1,6 @@
 package dangv2
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -536,9 +535,7 @@ func callDangFunction(ctx context.Context, env dang.ValueScope, fnCall *core.Fun
 	}
 
 	var parentState map[string]any
-	dec := json.NewDecoder(bytes.NewReader(fnCall.Parent))
-	dec.UseNumber()
-	if err := dec.Decode(&parentState); err != nil {
+	if err := decodeCallJSON(fnCall.Parent, &parentState); err != nil {
 		return nil, fmt.Errorf("unmarshal parent: %w", err)
 	}
 
@@ -582,10 +579,8 @@ func callDangFunction(ctx context.Context, env dang.ValueScope, fnCall *core.Fun
 		if !provided {
 			continue
 		}
-		dec := json.NewDecoder(bytes.NewReader(jsonValue))
-		dec.UseNumber()
 		var val any
-		if err := dec.Decode(&val); err != nil {
+		if err := decodeCallJSON(jsonValue, &val); err != nil {
 			return nil, fmt.Errorf("unmarshal arg %s: %w", arg.Key, err)
 		}
 		dangVal, err := conv.convert(ctx, val, argType)
