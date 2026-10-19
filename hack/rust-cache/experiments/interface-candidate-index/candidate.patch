@@ -1,0 +1,496 @@
+diff --git a/dagql/interface_candidate_index_test.go b/dagql/interface_candidate_index_test.go
+new file mode 100644
+index 0000000000..5fa2c7740a
+--- /dev/null
++++ b/dagql/interface_candidate_index_test.go
+@@ -0,0 +1,140 @@
++package dagql
++
++import (
++	"fmt"
++	"sync"
++	"testing"
++
++	"github.com/dagger/dagger/dagql/call"
++	"github.com/stretchr/testify/require"
++	"github.com/vektah/gqlparser/v2/ast"
++)
++
++type candidateIndexType string
++
++func (name candidateIndexType) Type() *ast.Type {
++	return &ast.Type{NamedType: string(name), NonNull: true}
++}
++
++func candidateIndexServer() *Server {
++	return &Server{objects: map[string]ObjectType{}, interfaces: map[string]*Interface{}, installLock: new(sync.RWMutex), schemaLock: new(sync.Mutex)}
++}
++
++func TestInterfaceCandidatesPreserveDeclaredEvidence(t *testing.T) {
++	srv := candidateIndexServer()
++	leaf := NewInterface("Leaf", "")
++	leaf.AddField(InterfaceFieldSpec{FieldSpec: FieldSpec{Name: "missing", Type: String("")}})
++	outer := NewInterface("Outer", "")
++	outer.AddField(InterfaceFieldSpec{FieldSpec: FieldSpec{Name: "child", Type: candidateIndexType("Leaf")}})
++	child := NewClass(srv, ClassOpts[candidateIndexType]{Typed: candidateIndexType("Child"), NoIDs: true})
++	child.ImplementInterfaceUnchecked(leaf)
++	parent := NewClass(srv, ClassOpts[candidateIndexType]{Typed: candidateIndexType("Parent"), NoIDs: true})
++	parent.Install(Field[candidateIndexType]{Spec: &FieldSpec{Name: "child", Type: candidateIndexType("Child")}})
++	srv.interfaces["Leaf"] = leaf
++	srv.interfaces["Outer"] = outer
++	srv.objects["Child"] = child
++	srv.objects["Parent"] = parent
++	srv.reconcileInterfaceImplsLocked("")
++	require.True(t, outer.HasImplementor("Parent"), "declared relationships remain evidence even when required fields are absent")
++}
++
++func TestInterfaceCandidatesPreserveEmptyInterface(t *testing.T) {
++	srv := candidateIndexServer()
++	iface := NewInterface("Empty", "")
++	class := NewClass(srv, ClassOpts[candidateIndexType]{Typed: candidateIndexType("NoFields"), NoIDs: true})
++	srv.interfaces["Empty"] = iface
++	srv.objects["NoFields"] = class
++	srv.reconcileInterfaceImplsLocked("")
++	require.True(t, iface.HasImplementor("NoFields"))
++}
++
++func TestInterfaceCandidatesPropagateMissingRecursiveEvidence(t *testing.T) {
++	for _, present := range []bool{false, true} {
++		t.Run(fmt.Sprint(present), func(t *testing.T) {
++			srv := candidateIndexServer()
++			left := NewInterface("Left", "")
++			right := NewInterface("Right", "")
++			left.AddField(InterfaceFieldSpec{FieldSpec: FieldSpec{Name: "next", Type: candidateIndexType("Right")}})
++			right.AddField(InterfaceFieldSpec{FieldSpec: FieldSpec{Name: "next", Type: candidateIndexType("Left")}})
++			right.AddField(InterfaceFieldSpec{FieldSpec: FieldSpec{Name: "marker", Type: String("")}})
++			a := NewClass(srv, ClassOpts[candidateIndexType]{Typed: candidateIndexType("A"), NoIDs: true})
++			b := NewClass(srv, ClassOpts[candidateIndexType]{Typed: candidateIndexType("B"), NoIDs: true})
++			a.Install(Field[candidateIndexType]{Spec: &FieldSpec{Name: "next", Type: candidateIndexType("B")}})
++			b.Install(Field[candidateIndexType]{Spec: &FieldSpec{Name: "next", Type: candidateIndexType("A")}})
++			if present {
++				b.Install(Field[candidateIndexType]{Spec: &FieldSpec{Name: "marker", Type: String("")}})
++			}
++			srv.interfaces["Left"] = left
++			srv.interfaces["Right"] = right
++			srv.objects["A"] = a
++			srv.objects["B"] = b
++			srv.reconcileInterfaceImplsLocked("")
++			require.Equal(t, present, left.HasImplementor("A"))
++			require.Equal(t, present, right.HasImplementor("B"))
++		})
++	}
++}
++
++type countedCandidateClass struct {
++	Class[candidateIndexType]
++	checks *int
++}
++
++func (c countedCandidateClass) FieldSpec(name string, view call.View) (FieldSpec, bool) {
++	*c.checks++
++	return c.Class.FieldSpec(name, view)
++}
++
++func TestInterfaceCandidatesAvoidUnrelatedFieldProbes(t *testing.T) {
++	const count = 64
++	srv := candidateIndexServer()
++	checks := 0
++	for i := range count {
++		field := fmt.Sprintf("only%d", i)
++		name := fmt.Sprintf("Object%d", i)
++		ifaceName := fmt.Sprintf("Interface%d", i)
++		iface := NewInterface(ifaceName, "")
++		iface.AddField(InterfaceFieldSpec{FieldSpec: FieldSpec{Name: field, Type: String("")}})
++		class := NewClass(srv, ClassOpts[candidateIndexType]{Typed: candidateIndexType(name), NoIDs: true})
++		class.Install(Field[candidateIndexType]{Spec: &FieldSpec{Name: field, Type: String("")}})
++		srv.interfaces[ifaceName] = iface
++		srv.objects[name] = countedCandidateClass{class, &checks}
++	}
++	srv.reconcileInterfaceImplsLocked("")
++	for i := range count {
++		require.True(t, srv.interfaces[fmt.Sprintf("Interface%d", i)].HasImplementor(fmt.Sprintf("Object%d", i)))
++	}
++	t.Logf("field probes: %d", checks)
++	require.LessOrEqual(t, checks, 2*count, "unrelated object/interface pairs should not require compatibility probes")
++}
++
++// A field-rich class should not copy its entire field table to check two names.
++type fieldRichCandidateClass struct {
++	Class[candidateIndexType]
++	snapshots *int
++}
++
++func (c fieldRichCandidateClass) FieldSpecs(view call.View) []FieldSpec {
++	*c.snapshots++
++	return c.Class.FieldSpecs(view)
++}
++func TestInterfaceCandidatesAvoidCopyingUnrelatedFields(t *testing.T) {
++	srv := candidateIndexServer()
++	snapshots := 0
++	present := NewInterface("Present", "")
++	absent := NewInterface("Absent", "")
++	present.AddField(InterfaceFieldSpec{FieldSpec: FieldSpec{Name: "present", Type: String("")}})
++	absent.AddField(InterfaceFieldSpec{FieldSpec: FieldSpec{Name: "absent", Type: String("")}})
++	class := NewClass(srv, ClassOpts[candidateIndexType]{Typed: candidateIndexType("FieldRich"), NoIDs: true})
++	for i := range 64 {
++		class.Install(Field[candidateIndexType]{Spec: &FieldSpec{Name: fmt.Sprintf("extra%d", i), Type: String("")}})
++	}
++	class.Install(Field[candidateIndexType]{Spec: &FieldSpec{Name: "present", Type: String("")}})
++	srv.objects["FieldRich"] = fieldRichCandidateClass{class, &snapshots}
++	srv.interfaces["Present"] = present
++	srv.interfaces["Absent"] = absent
++	srv.reconcileInterfaceImplsLocked("")
++	require.True(t, present.HasImplementor("FieldRich"))
++	require.False(t, absent.HasImplementor("FieldRich"))
++	require.Zero(t, snapshots, "a few required names should not copy the whole field table")
++}
+diff --git a/dagql/interface_core_shape_benchmark_test.go b/dagql/interface_core_shape_benchmark_test.go
+new file mode 100644
+index 0000000000..3d7043e50e
+--- /dev/null
++++ b/dagql/interface_core_shape_benchmark_test.go
+@@ -0,0 +1,51 @@
++package dagql
++
++import (
++	"fmt"
++	"testing"
++)
++
++// Match core's few shared interfaces against objects with many unrelated fields.
++// Each iteration includes constructing the schema, as in the other fixtures.
++func BenchmarkInterfaceCoreShape(b *testing.B) {
++	for _, count := range []int{128, 512} {
++		b.Run(fmt.Sprint(count), func(b *testing.B) {
++			b.ReportAllocs()
++			for b.Loop() {
++				srv := candidateIndexServer()
++				node := NewInterface("Node", "")
++				node.AddField(InterfaceFieldSpec{FieldSpec: FieldSpec{Name: "id", Type: AnyID{}}})
++				syncer := NewInterface("Syncer", "")
++				syncer.AddField(InterfaceFieldSpec{FieldSpec: FieldSpec{Name: "id", Type: AnyID{}}})
++				syncer.AddField(InterfaceFieldSpec{FieldSpec: FieldSpec{Name: "sync", Type: AnyID{}}})
++				exportable := NewInterface("Exportable", "")
++				exportable.AddField(InterfaceFieldSpec{FieldSpec: FieldSpec{Name: "id", Type: AnyID{}}})
++				export := FieldSpec{Name: "export", Type: String(""), Args: NewInputSpecs(InputSpec{Name: "path", Type: String("")})}
++				exportable.AddField(InterfaceFieldSpec{FieldSpec: export})
++				srv.interfaces["Node"] = node
++				srv.interfaces["Syncer"] = syncer
++				srv.interfaces["Exportable"] = exportable
++				for i := range count {
++					name := fmt.Sprintf("CoreType%d", i)
++					class := NewClass(srv, ClassOpts[candidateIndexType]{Typed: candidateIndexType(name), NoIDs: true})
++					class.Install(Field[candidateIndexType]{Spec: &FieldSpec{Name: "id", Type: AnyID{}}})
++					for j := range 64 {
++						class.Install(Field[candidateIndexType]{Spec: &FieldSpec{Name: fmt.Sprintf("extra%d", j), Type: String("")}})
++					}
++					if i%8 == 0 {
++						class.Install(Field[candidateIndexType]{Spec: &FieldSpec{Name: "sync", Type: AnyID{}}})
++					}
++					if i%16 == 0 {
++						class.Install(Field[candidateIndexType]{Spec: &export})
++					}
++					class.ImplementInterfaceUnchecked(node)
++					srv.objects[name] = class
++				}
++				srv.reconcileInterfaceImplsLocked("")
++				if !syncer.HasImplementor("CoreType0") || !exportable.HasImplementor("CoreType0") || syncer.HasImplementor("CoreType1") {
++					b.Fatal("core interface matches changed")
++				}
++			}
++		})
++	}
++}
+diff --git a/dagql/interface_reconciliation_benchmark_test.go b/dagql/interface_reconciliation_benchmark_test.go
+new file mode 100644
+index 0000000000..6a5b298030
+--- /dev/null
++++ b/dagql/interface_reconciliation_benchmark_test.go
+@@ -0,0 +1,70 @@
++package dagql
++
++import (
++	"fmt"
++	"sync"
++	"testing"
++
++	"github.com/vektah/gqlparser/v2/ast"
++)
++
++type reconciliationBenchmarkType string
++
++func (name reconciliationBenchmarkType) Type() *ast.Type {
++	return &ast.Type{NamedType: string(name), NonNull: true}
++}
++
++// Build a fresh schema on every iteration, including construction in the timer.
++// Distinct groups share fields but require different final fields, so matching
++// includes both accepted and rejected candidates. The declared case mirrors
++// inherited schema relationships that need no new structural checks.
++func BenchmarkInterfaceReconciliation(b *testing.B) {
++	for _, shape := range []struct {
++		objects, interfaces int
++		declared            bool
++		dense               bool
++	}{{1, 1, false, false}, {128, 8, false, false}, {512, 16, false, false}, {128, 8, false, true}, {128, 1, true, false}, {128, 8, true, true}} {
++		b.Run(fmt.Sprintf("objects=%d/interfaces=%d/declared=%t/dense=%t", shape.objects, shape.interfaces, shape.declared, shape.dense), func(b *testing.B) {
++			b.ReportAllocs()
++			for b.Loop() {
++				srv := &Server{objects: map[string]ObjectType{}, interfaces: map[string]*Interface{}, installLock: new(sync.RWMutex), schemaLock: new(sync.Mutex)}
++				for i := range shape.interfaces {
++					iface := NewInterface(fmt.Sprintf("I%d", i), "")
++					for field := range 8 {
++						iface.AddField(InterfaceFieldSpec{FieldSpec: FieldSpec{Name: fmt.Sprintf("f%d", field), Type: String("")}})
++					}
++					group := i % 8
++					if shape.dense {
++						group = 0
++					}
++					iface.AddField(InterfaceFieldSpec{FieldSpec: FieldSpec{Name: fmt.Sprintf("tag%d", group), Type: String("")}})
++					srv.interfaces[iface.TypeName()] = iface
++				}
++				for i := range shape.objects {
++					name := fmt.Sprintf("T%d", i)
++					class := NewClass(srv, ClassOpts[reconciliationBenchmarkType]{Typed: reconciliationBenchmarkType(name), NoIDs: true})
++					for field := range 8 {
++						class.Install(Field[reconciliationBenchmarkType]{Spec: &FieldSpec{Name: fmt.Sprintf("f%d", field), Type: String("")}})
++					}
++					group := i % min(8, shape.interfaces)
++					if shape.dense {
++						group = 0
++					}
++					class.Install(Field[reconciliationBenchmarkType]{Spec: &FieldSpec{Name: fmt.Sprintf("tag%d", group), Type: String("")}})
++					if shape.declared {
++						for _, iface := range srv.interfaces {
++							class.ImplementInterfaceUnchecked(iface)
++						}
++					}
++					srv.objects[name] = class
++				}
++				srv.installLock.Lock()
++				srv.reconcileInterfaceImplsLocked("")
++				srv.installLock.Unlock()
++				if !srv.interfaces["I0"].HasImplementor("T0") {
++					b.Fatal("matching object was not recorded")
++				}
++			}
++		})
++	}
++}
+diff --git a/dagql/interfaces.go b/dagql/interfaces.go
+index 886a188de0..2503df4704 100644
+--- a/dagql/interfaces.go
++++ b/dagql/interfaces.go
+@@ -225,19 +225,7 @@ func (iface *Interface) Satisfies(obj ObjectType, view call.View, checkers ...Im
+ 	if len(checkers) > 0 {
+ 		checker = checkers[0]
+ 	}
+-	for _, ifaceField := range iface.FieldSpecs(view) {
+-		objField, ok := obj.FieldSpec(ifaceField.Name, view)
+-		if !ok {
+-			return false
+-		}
+-		if !typeCompatible(ifaceField.Type.Type(), objField.Type.Type(), checker) {
+-			return false
+-		}
+-		if !argsCompatible(ifaceField.Args, objField.Args, view, checker) {
+-			return false
+-		}
+-	}
+-	return true
++	return satisfiesInterfaceFields(iface.FieldSpecs(view), obj.FieldSpec, view, checker)
+ }
+ 
+ // SatisfiedByInterface returns true if the given interface structurally satisfies
+@@ -251,15 +239,19 @@ func (iface *Interface) SatisfiedByInterface(other *Interface, view call.View, c
+ 	if len(checkers) > 0 {
+ 		checker = checkers[0]
+ 	}
+-	for _, ifaceField := range iface.FieldSpecs(view) {
+-		otherField, ok := other.FieldSpec(ifaceField.Name, view)
++	return satisfiesInterfaceFields(iface.FieldSpecs(view), other.FieldSpec, view, checker)
++}
++
++func satisfiesInterfaceFields(fields []FieldSpec, lookup func(string, call.View) (FieldSpec, bool), view call.View, checker ImplementsChecker) bool {
++	for _, ifaceField := range fields {
++		objField, ok := lookup(ifaceField.Name, view)
+ 		if !ok {
+ 			return false
+ 		}
+-		if !typeCompatible(ifaceField.Type.Type(), otherField.Type.Type(), checker) {
++		if !typeCompatible(ifaceField.Type.Type(), objField.Type.Type(), checker) {
+ 			return false
+ 		}
+-		if !argsCompatible(ifaceField.Args, otherField.Args, view, checker) {
++		if !argsCompatible(ifaceField.Args, objField.Args, view, checker) {
+ 			return false
+ 		}
+ 	}
+diff --git a/dagql/objects.go b/dagql/objects.go
+index bcf6dbda50..4275cc4f5b 100644
+--- a/dagql/objects.go
++++ b/dagql/objects.go
+@@ -245,6 +245,13 @@ func (class Class[T]) FieldSpec(name string, view call.View) (FieldSpec, bool) {
+ 	return *field.Spec, true
+ }
+ 
++// fieldCount bounds the visible field count without copying their specs.
++func (class Class[T]) fieldCount() int {
++	class.fieldsL.RLock()
++	defer class.fieldsL.RUnlock()
++	return len(class.fields)
++}
++
+ func (class Class[T]) FieldSpecs(view call.View) []FieldSpec {
+ 	class.fieldsL.Lock()
+ 	defer class.fieldsL.Unlock()
+diff --git a/dagql/server.go b/dagql/server.go
+index e25b3d30c4..cfa2346ec2 100644
+--- a/dagql/server.go
++++ b/dagql/server.go
+@@ -703,28 +703,6 @@ func (s *Server) reconcileInterfaceImplsLocked(view call.View) {
+ 	rels := interfaceRelationSet{}
+ 	permanent := interfaceRelationSet{}
+ 
+-	// Seed every (object, interface) and (interface, interface) pair as a
+-	// candidate, then whittle the set down in the loop below. Assuming all
+-	// pairs hold and only removing the disproven ones computes a greatest
+-	// fixed point, which is what lets mutually recursive, covariant
+-	// relationships resolve: e.g. `Obj.self: Obj` satisfies `Iface.self: Iface`
+-	// only if Obj implements Iface, which is the very pair we're proving.
+-	sortutil.RangeSorted(s.objects, func(objName string, obj ObjectType) {
+-		if _, ok := obj.(InterfaceImplementor); !ok {
+-			return
+-		}
+-		sortutil.RangeSorted(s.interfaces, func(ifaceName string, _ *Interface) {
+-			rels.add(objName, ifaceName)
+-		})
+-	})
+-	sortutil.RangeSorted(s.interfaces, func(typeName string, _ *Interface) {
+-		sortutil.RangeSorted(s.interfaces, func(ifaceName string, _ *Interface) {
+-			if typeName != ifaceName {
+-				rels.add(typeName, ifaceName)
+-			}
+-		})
+-	})
+-
+ 	// Relationships that were declared explicitly (or inferred by an earlier
+ 	// pass) are facts, not candidates: keep them in permanent so the loop
+ 	// never disproves them, and add them to rels so they count as evidence
+@@ -755,6 +733,87 @@ func (s *Server) reconcileInterfaceImplsLocked(view call.View) {
+ 		}
+ 	})
+ 
++	// Required fields are constant for this reconciliation view. Reuse their
++	// snapshots for both candidate selection and compatibility checks.
++	var required map[*Interface][]FieldSpec
++	fieldsFor := func(iface *Interface) []FieldSpec {
++		if fields, found := required[iface]; found {
++			return fields
++		}
++		if required == nil {
++			required = make(map[*Interface][]FieldSpec)
++		}
++		fields := iface.FieldSpecs(view)
++		required[iface] = fields
++		return fields
++	}
++	if len(s.interfaces) == 1 {
++		// One interface needs only a linear object scan; indexing all fields
++		// would add work, especially when relationships are already declared.
++		for name := range s.interfaces {
++			for objectName, object := range s.objects {
++				if _, ok := object.(InterfaceImplementor); ok {
++					rels.add(objectName, name)
++				}
++			}
++		}
++	} else {
++		// An implementation must expose every required field. Index visible field
++		// names once and seed from each interface's least common field, rather than
++		// creating all object/interface pairs. Type and argument compatibility are
++		// still checked by the fixed-point loop below.
++		byField := map[string][]string{}
++		for _, iface := range s.interfaces {
++			fields := fieldsFor(iface)
++			for _, field := range fields {
++				byField[field.Name] = nil
++			}
++		}
++		var types []string
++		index := func(name string, fields []FieldSpec) {
++			types = append(types, name)
++			for _, field := range fields {
++				if _, needed := byField[field.Name]; needed {
++					byField[field.Name] = append(byField[field.Name], name)
++				}
++			}
++		}
++		sortutil.RangeSorted(s.objects, func(name string, obj ObjectType) {
++			// Fully declared objects already provide every possible relation.
++			if _, ok := obj.(InterfaceImplementor); !ok || len(permanent[name]) == len(s.interfaces) {
++				return
++			}
++			// Field-rich objects need only a few lookups when interfaces use
++			// few distinct names. Sparse objects are cheaper to scan once.
++			if sized, ok := obj.(interface{ fieldCount() int }); ok && len(byField) < sized.fieldCount() {
++				types = append(types, name)
++				for field := range byField {
++					if _, found := obj.FieldSpec(field, view); found {
++						byField[field] = append(byField[field], name)
++					}
++				}
++				return
++			}
++			index(name, obj.FieldSpecs(view))
++		})
++		sortutil.RangeSorted(s.interfaces, func(name string, _ *Interface) {
++			index(name, fieldsFor(s.interfaces[name]))
++		})
++		sortutil.RangeSorted(s.interfaces, func(name string, _ *Interface) {
++			candidates := types
++			for _, field := range fieldsFor(s.interfaces[name]) {
++				if matches := byField[field.Name]; len(matches) < len(candidates) {
++					candidates = matches
++				}
++			}
++			for _, candidate := range candidates {
++				if candidate != name {
++					rels.add(candidate, name)
++				}
++			}
++		})
++	}
++
+ 	// Drop any candidate pair whose fields don't structurally line up, using
+ 	// the shrinking rels set as the oracle for nested type comparisons.
+ 	// Removing one pair can invalidate another, so iterate until stable.
+@@ -766,22 +825,24 @@ func (s *Server) reconcileInterfaceImplsLocked(view call.View) {
+ 		}
+ 
+ 		sortutil.RangeSorted(s.objects, func(objName string, obj ObjectType) {
+-			sortutil.RangeSorted(s.interfaces, func(ifaceName string, iface *Interface) {
++			sortutil.RangeSorted(rels[objName], func(ifaceName string, _ struct{}) {
++				iface := s.interfaces[ifaceName]
+ 				if !rels.has(objName, ifaceName) || permanent.has(objName, ifaceName) {
+ 					return
+ 				}
+-				if !iface.Satisfies(obj, view, checker) {
++				if !satisfiesInterfaceFields(fieldsFor(iface), obj.FieldSpec, view, checker) {
+ 					changed = rels.del(objName, ifaceName) || changed
+ 				}
+ 			})
+ 		})
+ 
+ 		sortutil.RangeSorted(s.interfaces, func(typeName string, typ *Interface) {
+-			sortutil.RangeSorted(s.interfaces, func(ifaceName string, iface *Interface) {
++			sortutil.RangeSorted(rels[typeName], func(ifaceName string, _ struct{}) {
++				iface := s.interfaces[ifaceName]
+ 				if typeName == ifaceName || !rels.has(typeName, ifaceName) || permanent.has(typeName, ifaceName) {
+ 					return
+ 				}
+-				if !iface.SatisfiedByInterface(typ, view, checker) {
++				if !satisfiesInterfaceFields(fieldsFor(iface), typ.FieldSpec, view, checker) {
+ 					changed = rels.del(typeName, ifaceName) || changed
+ 				}
+ 			})

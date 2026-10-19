@@ -1,0 +1,127 @@
+{
+  "selected_for_engine": false,
+  "reason": "Six larger shapes improve; the single-interface declared fixture is effectively flat and the tiny fixture regresses. Full Go/Rust commands with this candidate are not measured yet. Keep it experimental until pipeline validation and end-to-end comparisons.",
+  "benchmark_summaries": {
+    "BenchmarkInterfaceReconciliation/objects=1/interfaces=1/declared=false/dense=false": {
+      "before": {
+        "ns": 15875.5,
+        "bytes": 21007.5,
+        "allocations": 129.0
+      },
+      "after": {
+        "ns": 17791.5,
+        "bytes": 21344.0,
+        "allocations": 131.0
+      },
+      "faster_pairs": 0
+    },
+    "BenchmarkInterfaceReconciliation/objects=128/interfaces=8/declared=false/dense=false": {
+      "before": {
+        "ns": 7178936.5,
+        "bytes": 12879327.5,
+        "allocations": 33923.0
+      },
+      "after": {
+        "ns": 1811638.0,
+        "bytes": 2185474.5,
+        "allocations": 10726.0
+      },
+      "faster_pairs": 4
+    },
+    "BenchmarkInterfaceReconciliation/objects=512/interfaces=16/declared=false/dense=false": {
+      "before": {
+        "ns": 51989763.5,
+        "bytes": 98800134.0,
+        "allocations": 238263.5
+      },
+      "after": {
+        "ns": 8739379.5,
+        "bytes": 9128231.5,
+        "allocations": 52486.0
+      },
+      "faster_pairs": 4
+    },
+    "BenchmarkInterfaceReconciliation/objects=128/interfaces=8/declared=false/dense=true": {
+      "before": {
+        "ns": 6684539.0,
+        "bytes": 11859165.0,
+        "allocations": 34837.5
+      },
+      "after": {
+        "ns": 4269679.5,
+        "bytes": 3217091.0,
+        "allocations": 30065.5
+      },
+      "faster_pairs": 4
+    },
+    "BenchmarkInterfaceReconciliation/objects=128/interfaces=1/declared=true/dense=false": {
+      "before": {
+        "ns": 823974.0,
+        "bytes": 770904.5,
+        "allocations": 7651.0
+      },
+      "after": {
+        "ns": 825966.0,
+        "bytes": 768602.0,
+        "allocations": 7650.0
+      },
+      "faster_pairs": 2
+    },
+    "BenchmarkInterfaceReconciliation/objects=128/interfaces=8/declared=true/dense=true": {
+      "before": {
+        "ns": 2028199.5,
+        "bytes": 1716380.5,
+        "allocations": 12190.5
+      },
+      "after": {
+        "ns": 1735823.0,
+        "bytes": 1203003.0,
+        "allocations": 11475.0
+      },
+      "faster_pairs": 4
+    },
+    "BenchmarkInterfaceCoreShape/128": {
+      "before": {
+        "ns": 4764659.5,
+        "bytes": 4832704.5,
+        "allocations": 39191.5
+      },
+      "after": {
+        "ns": 4386507.0,
+        "bytes": 4547339.0,
+        "allocations": 37661.5
+      },
+      "faster_pairs": 4
+    },
+    "BenchmarkInterfaceCoreShape/512": {
+      "before": {
+        "ns": 18923232.5,
+        "bytes": 19302986.5,
+        "allocations": 156551.5
+      },
+      "after": {
+        "ns": 17428665.0,
+        "bytes": 18171931.0,
+        "allocations": 150444.0
+      },
+      "faster_pairs": 4
+    }
+  },
+  "pairs_per_shape": 4,
+  "fresh_processes_per_cohort": 8,
+  "construction_included": true,
+  "go": "1.26.6",
+  "gomaxprocs": 8,
+  "full_dagql_race_passed": true,
+  "race_seconds": 66.065,
+  "baseline_field_probes": 4160,
+  "candidate_field_probes": 64,
+  "no_global_cache": true,
+  "no_new_lock": true,
+  "field_counter_uses_existing_class_lock": true,
+  "engine_unchanged": true,
+  "whole_command_gain_unmeasured": true,
+  "cold_engine_gain_unmeasured": true,
+  "rust_gain_unmeasured": true,
+  "new_pr_opened": false
+}
