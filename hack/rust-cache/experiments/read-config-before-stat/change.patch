@@ -1,0 +1,155 @@
+diff --git a/core/module_git_clients.go b/core/module_git_clients.go
+index ccbf0f8210..0a80e6545c 100644
+--- a/core/module_git_clients.go
++++ b/core/module_git_clients.go
+@@ -11,6 +11,7 @@ import (
+ 	"github.com/dagger/dagger/core/workspace"
+ 	"github.com/dagger/dagger/dagql"
+ 	"github.com/dagger/dagger/engine"
++	fstypes "github.com/dagger/dagger/internal/fsutil/types"
+ )
+ 
+ // ModuleDeclaredGitClients reads the git clients that the config governing a
+@@ -88,19 +89,33 @@ func hostFileReader(ctx context.Context, src *ModuleSource) (workspace.TreeFileR
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	return hostTreeFileReader(hostCtx, root, bk), nil
++}
++
++type hostTreeReaderClient interface {
++	ReadCallerHostFile(context.Context, string) ([]byte, error)
++	StatCallerHostPath(context.Context, string, bool) (*fstypes.Stat, error)
++}
++
++func hostTreeFileReader(ctx context.Context, root string, client hostTreeReaderClient) workspace.TreeFileReader {
+ 	return func(rel string) ([]byte, bool, error) {
+ 		abs := filepath.Join(root, filepath.FromSlash(rel))
+-		stat, err := bk.StatCallerHostPath(hostCtx, abs, false)
++		data, readErr := client.ReadCallerHostFile(ctx, abs)
++		if readErr == nil {
++			return data, true, nil
++		}
++		if status.Code(readErr) == codes.NotFound {
++			return nil, false, nil
++		}
++		// A directory is not a config file. Stat only after a failed read so
++		// successful reads need one host request and all other errors survive.
++		stat, err := client.StatCallerHostPath(ctx, abs, false)
+ 		if status.Code(err) == codes.NotFound {
+ 			return nil, false, nil
+ 		}
+ 		if err != nil || stat.IsDir() {
+ 			return nil, false, err
+ 		}
+-		data, err := bk.ReadCallerHostFile(hostCtx, abs)
+-		if err != nil {
+-			return nil, false, err
+-		}
+-		return data, true, nil
+-	}, nil
++		return nil, false, readErr
++	}
+ }
+diff --git a/core/module_git_clients_host_test.go b/core/module_git_clients_host_test.go
+new file mode 100644
+index 0000000000..e68db75933
+--- /dev/null
++++ b/core/module_git_clients_host_test.go
+@@ -0,0 +1,96 @@
++package core
++
++import (
++	"context"
++	"errors"
++	"io/fs"
++	"path/filepath"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++	"google.golang.org/grpc/codes"
++	"google.golang.org/grpc/status"
++
++	fstypes "github.com/dagger/dagger/internal/fsutil/types"
++)
++
++type hostTreeReaderStub struct {
++	read  func(context.Context, string) ([]byte, error)
++	stat  func(context.Context, string, bool) (*fstypes.Stat, error)
++	reads int
++	stats int
++}
++
++func (c *hostTreeReaderStub) ReadCallerHostFile(ctx context.Context, path string) ([]byte, error) {
++	c.reads++
++	return c.read(ctx, path)
++}
++
++func (c *hostTreeReaderStub) StatCallerHostPath(ctx context.Context, path string, absolute bool) (*fstypes.Stat, error) {
++	c.stats++
++	return c.stat(ctx, path, absolute)
++}
++
++func TestHostTreeFileReaderReadsCurrentContents(t *testing.T) {
++	key := struct{}{}
++	ctx := context.WithValue(t.Context(), key, "caller")
++	root := t.TempDir()
++	contents := "first"
++	client := &hostTreeReaderStub{read: func(gotCtx context.Context, path string) ([]byte, error) {
++		require.Equal(t, "caller", gotCtx.Value(key))
++		require.Equal(t, filepath.Join(root, "nested", "dagger.toml"), path)
++		return []byte(contents), nil
++	}, stat: func(context.Context, string, bool) (*fstypes.Stat, error) {
++		t.Fatal("successful reads must not issue a redundant stat request")
++		return nil, nil
++	}}
++	read := hostTreeFileReader(ctx, root, client)
++	for _, want := range []string{"first", "second", ""} {
++		contents = want
++		data, found, err := read("nested/dagger.toml")
++		require.NoError(t, err)
++		require.True(t, found)
++		require.Equal(t, want, string(data))
++	}
++	require.Equal(t, 3, client.reads)
++	require.Zero(t, client.stats)
++}
++
++func TestHostTreeFileReaderFailures(t *testing.T) {
++	readErr := errors.New("read denied")
++	statErr := errors.New("stat denied")
++	notFound := status.Error(codes.NotFound, "missing")
++	for _, tc := range []struct {
++		name      string
++		readErr   error
++		stat      *fstypes.Stat
++		statErr   error
++		wantErr   error
++		wantStats int
++	}{
++		{name: "missing", readErr: notFound},
++		{name: "directory", readErr: readErr, stat: &fstypes.Stat{Mode: uint32(fs.ModeDir)}, wantStats: 1},
++		{name: "read failure", readErr: readErr, stat: &fstypes.Stat{}, wantErr: readErr, wantStats: 1},
++		{name: "stat failure", readErr: readErr, statErr: statErr, wantErr: statErr, wantStats: 1},
++		{name: "removed before fallback", readErr: readErr, statErr: notFound, wantStats: 1},
++		{name: "cancelled", readErr: context.Canceled, statErr: context.Canceled, wantErr: context.Canceled, wantStats: 1},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			client := &hostTreeReaderStub{read: func(context.Context, string) ([]byte, error) {
++				return nil, tc.readErr
++			}, stat: func(_ context.Context, _ string, absolute bool) (*fstypes.Stat, error) {
++				require.False(t, absolute)
++				return tc.stat, tc.statErr
++			}}
++			data, found, err := hostTreeFileReader(t.Context(), t.TempDir(), client)("dagger.toml")
++			if tc.wantErr == nil {
++				require.NoError(t, err)
++			} else {
++				require.ErrorIs(t, err, tc.wantErr)
++			}
++			require.Nil(t, data)
++			require.False(t, found)
++			require.Equal(t, tc.wantStats, client.stats)
++		})
++	}
++}
