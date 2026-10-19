@@ -1658,6 +1658,13 @@ func (dir *Directory) Glob(ctx context.Context, self dagql.ObjectResult[*Directo
 		patternChars += `\`
 	}
 	onlyPrefixIncludes := !strings.ContainsAny(patternWithoutTrailingGlob(pat), patternChars)
+	// Wildcards in the filename or tail can still leave a fixed directory
+	// prefix. Only its ancestors and descendants can contain matches.
+	directoryPrefix := "."
+	if wildcard := strings.IndexAny(pat.String(), patternChars); wildcard >= 0 {
+		directoryPrefix = filepath.Dir(pat.String()[:wildcard])
+	}
+	canPruneDirectories := !pat.Exclusion() && (onlyPrefixIncludes || directoryPrefix != ".")
 
 	useSlash := SupportsDirSlash(ctx)
 	snapshot, err := dir.Snapshot.GetOrEval(ctx, self.Result)
@@ -1708,15 +1715,19 @@ func (dir *Directory) Glob(ctx context.Context, self dagql.ObjectResult[*Directo
 						path += "/"
 					}
 					paths = append(paths, path)
-				} else if d.IsDir() && onlyPrefixIncludes {
+				} else if d.IsDir() && canPruneDirectories {
 					// fsutils Optimization: we can skip walking this dir if no include
 					// patterns could match anything inside it.
 					dirSlash := path + string(filepath.Separator)
-					if !pat.Exclusion() {
+					if onlyPrefixIncludes {
 						patStr := patternWithoutTrailingGlob(pat) + string(filepath.Separator)
 						if !strings.HasPrefix(patStr, dirSlash) {
 							return filepath.SkipDir
 						}
+					} else if directoryPrefix != "." && path != directoryPrefix &&
+						!strings.HasPrefix(directoryPrefix, dirSlash) &&
+						!strings.HasPrefix(path, directoryPrefix+string(filepath.Separator)) {
+						return filepath.SkipDir
 					}
 				}
 
