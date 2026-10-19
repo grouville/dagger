@@ -1,0 +1,35 @@
+{
+  "benefit": {
+    "package": "./internal/fsutil",
+    "pattern": "BenchmarkFilterFSLiteralInclude",
+    "benchtime": "100ms",
+    "overlays": {
+      "before": {
+        "internal/fsutil/literal_include_test.go": "bench-0.go"
+      },
+      "candidate": {
+        "internal/fsutil/literal_include_test.go": "bench-0.go",
+        "internal/fsutil/filter.go": "production-0.go",
+        "internal/fsutil/fs.go": "production-1.go"
+      }
+    }
+  },
+  "control": {
+    "package": "./internal/fsutil",
+    "pattern": "BenchmarkFilterFSWildcardControl",
+    "benchtime": "300ms",
+    "overlays": {
+      "before": {
+        "internal/fsutil/literal_include_test.go": "bench-0.go",
+        "internal/fsutil/wildcard-tradeoff_test.go": "controls/wildcard-tradeoff_test.go"
+      },
+      "candidate": {
+        "internal/fsutil/literal_include_test.go": "bench-0.go",
+        "internal/fsutil/filter.go": "production-0.go",
+        "internal/fsutil/fs.go": "production-1.go",
+        "internal/fsutil/wildcard-tradeoff_test.go": "controls/wildcard-tradeoff_test.go"
+      }
+    }
+  },
+  "base": "80699ac67a1c72dc38d30c4186105cd9dd3afde6"
+}

@@ -8,6 +8,9 @@ Every source branch is one signed-off commit directly on its repository's pinned
 
 | [Skip unrelated host directories (#14731)](https://github.com/dagger/dagger/pull/14731) | Package pattern: **9.28 → 0.10 ms**; module pattern: **10.01 → 0.60 ms**; whole-tree control: **14.13 → 14.12 ms**. | Four pairs; full client race suite. Description and commit explain the prefix checks and the control. Draft #14731 opened. |
 
+| [Skip bookkeeping for values with no disk data](PR_ENGINE_SKIP_EMPTY_USAGE_SAMPLING.md) | Cleanup preparation: **998.88 → 459.68 ms**, **158.94 → 91.12 MB** allocated. | Four pairs. Provider controls show mixed small timing changes and unchanged allocation counts; race suite and both provider transitions covered. |
+| [Avoid listing unrelated directories for one include](PR_FSUTIL_LITERAL_WALKS.md) | With 2,048 root siblings: **2.51 ms → 49.87 µs**; eight siblings: **59.17 → 51.27 µs**. | Four pairs. Wildcard fallback control retained; tests compare entries, metadata, ordering, symlinks, permission and callback errors. |
+
 The remaining standalone cohorts and additional tradeoff controls are running. No unverified cumulative figure is used as a standalone result. Draft PRs are opened only after the individual result and its scope justify them.
 
 The [review queue](GO_COLLECTION_PR_SERIES.md) contains the proposed descriptions. Source publication is recorded in [the branch manifest](experiments/standalone-go-collections/published-branches.json).

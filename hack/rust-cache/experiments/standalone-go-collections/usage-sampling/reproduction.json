@@ -1,0 +1,28 @@
+{
+  "benefit": {
+    "package": "./dagql",
+    "pattern": "BenchmarkCachePruneSnapshot/disk/200000$",
+    "benchtime": "1x",
+    "overlays": {
+      "before": {},
+      "candidate": {
+        "dagql/cache_usage.go": "production-0.go"
+      }
+    }
+  },
+  "control": {
+    "package": "./dagql",
+    "pattern": "BenchmarkUsageProviderSampling",
+    "benchtime": "300ms",
+    "overlays": {
+      "before": {
+        "dagql/provider-tradeoff_test.go": "controls/provider-tradeoff_test.go"
+      },
+      "candidate": {
+        "dagql/cache_usage.go": "production-0.go",
+        "dagql/provider-tradeoff_test.go": "controls/provider-tradeoff_test.go"
+      }
+    }
+  },
+  "base": "80699ac67a1c72dc38d30c4186105cd9dd3afde6"
+}

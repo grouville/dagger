@@ -1,27 +1,37 @@
-# perf(dagql): skip disk-usage sampling for empty values
+# perf(dagql): skip disk-usage bookkeeping for values with no disk data
 
-Disk-prune preparation builds usage records and takes temporary references for every cached result, including scalars and metadata with no disk usage. Large Go collection listings accumulate many such values, extending preparation under the graph lock.
+While profiling Go test collection listing on dagger/dagger, I found that preparing cache cleanup did substantial work for values that have no disk data, such as numbers, strings and collection metadata. It created a measurement record and took a temporary reference for each one.
 
-Skip values with no usage provider, snapshot links or previous measurements to clear. Finalization still rechecks omitted values: an empty value replaced by a provider must be sampled before pruning. This is part of reducing Go test collection listing overhead on dagger/dagger.
+Skip that bookkeeping when a value has no disk-usage provider, no snapshot links and no previous measurements to clear. Before using the measurements, cleanup still checks whether the value changed: a number replaced by a value with disk data must be measured before pruning proceeds.
 
-### Performance
+This adds a check per value. The saving depends on how many values have no disk data; a cache made entirely of disk-usage providers still takes the normal measurement path.
 
-Complete-command measurements use `dagger check --module go --check test --list --all`.
+### Results
 
-| Measurement | Before | After |
-| --- | ---: | ---: |
-| 200,000-result usage snapshot | 590 ms / 159 MB | 335 ms / 91 MB |
-| Preparation on the retained engine cache | 5.12 s / 1.06 GB | 3.22 s / 495 MB |
-| Complete Go test listing | 49.10 s | 45.40 s |
+Comparing main `80699ac67a` with only this change:
 
-The fixture improves in all three alternating pairs. Real-cache preparation improves in all four pairs, preserving the same 854,567 results and measured usage without eviction. A provider-only control has unchanged allocation and no observed slowdown.
+| Operation | Main | This PR | Memory allocated, before → after |
+| --- | ---: | ---: | ---: |
+| Prepare disk cleanup, 200,000 scalar results | 998.88 ms | 459.68 ms | 158.94 → 91.12 MB |
+| Sample 128 disk-usage providers, control | 138.60 µs | 141.54 µs | 87.63 → 87.63 kB |
+| Sample 2,048 disk-usage providers, control | 3.11 ms | 3.05 ms | 1.52 → 1.52 MB |
 
-Complete listing improves **7.5%**, in all four pairs. Each command starts a fresh CLI, edits source on the same warm experimental engine, returns the same 4,398 ordered rows, and includes telemetry and successful cleanup. Background pruning affects the magnitude; this is not a cold-start or stock-main comparison.
+Medians from four alternating pairs. Cleanup preparation improved in every pair. Provider-only timings were mixed at 128 results and faster in three of four pairs at 2,048, with unchanged allocation counts. The large fixture uses one operation per sample; controls run for 300 ms. Setup is excluded. Go 1.26.6, Linux amd64, `GOMAXPROCS=8`.
 
-### Validation and tradeoffs
+These are cache-operation measurements. The complete Go listing gain has not yet been measured for this change alone.
 
-The full DagQL race suite passes. Added tests cover empty values becoming providers and clearing old usage after providers become empty. Existing tests cover callback lifetime, cancellation, shared snapshots and pruning decisions. Six Rust compilation histories retain their action hits across restart and after the listing cohort.
+### Reproducing
 
-The change is confined to usage sampling, without a new index or lock. Provider validation and eviction policy retain their existing behavior.
+The regression tests check both changes of state: a value gaining a disk-usage provider must be measured, and a value losing one must have its old size cleared:
 
-[Source](https://github.com/grouville/dagger/tree/perf/skip-empty-usage-sampling). [Measurements and reproduction](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/NATIVE_CACHE_USAGE_PROVIDER_SAMPLING.md).
+```sh
+go test -race -count=1 ./dagql
+```
+
+To run the cleanup benchmark:
+
+```sh
+GOMAXPROCS=8 go test ./dagql -run '^$' -bench '^BenchmarkCachePruneSnapshot/disk/200000$' -benchmem -benchtime=1x
+```
+
+[Raw measurements and instructions for reproducing both the benefit and provider controls](https://github.com/grouville/dagger/tree/experiment/rust-native-cache/hack/rust-cache/experiments/standalone-go-collections/usage-sampling).

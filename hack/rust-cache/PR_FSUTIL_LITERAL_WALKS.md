@@ -1,26 +1,38 @@
-# perf(fsutil): reach literal imports without enumerating sibling directories
+# perf(fsutil): avoid listing unrelated directories for a single include
 
-Importing one host path enumerates unrelated siblings at each ancestor. Go collection discovery repeats these filtered imports, so a selected file can incur work proportional to its surrounding directories.
+While investigating slow Go test collection listing on dagger/dagger, I found repeated host imports that selected a single path but still listed unrelated directories on the way to it. Importing `a/b/selected`, for example, first lists the root's other entries, even though none can be included.
 
-Let the native filesystem reach a single literal include directly, feeding its ancestor records and selected subtree through the existing filter. Symlink, missing or unreadable ancestors fall back to the ordinary walk. This is part of reducing Go test collection listing overhead on dagger/dagger.
+For a single include with no wildcards, let the native filesystem visit the path's ancestors directly, then walk the selected subtree. The existing filter still receives the ancestors and selected entries in order.
 
-### Performance
+This adds checks that each ancestor is accessible before taking the shortcut. If an ancestor is a symlink, missing or unreadable, use the original walk. Wildcard includes also keep the original walk.
 
-Complete-command measurements use `dagger check --module go --check test --list --all`.
+### Results
 
-| Complete listing | Before | After | Reduction |
+Comparing main `80699ac67a` with only this change. The fixture imports `a/b/selected` and varies the number of unrelated directories at the root:
+
+| Fixture | Main | This PR | Memory allocated, before → after |
 | --- | ---: | ---: | ---: |
-| Command time | 55.81 s | 52.03 s | 6.8% |
-| CLI CPU | 39.50 CPU-s | 26.81 CPU-s | 32.1% |
+| 8 unrelated root directories | 59.17 µs | 51.27 µs | 17.53 → 15.17 kB |
+| 128 unrelated root directories | 199.46 µs | 51.90 µs | 48.46 → 15.17 kB |
+| 2,048 unrelated root directories | 2.51 ms | 49.87 µs | 575.80 → 15.17 kB |
+| Wildcard include, 128 root directories | 1.19 ms | 1.08 ms | 78.85 → 78.83 kB |
 
-Two alternating pairs, both faster. Fresh CLI processes edit source on the same warm experimental engine, with telemetry and successful cleanup included. All six commands succeed; measured listings contain identical 4,398 rows. Initialization, including a real test addition, is separate.
+Medians from four alternating pairs. All literal cases improved in every pair. The wildcard control was faster in three of four pairs with unchanged allocation counts; it still takes the original walk. Literal samples run for 100 ms, the control for 300 ms, with a warm filesystem cache. Fixture creation is excluded. Go 1.26.6, Linux amd64, `GOMAXPROCS=8`.
 
-A three-level literal path surrounded by 8, 128 and 2,048 siblings takes **57 µs, 194 µs and 2.44 ms** before, versus approximately **50 µs** in each case afterward. At 2,048 siblings allocation falls **576 → 15 kB**. A diagnostic real-repository run visits **5.58 million → 237,287 entries**.
+The extra ancestor checks matter most when there are few unrelated entries to skip; the eight-directory case includes that cost. These measure the filesystem walk, not the complete listing command.
 
-### Validation and tradeoffs
+### Reproducing
 
-The fsutil and client race suites pass. Tests compare full metadata and order, including hardlinks, symlinks, missing paths, permissions, xattrs, exclusions, callbacks and cancellation. Existing Go collection checks pass.
+The tests compare paths, ordering and metadata against the original walk, including symlinks, missing paths, permissions, exclusions and callback errors:
 
-There is no shared state, lock or metadata-format change. The populated /tmp amplifies the benefit on this host; the command numbers are not a clean-host or cold-start estimate. Other filesystem implementations retain their walker.
+```sh
+go test -race -count=1 ./internal/fsutil ./engine/client
+```
 
-[Source](https://github.com/grouville/dagger/commit/c22eaa55863fb2ca22919119ff30e952f54f8076). [Measurements and reproduction](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/NATIVE_FILESYNC_LITERAL_WALKS.md).
+To run the literal-path benchmarks:
+
+```sh
+GOMAXPROCS=8 go test ./internal/fsutil -run '^$' -bench '^BenchmarkFilterFSLiteralInclude$' -benchmem -benchtime=100ms
+```
+
+[Raw measurements and instructions for reproducing the literal and wildcard cases](https://github.com/grouville/dagger/tree/experiment/rust-native-cache/hack/rust-cache/experiments/standalone-go-collections/literal-import).
