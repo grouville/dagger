@@ -952,7 +952,48 @@ func (s *Server) Query(ctx context.Context, query string, vars map[string]any) (
 
 var _ graphql.ExecutableSchema = (*Server)(nil)
 
-// Schema returns the current schema of the server.
+// FreezeFieldDefinitions prepares immutable field metadata for future schema
+// builds and forks. Callers must own a stable field/type/directive definition
+// graph, such as the engine's installed core API. Field installation invalidates
+// a branch's snapshot; arbitrary mutation of a published FieldSpec is unsupported.
+func (s *Server) FreezeFieldDefinitions(view call.View) {
+	s.installLock.RLock()
+	defer s.installLock.RUnlock()
+	for _, object := range s.objects {
+		if class, ok := schemaClassFor(object); ok {
+			class.freezeFieldDefinitions(view)
+		}
+	}
+}
+
+type immutableSchemaClass interface {
+	freezeFieldDefinitions(call.View)
+	schemaTypeDefinition(call.View) *ast.Definition
+	schemaClassType() reflect.Type
+}
+
+func schemaClassFor(val Type) (immutableSchemaClass, bool) {
+	class, ok := val.(immutableSchemaClass)
+	if !ok {
+		return nil, false
+	}
+	// A wrapper can promote these methods while overriding TypeDefinition.
+	// Only the concrete Class (or its pointer) owns this metadata contract.
+	typ, classType := reflect.TypeOf(val), class.schemaClassType()
+	if typ != classType && typ != reflect.PointerTo(classType) {
+		return nil, false
+	}
+	return class, true
+}
+
+func schemaDefinition(kind ast.DefinitionKind, val Type, view call.View) *ast.Definition {
+	if class, ok := schemaClassFor(val); ok {
+		return class.schemaTypeDefinition(view)
+	}
+	return definition(kind, val, view)
+}
+
+// Schema returns the current schema of the server. The cached schema is read-only.
 func (s *Server) Schema() *ast.Schema {
 	return s.SchemaForView(s.View)
 }
@@ -978,7 +1019,7 @@ func (s *Server) SchemaForView(view call.View) *ast.Schema {
 			if !typeVisibleInView(t, view) {
 				return
 			}
-			def := definition(ast.Object, t, view)
+			def := schemaDefinition(ast.Object, t, view)
 			if def.Name == queryType {
 				schema.Query = def
 			}
@@ -1027,14 +1068,26 @@ func (s *Server) SchemaForView(view call.View) *ast.Schema {
 			}
 			schema.Directives[n] = d.DirectiveDefinition(view)
 		})
-		// A directive hidden in this view must not be used in it either.
+		// Filter without editing definitions supplied by another provider or fork.
 		if len(hiddenDirectives) > 0 {
-			for _, def := range schema.Types {
-				def.Directives = withoutDirectives(def.Directives, hiddenDirectives)
-				for _, field := range def.Fields {
-					field.Directives = withoutDirectives(field.Directives, hiddenDirectives)
-					for _, arg := range field.Arguments {
-						arg.Directives = withoutDirectives(arg.Directives, hiddenDirectives)
+			for name, def := range schema.Types {
+				schema.Types[name] = withoutDefinitionDirectives(def, hiddenDirectives)
+			}
+			if schema.Query != nil {
+				schema.Query = schema.Types[schema.Query.Name]
+			}
+			if schema.Mutation != nil {
+				schema.Mutation = schema.Types[schema.Mutation.Name]
+			}
+			if schema.Subscription != nil {
+				schema.Subscription = schema.Types[schema.Subscription.Name]
+			}
+			for _, table := range []map[string][]*ast.Definition{schema.PossibleTypes, schema.Implements} {
+				for _, defs := range table {
+					for i, def := range defs {
+						if filtered, ok := schema.Types[def.Name]; ok {
+							defs[i] = filtered
+						}
 					}
 				}
 			}
@@ -1046,6 +1099,60 @@ func (s *Server) SchemaForView(view call.View) *ast.Schema {
 	})
 
 	return s.schemas[view]
+}
+
+// withoutDefinitionDirectives copies only nodes whose directives change.
+// Definitions and nested nodes that remain visible can be shared read-only.
+func withoutDefinitionDirectives(def *ast.Definition, hidden map[string]bool) *ast.Definition {
+	var result *ast.Definition
+	if dirs := withoutDirectives(def.Directives, hidden); len(dirs) != len(def.Directives) {
+		copy := *def
+		result = &copy
+		result.Directives = dirs
+	}
+	var fields ast.FieldList
+	for i, field := range def.Fields {
+		var filtered *ast.FieldDefinition
+		if dirs := withoutDirectives(field.Directives, hidden); len(dirs) != len(field.Directives) {
+			copy := *field
+			filtered = &copy
+			filtered.Directives = dirs
+		}
+		var arguments ast.ArgumentDefinitionList
+		for j, arg := range field.Arguments {
+			if dirs := withoutDirectives(arg.Directives, hidden); len(dirs) != len(arg.Directives) {
+				if arguments == nil {
+					arguments = slices.Clone(field.Arguments)
+				}
+				copy := *arg
+				copy.Directives = dirs
+				arguments[j] = &copy
+			}
+		}
+		if arguments != nil {
+			if filtered == nil {
+				copy := *field
+				filtered = &copy
+			}
+			filtered.Arguments = arguments
+		}
+		if filtered == nil {
+			continue
+		}
+		if result == nil {
+			copy := *def
+			result = &copy
+		}
+		if fields == nil {
+			fields = slices.Clone(def.Fields)
+			result.Fields = fields
+		}
+		fields[i] = filtered
+	}
+	if result == nil {
+		return def
+	}
+	return result
 }
 
 // withoutDirectives returns dirs without the directives named in hidden.

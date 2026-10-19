@@ -157,6 +157,9 @@ func (base *CoreSchemaBase) viewState(ctx context.Context, view call.View) (*cor
 			state.enumDefsByName[typedef.Self().AsEnum.Value.Self().Name] = typedef
 		}
 	}
+	// The private core view is now fully installed. Forks keep its field
+	// descriptors while retaining their own clients, roots and mutable schema.
+	srv.FreezeFieldDefinitions(view)
 	base.views[view] = state
 	return state, nil
 }

@@ -49,6 +49,33 @@ type classFields[T Typed] struct {
 	fieldOrder *[]string
 	interfaces map[string]*Interface
 	shared     atomic.Bool
+	frozen     *frozenClassFields
+}
+
+// frozenClassFields stores only immutable, context-free schema metadata.
+// The field table and order are captured independently of a branch's state.
+type frozenClassFields struct {
+	view        call.View
+	definitions func() ast.FieldList
+}
+
+func (class Class[T]) schemaClassType() reflect.Type {
+	return reflect.TypeFor[Class[T]]()
+}
+
+func (class Class[T]) freezeFieldDefinitions(view call.View) {
+	class.fieldsL.Lock()
+	defer class.fieldsL.Unlock()
+	if class.frozen != nil && class.frozen.view == view {
+		return
+	}
+	fields, order := class.fields, *class.fieldOrder
+	class.frozen = &frozenClassFields{
+		view: view,
+		definitions: sync.OnceValue(func() ast.FieldList {
+			return appendFieldDefinitions(nil, fields, order, view)
+		}),
+	}
 }
 
 // ownFieldsLocked detaches shared storage before modifying it. The caller
@@ -213,6 +240,7 @@ func (class Class[T]) ForkObjectType(srv *Server) (ObjectType, error) {
 		fields:     class.fields,
 		fieldOrder: class.fieldOrder,
 		interfaces: class.interfaces,
+		frozen:     class.frozen,
 	}
 	forked.shared.Store(true)
 	forked.server = srv.self
@@ -281,10 +309,10 @@ func (class Class[T]) FieldSpecs(view call.View) []FieldSpec {
 }
 
 func (class Class[T]) fieldLocked(name string, view call.View) (Field[T], bool) {
-	fields, ok := class.fields[name]
-	if !ok {
-		return Field[T]{}, false
-	}
+	return fieldForView(class.fields[name], view)
+}
+
+func fieldForView[T Typed](fields []*Field[T], view call.View) (Field[T], bool) {
 	for i := len(fields) - 1; i >= 0; i-- {
 		// iterate backwards to allow last-defined field to have precedence
 		field := fields[i]
@@ -301,6 +329,7 @@ func (class Class[T]) fieldLocked(name string, view call.View) (Field[T], bool) 
 
 func (class Class[T]) Install(fields ...Field[T]) {
 	class.fieldsL.Lock()
+	class.frozen = nil
 	defer class.fieldsL.Unlock()
 	class.ownFieldsLocked()
 	for _, field := range fields {
@@ -375,6 +404,7 @@ func (class Class[T]) Interfaces() []*Interface {
 
 func (class Class[T]) Extend(spec FieldSpec, fun FieldFunc) {
 	class.fieldsL.Lock()
+	class.frozen = nil
 	class.ownFieldsLocked()
 	f := &Field[T]{
 		Spec: &spec,
@@ -401,6 +431,14 @@ func (class Class[T]) Extend(spec FieldSpec, fun FieldFunc) {
 //
 // Each currently defined field is installed on the returned definition.
 func (class Class[T]) TypeDefinition(view call.View) *ast.Definition {
+	return class.typeDefinition(view, false)
+}
+
+func (class Class[T]) schemaTypeDefinition(view call.View) *ast.Definition {
+	return class.typeDefinition(view, true)
+}
+
+func (class Class[T]) typeDefinition(view call.View, useFrozen bool) *ast.Definition {
 	class.fieldsL.RLock()
 	defer class.fieldsL.RUnlock()
 	var val any = class.inner
@@ -416,10 +454,10 @@ func (class Class[T]) TypeDefinition(view call.View) *ast.Definition {
 	if isType, ok := val.(Descriptive); ok {
 		def.Description = isType.TypeDescription()
 	}
-	for _, name := range *class.fieldOrder {
-		if field, ok := class.fieldLocked(name, view); ok {
-			def.Fields = append(def.Fields, field.FieldDefinition(view))
-		}
+	if useFrozen && class.frozen != nil && class.frozen.view == view {
+		def.Fields = append(def.Fields, class.frozen.definitions()...)
+	} else {
+		def.Fields = appendFieldDefinitions(def.Fields, class.fields, *class.fieldOrder, view)
 	}
 	// Populate interface names on the definition.
 	for name, iface := range class.interfaces {
@@ -437,6 +475,15 @@ func (class Class[T]) TypeDefinition(view call.View) *ast.Definition {
 	}
 	sort.Strings(def.Interfaces)
 	return def
+}
+
+func appendFieldDefinitions[T Typed](dst ast.FieldList, fields map[string][]*Field[T], order []string, view call.View) ast.FieldList {
+	for _, name := range order {
+		if field, ok := fieldForView(fields[name], view); ok {
+			dst = append(dst, field.FieldDefinition(view))
+		}
+	}
+	return dst
 }
 
 // ParseField parses a field selection into a Selector and return type.
