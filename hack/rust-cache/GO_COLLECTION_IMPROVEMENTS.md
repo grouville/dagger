@@ -45,6 +45,8 @@ The [shared discovery-source snapshot](NATIVE_GO_DISCOVERY_SOURCE_SNAPSHOT.md) s
 
 ## What is ready
 
+The new [primitive-list Select fix](NATIVE_SELECT_PRIMITIVE_ARRAYS.md) is a ten-line main-based engine candidate with useful regression and identity/execution coverage. Cached internal selection improves **3.786 ms → 9.128 µs** for 1,024 strings. It saves about **610 MB** and improves complete listing on the broader native-input branch in all eight pairs, but the selected module remains flat and the broader branch remains slower. It adds no selected listing speedup to the table above. Both DagQL race suites, 32 Go checks, 28 Rust/native-cache cases and 48 timings pass with the recorded fixture corrections; all 800 getters and normal cache reuse remain. The [description](PR_SELECT_PRIMITIVE_ARRAYS.md) is prepared for review. No PR is opened.
+
 An independent [Dang SDK list-type fix](NATIVE_DANG_LIST_ELEMENT_TYPES.md) is pushed on a standalone branch based on current main. Its regression fails before the one-line fix and passes afterward; the complete SDK package race suite passes. The [description](PR_DANG_LIST_ELEMENT_TYPES.md) is ready for review, with no PR open or latency claim. The latest [parallel-admission retest](NATIVE_PARALLEL_ADMISSION_CURRENT.md) regresses both current workloads and remains disabled.
 
 The two final Dang fixes each reproduce independently on pristine upstream and pass its full interpreter race suite. Their minimal patches and review descriptions are prepared. No new PR is opened.
