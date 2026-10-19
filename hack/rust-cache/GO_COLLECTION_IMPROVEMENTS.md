@@ -34,4 +34,6 @@ A subsequent [cold-cache study](NATIVE_GO_COLD_LISTING.md) measures three indepe
 
 Three seconds and integration of these collection changes into the Rust module remain unfinished.
 
+The subsequent [native stored-item prototype](NATIVE_COLLECTION_STORED_ITEMS.md) establishes a larger structural gain: **10.81 → 7.04 s** after test edits, faster in all four pairs, with **804 → 4** module evaluations. It remains experimental because ordinary-source listing regresses **6.00 → 6.52 s**, and the new stored-getter form needs broader validation. SDK requests are essentially unchanged; the gain removes module setup. All 24 timing commands have correct rows and successful exits. Cold performance is unmeasured for this prototype.
+
 [Three subsequent setup screens](NATIVE_GO_DISCOVERY_SETUP_SCREENS.md) remain unselected: compact owners save allocation without a convincing latency gain, global marker batching removes searches without improving test-edited listing, and parallel test-file reads regress that workload. All 72 timing commands return correct rows and exit successfully. The independent [nested-list element type fix](NATIVE_DANG_NESTED_SELECTION_ELEMENTS.md) reproduces on pristine upstream and passes its race suite; it is a correctness fix, not another measured speedup.

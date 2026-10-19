@@ -1,0 +1,194 @@
+diff --git a/.dagger/modules/go-dev/main.dang b/.dagger/modules/go-dev/main.dang
+index 880a69e..a6adcd8 100644
+--- a/.dagger/modules/go-dev/main.dang
++++ b/.dagger/modules/go-dev/main.dang
+@@ -389,6 +389,48 @@ type GoDev {
+     null
+   }
+ 
++  """
++  Reconstructed package owners keep common settings and per-module test policy.
++  """
++  packageOwnerSettingsCheck: Void @check {
++    let testBody = ```go
++      package owner
++      import (
++        "os"
++        "testing"
++      )
++      func TestOwnerSettings(t *testing.T) {
++        if !configured || os.Getenv("DAGGER_GO_CUSTOM_BASE") != "yes" {
++          t.Fatal("package owner lost its configured flags or base image")
++        }
++      }
++    ``` + "\n"
++    let source = ["root", "nested"]
++      .reduce(directory) { files, name =>
++        let prefix = if (name == "root") { "" } else { name + "/" }
++        files
++          .withNewFile(prefix + "go.mod", "module example.com/" + name + "\n\ngo 1.26.1\n")
++          .withNewFile(prefix + "configured.go", "//go:build ownerconfig\n\npackage owner\nconst configured = true\n")
++          .withNewFile(prefix + "owner_test.go", testBody)
++      }
++      .withNewFile("nested/skipped/go.mod", "module example.com/skipped\n\ngo 1.26.1\n")
++      .withNewFile("nested/skipped/main.go", goMain("skipped"))
++      .withNewFile("nested/skipped/skip_test.go", "package main\nimport \"testing\"\nfunc TestSkipped(t *testing.T) { t.Fatal(\"should not run\") }\n")
++      .asWorkspace
++    let tool = go(base: base, goflags: "-tags=ownerconfig", test: ["**", "!nested/skipped"])
++    let found = tool.packages(source)
++    run(found.get(key: ".").tests.get(key: "TestOwnerSettings").test(source))
++    run(
++      found.get(key: "nested").tests.get(key: "TestOwnerSettings").test(source),
++    )
++    assert(found.get(key: "nested/skipped").tests.keys.length == 0, "reconstructed owner lost its test exclusion")
++    let below = source.withWorkdir("nested")
++    run(
++      tool.packages(below).get(key: "nested").tests.get(key: "TestOwnerSettings").test(below),
++    )
++    null
++  }
++
+   """
+   A retained package follows module boundaries in its execution workspace.
+   """
+diff --git a/go.dang b/go.dang
+index 446b27f..aa025f9 100644
+--- a/go.dang
++++ b/go.dang
+@@ -199,7 +199,6 @@ type Go {
+         )
+       }
+     let found = prepared.{{owner, paths(ws: ws)}}
+-    let owners = found.map { row => row.owner }
+     let testSource = ws.directory("/", include: ["**/go.mod", "**/*_test.go"])
+     # One snapshot walk replaces an existence query for every package. A
+     # package with only descendants' tests has no direct test files of its own.
+@@ -211,18 +210,56 @@ type Go {
+         if (dir == "") { "." } else { dir }
+       }
+       .uniq
++    let layout = lib.moduleLayoutDigest(ws)
++    let noEntries: [GoPackageEntry!]! = []
++    let entries = found.reduce(noEntries) { all, group =>
++      all + group.paths.map { path =>
++        GoPackageEntry(
++          key: path,
++          value: packageAt(
++            path,
++            group.owner,
++            mount,
++            testSource,
++            testDirectories,
++            layout,
++          ),
++        )
++      }
++    }
+     GoPackages(
+       paths: sorted(found.reduce(empty) { all, mod => all + mod.paths }),
+-      moduleRoots: owners.map { mod => mod.path },
+-      testSource: testSource,
+-      testDirectories: testDirectories,
+-      owners: owners,
+-      moduleLayoutDigest: lib.moduleLayoutDigest(ws),
++      entries: entries,
+       mountPath: workspaceMountPath(ws),
+       tool: self,
+     )
+   }
+ 
++  # Construct items while their owner is already known; the engine resolves
++  # selected keys from the stored entries without calling back into this module.
++  let packageAt(
++    path: String!,
++    owner: GoModule!,
++    mount: String!,
++    source: Directory!,
++    testDirectories: [String!]!,
++    layout: String!,
++  ): GoPackage! {
++    GoPackage(
++      path: path,
++      moduleRoot: owner.path,
++      knownModule: owner,
++      testSource: if (testDirectories.contains(path)) {
++        source.directory(path).filter(include: ["*_test.go"])
++      } else {
++        directory
++      },
++      moduleLayoutDigest: layout,
++      mountPath: mount,
++      tool: self,
++    )
++  }
++
+   # The module holding a package. A package holds no module of its own, so
+   # that the collection needs no workspace.
+   let packageModule(ws: Workspace!, pkgPath: String!, mount: String!): GoModule! {
+@@ -294,54 +331,10 @@ type GoPackages @collection {
+ 
+   let tool: Go!
+ 
+-  let moduleRoots: [String!]
+-  let testSource: Directory
+-  let testDirectories: [String!]
+-  let owners: [GoModule!]
+-  let moduleLayoutDigest: String
+-
+-  # Use the deepest discovered root on a path boundary. Retaining these few
+-  # roots avoids a workspace round trip and nested SDK call for every package.
+-  let moduleRoot(path: String!): String {
+-    let root = (moduleRoots ?? []).reduce("") { owner, root =>
+-      if ((root == "." or path == root or path.hasPrefix(root + "/"))
+-        and (owner == "" or owner == "." or root.hasPrefix(owner + "/"))) {
+-        root
+-      } else {
+-        owner
+-      }
+-    }
+-    if (root == "") { null } else { root }
+-  }
+-
+   """
+-  The package in this directory.
++  Stored package items, each bound to its workspace-relative key.
+   """
+-  package(path: String!): GoPackage! @get {
+-    let root = moduleRoot(path)
+-    let owner = (owners ?? []).find { mod => mod.path == (root ?? "") }
+-    GoPackage(
+-      path: path,
+-      moduleRoot: root,
+-      knownModule: owner,
+-      testSource: if (testSource == null) { null } else {
+-        let source = testSource ?? directory
+-        let hasFiles = if (testDirectories == null) {
+-          source.exists(path)
+-        } else {
+-          (testDirectories ?? []).contains(path)
+-        }
+-        if (hasFiles) {
+-          source.directory(path).filter(include: ["*_test.go"])
+-        } else {
+-          directory
+-        }
+-      },
+-      moduleLayoutDigest: moduleLayoutDigest,
+-      mountPath: mountPath,
+-      tool: tool,
+-    )
+-  }
++  entries: [GoPackageEntry!]! @get
+ 
+   # The modules holding the selected packages, each once.
+   let modules(ws: Workspace!): [GoModule!]! {
+@@ -1289,3 +1282,9 @@ type GoPackageDiscovery {
+     owner.packagePaths(ws, files)
+   }
+ }
++
++# The key is stored with its value so subsets cannot change their association.
++type GoPackageEntry {
++  key: String!
++  value: GoPackage!
++}

@@ -1,0 +1,708 @@
+--- a/core/artifact_collection.go
++++ b/core/artifact_collection.go
+@@ -623,8 +623,8 @@
+ 			Identifier:     identifier,
+ 			Name:           ArtifactTypeName(itemType),
+ 			ItemType:       itemType,
+-			KeyName:        members.Get.Args[0].Self().Name,
+-			KeyDescription: members.Get.Args[0].Self().Description,
++			KeyName:        members.Get.KeyName,
++			KeyDescription: members.Get.KeyDescription,
+ 		}
+ 		qualified := strings.Split(strings.TrimPrefix(identifier, "/"), "/")
+ 		itemName := strings.TrimPrefix(dim.Name, qualified[0]+"-")
+--- a/core/collection.go
++++ b/core/collection.go
+@@ -55,8 +55,20 @@
+ 
+ type CollectionMembers struct {
+ 	Keys  *FieldTypeDef
+-	Get   *Function
++	Get   *CollectionGetter
+ 	Delta *FieldTypeDef
++}
++
++// A getter is either an authored function or a stored list of keyed values.
++type CollectionGetter struct {
++	*Function
++	KeyType                 dagql.ObjectResult[*TypeDef]
++	KeyName, KeyDescription string
++	Stored                  *CollectionStoredGetter
++}
++
++type CollectionStoredGetter struct {
++	Field, Key, Value *FieldTypeDef
+ }
+ 
+ func (obj *ObjectTypeDef) CollectionMembers() (*CollectionMembers, error) {
+@@ -88,18 +100,9 @@
+ 	if keyType == nil || keyType.Optional || !isCollectionKeyType(keyType) {
+ 		return nil, fmt.Errorf("collection %q keys must be non-null scalars or enum values", obj.OriginalName)
+ 	}
+-	get, ok := obj.FunctionByName(getName)
+-	if !ok || len(get.Args) != 1 {
+-		return nil, fmt.Errorf("collection %q requires a get function %q with exactly one argument", obj.OriginalName, getName)
+-	}
+-	arg := get.Args[0].Self()
+-	argType := arg.TypeDef.Self()
+-	if argType == nil || argType.Optional || !keyType.IsSubtypeOf(argType) || !argType.IsSubtypeOf(keyType) {
+-		return nil, fmt.Errorf("collection %q get argument must have the non-null key type %s", obj.OriginalName, keyType.ToType())
+-	}
+-	valueType := get.ReturnType.Self()
+-	if valueType == nil || valueType.Optional || valueType.Kind != TypeDefKindObject {
+-		return nil, fmt.Errorf("collection %q get function must return a non-null object", obj.OriginalName)
++	get, err := obj.collectionGetter(getName, keyType)
++	if err != nil {
++		return nil, err
+ 	}
+ 	members := &CollectionMembers{Keys: keys, Get: get}
+ 	if delta, ok := obj.FieldByName(deltaName); ok {
+@@ -112,6 +115,53 @@
+ 		return nil, fmt.Errorf("collection %q delta field %q does not exist", obj.OriginalName, deltaName)
+ 	}
+ 	return members, nil
++}
++
++func (obj *ObjectTypeDef) collectionGetter(name string, keyType *TypeDef) (*CollectionGetter, error) {
++	if fn, ok := obj.FunctionByName(name); ok {
++		if len(fn.Args) != 1 {
++			return nil, fmt.Errorf("collection %q requires a get function %q with exactly one argument", obj.OriginalName, name)
++		}
++		arg := fn.Args[0].Self()
++		if !collectionKeyTypesEqual(keyType, arg.TypeDef.Self()) {
++			return nil, fmt.Errorf("collection %q get argument must have the non-null key type %s", obj.OriginalName, keyType.ToType())
++		}
++		value := fn.ReturnType.Self()
++		if value == nil || value.Optional || value.Kind != TypeDefKindObject {
++			return nil, fmt.Errorf("collection %q get function must return a non-null object", obj.OriginalName)
++		}
++		return &CollectionGetter{Function: fn, KeyType: arg.TypeDef, KeyName: arg.Name, KeyDescription: arg.Description}, nil
++	}
++	field, ok := obj.FieldByName(name)
++	if !ok {
++		return nil, fmt.Errorf("collection %q requires a get function %q with exactly one argument or a stored entry list", obj.OriginalName, name)
++	}
++	list := field.TypeDef.Self()
++	if list == nil || list.Optional || list.Kind != TypeDefKindList || !list.AsList.Valid {
++		return nil, fmt.Errorf("collection %q stored get field must be a non-null entry list", obj.OriginalName)
++	}
++	entry := list.AsList.Value.Self().ElementTypeDef.Self()
++	if entry == nil || entry.Optional || entry.Kind != TypeDefKindObject || !entry.AsObject.Valid {
++		return nil, fmt.Errorf("collection %q stored get entries must be non-null objects", obj.OriginalName)
++	}
++	key, hasKey := entry.AsObject.Value.Self().FieldByName("key")
++	value, hasValue := entry.AsObject.Value.Self().FieldByName("value")
++	if !hasKey || !hasValue || !collectionKeyTypesEqual(keyType, key.TypeDef.Self()) {
++		return nil, fmt.Errorf("collection %q stored get entries require key and value fields with the collection's non-null key type", obj.OriginalName)
++	}
++	valueType := value.TypeDef.Self()
++	if valueType == nil || valueType.Optional || valueType.Kind != TypeDefKindObject {
++		return nil, fmt.Errorf("collection %q stored get values must be non-null objects", obj.OriginalName)
++	}
++	return &CollectionGetter{
++		Function: &Function{Name: name, OriginalName: field.OriginalName, Description: field.Description, ReturnType: value.TypeDef},
++		KeyType:  key.TypeDef, KeyName: "key", KeyDescription: key.Description,
++		Stored: &CollectionStoredGetter{Field: field, Key: key, Value: value},
++	}, nil
++}
++
++func collectionKeyTypesEqual(expected, actual *TypeDef) bool {
++	return actual != nil && !actual.Optional && expected.IsSubtypeOf(actual) && actual.IsSubtypeOf(expected)
+ }
+ 
+ func isCollectionKeyType(typ *TypeDef) bool {
+--- a/core/collection_object.go
++++ b/core/collection_object.go
+@@ -137,6 +137,9 @@
+ 	subset := *obj
+ 	subset.Fields = maps.Clone(obj.Fields)
+ 	subset.Fields[members.Keys.OriginalName] = values
++	if subset.collectionItems != nil {
++		subset.collectionItems = &collectionStoredIndex{}
++	}
+ 	return &subset, nil
+ }
+ 
+@@ -220,6 +223,15 @@
+ const collectionBaseField = "__daggerCollectionBase"
+ 
+ func (obj *ModuleObject) InitializeResultReference(self dagql.AnyResult) {
++	if obj.TypeDef != nil && obj.TypeDef.Collection != nil && obj.TypeDef.Collection.Enabled && obj.collectionItems == nil {
++		name := obj.TypeDef.Collection.Get
++		if name == "" {
++			name = "get"
++		}
++		if _, stored := obj.TypeDef.FieldByName(name); stored {
++			obj.collectionItems = &collectionStoredIndex{}
++		}
++	}
+ 	if obj.TypeDef != nil && obj.TypeDef.Collection != nil && obj.TypeDef.Collection.Enabled && obj.CollectionBase == nil {
+ 		obj.CollectionBase = self
+ 	}
+@@ -299,28 +311,36 @@
+ 	if err != nil {
+ 		return nil, err
+ 	}
+-	get, err := objFun(ctx, obj.Module, obj.TypeDef, members.Get, dag)
+-	if err != nil {
+-		return nil, err
+-	}
+-	rawGet := get.Func
+-	get.Spec.Name = "get"
+-	get.Spec.Args = dagql.NewInputSpecs(dagql.InputSpec{
+-		Name: "key", Type: members.Get.Args[0].Self().TypeDef.Self().ToInput(),
+-	})
+-	get.Func = func(ctx context.Context, self dagql.ObjectResult[*ModuleObject], args map[string]dagql.Input, view call.View) (dagql.AnyResult, error) {
+-		keys, err := self.Self().collectionKeys(ctx)
+-		if err != nil {
+-			return nil, err
+-		}
+-		key, err := collectionKeyFromInput(args["key"])
+-		if err != nil {
+-			return nil, err
+-		}
+-		if !slices.ContainsFunc(keys, func(k collectionKey) bool { return k.text == key.text }) {
+-			return nil, fmt.Errorf("collection %q does not contain key %q in the current subset", obj.TypeDef.Name, key.text)
+-		}
+-		return rawGet(ctx, self, map[string]dagql.Input{members.Get.Args[0].Self().Name: key.input}, view)
++	var get dagql.Field[*ModuleObject]
++	if members.Get.Stored != nil {
++		get, err = obj.storedCollectionGet(ctx, members, moduleID, moduleProvider)
++		if err != nil {
++			return nil, err
++		}
++	} else {
++		get, err = objFun(ctx, obj.Module, obj.TypeDef, members.Get.Function, dag)
++		if err != nil {
++			return nil, err
++		}
++		rawGet := get.Func
++		get.Spec.Name = "get"
++		get.Spec.Args = dagql.NewInputSpecs(dagql.InputSpec{
++			Name: "key", Type: members.Get.KeyType.Self().ToInput(),
++		})
++		get.Func = func(ctx context.Context, self dagql.ObjectResult[*ModuleObject], args map[string]dagql.Input, view call.View) (dagql.AnyResult, error) {
++			keys, err := self.Self().collectionKeys(ctx)
++			if err != nil {
++				return nil, err
++			}
++			key, err := collectionKeyFromInput(args["key"])
++			if err != nil {
++				return nil, err
++			}
++			if !slices.ContainsFunc(keys, func(k collectionKey) bool { return k.text == key.text }) {
++				return nil, fmt.Errorf("collection %q does not contain key %q in the current subset", obj.TypeDef.Name, key.text)
++			}
++			return rawGet(ctx, self, map[string]dagql.Input{members.Get.KeyName: key.input}, view)
++		}
+ 	}
+ 	installed := newInstalledServer(dag)
+ 	fields := []dagql.Field[*ModuleObject]{
+@@ -392,7 +412,7 @@
+ 			},
+ 		},
+ 	}
+-	if len(obj.TypeDef.Functions) > 1 {
++	if (members.Get.Stored == nil && len(obj.TypeDef.Functions) > 1) || (members.Get.Stored != nil && len(obj.TypeDef.Functions) > 0) {
+ 		batch := *obj
+ 		batch.CollectionBatch = true
+ 		if existing, exists := dag.ObjectType(batch.Type().Name()); exists {
+--- a/core/collection_typedef.go
++++ b/core/collection_typedef.go
+@@ -25,7 +25,7 @@
+ 	if err != nil || members == nil {
+ 		return null, err
+ 	}
+-	if len(obj.Self().Functions) == 1 {
++	if (members.Get.Stored == nil && len(obj.Self().Functions) == 1) || len(obj.Self().Functions) == 0 {
+ 		return null, nil
+ 	}
+ 	var batch dagql.ObjectResult[*ObjectTypeDef]
+@@ -113,7 +113,7 @@
+ 		name, arg     string
+ 		result, input dagql.ObjectResult[*TypeDef]
+ 	}{
+-		{"get", "key", members.Get.ReturnType, members.Get.Args[0].Self().TypeDef},
++		{"get", "key", members.Get.ReturnType, members.Get.KeyType},
+ 		{"subset", "keys", selfType, members.Keys.TypeDef},
+ 	} {
+ 		resultID, err := spec.result.ID()
+--- a/core/modtree.go
++++ b/core/modtree.go
+@@ -201,13 +201,13 @@
+ 			}
+ 			inputs := make([]dagql.Input, 0, len(keys))
+ 			for _, text := range keys {
+-				key, err := collectionInputFromText(members.Get.Args[0].Self().TypeDef.Self(), text)
++				key, err := collectionInputFromText(members.Get.KeyType.Self(), text)
+ 				if err != nil {
+ 					return err
+ 				}
+ 				inputs = append(inputs, key)
+ 			}
+-			keyList := dagql.DynamicArrayInput{Elem: members.Get.Args[0].Self().TypeDef.Self().ToInput(), Values: inputs}
++			keyList := dagql.DynamicArrayInput{Elem: members.Get.KeyType.Self().ToInput(), Values: inputs}
+ 			if err := srv.Select(ctx, parentObjValue, &parentObjValue, dagql.Selector{
+ 				Field: "subset", Args: []dagql.NamedInput{{Name: "keys", Value: keyList}},
+ 			}); err != nil {
+@@ -221,7 +221,7 @@
+ 			if err != nil {
+ 				return err
+ 			}
+-			key, err := collectionInputFromText(members.Get.Args[0].Self().TypeDef.Self(), *node.CollectionKey)
++			key, err := collectionInputFromText(members.Get.KeyType.Self(), *node.CollectionKey)
+ 			if err != nil {
+ 				return err
+ 			}
+--- a/core/object.go
++++ b/core/object.go
+@@ -491,6 +491,8 @@
+ 	CollectionBatch bool
+ 	// Set once when the value is attached. Ordinary copies retain this reference.
+ 	CollectionBase dagql.AnyResult
++	// Derived from immutable stored entries and current keys; never serialized.
++	collectionItems *collectionStoredIndex
+ }
+ 
+ var _ dagql.HasDependencyResults = (*ModuleObject)(nil)
+--- a/core/sdk/dang/v2/helpers.go
++++ b/core/sdk/dang/v2/helpers.go
+@@ -1249,6 +1249,11 @@
+ 			})
+ 		default:
+ 			fieldDef, err := dangTypeToTypeDef(ctx, srv, slotType, localTypes)
++			for _, directive := range classMod.GetDirectives(bindingName) {
++				if directive.Name == "get" && err == nil {
++					fieldDef, err = storedGetterTypeDef(ctx, srv, slotType, fieldDef, localTypes)
++				}
++			}
+ 			if err != nil {
+ 				return res, fmt.Errorf("failed to create field %s: %w", bindingName, err)
+ 			}
+@@ -1280,9 +1285,6 @@
+ 				}
+ 				field = "withCollectionKeys"
+ 			case "get":
+-				if _, isFunction := slotType.(*hm.FunctionType); !isFunction {
+-					return res, fmt.Errorf("collection get must be a function")
+-				}
+ 				field = "withCollectionGet"
+ 			case "delta":
+ 				if _, isFunction := slotType.(*hm.FunctionType); isFunction {
+@@ -1308,6 +1310,56 @@
+ 	}
+ 
+ 	return res, nil
++}
++
++// Named references normally omit fields. A stored getter needs its entry's two
++// field signatures during collection validation, before that named type may
++// have been registered. Values remain nominal references to avoid recursion.
++func storedGetterTypeDef(ctx context.Context, srv *dagql.Server, typ hm.Type, original dagql.ObjectResult[*core.TypeDef], localTypes dangLocalTypes) (dagql.ObjectResult[*core.TypeDef], error) {
++	if nonNull, ok := typ.(hm.NonNullType); ok {
++		typ = nonNull.Type
++	}
++	list, ok := typ.(dang.ListType)
++	if !ok {
++		return original, nil // Core reports the invalid getter shape.
++	}
++	element := list.Type
++	if nonNull, ok := element.(hm.NonNullType); ok {
++		element = nonNull.Type
++	}
++	entry, ok := element.(*dang.Type)
++	if !ok {
++		return original, nil
++	}
++	elementDef := original.Self().AsList.Value.Self().ElementTypeDef
++	for _, name := range []string{"key", "value"} {
++		scheme, found := entry.LocalSchemeOf(name)
++		if !found {
++			return original, nil
++		}
++		fieldType, mono := scheme.Type()
++		if !mono {
++			return original, fmt.Errorf("stored entry %s field is not monomorphic", name)
++		}
++		fieldDef, err := dangTypeToTypeDef(ctx, srv, fieldType, localTypes)
++		if err != nil {
++			return original, err
++		}
++		id, err := fieldDef.ID()
++		if err != nil {
++			return original, err
++		}
++		if err := srv.Select(ctx, elementDef, &elementDef, dagql.Selector{Field: "withField", Args: []dagql.NamedInput{{Name: "name", Value: dagql.String(name)}, {Name: "typeDef", Value: dagql.NewID[*core.TypeDef](id)}}}); err != nil {
++			return original, err
++		}
++	}
++	id, err := elementDef.ID()
++	if err != nil {
++		return original, err
++	}
++	var result dagql.ObjectResult[*core.TypeDef]
++	err = srv.Select(ctx, srv.Root(), &result, dagql.Selector{Field: "typeDef"}, dagql.Selector{Field: "withListOf", Args: []dagql.NamedInput{{Name: "elementType", Value: dagql.NewID[*core.TypeDef](id)}}}, dagql.Selector{Field: "withOptional", Args: []dagql.NamedInput{{Name: "optional", Value: dagql.Boolean(original.Self().Optional)}}})
++	return result, err
+ }
+ 
+ func dangTypeToTypeDef(ctx context.Context, srv *dagql.Server, dangType hm.Type, localTypes dangLocalTypes) (dagql.ObjectResult[*core.TypeDef], error) {
+--- /dev/null
++++ b/core/collection_stored.go
+@@ -0,0 +1,186 @@
++package core
++
++import (
++	"context"
++	"fmt"
++	"sync"
++
++	"github.com/dagger/dagger/dagql"
++	"github.com/dagger/dagger/dagql/call"
++)
++
++// The index belongs to one immutable collection value. Subsets receive a new
++// index; decoding rebuilds it. It retains neither a client nor a context.
++type collectionStoredIndex struct {
++	mu     sync.Mutex
++	ready  bool
++	keys   map[string]bool
++	values map[string]any
++}
++
++func (index *collectionStoredIndex) lookup(ctx context.Context, obj *ModuleObject, members *CollectionMembers, key string) (any, error) {
++	index.mu.Lock()
++	defer index.mu.Unlock()
++	if err := ctx.Err(); err != nil {
++		return nil, err
++	}
++	if !index.ready {
++		keys, err := obj.collectionKeys(ctx)
++		if err != nil {
++			return nil, err
++		}
++		selected := make(map[string]bool, len(keys))
++		for _, key := range keys {
++			selected[key.text] = true
++		}
++		values, err := obj.storedCollectionValues(ctx, members)
++		if err != nil {
++			return nil, err
++		}
++		index.keys, index.values, index.ready = selected, values, true
++	}
++	if !index.keys[key] {
++		return nil, fmt.Errorf("collection %q does not contain key %q in the current subset", obj.TypeDef.Name, key)
++	}
++	value, found := index.values[key]
++	if !found {
++		return nil, fmt.Errorf("collection %q has no stored value for key %q", obj.TypeDef.Name, key)
++	}
++	return value, nil
++}
++
++func (obj *ModuleObject) storedCollectionValues(ctx context.Context, members *CollectionMembers) (map[string]any, error) {
++	stored := members.Get.Stored
++	rows, err := collectionSliceValues(obj.Fields[stored.Field.OriginalName])
++	if err != nil {
++		return nil, fmt.Errorf("collection %q stored entries: %w", obj.TypeDef.Name, err)
++	}
++	keyType := members.Get.KeyType.Self().ToInput()
++	var enumType ModType
++	if members.Get.KeyType.Self().Kind == TypeDefKindEnum {
++		var found bool
++		enumType, found, err = NewUserMod(obj.Module).ModTypeFor(ctx, members.Get.KeyType.Self(), true)
++		if err != nil || !found {
++			return nil, fmt.Errorf("collection stored enum key type not found: %w", err)
++		}
++	}
++	values := make(map[string]any, len(rows))
++	for i, row := range rows {
++		fields, err := storedEntryFields(ctx, obj, stored, row)
++		if err != nil {
++			return nil, fmt.Errorf("stored entry %d: %w", i, err)
++		}
++		rawKey := fields[stored.Key.OriginalName]
++		if rawKey == nil {
++			return nil, fmt.Errorf("stored entry %d has a null key", i)
++		}
++		input, err := keyType.Decoder().DecodeInput(rawKey)
++		if enumType != nil {
++			converted, convertErr := enumType.ConvertFromSDKResult(ctx, rawKey)
++			err = convertErr
++			if err == nil {
++				var ok bool
++				input, ok = converted.Unwrap().(dagql.Input)
++				if !ok {
++					return nil, fmt.Errorf("stored enum key %T is not an input", converted.Unwrap())
++				}
++			}
++		}
++		if err != nil {
++			return nil, fmt.Errorf("stored entry %d key: %w", i, err)
++		}
++		key, err := collectionKeyFromInput(input)
++		if err != nil {
++			return nil, err
++		}
++		if _, found := values[key.text]; found {
++			return nil, fmt.Errorf("collection %q has duplicate stored key %q", obj.TypeDef.Name, key.text)
++		}
++		value := fields[stored.Value.OriginalName]
++		if value == nil {
++			return nil, fmt.Errorf("stored entry %d has a null value", i)
++		}
++		values[key.text] = value
++	}
++	return values, nil
++}
++
++func storedEntryFields(ctx context.Context, obj *ModuleObject, stored *CollectionStoredGetter, row any) (map[string]any, error) {
++	switch row := row.(type) {
++	case map[string]any:
++		return row, nil
++	case *ModuleObject:
++		return row.Fields, nil
++	case dagql.AnyResult:
++		if value, ok := dagql.UnwrapAs[*ModuleObject](row); ok {
++			return value.Fields, nil
++		}
++	case string:
++		entryType := stored.Field.TypeDef.Self().AsList.Value.Self().ElementTypeDef.Self()
++		typ, found, err := NewUserMod(obj.Module).ModTypeFor(ctx, entryType, true)
++		if err != nil || !found {
++			return nil, fmt.Errorf("stored entry type not found: %w", err)
++		}
++		entry, err := typ.ConvertFromSDKResult(ctx, row)
++		if err != nil {
++			return nil, err
++		}
++		if value, ok := dagql.UnwrapAs[*ModuleObject](entry); ok {
++			return value.Fields, nil
++		}
++	}
++	return nil, fmt.Errorf("expected a stored entry object, got %T", row)
++}
++
++func (obj *ModuleObject) storedCollectionGet(ctx context.Context, members *CollectionMembers, moduleID *dagql.ResultCallModule, provider dagql.FieldModuleProvider) (dagql.Field[*ModuleObject], error) {
++	valueType, found, err := NewUserMod(obj.Module).ModTypeFor(ctx, members.Get.ReturnType.Self(), true)
++	if err != nil {
++		return dagql.Field[*ModuleObject]{}, fmt.Errorf("stored collection value type not found: %w", err)
++	}
++	if !found {
++		return dagql.Field[*ModuleObject]{}, fmt.Errorf("stored collection value type %s not found in module %s", members.Get.ReturnType.Self().ToType(), obj.Module.Self().Name())
++	}
++	return dagql.Field[*ModuleObject]{
++		Spec: &dagql.FieldSpec{
++			Name: "get", Description: members.Get.Description, Type: members.Get.ReturnType.Self().ToTyped(), Module: moduleID, ModuleProvider: provider,
++			Args: dagql.NewInputSpecs(dagql.InputSpec{Name: "key", Type: members.Get.KeyType.Self().ToInput()}),
++		},
++		Func: func(ctx context.Context, self dagql.ObjectResult[*ModuleObject], args map[string]dagql.Input, _ call.View) (dagql.AnyResult, error) {
++			key, err := collectionKeyFromInput(args["key"])
++			if err != nil {
++				return nil, err
++			}
++			if self.Self().collectionItems == nil {
++				return nil, fmt.Errorf("stored collection has not been initialized")
++			}
++			raw, err := self.Self().collectionItems.lookup(ctx, self.Self(), members, key.text)
++			if err != nil {
++				return nil, err
++			}
++			value, err := valueType.ConvertFromSDKResult(ctx, raw)
++			if err != nil {
++				return nil, err
++			}
++			if _, moduleObject := valueType.(*ModuleObjectType); moduleObject && collectionGetterContentEnabled.Load() {
++				current := dagql.CurrentCall(ctx)
++				if current == nil || current.Module == nil {
++					return nil, fmt.Errorf("stored collection getter has no module provenance")
++				}
++				scope := &dagql.ResultCall{Kind: dagql.ResultCallKindSynthetic, SyntheticOp: "collection-item-content", Type: dagql.NewResultCallType(value.Type()), Module: current.Module, View: current.View}
++				digest, err := scope.ContentPreferredDigest(ctx)
++				if err != nil {
++					return nil, err
++				}
++				content := NewCollectedContent()
++				if err := content.CollectJSONable(digest); err != nil {
++					return nil, err
++				}
++				if err := valueType.CollectContent(ctx, value, content); err != nil {
++					return nil, err
++				}
++				return value.WithContentDigestAny(ctx, content.Digest())
++			}
++			return value, nil
++		},
++	}, nil
++}
+--- /dev/null
++++ b/core/collection_stored_test.go
+@@ -0,0 +1,168 @@
++package core
++
++import (
++	"context"
++	"fmt"
++	"sync"
++	"testing"
++
++	"github.com/dagger/dagger/dagql"
++	"github.com/dagger/dagger/dagql/call"
++	"github.com/stretchr/testify/require"
++)
++
++func storedCollectionFixture(t *testing.T, f *moduleOwnershipTest, ctx context.Context, variant, childName string) (func(string, []any, []any) dagql.ObjectResult[*ModuleObject], *collectionContentRuntime) {
++	t.Helper()
++	mod := f.module(ctx, "packages", moduleOwnershipModuleOpts{variant: variant})
++	runtime := &collectionContentRuntime{moduleOwnershipRuntime: f.runtime}
++	mod.Self().Source.Value.Self().SDKImpl = runtime
++	parent := mod.Self().ObjectDefs[0].Self().AsObject.Value.Self().Clone()
++	childType := moduleOwnershipTypeDef(t, f.dag, childName, false)
++	child := childType.Self().AsObject.Value.Self()
++	stringType := parent.Functions[0].Self().ReturnType
++	keyList := newTypeDefDetachedResult(t, f.dag, "stored-"+variant+"-"+childName+"-key-list", &ListTypeDef{ElementTypeDef: stringType})
++	keysType := newTypeDefDetachedResult(t, f.dag, "stored-"+variant+"-"+childName+"-keys-type", (&TypeDef{}).WithListOf(keyList))
++	entry := NewObjectTypeDef(childName+"Entry", "", nil)
++	entry.Fields = dagql.ObjectResultArray[*FieldTypeDef]{
++		newTypeDefDetachedResult(t, f.dag, "stored-"+variant+"-"+childName+"-key", NewFieldTypeDef("key", stringType, "", nil)),
++		newTypeDefDetachedResult(t, f.dag, "stored-"+variant+"-"+childName+"-value", NewFieldTypeDef("value", childType, "", nil)),
++	}
++	entryDef := newTypeDefDetachedResult(t, f.dag, "stored-"+variant+"-"+childName+"-entry-def", entry)
++	entryType := newTypeDefDetachedResult(t, f.dag, "stored-"+variant+"-"+childName+"-entry-type", (&TypeDef{}).WithObjectTypeDef(entryDef))
++	entriesList := newTypeDefDetachedResult(t, f.dag, "stored-"+variant+"-"+childName+"-entries-list", &ListTypeDef{ElementTypeDef: entryType})
++	entriesType := newTypeDefDetachedResult(t, f.dag, "stored-"+variant+"-"+childName+"-entries-type", (&TypeDef{}).WithListOf(entriesList))
++	parent.Fields = append(parent.Fields,
++		newTypeDefDetachedResult(t, f.dag, "stored-"+variant+"-"+childName+"-keys-field", NewFieldTypeDef("keys", keysType, "", nil)),
++		newTypeDefDetachedResult(t, f.dag, "stored-"+variant+"-"+childName+"-entries-field", NewFieldTypeDef("entries", entriesType, "", nil)),
++	)
++	parent.Functions = parent.Functions[:1]
++	parent.Collection = &CollectionConfig{Enabled: true, Get: "entries"}
++	parentDef := newTypeDefDetachedResult(t, f.dag, "stored-"+variant+"-"+childName+"-parent-def", parent)
++	mod.Self().ObjectDefs[0] = newTypeDefDetachedResult(t, f.dag, "stored-"+variant+"-"+childName+"-parent-type", (&TypeDef{}).WithObjectTypeDef(parentDef))
++	mod.Self().ObjectDefs = append(mod.Self().ObjectDefs, childType, entryType)
++	f.install(ctx, f.dag, mod)
++	require.NoError(t, (&ModuleObject{Module: mod, TypeDef: child}).Install(ctx, f.dag))
++	makeValue := func(version string, keys, entries []any) dagql.ObjectResult[*ModuleObject] {
++		t.Helper()
++		obj := &ModuleObject{Module: mod, TypeDef: parent, Fields: map[string]any{"keys": keys, "entries": entries, "message": version}}
++		frame := moduleObjectTestSyntheticCall("stored-"+variant+"-"+childName+"-"+version, obj)
++		detached, err := dagql.NewObjectResultForCall(obj, f.dag, frame)
++		require.NoError(t, err)
++		attached, err := f.cache.GetOrInitCall(ctx, "stored-"+variant+"-"+childName+"-items", f.dag, &dagql.CallRequest{ResultCall: frame}, dagql.ValueFunc(detached))
++		require.NoError(t, err)
++		return attached.(dagql.ObjectResult[*ModuleObject])
++	}
++	return makeValue, runtime
++}
++
++func storedEntry(key, value string) any {
++	return map[string]any{"key": key, "value": map[string]any{"message": value}}
++}
++
++func storedGet(ctx context.Context, dag *dagql.Server, collection dagql.ObjectResult[*ModuleObject], key string) (dagql.ObjectResult[*ModuleObject], error) {
++	var result dagql.ObjectResult[*ModuleObject]
++	err := dag.Select(ctx, collection, &result, dagql.Selector{Field: "get", View: dag.View, Args: []dagql.NamedInput{{Name: "key", Value: dagql.String(key)}}})
++	return result, err
++}
++
++func TestStoredCollectionLookupAndSubset(t *testing.T) {
++	f := newModuleOwnershipTest(t)
++	ctx := f.session("stored-lookup")
++	makeValue, runtime := storedCollectionFixture(t, f, ctx, "", "Package")
++	keys, entries := []any{}, []any{}
++	for i := range 32 {
++		keys = append(keys, fmt.Sprint(i))
++		entries = append([]any{storedEntry(fmt.Sprint(i), fmt.Sprintf("value-%d", i))}, entries...)
++	}
++	parent := makeValue("first", keys, entries)
++	var group sync.WaitGroup
++	errors := make(chan error, 32)
++	for i := range 32 {
++		group.Go(func() {
++			value, err := storedGet(ctx, f.dag, parent, fmt.Sprint(i))
++			if err != nil {
++				errors <- err
++			} else if value.Self().Fields["message"] != fmt.Sprintf("value-%d", i) {
++				errors <- fmt.Errorf("stored key %d selected the wrong entry", i)
++			}
++		})
++	}
++	group.Wait()
++	close(errors)
++	for err := range errors {
++		t.Error(err)
++	}
++	var subset dagql.ObjectResult[*ModuleObject]
++	require.NoError(t, f.dag.Select(ctx, parent, &subset, dagql.Selector{Field: "subset", Args: []dagql.NamedInput{{Name: "keys", Value: dagql.DynamicArrayInput{Elem: dagql.String(""), Values: []dagql.Input{dagql.String("2"), dagql.String("0")}}}}}))
++	got, err := storedGet(ctx, f.dag, subset, "2")
++	require.NoError(t, err)
++	require.Equal(t, "value-2", got.Self().Fields["message"])
++	_, err = storedGet(ctx, f.dag, subset, "1")
++	require.ErrorContains(t, err, "current subset")
++	require.EqualValues(t, 0, runtime.gets.Load(), "stored lookup must never invoke the SDK getter")
++}
++
++func TestStoredCollectionContentReuse(t *testing.T) {
++	f := newModuleOwnershipTest(t)
++	ctx := f.session("stored-content")
++	makeValue, runtime := storedCollectionFixture(t, f, ctx, "", "Package")
++	read := func(version, message string) {
++		t.Helper()
++		parent := makeValue(version, []any{"a"}, []any{storedEntry("a", message)})
++		value, err := storedGet(ctx, f.dag, parent, "a")
++		require.NoError(t, err)
++		var result string
++		require.NoError(t, f.dag.Select(ctx, value, &result, dagql.Selector{Field: "check", Args: []dagql.NamedInput{{Name: "label", Value: dagql.String("read")}}}))
++		require.Equal(t, message, result)
++	}
++	read("first", "stable")
++	read("second", "stable")
++	require.EqualValues(t, 1, runtime.reads.Load(), "unchanged item must retain its downstream hit")
++	read("third", "changed")
++	require.EqualValues(t, 2, runtime.reads.Load())
++	require.EqualValues(t, 0, runtime.gets.Load())
++}
++
++func TestStoredCollectionContentScope(t *testing.T) {
++	f := newModuleOwnershipTest(t)
++	ctx := f.session("stored-scope")
++	var previous string
++	for _, scene := range []struct {
++		variant, childName, view string
++		scoped                   bool
++	}{{"first", "Package", "", false}, {"second", "Package", "", false}, {"second", "OtherPackage", "", false}, {"second", "OtherPackage", "other-view", false}, {"second", "OtherPackage", "other-view", true}} {
++		dag := newCoreDagqlServerForTest(t, f.root)
++		installModuleOwnershipTestClasses(dag)
++		installTypeDefTestClasses(dag)
++		dag.View = call.View(scene.view)
++		f.dag = dag
++		f.root.Server.(*moduleObjectTestServer).dag = dag
++		makeValue, _ := storedCollectionFixture(t, f, ctx, scene.variant, scene.childName)
++		if scene.scoped {
++			object, ok := dag.ObjectType("Packages")
++			require.True(t, ok)
++			class := object.(dagql.Class[*ModuleObject])
++			field, ok := class.Field("get", dag.View)
++			require.True(t, ok)
++			spec := *field.Spec
++			spec.ViewFilter = dagql.ExactView(scene.view)
++			field.Spec = &spec
++			class.Extend(spec, func(ctx context.Context, self dagql.AnyResult, args map[string]dagql.Input) (dagql.AnyResult, error) {
++				return field.Func(ctx, self.(dagql.ObjectResult[*ModuleObject]), args, dag.View)
++			})
++		}
++		value, err := storedGet(ctx, dag, makeValue("scope", []any{"a"}, []any{storedEntry("a", "same")}), "a")
++		require.NoError(t, err)
++		frame, err := value.ResultCall()
++		require.NoError(t, err)
++		require.NotEmpty(t, frame.ContentDigest())
++		current := frame.ContentDigest().String()
++		t.Logf("variant=%s type=%s serverView=%s resultView=%s digest=%s", scene.variant, scene.childName, scene.view, frame.View, current)
++		if scene.view != "" && !scene.scoped {
++			require.Equal(t, previous, current, "global fields retain reuse across unrelated views")
++		} else {
++			require.NotEqual(t, previous, current, "item identity retains implementation, return type and effective view")
++		}
++		previous = current
++	}
++}
