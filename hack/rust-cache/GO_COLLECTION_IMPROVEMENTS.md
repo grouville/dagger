@@ -2,6 +2,8 @@
 
 The command remains `dagger check --module go --check test --list --all` on the real dagger/dagger checkout, returning 4,398 ordered rows. These are fresh CLI processes and real edits on a warm development engine. Telemetry, ordinary GC, successful session cleanup and final log flushing are included. This is an experimental engine, CLI and Go module together, not stock released Dagger.
 
+The newest [sealed-metadata encoding screen](NATIVE_SEALED_METADATA_JSON.md) is **not another selected improvement**. Complete test-edited listing moves **8.75 → 8.49 s**, ordinary-source listing **5.44 → 5.35 s**, with mixed paired results. It reduces measured lock contention without establishing enough command-level benefit for its added cache. Eighteen Go commands, 28 Rust/native-cache cases and race checks pass; all 800 getters remain. The unchanged pipeline remains the acceptance criterion.
+
 The progression from roughly 40 seconds toward 12 seconds comes from engine/CLI changes, Go module changes and the embedded Dang interpreter. Each row below is its own controlled comparison; different source revisions, engine builds and cache states prevent treating the rows as a single additive waterfall.
 
 | Improvement | Where | Complete-command comparison |

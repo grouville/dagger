@@ -1,0 +1,245 @@
+{
+  "timings": {
+    "test": {
+      "medians": {
+        "before": {
+          "median_seconds": 8.752626314526424,
+          "median_engine_cpu": 41.0981855,
+          "median_allocated_bytes": 9601470268.0,
+          "commands": 4
+        },
+        "combined": {
+          "median_seconds": 8.4890613660682,
+          "median_engine_cpu": 40.582877499999995,
+          "median_allocated_bytes": 9578307424.0,
+          "commands": 4
+        }
+      },
+      "paired_seconds": [
+        1.1503348341211677,
+        -1.028232734883204,
+        0.23202534904703498,
+        0.11435346980579197
+      ],
+      "median_paired_saving": 0.17318940942641348,
+      "faster_pairs": 3,
+      "commands": 12,
+      "all_correct": true
+    },
+    "source": {
+      "medians": {
+        "before": {
+          "median_seconds": 5.440873206942342,
+          "median_engine_cpu": 22.066594500000008,
+          "median_allocated_bytes": 5175807672.0,
+          "commands": 4
+        },
+        "combined": {
+          "median_seconds": 5.3506605960428715,
+          "median_engine_cpu": 22.24401599999996,
+          "median_allocated_bytes": 5172486248.0,
+          "commands": 4
+        }
+      },
+      "paired_seconds": [
+        -0.0010925640817731619,
+        0.08928782190196216,
+        0.12857058201916516,
+        0.5413905691821128
+      ],
+      "median_paired_saving": 0.10892920196056366,
+      "faster_pairs": 3,
+      "commands": 12,
+      "all_correct": true
+    }
+  },
+  "diagnostics": [
+    {
+      "arm": "before",
+      "seconds": 1.6866549828555435,
+      "module_evaluations": 804,
+      "sdk_requests": 1494,
+      "main_query": {
+        "id": 12115,
+        "seconds": 8.026877526
+      },
+      "dropped": 0,
+      "open": 0
+    },
+    {
+      "arm": "candidate",
+      "seconds": 1.7561889849603176,
+      "module_evaluations": 804,
+      "sdk_requests": 1494,
+      "main_query": {
+        "id": 228686,
+        "seconds": 7.945129745
+      },
+      "dropped": 0,
+      "open": 0
+    },
+    {
+      "arm": "root-before",
+      "seconds": 1.2849943430628628,
+      "module_evaluations": 3,
+      "sdk_requests": 572,
+      "main_query": {
+        "id": 445271,
+        "seconds": 5.289447191
+      },
+      "dropped": 0,
+      "open": 0
+    },
+    {
+      "arm": "root-candidate",
+      "seconds": 1.2993285739794374,
+      "module_evaluations": 3,
+      "sdk_requests": 572,
+      "main_query": {
+        "id": 600738,
+        "seconds": 5.643619617
+      },
+      "dropped": 0,
+      "open": 0
+    }
+  ],
+  "selected": false,
+  "reason": "The complete-command differences are small and mixed, and the source-only CPU does not fall. The added per-record encoding cache is not justified by these measurements.",
+  "conditions": "Real source and test edits, fresh CLI processes, warm isolated engine. Normal telemetry, GC, final output and session cleanup included. Four balanced measured pairs per workload after both modes complete a test-layout transition.",
+  "not_established": [
+    "Cold listing on the current engine",
+    "Retained-cache restart performance",
+    "Rust compilation or collection latency",
+    "Whether encoding memoization is preferable to a smaller lock-scope change"
+  ],
+  "functional_gates": {
+    "go_commands": 18,
+    "rust_native_cache_cases": 28,
+    "expected_results": true,
+    "full_exact_overlay_server_race_suite_passed": true,
+    "independent_snapshot_mutation_test_passed_under_race": true
+  },
+  "profile_checks": [
+    {
+      "capture": "capture-before",
+      "seconds": 8.50156660284847,
+      "function_evaluations": 804,
+      "getters": {
+        "executed": 800
+      },
+      "discoveries": {
+        "hit": 799,
+        "executed": 1
+      },
+      "events": 221115,
+      "dropped": 0,
+      "open": 0
+    },
+    {
+      "capture": "capture-candidate",
+      "seconds": 8.379993716953322,
+      "function_evaluations": 804,
+      "getters": {
+        "executed": 800
+      },
+      "discoveries": {
+        "hit": 799,
+        "executed": 1
+      },
+      "events": 221129,
+      "dropped": 0,
+      "open": 0,
+      "metadata_encoding": {
+        "enabled": true,
+        "encoded_bytes": 2226,
+        "encodings": 2,
+        "record": true
+      }
+    },
+    {
+      "capture": "capture-root-before",
+      "seconds": 5.750646861968562,
+      "function_evaluations": 3,
+      "getters": {
+        "hit": 800
+      },
+      "discoveries": {
+        "hit": 800
+      },
+      "events": 157263,
+      "dropped": 0,
+      "open": 0
+    },
+    {
+      "capture": "capture-root-candidate",
+      "seconds": 6.19781536096707,
+      "function_evaluations": 3,
+      "getters": {
+        "hit": 800
+      },
+      "discoveries": {
+        "hit": 800
+      },
+      "events": 157263,
+      "dropped": 0,
+      "open": 0,
+      "metadata_encoding": {
+        "enabled": true,
+        "encoded_bytes": 2226,
+        "encodings": 2,
+        "record": true
+      }
+    },
+    {
+      "capture": "locks-before",
+      "seconds": 5.6971077639609575,
+      "function_evaluations": 3,
+      "getters": {
+        "hit": 800
+      },
+      "discoveries": {
+        "hit": 800
+      },
+      "events": 157745,
+      "dropped": 0,
+      "open": 0
+    },
+    {
+      "capture": "locks-candidate",
+      "seconds": 6.1481230079662055,
+      "function_evaluations": 3,
+      "getters": {
+        "hit": 800
+      },
+      "discoveries": {
+        "hit": 800
+      },
+      "events": 157264,
+      "dropped": 0,
+      "open": 0,
+      "metadata_encoding": {
+        "enabled": true,
+        "encoded_bytes": 2226,
+        "encodings": 2,
+        "record": true
+      }
+    }
+  ],
+  "lock_diagnostic": {
+    "profile": "after minus before, Go mutex sampling fraction 10; block rate 1ms",
+    "aggregate_mutex_wait_seconds": {
+      "before": 121,
+      "candidate": 72.14
+    },
+    "baseline_client_metadata_snapshot_inclusive_wait_seconds": 56.19,
+    "whole_command_seconds": {
+      "before": 5.6971077639609575,
+      "candidate": 6.1481230079662055
+    },
+    "warning": "Aggregate goroutine wait is not elapsed time. These instrumented commands are not the unprofiled paired cohort."
+  },
+  "retained_attempts": {
+    "exact_overlay_test": "Initial run omitted the parallel-admission test flag required by an existing virtual test. The failed log and corrected successful run are retained. Runtime admission stays disabled.",
+    "capture": "One candidate capture was rejected before CLI launch by the unchanged idle gate because host I/O pressure was high. Initial attempt, host/engine inspection, and the later successful capture are retained."
+  }
+}
