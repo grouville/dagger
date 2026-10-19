@@ -1,6 +1,6 @@
 {
   "prepared_at_utc": "2026-10-19T18:17:48.200511+00:00",
-  "status": "Draft descriptions pushed for user review; no new PRs opened.",
+  "status": "All sixteen clean source branches pushed, each one commit on upstream main. Standalone performance verification in progress; draft PRs authorized for confirmed improvements.",
   "scope": "Go collection listing investigation: 13 performance proposals plus 3 correctness fixes.",
   "measurement_notice": "Historical evidence only. No new performance or test runs in this description preparation. Future ports have not been measured.",
   "reviewed_style_examples": [
@@ -88,7 +88,7 @@
       "description": "PR_ENGINE_SHARE_RESTORED_POSTINGS.md",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/commit/52125b89732b29749748b7a81796fd911a3eb33c",
-      "opening_gate": "Review description and verify the intended upstream base still needs the change.",
+      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
       "numstat": "2\t1\tdagql/cache.go\n132\t0\tdagql/cache_digest_posting.go\n114\t0\tdagql/cache_digest_posting_removal_bench_test.go\n61\t0\tdagql/cache_digest_posting_removal_test.go\n73\t0\tdagql/cache_digest_posting_test.go\n12\t3\tdagql/cache_egraph.go\n1\t11\tdagql/cache_persistence_import.go",
       "production_files": [
         "dagql/cache.go",
@@ -97,8 +97,17 @@
         "dagql/cache_persistence_import.go"
       ],
       "source_branch_status": "Verified pushed head; no new source changes in this preparation.",
-      "title": "perf(dagql): share restored cache membership during import and pruning",
-      "description_sha256": "a26e8b1a42c25d197f065c46da1327f3a04a6e47eab99fd229fbd5811cbd6a20"
+      "title": "perf(dagql): avoid quadratic restored-cache indexing",
+      "description_sha256": "b4735253154658bd6e78499481f9ca2acf2f499394661e8c55302fa84087c55d",
+      "clean_source": {
+        "id": "restored-index",
+        "fork": "grouville/dagger",
+        "branch": "pr/go-collections-restored-index",
+        "base": "80699ac67a1c72dc38d30c4186105cd9dd3afde6",
+        "head": "abdd06e31131e9f178c2176c946fce84f0438495",
+        "url": "https://github.com/grouville/dagger/tree/pr/go-collections-restored-index",
+        "compare": "https://github.com/dagger/dagger/compare/80699ac67a1c72dc38d30c4186105cd9dd3afde6...grouville:dagger:pr/go-collections-restored-index"
+      }
     },
     {
       "id": "usage-sampling",
@@ -114,14 +123,23 @@
       "description": "PR_ENGINE_SKIP_EMPTY_USAGE_SAMPLING.md",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/commit/9123b2e76bc59146de9e3f4c2505efb6f9f7d648",
-      "opening_gate": "Review description and verify the intended upstream base still needs the change.",
+      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
       "numstat": "19\t2\tdagql/cache_usage.go\n77\t0\tdagql/cache_usage_sparse_test.go",
       "production_files": [
         "dagql/cache_usage.go"
       ],
       "source_branch_status": "Verified pushed head; no new source changes in this preparation.",
       "title": "perf(dagql): skip disk-usage sampling for empty values",
-      "description_sha256": "1563850e886a607eaa322598b71c9fb33ab9290b723bc4d45f34da173c909eea"
+      "description_sha256": "1563850e886a607eaa322598b71c9fb33ab9290b723bc4d45f34da173c909eea",
+      "clean_source": {
+        "id": "usage-sampling",
+        "fork": "grouville/dagger",
+        "branch": "pr/go-collections-usage-sampling",
+        "base": "80699ac67a1c72dc38d30c4186105cd9dd3afde6",
+        "head": "a72f656bc2dc914c9910417abd83ce1a81ef2cad",
+        "url": "https://github.com/grouville/dagger/tree/pr/go-collections-usage-sampling",
+        "compare": "https://github.com/dagger/dagger/compare/80699ac67a1c72dc38d30c4186105cd9dd3afde6...grouville:dagger:pr/go-collections-usage-sampling"
+      }
     },
     {
       "id": "config-read",
@@ -137,14 +155,23 @@
       "description": "PR_READ_CONFIG_BEFORE_STAT.md",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/commit/98d6b5c3f3c6b572bbf8d5712cb7ecb9276e7c8c",
-      "opening_gate": "Review description and verify the intended upstream base still needs the change.",
+      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
       "numstat": "22\t7\tcore/module_git_clients.go\n96\t0\tcore/module_git_clients_host_test.go",
       "production_files": [
         "core/module_git_clients.go"
       ],
       "source_branch_status": "Verified pushed head; no new source changes in this preparation.",
       "title": "perf(core): read host module config before a redundant stat",
-      "description_sha256": "4271e20f6b657a2b9062ad76a27c11a274c55a7ef8648bd06759ec3195d7ee2b"
+      "description_sha256": "4271e20f6b657a2b9062ad76a27c11a274c55a7ef8648bd06759ec3195d7ee2b",
+      "clean_source": {
+        "id": "config-read",
+        "fork": "grouville/dagger",
+        "branch": "pr/go-collections-config-read",
+        "base": "80699ac67a1c72dc38d30c4186105cd9dd3afde6",
+        "head": "9d08b60835b7536005c89e51076508d5fe3d94ec",
+        "url": "https://github.com/grouville/dagger/tree/pr/go-collections-config-read",
+        "compare": "https://github.com/dagger/dagger/compare/80699ac67a1c72dc38d30c4186105cd9dd3afde6...grouville:dagger:pr/go-collections-config-read"
+      }
     },
     {
       "id": "host-glob",
@@ -160,14 +187,23 @@
       "description": "PR_CLIENT_HOST_GLOB_PREFIX.md",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/commit/2481e74b3e02d185d9ba566199e5f4dfdca28eca",
-      "opening_gate": "Review description and verify the intended upstream base still needs the change.",
+      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
       "numstat": "13\t2\tengine/client/filesync.go\n117\t0\tengine/client/glob_prefix_test.go",
       "production_files": [
         "engine/client/filesync.go"
       ],
       "source_branch_status": "Verified pushed head; no new source changes in this preparation.",
       "title": "perf(filesync): prune host globs by their directory prefix",
-      "description_sha256": "98f3e34831b9f5ace512f29a1358396107bd360efb68c2f3f22ad5b0efe84c30"
+      "description_sha256": "98f3e34831b9f5ace512f29a1358396107bd360efb68c2f3f22ad5b0efe84c30",
+      "clean_source": {
+        "id": "host-glob",
+        "fork": "grouville/dagger",
+        "branch": "pr/go-collections-host-glob",
+        "base": "80699ac67a1c72dc38d30c4186105cd9dd3afde6",
+        "head": "c672d7a90ac331a8235e9d616a66fd23f584df7c",
+        "url": "https://github.com/grouville/dagger/tree/pr/go-collections-host-glob",
+        "compare": "https://github.com/dagger/dagger/compare/80699ac67a1c72dc38d30c4186105cd9dd3afde6...grouville:dagger:pr/go-collections-host-glob"
+      }
     },
     {
       "id": "literal-import",
@@ -186,7 +222,7 @@
       "description": "PR_FSUTIL_LITERAL_WALKS.md",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/commit/c22eaa55863fb2ca22919119ff30e952f54f8076",
-      "opening_gate": "Review description and verify the intended upstream base still needs the change.",
+      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
       "numstat": "20\t1\tinternal/fsutil/filter.go\n57\t0\tinternal/fsutil/fs.go\n47\t0\tinternal/fsutil/literal_include_callback_test.go\n35\t0\tinternal/fsutil/literal_include_linux_test.go\n164\t0\tinternal/fsutil/literal_include_test.go",
       "production_files": [
         "internal/fsutil/filter.go",
@@ -194,7 +230,16 @@
       ],
       "source_branch_status": "Verified pushed head; no new source changes in this preparation.",
       "title": "perf(fsutil): reach literal imports without enumerating sibling directories",
-      "description_sha256": "b03735cfd1a5462948510886d9194616d46ca82ed00acc4cf3e0bc18a88b7280"
+      "description_sha256": "b03735cfd1a5462948510886d9194616d46ca82ed00acc4cf3e0bc18a88b7280",
+      "clean_source": {
+        "id": "literal-import",
+        "fork": "grouville/dagger",
+        "branch": "pr/go-collections-literal-import",
+        "base": "80699ac67a1c72dc38d30c4186105cd9dd3afde6",
+        "head": "61c5f1cbd2d6b9868549097c715197a422dd5abf",
+        "url": "https://github.com/grouville/dagger/tree/pr/go-collections-literal-import",
+        "compare": "https://github.com/dagger/dagger/compare/80699ac67a1c72dc38d30c4186105cd9dd3afde6...grouville:dagger:pr/go-collections-literal-import"
+      }
     },
     {
       "id": "trivial-scalars",
@@ -211,14 +256,23 @@
       "description": "PR_ENGINE_TRIVIAL_SCALARS.md",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/commit/e08f2f4f55f2f16189bcf9580148032e993745bf",
-      "opening_gate": "Review description and verify the intended upstream base still needs the change.",
+      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
       "numstat": "17\t2\tdagql/objects.go\n31\t0\tdagql/trivial_scalar_projection_bench_test.go\n160\t0\tdagql/trivial_scalar_projection_test.go",
       "production_files": [
         "dagql/objects.go"
       ],
       "source_branch_status": "Verified pushed head; no new source changes in this preparation.",
       "title": "perf(dagql): read trivial scalar fields without another cache result",
-      "description_sha256": "23051b6957e2568ea7f7051662c5e341e843118ab4aae7c57b143d935241c83c"
+      "description_sha256": "23051b6957e2568ea7f7051662c5e341e843118ab4aae7c57b143d935241c83c",
+      "clean_source": {
+        "id": "trivial-scalars",
+        "fork": "grouville/dagger",
+        "branch": "pr/go-collections-trivial-scalars",
+        "base": "80699ac67a1c72dc38d30c4186105cd9dd3afde6",
+        "head": "018525bb9fae393653d097df02d12f19d819f0e0",
+        "url": "https://github.com/grouville/dagger/tree/pr/go-collections-trivial-scalars",
+        "compare": "https://github.com/dagger/dagger/compare/80699ac67a1c72dc38d30c4186105cd9dd3afde6...grouville:dagger:pr/go-collections-trivial-scalars"
+      }
     },
     {
       "id": "schema-arguments",
@@ -234,14 +288,23 @@
       "description": "PR_SCHEMA_ARGUMENT_ITERATION.md",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/commit/67eec58314e531fb96eb2eed8b1d6c02617a3594",
-      "opening_gate": "Review description and verify the intended upstream base still needs the change.",
+      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
       "numstat": "100\t0\tdagql/input_definition_iteration_test.go\n25\t9\tdagql/objects.go",
       "production_files": [
         "dagql/objects.go"
       ],
       "source_branch_status": "Verified pushed head; no new source changes in this preparation.",
       "title": "perf(dagql): build argument definitions without copying input specs",
-      "description_sha256": "aabe8e31d516b9bfdc42acc4e7b060cf3685bd79adc0e647c3cf7a541ddeaf89"
+      "description_sha256": "aabe8e31d516b9bfdc42acc4e7b060cf3685bd79adc0e647c3cf7a541ddeaf89",
+      "clean_source": {
+        "id": "schema-arguments",
+        "fork": "grouville/dagger",
+        "branch": "pr/go-collections-schema-arguments",
+        "base": "80699ac67a1c72dc38d30c4186105cd9dd3afde6",
+        "head": "4163222ce883aa7cf1ce356d9e0d0383101abc12",
+        "url": "https://github.com/grouville/dagger/tree/pr/go-collections-schema-arguments",
+        "compare": "https://github.com/dagger/dagger/compare/80699ac67a1c72dc38d30c4186105cd9dd3afde6...grouville:dagger:pr/go-collections-schema-arguments"
+      }
     },
     {
       "id": "glob-suffix",
@@ -257,14 +320,23 @@
       "description": "PR_GLOB_LITERAL_SUFFIX.md",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/commit/3d347c3228f0f31d1ad7688d0d60dd4f36c3f6fc",
-      "opening_gate": "Review description and verify the intended upstream base still needs the change.",
+      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
       "numstat": "76\t0\tutil/patternmatcher/literal_suffix_test.go\n13\t0\tutil/patternmatcher/patternmatcher.go",
       "production_files": [
         "util/patternmatcher/patternmatcher.go"
       ],
       "source_branch_status": "Verified pushed head; no new source changes in this preparation.",
       "title": "perf(patternmatcher): reject impossible suffixes before regexp matching",
-      "description_sha256": "9744a69f15fb58289190a7881643692cfd1d30110d1ad8600d02b2bf8d46efbe"
+      "description_sha256": "9744a69f15fb58289190a7881643692cfd1d30110d1ad8600d02b2bf8d46efbe",
+      "clean_source": {
+        "id": "glob-suffix",
+        "fork": "grouville/dagger",
+        "branch": "pr/go-collections-glob-suffix",
+        "base": "80699ac67a1c72dc38d30c4186105cd9dd3afde6",
+        "head": "39c8e8826b9ad18ba6ed9b22e5b0295e7227bfab",
+        "url": "https://github.com/grouville/dagger/tree/pr/go-collections-glob-suffix",
+        "compare": "https://github.com/dagger/dagger/compare/80699ac67a1c72dc38d30c4186105cd9dd3afde6...grouville:dagger:pr/go-collections-glob-suffix"
+      }
     },
     {
       "id": "class-history",
@@ -280,14 +352,23 @@
       "description": "PR_CLASS_FORK_HISTORY_ISOLATION.md",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/commit/ba6a61922371c499bf473b5beb3f51f170f8ed52",
-      "opening_gate": "Review description and verify the intended upstream base still needs the change.",
+      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
       "numstat": "39\t0\tdagql/class_fork_history_test.go\n2\t2\tdagql/objects.go",
       "production_files": [
         "dagql/objects.go"
       ],
       "source_branch_status": "Verified pushed head; no new source changes in this preparation.",
       "title": "fix(dagql): isolate field override histories across class forks",
-      "description_sha256": "378b9dcc4784854de2e73bee5e661d0964bb47e2325f43c30bf0756fcc86d01a"
+      "description_sha256": "378b9dcc4784854de2e73bee5e661d0964bb47e2325f43c30bf0756fcc86d01a",
+      "clean_source": {
+        "id": "class-history",
+        "fork": "grouville/dagger",
+        "branch": "pr/go-collections-class-history",
+        "base": "80699ac67a1c72dc38d30c4186105cd9dd3afde6",
+        "head": "46d8c5727cf40a5f5b16b03284a03fb6b933b509",
+        "url": "https://github.com/grouville/dagger/tree/pr/go-collections-class-history",
+        "compare": "https://github.com/dagger/dagger/compare/80699ac67a1c72dc38d30c4186105cd9dd3afde6...grouville:dagger:pr/go-collections-class-history"
+      }
     },
     {
       "id": "list-types",
@@ -303,14 +384,23 @@
       "description": "PR_DANG_LIST_ELEMENT_TYPES.md",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/commit/231995ae7f4b0a2c5edc863addd946bad05ff8b2",
-      "opening_gate": "Review description and verify the intended upstream base still needs the change.",
+      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
       "numstat": "1\t1\tcore/sdk/dang/v2/helpers.go\n39\t0\tcore/sdk/dang/v2/list_conversion_test.go",
       "production_files": [
         "core/sdk/dang/v2/helpers.go"
       ],
       "source_branch_status": "Verified pushed head; no new source changes in this preparation.",
       "title": "fix(dang): preserve element types when restoring lists",
-      "description_sha256": "62e4bcdf86d73b8a8033ac0c60b3409fc652d8f7a5960bd77e7732984cb9e414"
+      "description_sha256": "62e4bcdf86d73b8a8033ac0c60b3409fc652d8f7a5960bd77e7732984cb9e414",
+      "clean_source": {
+        "id": "list-types",
+        "fork": "grouville/dagger",
+        "branch": "pr/go-collections-list-types",
+        "base": "80699ac67a1c72dc38d30c4186105cd9dd3afde6",
+        "head": "94db4bc6339e7875f2a07fb302cff745c5761ee3",
+        "url": "https://github.com/grouville/dagger/tree/pr/go-collections-list-types",
+        "compare": "https://github.com/dagger/dagger/compare/80699ac67a1c72dc38d30c4186105cd9dd3afde6...grouville:dagger:pr/go-collections-list-types"
+      }
     },
     {
       "id": "typed-methods",
@@ -322,12 +412,21 @@
       "patch_sha256": "a1a99b636b83c9e35d99c764c4e259fa78e4073f8339d60b19f59012bb47e773",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/experiments/dang-coerced-method-hoisting/method-hoisting.patch",
-      "opening_gate": "Prepare a fork branch from the validated standalone patch, then check the intended upstream base. No grouville/dang fork was found.",
+      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
       "files": [
         "pkg/dang/block.go"
       ],
       "title": "perf(dang): recognize typed methods during declaration classification",
-      "description_sha256": "ba099a6e424490acea9d3e49e4099d9528269a403df1e0d9ef1dc0f7598f258a"
+      "description_sha256": "ba099a6e424490acea9d3e49e4099d9528269a403df1e0d9ef1dc0f7598f258a",
+      "clean_source": {
+        "id": "typed-methods",
+        "fork": "grouville/dang",
+        "branch": "pr/go-collections-typed-methods",
+        "base": "da1bed304cb80f8a2f0714f1747e7f64e03297a3",
+        "head": "b24bea026a40aa2b2553819dee8dc28c8deefc60",
+        "url": "https://github.com/grouville/dang/tree/pr/go-collections-typed-methods",
+        "compare": "https://github.com/vito/dang/compare/da1bed304cb80f8a2f0714f1747e7f64e03297a3...grouville:dang:pr/go-collections-typed-methods"
+      }
     },
     {
       "id": "lazy-error-context",
@@ -339,12 +438,21 @@
       "patch_sha256": "bf643ca1f65e3a029610a5bbc5910829777b0b49681f67453715aaebc5c12c3b",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/experiments/dang-lazy-error-context/lazy-eval-error-context.patch",
-      "opening_gate": "Prepare a fork branch from the validated standalone patch, then check the intended upstream base. No grouville/dang fork was found.",
+      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
       "files": [
         "pkg/dang/eval.go"
       ],
       "title": "perf(dang): read source-error context only when evaluation fails",
-      "description_sha256": "b27c10c49d4a27cf6b0e8f04f58d6858919af460d76e917a30aa5bbf445a98bf"
+      "description_sha256": "b27c10c49d4a27cf6b0e8f04f58d6858919af460d76e917a30aa5bbf445a98bf",
+      "clean_source": {
+        "id": "lazy-error-context",
+        "fork": "grouville/dang",
+        "branch": "pr/go-collections-lazy-error-context",
+        "base": "da1bed304cb80f8a2f0714f1747e7f64e03297a3",
+        "head": "e57b98e3104996993801a36e519578397750aec3",
+        "url": "https://github.com/grouville/dang/tree/pr/go-collections-lazy-error-context",
+        "compare": "https://github.com/vito/dang/compare/da1bed304cb80f8a2f0714f1747e7f64e03297a3...grouville:dang:pr/go-collections-lazy-error-context"
+      }
     },
     {
       "id": "callback-caller",
@@ -356,13 +464,22 @@
       "patch_sha256": "3b6f7bd6fd2c3a4fa74336e08006a8397790c17cd2ed9297c58e0b3473469ae3",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/experiments/go-runtime-preparation-current/callback-standalone.patch",
-      "opening_gate": "Prepare a fork branch from the validated standalone patch, then check the intended upstream base. No grouville/dang fork was found.",
+      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
       "files": [
         "pkg/dang/callback_caller_test.go",
         "pkg/dang/stdlib.go"
       ],
       "title": "perf(dang): reuse empty callers for concrete function callbacks",
-      "description_sha256": "f3d4135cebd94e349ccc00af7c670c6dce5d99645af17c72052349aa0b53c5cc"
+      "description_sha256": "f3d4135cebd94e349ccc00af7c670c6dce5d99645af17c72052349aa0b53c5cc",
+      "clean_source": {
+        "id": "callback-caller",
+        "fork": "grouville/dang",
+        "branch": "pr/go-collections-callback-caller",
+        "base": "da1bed304cb80f8a2f0714f1747e7f64e03297a3",
+        "head": "a8de91bc27f25857efd8b116afaab68d9edddcf1",
+        "url": "https://github.com/grouville/dang/tree/pr/go-collections-callback-caller",
+        "compare": "https://github.com/vito/dang/compare/da1bed304cb80f8a2f0714f1747e7f64e03297a3...grouville:dang:pr/go-collections-callback-caller"
+      }
     },
     {
       "id": "nested-selection",
@@ -374,13 +491,22 @@
       "patch_sha256": "dcc01064de46b175f29f72f092cefe4a2a56482d555c62c4e12f80ec2a3a8940",
       "published_source": true,
       "source_url": "https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/experiments/dang-nested-selection-elements/standalone.patch",
-      "opening_gate": "Prepare a fork branch from the validated standalone patch, then check the intended upstream base. No grouville/dang fork was found.",
+      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
       "files": [
         "pkg/dang/ast_expressions.go",
         "pkg/dang/nested_selection_elements_test.go"
       ],
       "title": "fix(dang): preserve non-null elements in nested list selections",
-      "description_sha256": "1618002cfc3702f22414f6c7337cc2b4fcfd735f1ecad904cf73d065c2e880c8"
+      "description_sha256": "1618002cfc3702f22414f6c7337cc2b4fcfd735f1ecad904cf73d065c2e880c8",
+      "clean_source": {
+        "id": "nested-selection",
+        "fork": "grouville/dang",
+        "branch": "pr/go-collections-nested-selection",
+        "base": "da1bed304cb80f8a2f0714f1747e7f64e03297a3",
+        "head": "9ea940f63429fdef91a831e83c6e3df634062525",
+        "url": "https://github.com/grouville/dang/tree/pr/go-collections-nested-selection",
+        "compare": "https://github.com/vito/dang/compare/da1bed304cb80f8a2f0714f1747e7f64e03297a3...grouville:dang:pr/go-collections-nested-selection"
+      }
     },
     {
       "id": "generation-matches",
@@ -397,9 +523,18 @@
         "go.dang"
       ],
       "numstat": "28\t0\t.dagger/modules/go-dev/main.dang\n63\t30\tgo.dang",
-      "opening_gate": "Extract this commit from the native-source discovery prototype onto the intended upstream module base and validate that port. Existing measurements apply to the prototype.",
+      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
       "title": "perf(go): share generation matching during package discovery",
-      "description_sha256": "38162a5372c8e34b7d9ea50cb64732d5d74f1fa3e85cb16dd0b0d280764ac3d9"
+      "description_sha256": "38162a5372c8e34b7d9ea50cb64732d5d74f1fa3e85cb16dd0b0d280764ac3d9",
+      "clean_source": {
+        "id": "generation-matches",
+        "fork": "grouville/go",
+        "branch": "pr/go-collections-generation-matches",
+        "base": "334136faaa1cd36ac26dfdc648eda907ce99c063",
+        "head": "f21f26337386112904789511b228afba76b85996",
+        "url": "https://github.com/grouville/go/tree/pr/go-collections-generation-matches",
+        "compare": "https://github.com/dagger/go/compare/334136faaa1cd36ac26dfdc648eda907ce99c063...grouville:go:pr/go-collections-generation-matches"
+      }
     },
     {
       "id": "native-membership",
@@ -415,9 +550,18 @@
         "go.dang"
       ],
       "numstat": "2\t2\tgo.dang",
-      "opening_gate": "Extract this commit from the native-source discovery prototype onto the intended upstream module base and validate that port. Existing measurements apply to the prototype.",
+      "opening_gate": "Standalone main comparison and scope assessment; draft PRs are authorized once supported.",
       "title": "perf(go): use native membership for generation directories",
-      "description_sha256": "0dacca126acf70c5d0334de07ccccd7e67c0b9df67087f046e466bd6bc93123f"
+      "description_sha256": "0dacca126acf70c5d0334de07ccccd7e67c0b9df67087f046e466bd6bc93123f",
+      "clean_source": {
+        "id": "native-membership",
+        "fork": "grouville/go",
+        "branch": "pr/go-collections-native-membership",
+        "base": "334136faaa1cd36ac26dfdc648eda907ce99c063",
+        "head": "8d9ac7a1a5b739ad0a7534995c2c15f43da353ce",
+        "url": "https://github.com/grouville/go/tree/pr/go-collections-native-membership",
+        "compare": "https://github.com/dagger/go/compare/334136faaa1cd36ac26dfdc648eda907ce99c063...grouville:go:pr/go-collections-native-membership"
+      }
     }
   ]
 }
