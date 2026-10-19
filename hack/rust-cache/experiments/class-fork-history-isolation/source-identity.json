@@ -1,0 +1,40 @@
+{
+  "commit": "ba6a61922371c499bf473b5beb3f51f170f8ed52",
+  "base": "18d51f8291eabe93dc2b8e93dd47c8cfa6397625",
+  "branch": "fix/class-fork-history-isolation",
+  "url": "https://github.com/grouville/dagger/commit/ba6a61922371c499bf473b5beb3f51f170f8ed52",
+  "current_upstream_objects_equal_to_measured_before": true,
+  "before_objects_sha256": "3bc5201e072912474c874d35946e6749f968799b4c4f7cf2f7459005350c4e59",
+  "after_objects_sha256": "da5476e1270f8b54c3b6eb81d7d175cc9424e1712fe1d47ba9fb52f781256d15",
+  "before_test_command": [
+    "go",
+    "test",
+    "-p=2",
+    "-overlay=/tmp/rust-cache-sipsma-review/class-fork-copy-on-write/history-before-overlay.json",
+    "-count=1",
+    "-run=^TestClassForkHistoryIsolation$",
+    "./dagql"
+  ],
+  "before_test_worktree": "/tmp/dagger-class-fork-history-isolation",
+  "before_exit_code": 1,
+  "before_failure": "parent override replaced by fork override",
+  "after_test_command": [
+    "go",
+    "test",
+    "-p=2",
+    "-race",
+    "-count=1",
+    "-run=^TestClassForkHistoryIsolation$",
+    "./dagql"
+  ],
+  "after_worktree": "/tmp/dagger-class-fork-history-isolation",
+  "after_exit_code": 0,
+  "scope": "A standalone Class.ForkObjectType field-history isolation bug. No claim that it caused listing latency, cache misses, or an observed production failure.",
+  "initial_failure": "Fresh main adds glamour/v2 not in the offline module cache; the dependency was fetched and the same focused regression passed.",
+  "no_pr_opened": true,
+  "regression_cases": [
+    "Install",
+    "Extend"
+  ],
+  "pushed_to_fork": true
+}

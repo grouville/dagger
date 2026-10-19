@@ -1,0 +1,251 @@
+diff --git a/dagql/class_fork_storage_test.go b/dagql/class_fork_storage_test.go
+new file mode 100644
+index 0000000000..1336adfa39
+--- /dev/null
++++ b/dagql/class_fork_storage_test.go
+@@ -0,0 +1,96 @@
++package dagql
++
++import (
++	"fmt"
++	"sync"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++func TestClassForkStorageIsolation(t *testing.T) {
++	srv := newDagqlServerForTest(t, &reflectedAccessorTestObject{})
++	parent := NewClass[*reflectedAccessorTestObject](srv)
++	parent.Extend(FieldSpec{Name: "original", Type: String("")}, nil)
++	object, err := parent.ForkObjectType(srv)
++	require.NoError(t, err)
++	fork := object.(Class[*reflectedAccessorTestObject])
++	valueCopy := fork
++	valueCopy.Extend(FieldSpec{Name: "forkOnly", Type: String("")}, nil)
++	parent.Extend(FieldSpec{Name: "parentOnly", Type: String("")}, nil)
++	_, ok := fork.Field("forkOnly", "")
++	require.True(t, ok)
++	_, ok = parent.Field("forkOnly", "")
++	require.False(t, ok)
++	_, ok = fork.Field("parentOnly", "")
++	require.False(t, ok)
++	// A fork of a fork keeps its own view after either earlier branch changes.
++	childObject, err := fork.ForkObjectType(srv)
++	require.NoError(t, err)
++	child := childObject.(Class[*reflectedAccessorTestObject])
++	fork.Install(Field[*reflectedAccessorTestObject]{Spec: &FieldSpec{Name: "later", Type: String("")}})
++	child.Extend(FieldSpec{Name: "childOnly", Type: String("")}, nil)
++	_, ok = child.Field("later", "")
++	require.False(t, ok)
++	_, ok = fork.Field("childOnly", "")
++	require.False(t, ok)
++	// Adding interface conformance to one branch must not alter another.
++	iface := NewInterface("ForkOnlyInterface", "")
++	child.ImplementInterfaceUnchecked(iface)
++	require.Empty(t, fork.Interfaces())
++	require.Empty(t, parent.Interfaces())
++	require.Len(t, child.Interfaces(), 1)
++}
++
++func TestClassForkStorageConcurrentMutation(t *testing.T) {
++	srv := newDagqlServerForTest(t, &reflectedAccessorTestObject{})
++	parent := NewClass[*reflectedAccessorTestObject](srv)
++	var group sync.WaitGroup
++	for worker := range 8 {
++		group.Go(func() {
++			for iteration := range 30 {
++				object, err := parent.ForkObjectType(srv)
++				if err != nil {
++					t.Error(err)
++					return
++				}
++				fork := object.(Class[*reflectedAccessorTestObject])
++				name := fmt.Sprintf("worker%d_%d", worker, iteration)
++				fork.Extend(FieldSpec{Name: name, Type: String("")}, nil)
++				if _, ok := parent.Field(name, ""); ok {
++					t.Errorf("fork field %q escaped", name)
++				}
++				parent.Extend(FieldSpec{Name: fmt.Sprintf("parent%d_%d", worker, iteration), Type: String("")}, nil)
++			}
++		})
++	}
++	group.Wait()
++}
++
++
++var classForkStorageSink ObjectType
++
++func BenchmarkClassForkStorage(b *testing.B) {
++	srv := newDagqlServerForTest(b, &reflectedAccessorTestObject{})
++	for _, count := range []int{1, 16, 128} {
++		class := NewClass[*reflectedAccessorTestObject](srv)
++		for i := range count {
++			class.Extend(FieldSpec{Name: fmt.Sprint("field", i), Type: String("")}, nil)
++		}
++		for _, mutate := range []bool{false, true} {
++			b.Run(fmt.Sprintf("fields%d/mutate%t", count, mutate), func(b *testing.B) {
++				b.ReportAllocs()
++				for b.Loop() {
++					fork, err := class.ForkObjectType(srv)
++					if err != nil {
++						b.Fatal(err)
++					}
++					if mutate {
++						fork.Extend(FieldSpec{Name: "changed", Type: String("")}, nil)
++					}
++					classForkStorageSink = fork
++				}
++			})
++		}
++	}
++}
+diff --git a/dagql/objects.go b/dagql/objects.go
+index 0c5a5d91ca..148cf76d05 100644
+--- a/dagql/objects.go
++++ b/dagql/objects.go
+@@ -9,6 +9,7 @@ import (
+ 	"sort"
+ 	"strings"
+ 	"sync"
++	"sync/atomic"
+ 	"weak"
+ 
+ 	"github.com/iancoleman/strcase"
+@@ -24,18 +25,10 @@ import (
+ // The class is defined by a set of fields, which are installed into the class
+ // dynamically at runtime.
+ type Class[T Typed] struct {
+-	inner   T
+-	idable  bool
+-	fields  map[string][]*Field[T]
+-	fieldsL *sync.RWMutex
+-
+-	// Shared across value copies, like fields; cloned when the class is forked.
+-	fieldOrder *[]string
+-	view       ViewFilter
+-
+-	// interfaces records the interfaces this class implements.
+-	// Uses a map (reference type) so it's shared across value copies of Class.
+-	interfaces map[string]*Interface
++	inner  T
++	idable bool
++	*classFields[T]
++	view ViewFilter
+ 
+ 	// server is the server whose schema cache must be invalidated when the
+ 	// class changes. It is weak because classes outlive their server: they are
+@@ -48,6 +41,30 @@ type Class[T Typed] struct {
+ 	sourceMap *ast.Directive
+ }
+ 
++// classFields is shared by value copies of a class. Forks get their own
++// state record, sharing only immutable map and slice storage until a write.
++type classFields[T Typed] struct {
++	fieldsL    sync.RWMutex
++	fields     map[string][]*Field[T]
++	fieldOrder *[]string
++	interfaces map[string]*Interface
++	shared     atomic.Bool
++}
++
++// ownFieldsLocked detaches shared storage before modifying it. The caller
++// holds fieldsL for writing, while every fork marks the storage shared under
++// a read lock. No fork can retain a map which is subsequently mutated.
++func (class Class[T]) ownFieldsLocked() {
++	if !class.shared.Load() {
++		return
++	}
++	class.fields = maps.Clone(class.fields)
++	order := slices.Clone(*class.fieldOrder)
++	class.fieldOrder = &order
++	class.interfaces = maps.Clone(class.interfaces)
++	class.shared.Store(false)
++}
++
+ var _ ObjectType = Class[Typed]{}
+ 
+ // InterfaceImplementor is implemented by object types that can declare
+@@ -74,7 +91,10 @@ func (class Class[T]) ImplementInterface(iface *Interface) {
+ // (e.g. core's IsSubtypeOf) has already validated conformance.
+ func (class Class[T]) ImplementInterfaceUnchecked(iface *Interface) {
+ 	class.fieldsL.Lock()
+-	class.interfaces[iface.TypeName()] = iface
++	if class.interfaces[iface.TypeName()] != iface {
++		class.ownFieldsLocked()
++		class.interfaces[iface.TypeName()] = iface
++	}
+ 	class.fieldsL.Unlock()
+ 	iface.addImplementor(class.TypeName())
+ 	class.invalidateSchemaCache()
+@@ -121,14 +141,15 @@ func NewClass[T Typed](srv *Server, opts_ ...ClassOpts[T]) Class[T] {
+ 	}
+ 
+ 	class := Class[T]{
+-		inner:      opts.Typed,
+-		fields:     map[string][]*Field[T]{},
+-		fieldsL:    new(sync.RWMutex),
+-		fieldOrder: new([]string),
+-		interfaces: map[string]*Interface{},
+-		sourceMap:  opts.SourceMap,
+-		view:       opts.View,
+-		server:     srv.self,
++		inner: opts.Typed,
++		classFields: &classFields[T]{
++			fields:     map[string][]*Field[T]{},
++			fieldOrder: new([]string),
++			interfaces: map[string]*Interface{},
++		},
++		sourceMap: opts.SourceMap,
++		view:      opts.View,
++		server:    srv.self,
+ 	}
+ 	if !opts.NoIDs {
+ 		class.Install(Field[T]{
+@@ -187,11 +208,13 @@ func (class Class[T]) ForkObjectType(srv *Server) (ObjectType, error) {
+ 	defer class.fieldsL.RUnlock()
+ 
+ 	forked := class
+-	forked.fields = maps.Clone(forked.fields)
+-	order := slices.Clone(*class.fieldOrder)
+-	forked.fieldOrder = &order
+-	forked.interfaces = maps.Clone(class.interfaces)
+-	forked.fieldsL = new(sync.RWMutex)
++	class.shared.Store(true)
++	forked.classFields = &classFields[T]{
++		fields:     class.fields,
++		fieldOrder: class.fieldOrder,
++		interfaces: class.interfaces,
++	}
++	forked.shared.Store(true)
+ 	forked.server = srv.self
+ 	return forked, nil
+ }
+@@ -279,6 +302,7 @@ func (class Class[T]) fieldLocked(name string, view call.View) (Field[T], bool)
+ func (class Class[T]) Install(fields ...Field[T]) {
+ 	class.fieldsL.Lock()
+ 	defer class.fieldsL.Unlock()
++	class.ownFieldsLocked()
+ 	for _, field := range fields {
+ 		if field.Spec.extend {
+ 			fields := class.fields[field.Spec.Name]
+@@ -329,7 +353,10 @@ func (class Class[T]) Implements(iface *Interface) {
+ 		panic(fmt.Sprintf("type %s does not satisfy interface %s", class.TypeName(), iface.TypeName()))
+ 	}
+ 	class.fieldsL.Lock()
+-	class.interfaces[iface.TypeName()] = iface
++	if class.interfaces[iface.TypeName()] != iface {
++		class.ownFieldsLocked()
++		class.interfaces[iface.TypeName()] = iface
++	}
+ 	class.fieldsL.Unlock()
+ 	iface.addImplementor(class.TypeName())
+ 	class.invalidateSchemaCache()
+@@ -348,6 +375,7 @@ func (class Class[T]) Interfaces() []*Interface {
+ 
+ func (class Class[T]) Extend(spec FieldSpec, fun FieldFunc) {
+ 	class.fieldsL.Lock()
++	class.ownFieldsLocked()
+ 	f := &Field[T]{
+ 		Spec: &spec,
+ 		Func: func(ctx context.Context, self ObjectResult[T], args map[string]Input, view call.View) (AnyResult, error) {
