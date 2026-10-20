@@ -1,0 +1,11 @@
+perf: avoid repeated comparisons when sorting paths
+
+Owned-file discovery insertion-sorts its paths even when the next path is already in order. Every insertion then scans earlier paths twice through interpreted callbacks. Large, mostly ordered file lists pay for millions of comparisons and temporary values.
+
+Compare with the last accumulated path first and append when the new path belongs after it. Keep the existing insertion logic for out-of-order entries. Apply the same check to the three private sorting helpers; byte order and duplicate handling stay the same.
+
+On dagger/dagger, the complete command returning 2,511 owned files improves from 19.76 s to 3.15 s median over four alternating pairs against main. Engine allocations fall from 19.72 GB to 2.13 GB. Separate wcprof captures verify that both versions execute the owned-file operation. This is a file-discovery result, not a complete test-listing speedup.
+
+The extra check costs time for reverse-ordered inputs: 512 strings take 10.62 ms before and 14.63 ms after. The insertion fallback and growing-list copies remain unchanged.
+
+Add a public file-order check for empty, singleton, Unicode and directory/file-prefix cases. It and the existing test-collection integration check pass on main and the patch; formatting passes.

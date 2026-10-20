@@ -1,0 +1,54 @@
+[
+  {
+    "kind": "test",
+    "arm": "main",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-race",
+      "-count=1",
+      "-run",
+      "^TestGlobHostPath",
+      "./engine/client"
+    ],
+    "source": "/tmp/go-collection-upstream-review-oct19/engine-config-main",
+    "seconds": 10.749982045963407,
+    "exit_code": 0
+  },
+  {
+    "kind": "test",
+    "arm": "candidate",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-race",
+      "-count=1",
+      "-run",
+      "^TestGlobHostPath",
+      "./engine/client"
+    ],
+    "source": "/tmp/go-collection-upstream-review-oct19/engine-host-glob-current-main",
+    "seconds": 13.35656743706204,
+    "exit_code": 0
+  },
+  {
+    "kind": "build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "build",
+      "-p=2",
+      "-buildvcs=false",
+      "-o",
+      "/tmp/go-collection-upstream-review-oct19/host-glob-only-cli",
+      "./cmd/dagger"
+    ],
+    "source": "/tmp/go-collection-upstream-review-oct19/engine-host-glob-current-main",
+    "base": "ce6dc9f9403b52067f5831149eab4871f857185d",
+    "patch_commit": "f5fe8d7e9454cc7e360b7ed03a68f6323095d3bf",
+    "seconds": 17.945552045945078,
+    "exit_code": 0,
+    "sha256": "5380270c0b5867d82bae00da02f66db893dcc33c31d6408019293c9e4343208d"
+  }
+]

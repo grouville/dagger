@@ -1,0 +1,22 @@
+[dagger] 30.0s elapsed · checks: 0/2 done · running: test (9.7s), dag://?check=tests-collection-check (29.5s)
+[dagger] 1m0s elapsed · checks: 0/2 done · running: test (39.7s), dag://?check=tests-collection-check (59.5s)
+== TRACE ==  ✔ PASSED
+main-cli check --module go-dev --check tests-collection-check  1m19s
+
+== CHECKS ==  ✔ 1 passed
+✔ dag://?check=tests-collection-check 1m19s OK
+  == CHECKS ==  ✘ 1 failed
+    ✘ test 0.5s ERROR
+      == TESTS ==
+        ✘ example.com/shared/sub FAIL
+    
+        ✘ example.com/shared/sub › TestShared FAIL
+                  b_test.go:3: ran in sub
+    
+        ✘ 1 failed
+
+== TESTS ==
+  ✔ example.com/go-module-with-testdata  1 passed
+  ✔ example.com/shared  1 passed
+
+  ✔ 2 passed

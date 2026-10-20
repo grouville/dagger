@@ -1,0 +1,119 @@
+package sortbench_test
+
+import (
+	"context"
+	"fmt"
+	"math/rand"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/vito/dang/v2/pkg/dang"
+)
+
+var sortedResult dang.Value
+
+// Read the actual private helper from each checked-out implementation.
+func declaration(b *testing.B, file, name string) string {
+	b.Helper()
+	data, err := os.ReadFile(file)
+	if err != nil {
+		b.Fatal(err)
+	}
+	source := string(data)
+	const signature = "let sorted(items: [String!]!): [String!]! {"
+	start := strings.Index(source, signature)
+	if start < 0 {
+		b.Fatal("sort helper not found in", file)
+	}
+	depth := 0
+	for i := start; i < len(source); i++ {
+		switch source[i] {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return strings.Replace(source[start:i+1], "let sorted(", "let "+name+"(", 1)
+			}
+		}
+	}
+	b.Fatal("unterminated sort helper")
+	return ""
+}
+
+func BenchmarkGoSort(b *testing.B) {
+	root := os.Getenv("DAGGER_SORT_BENCH_ROOT")
+	if root == "" {
+		b.Fatal("set DAGGER_SORT_BENCH_ROOT to the comparison directory")
+	}
+	source := declaration(b, filepath.Join(root, "go-main/gomod/main.dang"), "before") + "\n" +
+		declaration(b, filepath.Join(root, "go-sorted-inputs/gomod/main.dang"), "after")
+	dir := b.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "main.dang"), []byte(source), 0o600); err != nil {
+		b.Fatal(err)
+	}
+	env, err := dang.RunDir(context.Background(), dir, false)
+	if err != nil {
+		b.Fatal(err)
+	}
+	for _, count := range []int{8, 512} {
+		for _, order := range []string{"ascending", "reverse", "shuffled"} {
+			items := make([]string, count)
+			for i := range items {
+				items[i] = fmt.Sprintf("pkg/%06d/file.go", i)
+			}
+			if order == "reverse" {
+				slices.Reverse(items)
+			} else if order == "shuffled" {
+				rand.New(rand.NewSource(20261020)).Shuffle(len(items), func(i, j int) {
+					items[i], items[j] = items[j], items[i]
+				})
+			}
+			for _, version := range []string{"before", "after"} {
+				b.Run(fmt.Sprintf("%s/%s/%d", version, order, count), func(b *testing.B) {
+					value, found, err := env.Lookup(b.Context(), version)
+					if err != nil || !found {
+						b.Fatalf("lookup %s: found=%v err=%v", version, found, err)
+					}
+					fn := value.(dang.Callable)
+					input, err := dang.ToValue(items)
+					if err != nil {
+						b.Fatal(err)
+					}
+					args := map[string]dang.Value{"items": input}
+					result, err := fn.Call(b.Context(), env, args)
+					if err != nil {
+						b.Fatal(err)
+					}
+					actual := make([]string, count)
+					for i, item := range result.(dang.ListValue).Elements {
+						actual[i] = item.(dang.StringValue).Val
+					}
+					expected := slices.Clone(items)
+					slices.Sort(expected)
+					if !slices.Equal(actual, expected) {
+						b.Fatalf("wrong order: %v", actual)
+					}
+					for i, item := range input.(dang.ListValue).Elements {
+						if item.(dang.StringValue).Val != items[i] {
+							b.Fatal("input was mutated")
+						}
+					}
+					b.ReportAllocs()
+					b.ResetTimer()
+					for range b.N {
+						result, err := fn.Call(b.Context(), env, args)
+						if err != nil {
+							b.Fatal(err)
+						}
+						sortedResult = result
+					}
+					b.StopTimer()
+				})
+			}
+		}
+	}
+}
