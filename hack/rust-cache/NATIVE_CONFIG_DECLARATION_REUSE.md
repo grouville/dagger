@@ -6,6 +6,8 @@ The independent patch now applies directly to main `ce6dc9f9403b52067f5831149eab
 
 The full-command measurements below used an earlier experimental engine with the other changes held constant. They remain workload evidence, not a fresh measurement of this patch alone on current main.
 
+The [cache-choice comparison](experiments/standalone-go-collections/assessment/config-cache-choice-oct19/) verifies that DagQL can also cache the parsed declarations. Lookup costs are similar; retain the small LRU for its explicit entry bound and configuration-only integration. This is not an end-to-end speed claim over DagQL.
+
 ## Earlier full-command investigation
 
 Complete edited Go test listing improves **45.51 → 40.65 seconds median**, faster in all four pairs. Cumulative engine allocation falls **35.06 → 32.75 GB**, with engine CPU **218.89 → 206.55 CPU-seconds**. All ten commands, including initialization, return the expected ordered rows and exit successfully through session cleanup. Listing remains too slow.
