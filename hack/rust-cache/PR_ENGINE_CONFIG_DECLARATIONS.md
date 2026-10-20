@@ -1,3 +1,5 @@
+[Draft PR #14741](https://github.com/dagger/dagger/pull/14741)
+
 This is part of the work to make Go test collection listing faster. While listing the tests in `dagger/dagger`, the engine decoded the same 1.6 kB `dagger.toml` 15,003 times to check which Git clients a module may use. This happens before looking up the module function's cached result, even when the configuration declares no Git clients.
 
 Reuse those declarations when the current configuration bytes are identical. Every lookup still reads the file and selects the nearest configuration, so edits, newly added files and read errors take effect immediately. The cache holds at most 32 configurations, skips files over 64 KiB, and uses the existing LRU library. Concurrent requests share one parse; parsing and warning delivery happen outside the cache lock. Each caller receives its own declaration slice and warnings.

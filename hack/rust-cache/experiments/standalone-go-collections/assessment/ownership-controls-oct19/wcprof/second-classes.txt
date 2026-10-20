@@ -1,0 +1,54 @@
+classes: 123258 ops in 165 classes (all ops) over 14.19s, self_tot 897.31s (summed across concurrent ops); sorted by self
+(left out: 3986 internal-kind ops, self_tot 18.86s; kind: "internal" ranks them)
+   count   self_tot  self_p50  self_max    dur_tot   dur_p50   dur_max   dup  kind class               outcomes
+      64    519.57s     8.29s     9.20s    519.84s     8.29s     9.20s     0  call_exec go:GoPackage.tests ok:64
+      64     94.77s     1.26s     4.86s     95.96s     1.31s     4.86s     0  call_exec gomod:Gomod.module ok:64
+     710     83.58s     1.4µs     2.19s    119.80s     1.4µs     2.97s     0  session_phase session.schemaBuild ok:710
+     710     63.59s   17.11ms     2.12s    218.88s   69.63ms    13.68s     0  session_phase session.query ok:710
+   36956     17.77s     7.3µs  193.48ms     17.77s     7.3µs  193.48ms     0  call Query.typeDef       hit:36956
+     576     15.55s    8.96ms  448.10ms     18.86s   13.50ms  451.78ms     0  call SearchResult.search executed:576
+   33543     12.70s     7.3µs  234.07ms     12.70s     7.3µs  234.07ms     6  call TypeDef.withOptional hit:33531 executed:12
+     576      7.66s   694.7µs  325.98ms      8.97s    1.44ms  401.58ms     0  call SearchResult.matchedLines executed:576
+      64      5.59s   60.98ms  345.53ms      5.59s   60.98ms  345.53ms     0  call_exec Workspace.findUp ok:64
+     415      5.11s   135.3µs  529.96ms      5.52s   205.8µs  529.98ms     0  call Query.node          do_not_cache:415
+     256      5.06s    9.65ms   93.70ms      5.11s    9.71ms   93.89ms     0  call ArtifactDimensionKey.key executed:256
+   16712      4.73s     7.2µs  207.81ms      4.73s     7.2µs  207.81ms     0  call TypeDef.withKind    hit:16712
+     256      4.19s    6.53ms   90.71ms      4.28s    6.84ms   90.79ms     0  call ArtifactDimensionKey.dimension executed:256
+       1      4.07s     4.07s     4.07s      4.07s     4.07s     4.07s     0  call_exec go:Go.packages ok:1
+   11617      4.01s     7.7µs  193.35ms      4.02s     7.7µs  193.35ms     0  call TypeDef.withObject  hit:11616 executed:1
+     256      3.77s    9.15ms   78.64ms      3.90s    9.77ms   79.09ms     0  call ArtifactDimensionKey.dimensionKeys executed:256
+      64      3.77s   54.08ms  263.33ms     99.99s     1.39s     4.93s     0  call gomod:Gomod.module  executed:64
+     576      3.53s    95.2µs  112.60ms      4.25s   216.8µs  149.80ms     0  call SearchResult.filePath executed:576
+      80      3.17s   26.63ms  238.85ms      3.17s   26.63ms  238.85ms     0  call_exec Workspace.search ok:80
+      64      2.83s   12.88ms  322.85ms      8.75s  104.89ms  416.99ms     0  call Workspace.findUp    executed:64
+    1809      2.45s    12.9µs  149.03ms      2.46s    12.9µs  149.03ms     0  call Module._implementationScoped hit:1805 executed:4
+    8603      2.14s     7.4µs  170.79ms      2.14s     7.4µs  170.79ms     1  call TypeDef.withListOf  hit:8601 executed:2
+      88      1.89s   710.9µs  283.52ms      3.89s   23.35ms  374.33ms     0  call Workspace.glob      executed:81 hit:7
+     289      1.86s    31.0µs  193.68ms      1.86s    31.0µs  193.68ms     0  call gomod:Query.gomod   hit:289
+     576      1.82s   116.0µs  147.11ms      1.82s   116.0µs  147.11ms     0  call_exec SearchResult.search ok:576
+     208      1.74s    30.1µs  193.52ms      1.74s    30.1µs  193.52ms     0  call gomod:Gomod.at      hit:208
+       1      1.74s     1.74s     1.74s      1.74s     1.74s     1.74s     0  call_exec gomod:Gomod.modules ok:1
+      81      1.64s    9.52ms  120.49ms      1.64s    9.52ms  120.49ms     0  call_exec Workspace.glob ok:81
+      96      1.43s   273.2µs  181.14ms      4.88s   35.42ms  368.94ms     0  call Workspace.search    executed:80 hit:16
+      64      1.36s   12.50ms  130.73ms      1.43s   13.32ms  130.94ms     0  call Artifact.items      executed:64
+     154      1.29s    37.7µs  198.93ms      1.29s    37.7µs  198.93ms     0  call Query.__schemaJSONFile hit:154
+       8      1.27s  160.15ms  168.17ms      1.27s  160.18ms  168.21ms     0  call_exec gomod:GomodGoMod.ownFiles ok:8
+       8      1.18s  139.11ms  183.70ms      1.18s  139.15ms  183.74ms     0  call_exec gomod:Gomod.workspaceRootPath ok:8
+     128      1.16s    37.8µs  193.37ms      1.16s    37.8µs  193.37ms     0  call gomod:GomodGoMod.subpath hit:128
+     710      1.15s     9.7µs  192.34ms    339.85s  139.78ms    13.68s     0  session_phase session.serveQuery ok:710
+      64   875.81ms    1.94ms  126.66ms    520.96s     8.30s     9.20s     0  call go:GoPackage.tests  executed:64
+      64   776.49ms    8.51ms   77.36ms   790.17ms    8.59ms   77.89ms     0  call Artifact.dimensionKeys executed:64
+      64   745.98ms    7.46ms   86.86ms   758.70ms    7.59ms   87.01ms     0  call Artifact.uri        executed:64
+     576   697.21ms    51.1µs  171.86ms   697.21ms    51.1µs  171.86ms     0  call_exec SearchResult.matchedLines ok:576
+      64   664.64ms    5.76ms   51.91ms   675.68ms    5.98ms   51.97ms     0  call Artifact.description executed:64
+      72   551.78ms    37.3µs   79.03ms   551.78ms    37.3µs   79.03ms     0  call gomod:GomodGoMod.selected hit:72
+      72   432.01ms    30.5µs   91.58ms   706.34ms    30.5µs  341.28ms     0  call gomod:GomodGoMod.path hit:56 executed:16
+     576   415.81ms    33.4µs   56.72ms   415.81ms    33.4µs   56.72ms     0  call_exec SearchResult.filePath ok:576
+     614   267.58ms    10.4µs   70.08ms   267.66ms    10.4µs   70.08ms     3  call FunctionArg.__withDefaultValue hit:608 executed:6
+      21   251.59ms    9.41ms   25.01ms   252.23ms    9.45ms   25.05ms     0  call_exec Host.directory ok:21
+      55   219.80ms    1.97ms   16.18ms   247.98ms    2.61ms   17.43ms     0  call ArtifactDimension.identifier executed:55
+      55   202.63ms    2.63ms   17.92ms   240.04ms    3.02ms   19.74ms     0  call ArtifactDimension.name executed:55
+      55   188.68ms    2.02ms   14.36ms   238.67ms    3.12ms   16.58ms     0  call ArtifactDimension.keyName executed:55
+      55   180.76ms    1.81ms   16.83ms   212.62ms    2.63ms   16.99ms     0  call ArtifactDimension.qualifiedName executed:55
+      55   176.88ms    2.21ms   12.37ms   197.87ms    2.50ms   12.42ms     0  call ArtifactDimension.collectionType executed:55
+… 115 more classes (raise `top`)

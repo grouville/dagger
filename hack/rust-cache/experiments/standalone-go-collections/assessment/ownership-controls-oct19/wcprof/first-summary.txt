@@ -1,0 +1,40 @@
+wcprof dump: 134452 ops, 5567 waits, 0 links over 40.83s; dropped events: 0; open ops: 0
+calls: 119822 (hit:113765 executed:5538 do_not_cache:519)
+top clients (of 149) by ops:
+       ops   self_tot  active               client
+     21597   1284.68s  +1.31s..+40.83s      5WBBSJNTZVRNGATAOQ4MXFJJBZ
+      6431      1.74s  +0ns..+1.21s         UQBI6XCG4ORDY7C5HATLQKJCNP
+      5538     25.20s  +18.29ms..+40.83s    (none)
+      3214     17.04s  +2.06s..+19.17s      4P423M2VAJN5IDAY7VYAFG3FJ2
+      1144      1.66s  +2.44s..+4.33s       AKKAVIAWKN7QIDCRWZJVFETFXV
+       842     10.31s  +28.91s..+36.69s     66A6NZH2SHPNSJVE57F3NNAGHZ
+       842     10.58s  +26.17s..+36.38s     ASPWDQPRGWDYFTB5LEHQTBMPNY
+       842     10.62s  +26.18s..+36.38s     DNQPX7MPBFLVBYA6F63ZXHVE6F
+       842     12.00s  +26.22s..+38.67s     EIUPQKEFC4ZZCJIAQ6WJ6TPYRF
+       842     12.08s  +25.68s..+37.30s     HZ24IKBHHTF6D54IPVSNWZTYZA
+top classes (of 240) by count:
+     count   self_tot  kind class
+     37598     34.50s  call Query.typeDef
+     34299     19.78s  call TypeDef.withOptional
+     17096     10.58s  call TypeDef.withKind
+     11781      6.80s  call TypeDef.withObject
+      8697      3.72s  call TypeDef.withListOf
+      1809      7.83s  call Module._implementationScoped
+       710     1.89ms  session_phase session.modulesLoad
+       710    113.50s  session_phase session.query
+       710     86.06s  session_phase session.schemaBuild
+       710   466.04ms  session_phase session.serveQuery
+top classes by self time:
+     count   self_tot  kind class
+        64    900.89s  call_exec go:GoPackage.tests
+        64    309.20s  call_exec go:GoPackages.get
+        64    176.36s  call_exec gomod:Gomod.module
+       710    113.50s  session_phase session.query
+       710     86.06s  session_phase session.schemaBuild
+     37598     34.50s  call Query.typeDef
+       576     25.62s  call SearchResult.search
+     34299     19.78s  call TypeDef.withOptional
+         1     17.36s  call_exec go:Go.packages
+       576     17.14s  call SearchResult.matchedLines
+(left out: 5538 internal-kind ops, self_tot 25.20s; kind: "internal" ranks them)
+(times are relative to the first recorded op; self = duration minus child ops and waits; self_tot sums it across ops, concurrent ones included, so it can exceed wall time)

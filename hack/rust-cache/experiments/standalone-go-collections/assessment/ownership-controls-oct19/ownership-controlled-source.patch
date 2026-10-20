@@ -1,0 +1,122 @@
+diff --git a/.dagger/modules/go-dev/main.dang b/.dagger/modules/go-dev/main.dang
+index b685ed6..304327e 100644
+--- a/.dagger/modules/go-dev/main.dang
++++ b/.dagger/modules/go-dev/main.dang
+@@ -311,6 +311,20 @@ type GoDev {
+     null
+   }
+ 
++  """
++  A retained package follows module boundaries in its execution workspace.
++  """
++  packageLayoutRebindCheck: Void @check {
++    let before = directory
++      .withNewFile("go.mod", "module example.com/layout\n\ngo 1.26.1\n")
++      .withNewFile("sub/layout_test.go", "package sub\nimport \"testing\"\nfunc TestReboundLayout(t *testing.T) {}\n")
++      .asWorkspace
++    let pkg = go(version: "1.26.1").packages(before).get(key: "sub")
++    let after = before.withNewFile("/sub/go.mod", "module example.com/layout/sub\n\ngo 1.26.1\n")
++    run(pkg.tests(after).get(key: "TestReboundLayout").test(after))
++    null
++  }
++
+   """
+   A package has a binary when it is a main package selected by build. Main packages
+   are found by searching the source; binaries are named as go build names
+diff --git a/go.dang b/go.dang
+index 709896e..810ed4b 100644
+--- a/go.dang
++++ b/go.dang
+@@ -182,10 +182,13 @@ type Go {
+   """
+   packages(ws: Workspace!): GoPackages! {
+     let empty: [String!]! = []
++    let found = modules(ws)
+     GoPackages(
+       paths: sorted(
+-        modules(ws).reduce(empty) { all, mod => all + mod.packagePaths(ws) },
++        found.reduce(empty) { all, mod => all + mod.packagePaths(ws) },
+       ),
++      moduleRoots: found.map { mod => mod.path },
++      moduleLayoutDigest: lib.moduleLayoutDigest(ws),
+       mountPath: workspaceMountPath(ws),
+       tool: self,
+     )
+@@ -251,11 +254,34 @@ type GoPackages @collection {
+ 
+   let tool: Go!
+ 
++  let moduleRoots: [String!]
++  let moduleLayoutDigest: String
++
++  # Use the deepest discovered root on a path boundary. Retaining these few
++  # roots avoids a workspace round trip and nested SDK call for every package.
++  let moduleRoot(path: String!): String {
++    let root = (moduleRoots ?? []).reduce("") { owner, root =>
++      if ((root == "." or path == root or path.hasPrefix(root + "/"))
++        and (owner == "" or owner == "." or root.hasPrefix(owner + "/"))) {
++        root
++      } else {
++        owner
++      }
++    }
++    if (root == "") { null } else { root }
++  }
++
+   """
+   The package in this directory.
+   """
+   package(path: String!): GoPackage! @get {
+-    GoPackage(path: path, mountPath: mountPath, tool: tool)
++    GoPackage(
++      path: path,
++      moduleRoot: moduleRoot(path),
++      moduleLayoutDigest: moduleLayoutDigest,
++      mountPath: mountPath,
++      tool: tool,
++    )
+   }
+ 
+   # The modules holding the selected packages, each once.
+@@ -343,8 +369,19 @@ type GoPackage {
+ 
+   let tool: Go!
+ 
++  let moduleRoot: String
++  let moduleLayoutDigest: String
++
+   let module(ws: Workspace!): GoModule! {
+-    tool.packageModule(ws, path, mountPath)
++    # A caller can use the package with an edited workspace. Reuse ownership
++    # only while its go.mod snapshot still matches that workspace.
++    if (moduleRoot != null
++      and moduleLayoutDigest != null
++      and moduleLayoutDigest == tool.lib.moduleLayoutDigest(ws)) {
++      tool.goModuleAt(moduleRoot ?? path, mountPath)
++    } else {
++      tool.packageModule(ws, path, mountPath)
++    }
+   }
+ 
+   """
+diff --git a/gomod/main.dang b/gomod/main.dang
+index e30864a..3c48bed 100644
+--- a/gomod/main.dang
++++ b/gomod/main.dang
+@@ -59,6 +59,16 @@ type Gomod {
+       .map { modPath => at(modPath) }
+   }
+ 
++  """
++  A digest of the workspace's go.mod snapshot.
++
++  A sparse native snapshot lets consumers retain discovered ownership while
++  detecting layout edits before reusing it with another workspace.
++  """
++  moduleLayoutDigest(ws: Workspace!): String! {
++    ws.directory("/", include: ["**/go.mod"]).digest
++  }
++
+   """
+   The Go module containing a workspace path.
+ 

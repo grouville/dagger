@@ -1,0 +1,40 @@
+wcprof dump: 134452 ops, 5568 waits, 0 links over 29.32s; dropped events: 0; open ops: 0
+calls: 119822 (hit:113764 executed:5538 do_not_cache:519 joined:1)
+top clients (of 149) by ops:
+       ops   self_tot  active               client
+     21597    822.78s  +1.13s..+29.32s      NMMQGTOJ2MDDZ4TQEXUSMKDIQX
+      6431      1.60s  +0ns..+1.05s         5IOZJ4HHRDFUTRYANZXHRDXAAE
+      5538     26.62s  +25.65ms..+29.32s    (none)
+      3214     13.51s  +1.76s..+15.29s      AHC5VZBIW3ZDSOECXGO5VP5XJV
+      1144      1.44s  +2.06s..+3.71s       NOSOD2M7KQFPR4JKWQI343TF6I
+       842      5.77s  +22.47s..+28.29s     2W7ZZSJ53SIPPLRUGOYVV57SYZ
+       842      5.89s  +23.98s..+28.58s     2XATPX3GSYZQRSPPD6KHFDLEKH
+       842      8.61s  +20.72s..+28.25s     DYY4KLF2RTS4TSB2BNPBWWHP3B
+       842      5.94s  +22.14s..+28.27s     GYNTS6ITSSULB6V7IZDMFR634C
+       842      5.99s  +23.52s..+27.80s     HE2Z24SQSVFDGEVKJXGNX6NRXP
+top classes (of 240) by count:
+     count   self_tot  kind class
+     37598     21.31s  call Query.typeDef
+     34299     13.06s  call TypeDef.withOptional
+     17096      5.90s  call TypeDef.withKind
+     11781      3.74s  call TypeDef.withObject
+      8697      1.67s  call TypeDef.withListOf
+      1809      4.41s  call Module._implementationScoped
+       710    928.8µs  session_phase session.modulesLoad
+       710     64.54s  session_phase session.query
+       710     76.46s  session_phase session.schemaBuild
+       710      2.05s  session_phase session.serveQuery
+top classes by self time:
+     count   self_tot  kind class
+        64    555.45s  call_exec go:GoPackage.tests
+        64    228.58s  call_exec go:GoPackages.get
+        64    115.33s  call_exec gomod:Gomod.module
+       710     76.46s  session_phase session.schemaBuild
+       710     64.54s  session_phase session.query
+       576     34.89s  call SearchResult.search
+       576     21.38s  call SearchResult.matchedLines
+     37598     21.31s  call Query.typeDef
+         1     13.73s  call_exec go:Go.packages
+     34299     13.06s  call TypeDef.withOptional
+(left out: 5538 internal-kind ops, self_tot 26.62s; kind: "internal" ranks them)
+(times are relative to the first recorded op; self = duration minus child ops and waits; self_tot sums it across ops, concurrent ones included, so it can exceed wall time)
