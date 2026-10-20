@@ -1,28 +1,37 @@
 [Draft PR #14741](https://github.com/dagger/dagger/pull/14741)
 
-This came out of profiling Go test collection listing. One full-repository run decoded the same 1.6 kB `dagger.toml` 15,003 times to determine which Git clients a module may use. This happens before the module function's result-cache lookup, because the declarations help determine its cache key.
+Go test collection listing repeatedly parses `dagger.toml` to determine which Git clients a module may use. One full-repository profile showed 15,003 decodes of the same 1.6 kB file. This happens before the function-result cache lookup, because the declarations help determine its key.
 
-Reuse the parsed declarations through DagQL's existing `GetOrInitArbitrary` cache, keyed by the current file contents. Every lookup still reads the file and selects the nearest configuration. Each caller gets its own returned slice and warnings. The engine shares concurrent loads and removes the cached value after its last owning session ends. Without engine context, or if cache lookup fails, the helper parses normally.
+Cache the parsed declarations by file contents. Every call still reads the file and finds the nearest configuration, so edits, deletion and changes to module scope take effect immediately. Each caller receives its own list and warnings.
 
-This adds no separate cache implementation. It does make the shared configuration helper depend on DagQL's cache/session context. Entries live for their owning commands rather than having a separate entry limit or surviving between commands.
+On our development engine, holding the other performance changes constant and toggling only this cache improved the complete 4,398-row listing:
 
-Benchmarks against main `ce6dc9f9403b52067f5831149eab4871f857185d`, using the actual Go configuration and four alternating fresh-process pairs:
+| Complete listing | Without this cache | With this cache |
+| --- | ---: | ---: |
+| Elapsed time | 45.51 s | 40.65 s |
+| Engine CPU time | 218.89 CPU-s | 206.55 CPU-s |
+| Bytes allocated by the engine | 35.06 GB | 32.75 GB |
+
+Medians of four alternating pairs, faster in all four. Each starts a fresh CLI after a source edit and returns the correct ordered rows through successful cleanup. This is a warm engine, with telemetry enabled and normal garbage collection: about an 11% listing improvement in that setup.
+
+**This stays draft: the full-listing gain on current main is not established.** New attempts with main, this LRU and a DagQL-cache alternative all reached 180 seconds without rows. They provide no completed-command comparison and do not show that the LRU beats DagQL end to end.
+
+The existing LRU library retains at most 32 configurations. Files larger than 64 KiB are parsed without being retained. Concurrent callers share one decode outside the cache lock. The configuration helper needs no engine/session setup.
+
+Component benchmarks against main `ce6dc9f9403b52067f5831149eab4871f857185d`, using the real Go configuration in four fresh-process pairs:
 
 | Declaration lookup | Main | This change | Allocations per lookup |
 | --- | ---: | ---: | ---: |
-| Same contents | 343.55 µs | 5.22 µs | 2,818 → 9 |
-| Same contents, concurrent callers | 153.66 µs | 3.41 µs | 2,818 → 9 |
-| New contents every time | 342.69 µs | 387.88 µs | 2,823 → 2,840 |
+| Same contents | 324.93 µs | 3.99 µs | 2,818 → 3 |
+| New contents every time | 335.41 µs | 351.06 µs | 2,823 → 2,826 |
 
-Repeated-content cases improve in all four pairs. The cost when every input is new is about 13%; those lookups receive no reuse benefit. Concurrent numbers are time per completed lookup across eight workers.
+New inputs cost about 4.7% more. Repeated-content lookups improve in all four pairs.
 
-A complete 16-package collection-listing comparison validates edited test names, ordered output and successful cleanup on matching main/candidate engines. It does **not** establish an end-to-end speedup: medians are 6.66 s and 6.83 s, with this change faster in one of four pairs. The earlier full-repository LRU prototype timings are not measurements of this implementation.
-
-The complete workspace race suite passes on main and the patch. Added tests exercise fresh edits, deletion, nearer configurations, errors, mutation, concurrent callers and per-caller warnings. A separate live-engine diagnostic confirms that the real configuration enters DagQL's cache and is released after the command finishes.
+The workspace race suite passes on main and the patch. Tests cover edits, nearer configurations, errors, caller mutation, concurrent callers and warnings.
 
 ```sh
 go test -race -count=1 ./core/workspace
 go test ./core/workspace -run '^$' -bench '^BenchmarkGitClientDeclarations$' -benchmem -benchtime=5000x -cpu=8
 ```
 
-[Raw measurements, source identities and integration checks](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/experiments/standalone-go-collections/assessment/config-dagql-integration-oct19/README.md).
+[Full-listing measurements and profiles](https://github.com/grouville/dagger/tree/experiment/rust-native-cache/hack/rust-cache/experiments/config-content-declarations), [current-main component checks](https://github.com/grouville/dagger/tree/experiment/rust-native-cache/hack/rust-cache/experiments/standalone-go-collections/assessment/config-declarations-oct19), [cache comparison and incomplete full-repository attempts](https://github.com/grouville/dagger/tree/experiment/rust-native-cache/hack/rust-cache/experiments/standalone-go-collections/assessment/config-cache-full-listing-oct19).

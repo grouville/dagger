@@ -1,0 +1,42 @@
+2026/10/19 23:29:40 WARN failed to open git repository err="core.repositoryformatversion does not support extension: worktreeconfig"
+[dagger] 30.0s elapsed · 1 steps running
+[dagger] 1m0s elapsed · 2 steps running
+[dagger] 1m30s elapsed · 2 steps running
+[dagger] 2m0s elapsed · 3 steps running
+[dagger] 2m30s elapsed · 2 steps running
+== TRACE ==  ✘ FAILED
+config-dagql-cli check --module go --check test --list --all  2m58s
+! Post "http://dagger/query": context canceled
+
+✔ list artifacts 2m58s
+  ✔ uploading /tmp/dagger-go-collection-current-main 0.1s ████████████ 200 kB
+
+✘ config-dagql-cli check --module go --check test --list --all 2m58s ERROR
+! Post "http://dagger/query": context canceled
+∅ Go.packages(
+  ┆ ws: currentWorkspace: Workspace!
+  ): GoPackages! 2m58s
+! context canceled
+✘ Go.packages(
+  ┆ ws: currentWorkspace: Workspace!
+  ): GoPackages! 2m58s ERROR
+! reduce function: evaluating right side: evaluating left side: evaluating right side: filter predicate: executing GraphQL query for GomodGoMod.gomod.at.selected: Post "http://127.0.0.1:46207/query": context canceled
+∅ Gomod.at(path: "versioned_docs/version-0.20/cookbook/snippets/env-use-directories/go"): GomodGoMod! 0.1s
+! context canceled
+Traceback (most recent call last):
+  File "/tmp/rust-cache-sipsma-review/local_cli_collector.py", line 12, in <module>
+    raise SystemExit(subprocess.call([cli, *sys.argv[1:]], env=env))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 391, in call
+    return p.wait(timeout=timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 1264, in wait
+    return self._wait(timeout=timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 2053, in _wait
+    (pid, sts) = self._try_wait(0)
+                 ^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 2011, in _try_wait
+    (pid, sts) = os.waitpid(self.pid, wait_flags)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

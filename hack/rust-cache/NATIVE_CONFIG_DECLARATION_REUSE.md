@@ -1,10 +1,16 @@
 # Reuse declarations for identical current configuration
 
-## Current draft: DagQL's existing cache
+## Current draft: bounded LRU restored
 
-[Draft #14741](https://github.com/dagger/dagger/pull/14741) now uses DagQL's `GetOrInitArbitrary`, with no global LRU. The cache helper is 40 rather than 49 lines; session-aware test setup makes the whole PR roughly the same size. Current-main race suites and real CLI output/cleanup checks pass. Repeated declaration lookups measure **343.55 → 5.22 µs**, while distinct inputs cost about **13% more**. The 16-package complete-command cohort **does not establish a gain**: 6.66 versus 6.83 s. Live snapshots verify use and release of the real configuration entry. See the [complete current verification](experiments/standalone-go-collections/assessment/config-dagql-integration-oct19/).
+[Draft #14741](https://github.com/dagger/dagger/pull/14741) again uses the small bounded LRU, keeping configuration parsing independent of engine session state. Its source and tests are identical to the previously verified LRU commit; component lookups measure **324.93 → 3.99 µs**, with a **4.7%** miss penalty. The earlier warm development-engine full listing improved **45.51 → 40.65 s** with only this cache toggled. That setup included other engine optimizations held constant.
 
-Everything below describes the earlier LRU prototype. Its component and full-command timings must not be attributed to the current DagQL implementation.
+**The current-main full-listing gain remains unverified.** New main, LRU and DagQL attempts all reach the 180-second limit without rows. They cannot establish completed-command performance or LRU superiority over DagQL. The PR stays draft. See the [cache comparison and full-repository screening](experiments/standalone-go-collections/assessment/config-cache-full-listing-oct19/).
+
+## DagQL alternative, no longer the current PR
+
+The DagQL version used `GetOrInitArbitrary`, replacing 49 lines of LRU helper with 40 lines and adding engine/session dependencies to the configuration package. Session-aware setup made the whole PR roughly the same size. Its repeated lookup result was **343.55 → 5.22 µs**, while distinct inputs cost about **13% more**. Its separate 16-package complete-command comparison **did not establish a gain**, 6.66 versus 6.83 s. Live snapshots verified use and release of the real configuration entry. These results remain in the [DagQL verification archive](experiments/standalone-go-collections/assessment/config-dagql-integration-oct19/).
+
+The sections below retain the LRU measurements and their original benchmark conditions. Whole-command timings are from the earlier optimized development engine, not the new current-main attempts.
 
 ## Earlier LRU prototype
 
