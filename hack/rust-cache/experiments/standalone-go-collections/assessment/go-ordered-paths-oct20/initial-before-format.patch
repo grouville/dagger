@@ -1,0 +1,76 @@
+diff --git a/go.dang b/go.dang
+index db239bc..09e4874 100644
+--- a/go.dang
++++ b/go.dang
+@@ -201,7 +201,11 @@ type Go {
+   let sorted(items: [String!]!): [String!]! {
+     let empty: [String!]! = []
+     items.reduce(empty) { acc, item =>
+-      acc.takeWhile { x => x <= item } + [item] + acc.dropWhile { x => x <= item }
++      if (acc.length == 0 or acc.takeLast(1).join("") <= item) {
++        acc + [item]
++      } else {
++        acc.takeWhile { x => x <= item } + [item] + acc.dropWhile { x => x <= item }
++      }
+     }
+   }
+ 
+@@ -782,7 +786,11 @@ type GoModule {
+   let sorted(items: [String!]!): [String!]! {
+     let empty: [String!]! = []
+     items.reduce(empty) { acc, item =>
+-      acc.takeWhile { x => x <= item } + [item] + acc.dropWhile { x => x <= item }
++      if (acc.length == 0 or acc.takeLast(1).join("") <= item) {
++        acc + [item]
++      } else {
++        acc.takeWhile { x => x <= item } + [item] + acc.dropWhile { x => x <= item }
++      }
+     }
+   }
+ 
+diff --git a/gomod/.dagger/modules/e2e/main.dang b/gomod/.dagger/modules/e2e/main.dang
+index 0ee95e2..8e46623 100644
+--- a/gomod/.dagger/modules/e2e/main.dang
++++ b/gomod/.dagger/modules/e2e/main.dang
+@@ -232,6 +232,24 @@ type E2e {
+     null
+   }
+ 
++  """
++  Owned files use byte order, including when a directory and file share a stem.
++  """
++  fileOrderCheck(): Void @check {
++    let base = directory.withNewFile("go.mod", "module example.com/order\n\ngo 1.26.1\n")
++    assert(gomod.at(".").ownFiles(base.asWorkspace, "*.go") == [], "empty module has Go files")
++    let single = base.withNewFile("a.go", "package root\n")
++    assert(gomod.at(".").ownFiles(single.asWorkspace, "*.go") == ["a.go"], "single file changed")
++    let files = single
++      .withNewFile("a/b.go", "package a\n")
++      .withNewFile("z.go", "package root\n")
++      .withNewFile("A.go", "package root\n")
++      .withNewFile("é.go", "package root\n")
++    let found = gomod.at(".").ownFiles(files.asWorkspace, "*.go")
++    assert(found == ["A.go", "a.go", "a/b.go", "z.go", "é.go"], "file order changed: " + found.join(", "))
++    null
++  }
++
+   """
+   Test and generate directory listings come from the same scan.
+   """
+diff --git a/gomod/main.dang b/gomod/main.dang
+index 7ef93a2..7c63567 100644
+--- a/gomod/main.dang
++++ b/gomod/main.dang
+@@ -621,7 +621,11 @@ type GoMod {
+   let sorted(items: [String!]!): [String!]! {
+     let empty: [String!]! = []
+     items.reduce(empty) { acc, item =>
+-      acc.takeWhile { x => x <= item } + [item] + acc.dropWhile { x => x <= item }
++      if (acc.length == 0 or acc.takeLast(1).join("") <= item) {
++        acc + [item]
++      } else {
++        acc.takeWhile { x => x <= item } + [item] + acc.dropWhile { x => x <= item }
++      }
+     }
+   }
+ 

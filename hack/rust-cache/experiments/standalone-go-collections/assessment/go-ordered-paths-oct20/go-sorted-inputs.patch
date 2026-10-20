@@ -29,7 +29,7 @@ index db239bc..09e4874 100644
    }
  
 diff --git a/gomod/.dagger/modules/e2e/main.dang b/gomod/.dagger/modules/e2e/main.dang
-index 0ee95e2..8e46623 100644
+index 0ee95e2..9a4e59b 100644
 --- a/gomod/.dagger/modules/e2e/main.dang
 +++ b/gomod/.dagger/modules/e2e/main.dang
 @@ -232,6 +232,24 @@ type E2e {
@@ -39,7 +39,7 @@ index 0ee95e2..8e46623 100644
 +  """
 +  Owned files use byte order, including when a directory and file share a stem.
 +  """
-+  fileOrderCheck(): Void @check {
++  fileOrderCheck: Void @check {
 +    let base = directory.withNewFile("go.mod", "module example.com/order\n\ngo 1.26.1\n")
 +    assert(gomod.at(".").ownFiles(base.asWorkspace, "*.go") == [], "empty module has Go files")
 +    let single = base.withNewFile("a.go", "package root\n")

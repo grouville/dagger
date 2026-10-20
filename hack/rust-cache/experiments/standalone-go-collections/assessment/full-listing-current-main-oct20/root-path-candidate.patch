@@ -1,0 +1,19 @@
+diff --git a/go.dang b/go.dang
+index db239bc..98065e2 100644
+--- a/go.dang
++++ b/go.dang
+@@ -788,7 +788,13 @@ type GoModule {
+ 
+   # The workspace path of a package directory in this module.
+   let packagePath(dir: String!): String! {
+-    if (dir == ".") { path } else { lib.at(path).subpath(dir) }
++    if (dir == ".") {
++      path
++    } else if (path == ".") {
++      dir
++    } else {
++      lib.at(path).subpath(dir)
++    }
+   }
+ 
+   """
