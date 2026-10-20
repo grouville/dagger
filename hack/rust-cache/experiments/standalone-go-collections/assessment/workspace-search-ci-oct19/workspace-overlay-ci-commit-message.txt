@@ -1,0 +1,13 @@
+test(workspace): run scoped overlay searches with ripgrep
+
+The CI runner has BusyBox grep, which does not support the byte-offset
+flag used by host search. The new mixed-source test therefore failed
+before checking its expected results. Local runs used ripgrep.
+
+Use the existing workspace container fixture and install ripgrep, as the
+other host-overlay search test does. Keep all four cases and inspect the
+nested CLI output when asserting the unrelated missing-path error.
+
+The production fix is unchanged.
+
+Signed-off-by: Guillaume de Rouville <guillaume@dagger.io>

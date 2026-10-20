@@ -1,0 +1,67 @@
+Traceback (most recent call last):
+  File "/tmp/go-collection-upstream-review-oct19/verify-workspace-ci-fixture.py", line 44, in <module>
+    assert result.returncode == 0, text[-4000:]
+           ^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 198: 
+    testctx.go:198: 20  : withExec apk add ripgrep
+    testctx.go:198: 20  : [0.5s] | (1/2) Installing libgcc (15.2.0-r5)
+    testctx.go:198: 20  : [0.5s] | (2/2) Installing ripgrep (15.1.0-r0)
+    testctx.go:198: 20  : [0.6s] | Executing busybox-1.37.0-r31.trigger
+    testctx.go:198: 20  : [0.6s] | OK: 23.9 MiB in 31 packages
+    testctx.go:198: 20  : Container.withExec DONE [0.6s]
+    testctx.go:198: 
+    testctx.go:198: 21  : Container.withNewFile DONE [0.7s]
+    testctx.go:198: 
+    testctx.go:198: 22  : Container.withExec ERROR [0.7s]
+    testctx.go:198: 
+    testctx.go:198: 23  : Container.stdout ERROR [0.7s]
+    testctx.go:198: 23  : ! exit code: 1
+    testctx.go:198: 
+    testctx.go:198: 24  : withExec dagger query (stdin: "{\n  currentWorkspace {\n    withNewFile(path: \"created/new.txt\", contents: \"needle overlay\\n\") {\n      search(paths: [\"created/new.txt\", \"missing.txt\"], pattern: \"needle\") { filePath }\n    }\n  }\n}")
+    testctx.go:198: 
+    testctx.go:198: 1   : workspace-overlay-ci-dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a DONE [11.2s]
+    testctx.go:198: 
+    testctx.go:198: 24  : Container.withExec ERROR [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 25  : Container.stdout: String!
+    testctx.go:198: 25  : Container.stdout ERROR [0.0s]
+    testctx.go:198: 25  : ! exit code: 1
+    testctx.go:198: 
+    testctx.go:198: 26  : withExec dagger query (stdin: "{\n  currentWorkspace {\n    withNewFile(path: \"created/new.txt\", contents: \"needle overlay\\n\") {\n      search(paths: [\"created\"], pattern: \"needle\") { filePath }\n    }\n  }\n}")
+    testctx.go:198: 26  : Container.withExec ERROR [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 27  : Container.stdout: String!
+    testctx.go:198: 27  : Container.stdout ERROR [0.0s]
+    testctx.go:198: 27  : ! exit code: 1
+    testctx.go:198: 
+    testctx.go:198: 28  : withExec dagger query (stdin: "{\n  currentWorkspace {\n    withNewFile(path: \"created/new.txt\", contents: \"needle overlay\\n\") {\n      search(paths: [\"existing.txt\", \"/created/new.txt\"], pattern: \"needle\") { filePath }\n    }\n  }\n}")
+    testctx.go:198: 28  : Container.withExec ERROR [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 29  : Container.stdout: String!
+    testctx.go:198: 29  : Container.stdout ERROR [0.0s]
+    testctx.go:198: 29  : ! exit code: 1
+    testctx.go:198: 
+    testctx.go:198: 22  : Container.withExec ERROR [0.7s]
+    testctx.go:198: 22  : [0.7s] | fork/exec /bin/dagger: no such file or directory
+    testctx.go:198: 
+    testctx.go:198: 24  : Container.withExec ERROR [0.0s]
+    testctx.go:198: 24  : [0.0s] | fork/exec /bin/dagger: no such file or directory
+    testctx.go:198: 
+    testctx.go:198: 26  : Container.withExec ERROR [0.0s]
+    testctx.go:198: 26  : [0.0s] | fork/exec /bin/dagger: no such file or directory
+    testctx.go:198: 
+    testctx.go:198: 28  : Container.withExec ERROR [0.0s]
+    testctx.go:198: 28  : [0.0s] | fork/exec /bin/dagger: no such file or directory
+    testctx.go:198: 
+--- FAIL: TestWorkspaceAPI (0.00s)
+    --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob (0.29s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_merges_host_and_overlay_per_file (10.21s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_paths_scope_applies_to_both_sides (0.03s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/glob_merges_host_and_overlay_per_path (0.02s)
+    --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths (0.12s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file (0.78s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path (0.03s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_parent (0.03s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources (0.03s)
+FAIL
+

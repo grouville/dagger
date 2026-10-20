@@ -1,0 +1,452 @@
+=== RUN   TestWorkspaceAPI
+=== PAUSE TestWorkspaceAPI
+=== CONT  TestWorkspaceAPI
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob
+    testctx.go:198: Creating new Engine session... OK!
+    testctx.go:198: Establishing connection to Engine... 2026/10/19 17:21:33 WARN failed to open git repository err="core.repositoryformatversion does not support extension: worktreeconfig"
+    testctx.go:198: OK!
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_merges_host_and_overlay_per_file
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_merges_host_and_overlay_per_file
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_paths_scope_applies_to_both_sides
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_paths_scope_applies_to_both_sides
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/glob_merges_host_and_overlay_per_path
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/glob_merges_host_and_overlay_per_path
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths
+    testctx.go:198: Creating new Engine session... OK!
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob
+    testctx.go:198: 1   : workspace-overlay-ci-dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a
+    testctx.go:198: 2   : ┆ connect
+    testctx.go:198: 2   : ┆ [0.0s] | cloud url=https://dagger.cloud/traces/setup
+    testctx.go:198: 3   : ┆ ┆ starting engine
+    testctx.go:198: 3   : ┆ ┆ starting engine DONE [0.0s]
+    testctx.go:198: 4   : ┆ ┆ connecting to engine
+    testctx.go:198: 4   : ┆ ┆ [0.0s] | 17:21:33 INF connected name=b3ae272bed14 client-version=v1.0.0-beta.20 server-version=v1.0.0-beta.20
+    testctx.go:198: 4   : ┆ ┆ connecting to engine DONE [0.0s]
+    testctx.go:198: 5   : ┆ ┆ starting session
+    testctx.go:198: 5   : ┆ ┆ starting session DONE [0.0s]
+    testctx.go:198: 2   : ┆ connect DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 6   : consuming /v1/traces
+    testctx.go:198: 6   : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 7   : consuming /v1/logs
+    testctx.go:198: 7   : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 8   : consuming /v1/metrics
+    testctx.go:198: 8   : consuming /v1/metrics DONE [0.0s]
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths
+    testctx.go:198: Establishing connection to Engine... 2026/10/19 17:21:33 WARN failed to open git repository err="core.repositoryformatversion does not support extension: worktreeconfig"
+    testctx.go:198: OK!
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_parent
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_parent
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_merges_host_and_overlay_per_file
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob
+    testctx.go:198: 
+    testctx.go:198: 9   : directory: Directory!
+    testctx.go:198: 9   : directory DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 10  : withNewFile edited.txt (contents: "needle before edit\n")
+    testctx.go:198: 10  : Directory.withNewFile DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 11  : withNewFile doomed.txt (contents: "needle doomed\n")
+    testctx.go:198: 11  : Directory.withNewFile DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 12  : withNewFile edited.txt (contents: "needle after edit\n")
+    testctx.go:198: 12  : Directory.withNewFile DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 13  : Directory.changes(
+    testctx.go:198: 13  : ┆ from: withNewFile doomed.txt (contents: "needle doomed\n")
+    testctx.go:198: 13  : ): Changeset!
+    testctx.go:198: 13  : Directory.changes DONE [0.0s]
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths
+    testctx.go:198: 1   : workspace-overlay-ci-dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a
+    testctx.go:198: 2   : ┆ connect
+    testctx.go:198: 2   : ┆ [0.0s] | cloud url=https://dagger.cloud/traces/setup
+    testctx.go:198: 3   : ┆ ┆ starting engine
+    testctx.go:198: 3   : ┆ ┆ starting engine DONE [0.0s]
+    testctx.go:198: 4   : ┆ ┆ connecting to engine
+    testctx.go:198: 4   : ┆ ┆ [0.0s] | 17:21:33 INF connected name=b3ae272bed14 client-version=v1.0.0-beta.20 server-version=v1.0.0-beta.20
+    testctx.go:198: 4   : ┆ ┆ connecting to engine DONE [0.0s]
+    testctx.go:198: 5   : ┆ ┆ starting session
+    testctx.go:198: 5   : ┆ ┆ starting session DONE [0.0s]
+    testctx.go:198: 2   : ┆ connect DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 6   : consuming /v1/traces
+    testctx.go:198: 6   : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 7   : consuming /v1/logs
+    testctx.go:198: 7   : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 8   : consuming /v1/metrics
+    testctx.go:198: 8   : consuming /v1/metrics DONE [0.0s]
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob
+    testctx.go:198: 
+    testctx.go:198: 14  : host: Host!
+    testctx.go:198: 14  : host DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 15  : Host.file(path: "/tmp/go-collection-upstream-review-oct19/workspace-overlay-ci-dagger"): File!
+    testctx.go:198: 15  : Host.file DONE [2.2s]
+    testctx.go:198: 
+    testctx.go:198: 16  : container(platform: "linux/amd64"): Container!
+    testctx.go:198: 16  : container DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 17  : Container.from(address: "golang:1.26-alpine"): Container!
+    testctx.go:198: 
+    testctx.go:198: 18  : withExec apk add git
+    testctx.go:198: 
+    testctx.go:198: 19  : withExec git config --global user.email dagger@example.com
+    testctx.go:198: 
+    testctx.go:198: 20  : withExec git config --global user.name 'Dagger Tests'
+    testctx.go:198: 
+    testctx.go:198: 21  : Container.withMountedFile(
+    testctx.go:198: 21  : ┆ path: "/bin/dagger"
+    testctx.go:198: 21  : ┆ source: Host.file(path: "/tmp/go-collection-upstream-review-oct19/workspace-overlay-ci-dagger"): File!
+    testctx.go:198: 21  : ): Container!
+    testctx.go:198: 21  : Container.withMountedFile DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 22  : withWorkdir /work
+    testctx.go:198: 
+    testctx.go:198: 23  : withExec git init
+    testctx.go:198: 
+    testctx.go:198: 24  : withExec apk add ripgrep
+    testctx.go:198: 
+    testctx.go:198: 25  : withNewFile untouched.txt (contents: "needle in host\n")
+    testctx.go:198: 
+    testctx.go:198: 26  : withNewFile edited.txt (contents: "needle before edit\n")
+    testctx.go:198: 
+    testctx.go:198: 27  : withNewFile doomed.txt (contents: "needle doomed\n")
+    testctx.go:198: 
+    testctx.go:198: 28  : withNewFile docs/notes.md (contents: "needle in docs\n")
+    testctx.go:198: 
+    testctx.go:198: 29  : withExec dagger query (
+    testctx.go:198: 29  : ┆ stdin: "{\n\t\t\tcurrentWorkspace {\n\t\t\t\twithChanges(changes: \"EhIIsGYSDQoJQ2hhbmdlc2V0GAE=\") {\n\t\t\t\t\twithNewFile(path: \"created.txt\", contents: \"needle created\\n\") {\n\t\t\t\t\t\twithNewFile(path: \"docs/new.md\", contents: \"needle new doc\\n\") {\n\t\t\t\t\t\t\tsearch(pattern: \"needle\", literal: true) { filePath matchedLines }\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}"
+    testctx.go:198: 29  : )
+    testctx.go:198: 
+    testctx.go:198: 30  : Container.stdout: String!
+    testctx.go:198: 
+    testctx.go:198: 31  : uploading /tmp/go-collection-upstream-review-oct19
+    testctx.go:198: 31  : uploading /tmp/go-collection-upstream-review-oct19 DONE [2.2s]
+    testctx.go:198: 
+    testctx.go:198: 32  : pulling golang:1.26-alpine
+    testctx.go:198: 
+    testctx.go:198: 33  : HTTP GET
+    testctx.go:198: 33  : HTTP GET DONE [0.6s]
+    testctx.go:198: 
+    testctx.go:198: 34  : HTTP GET
+    testctx.go:198: 34  : HTTP GET DONE [0.7s]
+    testctx.go:198: 
+    testctx.go:198: 35  : HTTP GET
+    testctx.go:198: 35  : HTTP GET DONE [0.6s]
+    testctx.go:198: 
+    testctx.go:198: 36  : HTTP GET
+    testctx.go:198: 36  : HTTP GET DONE [0.5s]
+    testctx.go:198: 
+    testctx.go:198: 37  : HTTP GET
+    testctx.go:198: 37  : HTTP GET DONE [0.5s]
+    testctx.go:198: 
+    testctx.go:198: 38  : HTTP GET
+    testctx.go:198: 
+    testctx.go:198: 39  : HTTP GET
+    testctx.go:198: 
+    testctx.go:198: 40  : HTTP GET
+    testctx.go:198: 40  : HTTP GET DONE [0.2s]
+    testctx.go:198: 
+    testctx.go:198: 39  : HTTP GET DONE [0.6s]
+    testctx.go:198: 
+    testctx.go:198: 32  : pulling golang:1.26-alpine DONE [2.0s]
+    testctx.go:198: 
+    testctx.go:198: 38  : HTTP GET DONE [1.5s]
+    testctx.go:198: 
+    testctx.go:198: 41  : unpacking golang:1.26-alpine
+    testctx.go:198: 
+    testctx.go:198: 17  : Container.from DONE [6.2s]
+    testctx.go:198: 
+    testctx.go:198: 41  : unpacking golang:1.26-alpine DONE [4.2s]
+    testctx.go:198: 
+    testctx.go:198: 18  : withExec apk add git
+    testctx.go:198: 18  : [6.9s] | ( 1/12) Installing brotli-libs (1.2.0-r1)
+    testctx.go:198: 18  : [6.9s] | ( 2/12) Installing c-ares (1.34.8-r0)
+    testctx.go:198: 18  : [6.9s] | ( 3/12) Installing libunistring (1.4.2-r0)
+    testctx.go:198: 18  : [6.9s] | ( 4/12) Installing libidn2 (2.3.8-r0)
+    testctx.go:198: 18  : [6.9s] | ( 5/12) Installing nghttp2-libs (1.70.0-r0)
+    testctx.go:198: 18  : [6.9s] | ( 6/12) Installing libpsl (0.21.5-r3)
+    testctx.go:198: 18  : [7.0s] | ( 7/12) Installing zstd-libs (1.5.7-r2)
+    testctx.go:198: 18  : [7.0s] | ( 8/12) Installing libcurl (8.22.0-r0)
+    testctx.go:198: 18  : [7.0s] | ( 9/12) Installing libexpat (2.9.0-r0)
+    testctx.go:198: 18  : [7.0s] | (10/12) Installing pcre2 (10.49-r0)
+    testctx.go:198: 18  : [7.0s] | (11/12) Installing git (2.54.0-r0)
+    testctx.go:198: 18  : Container.withExec DONE [0.9s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 19  : Container.withExec DONE [0.0s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 20  : Container.withExec DONE [0.0s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 22  : Container.withWorkdir DONE [0.0s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 23  : Container.withExec DONE [0.0s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 18  : Container.withExec DONE [0.9s, waited on Container.from]
+    testctx.go:198: 18  : [7.1s] | (12/12) Installing git-init-template (2.54.0-r0)
+    testctx.go:198: 18  : [7.1s] | Executing busybox-1.37.0-r31.trigger
+    testctx.go:198: 18  : [7.1s] | OK: 20.6 MiB in 29 packages
+    testctx.go:198: 
+    testctx.go:198: 23  : Container.withExec DONE [0.0s, waited on Container.from]
+    testctx.go:198: 23  : [7.2s] | hint: Using 'master' as the name for the initial branch. This default branch name
+    testctx.go:198: 23  : [7.2s] | hint: will change to "main" in Git 3.0. To configure the initial branch name
+    testctx.go:198: 23  : [7.2s] | hint: to use in all of your new repositories, which will suppress this warning,
+    testctx.go:198: 23  : [7.2s] | hint: call:
+    testctx.go:198: 23  : [7.2s] | hint:
+    testctx.go:198: 23  : [7.2s] | hint: 	git config --global init.defaultBranch <name>
+    testctx.go:198: 23  : [7.2s] | hint:
+    testctx.go:198: 23  : [7.2s] | hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+    testctx.go:198: 23  : [7.2s] | hint: 'development'. The just-created branch can be renamed via this command:
+    testctx.go:198: 23  : [7.2s] | hint:
+    testctx.go:198: 23  : [7.2s] | hint: 	git branch -m <name>
+    testctx.go:198: 23  : [7.2s] | hint:
+    testctx.go:198: 23  : [7.2s] | hint: Disable this message with "git config set advice.defaultBranchName false"
+    testctx.go:198: 23  : [7.2s] | Initialized empty Git repository in /work/.git/
+    testctx.go:198: 
+    testctx.go:198: 24  : withExec apk add ripgrep
+    testctx.go:198: 24  : [7.7s] | (1/2) Installing libgcc (15.2.0-r5)
+    testctx.go:198: 24  : [7.7s] | (2/2) Installing ripgrep (15.1.0-r0)
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_merges_host_and_overlay_per_file
+    testctx.go:174: 
+        	Error Trace:	/tmp/go-collection-upstream-review-oct19/engine-workspace-overlay/core/integration/workspace_api_test.go:2409
+        	            				/tmp/go-collection-upstream-review-oct19/engine-workspace-overlay/core/integration/workspace_api_test.go:2429
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:296
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/otel-go@v1.43.1-0.20260917165636-2bca4f5622cf/oteltestctx/trace.go:163
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/middleware.go:25
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:150
+        	Error:      	Received unexpected error:
+        	            	exit code: 1 [traceparent:5420ab0e8f8128da4ddff74e07872971-27c99e63c6d7a17c]
+        	Test:       	TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_merges_host_and_overlay_per_file
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_paths_scope_applies_to_both_sides
+    testctx.go:174: 
+        	Error Trace:	/tmp/go-collection-upstream-review-oct19/engine-workspace-overlay/core/integration/workspace_api_test.go:2409
+        	            				/tmp/go-collection-upstream-review-oct19/engine-workspace-overlay/core/integration/workspace_api_test.go:2442
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:296
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/otel-go@v1.43.1-0.20260917165636-2bca4f5622cf/oteltestctx/trace.go:163
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/middleware.go:25
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:150
+        	Error:      	Received unexpected error:
+        	            	exit code: 1 [traceparent:5420ab0e8f8128da4ddff74e07872971-8ec90ea4841e5a13]
+        	Test:       	TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_paths_scope_applies_to_both_sides
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/glob_merges_host_and_overlay_per_path
+    testctx.go:174: 
+        	Error Trace:	/tmp/go-collection-upstream-review-oct19/engine-workspace-overlay/core/integration/workspace_api_test.go:2409
+        	            				/tmp/go-collection-upstream-review-oct19/engine-workspace-overlay/core/integration/workspace_api_test.go:2452
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:296
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/otel-go@v1.43.1-0.20260917165636-2bca4f5622cf/oteltestctx/trace.go:163
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/middleware.go:25
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:150
+        	Error:      	Received unexpected error:
+        	            	exit code: 1 [traceparent:5420ab0e8f8128da4ddff74e07872971-b9090b9042b6572e]
+        	Test:       	TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/glob_merges_host_and_overlay_per_path
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob
+    testctx.go:198: 
+    testctx.go:198: 1   : workspace-overlay-ci-dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a DONE [10.5s]
+    testctx.go:198: 
+    testctx.go:198: 24  : withExec apk add ripgrep
+    testctx.go:198: 24  : [7.8s] | Executing busybox-1.37.0-r31.trigger
+    testctx.go:198: 24  : [7.8s] | OK: 23.9 MiB in 31 packages
+    testctx.go:198: 24  : Container.withExec DONE [0.7s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 25  : Container.withNewFile DONE [0.0s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 26  : Container.withNewFile DONE [0.0s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 27  : Container.withNewFile DONE [0.0s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 28  : Container.withNewFile DONE [0.0s, waited on apk add git]
+    testctx.go:198: 
+    testctx.go:198: 29  : withExec dagger query (
+    testctx.go:198: 29  : ┆ stdin: "{\n\t\t\tcurrentWorkspace {\n\t\t\t\twithChanges(changes: \"EhIIsGYSDQoJQ2hhbmdlc2V0GAE=\") {\n\t\t\t\t\twithNewFile(path: \"created.txt\", contents: \"needle created\\n\") {\n\t\t\t\t\t\twithNewFile(path: \"docs/new.md\", contents: \"needle new doc\\n\") {\n\t\t\t\t\t\t\tsearch(pattern: \"needle\", literal: true) { filePath matchedLines }\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}"
+    testctx.go:198: 29  : )
+    testctx.go:198: 29  : [7.9s] | fork/exec /bin/dagger: no such file or directory
+    testctx.go:198: 29  : Container.withExec ERROR [0.0s, waited on git config --global user.email dagger@example.c…]
+    testctx.go:198: 
+    testctx.go:198: 30  : Container.stdout ERROR [0.0s, waited on git config --global user.name Dagger Tests]
+    testctx.go:198: 30  : ! exit code: 1
+    testctx.go:198: 
+    testctx.go:198: 42  : withExec dagger query (
+    testctx.go:198: 42  : ┆ stdin: "{\n\t\t\tcurrentWorkspace {\n\t\t\t\twithChanges(changes: \"EhIIsGYSDQoJQ2hhbmdlc2V0GAE=\") {\n\t\t\t\t\twithNewFile(path: \"created.txt\", contents: \"needle created\\n\") {\n\t\t\t\t\t\twithNewFile(path: \"docs/new.md\", contents: \"needle new doc\\n\") {\n\t\t\t\t\t\t\tsearch(pattern: \"needle\", literal: true, paths: [\"docs\"]) { filePath matchedLines }\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}"
+    testctx.go:198: 42  : )
+    testctx.go:198: 42  : [0.0s] | fork/exec /bin/dagger: no such file or directory
+    testctx.go:198: 42  : Container.withExec ERROR [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 43  : Container.stdout: String!
+    testctx.go:198: 43  : Container.stdout ERROR [0.0s]
+    testctx.go:198: 43  : ! exit code: 1
+    testctx.go:198: 
+    testctx.go:198: 44  : withExec dagger query (
+    testctx.go:198: 44  : ┆ stdin: "{\n\t\t\tcurrentWorkspace {\n\t\t\t\twithChanges(changes: \"EhIIsGYSDQoJQ2hhbmdlc2V0GAE=\") {\n\t\t\t\t\twithNewFile(path: \"created.txt\", contents: \"needle created\\n\") {\n\t\t\t\t\t\twithNewFile(path: \"docs/new.md\", contents: \"needle new doc\\n\") {\n\t\t\t\t\t\t\ttxt: glob(pattern: \"*.txt\") md: glob(pattern: \"docs/*.md\")\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}"
+    testctx.go:198: 44  : )
+    testctx.go:198: 44  : [0.0s] | fork/exec /bin/dagger: no such file or directory
+    testctx.go:198: 44  : Container.withExec ERROR [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 45  : Container.stdout: String!
+    testctx.go:198: 45  : Container.stdout ERROR [0.0s]
+    testctx.go:198: 45  : ! exit code: 1
+    testctx.go:198: 
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths
+    testctx.go:198: 
+    testctx.go:198: 9   : host: Host!
+    testctx.go:198: 9   : host CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 10  : Host.file(path: "/tmp/go-collection-upstream-review-oct19/workspace-overlay-ci-dagger"): File!
+    testctx.go:198: 10  : Host.file DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 11  : container(platform: "linux/amd64"): Container!
+    testctx.go:198: 11  : container CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 12  : Container.from(address: "golang:1.26-alpine"): Container!
+    testctx.go:198: 12  : Container.from DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 13  : withExec apk add git
+    testctx.go:198: 13  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 14  : withExec git config --global user.email dagger@example.com
+    testctx.go:198: 14  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 15  : withExec git config --global user.name 'Dagger Tests'
+    testctx.go:198: 15  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 16  : Container.withMountedFile(
+    testctx.go:198: 16  : ┆ path: "/bin/dagger"
+    testctx.go:198: 16  : ┆ source: Host.file(path: "/tmp/go-collection-upstream-review-oct19/workspace-overlay-ci-dagger"): File!
+    testctx.go:198: 16  : ): Container!
+    testctx.go:198: 16  : Container.withMountedFile DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 17  : withWorkdir /work
+    testctx.go:198: 17  : Container.withWorkdir DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 18  : withExec git init
+    testctx.go:198: 18  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 19  : withNewFile dagger.toml (contents: "[modules]\n")
+    testctx.go:198: 19  : Container.withNewFile DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 20  : withExec apk add ripgrep
+    testctx.go:198: 
+    testctx.go:198: 21  : withNewFile existing.txt (contents: "needle host\n")
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger query (stdin: "{\n  currentWorkspace {\n    withNewFile(path: \"created/new.txt\", contents: \"needle overlay\\n\") {\n      search(paths: [\"/created/new.txt\"], pattern: \"needle\") { filePath }\n    }\n  }\n}")
+    testctx.go:198: 
+    testctx.go:198: 23  : Container.stdout: String!
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file
+    testctx.go:174: 
+        	Error Trace:	/tmp/go-collection-upstream-review-oct19/engine-workspace-overlay/core/integration/workspace_overlay_search_test.go:44
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:296
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/otel-go@v1.43.1-0.20260917165636-2bca4f5622cf/oteltestctx/trace.go:163
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/middleware.go:25
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:150
+        	            				/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:1771
+        	Error:      	Received unexpected error:
+        	            	exit code: 1 [traceparent:5420ab0e8f8128da4ddff74e07872971-52b28d04b329a6d4]
+        	Test:       	TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path
+    testctx.go:174: 
+        	Error Trace:	/tmp/go-collection-upstream-review-oct19/engine-workspace-overlay/core/integration/suite_test.go:344
+        	            				/tmp/go-collection-upstream-review-oct19/engine-workspace-overlay/core/integration/workspace_overlay_search_test.go:40
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:296
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/otel-go@v1.43.1-0.20260917165636-2bca4f5622cf/oteltestctx/trace.go:163
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/middleware.go:25
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:150
+        	Error:      	"exit code: 1 [traceparent:5420ab0e8f8128da4ddff74e07872971-f99f46b760bed436]\nStdout: \nStderr: fork/exec /bin/dagger: no such file or directory" does not contain "No such file or directory"
+        	Test:       	TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_parent
+    testctx.go:174: 
+        	Error Trace:	/tmp/go-collection-upstream-review-oct19/engine-workspace-overlay/core/integration/workspace_overlay_search_test.go:44
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:296
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/otel-go@v1.43.1-0.20260917165636-2bca4f5622cf/oteltestctx/trace.go:163
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/middleware.go:25
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:150
+        	            				/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:1771
+        	Error:      	Received unexpected error:
+        	            	exit code: 1 [traceparent:5420ab0e8f8128da4ddff74e07872971-7314d177ca5b8c83]
+        	Test:       	TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_parent
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources
+    testctx.go:174: 
+        	Error Trace:	/tmp/go-collection-upstream-review-oct19/engine-workspace-overlay/core/integration/workspace_overlay_search_test.go:44
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:296
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/otel-go@v1.43.1-0.20260917165636-2bca4f5622cf/oteltestctx/trace.go:163
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/middleware.go:25
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:150
+        	            				/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:1771
+        	Error:      	Received unexpected error:
+        	            	exit code: 1 [traceparent:5420ab0e8f8128da4ddff74e07872971-523e84f64bcc130b]
+        	Test:       	TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths
+    testctx.go:198: 
+    testctx.go:198: 20  : withExec apk add ripgrep
+    testctx.go:198: 20  : [0.5s] | (1/2) Installing libgcc (15.2.0-r5)
+    testctx.go:198: 20  : [0.5s] | (2/2) Installing ripgrep (15.1.0-r0)
+    testctx.go:198: 20  : [0.6s] | Executing busybox-1.37.0-r31.trigger
+    testctx.go:198: 20  : [0.6s] | OK: 23.9 MiB in 31 packages
+    testctx.go:198: 20  : Container.withExec DONE [0.6s]
+    testctx.go:198: 
+    testctx.go:198: 21  : Container.withNewFile DONE [0.7s]
+    testctx.go:198: 
+    testctx.go:198: 22  : Container.withExec ERROR [0.7s]
+    testctx.go:198: 
+    testctx.go:198: 23  : Container.stdout ERROR [0.7s]
+    testctx.go:198: 23  : ! exit code: 1
+    testctx.go:198: 
+    testctx.go:198: 24  : withExec dagger query (stdin: "{\n  currentWorkspace {\n    withNewFile(path: \"created/new.txt\", contents: \"needle overlay\\n\") {\n      search(paths: [\"created/new.txt\", \"missing.txt\"], pattern: \"needle\") { filePath }\n    }\n  }\n}")
+    testctx.go:198: 
+    testctx.go:198: 1   : workspace-overlay-ci-dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a DONE [11.2s]
+    testctx.go:198: 
+    testctx.go:198: 24  : Container.withExec ERROR [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 25  : Container.stdout: String!
+    testctx.go:198: 25  : Container.stdout ERROR [0.0s]
+    testctx.go:198: 25  : ! exit code: 1
+    testctx.go:198: 
+    testctx.go:198: 26  : withExec dagger query (stdin: "{\n  currentWorkspace {\n    withNewFile(path: \"created/new.txt\", contents: \"needle overlay\\n\") {\n      search(paths: [\"created\"], pattern: \"needle\") { filePath }\n    }\n  }\n}")
+    testctx.go:198: 26  : Container.withExec ERROR [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 27  : Container.stdout: String!
+    testctx.go:198: 27  : Container.stdout ERROR [0.0s]
+    testctx.go:198: 27  : ! exit code: 1
+    testctx.go:198: 
+    testctx.go:198: 28  : withExec dagger query (stdin: "{\n  currentWorkspace {\n    withNewFile(path: \"created/new.txt\", contents: \"needle overlay\\n\") {\n      search(paths: [\"existing.txt\", \"/created/new.txt\"], pattern: \"needle\") { filePath }\n    }\n  }\n}")
+    testctx.go:198: 28  : Container.withExec ERROR [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 29  : Container.stdout: String!
+    testctx.go:198: 29  : Container.stdout ERROR [0.0s]
+    testctx.go:198: 29  : ! exit code: 1
+    testctx.go:198: 
+    testctx.go:198: 22  : Container.withExec ERROR [0.7s]
+    testctx.go:198: 22  : [0.7s] | fork/exec /bin/dagger: no such file or directory
+    testctx.go:198: 
+    testctx.go:198: 24  : Container.withExec ERROR [0.0s]
+    testctx.go:198: 24  : [0.0s] | fork/exec /bin/dagger: no such file or directory
+    testctx.go:198: 
+    testctx.go:198: 26  : Container.withExec ERROR [0.0s]
+    testctx.go:198: 26  : [0.0s] | fork/exec /bin/dagger: no such file or directory
+    testctx.go:198: 
+    testctx.go:198: 28  : Container.withExec ERROR [0.0s]
+    testctx.go:198: 28  : [0.0s] | fork/exec /bin/dagger: no such file or directory
+    testctx.go:198: 
+--- FAIL: TestWorkspaceAPI (0.00s)
+    --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob (0.29s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_merges_host_and_overlay_per_file (10.21s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_paths_scope_applies_to_both_sides (0.03s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/glob_merges_host_and_overlay_per_path (0.02s)
+    --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths (0.12s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file (0.78s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path (0.03s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_parent (0.03s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources (0.03s)
+FAIL

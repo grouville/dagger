@@ -1,0 +1,58 @@
+2026/10/19 17:10:57 WARN failed to open git repository err="core.repositoryformatversion does not support extension: worktreeconfig"
+== TRACE ==  ✘ FAILED
+test-split/test-workspaces  7m10s
+! check failed
+
+== CHECKS ==  ✘ 1 failed
+✘ dag://?check=test-split/test-workspaces 6m35s ERROR
+  == TESTS ==
+    ✘ github.com/dagger/dagger/core/integration FAIL
+    ✘ github.com/dagger/dagger/core/integration › TestWorkspaceAPI FAIL
+    ✘ github.com/dagger/dagger/core/integration › TestWorkspaceAPI › TestHostWorkspaceOverlaySearchPaths FAIL
+
+    ✘ github.com/dagger/dagger/core/integration › TestWorkspaceAPI › TestHostWorkspaceOverlaySearchPaths › mixed_sources FAIL
+              testctx.go:198: Error: make request: input: currentWorkspace.withNewFile.search search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: grep error: exit status 2
+              testctx.go:174: 
+                  	Error Trace:	/app/core/integration/workspace_overlay_search_test.go:44
+                  	            				/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:296
+                  	            				/go/pkg/mod/github.com/dagger/otel-go@v1.43.1-0.20260917165636-2bca4f5622cf/oteltestctx/trace.go:74
+                  	            				/go/pkg/mod/github.com/dagger/testctx@v0.1.2/middleware.go:25
+                  	            				/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:150
+                  	            				/usr/lib/go/src/runtime/asm_amd64.s:1771
+                  	Error:      	Received unexpected error:
+                  	            	stdout: 
+                  	            	stderr: Error: make request: input: currentWorkspace.withNewFile.search search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: grep error: exit status 2
+                  	            	: exit status 1
+                  	Test:       	TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources
+              testctx.go:206: sending interrupt: [/.dagger-cli --silent query --doc /tmp/TestWorkspaceAPITestHostWorkspaceOverlaySearchPaths627198502/001/mixed sources.graphql]
+              testctx.go:206: exited: [/.dagger-cli --silent query --doc /tmp/TestWorkspaceAPITestHostWorkspaceOverlaySearchPaths627198502/001/mixed sources.graphql]
+          full: dagger cloud traces view 67b7a56db045dbc65df8ad24582b6701 --log --test "TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources"
+
+    ✘ github.com/dagger/dagger/core/integration › TestWorkspaceAPI › TestHostWorkspaceOverlaySearchPaths › unrelated_missing_path FAIL
+              testctx.go:198: Error: make request: input: currentWorkspace.withNewFile.search search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: grep error: exit status 2
+              testctx.go:174: 
+                  	Error Trace:	/app/core/integration/workspace_overlay_search_test.go:41
+                  	            				/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:296
+                  	            				/go/pkg/mod/github.com/dagger/otel-go@v1.43.1-0.20260917165636-2bca4f5622cf/oteltestctx/trace.go:74
+                  	            				/go/pkg/mod/github.com/dagger/testctx@v0.1.2/middleware.go:25
+                  	            				/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:150
+                  	            				/usr/lib/go/src/runtime/asm_amd64.s:1771
+                  	Error:      	Error "stdout: \nstderr: Error: make request: input: currentWorkspace.withNewFile.search search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: grep error: exit status 2\n: exit status 1" does not contain "No such file or directory"
+                  	Test:       	TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path
+              testctx.go:206: sending interrupt: [/.dagger-cli --silent query --doc /tmp/TestWorkspaceAPITestHostWorkspaceOverlaySearchPaths627198502/001/unrelated missing path.graphql]
+              testctx.go:206: exited: [/.dagger-cli --silent query --doc /tmp/TestWorkspaceAPITestHostWorkspaceOverlaySearchPaths627198502/001/unrelated missing path.graphql]
+          full: dagger cloud traces view 67b7a56db045dbc65df8ad24582b6701 --log --test "TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path"
+
+    ✘ 2 failed
+    ✔ 980 passed
+
+== RE-RUN IN CI ==
+dagger cloud checks rerun --commit 2b69eb125b6a3df969ac148fcbee8ee051cf9dc3 --check "dag://?check=test-split/test-workspaces"
+
+== RUN LOCALLY ==
+dagger check "dag://?check=test-split/test-workspaces"
+
+== MORE DETAILS ==
+dagger cloud traces view 67b7a56db045dbc65df8ad24582b6701 --check "dag://?check=test-split/test-workspaces"
+dagger cloud traces view 67b7a56db045dbc65df8ad24582b6701 --test "TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources"
+dagger cloud traces view 67b7a56db045dbc65df8ad24582b6701 --test "TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path"

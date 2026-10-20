@@ -1,0 +1,816 @@
+=== RUN   TestWorkspaceAPI
+=== PAUSE TestWorkspaceAPI
+=== CONT  TestWorkspaceAPI
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob
+    testctx.go:198: Creating new Engine session... OK!
+    testctx.go:198: Establishing connection to Engine... 2026/10/19 17:16:24 WARN failed to open git repository err="core.repositoryformatversion does not support extension: worktreeconfig"
+    testctx.go:198: OK!
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_merges_host_and_overlay_per_file
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_merges_host_and_overlay_per_file
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_paths_scope_applies_to_both_sides
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_paths_scope_applies_to_both_sides
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/glob_merges_host_and_overlay_per_path
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/glob_merges_host_and_overlay_per_path
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths
+    testctx.go:198: Creating new Engine session... OK!
+    testctx.go:198: Establishing connection to Engine... 2026/10/19 17:16:24 WARN failed to open git repository err="core.repositoryformatversion does not support extension: worktreeconfig"
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob
+    testctx.go:198: 1   : main-dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a
+    testctx.go:198: 2   : ┆ connect
+    testctx.go:198: 2   : ┆ [0.0s] | cloud url=https://dagger.cloud/traces/setup
+    testctx.go:198: 3   : ┆ ┆ starting engine
+    testctx.go:198: 3   : ┆ ┆ starting engine DONE [0.0s]
+    testctx.go:198: 4   : ┆ ┆ connecting to engine
+    testctx.go:198: 4   : ┆ ┆ [0.0s] | 17:16:24 INF connected name=23f5907a198a client-version=v1.0.0-beta.19 server-version=v1.0.0-beta.19
+    testctx.go:198: 4   : ┆ ┆ connecting to engine DONE [0.0s]
+    testctx.go:198: 5   : ┆ ┆ starting session
+    testctx.go:198: 5   : ┆ ┆ starting session DONE [0.0s]
+    testctx.go:198: 2   : ┆ connect DONE [0.0s]
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths
+    testctx.go:198: OK!
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_parent
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_parent
+=== RUN   TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path
+=== PAUSE TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_merges_host_and_overlay_per_file
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob
+    testctx.go:198: 
+    testctx.go:198: 6   : consuming /v1/traces
+    testctx.go:198: 6   : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 7   : consuming /v1/logs
+    testctx.go:198: 7   : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 8   : consuming /v1/metrics
+    testctx.go:198: 8   : consuming /v1/metrics DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 9   : directory: Directory!
+    testctx.go:198: 9   : directory DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 10  : withNewFile edited.txt (contents: "needle before edit\n")
+    testctx.go:198: 10  : Directory.withNewFile DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 11  : withNewFile doomed.txt (contents: "needle doomed\n")
+    testctx.go:198: 11  : Directory.withNewFile DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 12  : withNewFile edited.txt (contents: "needle after edit\n")
+    testctx.go:198: 12  : Directory.withNewFile DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 13  : Directory.changes(
+    testctx.go:198: 13  : ┆ from: withNewFile doomed.txt (contents: "needle doomed\n")
+    testctx.go:198: 13  : ): Changeset!
+    testctx.go:198: 13  : Directory.changes DONE [0.0s]
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths
+    testctx.go:198: 1   : main-dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a
+    testctx.go:198: 2   : ┆ connect
+    testctx.go:198: 2   : ┆ [0.0s] | cloud url=https://dagger.cloud/traces/setup
+    testctx.go:198: 3   : ┆ ┆ starting engine
+    testctx.go:198: 3   : ┆ ┆ starting engine DONE [0.0s]
+    testctx.go:198: 4   : ┆ ┆ connecting to engine
+    testctx.go:198: 4   : ┆ ┆ [0.0s] | 17:16:24 INF connected name=23f5907a198a client-version=v1.0.0-beta.19 server-version=v1.0.0-beta.19
+    testctx.go:198: 4   : ┆ ┆ connecting to engine DONE [0.0s]
+    testctx.go:198: 5   : ┆ ┆ starting session
+    testctx.go:198: 5   : ┆ ┆ starting session DONE [0.0s]
+    testctx.go:198: 2   : ┆ connect DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 6   : consuming /v1/traces
+    testctx.go:198: 6   : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 7   : consuming /v1/logs
+    testctx.go:198: 7   : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 8   : consuming /v1/metrics
+    testctx.go:198: 8   : consuming /v1/metrics DONE [0.0s]
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob
+    testctx.go:198: 
+    testctx.go:198: 14  : host: Host!
+    testctx.go:198: 14  : host DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 15  : Host.file(path: "/tmp/go-collection-clean-branches/main-dagger"): File!
+    testctx.go:198: 15  : Host.file DONE [1.8s]
+    testctx.go:198: 
+    testctx.go:198: 16  : container(platform: "linux/amd64"): Container!
+    testctx.go:198: 16  : container DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 17  : Container.from(address: "golang:1.26-alpine"): Container!
+    testctx.go:198: 
+    testctx.go:198: 18  : uploading /tmp/go-collection-clean-branches
+    testctx.go:198: 18  : uploading /tmp/go-collection-clean-branches DONE [1.8s]
+    testctx.go:198: 
+    testctx.go:198: 19  : HTTP HEAD
+    testctx.go:198: 19  : HTTP HEAD DONE [0.5s]
+    testctx.go:198: 
+    testctx.go:198: 20  : HTTP GET
+    testctx.go:198: 20  : HTTP GET DONE [0.6s]
+    testctx.go:198: 
+    testctx.go:198: 21  : HTTP GET
+    testctx.go:198: 21  : HTTP GET DONE [0.5s]
+    testctx.go:198: 
+    testctx.go:198: 22  : HTTP GET
+    testctx.go:198: 
+    testctx.go:198: 23  : withExec apk add git
+    testctx.go:198: 
+    testctx.go:198: 24  : withExec git config --global user.email dagger@example.com
+    testctx.go:198: 
+    testctx.go:198: 25  : withExec git config --global user.name 'Dagger Tests'
+    testctx.go:198: 
+    testctx.go:198: 26  : Container.withMountedFile(
+    testctx.go:198: 26  : ┆ path: "/bin/dagger"
+    testctx.go:198: 26  : ┆ source: Host.file(path: "/tmp/go-collection-clean-branches/main-dagger"): File!
+    testctx.go:198: 26  : ): Container!
+    testctx.go:198: 26  : Container.withMountedFile DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 27  : withWorkdir /work
+    testctx.go:198: 
+    testctx.go:198: 28  : withExec git init
+    testctx.go:198: 
+    testctx.go:198: 29  : withExec apk add ripgrep
+    testctx.go:198: 
+    testctx.go:198: 30  : withNewFile untouched.txt (contents: "needle in host\n")
+    testctx.go:198: 
+    testctx.go:198: 31  : withNewFile edited.txt (contents: "needle before edit\n")
+    testctx.go:198: 
+    testctx.go:198: 32  : withNewFile doomed.txt (contents: "needle doomed\n")
+    testctx.go:198: 
+    testctx.go:198: 33  : withNewFile docs/notes.md (contents: "needle in docs\n")
+    testctx.go:198: 
+    testctx.go:198: 34  : withExec dagger query (
+    testctx.go:198: 34  : ┆ stdin: "{\n\t\t\tcurrentWorkspace {\n\t\t\t\twithChanges(changes: \"EhMIw+NbEg0KCUNoYW5nZXNldBgB\") {\n\t\t\t\t\twithNewFile(path: \"created.txt\", contents: \"needle created\\n\") {\n\t\t\t\t\t\twithNewFile(path: \"docs/new.md\", contents: \"needle new doc\\n\") {\n\t\t\t\t\t\t\tsearch(pattern: \"needle\", literal: true) { filePath matchedLines }\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}"
+    testctx.go:198: 34  : )
+    testctx.go:198: 
+    testctx.go:198: 35  : Container.stdout: String!
+    testctx.go:198: 
+    testctx.go:198: 22  : HTTP GET DONE [0.6s]
+    testctx.go:198: 
+    testctx.go:198: 36  : pulling golang:1.26-alpine
+    testctx.go:198: 
+    testctx.go:198: 37  : HTTP GET
+    testctx.go:198: 37  : HTTP GET DONE [0.5s]
+    testctx.go:198: 
+    testctx.go:198: 38  : HTTP GET
+    testctx.go:198: 38  : HTTP GET DONE [0.4s]
+    testctx.go:198: 
+    testctx.go:198: 39  : HTTP GET
+    testctx.go:198: 39  : HTTP GET DONE [0.5s]
+    testctx.go:198: 
+    testctx.go:198: 40  : HTTP GET
+    testctx.go:198: 40  : HTTP GET DONE [0.6s]
+    testctx.go:198: 
+    testctx.go:198: 41  : HTTP GET
+    testctx.go:198: 41  : HTTP GET DONE [0.5s]
+    testctx.go:198: 
+    testctx.go:198: 42  : HTTP GET
+    testctx.go:198: 
+    testctx.go:198: 43  : HTTP GET
+    testctx.go:198: 
+    testctx.go:198: 44  : HTTP GET
+    testctx.go:198: 
+    testctx.go:198: 42  : HTTP GET DONE [0.3s]
+    testctx.go:198: 
+    testctx.go:198: 44  : HTTP GET DONE [0.3s]
+    testctx.go:198: 
+    testctx.go:198: 43  : HTTP GET DONE [1.2s]
+    testctx.go:198: 
+    testctx.go:198: 36  : pulling golang:1.26-alpine DONE [5.9s]
+    testctx.go:198: 
+    testctx.go:198: 45  : unpacking golang:1.26-alpine
+    testctx.go:198: 
+    testctx.go:198: 17  : Container.from DONE [13.3s]
+    testctx.go:198: 
+    testctx.go:198: 45  : unpacking golang:1.26-alpine DONE [5.1s]
+    testctx.go:198: 
+    testctx.go:198: 23  : withExec apk add git
+    testctx.go:198: 23  : [11.8s] | ( 1/12) Installing brotli-libs (1.2.0-r1)
+    testctx.go:198: 23  : [11.8s] | ( 2/12) Installing c-ares (1.34.8-r0)
+    testctx.go:198: 23  : [11.8s] | ( 3/12) Installing libunistring (1.4.2-r0)
+    testctx.go:198: 23  : [11.9s] | ( 4/12) Installing libidn2 (2.3.8-r0)
+    testctx.go:198: 23  : [11.9s] | ( 5/12) Installing nghttp2-libs (1.70.0-r0)
+    testctx.go:198: 23  : [11.9s] | ( 6/12) Installing libpsl (0.21.5-r3)
+    testctx.go:198: 23  : [11.9s] | ( 7/12) Installing zstd-libs (1.5.7-r2)
+    testctx.go:198: 23  : [11.9s] | ( 8/12) Installing libcurl (8.22.0-r0)
+    testctx.go:198: 23  : [11.9s] | ( 9/12) Installing libexpat (2.9.0-r0)
+    testctx.go:198: 23  : [11.9s] | (10/12) Installing pcre2 (10.49-r0)
+    testctx.go:198: 23  : [12.0s] | (11/12) Installing git (2.54.0-r0)
+    testctx.go:198: 23  : [12.1s] | (12/12) Installing git-init-template (2.54.0-r0)
+    testctx.go:198: 23  : [12.1s] | Executing busybox-1.37.0-r31.trigger
+    testctx.go:198: 23  : [12.1s] | OK: 20.6 MiB in 29 packages
+    testctx.go:198: 23  : Container.withExec DONE [1.3s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 24  : Container.withExec DONE [0.1s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 25  : Container.withExec DONE [0.0s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 27  : Container.withWorkdir DONE [0.0s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 28  : Container.withExec DONE [0.4s, waited on Container.from]
+    testctx.go:198: 28  : [12.8s] | hint: Using 'master' as the name for the initial branch. This default branch name
+    testctx.go:198: 28  : [12.8s] | hint: will change to "main" in Git 3.0. To configure the initial branch name
+    testctx.go:198: 28  : [12.8s] | hint: to use in all of your new repositories, which will suppress this warning,
+    testctx.go:198: 28  : [12.8s] | hint: call:
+    testctx.go:198: 28  : [12.8s] | hint:
+    testctx.go:198: 28  : [12.8s] | hint: 	git config --global init.defaultBranch <name>
+    testctx.go:198: 28  : [12.8s] | hint:
+    testctx.go:198: 28  : [12.8s] | hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+    testctx.go:198: 28  : [12.8s] | hint: 'development'. The just-created branch can be renamed via this command:
+    testctx.go:198: 28  : [12.8s] | hint:
+    testctx.go:198: 28  : [12.8s] | hint: 	git branch -m <name>
+    testctx.go:198: 28  : [12.8s] | hint:
+    testctx.go:198: 28  : [12.8s] | hint: Disable this message with "git config set advice.defaultBranchName false"
+    testctx.go:198: 28  : [12.8s] | Initialized empty Git repository in /work/.git/
+    testctx.go:198: 
+    testctx.go:198: 29  : withExec apk add ripgrep
+    testctx.go:198: 29  : [13.3s] | (1/2) Installing libgcc (15.2.0-r5)
+    testctx.go:198: 29  : [13.4s] | (2/2) Installing ripgrep (15.1.0-r0)
+    testctx.go:198: 29  : Container.withExec DONE [0.8s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 30  : Container.withNewFile DONE [0.0s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 31  : Container.withNewFile DONE [0.0s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 32  : Container.withNewFile DONE [0.0s, waited on Container.from]
+    testctx.go:198: 
+    testctx.go:198: 33  : Container.withNewFile DONE [0.0s, waited on apk add git]
+    testctx.go:198: 
+    testctx.go:198: 29  : Container.withExec DONE [0.8s, waited on Container.from]
+    testctx.go:198: 29  : [13.5s] | Executing busybox-1.37.0-r31.trigger
+    testctx.go:198: 29  : [13.5s] | OK: 23.9 MiB in 31 packages
+    testctx.go:198: 
+    testctx.go:198: 34  : withExec dagger query (
+    testctx.go:198: 34  : ┆ stdin: "{\n\t\t\tcurrentWorkspace {\n\t\t\t\twithChanges(changes: \"EhMIw+NbEg0KCUNoYW5nZXNldBgB\") {\n\t\t\t\t\twithNewFile(path: \"created.txt\", contents: \"needle created\\n\") {\n\t\t\t\t\t\twithNewFile(path: \"docs/new.md\", contents: \"needle new doc\\n\") {\n\t\t\t\t\t\t\tsearch(pattern: \"needle\", literal: true) { filePath matchedLines }\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}"
+    testctx.go:198: 34  : )
+    testctx.go:198: 46  : ┆ dagger query
+    testctx.go:198: 47  : ┆ connect
+    testctx.go:198: 47  : ┆ connect DONE [0.0s]
+    testctx.go:198: 48  : ┆ Workspace.withChanges(
+    testctx.go:198: 48  : ┆ ┆ changes: Directory.changes(
+    testctx.go:198: 48  : ┆ ┆ ┆ from: withNewFile doomed.txt (contents: "needle doomed\n")
+    testctx.go:198: 48  : ┆ ┆ ): Changeset!
+    testctx.go:198: 48  : ┆ ): Workspace!
+    testctx.go:198: 48  : ┆ Workspace.withChanges DONE [0.1s]
+    testctx.go:198: 49  : ┆ withNewFile created.txt (contents: "needle created\n")
+    testctx.go:198: 49  : ┆ Workspace.withNewFile DONE [0.0s]
+    testctx.go:198: 50  : ┆ withNewFile docs/new.md (contents: "needle new doc\n")
+    testctx.go:198: 
+    testctx.go:198: 51  : consuming /v1/traces
+    testctx.go:198: 51  : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 52  : consuming /v1/logs
+    testctx.go:198: 52  : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 53  : consuming /v1/metrics
+    testctx.go:198: 53  : consuming /v1/metrics DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 34  : withExec dagger query (
+    testctx.go:198: 34  : ┆ stdin: "{\n\t\t\tcurrentWorkspace {\n\t\t\t\twithChanges(changes: \"EhMIw+NbEg0KCUNoYW5nZXNldBgB\") {\n\t\t\t\t\twithNewFile(path: \"created.txt\", contents: \"needle created\\n\") {\n\t\t\t\t\t\twithNewFile(path: \"docs/new.md\", contents: \"needle new doc\\n\") {\n\t\t\t\t\t\t\tsearch(pattern: \"needle\", literal: true) { filePath matchedLines }\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}"
+    testctx.go:198: 34  : )
+    testctx.go:198: 50  : ┆ Workspace.withNewFile DONE [0.1s]
+    testctx.go:198: 54  : ┆ Workspace.search(pattern: "needle", literal: true): [SearchResult!]!
+    testctx.go:198: 
+    testctx.go:198: 55  : uploading /work
+    testctx.go:198: 55  : uploading /work DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 34  : withExec dagger query (
+    testctx.go:198: 34  : ┆ stdin: "{\n\t\t\tcurrentWorkspace {\n\t\t\t\twithChanges(changes: \"EhMIw+NbEg0KCUNoYW5nZXNldBgB\") {\n\t\t\t\t\twithNewFile(path: \"created.txt\", contents: \"needle created\\n\") {\n\t\t\t\t\t\twithNewFile(path: \"docs/new.md\", contents: \"needle new doc\\n\") {\n\t\t\t\t\t\t\tsearch(pattern: \"needle\", literal: true) { filePath matchedLines }\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}"
+    testctx.go:198: 34  : )
+    testctx.go:198: 54  : ┆ Workspace.search(pattern: "needle", literal: true): [SearchResult!]!
+    testctx.go:198: 56  : ┆ ┆ rg resources
+    testctx.go:198: 56  : ┆ ┆ rg resources DONE [0.1s]
+    testctx.go:198: 54  : ┆ Workspace.search DONE [0.1s]
+    testctx.go:198: 46  : ┆ dagger query DONE [0.3s]
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_paths_scope_applies_to_both_sides
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob
+    testctx.go:198: 46  : ┆ [0.3s] | {
+    testctx.go:198: 46  : ┆ [0.3s] |     "currentWorkspace": {
+    testctx.go:198: 46  : ┆ [0.3s] |         "withChanges": {
+    testctx.go:198: 46  : ┆ [0.3s] |             "withNewFile": {
+    testctx.go:198: 46  : ┆ [0.3s] |                 "withNewFile": {
+    testctx.go:198: 46  : ┆ [0.3s] |                     "search": [
+    testctx.go:198: 46  : ┆ [0.3s] |                         {
+    testctx.go:198: 46  : ┆ [0.3s] |                             "filePath": "created.txt",
+    testctx.go:198: 46  : ┆ [0.3s] |                             "matchedLines": "needle created\n"
+    testctx.go:198: 46  : ┆ [0.3s] |                         },
+    testctx.go:198: 46  : ┆ [0.3s] |                         {
+    testctx.go:198: 46  : ┆ [0.3s] |                             "filePath": "docs/new.md",
+    testctx.go:198: 46  : ┆ [0.3s] |                             "matchedLines": "needle new doc\n"
+    testctx.go:198: 46  : ┆ [0.3s] |                         },
+    testctx.go:198: 46  : ┆ [0.3s] |                         {
+    testctx.go:198: 46  : ┆ [0.3s] |                             "filePath": "docs/notes.md",
+    testctx.go:198: 46  : ┆ [0.3s] |                             "matchedLines": "needle in docs\n"
+    testctx.go:198: 46  : ┆ [0.3s] |                         },
+    testctx.go:198: 46  : ┆ [0.3s] |                         {
+    testctx.go:198: 46  : ┆ [0.3s] |                             "filePath": "edited.txt",
+    testctx.go:198: 46  : ┆ [0.3s] |                             "matchedLines": "needle after edit\n"
+    testctx.go:198: 46  : ┆ [0.3s] |                         },
+    testctx.go:198: 46  : ┆ [0.3s] |                         {
+    testctx.go:198: 46  : ┆ [0.3s] |                             "filePath": "untouched.txt",
+    testctx.go:198: 46  : ┆ [0.3s] |                             "matchedLines": "needle in host\n"
+    testctx.go:198: 46  : ┆ [0.3s] |                         }
+    testctx.go:198: 46  : ┆ [0.3s] |                     ]
+    testctx.go:198: 46  : ┆ [0.3s] |                 }
+    testctx.go:198: 46  : ┆ [0.3s] |             }
+    testctx.go:198: 46  : ┆ [0.3s] |         }
+    testctx.go:198: 46  : ┆ [0.3s] |     }
+    testctx.go:198: 46  : ┆ [0.3s] | }
+    testctx.go:198: 34  : withExec dagger query (
+    testctx.go:198: 34  : ┆ stdin: "{\n\t\t\tcurrentWorkspace {\n\t\t\t\twithChanges(changes: \"EhMIw+NbEg0KCUNoYW5nZXNldBgB\") {\n\t\t\t\t\twithNewFile(path: \"created.txt\", contents: \"needle created\\n\") {\n\t\t\t\t\t\twithNewFile(path: \"docs/new.md\", contents: \"needle new doc\\n\") {\n\t\t\t\t\t\t\tsearch(pattern: \"needle\", literal: true) { filePath matchedLines }\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}"
+    testctx.go:198: 34  : )
+    testctx.go:198: 34  : [14.1s] | {
+    testctx.go:198: 34  : [14.1s] |     "currentWorkspace": {
+    testctx.go:198: 34  : [14.1s] |         "withChanges": {
+    testctx.go:198: 34  : [14.1s] |             "withNewFile": {
+    testctx.go:198: 34  : [14.1s] |                 "withNewFile": {
+    testctx.go:198: 34  : [14.1s] |                     "search": [
+    testctx.go:198: 34  : [14.1s] |                         {
+    testctx.go:198: 34  : [14.1s] |                             "filePath": "created.txt",
+    testctx.go:198: 34  : [14.1s] |                             "matchedLines": "needle created\n"
+    testctx.go:198: 34  : [14.1s] |                         },
+    testctx.go:198: 34  : [14.1s] |                         {
+    testctx.go:198: 34  : [14.1s] |                             "filePath": "docs/new.md",
+    testctx.go:198: 34  : [14.1s] |                             "matchedLines": "needle new doc\n"
+    testctx.go:198: 34  : [14.1s] |                         },
+    testctx.go:198: 34  : [14.1s] |                         {
+    testctx.go:198: 34  : [14.1s] |                             "filePath": "docs/notes.md",
+    testctx.go:198: 34  : [14.1s] |                             "matchedLines": "needle in docs\n"
+    testctx.go:198: 34  : [14.1s] |                         },
+    testctx.go:198: 34  : [14.1s] |                         {
+    testctx.go:198: 34  : [14.1s] |                             "filePath": "edited.txt",
+    testctx.go:198: 34  : [14.1s] |                             "matchedLines": "needle after edit\n"
+    testctx.go:198: 34  : [14.1s] |                         },
+    testctx.go:198: 34  : [14.1s] |                         {
+    testctx.go:198: 34  : [14.1s] |                             "filePath": "untouched.txt",
+    testctx.go:198: 34  : [14.1s] |                             "matchedLines": "needle in host\n"
+    testctx.go:198: 34  : [14.1s] |                         }
+    testctx.go:198: 34  : [14.1s] |                     ]
+    testctx.go:198: 34  : [14.1s] |                 }
+    testctx.go:198: 34  : [14.1s] |             }
+    testctx.go:198: 34  : [14.1s] |         }
+    testctx.go:198: 34  : [14.1s] |     }
+    testctx.go:198: 34  : [14.1s] | }
+    testctx.go:198: 34  : Container.withExec DONE [0.6s, waited on git config --global user.email dagger@example.c…]
+    testctx.go:198: 
+    testctx.go:198: 35  : Container.stdout DONE [0.0s, waited on git config --global user.name Dagger Tests]
+    testctx.go:198: 
+    testctx.go:198: 57  : withExec dagger query (
+    testctx.go:198: 57  : ┆ stdin: "{\n\t\t\tcurrentWorkspace {\n\t\t\t\twithChanges(changes: \"EhMIw+NbEg0KCUNoYW5nZXNldBgB\") {\n\t\t\t\t\twithNewFile(path: \"created.txt\", contents: \"needle created\\n\") {\n\t\t\t\t\t\twithNewFile(path: \"docs/new.md\", contents: \"needle new doc\\n\") {\n\t\t\t\t\t\t\tsearch(pattern: \"needle\", literal: true, paths: [\"docs\"]) { filePath matchedLines }\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}"
+    testctx.go:198: 57  : )
+    testctx.go:198: 57  : Container.withExec DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 58  : Container.stdout: String!
+    testctx.go:198: 
+    testctx.go:198: 57  : withExec dagger query (
+    testctx.go:198: 57  : ┆ stdin: "{\n\t\t\tcurrentWorkspace {\n\t\t\t\twithChanges(changes: \"EhMIw+NbEg0KCUNoYW5nZXNldBgB\") {\n\t\t\t\t\twithNewFile(path: \"created.txt\", contents: \"needle created\\n\") {\n\t\t\t\t\t\twithNewFile(path: \"docs/new.md\", contents: \"needle new doc\\n\") {\n\t\t\t\t\t\t\tsearch(pattern: \"needle\", literal: true, paths: [\"docs\"]) { filePath matchedLines }\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}"
+    testctx.go:198: 57  : )
+    testctx.go:198: 59  : ┆ dagger query
+    testctx.go:198: 60  : ┆ connect
+    testctx.go:198: 60  : ┆ connect DONE [0.0s]
+    testctx.go:198: 61  : ┆ Workspace.withChanges(
+    testctx.go:198: 61  : ┆ ┆ changes: Directory.changes(
+    testctx.go:198: 61  : ┆ ┆ ┆ from: withNewFile doomed.txt (contents: "needle doomed\n")
+    testctx.go:198: 61  : ┆ ┆ ): Changeset!
+    testctx.go:198: 61  : ┆ ): Workspace!
+    testctx.go:198: 61  : ┆ Workspace.withChanges DONE [0.0s]
+    testctx.go:198: 62  : ┆ withNewFile created.txt (contents: "needle created\n")
+    testctx.go:198: 62  : ┆ Workspace.withNewFile DONE [0.0s]
+    testctx.go:198: 63  : ┆ withNewFile docs/new.md (contents: "needle new doc\n")
+    testctx.go:198: 63  : ┆ Workspace.withNewFile DONE [0.0s]
+    testctx.go:198: 64  : ┆ Workspace.search(paths: ["docs"], pattern: "needle", literal: true): [SearchResult!]!
+    testctx.go:198: 65  : ┆ ┆ rg resources
+    testctx.go:198: 65  : ┆ ┆ rg resources DONE [0.0s]
+    testctx.go:198: 64  : ┆ Workspace.search DONE [0.0s]
+    testctx.go:198: 59  : ┆ dagger query DONE [0.2s]
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/glob_merges_host_and_overlay_per_path
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob
+    testctx.go:198: 
+    testctx.go:198: 66  : consuming /v1/traces
+    testctx.go:198: 66  : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 67  : consuming /v1/logs
+    testctx.go:198: 67  : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 68  : consuming /v1/metrics
+    testctx.go:198: 68  : consuming /v1/metrics DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 57  : withExec dagger query (
+    testctx.go:198: 57  : ┆ stdin: "{\n\t\t\tcurrentWorkspace {\n\t\t\t\twithChanges(changes: \"EhMIw+NbEg0KCUNoYW5nZXNldBgB\") {\n\t\t\t\t\twithNewFile(path: \"created.txt\", contents: \"needle created\\n\") {\n\t\t\t\t\t\twithNewFile(path: \"docs/new.md\", contents: \"needle new doc\\n\") {\n\t\t\t\t\t\t\tsearch(pattern: \"needle\", literal: true, paths: [\"docs\"]) { filePath matchedLines }\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}"
+    testctx.go:198: 57  : )
+    testctx.go:198: 59  : ┆ dagger query DONE [0.2s]
+    testctx.go:198: 59  : ┆ [0.2s] | {
+    testctx.go:198: 59  : ┆ [0.2s] |     "currentWorkspace": {
+    testctx.go:198: 59  : ┆ [0.2s] |         "withChanges": {
+    testctx.go:198: 59  : ┆ [0.2s] |             "withNewFile": {
+    testctx.go:198: 59  : ┆ [0.2s] |                 "withNewFile": {
+    testctx.go:198: 59  : ┆ [0.2s] |                     "search": [
+    testctx.go:198: 59  : ┆ [0.2s] |                         {
+    testctx.go:198: 59  : ┆ [0.2s] |                             "filePath": "docs/new.md",
+    testctx.go:198: 59  : ┆ [0.2s] |                             "matchedLines": "needle new doc\n"
+    testctx.go:198: 59  : ┆ [0.2s] |                         },
+    testctx.go:198: 59  : ┆ [0.2s] |                         {
+    testctx.go:198: 59  : ┆ [0.2s] |                             "filePath": "docs/notes.md",
+    testctx.go:198: 59  : ┆ [0.2s] |                             "matchedLines": "needle in docs\n"
+    testctx.go:198: 59  : ┆ [0.2s] |                         }
+    testctx.go:198: 59  : ┆ [0.2s] |                     ]
+    testctx.go:198: 59  : ┆ [0.2s] |                 }
+    testctx.go:198: 59  : ┆ [0.2s] |             }
+    testctx.go:198: 59  : ┆ [0.2s] |         }
+    testctx.go:198: 59  : ┆ [0.2s] |     }
+    testctx.go:198: 59  : ┆ [0.2s] | }
+    testctx.go:198: 
+    testctx.go:198: 58  : Container.stdout DONE [0.3s]
+    testctx.go:198: 
+    testctx.go:198: 69  : withExec dagger query (
+    testctx.go:198: 69  : ┆ stdin: "{\n\t\t\tcurrentWorkspace {\n\t\t\t\twithChanges(changes: \"EhMIw+NbEg0KCUNoYW5nZXNldBgB\") {\n\t\t\t\t\twithNewFile(path: \"created.txt\", contents: \"needle created\\n\") {\n\t\t\t\t\t\twithNewFile(path: \"docs/new.md\", contents: \"needle new doc\\n\") {\n\t\t\t\t\t\t\ttxt: glob(pattern: \"*.txt\") md: glob(pattern: \"docs/*.md\")\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}"
+    testctx.go:198: 69  : )
+    testctx.go:198: 
+    testctx.go:198: 57  : Container.withExec DONE [0.3s]
+    testctx.go:198: 57  : [0.3s] | {
+    testctx.go:198: 57  : [0.3s] |     "currentWorkspace": {
+    testctx.go:198: 57  : [0.3s] |         "withChanges": {
+    testctx.go:198: 57  : [0.3s] |             "withNewFile": {
+    testctx.go:198: 57  : [0.3s] |                 "withNewFile": {
+    testctx.go:198: 57  : [0.3s] |                     "search": [
+    testctx.go:198: 57  : [0.3s] |                         {
+    testctx.go:198: 57  : [0.3s] |                             "filePath": "docs/new.md",
+    testctx.go:198: 57  : [0.3s] |                             "matchedLines": "needle new doc\n"
+    testctx.go:198: 57  : [0.3s] |                         },
+    testctx.go:198: 57  : [0.3s] |                         {
+    testctx.go:198: 57  : [0.3s] |                             "filePath": "docs/notes.md",
+    testctx.go:198: 57  : [0.3s] |                             "matchedLines": "needle in docs\n"
+    testctx.go:198: 57  : [0.3s] |                         }
+    testctx.go:198: 57  : [0.3s] |                     ]
+    testctx.go:198: 57  : [0.3s] |                 }
+    testctx.go:198: 57  : [0.3s] |             }
+    testctx.go:198: 57  : [0.3s] |         }
+    testctx.go:198: 57  : [0.3s] |     }
+    testctx.go:198: 57  : [0.3s] | }
+    testctx.go:198: 
+    testctx.go:198: 70  : Container.stdout: String!
+    testctx.go:198: 
+    testctx.go:198: 71  : Workspace.withChanges(
+    testctx.go:198: 71  : ┆ changes: Directory.changes(
+    testctx.go:198: 71  : ┆ ┆ from: withNewFile doomed.txt (contents: "needle doomed\n")
+    testctx.go:198: 71  : ┆ ): Changeset!
+    testctx.go:198: 71  : ): Workspace!
+    testctx.go:198: 71  : Workspace.withChanges DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 72  : withNewFile created.txt (contents: "needle created\n")
+    testctx.go:198: 72  : Workspace.withNewFile DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 73  : withNewFile docs/new.md (contents: "needle new doc\n")
+    testctx.go:198: 
+    testctx.go:198: 74  : uploading /work
+    testctx.go:198: 74  : uploading /work DONE [0.0s]
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob
+    testctx.go:198: 
+    testctx.go:198: 1   : main-dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a DONE [19.3s]
+    testctx.go:198: 
+    testctx.go:198: 69  : withExec dagger query (
+    testctx.go:198: 69  : ┆ stdin: "{\n\t\t\tcurrentWorkspace {\n\t\t\t\twithChanges(changes: \"EhMIw+NbEg0KCUNoYW5nZXNldBgB\") {\n\t\t\t\t\twithNewFile(path: \"created.txt\", contents: \"needle created\\n\") {\n\t\t\t\t\t\twithNewFile(path: \"docs/new.md\", contents: \"needle new doc\\n\") {\n\t\t\t\t\t\t\ttxt: glob(pattern: \"*.txt\") md: glob(pattern: \"docs/*.md\")\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}"
+    testctx.go:198: 69  : )
+    testctx.go:198: 75  : ┆ dagger query
+    testctx.go:198: 75  : ┆ [0.1s] | {
+    testctx.go:198: 75  : ┆ [0.1s] |     "currentWorkspace": {
+    testctx.go:198: 75  : ┆ [0.1s] |         "withChanges": {
+    testctx.go:198: 75  : ┆ [0.1s] |             "withNewFile": {
+    testctx.go:198: 75  : ┆ [0.1s] |                 "withNewFile": {
+    testctx.go:198: 75  : ┆ [0.1s] |                     "md": [
+    testctx.go:198: 75  : ┆ [0.1s] |                         "docs/new.md",
+    testctx.go:198: 75  : ┆ [0.1s] |                         "docs/notes.md"
+    testctx.go:198: 75  : ┆ [0.1s] |                     ],
+    testctx.go:198: 75  : ┆ [0.1s] |                     "txt": [
+    testctx.go:198: 75  : ┆ [0.1s] |                         "created.txt",
+    testctx.go:198: 75  : ┆ [0.1s] |                         "edited.txt",
+    testctx.go:198: 75  : ┆ [0.1s] |                         "untouched.txt"
+    testctx.go:198: 75  : ┆ [0.1s] |                     ]
+    testctx.go:198: 75  : ┆ [0.1s] |                 }
+    testctx.go:198: 75  : ┆ [0.1s] |             }
+    testctx.go:198: 75  : ┆ [0.1s] |         }
+    testctx.go:198: 75  : ┆ [0.1s] |     }
+    testctx.go:198: 75  : ┆ [0.1s] | }
+    testctx.go:198: 76  : ┆ connect
+    testctx.go:198: 76  : ┆ connect DONE [0.0s]
+    testctx.go:198: 73  : ┆ Workspace.withNewFile DONE [0.0s]
+    testctx.go:198: 77  : ┆ Workspace.glob(pattern: "*.txt"): [String!]!
+    testctx.go:198: 77  : ┆ Workspace.glob DONE [0.0s]
+    testctx.go:198: 78  : ┆ Workspace.glob(pattern: "docs/*.md"): [String!]!
+    testctx.go:198: 78  : ┆ Workspace.glob DONE [0.0s]
+    testctx.go:198: 75  : ┆ dagger query DONE [0.1s]
+    testctx.go:198: 69  : withExec dagger query (
+    testctx.go:198: 69  : ┆ stdin: "{\n\t\t\tcurrentWorkspace {\n\t\t\t\twithChanges(changes: \"EhMIw+NbEg0KCUNoYW5nZXNldBgB\") {\n\t\t\t\t\twithNewFile(path: \"created.txt\", contents: \"needle created\\n\") {\n\t\t\t\t\t\twithNewFile(path: \"docs/new.md\", contents: \"needle new doc\\n\") {\n\t\t\t\t\t\t\ttxt: glob(pattern: \"*.txt\") md: glob(pattern: \"docs/*.md\")\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}"
+    testctx.go:198: 69  : )
+    testctx.go:198: 69  : [0.2s] | {
+    testctx.go:198: 69  : [0.2s] |     "currentWorkspace": {
+    testctx.go:198: 69  : [0.2s] |         "withChanges": {
+    testctx.go:198: 69  : [0.2s] |             "withNewFile": {
+    testctx.go:198: 69  : [0.2s] |                 "withNewFile": {
+    testctx.go:198: 69  : [0.2s] |                     "md": [
+    testctx.go:198: 69  : [0.2s] |                         "docs/new.md",
+    testctx.go:198: 69  : [0.2s] |                         "docs/notes.md"
+    testctx.go:198: 69  : [0.2s] |                     ],
+    testctx.go:198: 69  : [0.2s] |                     "txt": [
+    testctx.go:198: 69  : [0.2s] |                         "created.txt",
+    testctx.go:198: 69  : [0.2s] |                         "edited.txt",
+    testctx.go:198: 69  : [0.2s] |                         "untouched.txt"
+    testctx.go:198: 69  : [0.2s] |                     ]
+    testctx.go:198: 69  : [0.2s] |                 }
+    testctx.go:198: 69  : [0.2s] |             }
+    testctx.go:198: 69  : [0.2s] |         }
+    testctx.go:198: 69  : [0.2s] |     }
+    testctx.go:198: 69  : [0.2s] | }
+    testctx.go:198: 69  : Container.withExec DONE [0.3s]
+    testctx.go:198: 
+    testctx.go:198: 70  : Container.stdout DONE [0.3s]
+    testctx.go:198: 
+    testctx.go:198: 79  : uploading /work
+    testctx.go:198: 79  : uploading /work DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 80  : consuming /v1/traces
+    testctx.go:198: 80  : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 81  : consuming /v1/logs
+    testctx.go:198: 81  : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 82  : consuming /v1/metrics
+    testctx.go:198: 82  : consuming /v1/metrics DONE [0.0s]
+    testctx.go:198: 
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths
+    testctx.go:198: 
+    testctx.go:198: 9   : host: Host!
+    testctx.go:198: 9   : host CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 10  : Host.file(path: "/tmp/go-collection-clean-branches/main-dagger"): File!
+    testctx.go:198: 10  : Host.file DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 11  : container(platform: "linux/amd64"): Container!
+    testctx.go:198: 11  : container CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 12  : Container.from(address: "golang:1.26-alpine"): Container!
+    testctx.go:198: 12  : Container.from DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 13  : withExec apk add git
+    testctx.go:198: 13  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 14  : withExec git config --global user.email dagger@example.com
+    testctx.go:198: 14  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 15  : withExec git config --global user.name 'Dagger Tests'
+    testctx.go:198: 15  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 16  : Container.withMountedFile(
+    testctx.go:198: 16  : ┆ path: "/bin/dagger"
+    testctx.go:198: 16  : ┆ source: Host.file(path: "/tmp/go-collection-clean-branches/main-dagger"): File!
+    testctx.go:198: 16  : ): Container!
+    testctx.go:198: 16  : Container.withMountedFile DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 17  : withWorkdir /work
+    testctx.go:198: 17  : Container.withWorkdir DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 18  : withExec git init
+    testctx.go:198: 18  : Container.withExec CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 19  : withNewFile dagger.toml (contents: "[modules]\n")
+    testctx.go:198: 19  : Container.withNewFile DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 20  : withExec apk add ripgrep
+    testctx.go:198: 
+    testctx.go:198: 21  : withNewFile existing.txt (contents: "needle host\n")
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger query (stdin: "{\n  currentWorkspace {\n    withNewFile(path: \"created/new.txt\", contents: \"needle overlay\\n\") {\n      search(paths: [\"/created/new.txt\"], pattern: \"needle\") { filePath }\n    }\n  }\n}")
+    testctx.go:198: 
+    testctx.go:198: 23  : Container.stdout: String!
+    testctx.go:198: 
+    testctx.go:198: 20  : withExec apk add ripgrep
+    testctx.go:198: 20  : [0.5s] | (1/2) Installing libgcc (15.2.0-r5)
+    testctx.go:198: 20  : [0.5s] | (2/2) Installing ripgrep (15.1.0-r0)
+    testctx.go:198: 20  : [0.7s] | Executing busybox-1.37.0-r31.trigger
+    testctx.go:198: 20  : Container.withExec DONE [0.8s]
+    testctx.go:198: 
+    testctx.go:198: 21  : Container.withNewFile DONE [0.8s]
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger query (stdin: "{\n  currentWorkspace {\n    withNewFile(path: \"created/new.txt\", contents: \"needle overlay\\n\") {\n      search(paths: [\"/created/new.txt\"], pattern: \"needle\") { filePath }\n    }\n  }\n}")
+    testctx.go:198: 24  : ┆ dagger query
+    testctx.go:198: 25  : ┆ connect
+    testctx.go:198: 25  : ┆ connect DONE [0.0s]
+    testctx.go:198: 26  : ┆ withNewFile created/new.txt (contents: "needle overlay\n")
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file
+    testctx.go:174: 
+        	Error Trace:	/tmp/go-collection-upstream-review-oct19/engine-workspace-overlay/core/integration/workspace_overlay_search_test.go:43
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:296
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/otel-go@v1.43.1-0.20260917165636-2bca4f5622cf/oteltestctx/trace.go:163
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/middleware.go:25
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:150
+        	            				/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:1771
+        	Error:      	Received unexpected error:
+        	            	exit code: 1 [traceparent:eacdda2dfb379721352d54e29fc5edc8-38fb088bdf2f3470]
+        	Test:       	TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_parent
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths
+    testctx.go:198: 
+    testctx.go:198: 20  : Container.withExec DONE [0.8s]
+    testctx.go:198: 20  : [0.7s] | OK: 23.9 MiB in 31 packages
+    testctx.go:198: 
+    testctx.go:198: 22  : withExec dagger query (stdin: "{\n  currentWorkspace {\n    withNewFile(path: \"created/new.txt\", contents: \"needle overlay\\n\") {\n      search(paths: [\"/created/new.txt\"], pattern: \"needle\") { filePath }\n    }\n  }\n}")
+    testctx.go:198: 26  : ┆ Workspace.withNewFile DONE [0.1s]
+    testctx.go:198: 27  : ┆ Workspace.search(paths: ["/created/new.txt"], pattern: "needle"): [SearchResult!]!
+    testctx.go:198: 27  : ┆ Workspace.search ERROR [0.0s]
+    testctx.go:198: 27  : ┆ ! search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: ripgrep error: rg: created/new.txt: IO error for operation on created/new.txt: No such file or directory (os error 2)
+    testctx.go:198: 24  : ┆ dagger query ERROR [0.2s]
+    testctx.go:198: 24  : ┆ ! make request: input: currentWorkspace.withNewFile.search search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: ripgrep error: rg: created/new.txt: IO error for operation on created/new.txt: No such file or directory (os error 2)
+    testctx.go:198: 
+    testctx.go:198: 22  : Container.withExec ERROR [1.2s]
+    testctx.go:198: 
+    testctx.go:198: 23  : Container.stdout ERROR [0.0s, waited on apk add ripgrep]
+    testctx.go:198: 23  : ! exit code: 1
+    testctx.go:198: 
+    testctx.go:198: 28  : withExec dagger query (stdin: "{\n  currentWorkspace {\n    withNewFile(path: \"created/new.txt\", contents: \"needle overlay\\n\") {\n      search(paths: [\"created\"], pattern: \"needle\") { filePath }\n    }\n  }\n}")
+    testctx.go:198: 
+    testctx.go:198: 29  : Container.stdout: String!
+    testctx.go:198: 
+    testctx.go:198: 30  : withNewFile created/new.txt (contents: "needle overlay\n")
+    testctx.go:198: 
+    testctx.go:198: 22  : Container.withExec ERROR [1.2s]
+    testctx.go:198: 22  : [1.1s] | [32m✔[0m connect [2m0.0s[0m
+    testctx.go:198: 22  : [1.1s] | 
+    testctx.go:198: 22  : [1.1s] | [32m✔[0m [34mwithNewFile[0m created/new.txt ([36mcontents: [0m[33m"needle overlay\n"[0m) [2m0.1s[0m
+    testctx.go:198: 22  : [1.1s] | [31m✘[0m .[1msearch[0m([36mpaths: [0m[[33m"/created/new.txt"[0m], [36mpattern: [0m[33m"needle"[0m)[2m: [SearchResult!]![0m [2m0.0s[0m [31mERROR[0m
+    testctx.go:198: 22  : [1.1s] | [31m✘[0m Workspace.[1msearch[0m([36mpaths: [0m[[33m"/created/new.txt"[0m], [36mpattern: [0m[33m"needle"[0m)[2m: [SearchResult!]![0m [2m0.0s[0m [31mERROR[0m
+    testctx.go:198: 22  : [1.1s] | [31m! search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: ripgrep error: rg: created/new.txt: IO error for operation on created/new.txt: No such file or directory (os error 2)[0m
+    testctx.go:198: 
+    testctx.go:198: 28  : withExec dagger query (stdin: "{\n  currentWorkspace {\n    withNewFile(path: \"created/new.txt\", contents: \"needle overlay\\n\") {\n      search(paths: [\"created\"], pattern: \"needle\") { filePath }\n    }\n  }\n}")
+    testctx.go:198: 31  : ┆ dagger query
+    testctx.go:198: 32  : ┆ connect
+    testctx.go:198: 32  : ┆ connect DONE [0.0s]
+    testctx.go:198: 30  : ┆ Workspace.withNewFile DONE [0.0s]
+    testctx.go:198: 33  : ┆ Workspace.search(paths: ["created"], pattern: "needle"): [SearchResult!]!
+    testctx.go:198: 33  : ┆ Workspace.search ERROR [0.0s]
+    testctx.go:198: 33  : ┆ ! search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: ripgrep error: rg: created: IO error for operation on created: No such file or directory (os error 2)
+    testctx.go:198: 31  : ┆ dagger query ERROR [0.1s]
+    testctx.go:198: 31  : ┆ ! make request: input: currentWorkspace.withNewFile.search search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: ripgrep error: rg: created: IO error for operation on created: No such file or directory (os error 2)
+    testctx.go:198: 
+    testctx.go:198: 
+    testctx.go:198: 34  : consuming /v1/traces
+    testctx.go:198: 34  : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 35  : consuming /v1/logs
+    testctx.go:198: 35  : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 36  : consuming /v1/metrics
+    testctx.go:198: 36  : consuming /v1/metrics DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 37  : consuming /v1/traces
+    testctx.go:198: 37  : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 38  : consuming /v1/logs
+    testctx.go:198: 38  : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 39  : consuming /v1/metrics
+    testctx.go:198: 39  : consuming /v1/metrics DONE [0.0s]
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_parent
+    testctx.go:174: 
+        	Error Trace:	/tmp/go-collection-upstream-review-oct19/engine-workspace-overlay/core/integration/workspace_overlay_search_test.go:43
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:296
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/otel-go@v1.43.1-0.20260917165636-2bca4f5622cf/oteltestctx/trace.go:163
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/middleware.go:25
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:150
+        	            				/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:1771
+        	Error:      	Received unexpected error:
+        	            	exit code: 1 [traceparent:eacdda2dfb379721352d54e29fc5edc8-b9140c83a0be9c73]
+        	Test:       	TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_parent
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths
+    testctx.go:198: 
+    testctx.go:198: 29  : Container.stdout ERROR [0.3s]
+    testctx.go:198: 29  : ! exit code: 1
+    testctx.go:198: 
+    testctx.go:198: 40  : withExec dagger query (stdin: "{\n  currentWorkspace {\n    withNewFile(path: \"created/new.txt\", contents: \"needle overlay\\n\") {\n      search(paths: [\"created/new.txt\", \"missing.txt\"], pattern: \"needle\") { filePath }\n    }\n  }\n}")
+    testctx.go:198: 40  : Container.withExec DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 41  : Container.stdout: String!
+    testctx.go:198: 
+    testctx.go:198: 28  : withExec dagger query (stdin: "{\n  currentWorkspace {\n    withNewFile(path: \"created/new.txt\", contents: \"needle overlay\\n\") {\n      search(paths: [\"created\"], pattern: \"needle\") { filePath }\n    }\n  }\n}")
+    testctx.go:198: 28  : [0.2s] | [32m✔[0m connect [2m0.0s[0m
+    testctx.go:198: 28  : [0.2s] | 
+    testctx.go:198: 28  : [0.2s] | [32m✔[0m [34mwithNewFile[0m created/new.txt ([36mcontents: [0m[33m"needle overlay\n"[0m) [2m0.0s[0m
+    testctx.go:198: 28  : [0.2s] | [31m✘[0m .[1msearch[0m([36mpaths: [0m[[33m"created"[0m], [36mpattern: [0m[33m"needle"[0m)[2m: [SearchResult!]![0m [2m0.0s[0m [31mERROR[0m
+    testctx.go:198: 28  : [0.2s] | [31m✘[0m Workspace.[1msearch[0m([36mpaths: [0m[[33m"created"[0m], [36mpattern: [0m[33m"needle"[0m)[2m: [SearchResult!]![0m [2m0.0s[0m [31mERROR[0m
+    testctx.go:198: 28  : [0.2s] | [31m! search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: ripgrep error: rg: created: IO error for operation on created: No such file or directory (os error 2)[0m
+    testctx.go:198: 28  : Container.withExec ERROR [0.3s]
+    testctx.go:198: 
+    testctx.go:198: 40  : withExec dagger query (stdin: "{\n  currentWorkspace {\n    withNewFile(path: \"created/new.txt\", contents: \"needle overlay\\n\") {\n      search(paths: [\"created/new.txt\", \"missing.txt\"], pattern: \"needle\") { filePath }\n    }\n  }\n}")
+    testctx.go:198: 42  : ┆ dagger query
+    testctx.go:198: 43  : ┆ connect
+    testctx.go:198: 43  : ┆ connect DONE [0.0s]
+    testctx.go:198: 44  : ┆ withNewFile created/new.txt (contents: "needle overlay\n")
+    testctx.go:198: 44  : ┆ Workspace.withNewFile DONE [0.0s]
+    testctx.go:198: 45  : ┆ Workspace.search(paths: ["created/new.txt", "missing.txt"], pattern: "needle"): [SearchResult!]!
+    testctx.go:198: 45  : ┆ Workspace.search ERROR [0.0s]
+    testctx.go:198: 45  : ┆ ! search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: ripgrep error: rg: created/new.txt: No such file or directory (os error 2)
+    testctx.go:198: rg: missing.txt: No such file or directory (os error 2)
+    testctx.go:198: 42  : ┆ dagger query ERROR [0.1s]
+    testctx.go:198: 42  : ┆ ! make request: input: currentWorkspace.withNewFile.search search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: ripgrep error: rg: created/new.txt: No such file or directory (os error 2)
+    testctx.go:198: rg: missing.txt: No such file or directory (os error 2)
+    testctx.go:198: 
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path
+    testctx.go:174: 
+        	Error Trace:	/tmp/go-collection-upstream-review-oct19/engine-workspace-overlay/core/integration/workspace_overlay_search_test.go:40
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:296
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/otel-go@v1.43.1-0.20260917165636-2bca4f5622cf/oteltestctx/trace.go:163
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/middleware.go:25
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:150
+        	            				/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:1771
+        	Error:      	Error "exit code: 1 [traceparent:eacdda2dfb379721352d54e29fc5edc8-2881d1a80287ecae]" does not contain "No such file or directory"
+        	Test:       	TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path
+=== CONT  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths
+    testctx.go:198: 40  : Container.withExec DONE [0.4s]
+    testctx.go:198: 40  : [0.2s] | [32m✔[0m connect [2m0.0s[0m
+    testctx.go:198: 40  : [0.2s] | 
+    testctx.go:198: 40  : [0.2s] | [32m✔[0m [34mwithNewFile[0m created/new.txt ([36mcontents: [0m[33m"needle overlay\n"[0m) [2m0.0s[0m
+    testctx.go:198: 40  : [0.2s] | [31m✘[0m .[1msearch[0m([36mpaths: [0m[[33m"created/new.txt"[0m, [33m"missing.txt"[0m], [36mpattern: [0m[33m"needle"[0m)[2m: [SearchResult!]![0m [2m0.0s[0m [31mERROR[0m
+    testctx.go:198: 40  : [0.2s] | [31m✘[0m Workspace.[1msearch[0m([36mpaths: [0m[[33m"created/new.txt"[0m, [33m"missing.txt"[0m], [36mpattern: [0m[33m"needle"[0m)[2m: [SearchResult!]![0m [2m0.0s[0m [31mERROR[0m
+    testctx.go:198: 40  : [0.2s] | [31m! search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: ripgrep error: rg: created/new.txt: No such file or directory (os error 2)[0m
+    testctx.go:198: 40  : [0.2s] | [31m  rg: missing.txt: No such file or directory (os error 2)[0m
+    testctx.go:198: 
+    testctx.go:198: 46  : consuming /v1/traces
+    testctx.go:198: 46  : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 47  : consuming /v1/logs
+    testctx.go:198: 47  : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 48  : consuming /v1/metrics
+    testctx.go:198: 48  : consuming /v1/metrics DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 41  : Container.stdout ERROR [0.4s]
+    testctx.go:198: 41  : ! exit code: 1
+    testctx.go:198: 
+    testctx.go:198: 49  : withExec dagger query (stdin: "{\n  currentWorkspace {\n    withNewFile(path: \"created/new.txt\", contents: \"needle overlay\\n\") {\n      search(paths: [\"existing.txt\", \"/created/new.txt\"], pattern: \"needle\") { filePath }\n    }\n  }\n}")
+    testctx.go:198: 
+    testctx.go:198: 50  : Container.stdout: String!
+    testctx.go:198: 
+    testctx.go:198: 49  : withExec dagger query (stdin: "{\n  currentWorkspace {\n    withNewFile(path: \"created/new.txt\", contents: \"needle overlay\\n\") {\n      search(paths: [\"existing.txt\", \"/created/new.txt\"], pattern: \"needle\") { filePath }\n    }\n  }\n}")
+    testctx.go:198: 51  : ┆ dagger query
+    testctx.go:198: 52  : ┆ connect
+    testctx.go:198: 52  : ┆ connect DONE [0.0s]
+    testctx.go:198: 53  : ┆ withNewFile created/new.txt (contents: "needle overlay\n")
+    testctx.go:198: 53  : ┆ Workspace.withNewFile DONE [0.0s]
+    testctx.go:198: 54  : ┆ Workspace.search(paths: ["existing.txt", "/created/new.txt"], pattern: "needle"): [SearchResult!]!
+    testctx.go:198: 54  : ┆ Workspace.search ERROR [0.0s]
+    testctx.go:198: 54  : ┆ ! search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: ripgrep error: rg: created/new.txt: No such file or directory (os error 2)
+    testctx.go:198: 51  : ┆ dagger query ERROR [0.1s]
+    testctx.go:198: 51  : ┆ ! make request: input: currentWorkspace.withNewFile.search search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: ripgrep error: rg: created/new.txt: No such file or directory (os error 2)
+    testctx.go:198: 
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources
+    testctx.go:174: 
+        	Error Trace:	/tmp/go-collection-upstream-review-oct19/engine-workspace-overlay/core/integration/workspace_overlay_search_test.go:43
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:296
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/otel-go@v1.43.1-0.20260917165636-2bca4f5622cf/oteltestctx/trace.go:163
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/middleware.go:25
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:150
+        	            				/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:1771
+        	Error:      	Received unexpected error:
+        	            	exit code: 1 [traceparent:eacdda2dfb379721352d54e29fc5edc8-70e4a80c456a6a1a]
+        	Test:       	TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths
+    testctx.go:198: 
+    testctx.go:198: 1   : main-dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a DONE [21.4s]
+    testctx.go:198: 
+    testctx.go:198: 49  : withExec dagger query (stdin: "{\n  currentWorkspace {\n    withNewFile(path: \"created/new.txt\", contents: \"needle overlay\\n\") {\n      search(paths: [\"existing.txt\", \"/created/new.txt\"], pattern: \"needle\") { filePath }\n    }\n  }\n}")
+    testctx.go:198: 49  : [0.2s] | [32m✔[0m connect [2m0.0s[0m
+    testctx.go:198: 49  : [0.2s] | 
+    testctx.go:198: 49  : [0.2s] | [32m✔[0m [34mwithNewFile[0m created/new.txt ([36mcontents: [0m[33m"needle overlay\n"[0m) [2m0.0s[0m
+    testctx.go:198: 49  : [0.2s] | [31m✘[0m .[1msearch[0m([36mpaths: [0m[[33m"existing.txt"[0m, [33m"/created/new.txt"[0m], [36mpattern: [0m[33m"needle"[0m)[2m: [SearchResult!]![0m [2m0.0s[0m [31mERROR[0m
+    testctx.go:198: 49  : [0.2s] | [31m✘[0m Workspace.[1msearch[0m([36mpaths: [0m[[33m"existing.txt"[0m, [33m"/created/new.txt"[0m], [36mpattern: [0m[33m"needle"[0m)[2m: [SearchResult!]![0m [2m0.0s[0m [31mERROR[0m
+    testctx.go:198: 49  : [0.2s] | [31m! search: failed to search path: failed to receive file bytes message: rpc error: code = Unknown desc = search: ripgrep error: rg: created/new.txt: No such file or directory (os error 2)[0m
+    testctx.go:198: 49  : Container.withExec ERROR [0.3s]
+    testctx.go:198: 
+    testctx.go:198: 50  : Container.stdout ERROR [0.3s]
+    testctx.go:198: 50  : ! exit code: 1
+    testctx.go:198: 
+    testctx.go:198: 55  : consuming /v1/traces
+    testctx.go:198: 55  : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 56  : consuming /v1/logs
+    testctx.go:198: 56  : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 57  : consuming /v1/metrics
+    testctx.go:198: 57  : consuming /v1/metrics DONE [0.0s]
+    testctx.go:198: 
+--- FAIL: TestWorkspaceAPI (0.00s)
+    --- PASS: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob (0.18s)
+        --- PASS: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_merges_host_and_overlay_per_file (18.44s)
+        --- PASS: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_paths_scope_applies_to_both_sides (0.35s)
+        --- PASS: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/glob_merges_host_and_overlay_per_path (0.35s)
+    --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths (0.10s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file (1.28s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_parent (0.33s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path (0.36s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources (0.31s)
+FAIL

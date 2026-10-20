@@ -1,0 +1,44 @@
+Traceback (most recent call last):
+  File "/tmp/go-collection-upstream-review-oct19/verify-workspace-ci-fixture.py", line 41, in <module>
+    assert result.returncode == 0, text[-4000:]
+           ^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: fb4ad12ab1a12]\nStdout: \nStderr: \x1b[31m✘\x1b[0m dagger query \x1b[2m10.0s\x1b[0m \x1b[31mERROR\x1b[0m\n00:19:58 WRN telemetry drain timed out after shutdown timeout=10s\x1b[0m\n\x1b[31m! make request: input: get or init client: client \"RUVSNKTOQRQORGJ2EEDQAEHSN3\" metadata field ClientVersion conflicts with bootstrap value\x1b[0m\n\n00:19:58 WRN telemetry drain timed out after shutdown timeout=10s\nError: make request: input: get or init client: client \"RUVSNKTOQRQORGJ2EEDQAEHSN3\" metadata field ClientVersion conflicts with bootstrap value" does not contain "No such file or directory"
+        	Test:       	TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path
+=== NAME  TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths
+    testctx.go:198: 
+    testctx.go:198: 1   : main-dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a DONE [1m29s]
+    testctx.go:198: 
+    testctx.go:198: 43  : withExec dagger query (stdin: "{\n  currentWorkspace {\n    withNewFile(path: \"created/new.txt\", contents: \"needle overlay\\n\") {\n      search(paths: [\"created/new.txt\", \"missing.txt\"], pattern: \"needle\") { filePath }\n    }\n  }\n}")
+    testctx.go:198: 45  : ┆ dagger query ERROR [10.0s]
+    testctx.go:198: 45  : ┆ ! make request: input: get or init client: client "RUVSNKTOQRQORGJ2EEDQAEHSN3" metadata field ClientVersion conflicts with bootstrap value
+    testctx.go:198: 
+    testctx.go:198: 43  : Container.withExec ERROR [10.1s]
+    testctx.go:198: 
+    testctx.go:198: 44  : Container.stdout ERROR [0.0s, waited on dagger query]
+    testctx.go:198: 44  : ! exit code: 1
+    testctx.go:198: 
+    testctx.go:198: 43  : withExec dagger query (stdin: "{\n  currentWorkspace {\n    withNewFile(path: \"created/new.txt\", contents: \"needle overlay\\n\") {\n      search(paths: [\"created/new.txt\", \"missing.txt\"], pattern: \"needle\") { filePath }\n    }\n  }\n}")
+    testctx.go:198: 45  : ┆ dagger query ERROR [10.0s]
+    testctx.go:198: 45  : ┆ ! make request: input: get or init client: client "RUVSNKTOQRQORGJ2EEDQAEHSN3" metadata field ClientVersion conflicts with bootstrap value
+    testctx.go:198: 
+    testctx.go:198: 45  : ┆ [10.0s] | 00:19:58 WRN telemetry drain timed out after shutdown timeout=10s
+    testctx.go:198: 43  : Container.withExec ERROR [10.1s]
+    testctx.go:198: 43  : [10.1s] | [31m✘[0m dagger query [2m10.0s[0m [31mERROR[0m
+    testctx.go:198: 43  : [10.1s] | 00:19:58 WRN telemetry drain timed out after shutdown timeout=10s[0m
+    testctx.go:198: 43  : [10.1s] | [31m! make request: input: get or init client: client "RUVSNKTOQRQORGJ2EEDQAEHSN3" metadata field ClientVersion conflicts with bootstrap value[0m
+    testctx.go:198: 43  : [10.1s] | 
+    testctx.go:198: 43  : [10.1s] | 00:19:58 WRN telemetry drain timed out after shutdown timeout=10s
+    testctx.go:198: 43  : [10.1s] | Error: make request: input: get or init client: client "RUVSNKTOQRQORGJ2EEDQAEHSN3" metadata field ClientVersion conflicts with bootstrap value
+    testctx.go:198: 
+--- FAIL: TestWorkspaceAPI (0.00s)
+    --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob (1.04s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_merges_host_and_overlay_per_file (27.37s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/glob_merges_host_and_overlay_per_path (10.07s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_paths_scope_applies_to_both_sides (10.09s)
+    --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths (0.07s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file (11.08s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_parent (10.10s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources (10.13s)
+        --- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path (10.14s)
+FAIL
+

@@ -1,0 +1,55 @@
+[
+  {
+    "arm": "main",
+    "runner": "tcp://127.0.0.1:16310",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "-test.v",
+      "-test.count=1",
+      "-test.parallel=1",
+      "-test.timeout=240s",
+      "-test.run=^TestWorkspaceAPI/(TestHostWorkspaceOverlaySearchPaths|TestHostWorkspaceOverlaySearchAndGlob)$"
+    ],
+    "log": "/tmp/go-collection-upstream-review-oct19/workspace-overlay-ci-main.log",
+    "exit_code": 1,
+    "seconds": 14.896616931073368,
+    "binary_sha256": "2720b5987088da0c2404ae5a55785f13d70957933938d764a20ebd700807bfe4",
+    "failing_tests": [
+      "--- FAIL: TestWorkspaceAPI (0.00s)",
+      "--- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths (0.06s)",
+      "--- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file (0.94s)",
+      "--- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_parent (0.30s)",
+      "--- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources (0.30s)"
+    ]
+  },
+  {
+    "arm": "fix",
+    "runner": "tcp://127.0.0.1:32838",
+    "command": [
+      "python3",
+      "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+      "-test.v",
+      "-test.count=1",
+      "-test.parallel=1",
+      "-test.timeout=240s",
+      "-test.run=^TestWorkspaceAPI/(TestHostWorkspaceOverlaySearchPaths|TestHostWorkspaceOverlaySearchAndGlob)$"
+    ],
+    "log": "/tmp/go-collection-upstream-review-oct19/workspace-overlay-ci-fix.log",
+    "exit_code": 1,
+    "seconds": 90.15015329490416,
+    "binary_sha256": "2720b5987088da0c2404ae5a55785f13d70957933938d764a20ebd700807bfe4",
+    "failing_tests": [
+      "--- FAIL: TestWorkspaceAPI (0.00s)",
+      "--- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob (1.04s)",
+      "--- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_merges_host_and_overlay_per_file (27.37s)",
+      "--- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/glob_merges_host_and_overlay_per_path (10.07s)",
+      "--- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchAndGlob/search_paths_scope_applies_to_both_sides (10.09s)",
+      "--- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths (0.07s)",
+      "--- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_file (11.08s)",
+      "--- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/overlay_parent (10.10s)",
+      "--- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/mixed_sources (10.13s)",
+      "--- FAIL: TestWorkspaceAPI/TestHostWorkspaceOverlaySearchPaths/unrelated_missing_path (10.14s)"
+    ]
+  }
+]
