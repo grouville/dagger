@@ -1,0 +1,412 @@
+diff --git a/core/workspace/git_client_config_cache.go b/core/workspace/git_client_config_cache.go
+new file mode 100644
+index 0000000000..cba184d120
+--- /dev/null
++++ b/core/workspace/git_client_config_cache.go
+@@ -0,0 +1,40 @@
++package workspace
++
++import (
++	"context"
++	"crypto/sha256"
++	"encoding/hex"
++
++	"github.com/dagger/dagger/dagql"
++	"github.com/dagger/dagger/engine"
++)
++
++type gitClientDeclarations struct {
++	scopes   map[string][]string
++	warnings []string
++}
++
++func cachedGitClientDeclarations(ctx context.Context, data []byte) gitClientDeclarations {
++	cache, cacheErr := dagql.EngineCache(ctx)
++	md, metadataErr := engine.ClientMetadataFromContext(ctx)
++	if cacheErr == nil && metadataErr == nil && md != nil {
++		sum := sha256.Sum256(data)
++		result, err := cache.GetOrInitArbitrary(ctx, md.SessionID,
++			"workspace.git-client-declarations:"+hex.EncodeToString(sum[:]),
++			func(context.Context) (any, error) { return parseGitClientDeclarations(data), nil })
++		if err == nil {
++			return result.Value().(gitClientDeclarations)
++		}
++	}
++	// Standalone configuration reads need no engine; cache failures must not
++	// change which clients a successfully read configuration declares.
++	return parseGitClientDeclarations(data)
++}
++
++func parseGitClientDeclarations(data []byte) gitClientDeclarations {
++	cfg, warnings, err := parseConfigAt(data, ".")
++	if err != nil {
++		return gitClientDeclarations{warnings: warnings}
++	}
++	return gitClientDeclarations{scopes: ModuleScopeGitClients(cfg, "."), warnings: warnings}
++}
+diff --git a/core/workspace/git_client_config_cache_bench_test.go b/core/workspace/git_client_config_cache_bench_test.go
+new file mode 100644
+index 0000000000..95a6d0a191
+--- /dev/null
++++ b/core/workspace/git_client_config_cache_bench_test.go
+@@ -0,0 +1,50 @@
++package workspace
++
++import (
++	"os"
++	"strconv"
++	"testing"
++)
++
++func BenchmarkGitClientDeclarations(b *testing.B) {
++	fixture := os.Getenv("DAGGER_DECLARATIONS_BENCH_CONFIG")
++	if fixture == "" {
++		fixture = "testdata/git-client-declarations.toml"
++	}
++	data, err := os.ReadFile(fixture)
++	if err != nil {
++		b.Fatal(err)
++	}
++	for _, scenario := range []string{"repeated-content", "distinct-content", "parallel-repeated-content"} {
++		b.Run(scenario, func(b *testing.B) {
++			current := data
++			read := func(string) ([]byte, bool, error) { return current, true, nil }
++			ctx := gitClientCacheContext(b)
++			check := func() {
++				got, err := DeclaredGitClients(ctx, ".", read)
++				if err != nil || len(got) != 0 {
++					b.Errorf("want no Git clients: got %v, err %v", got, err)
++				}
++			}
++			check()
++			b.ReportAllocs()
++			b.ResetTimer()
++			defer b.StopTimer()
++			if scenario == "parallel-repeated-content" {
++				b.RunParallel(func(pb *testing.PB) {
++					for pb.Next() {
++						check()
++					}
++				})
++				return
++			}
++			for i := range b.N {
++				if scenario == "distinct-content" {
++					current = append(append([]byte(nil), data...), '\n', '#')
++					current = strconv.AppendInt(current, int64(i), 10)
++				}
++				check()
++			}
++		})
++	}
++}
+diff --git a/core/workspace/git_client_config_cache_test.go b/core/workspace/git_client_config_cache_test.go
+new file mode 100644
+index 0000000000..da7d012098
+--- /dev/null
++++ b/core/workspace/git_client_config_cache_test.go
+@@ -0,0 +1,163 @@
++package workspace
++
++import (
++	"context"
++	"errors"
++	"strings"
++	"sync"
++	"testing"
++
++	telemetry "github.com/dagger/otel-go"
++	"github.com/stretchr/testify/require"
++	sdklog "go.opentelemetry.io/otel/sdk/log"
++
++	"github.com/dagger/dagger/dagql"
++	"github.com/dagger/dagger/engine"
++	"github.com/dagger/dagger/engine/slog"
++)
++
++const gitDeclarationFixture = `[modules.go]
++source = "go"
++[sdks.go]
++module = "go"
++[sdks.go.scopes."."]
++is-module = true
++clients = ["github.com/example/root"]
++[sdks.go.scopes."modules/caller"]
++is-module = true
++name = "caller"
++clients = ["github.com/example/first"]
++[sdks.go.scopes."modules/other"]
++is-module = true
++clients = ["github.com/example/other"]
++`
++
++func gitClientCacheContext(t testing.TB) context.Context {
++	ctx := t.Context()
++	cache, err := dagql.NewCache(ctx, "", nil, nil)
++	require.NoError(t, err)
++	t.Cleanup(func() {
++		require.NoError(t, cache.ReleaseSession(context.Background(), "declarations-test"))
++		require.NoError(t, cache.Close(context.Background()))
++	})
++	return engine.ContextWithClientMetadata(dagql.ContextWithCache(ctx, cache),
++		&engine.ClientMetadata{SessionID: "declarations-test"})
++}
++
++func TestDeclaredGitClientsFreshInputAndOwnership(t *testing.T) {
++	ctx := gitClientCacheContext(t)
++	files := map[string]string{"dagger.toml": gitDeclarationFixture}
++	var readErr error
++	read := func(rel string) ([]byte, bool, error) {
++		data, found := files[rel]
++		return []byte(data), found, readErr
++	}
++	check := func(dir string, want ...string) []string {
++		t.Helper()
++		got, err := DeclaredGitClients(ctx, dir, read)
++		require.NoError(t, err)
++		require.Equal(t, want, got)
++		return got
++	}
++	got := check("modules/caller", "github.com/example/first")
++	got[0] = "changed by caller"
++	check("modules/caller", "github.com/example/first")
++	check("modules/other", "github.com/example/other")
++	files["dagger.toml"] = strings.ReplaceAll(gitDeclarationFixture, "example/first", "example/newer")
++	check("modules/caller", "github.com/example/newer")
++	// Identical bytes at a nearer path select a different scope.
++	files["modules/caller/dagger.toml"] = gitDeclarationFixture
++	check("modules/caller", "github.com/example/root")
++	delete(files, "modules/caller/dagger.toml")
++	check("modules/caller", "github.com/example/newer")
++	files["dagger.toml"] = "[invalid"
++	check("modules/caller")
++	files["dagger.toml"] = gitDeclarationFixture
++	readErr = errors.New("unreadable configuration")
++	_, err := DeclaredGitClients(ctx, "modules/caller", read)
++	require.ErrorIs(t, err, readErr)
++	readErr = nil
++	check("modules/caller", "github.com/example/first")
++	delete(files, "dagger.toml")
++	check("modules/caller")
++}
++
++func TestDeclaredGitClientsConcurrentOwnership(t *testing.T) {
++	ctx := gitClientCacheContext(t)
++	data := []byte(gitDeclarationFixture)
++	read := func(rel string) ([]byte, bool, error) { return data, rel == "dagger.toml", nil }
++	var group sync.WaitGroup
++	for range 16 {
++		group.Go(func() {
++			for range 8 {
++				got, err := DeclaredGitClients(ctx, "modules/caller", read)
++				if err != nil || len(got) != 1 || got[0] != "github.com/example/first" {
++					t.Errorf("declarations = %v, err = %v", got, err)
++					return
++				}
++				got[0] = "owned by this caller"
++			}
++		})
++	}
++	group.Wait()
++}
++
++type configWarningExporter struct {
++	mu       sync.Mutex
++	messages []string
++}
++
++func (e *configWarningExporter) Export(_ context.Context, records []sdklog.Record) error {
++	e.mu.Lock()
++	defer e.mu.Unlock()
++	for _, record := range records {
++		e.messages = append(e.messages, record.Body().AsString())
++	}
++	return nil
++}
++
++func (*configWarningExporter) Shutdown(context.Context) error   { return nil }
++func (*configWarningExporter) ForceFlush(context.Context) error { return nil }
++
++func TestDeclaredGitClientsWarningsPerCaller(t *testing.T) {
++	legacy := strings.Replace(gitDeclarationFixture, "source = \"go\"", "source = \"go\"\nas-sdk = true", 1)
++	duplicate := `
++[sdks.go.scopes."./modules/caller"]
++is-module = true
++name = "caller"
++clients = ["github.com/example/first"]
++`
++	for _, test := range []struct {
++		name     string
++		data     string
++		warnings int
++		clients  []string
++	}{
++		{"reconciled", legacy + duplicate, 2, []string{"github.com/example/first"}},
++		{"conflicting", legacy + strings.Replace(duplicate, `name = "caller"`, `name = "conflicting"`, 1), 1, nil},
++		{"unknown field", legacy + duplicate + "unknown = true\n", 0, nil},
++	} {
++		t.Run(test.name, func(t *testing.T) {
++			cacheCtx := gitClientCacheContext(t)
++			data := []byte(test.data)
++			read := func(rel string) ([]byte, bool, error) { return data, rel == "dagger.toml", nil }
++			for range 2 {
++				export := &configWarningExporter{}
++				provider := sdklog.NewLoggerProvider(sdklog.WithProcessor(sdklog.NewSimpleProcessor(export)))
++				ctx := telemetry.WithLoggerProvider(cacheCtx, provider)
++				ctx = slog.ContextWithColorMode(ctx, true)
++				got, err := DeclaredGitClients(ctx, "modules/caller", read)
++				require.NoError(t, err)
++				require.Equal(t, test.clients, got)
++				require.NoError(t, provider.Shutdown(context.Background()))
++				require.Len(t, export.messages, test.warnings)
++				if test.warnings > 0 {
++					require.Contains(t, export.messages[0], "unsupported field modules.go.as-sdk")
++				}
++				if test.warnings > 1 {
++					require.Contains(t, export.messages[1], "reconciled scope keys")
++				}
++			}
++		})
++	}
++}
+diff --git a/core/workspace/git_clients.go b/core/workspace/git_clients.go
+index 843d2b85bd..01e76d062e 100644
+--- a/core/workspace/git_clients.go
++++ b/core/workspace/git_clients.go
+@@ -3,6 +3,7 @@ package workspace
+ import (
+ 	"context"
+ 	"path"
++	"slices"
+ 	"strconv"
+ 	"strings"
+ )
+@@ -30,11 +31,10 @@ func DeclaredGitClients(ctx context.Context, moduleDir string, read TreeFileRead
+ 			case dir != ".":
+ 				scope = strings.TrimPrefix(moduleDir, dir+"/")
+ 			}
+-			cfg, err := ParseConfigAt(ctx, data, ".")
+-			if err != nil {
+-				return nil, nil //nolint:nilerr // deliberate: a config that does not parse declares nothing
+-			}
+-			return ModuleScopeGitClients(cfg, ".")[scope], nil
++			declared := cachedGitClientDeclarations(ctx, data)
++			logConfigWarnings(ctx, declared.warnings)
++			// Cached declarations are immutable; callers own their returned slice.
++			return slices.Clone(declared.scopes[scope]), nil
+ 		}
+ 		if dir == "." {
+ 			return nil, nil
+diff --git a/core/workspace/sdk_scopes.go b/core/workspace/sdk_scopes.go
+index d8757ea102..e534726fb0 100644
+--- a/core/workspace/sdk_scopes.go
++++ b/core/workspace/sdk_scopes.go
+@@ -160,21 +160,32 @@ func mergeSDKScopes(first, second SDKScope) (SDKScope, []string) {
+ // ParseConfigAt resolves and reconciles SDK scope paths once the workspace
+ // config directory is known. This only changes the in-memory configuration.
+ func ParseConfigAt(ctx context.Context, data []byte, configDir string) (*Config, error) {
++	cfg, warnings, err := parseConfigAt(data, configDir)
++	logConfigWarnings(ctx, warnings)
++	return cfg, err
++}
++
++// parseConfigAt keeps derivation independent of the caller's telemetry context.
++func parseConfigAt(data []byte, configDir string) (*Config, []string, error) {
+ 	cfg, err := ParseConfig(data)
+ 	if err != nil {
+-		return nil, err
++		return nil, nil, err
+ 	}
+ 	warnings, err := CheckConfigFields(data, filepath.ToSlash(filepath.Join(configDir, ConfigFileName)))
+ 	if err != nil {
+-		return nil, err
++		return nil, nil, err
++	}
++	messages, err := ReconcileSDKScopes(cfg, configDir)
++	if err != nil {
++		return nil, warnings, err
+ 	}
++	return cfg, append(warnings, messages...), nil
++}
++
++func logConfigWarnings(ctx context.Context, warnings []string) {
+ 	for _, warning := range warnings {
+ 		slog.GlobalLogger(ctx, "dagger/workspace").Warn(warning)
+ 	}
+-	if err := reconcileSDKScopes(ctx, cfg, configDir); err != nil {
+-		return nil, err
+-	}
+-	return cfg, nil
+ }
+ 
+ // UpdateConfigBytesAt checks scope uniqueness at the configuration write
+diff --git a/core/workspace/testdata/git-client-declarations.toml b/core/workspace/testdata/git-client-declarations.toml
+new file mode 100644
+index 0000000000..4142b4a556
+--- /dev/null
++++ b/core/workspace/testdata/git-client-declarations.toml
+@@ -0,0 +1,64 @@
++# Dagger workspace configuration
++# Install modules with: dagger mod install <module>
++# Example:
++#   dagger mod install github.com/dagger/dagger/modules/wolfi
++
++[modules.dang-sdk]
++source = "github.com/dagger/dang-sdk@collections"
++
++[modules.go-dev]
++source = ".dagger/modules/go-dev"
++entrypoint = true
++
++# Each tool's suite is installed under a <tool>-checks key, so one `dagger
++# check` runs all four and prefixes each check with the tool it belongs to.
++# The key is what prefixes; "e2e" would kebab-case into "e-2-e".
++#
++# The "./" is required. A source that holds a "." but does not start with one
++# may be a hostname to Dagger, so it is not rewritten into the repository when
++# the workspace is loaded from git, as in CI, and fails to load there.
++[modules.gomod-checks]
++source = "./gomod/.dagger/modules/e2e"
++
++[modules.golangci-lint-checks]
++source = "./golangci-lint/.dagger/modules/e2e"
++
++[modules.staticcheck-checks]
++source = "./staticcheck/.dagger/modules/e2e"
++
++[sdks.dang]
++module = "dang-sdk"
++
++[sdks.dang.scopes."."]
++is-module = true
++name = "go"
++clients = ["./gomod"]
++
++[sdks.dang.scopes."gomod"]
++is-module = true
++name = "gomod"
++
++[sdks.dang.scopes."gomod/.dagger/modules/e2e"]
++is-module = true
++name = "e2e"
++clients = ["./gomod"]
++
++[sdks.dang.scopes."golangci-lint"]
++is-module = true
++name = "golangci-lint"
++clients = ["./gomod"]
++
++[sdks.dang.scopes."golangci-lint/.dagger/modules/e2e"]
++is-module = true
++name = "e2e"
++clients = ["./golangci-lint"]
++
++[sdks.dang.scopes."staticcheck"]
++is-module = true
++name = "staticcheck"
++clients = ["./gomod"]
++
++[sdks.dang.scopes."staticcheck/.dagger/modules/e2e"]
++is-module = true
++name = "e2e"
++clients = ["./staticcheck"]

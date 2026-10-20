@@ -1,5 +1,14 @@
 # Reuse declarations for identical current configuration
 
+## Current draft: DagQL's existing cache
+
+[Draft #14741](https://github.com/dagger/dagger/pull/14741) now uses DagQL's `GetOrInitArbitrary`, with no global LRU. The cache helper is 40 rather than 49 lines; session-aware test setup makes the whole PR roughly the same size. Current-main race suites and real CLI output/cleanup checks pass. Repeated declaration lookups measure **343.55 → 5.22 µs**, while distinct inputs cost about **13% more**. The 16-package complete-command cohort **does not establish a gain**: 6.66 versus 6.83 s. Live snapshots verify use and release of the real configuration entry. See the [complete current verification](experiments/standalone-go-collections/assessment/config-dagql-integration-oct19/).
+
+Everything below describes the earlier LRU prototype. Its component and full-command timings must not be attributed to the current DagQL implementation.
+
+## Earlier LRU prototype
+
+
 ## Current-main verification, October 19
 
 The independent patch now applies directly to main `ce6dc9f9403b52067f5831149eab4871f857185d`. Both main and the patch pass the complete workspace race suite with the same behavior tests. Four alternating fresh-process component pairs measure repeated lookups at **324.928 → 3.989 µs** and concurrent lookups at **139.608 → 1.178 µs**. Distinct content measures **335.409 → 351.0615 µs**, a 4.7% median miss penalty. Those fresh miss results supersede the older 1.5% estimate for the current patch. [Raw current-main verification](experiments/standalone-go-collections/assessment/config-declarations-oct19/) includes all checks, samples, logs and source hashes.

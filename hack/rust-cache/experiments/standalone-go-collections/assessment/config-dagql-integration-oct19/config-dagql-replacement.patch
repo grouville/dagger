@@ -1,0 +1,191 @@
+diff --git a/core/workspace/git_client_config_cache.go b/core/workspace/git_client_config_cache.go
+index 8412a0d1b0..cba184d120 100644
+--- a/core/workspace/git_client_config_cache.go
++++ b/core/workspace/git_client_config_cache.go
+@@ -1,48 +1,39 @@
+ package workspace
+ 
+ import (
++	"context"
+ 	"crypto/sha256"
+-	"sync"
++	"encoding/hex"
+ 
+-	lru "github.com/hashicorp/golang-lru/v2"
++	"github.com/dagger/dagger/dagql"
++	"github.com/dagger/dagger/engine"
+ )
+ 
+-const maxCachedGitClientConfigSize = 64 << 10
+-
+ type gitClientDeclarations struct {
+ 	scopes   map[string][]string
+ 	warnings []string
+ }
+ 
+-// Bound retained contents and coalesce concurrent decoding without holding the
+-// LRU lock during parsing. A live tree read still precedes every lookup.
+-var gitClientConfigCache = func() *lru.Cache[[sha256.Size]byte, func() gitClientDeclarations] {
+-	cache, _ := lru.New[[sha256.Size]byte, func() gitClientDeclarations](32) // positive capacity
+-	return cache
+-}()
+-
+-func cachedGitClientDeclarations(data []byte) gitClientDeclarations {
+-	if len(data) > maxCachedGitClientConfigSize {
+-		return parseGitClientDeclarations(data)
+-	}
+-	key := sha256.Sum256(data)
+-	if load, ok := gitClientConfigCache.Get(key); ok {
+-		return load()
+-	}
+-	load := sync.OnceValue(func() gitClientDeclarations {
+-		return parseGitClientDeclarations(data)
+-	})
+-	if existing, ok, _ := gitClientConfigCache.PeekOrAdd(key, load); ok {
+-		load = existing
++func cachedGitClientDeclarations(ctx context.Context, data []byte) gitClientDeclarations {
++	cache, cacheErr := dagql.EngineCache(ctx)
++	md, metadataErr := engine.ClientMetadataFromContext(ctx)
++	if cacheErr == nil && metadataErr == nil && md != nil {
++		sum := sha256.Sum256(data)
++		result, err := cache.GetOrInitArbitrary(ctx, md.SessionID,
++			"workspace.git-client-declarations:"+hex.EncodeToString(sum[:]),
++			func(context.Context) (any, error) { return parseGitClientDeclarations(data), nil })
++		if err == nil {
++			return result.Value().(gitClientDeclarations)
++		}
+ 	}
+-	return load()
++	// Standalone configuration reads need no engine; cache failures must not
++	// change which clients a successfully read configuration declares.
++	return parseGitClientDeclarations(data)
+ }
+ 
+ func parseGitClientDeclarations(data []byte) gitClientDeclarations {
+ 	cfg, warnings, err := parseConfigAt(data, ".")
+ 	if err != nil {
+-		// Invalid configurations declare nothing, but warnings emitted before a
+-		// reconciliation error must still reach each caller.
+ 		return gitClientDeclarations{warnings: warnings}
+ 	}
+ 	return gitClientDeclarations{scopes: ModuleScopeGitClients(cfg, "."), warnings: warnings}
+diff --git a/core/workspace/git_client_config_cache_bench_test.go b/core/workspace/git_client_config_cache_bench_test.go
+index d52af91a2e..95a6d0a191 100644
+--- a/core/workspace/git_client_config_cache_bench_test.go
++++ b/core/workspace/git_client_config_cache_bench_test.go
+@@ -19,7 +19,7 @@ func BenchmarkGitClientDeclarations(b *testing.B) {
+ 		b.Run(scenario, func(b *testing.B) {
+ 			current := data
+ 			read := func(string) ([]byte, bool, error) { return current, true, nil }
+-			ctx := b.Context()
++			ctx := gitClientCacheContext(b)
+ 			check := func() {
+ 				got, err := DeclaredGitClients(ctx, ".", read)
+ 				if err != nil || len(got) != 0 {
+@@ -29,6 +29,7 @@ func BenchmarkGitClientDeclarations(b *testing.B) {
+ 			check()
+ 			b.ReportAllocs()
+ 			b.ResetTimer()
++			defer b.StopTimer()
+ 			if scenario == "parallel-repeated-content" {
+ 				b.RunParallel(func(pb *testing.PB) {
+ 					for pb.Next() {
+diff --git a/core/workspace/git_client_config_cache_test.go b/core/workspace/git_client_config_cache_test.go
+index 70ea39eed2..da7d012098 100644
+--- a/core/workspace/git_client_config_cache_test.go
++++ b/core/workspace/git_client_config_cache_test.go
+@@ -11,6 +11,8 @@ import (
+ 	"github.com/stretchr/testify/require"
+ 	sdklog "go.opentelemetry.io/otel/sdk/log"
+ 
++	"github.com/dagger/dagger/dagql"
++	"github.com/dagger/dagger/engine"
+ 	"github.com/dagger/dagger/engine/slog"
+ )
+ 
+@@ -30,7 +32,20 @@ is-module = true
+ clients = ["github.com/example/other"]
+ `
+ 
++func gitClientCacheContext(t testing.TB) context.Context {
++	ctx := t.Context()
++	cache, err := dagql.NewCache(ctx, "", nil, nil)
++	require.NoError(t, err)
++	t.Cleanup(func() {
++		require.NoError(t, cache.ReleaseSession(context.Background(), "declarations-test"))
++		require.NoError(t, cache.Close(context.Background()))
++	})
++	return engine.ContextWithClientMetadata(dagql.ContextWithCache(ctx, cache),
++		&engine.ClientMetadata{SessionID: "declarations-test"})
++}
++
+ func TestDeclaredGitClientsFreshInputAndOwnership(t *testing.T) {
++	ctx := gitClientCacheContext(t)
+ 	files := map[string]string{"dagger.toml": gitDeclarationFixture}
+ 	var readErr error
+ 	read := func(rel string) ([]byte, bool, error) {
+@@ -39,7 +54,7 @@ func TestDeclaredGitClientsFreshInputAndOwnership(t *testing.T) {
+ 	}
+ 	check := func(dir string, want ...string) []string {
+ 		t.Helper()
+-		got, err := DeclaredGitClients(t.Context(), dir, read)
++		got, err := DeclaredGitClients(ctx, dir, read)
+ 		require.NoError(t, err)
+ 		require.Equal(t, want, got)
+ 		return got
+@@ -59,24 +74,23 @@ func TestDeclaredGitClientsFreshInputAndOwnership(t *testing.T) {
+ 	check("modules/caller")
+ 	files["dagger.toml"] = gitDeclarationFixture
+ 	readErr = errors.New("unreadable configuration")
+-	_, err := DeclaredGitClients(t.Context(), "modules/caller", read)
++	_, err := DeclaredGitClients(ctx, "modules/caller", read)
+ 	require.ErrorIs(t, err, readErr)
+ 	readErr = nil
+ 	check("modules/caller", "github.com/example/first")
+ 	delete(files, "dagger.toml")
+ 	check("modules/caller")
+-	files["dagger.toml"] = gitDeclarationFixture + strings.Repeat("# padding\n", 8000)
+-	check("modules/caller", "github.com/example/first")
+ }
+ 
+ func TestDeclaredGitClientsConcurrentOwnership(t *testing.T) {
++	ctx := gitClientCacheContext(t)
+ 	data := []byte(gitDeclarationFixture)
+ 	read := func(rel string) ([]byte, bool, error) { return data, rel == "dagger.toml", nil }
+ 	var group sync.WaitGroup
+ 	for range 16 {
+ 		group.Go(func() {
+ 			for range 8 {
+-				got, err := DeclaredGitClients(t.Context(), "modules/caller", read)
++				got, err := DeclaredGitClients(ctx, "modules/caller", read)
+ 				if err != nil || len(got) != 1 || got[0] != "github.com/example/first" {
+ 					t.Errorf("declarations = %v, err = %v", got, err)
+ 					return
+@@ -124,12 +138,13 @@ clients = ["github.com/example/first"]
+ 		{"unknown field", legacy + duplicate + "unknown = true\n", 0, nil},
+ 	} {
+ 		t.Run(test.name, func(t *testing.T) {
++			cacheCtx := gitClientCacheContext(t)
+ 			data := []byte(test.data)
+ 			read := func(rel string) ([]byte, bool, error) { return data, rel == "dagger.toml", nil }
+ 			for range 2 {
+ 				export := &configWarningExporter{}
+ 				provider := sdklog.NewLoggerProvider(sdklog.WithProcessor(sdklog.NewSimpleProcessor(export)))
+-				ctx := telemetry.WithLoggerProvider(t.Context(), provider)
++				ctx := telemetry.WithLoggerProvider(cacheCtx, provider)
+ 				ctx = slog.ContextWithColorMode(ctx, true)
+ 				got, err := DeclaredGitClients(ctx, "modules/caller", read)
+ 				require.NoError(t, err)
+diff --git a/core/workspace/git_clients.go b/core/workspace/git_clients.go
+index 53fc20bf14..01e76d062e 100644
+--- a/core/workspace/git_clients.go
++++ b/core/workspace/git_clients.go
+@@ -31,7 +31,7 @@ func DeclaredGitClients(ctx context.Context, moduleDir string, read TreeFileRead
+ 			case dir != ".":
+ 				scope = strings.TrimPrefix(moduleDir, dir+"/")
+ 			}
+-			declared := cachedGitClientDeclarations(data)
++			declared := cachedGitClientDeclarations(ctx, data)
+ 			logConfigWarnings(ctx, declared.warnings)
+ 			// Cached declarations are immutable; callers own their returned slice.
+ 			return slices.Clone(declared.scopes[scope]), nil

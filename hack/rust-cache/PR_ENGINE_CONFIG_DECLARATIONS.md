@@ -1,31 +1,28 @@
 [Draft PR #14741](https://github.com/dagger/dagger/pull/14741)
 
-This is part of the work to make Go test collection listing faster. While listing the tests in `dagger/dagger`, the engine decoded the same 1.6 kB `dagger.toml` 15,003 times to check which Git clients a module may use. This happens before looking up the module function's cached result, even when the configuration declares no Git clients.
+This came out of profiling Go test collection listing. One full-repository run decoded the same 1.6 kB `dagger.toml` 15,003 times to determine which Git clients a module may use. This happens before the module function's result-cache lookup, because the declarations help determine its cache key.
 
-Reuse those declarations when the current configuration bytes are identical. Every lookup still reads the file and selects the nearest configuration, so edits, newly added files and read errors take effect immediately. The cache holds at most 32 configurations, skips files over 64 KiB, and uses the existing LRU library. Concurrent requests share one parse; parsing and warning delivery happen outside the cache lock. Each caller receives its own declaration slice and warnings.
+Reuse the parsed declarations through DagQL's existing `GetOrInitArbitrary` cache, keyed by the current file contents. Every lookup still reads the file and selects the nearest configuration. Each caller gets its own returned slice and warnings. The engine shares concurrent loads and removes the cached value after its last owning session ends. Without engine context, or if cache lookup fails, the helper parses normally.
 
-DagQL could store the parsed declarations through `GetOrInitArbitrary`. The ordinary function cache does not cover this work because the declarations help determine its cache key. The small LRU keeps the configuration helper independent of engine/session state and bounds retention to 32 entries; DagQL's arbitrary entries live until their last owning session ends. A [side-by-side component check](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/experiments/standalone-go-collections/assessment/config-cache-choice-oct19/README.md) finds similar lookup costs. The reason for the LRU is this simpler integration and explicit bound, not a claimed end-to-end advantage over DagQL.
+This adds no separate cache implementation. It does make the shared configuration helper depend on DagQL's cache/session context. Entries live for their owning commands rather than having a separate entry limit or surviving between commands.
 
-The median complete listing measured 45.51 s → 40.65 s (4.21 s median paired saving), with engine allocations falling from 35.06 GB to 32.75 GB. All four alternating pairs improved and returned the same 4,398 ordered rows, including successful command cleanup. Each command started a fresh CLI and edited a source file on a warm engine, with normal telemetry and GC.
+Benchmarks against main `ce6dc9f9403b52067f5831149eab4871f857185d`, using the actual Go configuration and four alternating fresh-process pairs:
 
-That end-to-end comparison used our experimental engine, with the other changes held constant and only declaration reuse toggled. It is evidence for this workload, not a measurement of this patch alone on today's main. The patch here is independent and based on `ce6dc9f9403b52067f5831149eab4871f857185d`; the configuration-loading code has not changed since that comparison.
-
-Fresh benchmarks against that main commit use the same real configuration, four alternating pairs per case, and 5,000 lookups per process:
-
-| Lookup | Main | This change | Allocations per lookup |
+| Declaration lookup | Main | This change | Allocations per lookup |
 | --- | ---: | ---: | ---: |
-| Same configuration | 324.93 µs | 3.99 µs | 2,818 → 3 |
-| Same configuration, concurrent callers | 139.61 µs | 1.18 µs | 2,818 → 3 |
-| Different configuration on every lookup | 335.41 µs | 351.06 µs | 2,823 → 2,826 |
+| Same contents | 343.55 µs | 5.22 µs | 2,818 → 9 |
+| Same contents, concurrent callers | 153.66 µs | 3.41 µs | 2,818 → 9 |
+| New contents every time | 342.69 µs | 387.88 µs | 2,823 → 2,840 |
 
-The cost is a bounded shared cache and about 4.7% more time when every lookup sees new content. That case gets no reuse benefit. The concurrent row reports time per lookup across eight workers, not single-request latency.
+Repeated-content cases improve in all four pairs. The cost when every input is new is about 13%; those lookups receive no reuse benefit. Concurrent numbers are time per completed lookup across eight workers.
 
-`go test -race -count=1 ./core/workspace` passes on both main and the patch with the same added tests. The tests cover configuration edits and deletion, a nearer configuration, errors, oversized files, caller mutation, concurrent callers and warnings delivered to each caller.
+A complete 16-package collection-listing comparison validates edited test names, ordered output and successful cleanup on matching main/candidate engines. It does **not** establish an end-to-end speedup: medians are 6.66 s and 6.83 s, with this change faster in one of four pairs. The earlier full-repository LRU prototype timings are not measurements of this implementation.
 
-To run the component benchmarks:
+The complete workspace race suite passes on main and the patch. Added tests exercise fresh edits, deletion, nearer configurations, errors, mutation, concurrent callers and per-caller warnings. A separate live-engine diagnostic confirms that the real configuration enters DagQL's cache and is released after the command finishes.
 
 ```sh
+go test -race -count=1 ./core/workspace
 go test ./core/workspace -run '^$' -bench '^BenchmarkGitClientDeclarations$' -benchmem -benchtime=5000x -cpu=8
 ```
 
-[Full-command measurements and methodology](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/NATIVE_CONFIG_DECLARATION_REUSE.md). [Current-main verification](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/experiments/standalone-go-collections/assessment/config-declarations-oct19/README.md).
+[Raw measurements, source identities and integration checks](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/experiments/standalone-go-collections/assessment/config-dagql-integration-oct19/README.md).

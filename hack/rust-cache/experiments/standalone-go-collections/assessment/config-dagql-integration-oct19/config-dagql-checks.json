@@ -1,0 +1,433 @@
+[
+  {
+    "label": "main-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-race",
+      "-count=1",
+      "./core/workspace"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-main-race.log",
+    "seconds": 5.680756392190233,
+    "exit_code": 0
+  },
+  {
+    "label": "main-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-c",
+      "-o",
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-main.test",
+      "./core/workspace"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-main-build.log",
+    "seconds": 4.775602817069739,
+    "exit_code": 0
+  },
+  {
+    "label": "candidate-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-c",
+      "-o",
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-candidate.test",
+      "./core/workspace"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-dagql",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-candidate-build.log",
+    "seconds": 11.130637547932565,
+    "exit_code": 0
+  },
+  {
+    "label": "repeated-content-0-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-repeated-content-0-main.log",
+    "seconds": 1.7169040760491043,
+    "exit_code": 0
+  },
+  {
+    "label": "repeated-content-0-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-dagql/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-repeated-content-0-candidate.log",
+    "seconds": 0.0641898987814784,
+    "exit_code": 0
+  },
+  {
+    "label": "repeated-content-1-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-dagql/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-repeated-content-1-candidate.log",
+    "seconds": 0.1155193520244211,
+    "exit_code": 0
+  },
+  {
+    "label": "repeated-content-1-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-repeated-content-1-main.log",
+    "seconds": 1.8687235028482974,
+    "exit_code": 0
+  },
+  {
+    "label": "repeated-content-2-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-repeated-content-2-main.log",
+    "seconds": 1.7170275640673935,
+    "exit_code": 0
+  },
+  {
+    "label": "repeated-content-2-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-dagql/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-repeated-content-2-candidate.log",
+    "seconds": 0.0640565489884466,
+    "exit_code": 0
+  },
+  {
+    "label": "repeated-content-3-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-dagql/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-repeated-content-3-candidate.log",
+    "seconds": 0.06541360984556377,
+    "exit_code": 0
+  },
+  {
+    "label": "repeated-content-3-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-repeated-content-3-main.log",
+    "seconds": 1.7675840358715504,
+    "exit_code": 0
+  },
+  {
+    "label": "parallel-repeated-content-0-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^parallel-repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-parallel-repeated-content-0-main.log",
+    "seconds": 0.7670644929166883,
+    "exit_code": 0
+  },
+  {
+    "label": "parallel-repeated-content-0-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^parallel-repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-dagql/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-parallel-repeated-content-0-candidate.log",
+    "seconds": 0.11614296701736748,
+    "exit_code": 0
+  },
+  {
+    "label": "parallel-repeated-content-1-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^parallel-repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-dagql/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-parallel-repeated-content-1-candidate.log",
+    "seconds": 0.11582728801295161,
+    "exit_code": 0
+  },
+  {
+    "label": "parallel-repeated-content-1-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^parallel-repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-parallel-repeated-content-1-main.log",
+    "seconds": 0.817267982987687,
+    "exit_code": 0
+  },
+  {
+    "label": "parallel-repeated-content-2-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^parallel-repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-parallel-repeated-content-2-main.log",
+    "seconds": 0.8684960550162941,
+    "exit_code": 0
+  },
+  {
+    "label": "parallel-repeated-content-2-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^parallel-repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-dagql/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-parallel-repeated-content-2-candidate.log",
+    "seconds": 0.032428398029878736,
+    "exit_code": 0
+  },
+  {
+    "label": "parallel-repeated-content-3-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^parallel-repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-dagql/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-parallel-repeated-content-3-candidate.log",
+    "seconds": 0.03349202498793602,
+    "exit_code": 0
+  },
+  {
+    "label": "parallel-repeated-content-3-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^parallel-repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-parallel-repeated-content-3-main.log",
+    "seconds": 0.8720360270235687,
+    "exit_code": 0
+  },
+  {
+    "label": "distinct-content-0-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^distinct-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-distinct-content-0-main.log",
+    "seconds": 1.8189586051739752,
+    "exit_code": 0
+  },
+  {
+    "label": "distinct-content-0-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^distinct-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-dagql/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-distinct-content-0-candidate.log",
+    "seconds": 2.017493929946795,
+    "exit_code": 0
+  },
+  {
+    "label": "distinct-content-1-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^distinct-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-dagql/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-distinct-content-1-candidate.log",
+    "seconds": 1.9177268499042839,
+    "exit_code": 0
+  },
+  {
+    "label": "distinct-content-1-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^distinct-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-distinct-content-1-main.log",
+    "seconds": 1.7170276679098606,
+    "exit_code": 0
+  },
+  {
+    "label": "distinct-content-2-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^distinct-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-distinct-content-2-main.log",
+    "seconds": 1.7672391231171787,
+    "exit_code": 0
+  },
+  {
+    "label": "distinct-content-2-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^distinct-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-dagql/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-distinct-content-2-candidate.log",
+    "seconds": 2.069124731933698,
+    "exit_code": 0
+  },
+  {
+    "label": "distinct-content-3-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^distinct-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-dagql/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-distinct-content-3-candidate.log",
+    "seconds": 1.9674749278929085,
+    "exit_code": 0
+  },
+  {
+    "label": "distinct-content-3-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-dagql-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^distinct-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-dagql-distinct-content-3-main.log",
+    "seconds": 1.7170646539889276,
+    "exit_code": 0
+  }
+]
