@@ -2,7 +2,7 @@
 
 This is an independent Go-module change on main `8a1d6ad09c909a541e7e5fa319bddb5dba83d20b`, with the unmodified Dagger CLI and engine from main `23b004afe665eb4cc8a44767ba532fcb5cda2020`. It does not use the older experimental engine, Go module, compiler caches or host-glob CLI patch from earlier reports. The engine has its own retained volume, with no cache-policy overrides or forced collections. Binary hashes and build commands are in `builds.json` and `engine.json`.
 
-The clean fork branch is `grouville/go:perf/review-ordered-paths`, commit `461eadf61eba3cc9d7a4e3e24323c7835aa6b182`, with DCO. The two production files contain the same small change in three private helpers: if the new path belongs after the last accumulated path, append it; otherwise retain the existing insertion code. No public language API, cache, lock or additional retained state is introduced. The remaining insertion work and array copies can still be quadratic.
+Draft PR: https://github.com/dagger/go/pull/70. The clean fork branch is `grouville/go:perf/review-ordered-paths`, commit `461eadf61eba3cc9d7a4e3e24323c7835aa6b182`, with DCO. The two production files contain the same small change in three private helpers: if the new path belongs after the last accumulated path, append it; otherwise retain the existing insertion code. No public language API, cache, lock or additional retained state is introduced. The remaining insertion work and array copies can still be quadratic.
 
 ## Complete real-repository owned-file command
 

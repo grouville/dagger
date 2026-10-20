@@ -2,9 +2,9 @@
 
 ## Current independent ordered-path change, October 20
 
-An isolated [fork branch](https://github.com/grouville/go/tree/perf/review-ordered-paths), based on Go main `8a1d6ad`, adds a last-item check to the three private sorting helpers. On an unmodified Dagger main `23b004a` engine/CLI, the complete real-repository owned-file command improves **19.76 -> 3.15 s**, with cumulative engine allocations **19.72 -> 2.13 GB**, faster in all four pairs. All 2,511 paths and their order match an independent inventory, and cleanup succeeds. Separate wcprof runs confirm both variants execute the operation. Reverse and shuffled component controls are slower and documented. Public ordering and existing test-collection checks pass on main and the patch.
+[Draft Go PR #70](https://github.com/dagger/go/pull/70) uses an isolated [fork branch](https://github.com/grouville/go/tree/perf/review-ordered-paths), based on Go main `8a1d6ad`, adds a last-item check to the three private sorting helpers. On an unmodified Dagger main `23b004a` engine/CLI, the complete real-repository owned-file command improves **19.76 -> 3.15 s**, with cumulative engine allocations **19.72 -> 2.13 GB**, faster in all four pairs. All 2,511 paths and their order match an independent inventory, and cleanup succeeds. Separate wcprof runs confirm both variants execute the operation. Reverse and shuffled component controls are slower and documented. Public ordering and existing test-collection checks pass on main and the patch.
 
-This is a file-discovery result; the full test-listing gain remains unmeasured. [Current source, commands, controls and checks](experiments/standalone-go-collections/assessment/go-ordered-paths-oct20/).
+This is a file-discovery result; the full test-listing gain remains unmeasured. A separate sorting-only full-listing smoke on current main hit its 600-second limit without rows; [the diagnostic and CPU/wcprof windows](experiments/standalone-go-collections/assessment/full-listing-current-main-oct20/) preserve that failure and the remaining package-discovery work. [Current source, commands, controls and checks](experiments/standalone-go-collections/assessment/go-ordered-paths-oct20/).
 
 ## Earlier combined discovery changes
 
