@@ -1,0 +1,52 @@
+critpath of 1766 ops matching all ops (outermost matches only): 201.25s summed
+on-path time by class (sums to the roots' duration; concurrent work off the path gets nothing):
+     on_path      % segments  kind class
+      88.55s  44.0%        1  call go:Go.packages
+      42.43s  21.1%        1  call gomod:Gomod.modules
+      17.20s   8.5%       59  call gomod:GomodGoMod.ownFiles
+      11.62s   5.8%      197  call Workspace.glob
+      11.42s   5.7%      294  call gomod:Gomod.workspaceRootPath
+       9.10s   4.5%      184  call gomod:Gomod.at
+       8.81s   4.4%      125  call gomod:GomodGoMod.selected
+       5.37s   2.7%     1766  session_phase session.query
+       1.87s   0.9%      222  call Host.directory
+       1.00s   0.5%     1766  session_phase session.schemaBuild
+    619.25ms   0.3%      176  call Workspace.search
+    575.42ms   0.3%        4  call ModuleSource._moduleTypesDefinition
+    369.08ms   0.2%     3041  internal dagql.publishResult
+    324.91ms   0.2%      505  call SearchResult.search
+    266.37ms   0.1%      479  call gomod:Query.gomod
+    242.59ms   0.1%     1282  call Query.node
+    215.07ms   0.1%        1  call go:Query.go
+    180.96ms   0.1%    27387  call Query.typeDef
+    176.85ms   0.1%      140  call Workspace.findRoots
+    107.50ms   0.1%      479  call SearchResult.filePath
+    105.79ms   0.1%    23395  call TypeDef.withOptional
+     71.26ms   0.0%        6  call ModuleSource.asModule
+     62.64ms   0.0%      419  call SearchResult.matchedLines
+     53.76ms   0.0%       80  call Directory.file
+     49.62ms   0.0%    11932  call TypeDef.withKind
+     47.16ms   0.0%     2898  call Module._implementationScoped
+     45.92ms   0.0%     8092  call TypeDef.withObject
+     34.73ms   0.0%     7345  call TypeDef.withListOf
+     33.03ms   0.0%       80  call Workspace.file
+     27.30ms   0.0%      140  call Directory.glob
+     21.48ms   0.0%        4  call Query.moduleSource
+     21.40ms   0.0%     1766  session_phase session.workspaceLoad
+     20.55ms   0.0%      292  call Query.__schemaJSONFile
+     19.62ms   0.0%        6  call Workspace.artifacts
+     15.42ms   0.0%     1766  session_phase session.serveQuery
+     14.03ms   0.0%        4  call ModuleSource._moduleNamespacedDefinition
+     11.11ms   0.0%      374  call String.glob
+     10.70ms   0.0%      165  call Function.__withArg
+      9.78ms   0.0%        3  call ArtifactPath.moduleName
+      9.61ms   0.0%       15  call Directory.digest
+  … 76 more classes (raise `top`)
+
+path of the longest (offsets from its start; `dur` on the path, `own` not in any blocker):
++0ns dur 88.78s own 7.3µs  9950 session_phase session.serveQuery [ok]
+  +18.2µs dur 88.78s own 298.2µs  9954 session_phase session.query [ok]
+    +242.6µs dur 88.78s own 8.15ms  9958 call Artifacts.items [canceled] (exec 9959)
+      +232.80ms dur 88.55s own 88.55s  10722 call go:Go.packages [canceled] (exec 10723)
+(242 segments not shown: runs of them totaling under 1% of the path, 224.51ms)
+(runs of sub-1% segments totaling 1%+ show their largest members, the rest as "… N shorter"; ▸ N: N segments not expanded, raise `depth` or re-root with `op`; (exec N): a call folded with its call_exec op N)

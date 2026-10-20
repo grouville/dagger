@@ -6,6 +6,12 @@
 
 **The current-main full-listing gain remains unverified.** New main, LRU and DagQL attempts all reach the 180-second limit without rows. They cannot establish completed-command performance or LRU superiority over DagQL. The PR stays draft. See the [cache comparison and full-repository screening](experiments/standalone-go-collections/assessment/config-cache-full-listing-oct19/).
 
+## Why the current full listing remains slow
+
+A [90-second wcprof/CPU diagnostic](experiments/standalone-go-collections/assessment/full-listing-gap-oct19/) still sits in package discovery, with no `GoPackage.tests` executions. The engine repeatedly loads Dang modules; sampled CPU includes 27.4% parsing and 37.3% background garbage collection. The CLI spends 80.2% of its sampled CPU walking directories. These are CPU-window measurements, not wall-time percentages or a new end-to-end benchmark.
+
+The earlier ~45-second cohort also used the modified Go module, an experimental engine reusing eligible Dang module declarations, and a patched host-glob CLI. It was not only a different engine version. These differences identify larger work to investigate, but their individual contributions to the gap have not been measured on a fixed current-main setup.
+
 ## DagQL alternative, no longer the current PR
 
 The DagQL version used `GetOrInitArbitrary`, replacing 49 lines of LRU helper with 40 lines and adding engine/session dependencies to the configuration package. Session-aware setup made the whole PR roughly the same size. Its repeated lookup result was **343.55 → 5.22 µs**, while distinct inputs cost about **13% more**. Its separate 16-package complete-command comparison **did not establish a gain**, 6.66 versus 6.83 s. Live snapshots verified use and release of the real configuration entry. These results remain in the [DagQL verification archive](experiments/standalone-go-collections/assessment/config-dagql-integration-oct19/).

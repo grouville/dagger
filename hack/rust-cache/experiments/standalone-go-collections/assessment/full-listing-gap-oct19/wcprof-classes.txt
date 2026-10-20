@@ -1,0 +1,44 @@
+classes: 109527 ops in 216 classes (all ops) over 90.01s, self_tot 236.95s (summed across concurrent ops); sorted by self
+(left out: 5716 internal-kind ops, self_tot 11.22s; kind: "internal" ranks them)
+   count   self_tot  self_p50  self_max    dur_tot   dur_p50   dur_max   dup  kind class               outcomes
+       1     88.55s    88.55s    88.55s     88.55s    88.55s    88.55s     0  call_exec go:Go.packages error:1
+       1     42.43s    42.43s    42.43s     42.43s    42.43s    42.43s     0  call_exec gomod:Gomod.modules ok:1
+      59     17.20s  241.62ms     1.64s     17.20s  241.66ms     1.64s     0  call_exec gomod:GomodGoMod.ownFiles ok:59
+    1801     14.79s   110.1µs  176.58ms     17.26s   177.3µs  199.85ms     0  call SearchResult.search hit:994 executed:807
+     140     11.61s   76.14ms  180.14ms     11.61s   76.14ms  180.14ms     0  call_exec Workspace.glob ok:140
+      80     11.42s  140.84ms  217.49ms     11.42s  140.87ms  217.52ms     0  call_exec gomod:Gomod.workspaceRootPath ok:80
+    1801     10.41s    58.2µs  159.81ms     11.75s    92.1µs  173.41ms     0  call SearchResult.matchedLines hit:994 executed:807
+      69      9.09s  119.36ms  217.60ms      9.09s  119.39ms  217.64ms     0  call_exec gomod:Gomod.at ok:69
+      69      8.88s  123.61ms  198.39ms      8.88s  123.66ms  198.43ms     0  call_exec gomod:GomodGoMod.selected ok:69
+    1801      7.33s    55.8µs  169.71ms      8.24s    83.7µs  169.73ms     0  call SearchResult.filePath hit:994 executed:807
+    1766      5.37s   359.1µs   53.20ms    199.81s    3.81ms    88.78s     0  session_phase session.query ok:1766
+     164      1.90s    9.72ms  129.73ms      1.90s    9.74ms  129.76ms     0  call_exec Host.directory ok:164
+     807      1.13s    61.0µs   46.57ms      1.13s    61.0µs   46.57ms     0  call_exec SearchResult.search ok:807
+    1766      1.00s     1.1µs   16.68ms      1.40s     1.1µs   77.53ms     0  session_phase session.schemaBuild ok:1766
+     807   753.36ms    42.4µs   31.86ms   753.36ms    42.4µs   31.86ms     0  call_exec SearchResult.matchedLines ok:807
+      59   595.93ms    8.20ms   42.13ms   595.93ms    8.20ms   42.13ms     0  call_exec Workspace.search ok:59
+       2   575.27ms  226.29ms  348.99ms   638.83ms  253.40ms  385.43ms     0  call_exec ModuleSource._moduleTypesDefinition ok:2
+      80   407.74ms    5.30ms    7.86ms   481.78ms    6.30ms    8.83ms     0  call gomod:GomodGoMod.path executed:80
+     807   398.02ms    31.2µs   31.96ms   398.02ms    31.2µs   31.96ms     0  call_exec SearchResult.filePath ok:807
+       2   251.87ms  124.48ms  127.39ms   253.11ms  125.68ms  127.43ms     0  call_exec gomod:Query.gomod ok:2
+    1282   242.59ms    49.9µs   10.03ms   269.84ms    65.8µs   10.06ms     0  call Query.node          do_not_cache:1282
+       1   215.02ms  215.02ms  215.02ms   222.48ms  222.48ms  222.48ms     0  call_exec go:Query.go    ok:1
+   27641   183.25ms     3.8µs   15.56ms   183.25ms     3.8µs   15.56ms     0  call Query.typeDef       hit:27641
+     140   172.24ms   945.7µs   15.23ms      1.26s    9.84ms  165.79ms     0  call_exec Workspace.findRoots ok:140
+    2975   112.69ms    11.3µs    6.42ms   113.08ms    11.3µs    6.42ms     0  call Module._implementationScoped hit:2971 executed:4
+   23403   106.16ms     3.4µs    6.95ms   106.71ms     3.4µs    6.95ms     6  call TypeDef.withOptional hit:23362 executed:41
+      38    87.04ms    1.58ms    6.41ms    99.23ms    1.86ms    7.27ms     0  call ArtifactDimension.keyName executed:38
+      38    84.99ms    1.82ms    6.43ms    95.08ms    2.37ms    6.50ms     0  call ArtifactDimension.qualifiedName executed:38
+      38    81.15ms    1.56ms    6.09ms    95.38ms    1.68ms    7.20ms     0  call ArtifactDimension.kind executed:38
+      38    78.87ms    1.68ms    6.97ms    92.31ms    1.72ms    7.96ms     0  call ArtifactDimension.name executed:38
+      38    74.95ms    1.60ms    5.46ms    88.97ms    1.72ms    6.42ms     0  call ArtifactDimension.keyDescription executed:38
+      38    74.69ms    1.74ms    5.16ms    84.17ms    1.97ms    6.11ms     0  call ArtifactDimension.collectionType executed:38
+      38    74.66ms    1.69ms    6.50ms    86.73ms    1.82ms    7.29ms     0  call ArtifactDimension.identifier executed:38
+       4    71.08ms   17.46ms   22.84ms      1.12s   41.78ms  761.31ms     0  call_exec ModuleSource.asModule ok:4
+      38    68.87ms    1.43ms    6.39ms    76.28ms    1.70ms    6.44ms     0  call ArtifactDimension.itemType executed:38
+      38    67.52ms   917.7µs    5.41ms    86.87ms    1.81ms    6.54ms     0  call ArtifactDimension.dimensionDefinitions executed:38
+     224    53.29ms   272.3µs    3.62ms      1.96s    9.49ms  133.38ms     0  call Host.directory      executed:164 hit:60
+     197    51.95ms   141.9µs   12.29ms     11.66s   74.85ms  183.70ms     0  call Workspace.glob      executed:140 hit:57
+   12185    51.61ms     3.4µs   157.5µs    51.66ms     3.4µs   157.5µs     0  call TypeDef.withKind    hit:12182 executed:3
+      77    51.22ms   584.1µs    5.78ms    51.22ms   584.1µs    5.78ms     0  call_exec Directory.file ok:77
+… 176 more classes (raise `top`)

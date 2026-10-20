@@ -1,0 +1,40 @@
+wcprof dump: 115243 ops, 5744 waits, 0 links over 90.01s; dropped events: 0; open ops: 0
+calls: 94974 (hit:87606 executed:5716 do_not_cache:1648 canceled:3 joined:1)
+top clients (of 144) by ops:
+       ops   self_tot  active               client
+     16024    115.90s  +1.57s..+90.01s      66IKQ66EXSETMVAV544Z52FD5W
+      7901     19.10s  +1.84s..+44.14s      7OA3JGFKDQNQ3GUNVI5ONFDAUA
+      6431      1.44s  +0ns..+905.51ms      VPE6UC4RAGTI6EQRY3DQZUZNOP
+      5716     11.22s  +26.31ms..+89.87s    (none)
+      3124     91.18s  +998.83ms..+89.94s   BODCEIYH4YP435PV5WVI3FEP4T
+       667   128.51ms  +54.17s..+54.31s     HHRN7FGMNJ7EQIRDUK245XVFNT
+       667   141.83ms  +83.81s..+83.96s     SRHMPVROUUR74FF6M5P5BWOOTJ
+       631   264.54ms  +85.46s..+85.73s     JRFB7XED2OWEDEZ72A7EEDWJV5
+       613   111.60ms  +60.19s..+60.30s     EFAR3VHVFNJYTWAHHGEMMLU4Y5
+       613   122.42ms  +61.95s..+62.08s     GPEJDHVWTC4M4AEOABVFRHETNC
+top classes (of 216) by count:
+     count   self_tot  kind class
+     27641   183.25ms  call Query.typeDef
+     23403   106.16ms  call TypeDef.withOptional
+     12185    51.61ms  call TypeDef.withKind
+      8093    45.69ms  call TypeDef.withObject
+      7345    34.65ms  call TypeDef.withListOf
+      2975   112.69ms  call Module._implementationScoped
+      1801      7.33s  call SearchResult.filePath
+      1801     10.41s  call SearchResult.matchedLines
+      1801     14.79s  call SearchResult.search
+      1766     1.84ms  session_phase session.modulesLoad
+top classes by self time:
+     count   self_tot  kind class
+         1     88.55s  call_exec go:Go.packages
+         1     42.43s  call_exec gomod:Gomod.modules
+        59     17.20s  call_exec gomod:GomodGoMod.ownFiles
+      1801     14.79s  call SearchResult.search
+       140     11.61s  call_exec Workspace.glob
+        80     11.42s  call_exec gomod:Gomod.workspaceRootPath
+      1801     10.41s  call SearchResult.matchedLines
+        69      9.09s  call_exec gomod:Gomod.at
+        69      8.88s  call_exec gomod:GomodGoMod.selected
+      1801      7.33s  call SearchResult.filePath
+(left out: 5716 internal-kind ops, self_tot 11.22s; kind: "internal" ranks them)
+(times are relative to the first recorded op; self = duration minus child ops and waits; self_tot sums it across ops, concurrent ones included, so it can exceed wall time)

@@ -1,0 +1,89 @@
+{
+  "engine": {
+    "name": "dagger-config-dagql-main-oct19",
+    "runner": "tcp://127.0.0.1:32844",
+    "debug": "http://127.0.0.1:32845",
+    "volume": "dagger-config-dagql-main-oct19",
+    "base": "ce6dc9f9403b52067f5831149eab4871f857185d",
+    "binary_sha256": "40ad8c82ab5babe5662a101f928b2c07dff68c635f2c05de9775c7803145a8c0",
+    "image": "sha256:af521f4adb6de430d63a79b4c14dbd162e21c7e6d0cf207f7dcfbf716857c370",
+    "command": [
+      "docker",
+      "create",
+      "--name",
+      "dagger-config-dagql-main-oct19",
+      "--label",
+      "codex.task=go-listing-independent-review",
+      "--privileged",
+      "--env",
+      "GOMAXPROCS=8",
+      "-p",
+      "127.0.0.1::1234",
+      "-p",
+      "127.0.0.1::6060",
+      "--mount",
+      "type=volume,source=dagger-config-dagql-main-oct19,target=/var/lib/dagger",
+      "sha256:af521f4adb6de430d63a79b4c14dbd162e21c7e6d0cf207f7dcfbf716857c370",
+      "--addr",
+      "tcp://0.0.0.0:1234",
+      "--debugaddr",
+      "0.0.0.0:6060"
+    ],
+    "cache_policy_overrides": false
+  },
+  "source": "/tmp/dagger-go-collection-current-main",
+  "command": [
+    "python3",
+    "/tmp/rust-cache-sipsma-review/local_cli_collector.py",
+    "check",
+    "--module",
+    "go",
+    "--check",
+    "test",
+    "--list",
+    "--all"
+  ],
+  "profiling": true,
+  "excluded_from_benchmarks": true,
+  "seconds": 90.06526066781953,
+  "rows": 0,
+  "interrupted": true,
+  "exit_code": -2,
+  "captures": [
+    {
+      "process": "cli",
+      "start": 10.000085863983259,
+      "end": 20.021777216810733
+    },
+    {
+      "process": "engine",
+      "start": 10.000305031891912,
+      "end": 20.024775658966973
+    },
+    {
+      "process": "cli",
+      "start": 40.00026128999889,
+      "end": 50.012326831929386
+    },
+    {
+      "process": "engine",
+      "start": 40.00008579296991,
+      "end": 50.02221861598082
+    },
+    {
+      "process": "cli",
+      "start": 70.00047921785153,
+      "end": 80.00836068484932
+    },
+    {
+      "process": "engine",
+      "start": 70.00010251789354,
+      "end": 80.01945011899807
+    }
+  ],
+  "errors": [],
+  "engine_cpu": 143.83542699999998,
+  "allocated_bytes": 41384456056,
+  "allocations": 535778673,
+  "gc_cycles": 483
+}
