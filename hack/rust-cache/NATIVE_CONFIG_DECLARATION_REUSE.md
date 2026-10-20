@@ -1,5 +1,13 @@
 # Reuse declarations for identical current configuration
 
+## Current-main verification, October 19
+
+The independent patch now applies directly to main `ce6dc9f9403b52067f5831149eab4871f857185d`. Both main and the patch pass the complete workspace race suite with the same behavior tests. Four alternating fresh-process component pairs measure repeated lookups at **324.928 → 3.989 µs** and concurrent lookups at **139.608 → 1.178 µs**. Distinct content measures **335.409 → 351.0615 µs**, a 4.7% median miss penalty. Those fresh miss results supersede the older 1.5% estimate for the current patch. [Raw current-main verification](experiments/standalone-go-collections/assessment/config-declarations-oct19/) includes all checks, samples, logs and source hashes.
+
+The full-command measurements below used an earlier experimental engine with the other changes held constant. They remain workload evidence, not a fresh measurement of this patch alone on current main.
+
+## Earlier full-command investigation
+
 Complete edited Go test listing improves **45.51 → 40.65 seconds median**, faster in all four pairs. Cumulative engine allocation falls **35.06 → 32.75 GB**, with engine CPU **218.89 → 206.55 CPU-seconds**. All ten commands, including initialization, return the expected ordered rows and exit successfully through session cleanup. Listing remains too slow.
 
 The [host-read investigation](NATIVE_CONFIG_LOOKUP_COSTS.md) found 15,003 opens of the same unchanged configuration before module-function result lookup. The initialization comparison now counts **15,003 declaration lookups and one decode** in the candidate. The control performs 15,003 ordinary declaration loads. This change continues reading current bytes and checking the nearest configuration; it shares the derived declarations rather than repeatedly interpreting identical content.

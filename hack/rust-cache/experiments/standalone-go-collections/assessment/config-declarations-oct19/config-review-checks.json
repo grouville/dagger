@@ -1,0 +1,448 @@
+[
+  {
+    "label": "main-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-race",
+      "-count=1",
+      "./core/workspace"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-main-race.log",
+    "seconds": 22.323213155847043,
+    "exit_code": 0
+  },
+  {
+    "label": "main-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-c",
+      "-o",
+      "/tmp/go-collection-upstream-review-oct19/config-review-main.test",
+      "./core/workspace"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-main-build.log",
+    "seconds": 11.6557442471385,
+    "exit_code": 0
+  },
+  {
+    "label": "candidate-race",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-race",
+      "-count=1",
+      "./core/workspace"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-review",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-candidate-race.log",
+    "seconds": 20.67278272495605,
+    "exit_code": 0
+  },
+  {
+    "label": "candidate-build",
+    "command": [
+      "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+      "test",
+      "-p=2",
+      "-c",
+      "-o",
+      "/tmp/go-collection-upstream-review-oct19/config-review-candidate.test",
+      "./core/workspace"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-review",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-candidate-build.log",
+    "seconds": 11.508733908180147,
+    "exit_code": 0
+  },
+  {
+    "label": "repeated-content-0-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-repeated-content-0-main.log",
+    "seconds": 1.616847726982087,
+    "exit_code": 0
+  },
+  {
+    "label": "repeated-content-0-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-review/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-repeated-content-0-candidate.log",
+    "seconds": 0.031942880945280194,
+    "exit_code": 0
+  },
+  {
+    "label": "repeated-content-1-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-review/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-repeated-content-1-candidate.log",
+    "seconds": 0.06425613490864635,
+    "exit_code": 0
+  },
+  {
+    "label": "repeated-content-1-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-repeated-content-1-main.log",
+    "seconds": 1.6724911041092128,
+    "exit_code": 0
+  },
+  {
+    "label": "repeated-content-2-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-repeated-content-2-main.log",
+    "seconds": 1.7681148548144847,
+    "exit_code": 0
+  },
+  {
+    "label": "repeated-content-2-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-review/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-repeated-content-2-candidate.log",
+    "seconds": 0.06411725701764226,
+    "exit_code": 0
+  },
+  {
+    "label": "repeated-content-3-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-review/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-repeated-content-3-candidate.log",
+    "seconds": 0.06451812898740172,
+    "exit_code": 0
+  },
+  {
+    "label": "repeated-content-3-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-repeated-content-3-main.log",
+    "seconds": 1.6670008159708232,
+    "exit_code": 0
+  },
+  {
+    "label": "parallel-repeated-content-0-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^parallel-repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-parallel-repeated-content-0-main.log",
+    "seconds": 0.7161698848940432,
+    "exit_code": 0
+  },
+  {
+    "label": "parallel-repeated-content-0-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^parallel-repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-review/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-parallel-repeated-content-0-candidate.log",
+    "seconds": 0.03424177085980773,
+    "exit_code": 0
+  },
+  {
+    "label": "parallel-repeated-content-1-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^parallel-repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-review/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-parallel-repeated-content-1-candidate.log",
+    "seconds": 0.035574567038565874,
+    "exit_code": 0
+  },
+  {
+    "label": "parallel-repeated-content-1-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^parallel-repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-parallel-repeated-content-1-main.log",
+    "seconds": 0.7173227372113615,
+    "exit_code": 0
+  },
+  {
+    "label": "parallel-repeated-content-2-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^parallel-repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-parallel-repeated-content-2-main.log",
+    "seconds": 0.7158515620976686,
+    "exit_code": 0
+  },
+  {
+    "label": "parallel-repeated-content-2-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^parallel-repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-review/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-parallel-repeated-content-2-candidate.log",
+    "seconds": 0.032952256966382265,
+    "exit_code": 0
+  },
+  {
+    "label": "parallel-repeated-content-3-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^parallel-repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-review/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-parallel-repeated-content-3-candidate.log",
+    "seconds": 0.03198107308708131,
+    "exit_code": 0
+  },
+  {
+    "label": "parallel-repeated-content-3-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^parallel-repeated-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-parallel-repeated-content-3-main.log",
+    "seconds": 0.7182206639554352,
+    "exit_code": 0
+  },
+  {
+    "label": "distinct-content-0-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^distinct-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-distinct-content-0-main.log",
+    "seconds": 1.6673600319772959,
+    "exit_code": 0
+  },
+  {
+    "label": "distinct-content-0-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^distinct-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-review/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-distinct-content-0-candidate.log",
+    "seconds": 1.6668942489195615,
+    "exit_code": 0
+  },
+  {
+    "label": "distinct-content-1-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^distinct-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-review/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-distinct-content-1-candidate.log",
+    "seconds": 1.817727766931057,
+    "exit_code": 0
+  },
+  {
+    "label": "distinct-content-1-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^distinct-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-distinct-content-1-main.log",
+    "seconds": 1.7681412769015878,
+    "exit_code": 0
+  },
+  {
+    "label": "distinct-content-2-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^distinct-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-distinct-content-2-main.log",
+    "seconds": 1.7673544520512223,
+    "exit_code": 0
+  },
+  {
+    "label": "distinct-content-2-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^distinct-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-review/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-distinct-content-2-candidate.log",
+    "seconds": 1.8184452438727021,
+    "exit_code": 0
+  },
+  {
+    "label": "distinct-content-3-candidate",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-candidate.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^distinct-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-review/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-distinct-content-3-candidate.log",
+    "seconds": 1.8172529870644212,
+    "exit_code": 0
+  },
+  {
+    "label": "distinct-content-3-main",
+    "command": [
+      "/tmp/go-collection-upstream-review-oct19/config-review-main.test",
+      "-test.run=^$",
+      "-test.bench=^BenchmarkGitClientDeclarations$/^distinct-content$",
+      "-test.benchtime=5000x",
+      "-test.count=1",
+      "-test.cpu=8",
+      "-test.benchmem"
+    ],
+    "cwd": "/tmp/go-collection-upstream-review-oct19/engine-config-main/core/workspace",
+    "log": "/tmp/go-collection-upstream-review-oct19/config-review-distinct-content-3-main.log",
+    "seconds": 1.6669098718557507,
+    "exit_code": 0
+  }
+]

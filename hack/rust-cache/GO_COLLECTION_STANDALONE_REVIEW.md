@@ -1,10 +1,16 @@
 # Go collection contributions: verification and decisions
 
-The original sixteen proposals now have **five open drafts, two closed PRs and nine performance proposals on hold**. The three correctness fixes were reproduced on current upstream main before publication. Earlier source branches remain on the forks. Two recovered proposals now also have drafts: [span indexing, #14738](https://github.com/dagger/dagger/pull/14738) and [Go package-local search, Go #68](https://github.com/dagger/go/pull/68). A separately reproduced [workspace-search correctness fix, #14740](https://github.com/dagger/dagger/pull/14740), brings the reviewed queues to eight drafts. Go #68 now contains the verified package-scoped replacement; it needs #14740 before merging to support package directories created through Dagger on host workspaces.
+The original sixteen proposals now have **five open PRs, two closed PRs and nine performance proposals on hold**. The three correctness fixes were reproduced on current upstream main before publication. Earlier source branches remain on the forks. Two recovered proposals now also have drafts: [span indexing, #14738](https://github.com/dagger/dagger/pull/14738) and [Go package-local search, Go #68](https://github.com/dagger/go/pull/68). A separately reproduced [workspace-search correctness fix, #14740](https://github.com/dagger/dagger/pull/14740), brings the reviewed queues to eight open PRs: six drafts and two ready for review. Go #68 now contains the verified package-scoped replacement; it needs #14740 before merging to support package directories created through Dagger on host workspaces.
 
 This is the status of the extracted PR queue, not the whole Go listing project. Its thirteen performance proposals comprise **eight engine/CLI changes, three Dang interpreter changes and two Go module changes**. The three correctness fixes are additional. Preparing and pushing a branch does not establish that its independent benefit justifies a PR.
 
 Of the eight engine/CLI performance proposals, two are open drafts, two were closed and four remain on hold. Both Go module performance proposals remain on their fork branches without PRs: shared generation matching did not repeat its earlier gain in the new comparison; native membership regresses in most independent fixture pairs and does not currently qualify as a performance contribution.
+
+## Current focus
+
+Prepare and verify the larger changes behind the complete Go collection-listing gains. Prioritize ownership reuse, parallel discovery and configuration-declaration reuse, followed by bulk artifact metadata and batching module discovery. The counts of small PRs and correctness fixes do not establish that these end-to-end gains have reached upstream.
+
+Verify each against an explicit upstream base, with a representative package/module ratio, complete edited-workspace commands, controls, resource costs and useful correctness checks. Preserve all attempts. A worthwhile complete-command gain can justify a patch even when a small fixture shows little benefit. Publish verified, scoped changes as draft PRs under the existing authorization; avoid starting unrelated small optimizations while this work remains unfinished.
 
 ## Earlier gains and unfinished larger changes
 
@@ -50,8 +56,8 @@ The older collection-index benchmark uses 1,000 independent collection field def
 | [Skip unrelated directories in host globs, #14731](https://github.com/dagger/dagger/pull/14731) | Draft | Package lookup 9.28 → 0.10 ms; whole-tree control 14.13 → 14.12 ms. Thirteen added production lines preserve the existing matcher and ordering. No standalone listing gain claimed. |
 | [Skip empty disk-usage bookkeeping, #14732](https://github.com/dagger/dagger/pull/14732) | Closed | The stress fixture and older experimental-cache results do not yet establish the payoff on a representative current-main command. Source and measurements remain available. |
 | [Walk directly to a single include, #14733](https://github.com/dagger/dagger/pull/14733) | Closed | The larger fixture saves 2.46 ms per walk, the smaller about 8 µs. Actual benefit has not justified 77 added implementation lines and their filesystem edge cases. |
-| [Keep copied schema types independent, #14736](https://github.com/dagger/dagger/pull/14736) | Draft | Two-line correctness fix. Both Install and Extend reproduce the overwrite on main c5456d9cbf and pass with the fix under the race detector. Extra allocation when an override would have reused spare array space; no new locks. |
-| [Correct converted Dang list types, #14737](https://github.com/dagger/dagger/pull/14737) | Draft | One-line correctness fix. Four type/JSON cases fail on main c5456d9cbf and pass under the race detector. |
+| [Keep copied schema types independent, #14736](https://github.com/dagger/dagger/pull/14736) | Ready for review | Two-line correctness fix. Both Install and Extend reproduce the overwrite on main c5456d9cbf and pass with the fix under the race detector. Extra allocation when an override would have reused spare array space; no new locks. |
+| [Correct converted Dang list types, #14737](https://github.com/dagger/dagger/pull/14737) | Ready for review | One-line correctness fix. Four type/JSON cases fail on main c5456d9cbf and pass under the race detector. |
 | [Preserve nested-selection item types, Dang #194](https://github.com/vito/dang/pull/194) | Draft | Valid program fails on main bf649b8d and passes with the fix; nullable cases stay rejected. The complete interpreter race suite passes. |
 
 ## Performance proposals on hold

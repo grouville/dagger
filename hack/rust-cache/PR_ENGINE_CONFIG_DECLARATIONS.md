@@ -1,16 +1,27 @@
-Module-function cache lookup repeatedly reads and decodes the governing `dagger.toml`. A complete Go test listing on `dagger/dagger` loads the same 1.6 KB configuration 15,003 times, even when its contents do not change.
+This is part of the work to make Go test collection listing faster. While listing the tests in `dagger/dagger`, the engine decoded the same 1.6 kB `dagger.toml` 15,003 times to check which Git clients a module may use. This happens before looking up the module function's cached result, even when the configuration declares no Git clients.
 
-Reuse the derived Git-client declarations for identical current bytes. Keep every live read, nearest-config selection and error check. Entries contain immutable declaration strings and warnings; each caller receives its own slice and warning delivery. Concurrent misses share one decode outside the cache mutex. The cache holds at most 32 configurations and bypasses inputs above 64 KiB.
+Reuse those declarations when the current configuration bytes are identical. Every lookup still reads the file and selects the nearest configuration, so edits, newly added files and read errors take effect immediately. The cache holds at most 32 configurations, skips files over 64 KiB, and uses the existing LRU library. Concurrent requests share one parse; parsing and warning delivery happen outside the cache lock. Each caller receives its own declaration slice and warnings.
 
-| Complete command | Before | After |
-| --- | ---: | ---: |
-| Go test collection listing | 45.51 s | 40.65 s |
-| Cumulative engine allocation | 35.06 GB | 32.75 GB |
+The median complete listing measured 45.51 s → 40.65 s (4.21 s median paired saving), with engine allocations falling from 35.06 GB to 32.75 GB. All four alternating pairs improved and returned the same 4,398 ordered rows, including successful command cleanup. Each command started a fresh CLI and edited a source file on a warm engine, with normal telemetry and GC.
 
-All four alternating pairs improve. Every command returns the same 4,398 ordered rows and exits successfully, including cleanup. Each invocation starts a fresh CLI and edits a used source file on the same warm engine. Telemetry and ordinary GC remain enabled. Initialization is retained separately. The candidate performs one decode for 15,003 lookups; result keys and compiled-result storage remain unchanged.
+That end-to-end comparison used our experimental engine, with the other changes held constant and only declaration reuse toggled. It is evidence for this workload, not a measurement of this patch alone on today's main. The patch here is independent and based on `ce6dc9f9403b52067f5831149eab4871f857185d`; the configuration-loading code has not changed since that comparison.
 
-Misses have a cost: isolated distinct-content cases are about 1.5% slower. A combined benchmark shows a larger miss penalty; both are retained in the [measurement report](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/NATIVE_CONFIG_DECLARATION_REUSE.md).
+Fresh benchmarks against that main commit use the same real configuration, four alternating pairs per case, and 5,000 lookups per process:
 
-The full workspace race suite passes on upstream code and the patch. Added checks cover fresh edits, nearer configurations, unreadable and invalid inputs, warnings for each caller, mutation and concurrent access. All six retained Rust histories preserve their compiler hits across restart and after the Go comparison.
+| Lookup | Main | This change | Allocations per lookup |
+| --- | ---: | ---: | ---: |
+| Same configuration | 324.93 µs | 3.99 µs | 2,818 → 3 |
+| Same configuration, concurrent callers | 139.61 µs | 1.18 µs | 2,818 → 3 |
+| Different configuration on every lookup | 335.41 µs | 351.06 µs | 2,823 → 2,826 |
 
-[Review branch](https://github.com/grouville/dagger/tree/perf/reuse-git-client-declarations). No PR is open.
+The cost is a bounded shared cache and about 4.7% more time when every lookup sees new content. That case gets no reuse benefit. The concurrent row reports time per lookup across eight workers, not single-request latency.
+
+`go test -race -count=1 ./core/workspace` passes on both main and the patch with the same added tests. The tests cover configuration edits and deletion, a nearer configuration, errors, oversized files, caller mutation, concurrent callers and warnings delivered to each caller.
+
+To run the component benchmarks:
+
+```sh
+go test ./core/workspace -run '^$' -bench '^BenchmarkGitClientDeclarations$' -benchmem -benchtime=5000x -cpu=8
+```
+
+[Full-command measurements and methodology](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/NATIVE_CONFIG_DECLARATION_REUSE.md). [Current-main verification](https://github.com/grouville/dagger/blob/experiment/rust-native-cache/hack/rust-cache/experiments/standalone-go-collections/assessment/config-declarations-oct19/README.md).
