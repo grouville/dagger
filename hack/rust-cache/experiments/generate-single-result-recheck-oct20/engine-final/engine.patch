@@ -1,0 +1,53 @@
+diff --git a/core/directory_scratch.go b/core/directory_scratch.go
+index 06650affd3..3560e3f201 100644
+--- a/core/directory_scratch.go
++++ b/core/directory_scratch.go
+@@ -15,6 +15,20 @@ type DirectoryScratchLazy struct{ LazyState }
+ 
+ type persistedDirectoryScratchLazy struct{}
+ 
++// IsScratch reports whether the directory comes from the canonical empty
++// directory operation, including when that operation was restored or imported.
++func (dir *Directory) IsScratch() bool {
++	dir.outputMu.Lock()
++	defer dir.outputMu.Unlock()
++	if _, ok := dir.Lazy.(*DirectoryScratchLazy); ok {
++		return true
++	}
++	if dir.transferPending != nil {
++		return dir.transferPending.LazyKind == "scratch"
++	}
++	return dir.lazyKind == "scratch"
++}
++
+ func validateDirectoryScratchPayload(raw json.RawMessage) error {
+ 	var fields map[string]json.RawMessage
+ 	if err := json.Unmarshal(raw, &fields); err != nil {
+diff --git a/core/schema/directory.go b/core/schema/directory.go
+index 3d9b10df60..a28bed25a8 100644
+--- a/core/schema/directory.go
++++ b/core/schema/directory.go
+@@ -1587,6 +1587,23 @@ func (s *directorySchema) changesetWithChangeset(ctx context.Context, parent dag
+ 		return nil, err
+ 	}
+ 
++	if parent.Self().Before.Self().IsScratch() && parent.Self().After.Self().IsScratch() {
++		// An empty starting changeset has nothing to merge. Keep the input's
++		// snapshots instead of round-tripping them through Git, which loses
++		// permission bits. Exclude root Git metadata as the merge does.
++		withoutGit := dagql.Selector{Field: "withoutDirectory", Args: []dagql.NamedInput{
++			{Name: "path", Value: dagql.NewString(".git")},
++		}}
++		var before, after dagql.ObjectResult[*core.Directory]
++		if err := srv.Select(ctx, change.Self().Before, &before, withoutGit); err != nil {
++			return nil, err
++		}
++		if err := srv.Select(ctx, change.Self().After, &after, withoutGit); err != nil {
++			return nil, err
++		}
++		return core.NewChangeset(ctx, before, after)
++	}
++
+ 	var after dagql.ObjectResult[*core.Directory]
+ 	if err := srv.Select(ctx, parent, &after, dagql.Selector{
+ 		Field: "__mergeWithChangeset",

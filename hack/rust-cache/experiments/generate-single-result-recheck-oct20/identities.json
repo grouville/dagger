@@ -1,0 +1,16 @@
+{
+  "base": "42795401a9285410d03c8fce23ae9d6f7cffd61f",
+  "base_clean": true,
+  "pr_head": "ce877b20baf492e65080805749bddff7eebd67a7",
+  "binaries": {
+    "dagger-candidate": "5d032cfb07b0bed2b72e52c65f983d56ea458001a775452652fe0bd0c44bd28e",
+    "dagger": "42f764a101264347f98cc810ec7fd9b8971b7c724b20d1ce7bff03e00d840a70",
+    "engine": "266c1b6f2849240e10ddf46fa2561c7f44c22e511b2bdeda16185d0f0f9476b5"
+  },
+  "overlay_sha256": "2a8550e2e324221838f8eb3e878a1dcb8e2d14fc9d6eea4d718de36fe3595201",
+  "build_command": "GOMAXPROCS=8 GOTOOLCHAIN=local GOWORK=off GOPROXY=off GOSUMDB=off CGO_ENABLED=0 go build -p=2 -buildvcs=false",
+  "candidate": "same CLI source and build flags; only candidate-cli.patch supplied via Go overlay",
+  "telemetry": "normal CLI exporter to local OTLP receiver; no telemetry disabling",
+  "timing": "fresh CLI subprocess start to exit, including cleanup; fixture reset and validation outside timing",
+  "benchmark": "6 alternating pairs per size after two excluded priming pairs; no concurrent benchmark or build; four CPUs per engine"
+}

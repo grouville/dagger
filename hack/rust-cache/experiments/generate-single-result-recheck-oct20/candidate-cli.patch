@@ -1,0 +1,21 @@
+--- a/internal/cmd/dagger/generators.go
++++ b/internal/cmd/dagger/generators.go
+@@ -177,7 +177,17 @@
+ 			changes[i] = after.Changes(before)
+ 		}
+ 	}
+-	merged := core.NewQuery(dag).Changeset().WithChangesets(changes, core.ChangesetWithChangesetsOpts{OnConflict: core.ChangesetsMergeConflictFailEarly})
++	var merged *core.Changeset
++	if len(changes) == 1 {
++		// There is nothing to merge. Keep the snapshots so Git cannot discard
++		// permission bits or empty directories, and exclude root Git metadata
++		// just as the merge path does.
++		before := changes[0].Before().WithoutDirectory(".git")
++		after := changes[0].After().WithoutDirectory(".git")
++		merged = after.Changes(before)
++	} else {
++		merged = core.NewQuery(dag).Changeset().WithChangesets(changes, core.ChangesetWithChangesetsOpts{OnConflict: core.ChangesetsMergeConflictFailEarly})
++	}
+ 	if err := verifyRegeneratedModules(ctx, dag, merged, failures); err != nil {
+ 		return err
+ 	}

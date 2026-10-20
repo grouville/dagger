@@ -1,0 +1,329 @@
+=== RUN   TestChangeset
+=== PAUSE TestChangeset
+=== CONT  TestChangeset
+=== RUN   TestChangeset/TestSingleChangesetPreservesSnapshots
+=== PAUSE TestChangeset/TestSingleChangesetPreservesSnapshots
+=== CONT  TestChangeset/TestSingleChangesetPreservesSnapshots
+    testctx.go:198: Creating new Engine session... OK!
+    testctx.go:198: Establishing connection to Engine... OK!
+=== RUN   TestChangeset/TestSingleChangesetPreservesSnapshots/withChangeset
+=== PAUSE TestChangeset/TestSingleChangesetPreservesSnapshots/withChangeset
+=== RUN   TestChangeset/TestSingleChangesetPreservesSnapshots/withChangesets
+=== PAUSE TestChangeset/TestSingleChangesetPreservesSnapshots/withChangesets
+=== CONT  TestChangeset/TestSingleChangesetPreservesSnapshots/withChangeset
+=== RUN   TestChangeset/TestSingleChangesetPreservesSnapshots/withChangeset/snapshots
+=== PAUSE TestChangeset/TestSingleChangesetPreservesSnapshots/withChangeset/snapshots
+=== RUN   TestChangeset/TestSingleChangesetPreservesSnapshots/withChangeset/unchanged_parent_retains_its_base
+=== PAUSE TestChangeset/TestSingleChangesetPreservesSnapshots/withChangeset/unchanged_parent_retains_its_base
+=== CONT  TestChangeset/TestSingleChangesetPreservesSnapshots/withChangesets
+=== RUN   TestChangeset/TestSingleChangesetPreservesSnapshots/withChangesets/snapshots
+=== PAUSE TestChangeset/TestSingleChangesetPreservesSnapshots/withChangesets/snapshots
+=== RUN   TestChangeset/TestSingleChangesetPreservesSnapshots/withChangesets/unchanged_parent_retains_its_base
+=== PAUSE TestChangeset/TestSingleChangesetPreservesSnapshots/withChangesets/unchanged_parent_retains_its_base
+=== CONT  TestChangeset/TestSingleChangesetPreservesSnapshots/withChangeset/snapshots
+=== NAME  TestChangeset/TestSingleChangesetPreservesSnapshots
+    testctx.go:198: 1   : dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a
+    testctx.go:198: 2   : ┆ connect
+    testctx.go:198: 2   : ┆ [0.0s] | cloud url=https://dagger.cloud/traces/setup
+    testctx.go:198: 3   : ┆ ┆ starting engine
+    testctx.go:198: 3   : ┆ ┆ starting engine DONE [0.0s]
+    testctx.go:198: 4   : ┆ ┆ connecting to engine
+    testctx.go:198: 4   : ┆ ┆ [0.0s] | 11:34:50 INF connected name=56749efca3b9 client-version=v1.0.0-beta.20 server-version=v1.0.0-beta.20
+    testctx.go:198: 4   : ┆ ┆ connecting to engine DONE [0.0s]
+    testctx.go:198: 5   : ┆ ┆ starting session
+    testctx.go:198: 5   : ┆ ┆ starting session DONE [0.0s]
+    testctx.go:198: 2   : ┆ connect DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 6   : consuming /v1/traces
+    testctx.go:198: 6   : consuming /v1/traces DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 7   : consuming /v1/logs
+    testctx.go:198: 7   : consuming /v1/logs DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 8   : consuming /v1/metrics
+    testctx.go:198: 8   : consuming /v1/metrics DONE [0.0s]
+=== NAME  TestChangeset/TestSingleChangesetPreservesSnapshots/withChangeset/snapshots
+    testctx.go:174: 
+        	Error Trace:	/tmp/generate-14184-review/engine-change/core/integration/changeset_single_snapshot_test.go:44
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:296
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/otel-go@v1.43.1-0.20260917165636-2bca4f5622cf/oteltestctx/trace.go:163
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/middleware.go:25
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:150
+        	            				/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:1771
+        	Error:      	Not equal: 
+        	            	expected: 488
+        	            	actual  : 511
+        	Test:       	TestChangeset/TestSingleChangesetPreservesSnapshots/withChangeset/snapshots
+        	Messages:   	app
+=== CONT  TestChangeset/TestSingleChangesetPreservesSnapshots/withChangeset/unchanged_parent_retains_its_base
+=== NAME  TestChangeset/TestSingleChangesetPreservesSnapshots
+    testctx.go:198: 
+    testctx.go:198: 9   : withNewFile keep (contents: "unchanged")
+    testctx.go:198: 9   : Directory.withNewFile DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 10  : withNewFile text (contents: "before")
+    testctx.go:198: 10  : Directory.withNewFile DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 11  : withNewFile removed (contents: "remove")
+    testctx.go:198: 11  : Directory.withNewFile DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 12  : withNewFile .git/config (contents: "original")
+    testctx.go:198: 12  : Directory.withNewFile DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 13  : directory: Directory!
+    testctx.go:198: 13  : directory DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 14  : withNewFile text (contents: "after", permissions: 384)
+    testctx.go:198: 14  : Directory.withNewFile DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 15  : Directory.file(path: "text"): File!
+    testctx.go:198: 15  : Directory.file DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 16  : Directory.withoutFile(path: "removed"): Directory!
+    testctx.go:198: 16  : Directory.withoutFile DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 17  : Directory.withFile(
+    testctx.go:198: 17  : ┆ path: "text"
+    testctx.go:198: 17  : ┆ source: Directory.file(path: "text"): File!
+    testctx.go:198: 17  : ): Directory!
+=== CONT  TestChangeset/TestSingleChangesetPreservesSnapshots/withChangesets/snapshots
+=== NAME  TestChangeset/TestSingleChangesetPreservesSnapshots
+    testctx.go:198: 
+    testctx.go:198: 18  : withNewFile app (contents: "binary\x00payload\n", permissions: 488)
+=== NAME  TestChangeset/TestSingleChangesetPreservesSnapshots/withChangesets/snapshots
+    testctx.go:174: 
+        	Error Trace:	/tmp/generate-14184-review/engine-change/core/integration/changeset_single_snapshot_test.go:44
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:296
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/otel-go@v1.43.1-0.20260917165636-2bca4f5622cf/oteltestctx/trace.go:163
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/middleware.go:25
+        	            				/home/dagger/go/pkg/mod/github.com/dagger/testctx@v0.1.2/testctx.go:150
+        	            				/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/src/runtime/asm_amd64.s:1771
+        	Error:      	Not equal: 
+        	            	expected: 488
+        	            	actual  : 511
+        	Test:       	TestChangeset/TestSingleChangesetPreservesSnapshots/withChangesets/snapshots
+        	Messages:   	app
+=== CONT  TestChangeset/TestSingleChangesetPreservesSnapshots/withChangesets/unchanged_parent_retains_its_base
+=== NAME  TestChangeset/TestSingleChangesetPreservesSnapshots
+    testctx.go:198: 
+    testctx.go:198: 1   : dagger session --label dagger.io/sdk.name:go --label dagger.io/sdk.version:n/a DONE [0.7s]
+    testctx.go:198: 
+    testctx.go:198: 17  : Directory.withFile DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 18  : Directory.withNewFile DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 19  : Directory.withNewDirectory(path: "empty", permissions: 448): Directory!
+    testctx.go:198: 19  : Directory.withNewDirectory DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 20  : withNewFile .git/config (contents: "modified")
+    testctx.go:198: 20  : Directory.withNewFile DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 21  : Directory.changes(
+    testctx.go:198: 21  : ┆ from: withNewFile .git/config (contents: "original")
+    testctx.go:198: 21  : ): Changeset!
+    testctx.go:198: 21  : Directory.changes DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 22  : changeset: Changeset!
+    testctx.go:198: 22  : changeset DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 23  : Changeset.withChangeset(
+    testctx.go:198: 23  : ┆ changes: Directory.changes(
+    testctx.go:198: 23  : ┆ ┆ from: withNewFile .git/config (contents: "original")
+    testctx.go:198: 23  : ┆ ): Changeset!
+    testctx.go:198: 23  : ): Changeset!
+    testctx.go:198: 23  : Changeset.withChangeset DONE [0.2s]
+    testctx.go:198: 
+    testctx.go:198: 24  : Directory.stat(path: "empty"): Stat
+    testctx.go:198: 24  : Directory.stat DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 25  : Directory.stat(path: "app"): Stat
+    testctx.go:198: 25  : Directory.stat DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 26  : withNewFile parent (contents: "retain")
+    testctx.go:198: 26  : Directory.withNewFile DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 27  : withNewFile source (contents: "before")
+    testctx.go:198: 27  : Directory.withNewFile DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 28  : withNewFile source (contents: "after")
+    testctx.go:198: 28  : Directory.withNewFile DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 29  : Directory.changes(
+    testctx.go:198: 29  : ┆ from: withNewFile source (contents: "before")
+    testctx.go:198: 29  : ): Changeset!
+    testctx.go:198: 29  : Directory.changes DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 30  : Directory.changes(
+    testctx.go:198: 30  : ┆ from: withNewFile parent (contents: "retain")
+    testctx.go:198: 30  : ): Changeset!
+    testctx.go:198: 30  : Directory.changes DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 31  : Changeset.withChangeset(
+    testctx.go:198: 31  : ┆ changes: Directory.changes(
+    testctx.go:198: 31  : ┆ ┆ from: withNewFile source (contents: "before")
+    testctx.go:198: 31  : ┆ ): Changeset!
+    testctx.go:198: 31  : ): Changeset!
+    testctx.go:198: 31  : Changeset.withChangeset DONE [0.1s]
+    testctx.go:198: 
+    testctx.go:198: 32  : Directory.file(path: "parent"): File!
+    testctx.go:198: 32  : Directory.file DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 33  : File.contents: String!
+    testctx.go:198: 33  : File.contents DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 34  : Directory.file(path: "parent"): File!
+    testctx.go:198: 34  : Directory.file DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 35  : File.contents: String!
+    testctx.go:198: 35  : File.contents CACHED [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 36  : Directory.file(path: "source"): File!
+    testctx.go:198: 36  : Directory.file DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 37  : File.contents: String!
+    testctx.go:198: 37  : File.contents DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 38  : Changeset.withChangesets(changes: [xxh3:b791c3fcb234c955]): Changeset!
+    testctx.go:198: 38  : Changeset.withChangesets DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 39  : Changeset.withChangesets(changes: [xxh3:3cdec7c9c300a5a1]): Changeset!
+    testctx.go:198: 39  : Changeset.withChangesets DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 40  : git resources
+    testctx.go:198: 40  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 41  : git resources
+    testctx.go:198: 41  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 42  : git resources
+    testctx.go:198: 42  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 43  : git resources
+    testctx.go:198: 43  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 44  : git resources
+    testctx.go:198: 44  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 45  : git resources
+    testctx.go:198: 45  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 46  : git resources
+    testctx.go:198: 46  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 47  : git resources
+    testctx.go:198: 47  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 48  : git resources
+    testctx.go:198: 48  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 49  : git resources
+    testctx.go:198: 49  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 50  : git resources
+    testctx.go:198: 50  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 51  : git resources
+    testctx.go:198: 51  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 52  : git resources
+    testctx.go:198: 52  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 53  : git resources
+    testctx.go:198: 53  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 54  : git resources
+    testctx.go:198: 54  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 55  : git resources
+    testctx.go:198: 55  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 56  : git resources
+    testctx.go:198: 56  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 57  : git resources
+    testctx.go:198: 57  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 58  : git resources
+    testctx.go:198: 58  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 59  : git resources
+    testctx.go:198: 59  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 60  : git resources
+    testctx.go:198: 60  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 61  : git resources
+    testctx.go:198: 61  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 62  : git resources
+    testctx.go:198: 62  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 63  : git resources
+    testctx.go:198: 63  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 64  : git resources
+    testctx.go:198: 64  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 65  : git resources
+    testctx.go:198: 65  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 66  : git resources
+    testctx.go:198: 66  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 67  : git resources
+    testctx.go:198: 67  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 68  : git resources
+    testctx.go:198: 68  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 69  : git resources
+    testctx.go:198: 69  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 70  : git resources
+    testctx.go:198: 70  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 71  : git resources
+    testctx.go:198: 71  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 72  : git resources
+    testctx.go:198: 72  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 73  : git resources
+    testctx.go:198: 73  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 74  : git resources
+    testctx.go:198: 74  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 75  : git resources
+    testctx.go:198: 75  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 76  : git resources
+    testctx.go:198: 76  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 77  : git resources
+    testctx.go:198: 77  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 78  : git resources
+    testctx.go:198: 78  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 79  : git resources
+    testctx.go:198: 79  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 80  : git resources
+    testctx.go:198: 80  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 81  : git resources
+    testctx.go:198: 81  : git resources DONE [0.0s]
+    testctx.go:198: 
+    testctx.go:198: 82  : git resources
+    testctx.go:198: 82  : git resources DONE [0.0s]
+    testctx.go:198: 
+--- FAIL: TestChangeset (0.00s)
+    --- FAIL: TestChangeset/TestSingleChangesetPreservesSnapshots (0.08s)
+        --- FAIL: TestChangeset/TestSingleChangesetPreservesSnapshots/withChangeset (0.00s)
+            --- FAIL: TestChangeset/TestSingleChangesetPreservesSnapshots/withChangeset/snapshots (0.61s)
+            --- PASS: TestChangeset/TestSingleChangesetPreservesSnapshots/withChangeset/unchanged_parent_retains_its_base (0.08s)
+        --- FAIL: TestChangeset/TestSingleChangesetPreservesSnapshots/withChangesets (0.00s)
+            --- FAIL: TestChangeset/TestSingleChangesetPreservesSnapshots/withChangesets/snapshots (0.01s)
+            --- PASS: TestChangeset/TestSingleChangesetPreservesSnapshots/withChangesets/unchanged_parent_retains_its_base (0.01s)
+FAIL

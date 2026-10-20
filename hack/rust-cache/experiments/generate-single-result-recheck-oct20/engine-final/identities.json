@@ -1,0 +1,85 @@
+{
+  "base": "35b97b7e55abd108f2d10255f709afc82f00175d",
+  "head": "06001d48dbfe6f631d0de95d2db3d909c417e521",
+  "cli_unchanged": true,
+  "production_lines_added": 31,
+  "source_sha256": {
+    "core/directory_scratch.go": "55407df11fcec0fb87fefbdc3f7969b60f57739f170b82302e1890bd927258bc",
+    "core/schema/directory.go": "d600e3702b34e189044ed62a188032db586ded1ced976ca4daf306261d80b326",
+    "core/schema/changeset_single_snapshot_test.go": "81315451ef34af73ded02271e8e5e2099bf9187b2f16fffda37f0fc79ba59c68",
+    "core/integration/changeset_single_snapshot_test.go": "217d44c233d743f2a9408a37eef48d72f7c931818e773c12779578b10cb34cba"
+  },
+  "builds": [
+    {
+      "arm": "main",
+      "base": "35b97b7e55abd108f2d10255f709afc82f00175d",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "build",
+        "-p=2",
+        "-buildvcs=false",
+        "-overlay=/tmp/generate-14184-review/engine-final/main-overlay.json",
+        "-o",
+        "/tmp/generate-14184-review/engine-final/bin/engine-main",
+        "./cmd/engine"
+      ],
+      "exit_code": 0,
+      "seconds": 99.52758354390971,
+      "binary_sha256": "722e45624a81005139928003054a3f6d792cf66704b17b7c414087b68791049a"
+    },
+    {
+      "arm": "engine",
+      "base": "35b97b7e55abd108f2d10255f709afc82f00175d",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "build",
+        "-p=2",
+        "-buildvcs=false",
+        "-o",
+        "/tmp/generate-14184-review/engine-final/bin/engine-candidate",
+        "./cmd/engine"
+      ],
+      "exit_code": 0,
+      "seconds": 86.79182664118707,
+      "binary_sha256": "025fa7cf45b3342d2865f75bad99dee797a84cab256b973fa76e027f14ae8571"
+    },
+    {
+      "arm": "cli",
+      "base": "35b97b7e55abd108f2d10255f709afc82f00175d",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "build",
+        "-p=2",
+        "-buildvcs=false",
+        "-o",
+        "/tmp/generate-14184-review/engine-final/bin/dagger",
+        "./cmd/dagger"
+      ],
+      "exit_code": 0,
+      "seconds": 8.237281561130658,
+      "binary_sha256": "9a341ceb5b1686c321daf4f7204c088f7f7ab5522726c956825dc1ac03f55b24"
+    },
+    {
+      "arm": "tests",
+      "base": "35b97b7e55abd108f2d10255f709afc82f00175d",
+      "command": [
+        "/home/dagger/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.linux-amd64/bin/go",
+        "test",
+        "-c",
+        "-p=2",
+        "-buildvcs=false",
+        "-o",
+        "/tmp/generate-14184-review/engine-final/bin/changeset-integration.test",
+        "./core/integration"
+      ],
+      "exit_code": 0,
+      "seconds": 31.41604281705804,
+      "binary_sha256": "e1429dddc655197d3702aeb7beb55912b1b500f94ef936c60090157111665436"
+    }
+  ],
+  "all_timed_commands_valid": true,
+  "timed_commands_including_priming": 32,
+  "unit_test_command": "GOMAXPROCS=8 GOTOOLCHAIN=local GOWORK=off GOPROXY=off GOSUMDB=off CGO_ENABLED=1 go test -race -p=2 ./core/schema -run '^(TestSingleChangesetPreservesSnapshotsAfter(Reopen|Transfer)|TestScratchDirectoryNativeReopen)$' -count=1",
+  "newer_main": "b00d83ea63f9b7be901744d3ded65247687361d2",
+  "newer_main_only_file_changed": "engine/server/session_cloud_telemetry_test.go"
+}
