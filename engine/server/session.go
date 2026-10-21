@@ -1588,11 +1588,11 @@ func (srv *Server) initializeClientRuntime(
 		coreMod = coreSchemaBase.CoreMod(coreView)
 
 		client.defaultDeps = core.NewSchemaBuilder(client.dagqlRoot, []core.Mod{coreMod})
-		servedMods := client.mod.Self().Deps.WithRoot(client.dagqlRoot)
+		servedMods := client.mod.Self().Deps
 		if len(client.mod.Self().ObjectDefs) > 0 {
 			servedMods = servedMods.Append(core.NewUserMod(client.mod))
 		}
-		client.servedMods = servedMods.ClientOwned()
+		client.servedMods = servedMods.ForkForClient(client.dagqlRoot)
 	} else if !opts.InertAttachables {
 		// Only a client that can read its host detects its own workspace. An
 		// in-engine SDK client without a module, such as one that evaluates an

@@ -190,6 +190,7 @@ func (f *moduleOwnershipTest) release(ctx context.Context) {
 }
 
 type moduleOwnershipModuleOpts struct {
+	userDefaults        *EnvFile
 	variant             string
 	explicitConstructor bool
 	deps                []Mod
@@ -207,6 +208,9 @@ func (f *moduleOwnershipTest) module(ctx context.Context, name string, opts modu
 		ModuleOriginalName: name,
 		SDKImpl:            f.runtime,
 		UserDefaults:       NewEnvFile(true),
+	}
+	if opts.userDefaults != nil {
+		src.UserDefaults = opts.userDefaults
 	}
 	srcRes := newTypeDefDetachedResult(f.t, f.dag, "ownership-source-"+name, src)
 	mod := &Module{

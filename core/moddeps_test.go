@@ -2,10 +2,12 @@ package core
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/dagger/dagger/dagql"
 	"github.com/dagger/dagger/dagql/call"
+	"github.com/dagger/dagger/engine"
 	"github.com/stretchr/testify/require"
 )
 
@@ -80,19 +82,27 @@ func (*ctxInstallMod) Install(ctx context.Context, _ *dagql.Server, _ ...Install
 // A shared builder must not hand one caller's cancellation to the others: the
 // schema is fine, only that caller gave up.
 func TestSchemaBuilderCanceledLoadDoesNotStick(t *testing.T) {
-	deps := NewSchemaBuilderMemo().Get(NewSchemaBuilder(&Query{}, []Mod{&ctxInstallMod{}}))
+	for _, fork := range []bool{false, true} {
+		t.Run(map[bool]string{false: "memo", true: "client fork"}[fork], func(t *testing.T) {
+			base := NewSchemaBuilder(&Query{}, []Mod{&ctxInstallMod{}})
+			deps := NewSchemaBuilderMemo().Get(base)
+			if fork {
+				deps = base.ForkForClient(&Query{})
+			}
 
-	canceled, cancel := context.WithCancel(t.Context())
-	cancel()
-	_, err := deps.Schema(canceled)
-	require.ErrorIs(t, err, context.Canceled)
-	require.False(t, deps.loadSchemaFailed.Load(), "a canceled load is not a failed build")
+			canceled, cancel := context.WithCancel(t.Context())
+			cancel()
+			_, err := deps.Schema(canceled)
+			require.ErrorIs(t, err, context.Canceled)
+			require.False(t, deps.loadSchemaFailed.Load(), "a canceled load is not a failed build")
 
-	srv, err := deps.Schema(t.Context())
-	require.NoError(t, err, "a later caller builds with its own context")
-	again, err := deps.Schema(t.Context())
-	require.NoError(t, err)
-	require.Same(t, srv, again, "the built server is kept")
+			srv, err := deps.Schema(t.Context())
+			require.NoError(t, err, "a later caller builds with its own context")
+			again, err := deps.Schema(t.Context())
+			require.NoError(t, err)
+			require.Same(t, srv, again, "the built server is kept")
+		})
+	}
 }
 
 // memoTestServer hands out one session's schema builder memo, and a client
@@ -131,6 +141,92 @@ func TestSchemaBuilderServerLivesInSessionMemo(t *testing.T) {
 	other, err := deps.Schema(client(NewSchemaBuilderMemo()))
 	require.NoError(t, err)
 	require.NotSame(t, srv, other, "another session builds its own")
+}
+
+type clientForkTestMod struct{ artifactProbeMod }
+
+func (m *clientForkTestMod) Install(ctx context.Context, dag *dagql.Server, opts ...InstallOpts) error {
+	if err := m.artifactProbeMod.Install(ctx, dag, opts...); err != nil {
+		return err
+	}
+	dagql.Fields[*Query]{dagql.Func("marker", func(_ context.Context, root *Query, _ struct{}) (dagql.String, error) {
+		return root.ConstructorArgs["marker"].(dagql.String), nil
+	}).DoNotCache("Read this client's query root.")}.Install(dag)
+	return nil
+}
+
+func TestSchemaBuilderClientForksShareInstallation(t *testing.T) {
+	cache, err := dagql.NewCache(t.Context(), "", nil, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, cache.Close(context.Background())) })
+	ctx := dagql.ContextWithCache(t.Context(), cache)
+	mod := &clientForkTestMod{}
+	server := &memoTestServer{mockServer: &mockServer{}, session: NewSchemaBuilderMemo()}
+	template := NewSchemaBuilder(&Query{Server: server}, []Mod{mod})
+	const clients = 8
+	var wg sync.WaitGroup
+	var markers [clients]dagql.String
+	var forks [clients]*dagql.Server
+	var errs [clients]error
+	for i := range clients {
+		wg.Go(func() {
+			root := &Query{Server: server, ConstructorArgs: map[string]dagql.Input{"marker": dagql.String(string(rune('a' + i)))}}
+			ctx := ContextWithQuery(ctx, root)
+			ctx = engine.ContextWithClientMetadata(ctx, &engine.ClientMetadata{ClientID: string(rune('a' + i)), SessionID: "forks"})
+			fork, err := template.ForkForClient(root).Schema(ctx)
+			if err != nil {
+				errs[i] = err
+				return
+			}
+			forks[i] = fork
+			errs[i] = fork.Select(ctx, fork.Root(), &markers[i], dagql.Selector{Field: "marker"})
+		})
+	}
+	wg.Wait()
+	for i := range clients {
+		require.NoError(t, errs[i])
+		require.Equal(t, dagql.String(string(rune('a'+i))), markers[i])
+	}
+	dagql.Fields[*Query]{dagql.Func("clientOnly", func(context.Context, *Query, struct{}) (dagql.String, error) {
+		return "one", nil
+	})}.Install(forks[0])
+	for i := 1; i < clients; i++ {
+		require.NotSame(t, forks[0], forks[i])
+		_, exists := forks[i].Root().ObjectType().FieldSpec("clientOnly", "")
+		require.False(t, exists, "one client cannot change another client's fields")
+	}
+	require.Equal(t, 1, mod.installs, "the session installs the module set once")
+	require.Nil(t, template.lazilyLoadedServer, "the cached module keeps no session server")
+}
+
+func TestSchemaBuilderClientForkDispatchesAfterSessionRelease(t *testing.T) {
+	f := newModuleOwnershipTest(t)
+	producer, consumer := f.session("producer"), f.session("consumer")
+	mod := f.module(producer, "probe", moduleOwnershipModuleOpts{})
+	base := NewSchemaBuilder(f.root, []Mod{&artifactCoreForkTestMod{base: f.dag}, NewUserMod(mod)})
+	root := &Query{Server: f.root.Server}
+	dag, err := base.ForkForClient(root).Schema(ContextWithQuery(producer, root))
+	require.NoError(t, err)
+	require.Same(t, root, dag.Root().Unwrap())
+
+	var obj dagql.ObjectResult[*ModuleObject]
+	require.NoError(t, dag.Select(producer, dag.Root(), &obj, dagql.Selector{Field: "probe"}))
+	id, err := obj.ID()
+	require.NoError(t, err)
+	_, err = dag.Load(consumer, id)
+	require.NoError(t, err)
+	f.release(producer)
+
+	var out string
+	require.NoError(t, dag.Select(consumer, obj, &out, dagql.Selector{
+		Field: "check",
+		Args:  []dagql.NamedInput{{Name: "label", Value: dagql.String("from consumer")}},
+	}))
+	require.Equal(t, "from consumer", out)
+	executed := f.runtime.executed()
+	require.Equal(t, resultID(t, mod), executed[len(executed)-1])
+	f.release(consumer)
+	f.assertReleased("forked schema must not keep the module or its objects alive")
 }
 
 // With no session to hold it, the server is built for the one call.

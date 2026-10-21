@@ -59,6 +59,9 @@ type SchemaBuilder struct {
 	// clientOwned marks a builder that may keep the server it builds. It is
 	// never copied: every derived builder starts unowned.
 	clientOwned bool
+	// Nested clients reuse this session's installed modules, then fork the
+	// registry onto their own query root. Derived module sets do not inherit it.
+	schemaTemplate *SchemaBuilder
 
 	lazilyLoadedServer *dagql.Server
 	loadSchemaErr      error
@@ -93,6 +96,26 @@ func (b *SchemaBuilder) Clone() *SchemaBuilder {
 func (b *SchemaBuilder) ClientOwned() *SchemaBuilder {
 	cp := b.Clone()
 	cp.clientOwned = true
+	return cp
+}
+
+// ForkForClient reuses module installation within a session while keeping
+// the client's query root and subsequent schema changes independent.
+func (b *SchemaBuilder) ForkForClient(root *Query) *SchemaBuilder {
+	cp := b.WithRoot(root)
+	cp.clientOwned = true
+	// Installing .env defaults can expand the caller's environment. Those
+	// schemas must still be built for each client.
+	for _, e := range b.entries {
+		mod, ok := e.mod.(*userMod)
+		if !ok {
+			continue
+		}
+		if src := mod.GetSource(); src != nil && src.UserDefaults != nil && len(src.UserDefaults.Environ) > 0 {
+			return cp
+		}
+	}
+	cp.schemaTemplate = b.Clone()
 	return cp
 }
 
@@ -381,6 +404,18 @@ func (b *SchemaBuilder) lazilyLoadSchema(ctx context.Context) (loadedSchema *dag
 		b.loadSchemaErr = rerr
 		b.loadSchemaFailed.Store(rerr != nil)
 	}()
+	if b.schemaTemplate != nil {
+		template, err := b.schemaTemplate.Schema(ctx)
+		if err != nil {
+			return nil, err
+		}
+		fork, err := template.Fork(ctx, b.root)
+		if err != nil {
+			return nil, err
+		}
+		InstallCoreSchemaLoaders(fork)
+		return fork, nil
+	}
 
 	var nonMains, mains []modDepEntry
 	for _, e := range b.entries {
