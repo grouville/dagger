@@ -784,12 +784,8 @@ func (sess *daggerSession) shutdownTelemetry(ctx context.Context) error {
 	clients := sess.clientMetricRuntimes()
 	errs = errors.Join(errs, runClientMetricOp(ctx, clients, "shutdown metrics", (*clientRuntime).shutdownMetrics))
 	metricDur = time.Since(metricStart)
-	if sess.tracerProvider != nil {
-		traceDur = timedProviderOp(ctx, &errs, sess.tracerProvider.ForceFlush)
-	}
-	if sess.loggerProvider != nil {
-		logDur = timedProviderOp(ctx, &errs, sess.loggerProvider.ForceFlush)
-	}
+	// Shutdown drains the processors itself. A preceding ForceFlush can spend
+	// the deadline and make provider Shutdown skip stopping their workers.
 	if sess.tracerProvider != nil {
 		traceDur += timedProviderOp(ctx, &errs, sess.tracerProvider.Shutdown)
 	}
