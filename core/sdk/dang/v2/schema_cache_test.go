@@ -114,6 +114,14 @@ func TestDangSchemaCacheIsolationAndRetry(t *testing.T) {
 	require.ErrorIs(t, err, failure)
 	_, err = cachedDangSchema(ctx, "retry", read)
 	require.NoError(t, err, "an unsuccessful decode must not poison later calls")
+
+	cache, err := dagql.EngineCache(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 3, cache.EntryStats().CompletedArbitrary)
+	require.NoError(t, cache.ReleaseSession(ctx, "schema-test"))
+	require.NoError(t, cache.WaitSessionRelease(ctx, "schema-test"))
+	require.Zero(t, cache.EntryStats().CompletedArbitrary, "decoded schemas must leave with their last session")
+	require.Zero(t, cache.EntryStats().OngoingArbitrary)
 }
 
 type schemaCacheClient string
@@ -166,8 +174,11 @@ type Query {
 				return err
 			}
 			value, found, err := env.Lookup(callCtx, "result")
-			if err != nil || !found {
-				return fmt.Errorf("lookup result: found=%v, error=%w", found, err)
+			if err != nil {
+				return fmt.Errorf("lookup result: %w", err)
+			}
+			if !found {
+				return errors.New("result was not bound")
 			}
 			if value.(dang.StringValue).Val != name {
 				return fmt.Errorf("wrong client value: %v; want %s", value, name)
