@@ -36,6 +36,9 @@ import (
 
 type dangSourceRunner func(context.Context, string) (dang.ValueScope, error)
 
+// Share parsing across calls; type checking and evaluation use fresh syntax.
+var syntaxCache = dang.NewSyntaxCache()
+
 // dangModule identifies the module currently being evaluated. It lets the
 // runtime map the module's own local type names (e.g. an interface "Overlay")
 // to the namespaced names present in its runtime schema (e.g. "ModuleAOverlay")
@@ -107,6 +110,7 @@ func evalDangSource(
 	runSource dangSourceRunner,
 	withEnv func(context.Context, dang.ValueScope) ([]byte, error),
 ) ([]byte, error) {
+	ctx = dang.WithSyntaxCache(ctx, syntaxCache)
 	return dangshared.WithNestedClientServer(ctx, query, nestedClientMetadata, inertAttachables, fnCall, moduleContext, func(ctx context.Context, gqlClient graphql.Client) ([]byte, error) {
 		var intro introspection.Response
 		f, err := schemaFile.Self().Open(ctx, dagql.ObjectResult[*core.File]{Result: schemaFile})
