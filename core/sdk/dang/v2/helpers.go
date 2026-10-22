@@ -25,6 +25,7 @@ import (
 	dangshared "github.com/dagger/dagger/core/sdk/dang/shared"
 	"github.com/dagger/dagger/dagql"
 	"github.com/dagger/dagger/engine"
+	"github.com/dagger/dagger/engine/wcprof"
 	telemetry "github.com/dagger/otel-go"
 	"github.com/vito/dang/v2/pkg/dang"
 	"github.com/vito/dang/v2/pkg/hm"
@@ -78,16 +79,24 @@ func (r *runtime) eval(
 		self := moduleContext.Self()
 		module := dangModule{name: self.Name(), originalName: self.OriginalName}
 
-		result, err := callDangFunction(ctx, env, fnCall, module)
+		invokeCtx, invokeOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.invokeFunction", wcprof.OpOpts{})
+		result, err := callDangFunction(invokeCtx, env, fnCall, module)
+		invokeOp.EndErr(err)
 		if err != nil {
 			return nil, err
 		}
 
-		if flushErr := query.Server.FlushSessionTelemetry(ctx); flushErr != nil {
+		flushCtx, flushOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.flushTelemetry", wcprof.OpOpts{})
+		flushErr := query.Server.FlushSessionTelemetry(flushCtx)
+		flushOp.EndErr(flushErr)
+		if flushErr != nil {
 			slog.Debug("failed to flush telemetry after Dang eval", "error", flushErr)
 		}
 
-		return json.Marshal(result)
+		_, marshalOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.marshalResult", wcprof.OpOpts{})
+		encoded, err := json.Marshal(result)
+		marshalOp.EndErr(err)
+		return encoded, err
 	})
 }
 
@@ -109,9 +118,20 @@ func evalDangSource(
 	forTypeDefs bool,
 	runSource dangSourceRunner,
 	withEnv func(context.Context, dang.ValueScope) ([]byte, error),
-) ([]byte, error) {
+) (_ []byte, rerr error) {
 	ctx = dang.WithSyntaxCache(ctx, syntaxCache)
-	return dangshared.WithNestedClientServer(ctx, query, nestedClientMetadata, inertAttachables, fnCall, moduleContext, func(ctx context.Context, gqlClient graphql.Client) ([]byte, error) {
+	ctx, evalOp := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.evaluate", wcprof.OpOpts{})
+	defer func() { evalOp.EndErr(rerr) }()
+	return dangshared.WithNestedClientServer(ctx, query, nestedClientMetadata, inertAttachables, fnCall, moduleContext, func(ctx context.Context, gqlClient graphql.Client) (_ []byte, rerr error) {
+		parentOp := wcprof.CurrentOpID(ctx)
+		ctx, phase := wcprof.BeginOp(ctx, wcprof.OpKindInternal, "dang.decodeSchema", wcprof.OpOpts{})
+		defer func() { phase.EndErr(rerr) }()
+		startPhase := func(class string) {
+			phase.End(wcprof.OutcomeOK)
+			// Keep import and stdio configuration added to ctx by earlier
+			// phases while making the phase operations siblings.
+			ctx, phase = wcprof.BeginOp(wcprof.ContextWithOpID(ctx, parentOp), wcprof.OpKindInternal, class, wcprof.OpOpts{})
+		}
 		var intro introspection.Response
 		f, err := schemaFile.Self().Open(ctx, dagql.ObjectResult[*core.File]{Result: schemaFile})
 		if err != nil {
@@ -122,6 +142,7 @@ func evalDangSource(
 			return nil, fmt.Errorf("decode schema: %w", err)
 		}
 
+		startPhase("dang.configureRuntime")
 		ctx = dang.ContextWithImportConfigs(ctx, dang.ImportConfig{
 			Name:       "Dagger",
 			Client:     gqlClient,
@@ -148,6 +169,7 @@ func evalDangSource(
 
 		modCtx := modSource.Self().ContextDirectory
 		var env dang.ValueScope
+		startPhase("dang.mountSource")
 		err = modCtx.Self().Mount(ctx, modCtx, func(path string) error {
 			modSrcDir := filepath.Join(path, modSource.Self().SourceSubpath)
 
@@ -161,8 +183,10 @@ func evalDangSource(
 			// for its declared types. At runtime the served schema already
 			// includes the module's own types (Module.IncludeSelfInDeps), so
 			// this is a no-op then.
+			startPhase("dang.prepareSelfTypes")
 			ensureModuleSelfTypes(intro.Schema, modSource.Self(), modSrcDir)
 
+			startPhase("dang.runProgram")
 			env, err = runSource(ctx, modSrcDir)
 			if err != nil {
 				if isDangSourceError(err) {
@@ -170,7 +194,12 @@ func evalDangSource(
 				}
 				return fmt.Errorf("run dir: %w", err)
 			}
-			return retainDangObjectDirectives(ctx, env, modSrcDir, forTypeDefs)
+			startPhase("dang.retainDirectives")
+			if err := retainDangObjectDirectives(ctx, env, modSrcDir, forTypeDefs); err != nil {
+				return err
+			}
+			startPhase("dang.unmountSource")
+			return nil
 		})
 		if err != nil {
 			if errors.As(err, new(*dangSourceError)) {
@@ -181,6 +210,7 @@ func evalDangSource(
 			return nil, fmt.Errorf("mount source: %w", err)
 		}
 
+		startPhase("dang.withEnvironment")
 		return withEnv(ctx, env)
 	})
 }
