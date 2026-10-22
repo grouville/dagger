@@ -220,14 +220,14 @@ func (c *Cache) queueSnapshotShareLocked(ctx context.Context, class eqClassID) {
 	if class == 0 {
 		return
 	}
-	members := c.snapshotShareMembersLocked(class)
-	if !shareClassHasReceiver(members) {
+	if c.outputEqClassImported[class] == 0 {
 		// No imported member can receive, so this class cannot produce work.
 		// Pending-part determination belongs to the unlocked probe, so a
 		// conservatively queued completed imported row may still yield an
 		// empty pass.
 		return
 	}
+	members := c.snapshotShareMembersLocked(class)
 	item := c.sharePending[class]
 	if item == nil {
 		op, err := c.beginCacheOperation()
@@ -318,17 +318,6 @@ func removeShareClass(queue []eqClassID, class eqClassID) []eqClassID {
 		}
 	}
 	return out
-}
-
-// shareClassHasReceiver filters on graph-visible origin facts alone: no task
-// is instantiated and no native body is probed on this path.
-func shareClassHasReceiver(members map[sharedResultID]*sharedResult) bool {
-	for _, row := range members {
-		if row.imported {
-			return true
-		}
-	}
-	return false
 }
 
 func (c *Cache) ensureSnapshotShareWorkerLocked() {

@@ -58,7 +58,7 @@ func TestPartSessionlessOwnSubset(t *testing.T) {
 			c.egraphMu.Lock()
 			resource.cacheSharedResult().sessionResourceHandle = "socket"
 			_, err := c.recomputeRequiredSessionResourcesLocked(resource.cacheSharedResult())
-			receiver.cacheSharedResult().imported = mode != "native-receiver"
+			c.setResultImportedLocked(receiver.cacheSharedResult(), mode != "native-receiver")
 			c.egraphMu.Unlock()
 			require.NoError(t, err)
 			transferTestDependency(c, ctx, donor, resource)
@@ -243,7 +243,7 @@ func TestPartLazyOperationPublishesOverObservedRepresentation(t *testing.T) {
 				shareTestEncodedReceiver(t, ctx, c, receiver)
 			} else {
 				c.egraphMu.Lock()
-				row.imported = true
+				c.setResultImportedLocked(row, true)
 				c.egraphMu.Unlock()
 			}
 			evaluated := persistedListTestResult(t, ctx, c, srv, "lazy-evaluated", newShareTestValue("evaluated", map[string]sharePartState{"fs": {Snapshot: "fs-snap"}}))

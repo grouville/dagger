@@ -110,7 +110,7 @@ func (c *Cache) dropValueLocked(ctx context.Context, res *sharedResult) ([]*shar
 	res.storedTransfer.Store(nil)
 	res.dependencyOwnershipRevision++
 	res.transferRevision++
-	res.imported = false
+	c.setResultImportedLocked(res, false)
 	res.expiresAtUnix = 0
 	res.sessionResourceHandle = ""
 	if _, err := c.recomputeRequiredSessionResourcesLocked(res); err != nil {

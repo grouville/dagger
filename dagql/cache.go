@@ -2353,6 +2353,9 @@ type Cache struct {
 
 	// inverse of resultOutputEqClasses, keyed by canonical output eq-class root
 	outputEqClassResults map[eqClassID]map[sharedResultID]struct{}
+	// Imported members in each canonical output class. Snapshot sharing can
+	// reject native-only classes without enumerating all their results.
+	outputEqClassImported map[eqClassID]int
 
 	// explicit result<->term associations. These are distinct from output eq
 	// class membership: multiple results can share an output eq class, but
@@ -2591,7 +2594,8 @@ type cacheUsageMayChange interface {
 // sharedResult holds cache-entry state and shared payload published to per-call Result values.
 type sharedResult struct {
 	inlineBorrow *PartHost
-	// Origin is immutable; slots and graph revisions are guarded by egraphMu.
+	// Origin follows the current value. Once registered, change it through
+	// setResultImportedLocked under egraphMu to keep class counts in step.
 	imported bool
 	// mergedAtUnixNano is when the Cloud merge that installed the entry's
 	// value committed, on an engine; 0 for a value the engine computed, and

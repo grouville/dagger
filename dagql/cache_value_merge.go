@@ -1264,7 +1264,7 @@ type mergeReplacement struct {
 // replacement. Requires egraphMu for writing.
 func (c *Cache) installMergedRecordLocked(res *sharedResult, row *mergeRow, committedAt int64) {
 	rec := row.rec
-	res.imported = true
+	c.setResultImportedLocked(res, true)
 	if !c.blobBacked {
 		res.mergedAtUnixNano = committedAt
 	}

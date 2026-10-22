@@ -364,6 +364,11 @@ func (c *Cache) mergeEqClassesNoRepairLocked(a, b eqClassID) (root eqClassID, ab
 			c.outputEqClassResults[ra] = dstResults
 		}
 		for resID := range srcResults {
+			if _, exists := dstResults[resID]; !exists {
+				if row := c.resultsByID[resID]; row != nil && row.imported {
+					c.adjustImportedMemberCountLocked(ra, 1)
+				}
+			}
 			dstResults[resID] = struct{}{}
 			if outputEqClasses := c.resultOutputEqClasses[resID]; outputEqClasses != nil {
 				delete(outputEqClasses, rb)
@@ -372,6 +377,7 @@ func (c *Cache) mergeEqClassesNoRepairLocked(a, b eqClassID) (root eqClassID, ab
 		}
 		delete(c.outputEqClassResults, rb)
 	}
+	delete(c.outputEqClassImported, rb)
 
 	// An actual union: the winner's membership and reverse indexes are in
 	// place. Pending queue keys are recanonicalized in the same union.
@@ -1386,6 +1392,11 @@ func (c *Cache) addResultOutputEqClassLocked(resID sharedResultID, outputEqID eq
 	}
 	_, hadReverse := results[resID]
 	results[resID] = struct{}{}
+	if !hadReverse {
+		if row := c.resultsByID[resID]; row != nil && row.imported {
+			c.adjustImportedMemberCountLocked(outputEqID, 1)
+		}
+	}
 	if !hadForward || !hadReverse {
 		// New membership in an existing class, with no union of its own.
 		// Recorded only once both memberships exist.
@@ -1405,6 +1416,11 @@ func (c *Cache) removeResultOutputEqClassesLocked(resID sharedResultID) {
 			continue
 		}
 		results := c.outputEqClassResults[outputEqID]
+		if _, exists := results[resID]; exists {
+			if row := c.resultsByID[resID]; row != nil && row.imported {
+				c.adjustImportedMemberCountLocked(outputEqID, -1)
+			}
+		}
 		delete(results, resID)
 		if len(results) == 0 {
 			delete(c.outputEqClassResults, outputEqID)
@@ -2010,6 +2026,7 @@ func (c *Cache) maybeResetEgraphLocked() {
 	c.outputEqClassToTerms = nil
 	c.resultOutputEqClasses = nil
 	c.outputEqClassResults = nil
+	c.outputEqClassImported = nil
 	c.termResults = nil
 	c.resultTerms = nil
 	c.egraphTerms = nil
@@ -2198,6 +2215,15 @@ func (c *Cache) compactEqClassesModeLocked(force, freeAll bool) (changed bool, o
 	c.outputEqClassToTerms = newOutputEqClassToTerms
 	c.resultOutputEqClasses = newResultOutputEqClasses
 	c.outputEqClassResults = newOutputEqClassResults
+	if len(c.outputEqClassImported) > 0 {
+		imported := make(map[eqClassID]int, len(c.outputEqClassImported))
+		for root, count := range c.outputEqClassImported {
+			if newRoot := remap[root]; newRoot != 0 {
+				imported[newRoot] = count
+			}
+		}
+		c.outputEqClassImported = imported
+	}
 	c.egraphTermsByTermDigest = newEgraphTermsByTermDigest
 	c.nextEgraphClassID = eqClassID(len(newParents))
 

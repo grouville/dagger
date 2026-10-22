@@ -23,13 +23,15 @@ func TestPartDecodeBeforeExternalFinish(t *testing.T) {
 	record, err := c.CapturePersistedRecord(ctx, receiver)
 	require.NoError(t, err)
 	row := receiver.cacheSharedResult()
+	c.egraphMu.Lock()
 	row.payloadMu.Lock()
 	row.hasValue = false
 	row.self = nil
 	row.persistedEnvelope = &record.Envelope
-	row.imported = true
+	c.setResultImportedLocked(row, true)
 	row.payloadRevision++
 	row.payloadMu.Unlock()
+	c.egraphMu.Unlock()
 	address := PersistedPartAddress{Part: "snapshot"}
 	barrier := make(chan struct{})
 	receipts := make(chan *ReadyPartReceipt, 1)
@@ -169,7 +171,9 @@ func TestPartDecodeLosesToInstalledRevision(t *testing.T) {
 	partTestEquivalent(t, c, receiver, donor)
 	partEncodedReceiver(t, ctx, c, receiver)
 	row := receiver.cacheSharedResult()
-	row.imported = true
+	c.egraphMu.Lock()
+	c.setResultImportedLocked(row, true)
+	c.egraphMu.Unlock()
 	entered, resume := make(chan struct{}), make(chan struct{})
 	var losing, winning, calls atomic.Int32
 	transferDecodeHooks.Store(uint64(row.id), func(ctx context.Context, dec *PersistDecodeContext, value *transferTestValue) error {

@@ -45,7 +45,9 @@ func TestValueTransferFixtureExactRoots(t *testing.T) {
 func TestSchemaModuleSelectionFallback(t *testing.T) {
 	ctx, c, srv := transferTestCache(t)
 	lower := persistedListTestResult(t, ctx, c, srv, "foreign", String("foreign"))
-	lower.cacheSharedResult().imported = true
+	c.egraphMu.Lock()
+	c.setResultImportedLocked(lower.cacheSharedResult(), true)
+	c.egraphMu.Unlock()
 	exact := persistedListTestResult(t, ctx, c, srv, "native", String("native"))
 	for _, value := range []AnyResult{lower, exact} {
 		_, err := value.WithContentDigestAny(ctx, digest.FromString("implementation"))

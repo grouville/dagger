@@ -273,7 +273,7 @@ func TestValueTransferOwnerPersistence(t *testing.T) {
 	r := persistedListTestResult(t, ctx, c, srv, "receiver", &transferTestValue{Text: "r"}).cacheSharedResult()
 	s := persistedListTestResult(t, ctx, c, srv, "service", String("s")).cacheSharedResult()
 	c.egraphMu.Lock()
-	r.imported = true
+	c.setResultImportedLocked(r, true)
 	owner, err := c.newOfferOwnerLocked(ctx, PersistedOfferOwner{DependencyIDs: []uint64{uint64(s.id)}})
 	if err == nil {
 		offer := &partOffer{owner: owner, record: PersistedPartOffer{Address: PersistedPartAddress{Part: "snapshot"}, Owner: owner.record, Value: SnapshotValue{Kind: "directory"}}}

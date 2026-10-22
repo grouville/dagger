@@ -28,6 +28,17 @@ func assertCacheDerivedIndexesConsistent(t testing.TB, c *Cache) {
 // cacheDerivedIndexesErrorLocked checks every derived index family in
 // order and returns the first inconsistency it finds.
 func cacheDerivedIndexesErrorLocked(c *Cache) error {
+	imported := make(map[eqClassID]int)
+	for class, members := range c.outputEqClassResults {
+		for id := range members {
+			if row := c.resultsByID[id]; row != nil && row.imported {
+				imported[class]++
+			}
+		}
+	}
+	if !maps.Equal(imported, c.outputEqClassImported) {
+		return fmt.Errorf("imported membership counts differ: want %v, got %v", imported, c.outputEqClassImported)
+	}
 	if err := cacheOutputEqClassForwardErrorLocked(c); err != nil {
 		return err
 	}
